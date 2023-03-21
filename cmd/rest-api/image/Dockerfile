@@ -1,7 +1,9 @@
-# if building manually first run:
-# CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o threeport-rest-api server.go
-# and then build Docker image
+FROM golang:1.19 as builder
+RUN mkdir /build
+ADD . /build
+WORKDIR /build
+RUN CGO_ENABLED=0 GOOS=linux go build -a -o threeport-rest-api cmd/rest-api/main.go
 
 FROM scratch
-COPY threeport-rest-api /
+COPY --from=builder /build/threeport-rest-api /
 ENTRYPOINT ["/threeport-rest-api"]

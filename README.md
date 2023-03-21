@@ -39,4 +39,11 @@ Delete a local dev instance:
 ```bash
 make dev-down
 ```
-## 
+
+## Image Build
+
+Build an image for REST API:
+```bash
+REST_API_IMG=threeport-rest-api:dev make rest-api-image
+```
+

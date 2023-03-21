@@ -1,3 +1,5 @@
+REST_API_IMG ?= threeport-rest-api:latest
+
 #help: @ List available make targets
 help:
 	@clear
@@ -52,4 +54,10 @@ dev-up: dev-down dev-deps
 #dev-forward-api: @ Forward local port 1323 to the local dev API
 dev-forward-api:
 	kubectl port-forward -n threeport-control-plane service/threeport-api-server 1323:80
+
+## container image builds
+
+#rest-api-image: @ Build REST API container image
+rest-api-image:
+	docker build -t $(REST_API_IMG) -f cmd/rest-api/image/Dockerfile .
 
