@@ -1,0 +1,103 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-config
+  namespace: threeport-control-plane
+stringData:
+  env: |
+    DB_HOST=crdb
+    DB_USER=tp_rest_api
+    DB_PASSWORD=tp-rest-api-pwd
+    DB_NAME=threeport_api
+    DB_PORT=26257
+    DB_SSL_MODE=disable
+    NATS_HOST=nats-js
+    NATS_PORT=4222
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: threeport-api-server
+  namespace: threeport-control-plane
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: threeport-api-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: threeport-api-server
+    spec:
+      initContainers:
+        - name: db-init
+          image: cockroachdb/cockroach:v22.2.2
+          imagePullPolicy: "IfNotPresent"
+          command:
+            - "bash"
+            - "-c"
+            #- "cockroach sql --insecure --host crdb --port 26257 -f /etc/threeport/db-create/db.sql && cockroach sql --insecure --host crdb --port 26257 --database threeport_api -f /etc/threeport/db-load/create_tables.sql && cockroach sql --insecure --host crdb --port 26257 --database threeport_api -f /etc/threeport/db-load/fill_tables.sql"
+            - "cockroach sql --insecure --host crdb --port 26257 -f /etc/threeport/db-create/db.sql"
+          volumeMounts:
+            #- name: db-load
+            #  mountPath: "/etc/threeport/db-load"
+            - name: db-create
+              mountPath: "/etc/threeport/db-create"
+      containers:
+      - name: api-server
+        image: threeport-rest-api-dev:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 1323
+          name: http
+          protocol: TCP
+        volumeMounts:
+        - name: db-config
+          mountPath: "/etc/threeport/"
+        - name: code-path
+          mountPath: "/threeport-rest-api"
+        #env:
+        #- name: AUTHENTIK_HOST
+        #  value: "authentik.threeport-api.svc.cluster.local"
+        #- name: AUTHENTIK_SCHEME
+        #  value: "https"
+        #- name: AUTHENTIK_BOOTSTRAP_PASSWORD
+        #  valueFrom:
+        #    secretKeyRef:
+        #      name: authentik-bootstrap
+        #      key: authentik-bootstrap-password
+        #- name: AUTHENTIK_BOOTSTRAP_TOKEN
+        #  valueFrom:
+        #    secretKeyRef:
+        #      name: authentik-bootstrap
+        #      key: authentik-bootstrap-token
+      volumes:
+      - name: db-config
+        secret:
+          secretName: db-config
+      - name: db-create
+        configMap:
+          name: db-create
+      - name: db-load
+        configMap:
+          name: db-load
+      - name: code-path
+        hostPath:
+          path: /threeport-rest-api
+          type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: threeport-api-server
+  namespace: threeport-control-plane
+spec:
+  selector:
+    app.kubernetes.io/name: threeport-api-server
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 1323

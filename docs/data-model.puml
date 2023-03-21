@@ -1,0 +1,162 @@
+@startuml
+namespace api {
+    class Account << (S,Aquamarine) >> {
+        + Address *string
+        + NetworkID *uint
+        + NodeID *uint
+        + PoolID *uint
+        + ToTransactions []*Transaction
+        + FromTransactions []*Transaction
+
+    }
+    class Block << (S,Aquamarine) >> {
+        + Height *int64
+        + NetworkID *uint
+        + Transactions []*Transaction
+
+    }
+    class CoincoverOrder << (S,Aquamarine) >> {
+        + LevelUSD *CoincoverLevelUSD
+        + Active *bool
+        + Start *time.Time
+        + End *time.Time
+        + Signature *string
+        + PublicKey *string
+        + NodeID *uint
+        + CoincoverOrderID *string
+
+    }
+    class Company << (S,Aquamarine) >> {
+        + Name *string
+        + Users []*User
+        + Shares []*Share
+
+    }
+    class Meta << (S,Aquamarine) >> {
+        + TotalCount int64
+
+    }
+    class Network << (S,Aquamarine) >> {
+        + Name *string
+        + Nodes []*Node
+        + Tokens []*Token
+        + Blocks []*Block
+        + Accounts []*Account
+
+    }
+    class Node << (S,Aquamarine) >> {
+        + CoincoverOrder *CoincoverOrder
+        + Account *Account
+        + NetworkID *uint
+        + PoolID *uint
+
+    }
+    interface Object  {
+    }
+    class PageRequestParams << (S,Aquamarine) >> {
+        + Page int
+        + Size int
+
+    }
+    class Pool << (S,Aquamarine) >> {
+        + Name *string
+        + Nodes []*Node
+        + Shares []*Share
+        + Accounts []*Account
+        + Transfers []*Transfer
+
+    }
+    class Response << (S,Aquamarine) >> {
+        + Meta Meta
+        + Type ObjectType
+        + Data []Object
+        + Status Status
+
+    }
+    class Share << (S,Aquamarine) >> {
+        + UserID *uint
+        + CompanyID *uint
+        + PoolID *uint
+        + Percentage *float32
+
+    }
+    class Status << (S,Aquamarine) >> {
+        + Code int
+        + Message string
+        + Error string
+
+    }
+    class Token << (S,Aquamarine) >> {
+        + Name *string
+        + NetworkID *uint
+        + Transactions []*Transaction
+
+    }
+    class Transaction << (S,Aquamarine) >> {
+        + Hash *string
+        + Type *string
+        + BlockID *uint
+        + ToAccountID *uint
+        + FromAccountID *uint
+        + TokenID *uint
+        + Amount *int64
+        + Fee *int64
+        + Transfer *Transfer
+
+    }
+    class Transfer << (S,Aquamarine) >> {
+        + TransactionID *uint
+        + PoolID *uint
+        + Type *string
+
+    }
+    class TransferPage << (S,Aquamarine) >> {
+        + Meta <font color=blue>map</font>[string]int64
+        + Transfers []*Transfer
+
+    }
+    class User << (S,Aquamarine) >> {
+        + Email *string
+        + Password *string
+        + FirstName *string
+        + LastName *string
+        + DateOfBirth *time.Time
+        + CompanyID *uint
+        + CountryOfResidence *string
+        + Nationality *string
+        + Shares []*Share
+        + OtpSecret *string
+        + HasMfaConfigured *bool
+        + PasswordResetToken *string
+
+    }
+    class v0.CoincoverLevelUSD << (T, #FF7700) >>  {
+    }
+    class v0.ObjectType << (T, #FF7700) >>  {
+    }
+}
+"v0.Account" o-- "v0.Transaction"
+"v0.Block" o-- "v0.Transaction"
+"v0.CoincoverOrder" o-- "v0.CoincoverLevelUSD"
+"v0.Company" o-- "v0.Share"
+"v0.Company" o-- "v0.User"
+"v0.Network" o-- "v0.Account"
+"v0.Network" o-- "v0.Block"
+"v0.Network" o-- "v0.Node"
+"v0.Network" o-- "v0.Token"
+"v0.Node" o-- "v0.Account"
+"v0.Node" o-- "v0.CoincoverOrder"
+"v0.Pool" o-- "v0.Account"
+"v0.Pool" o-- "v0.Node"
+"v0.Pool" o-- "v0.Share"
+"v0.Pool" o-- "v0.Transfer"
+"v0.Response" o-- "v0.Meta"
+"v0.Response" o-- "v0.Object"
+"v0.Response" o-- "v0.ObjectType"
+"v0.Response" o-- "v0.Status"
+"v0.Token" o-- "v0.Transaction"
+"v0.Transaction" o-- "v0.Transfer"
+"v0.TransferPage" o-- "v0.Transfer"
+"v0.User" o-- "v0.Share"
+
+@enduml
