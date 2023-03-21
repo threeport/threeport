@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	//"github.com/threeport/threeport/internal/authority"
-	"github.com/threeport/threeport/internal/util"
+	"github.com/threeport/threeport/internal/api/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 

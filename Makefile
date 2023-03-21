@@ -11,13 +11,17 @@ help:
 build-codegen:
 	go build -o bin/threeport-codegen cmd/codegen/main.go
 
-#build-rest-api: @ Build REST API binary
-build-rest-api:
-	@export GOFLAGS=-mod=mod; export CGO_ENABLED=0; export GOOS=linux; export GOARCH=amd64; go build -a -o bin/threeport-rest-api cmd/rest-api/main.go
-
 #generate: @ Run code generation
 generate: build-codegen
 	go generate ./...
+
+#build-rest-api: @ Build REST API binary
+build-rest-api: generate
+	@export GOFLAGS=-mod=mod; export CGO_ENABLED=0; export GOOS=linux; export GOARCH=amd64; go build -a -o bin/threeport-rest-api cmd/rest-api/main.go
+
+#build-workload-controller: @ Build workload controller binary
+build-workload-controller: generate
+	@export GOFLAGS=-mod=mod; export CGO_ENABLED=0; export GOOS=linux; export GOARCH=amd64; go build -a -o bin/threeport-workload-controller cmd/workload-controller/main.go
 
 ## dev environment targets
 
@@ -35,10 +39,12 @@ dev-cluster:
 #dev-image-build: build-rest-api
 dev-image-build:
 	docker image build -t threeport-rest-api-dev:latest -f cmd/rest-api/image/Dockerfile-dev .
+	docker image build -t threeport-workload-controller-dev:latest -f cmd/workload-controller/image/Dockerfile-dev .
 
 #dev-image-load: @ Build and load a development API image onto the kind cluster
 dev-image-load: dev-image-build
 	kind load docker-image threeport-rest-api-dev:latest -n threeport-dev
+	kind load docker-image threeport-workload-controller-dev:latest -n threeport-dev
 
 #dev-deps: @ Start a local kube cluster, build a new API image, deploy the message broker and API database
 dev-deps: dev-cluster dev-image-load
@@ -49,7 +55,7 @@ dev-deps: dev-cluster dev-image-load
 dev-up: dev-down dev-deps
 	./dev/cr-wait.sh
 	sleep 10  # allow time for all dependency containers to start
-	kubectl apply -f dev/api-cr.yaml
+	kubectl apply -f dev/api.yaml -f dev/workload-controller.yaml
 
 #dev-forward-api: @ Forward local port 1323 to the local dev API
 dev-forward-api:

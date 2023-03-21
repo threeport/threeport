@@ -105,7 +105,7 @@ func (gvc *GlobalVersionConfig) DatabaseInit() error {
 	)
 
 	// write code to file
-	databaseInitFilepath := filepath.Join("..", "..", "internal", "database", "database_gen.go")
+	databaseInitFilepath := filepath.Join("..", "..", "internal", "api", "database", "database_gen.go")
 	file, err := os.OpenFile(databaseInitFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for database initializer: %w", err)

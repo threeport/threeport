@@ -3,7 +3,7 @@ package routes
 import (
 	"github.com/labstack/echo/v4"
 
-	"github.com/threeport/threeport/internal/handlers"
+	"github.com/threeport/threeport/internal/api/handlers"
 )
 
 // VersionRoutes sets up all routes for the version.

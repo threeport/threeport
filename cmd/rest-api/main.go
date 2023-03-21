@@ -14,10 +14,11 @@ import (
 	//"github.com/threeport/threeport/internal/authority"
 	_ "github.com/threeport/threeport/docs"
 	iapi "github.com/threeport/threeport/internal/api"
-	"github.com/threeport/threeport/internal/database"
-	"github.com/threeport/threeport/internal/handlers"
-	"github.com/threeport/threeport/internal/routes"
-	"github.com/threeport/threeport/internal/versions"
+	"github.com/threeport/threeport/internal/api/database"
+	"github.com/threeport/threeport/internal/api/handlers"
+	"github.com/threeport/threeport/internal/api/routes"
+	"github.com/threeport/threeport/internal/api/versions"
+	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
@@ -135,6 +136,6 @@ func main() {
 	iapi.Versions[0] = iapi.V0
 	versions.AddVersions()
 
-	fmt.Printf("\nThreeport REST API: %s\n", iapi.GetVersion())
+	fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
 	e.Logger.Fatal(e.Start(":1323"))
 }

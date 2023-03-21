@@ -33,25 +33,23 @@ This creates a controller domain.  A controller domain is the set of objects
 that a controller is responsible for reconciling, in this case FooDefinition and
 FooInstance are the objects the foo-controller will be responsible for.
 We put the go:generate declaration at the top of that file:
-//go:generate threeport-codegen api-model --filename $GOFILE
+////go:generate threeport-codegen api-model --filename $GOFILE
 
 Note: The controller domain and model objects must have unique names.  You
 cannot have a Foo model in the Foo controller domain.  This will create ambiguous
 names and is therefore not allowed.
 
-When 'make generate' is run, the following code is generated:
+When 'make generate' is run, the following code is generated for API:
 * 'pkg/api/v0/foo_gen.go:
 	* all model methods that satisfy the APIObject interface
 	* NATS subjects that are used for controller notifications about the Foo
 	  object
-* 'internal/routes/foo.go':
+* 'internal/api/routes/foo.go':
 	* the routes used by clients to manage Foo objects
-* 'internal/handlers/foo.go':
+* 'internal/api/handlers/foo.go':
 	* the handlers that updated database state for Foo objects
-* 'internal/database/database.go':
+* 'internal/api/database/database.go':
 	* the auto migrate calls
-* 'server.go':
-	* add the routes to the echo server
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// inspect source code
@@ -120,7 +118,7 @@ When 'make generate' is run, the following code is generated:
 			return fmt.Errorf("failed to generate model routes: %w", err)
 		}
 
-		// generate the model's handers
+		// generate the model's handlers
 		if err := controllerConfig.ModelHandlers(); err != nil {
 			return fmt.Errorf("failed to generate model handlers: %w", err)
 		}
@@ -129,11 +127,6 @@ When 'make generate' is run, the following code is generated:
 		if err := controllerConfig.ModelVersions(); err != nil {
 			return fmt.Errorf("failed to generate model versions: %w", err)
 		}
-
-		//// generate all the map names for each model's tagged fields
-		//if err := controllerConfig.ModelTaggedFields(); err != nil {
-		//	return fmt.Errorf("failed to generate model tagged field maps: %w", err)
-		//}
 
 		return nil
 	},

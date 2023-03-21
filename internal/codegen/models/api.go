@@ -202,7 +202,7 @@ func (cc *ControllerConfig) ModelRoutes() error {
 				"Echo",
 			),
 			Id("h").Op("*").Qual(
-				"github.com/threeport/threeport/internal/handlers",
+				"github.com/threeport/threeport/internal/api/handlers",
 				"Handler",
 			),
 		).Block(

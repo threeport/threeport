@@ -29,10 +29,10 @@ var apiVersionCmd = &cobra.Command{
 	Short: "Generate code for all models in an API version",
 	Long: `The api-version command accepts versions arguments and generates code
 for all the models in the supplied version/s.  The generated code includes:
-* the AddRoutes function in 'internal/routes/routes.go' that add the REST routes
+* the AddRoutes function in 'internal/api/routes/routes.go' that add the REST routes
   to the server.
 * the AutoMigrate calls to add the database tables for the API models in
-  'internal/database/database_gen.go'.
+  'internal/api/database/database_gen.go'.
 * the tagged field maps that contain the field validation information for all
   API Models in 'internal/api/tagged_fields_gen.go'
 `,

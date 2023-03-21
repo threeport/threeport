@@ -4,7 +4,7 @@ package routes
 
 import (
 	echo "github.com/labstack/echo/v4"
-	handlers "github.com/threeport/threeport/internal/handlers"
+	handlers "github.com/threeport/threeport/internal/api/handlers"
 )
 
 func AddRoutes(e *echo.Echo, h *handlers.Handler) {

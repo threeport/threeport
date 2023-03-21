@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	iapi "github.com/threeport/threeport/internal/api"
+	"github.com/threeport/threeport/internal/version"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -21,7 +21,7 @@ import (
 // @Failure 500 {object} api.RESTAPIVersion	"Internal Server Error"
 // @Router /version [get]
 func (h Handler) GetApiVersion(c echo.Context) error {
-	return c.JSON(http.StatusOK, iapi.RESTAPIVersion{
-		Version: iapi.GetVersion(),
+	return c.JSON(http.StatusOK, version.RESTAPIVersion{
+		Version: version.GetVersion(),
 	})
 }
