@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
 	"github.com/threeport/threeport/internal/version"
 )
 
@@ -18,7 +17,7 @@ var versionCmd = &cobra.Command{
 	Short: "Print the version of tptctl",
 	Long:  `Print the version of tptctl.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Version: %s", version.GetVersion())
+		fmt.Println(version.GetVersion())
 	},
 }
 
