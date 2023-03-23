@@ -6,6 +6,7 @@ import "go/ast"
 // corresponds to all the models that are grouped together in a file in the API.
 type ControllerConfig struct {
 	ModelFilename         string
+	PackageName           string
 	ParsedModelFile       ast.File
 	ControllerDomain      string
 	ControllerDomainLower string

@@ -1,4 +1,4 @@
-//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE
+//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
 // LogBackend is where the log messages are stored.  This is referenced

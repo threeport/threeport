@@ -1,4 +1,4 @@
-//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE
+//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
 // DomainNameDefinition the definition for domain name management for a
@@ -7,8 +7,8 @@ type DomainNameDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	// The name of the definition.
-	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
+	//// The name of the definition.
+	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
 	// The base domain upon which the subdomain will be added to give a workload
 	// a unique domain name.
@@ -26,8 +26,8 @@ type DomainNameInstance struct {
 	//// The subdomain added to the domain to provide a unique domain name.
 	//Subdomain *string `json:"Subdomain,omitempty" query:"subdomain" gorm:"not null" validate:"required"`
 
-	// The name to use as a subdomain pre-pended to the domain in the definition.
-	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
+	//// The name to use as a subdomain pre-pended to the domain in the definition.
+	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
 	// The definition used to define the instance.
 	DomainNameDefinitionID *uint `json:"DomainNameDefinitionID,omitempty" query:"domainnamedefinitionid" gorm:"not null" validate:"required"`

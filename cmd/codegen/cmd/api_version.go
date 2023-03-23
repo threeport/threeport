@@ -111,21 +111,30 @@ for all the models in the supplied version/s.  The generated code includes:
 			globalVersionConf.Versions = append(globalVersionConf.Versions, versionConf)
 		}
 
+		// generate all the APIs REST route mappings
 		if err := globalVersionConf.AllRoutes(); err != nil {
 			return fmt.Errorf("failed to write all routes source code: %w", err)
 		}
 
+		// generate the database init code incl the automigrate calls
 		if err := globalVersionConf.DatabaseInit(); err != nil {
 			return fmt.Errorf("failed to write database init source code: %w", err)
 		}
 
+		// generate the tagged fields code
 		if err := globalVersionConf.TaggedFields(); err != nil {
 			return fmt.Errorf("failed to write tagged field source code: %w", err)
 		}
 
+		// generate the version maps
 		if err := globalVersionConf.AddVersions(); err != nil {
 			return fmt.Errorf("failed to write add versions source code: %w", err)
 		}
+
+		//// generate the client library code
+		//if err := globalVersionConf.ClientLibrary(); err != nil {
+		//	return fmt.Errorf("failed to write client library source code: %w", err)
+		//}
 
 		return nil
 	},

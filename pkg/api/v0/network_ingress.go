@@ -1,4 +1,4 @@
-//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE
+//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
 // NetworkIngress is a route for requests to a workload from clients outside the
@@ -7,7 +7,7 @@ type NetworkIngressDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
+	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
 	// TCP Port to expose to outside network.
 	TCPPort *int32 `json:"TCPPort,omitempty" query:"tcpport" validate:"optional"`
@@ -33,9 +33,10 @@ type NetworkIngressDefinition struct {
 }
 
 type NetworkIngressInstance struct {
-	Common `swaggerignore:"true" mapstructure:",squash"`
+	Common   `swaggerignore:"true" mapstructure:",squash"`
+	Instance `mapstructure:",squash"`
 
-	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
+	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
 	NetworkIngressDefinitionID *uint `json:"NetworkIngressDefinitionID,omitempty" validate:"optional,association"`
 

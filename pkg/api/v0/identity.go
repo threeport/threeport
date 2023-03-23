@@ -1,4 +1,4 @@
-//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE
+//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
 import (
@@ -45,49 +45,3 @@ type Company struct {
 	// Users that represent the company.
 	Users []*User `json:"Users,omitempty"  validate:"optional,association"`
 }
-
-//// NotificationPayload returns the notification payload that is delivered to the
-//// controller when a change is made.  It includes the object as presented by the
-//// client when the change was made.
-//func (u *User) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
-//	notif := notifications.Notification{
-//		Requeue:          requeue,
-//		LastRequeueDelay: &lastDelay,
-//		Object:           u,
-//	}
-//
-//	payload, err := json.Marshal(notif)
-//	if err != nil {
-//		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", u, err)
-//	}
-//
-//	return &payload, nil
-//}
-//
-//// GetID returns the unique ID for the object.
-//func (u *User) GetID() uint {
-//	return *u.ID
-//}
-//
-//// NotificationPayload returns the notification payload that is delivered to the
-//// controller when a change is made.  It includes the object as presented by the
-//// client when the change was made.
-//func (c *Company) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
-//	notif := notifications.Notification{
-//		Requeue:          requeue,
-//		LastRequeueDelay: &lastDelay,
-//		Object:           c,
-//	}
-//
-//	payload, err := json.Marshal(notif)
-//	if err != nil {
-//		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", c, err)
-//	}
-//
-//	return &payload, nil
-//}
-//
-//// GetID returns the unique ID for the object.
-//func (c *Company) GetID() uint {
-//	return *c.ID
-//}

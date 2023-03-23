@@ -1,4 +1,4 @@
-//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE
+//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
 // AwsAccount is a user account with the AWS service provider.
@@ -18,7 +18,8 @@ type AwsAccount struct {
 }
 
 type AwsEksClusterDefinition struct {
-	Common `swaggerignore:"true" mapstructure:",squash"`
+	Common     `swaggerignore:"true" mapstructure:",squash"`
+	Definition `mapstructure:",squash"`
 
 	ClusterDefinitionID *uint `json:"ClusterDefinitionID,omitempty" validate:"optional,association"`
 
@@ -27,7 +28,8 @@ type AwsEksClusterDefinition struct {
 }
 
 type AwsEksClusterInstance struct {
-	Common `swaggerignore:"true" mapstructure:",squash"`
+	Common   `swaggerignore:"true" mapstructure:",squash"`
+	Instance `mapstructure:",squash"`
 
 	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" validate:"optional,association"`
 }
@@ -35,10 +37,11 @@ type AwsEksClusterInstance struct {
 // AWSRelationalDatabase is an RDS instance provided by AWS that is used by a
 // workload.
 type AwsRelationalDatabaseDefinition struct {
-	Common `swaggerignore:"true" mapstructure:",squash"`
+	Common     `swaggerignore:"true" mapstructure:",squash"`
+	Definition `mapstructure:",squash"`
 
-	// Unique name for DB definition.
-	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
+	//// Unique name for DB definition.
+	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
 	// The database engine for the instance.  One of:
 	// * mysql
@@ -53,10 +56,11 @@ type AwsRelationalDatabaseDefinition struct {
 }
 
 type AwsRelationalDatabaseInstance struct {
-	Common `swaggerignore:"true" mapstructure:",squash"`
+	Common   `swaggerignore:"true" mapstructure:",squash"`
+	Instance `mapstructure:",squash"`
 
-	// Unique name for DB instance.
-	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
+	//// Unique name for DB instance.
+	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
 	Status *string `json:"Status,omitempty" query:"status" gorm:"not null" validate:"required"`
 }

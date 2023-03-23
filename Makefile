@@ -1,4 +1,5 @@
 REST_API_IMG ?= threeport-rest-api:latest
+WORKLOAD_CONTROLLER_IMG ?= threeport-workload-controller:latest
 
 #help: @ List available make targets
 help:
@@ -15,13 +16,9 @@ build-codegen:
 generate: build-codegen
 	go generate ./...
 
-#build-rest-api: @ Build REST API binary
-build-rest-api: generate
-	@export GOFLAGS=-mod=mod; export CGO_ENABLED=0; export GOOS=linux; export GOARCH=amd64; go build -a -o bin/threeport-rest-api cmd/rest-api/main.go
-
-#build-workload-controller: @ Build workload controller binary
-build-workload-controller: generate
-	@export GOFLAGS=-mod=mod; export CGO_ENABLED=0; export GOOS=linux; export GOARCH=amd64; go build -a -o bin/threeport-workload-controller cmd/workload-controller/main.go
+#build-tptctl: @ Build tptctl binary
+build-tptctl:
+	go build -a -o bin/tptctl cmd/tptctl/main.go
 
 ## dev environment targets
 
@@ -36,7 +33,6 @@ dev-cluster:
 	./dev/kind-install-metallb.sh
 
 #dev-image-build: @ Build a development docker image for API that supports hot reloading
-#dev-image-build: build-rest-api
 dev-image-build:
 	docker image build -t threeport-rest-api-dev:latest -f cmd/rest-api/image/Dockerfile-dev .
 	docker image build -t threeport-workload-controller-dev:latest -f cmd/workload-controller/image/Dockerfile-dev .
@@ -66,4 +62,8 @@ dev-forward-api:
 #rest-api-image: @ Build REST API container image
 rest-api-image:
 	docker build -t $(REST_API_IMG) -f cmd/rest-api/image/Dockerfile .
+
+#workload-controller-image: @ Build workload controller container image
+workload-controller-image:
+	docker build -t $(WORKLOAD_CONTROLLER_IMG) -f cmd/workload-controller/image/Dockerfile .
 

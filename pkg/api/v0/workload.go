@@ -1,9 +1,11 @@
-//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE
+//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
 import (
 	"gorm.io/datatypes"
 )
+
+const PathWorkloadResourceDefinitionSets = "/v0/workload_resource_definitions"
 
 // WorkloadDefinition is the collection of Kubernetes manifests that define a
 // distinct workload.
@@ -14,11 +16,11 @@ type WorkloadDefinition struct {
 	// The yaml manifests that define the workload configuration.
 	YAMLDocument *string `json:"YAMLDocument,omitempty" gorm:"not null" validate:"required"`
 
-	// Required if no CompanyID.  The user that owns the workload.
-	UserID *uint `json:"UserID,omitempty" query:"userid" validate:"optional"`
+	//// Required if no CompanyID.  The user that owns the workload.
+	//UserID *uint `json:"UserID,omitempty" query:"userid" validate:"optional"`
 
-	// Required if no UserID.  The company that owns the workload.
-	CompanyID *uint `json:"CompanyID,omitempty" query:"companyid" validate:"optional"`
+	//// Required if no UserID.  The company that owns the workload.
+	//CompanyID *uint `json:"CompanyID,omitempty" query:"companyid" validate:"optional"`
 
 	// The associated workload resource definitions that are derived.
 	WorkloadResourceDefinitions []*WorkloadResourceDefinition `json:"WorkloadResourceDefinitions,omitempty" validate:"optional,association"`
@@ -63,6 +65,9 @@ type WorkloadInstance struct {
 // WorkloadResourceInstance is a Kubernetes resource instance.
 type WorkloadResourceInstance struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
+
+	// The workload definition this resource belongs to.
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 
 	// The Kubernetes status of the deployed resource.
 	// One of:

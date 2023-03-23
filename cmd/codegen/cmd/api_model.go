@@ -17,7 +17,10 @@ import (
 	"github.com/threeport/threeport/internal/codegen/name"
 )
 
-var filename string
+var (
+	filename    string
+	packageName string
+)
 
 // apiModelCmd represents the apiModel command
 var apiModelCmd = &cobra.Command{
@@ -89,6 +92,7 @@ When 'make generate' is run, the following code is generated for API:
 		}
 		controllerConfig := models.ControllerConfig{
 			ModelFilename:         filename,
+			PackageName:           packageName,
 			ParsedModelFile:       *pf,
 			ControllerDomain:      strcase.ToCamel(name.FilenameSansExt(filename)),
 			ControllerDomainLower: strcase.ToLowerCamel(name.FilenameSansExt(filename)),
@@ -128,6 +132,11 @@ When 'make generate' is run, the following code is generated for API:
 			return fmt.Errorf("failed to generate model versions: %w", err)
 		}
 
+		// generate client library functions
+		if err := controllerConfig.ClientLib(); err != nil {
+			return fmt.Errorf("failed to generate model client library: %w", err)
+		}
+
 		return nil
 	},
 }
@@ -136,6 +145,8 @@ When 'make generate' is run, the following code is generated for API:
 func init() {
 	rootCmd.AddCommand(apiModelCmd)
 
-	apiModelCmd.Flags().StringVarP(&filename, "filename", "f", "", "The filename for the file containing the API models")
+	apiModelCmd.Flags().StringVarP(&filename, "filename", "f", "", "The filename for the file containing the API model")
 	apiModelCmd.MarkFlagRequired("filename")
+	apiModelCmd.Flags().StringVarP(&packageName, "package", "p", "", "The package name of the the API model")
+	apiModelCmd.MarkFlagRequired("package")
 }
