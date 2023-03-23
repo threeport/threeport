@@ -1,0 +1,67 @@
+---
+before:
+builds:
+  - id: tptctl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    main: cmd/tptctl/
+    binary: tptctl
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+    name_template: "tptctl_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Version }}-snapshot-{{.ShortCommit}}"
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs(\(.*\))?:'
+      - '^test(\(.*\))?:'
+      - '^ci(\(.*\))?:'
+      - '^chore(\(.*\))?:'
+      - '^build(\(.*\))?:'
+dockers:
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-rest-api:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-rest-api:latest'
+    dockerfile: cmd/rest-api/image/Dockerfile
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-workload-controller:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-workload-controller:latest'
+    dockerfile: cmd/workload-controller/image/Dockerfile
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+
