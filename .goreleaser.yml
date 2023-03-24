@@ -31,12 +31,15 @@ archives:
       windows: Windows
       386: i386
       amd64: x86_64
-    name_template: "tptctl_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
         format: zip
     files:
       - README.md
+    wrap_in_directory: true
+    strip_parent_binary_folder: true
+    allow_different_binary_count: true
 checksum:
   name_template: 'checksums.txt'
 snapshot:
