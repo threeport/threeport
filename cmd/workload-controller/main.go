@@ -23,7 +23,6 @@ import (
 	"github.com/threeport/threeport/pkg/controller"
 )
 
-//go:generate bash -c "../../get_version.sh"
 func main() {
 	// flags
 	var workloadDefinitionConcurrentReconciles = flag.Int(

@@ -32,7 +32,6 @@ import (
 // @host rest-api.threeport.io
 // @BasePath /
 //
-//go:generate bash -c "../../get_version.sh"
 //go:generate ../../bin/threeport-codegen api-version v0
 func main() {
 	// flags

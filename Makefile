@@ -20,6 +20,19 @@ generate: build-codegen
 build-tptctl:
 	go build -a -o bin/tptctl cmd/tptctl/main.go
 
+release:
+ifndef RELEASE_VERSION
+	@echo "RELEASE_VERSION environment variable not set"
+	exit 1
+endif
+	@echo -n "Are you sure you want to release version ${RELEASE_VERSION} of threeport? [y/n] " && read ans && [ $${ans:-n} = y ]
+	@echo ${RELEASE_VERSION} > internal/version/version.txt
+	@git add internal/version/version.txt
+	@git commit -s -m "release: cut version ${RELEASE_VERSION}"
+	@git tag ${RELEASE_VERSION}
+	@git push origin main --tag
+	@echo "version ${RELEASE_VERSION} released"
+
 ## dev environment targets
 
 #dev-down: @ Delete the local development environment
