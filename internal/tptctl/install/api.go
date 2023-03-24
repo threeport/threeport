@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/threeport/threeport/internal/tptctl/output"
+	"github.com/threeport/threeport/internal/version"
 )
 
 const (
@@ -21,8 +22,12 @@ const (
 	NATSServerImage          = "nats:2.9-alpine"
 	NATSConfigReloaderImage  = "natsio/nats-server-config-reloader:0.7.4"
 	NATSPromExporterImage    = "natsio/prometheus-nats-exporter:0.10.1"
-	ThreeportRESTAPIImage    = "ghcr.io/threeport/threeport-rest-api:v1.1.7"
+	//ThreeportRESTAPIImage    = "ghcr.io/threeport/threeport-rest-api:v1.1.7"
 )
+
+func threeportRESTAPIImage() string {
+	return fmt.Sprintf("ghcr.io/threeport/threeport-rest-api:%s", version.GetVersion())
+}
 
 // InstallAPI installs the threeport API into a target Kubernetes cluster
 func InstallAPI(kubeconfig, threeportAPISubdomain, rootDomain, loadBalancerURL string) error {
@@ -691,7 +696,7 @@ spec:
     port: 80
     protocol: TCP
     targetPort: %[2]s
-`, ThreeportControlPlaneNs, ThreeportAPIInternalPort, ThreeportRESTAPIImage)
+`, ThreeportControlPlaneNs, ThreeportAPIInternalPort, threeportRESTAPIImage())
 }
 
 func APIIngressWithTLSManifest(threeportAPISubdomain, rootDomain string) string {

@@ -6,12 +6,17 @@ import (
 	"os/exec"
 
 	"github.com/threeport/threeport/internal/tptctl/output"
+	"github.com/threeport/threeport/internal/version"
 )
 
 const (
 	WorkloadControllerManifestPath = "/tmp/threeport-workload-controller.yaml"
-	WorkloadControllerImage        = "ghcr.io/threeport/threeport-workload-controller:v0.1.3"
+	//WorkloadControllerImage        = "ghcr.io/threeport/threeport-workload-controller:v0.1.3"
 )
+
+func workloadControllerImage() string {
+	return fmt.Sprintf("ghcr.io/threeport/threeport-workload-controller:%s", version.GetVersion())
+}
 
 // InstallWorkloadController installs the threeport workload controller into the
 // control plane.
@@ -85,5 +90,5 @@ spec:
         envFrom:
           - secretRef:
               name: workload-controller-config
-`, ThreeportControlPlaneNs, WorkloadControllerImage)
+`, ThreeportControlPlaneNs, workloadControllerImage())
 }
