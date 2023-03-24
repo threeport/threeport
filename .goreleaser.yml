@@ -54,6 +54,7 @@ changelog:
       - '^ci(\(.*\))?:'
       - '^chore(\(.*\))?:'
       - '^build(\(.*\))?:'
+      - '^release(\(.*\))?:'
 dockers:
   - image_templates:
       - 'ghcr.io/threeport/threeport-rest-api:v{{ .Version }}'
