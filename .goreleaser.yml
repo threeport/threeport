@@ -8,7 +8,7 @@ builds:
       - linux
       - windows
       - darwin
-    main: cmd/tptctl/
+    main: cmd/tptctl/main.go
     binary: tptctl
 archives:
   - replacements:
