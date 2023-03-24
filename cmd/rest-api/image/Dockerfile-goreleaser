@@ -1,0 +1,4 @@
+FROM scratch
+COPY threeport-rest-api /threeport-rest-api
+ENTRYPOINT ["/threeport-rest-api"]
+
