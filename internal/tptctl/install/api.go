@@ -161,28 +161,28 @@ func UninstallAPIIngress(kubeconfig string) error {
 	return nil
 }
 
-// GetThreeportAPIEndpoint returns the threeport API endpoint
-func GetThreeportAPIEndpoint() string {
-	var apiProtocol string
-	var apiHostname string
-	var apiPort string
-
-	//switch infraProvider {
-	//case "kind":
-	//	apiProtocol = provider.KindThreeportAPIProtocol
-	//	apiHostname = provider.KindThreeportAPIHostname
-	//	apiPort = provider.KindThreeportAPIPort
-	//case "eks":
-	//	apiProtocol = "?"
-	//	apiHostname = "?"
-	//	apiPort = "?"
-	//}
-
-	return fmt.Sprintf(
-		"%s://%s:%s",
-		apiProtocol, apiHostname, apiPort,
-	)
-}
+//// GetThreeportAPIEndpoint returns the threeport API endpoint
+//func GetThreeportAPIEndpoint(infraProvider string) string {
+//	var apiProtocol string
+//	var apiHostname string
+//	var apiPort string
+//
+//	switch infraProvider {
+//	case "kind":
+//		apiProtocol = provider.KindThreeportAPIProtocol
+//		apiHostname = provider.KindThreeportAPIHostname
+//		apiPort = provider.KindThreeportAPIPort
+//	case "eks":
+//		apiProtocol = "?"
+//		apiHostname = "?"
+//		apiPort = "?"
+//	}
+//
+//	return fmt.Sprintf(
+//		"%s://%s:%s",
+//		apiProtocol, apiHostname, apiPort,
+//	)
+//}
 
 // APIDepsManifest returns a yaml manifest for the threeport API dependencies
 // with the namespace included.
@@ -193,66 +193,214 @@ kind: Namespace
 metadata:
   name: %[1]s
 ---
-apiVersion: v1
-kind: ConfigMap
+# Source: cockroachdb/templates/poddisruptionbudget.yaml
+kind: PodDisruptionBudget
+apiVersion: policy/v1
 metadata:
-  name: threeport-api-db-config
-  namespace: %[1]s
+  name: crdb-budget
+  namespace: "threeport-control-plane"
   labels:
-    app: threeport-api-db
-data:
-  POSTGRES_DB: threeport_api
-  POSTGRES_USER: tp_rest_api
-  POSTGRES_PASSWORD: tp-rest-api-pwd
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: threeport-api-db
-  namespace: %[1]s
+    helm.sh/chart: cockroachdb-10.0.2
+    app.kubernetes.io/name: cockroachdb
+    app.kubernetes.io/instance: "crdb"
+    app.kubernetes.io/managed-by: "Helm"
 spec:
-  replicas: 1
   selector:
     matchLabels:
-      app: threeport-api-db
+      app.kubernetes.io/name: cockroachdb
+      app.kubernetes.io/instance: "crdb"
+      app.kubernetes.io/component: cockroachdb
+  maxUnavailable: 1
+---
+## Source: cockroachdb/templates/secrets.init.yaml
+#apiVersion: v1
+#kind: Secret
+#metadata:
+#  name: crdb-init
+#  namespace: "threeport-control-plane"
+#type: Opaque
+#stringData:
+#  tp_rest_api-password: "tp-rest-api-pwd"
+---
+# Source: cockroachdb/templates/service.discovery.yaml
+# This service only exists to create DNS entries for each pod in
+# the StatefulSet such that they can resolve each other's IP addresses.
+# It does not create a load-balanced ClusterIP and should not be used directly
+# by clients in most circumstances.
+kind: Service
+apiVersion: v1
+metadata:
+  name: threeport-api-db
+  namespace: "threeport-control-plane"
+  labels:
+    helm.sh/chart: cockroachdb-10.0.2
+    app.kubernetes.io/name: cockroachdb
+    app.kubernetes.io/instance: "crdb"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/component: cockroachdb
+  annotations:
+    # Use this annotation in addition to the actual field below because the
+    # annotation will stop being respected soon, but the field is broken in
+    # some versions of Kubernetes:
+    # https://github.com/kubernetes/kubernetes/issues/58662
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+    # Enable automatic monitoring of all instances when Prometheus is running
+    # in the cluster.
+    prometheus.io/scrape: "true"
+    prometheus.io/path: _status/vars
+    prometheus.io/port: "8080"
+spec:
+  clusterIP: None
+  # We want all Pods in the StatefulSet to have their addresses published for
+  # the sake of the other CockroachDB Pods even before they're ready, since they
+  # have to be able to talk to each other in order to become ready.
+  publishNotReadyAddresses: true
+  ports:
+    # The main port, served by gRPC, serves Postgres-flavor SQL, inter-node
+    # traffic and the CLI.
+    - name: "grpc"
+      port: 26257
+      targetPort: grpc
+    # The secondary port serves the UI as well as health and debug endpoints.
+    - name: "http"
+      port: 8080
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: cockroachdb
+    app.kubernetes.io/instance: "crdb"
+    app.kubernetes.io/component: cockroachdb
+---
+# Source: cockroachdb/templates/statefulset.yaml
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: crdb
+  namespace: "threeport-control-plane"
+  labels:
+    helm.sh/chart: cockroachdb-10.0.2
+    app.kubernetes.io/name: cockroachdb
+    app.kubernetes.io/instance: "crdb"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/component: cockroachdb
+spec:
+  serviceName: crdb
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: "Parallel"
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cockroachdb
+      app.kubernetes.io/instance: "crdb"
+      app.kubernetes.io/component: cockroachdb
   template:
     metadata:
       labels:
-        app: threeport-api-db
+        app.kubernetes.io/name: cockroachdb
+        app.kubernetes.io/instance: "crdb"
+        app.kubernetes.io/component: cockroachdb
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: cockroachdb
+                    app.kubernetes.io/instance: "crdb"
+                    app.kubernetes.io/component: cockroachdb
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: cockroachdb
+            app.kubernetes.io/instance: "crdb"
+            app.kubernetes.io/component: cockroachdb
+        maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+      # No pre-stop hook is required, a SIGTERM plus some time is all that's
+      # needed for graceful shutdown of a node.
+      terminationGracePeriodSeconds: 60
       containers:
-        - name: postgres
-          image: %[2]s
+        - name: db
+          image: "cockroachdb/cockroach:v22.2.2"
           imagePullPolicy: "IfNotPresent"
+          args:
+            - shell
+            - -ecx
+            # The use of qualified `hostname -f` is crucial:
+            # Other nodes aren't able to look up the unqualified hostname.
+            #
+            # `--join` CLI flag is hardcoded to exactly 3 Pods, because:
+            # 1. Having `--join` value depending on `statefulset.replicas`
+            #    will trigger undesired restart of existing Pods when
+            #    StatefulSet is scaled up/down. We want to scale without
+            #    restarting existing Pods.
+            # 2. At least one Pod in `--join` is enough to successfully
+            #    join CockroachDB cluster and gossip with all other existing
+            #    Pods, even if there are 3 or more Pods.
+            # 3. It's harmless for `--join` to have 3 Pods even for 1-Pod
+            #    clusters, while it gives us opportunity to scale up even if
+            #    some Pods of existing cluster are down (for whatever reason).
+            # See details explained here:
+            # https://github.com/helm/charts/pull/18993#issuecomment-558795102
+            - >-
+              exec /cockroach/cockroach
+              start-single-node
+              --advertise-host=$(hostname).${STATEFULSET_FQDN}
+              --insecure
+              --http-port=8080
+              --port=26257
+              --cache=25%
+              --max-sql-memory=25%
+              --logtostderr=INFO
+          env:
+            - name: STATEFULSET_NAME
+              value: crdb
+            - name: STATEFULSET_FQDN
+              value: crdb.threeport-control-plane.svc.cluster.local
+            - name: COCKROACH_CHANNEL
+              value: kubernetes-helm
           ports:
-            - containerPort: 5432
-          envFrom:
-            - configMapRef:
-                name: threeport-api-db-config
+            - name: grpc
+              containerPort: 26257
+              protocol: TCP
+            - name: http
+              containerPort: 8080
+              protocol: TCP
           volumeMounts:
-            - mountPath: /var/lib/postgresql/data
-              name: postgredb
-            - mountPath: /docker-entrypoint-initdb.d
-              name: postgresql-initdb
+            - name: datadir
+              mountPath: /cockroach/cockroach-data/
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health?ready=1
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 2
       volumes:
-        - name: postgredb
-          emptyDir: {}
-        - name: postgresql-initdb
-          configMap:
-            name: postgres-config-data
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: threeport-api-db
-  namespace: %[1]s
-  labels:
-    app: threeport-api-db
-spec:
-  ports:
-   - port: 5432
-  selector:
-   app: threeport-api-db
+        - name: datadir
+          persistentVolumeClaim:
+            claimName: datadir
+  volumeClaimTemplates:
+    - metadata:
+        name: datadir
+        labels:
+          app.kubernetes.io/name: cockroachdb
+          app.kubernetes.io/instance: "crdb"
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: "1Gi"
 ---
 # Source: nats/templates/pdb.yaml
 apiVersion: policy/v1
@@ -650,6 +798,30 @@ stringData:
     DB_SSL_MODE=disable
     NATS_HOST=threeport-message-broker
     NATS_PORT=4222
+
+    DB_HOST=crdb
+    DB_USER=tp_rest_api
+    DB_PASSWORD=tp-rest-api-pwd
+    DB_NAME=threeport_api
+    DB_PORT=26257
+    DB_SSL_MODE=disable
+    NATS_HOST=nats-js
+    NATS_PORT=4222
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-create
+  namespace: threeport-control-plane
+data:
+  db.sql: |+
+    CREATE USER IF NOT EXISTS tp_rest_api
+      LOGIN
+    ;
+    CREATE DATABASE IF NOT EXISTS threeport_api
+        encoding='utf-8'
+    ;
+    GRANT ALL ON DATABASE threeport_api TO tp_rest_api;
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -666,10 +838,27 @@ spec:
       labels:
         app.kubernetes.io/name: threeport-api-server
     spec:
+      initContainers:
+        - name: db-init
+          image: cockroachdb/cockroach:v22.2.2
+          imagePullPolicy: "IfNotPresent"
+          command:
+            - "bash"
+            - "-c"
+            #- "cockroach sql --insecure --host crdb --port 26257 -f /etc/threeport/db-create/db.sql && cockroach sql --insecure --host crdb --port 26257 --database threeport_api -f /etc/threeport/db-load/create_tables.sql && cockroach sql --insecure --host crdb --port 26257 --database threeport_api -f /etc/threeport/db-load/fill_tables.sql"
+            - "cockroach sql --insecure --host crdb --port 26257 -f /etc/threeport/db-create/db.sql"
+          volumeMounts:
+            #- name: db-load
+            #  mountPath: "/etc/threeport/db-load"
+            - name: db-create
+              mountPath: "/etc/threeport/db-create"
       containers:
       - name: api-server
         image: %[3]s
         imagePullPolicy: IfNotPresent
+        args:
+        - -auto-migrate
+        - true
         ports:
         - containerPort: %[2]s
           hostPort: %[2]s
@@ -682,6 +871,9 @@ spec:
       - name: db-config
         secret:
           secretName: db-config
+      - name: db-create
+        configMap:
+          name: db-create
 ---
 apiVersion: v1
 kind: Service

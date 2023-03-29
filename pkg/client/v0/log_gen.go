@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -73,8 +74,11 @@ func GetLogBackendByName(name, apiAddr, apiToken string) (*v0.LogBackend, error)
 }
 
 // CreateLogBackend creates a new log backend
-func CreateLogBackend(jsonLogBackend []byte, apiAddr, apiToken string) (*v0.LogBackend, error) {
-	var logBackend v0.LogBackend
+func CreateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.LogBackend, error) {
+	jsonLogBackend, err := client.MarshalObject(logBackend)
+	if err != nil {
+		return logBackend, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/log_backends", apiAddr, ApiVersion),
@@ -84,46 +88,49 @@ func CreateLogBackend(jsonLogBackend []byte, apiAddr, apiToken string) (*v0.LogB
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &logBackend, err
+		return logBackend, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &logBackend, err
+		return logBackend, err
 	}
 
 	if err = json.Unmarshal(jsonData, &logBackend); err != nil {
-		return &logBackend, err
+		return logBackend, err
 	}
 
-	return &logBackend, nil
+	return logBackend, nil
 }
 
-// UpdateLogBackend creates a new log backend
-func UpdateLogBackend(id uint, jsonLogBackend []byte, apiAddr, apiToken string) (*v0.LogBackend, error) {
-	var logBackend v0.LogBackend
+// UpdateLogBackend updates a log backend
+func UpdateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.LogBackend, error) {
+	jsonLogBackend, err := client.MarshalObject(logBackend)
+	if err != nil {
+		return logBackend, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_backends/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/log_backends/%d", apiAddr, ApiVersion, *logBackend.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogBackend),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &logBackend, err
+		return logBackend, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &logBackend, err
+		return logBackend, err
 	}
 
 	if err = json.Unmarshal(jsonData, &logBackend); err != nil {
-		return &logBackend, err
+		return logBackend, err
 	}
 
-	return &logBackend, nil
+	return logBackend, nil
 }
 
 // GetLogStorageDefinitionByID feteches a log storage definition by ID
@@ -188,8 +195,11 @@ func GetLogStorageDefinitionByName(name, apiAddr, apiToken string) (*v0.LogStora
 }
 
 // CreateLogStorageDefinition creates a new log storage definition
-func CreateLogStorageDefinition(jsonLogStorageDefinition []byte, apiAddr, apiToken string) (*v0.LogStorageDefinition, error) {
-	var logStorageDefinition v0.LogStorageDefinition
+func CreateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, apiAddr, apiToken string) (*v0.LogStorageDefinition, error) {
+	jsonLogStorageDefinition, err := client.MarshalObject(logStorageDefinition)
+	if err != nil {
+		return logStorageDefinition, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/log_storage_definitions", apiAddr, ApiVersion),
@@ -199,46 +209,49 @@ func CreateLogStorageDefinition(jsonLogStorageDefinition []byte, apiAddr, apiTok
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &logStorageDefinition, err
+		return logStorageDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &logStorageDefinition, err
+		return logStorageDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &logStorageDefinition); err != nil {
-		return &logStorageDefinition, err
+		return logStorageDefinition, err
 	}
 
-	return &logStorageDefinition, nil
+	return logStorageDefinition, nil
 }
 
-// UpdateLogStorageDefinition creates a new log storage definition
-func UpdateLogStorageDefinition(id uint, jsonLogStorageDefinition []byte, apiAddr, apiToken string) (*v0.LogStorageDefinition, error) {
-	var logStorageDefinition v0.LogStorageDefinition
+// UpdateLogStorageDefinition updates a log storage definition
+func UpdateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, apiAddr, apiToken string) (*v0.LogStorageDefinition, error) {
+	jsonLogStorageDefinition, err := client.MarshalObject(logStorageDefinition)
+	if err != nil {
+		return logStorageDefinition, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_storage_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/log_storage_definitions/%d", apiAddr, ApiVersion, *logStorageDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogStorageDefinition),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &logStorageDefinition, err
+		return logStorageDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &logStorageDefinition, err
+		return logStorageDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &logStorageDefinition); err != nil {
-		return &logStorageDefinition, err
+		return logStorageDefinition, err
 	}
 
-	return &logStorageDefinition, nil
+	return logStorageDefinition, nil
 }
 
 // GetLogStorageInstanceByID feteches a log storage instance by ID
@@ -303,8 +316,11 @@ func GetLogStorageInstanceByName(name, apiAddr, apiToken string) (*v0.LogStorage
 }
 
 // CreateLogStorageInstance creates a new log storage instance
-func CreateLogStorageInstance(jsonLogStorageInstance []byte, apiAddr, apiToken string) (*v0.LogStorageInstance, error) {
-	var logStorageInstance v0.LogStorageInstance
+func CreateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr, apiToken string) (*v0.LogStorageInstance, error) {
+	jsonLogStorageInstance, err := client.MarshalObject(logStorageInstance)
+	if err != nil {
+		return logStorageInstance, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/log_storage_instances", apiAddr, ApiVersion),
@@ -314,44 +330,47 @@ func CreateLogStorageInstance(jsonLogStorageInstance []byte, apiAddr, apiToken s
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &logStorageInstance, err
+		return logStorageInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &logStorageInstance, err
+		return logStorageInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &logStorageInstance); err != nil {
-		return &logStorageInstance, err
+		return logStorageInstance, err
 	}
 
-	return &logStorageInstance, nil
+	return logStorageInstance, nil
 }
 
-// UpdateLogStorageInstance creates a new log storage instance
-func UpdateLogStorageInstance(id uint, jsonLogStorageInstance []byte, apiAddr, apiToken string) (*v0.LogStorageInstance, error) {
-	var logStorageInstance v0.LogStorageInstance
+// UpdateLogStorageInstance updates a log storage instance
+func UpdateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr, apiToken string) (*v0.LogStorageInstance, error) {
+	jsonLogStorageInstance, err := client.MarshalObject(logStorageInstance)
+	if err != nil {
+		return logStorageInstance, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_storage_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/log_storage_instances/%d", apiAddr, ApiVersion, *logStorageInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogStorageInstance),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &logStorageInstance, err
+		return logStorageInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &logStorageInstance, err
+		return logStorageInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &logStorageInstance); err != nil {
-		return &logStorageInstance, err
+		return logStorageInstance, err
 	}
 
-	return &logStorageInstance, nil
+	return logStorageInstance, nil
 }

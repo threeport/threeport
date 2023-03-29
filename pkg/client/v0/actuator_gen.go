@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -73,8 +74,11 @@ func GetProfileByName(name, apiAddr, apiToken string) (*v0.Profile, error) {
 }
 
 // CreateProfile creates a new profile
-func CreateProfile(jsonProfile []byte, apiAddr, apiToken string) (*v0.Profile, error) {
-	var profile v0.Profile
+func CreateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, error) {
+	jsonProfile, err := client.MarshalObject(profile)
+	if err != nil {
+		return profile, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/profiles", apiAddr, ApiVersion),
@@ -84,46 +88,49 @@ func CreateProfile(jsonProfile []byte, apiAddr, apiToken string) (*v0.Profile, e
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &profile, err
+		return profile, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &profile, err
+		return profile, err
 	}
 
 	if err = json.Unmarshal(jsonData, &profile); err != nil {
-		return &profile, err
+		return profile, err
 	}
 
-	return &profile, nil
+	return profile, nil
 }
 
-// UpdateProfile creates a new profile
-func UpdateProfile(id uint, jsonProfile []byte, apiAddr, apiToken string) (*v0.Profile, error) {
-	var profile v0.Profile
+// UpdateProfile updates a profile
+func UpdateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, error) {
+	jsonProfile, err := client.MarshalObject(profile)
+	if err != nil {
+		return profile, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, *profile.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonProfile),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &profile, err
+		return profile, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &profile, err
+		return profile, err
 	}
 
 	if err = json.Unmarshal(jsonData, &profile); err != nil {
-		return &profile, err
+		return profile, err
 	}
 
-	return &profile, nil
+	return profile, nil
 }
 
 // GetTierByID feteches a tier by ID
@@ -188,8 +195,11 @@ func GetTierByName(name, apiAddr, apiToken string) (*v0.Tier, error) {
 }
 
 // CreateTier creates a new tier
-func CreateTier(jsonTier []byte, apiAddr, apiToken string) (*v0.Tier, error) {
-	var tier v0.Tier
+func CreateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
+	jsonTier, err := client.MarshalObject(tier)
+	if err != nil {
+		return tier, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/tiers", apiAddr, ApiVersion),
@@ -199,44 +209,47 @@ func CreateTier(jsonTier []byte, apiAddr, apiToken string) (*v0.Tier, error) {
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &tier, err
+		return tier, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &tier, err
+		return tier, err
 	}
 
 	if err = json.Unmarshal(jsonData, &tier); err != nil {
-		return &tier, err
+		return tier, err
 	}
 
-	return &tier, nil
+	return tier, nil
 }
 
-// UpdateTier creates a new tier
-func UpdateTier(id uint, jsonTier []byte, apiAddr, apiToken string) (*v0.Tier, error) {
-	var tier v0.Tier
+// UpdateTier updates a tier
+func UpdateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
+	jsonTier, err := client.MarshalObject(tier)
+	if err != nil {
+		return tier, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, *tier.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonTier),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &tier, err
+		return tier, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &tier, err
+		return tier, err
 	}
 
 	if err = json.Unmarshal(jsonData, &tier); err != nil {
-		return &tier, err
+		return tier, err
 	}
 
-	return &tier, nil
+	return tier, nil
 }

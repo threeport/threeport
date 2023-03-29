@@ -20,6 +20,17 @@ This will start a local kind cluster and install the control plane.  You can now
 make calls to the API server and make local code changes that will be
 hot-reloaded in place.
 
+Note: The development environement is created using tptdev tool.  The tptdev
+tool references files in the source code so assumes, by default that it is being
+run from the root of this repo.
+
+Note: When running dev instances, the entrypoint process is air which
+manages the live reload of code changes on your filesystem.  Therefore, if an
+error occurs, the container will not fail and restart.  For example, if the build
+fails due to a compile error for a live reload the container status will remain
+`Running` because air is still running.  View the pod logs with `kubectl logs`
+to see if this is the case.
+
 You can call the API in one of two ways:
 
 1. Call the API at the local IP exposed by a service type loadbalancer:
@@ -38,12 +49,5 @@ Delete a local dev instance:
 
 ```bash
 make dev-down
-```
-
-## Image Build
-
-Build an image for REST API:
-```bash
-REST_API_IMG=threeport-rest-api:dev make rest-api-image
 ```
 

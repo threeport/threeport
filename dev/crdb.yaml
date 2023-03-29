@@ -1,22 +1,22 @@
-#---
-## Source: cockroachdb/templates/poddisruptionbudget.yaml
-#kind: PodDisruptionBudget
-#apiVersion: policy/v1
-#metadata:
-#  name: crdb-budget
-#  namespace: "threeport-control-plane"
-#  labels:
-#    helm.sh/chart: cockroachdb-10.0.2
-#    app.kubernetes.io/name: cockroachdb
-#    app.kubernetes.io/instance: "crdb"
-#    app.kubernetes.io/managed-by: "Helm"
-#spec:
-#  selector:
-#    matchLabels:
-#      app.kubernetes.io/name: cockroachdb
-#      app.kubernetes.io/instance: "crdb"
-#      app.kubernetes.io/component: cockroachdb
-#  maxUnavailable: 1
+---
+# Source: cockroachdb/templates/poddisruptionbudget.yaml
+kind: PodDisruptionBudget
+apiVersion: policy/v1
+metadata:
+  name: crdb-budget
+  namespace: "threeport-control-plane"
+  labels:
+    helm.sh/chart: cockroachdb-10.0.2
+    app.kubernetes.io/name: cockroachdb
+    app.kubernetes.io/instance: "crdb"
+    app.kubernetes.io/managed-by: "Helm"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cockroachdb
+      app.kubernetes.io/instance: "crdb"
+      app.kubernetes.io/component: cockroachdb
+  maxUnavailable: 1
 #---
 ## Source: cockroachdb/templates/secrets.init.yaml
 #apiVersion: v1

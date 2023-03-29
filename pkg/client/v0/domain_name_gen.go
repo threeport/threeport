@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -73,8 +74,11 @@ func GetDomainNameDefinitionByName(name, apiAddr, apiToken string) (*v0.DomainNa
 }
 
 // CreateDomainNameDefinition creates a new domain name definition
-func CreateDomainNameDefinition(jsonDomainNameDefinition []byte, apiAddr, apiToken string) (*v0.DomainNameDefinition, error) {
-	var domainNameDefinition v0.DomainNameDefinition
+func CreateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, apiAddr, apiToken string) (*v0.DomainNameDefinition, error) {
+	jsonDomainNameDefinition, err := client.MarshalObject(domainNameDefinition)
+	if err != nil {
+		return domainNameDefinition, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/domain_name_definitions", apiAddr, ApiVersion),
@@ -84,46 +88,49 @@ func CreateDomainNameDefinition(jsonDomainNameDefinition []byte, apiAddr, apiTok
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &domainNameDefinition, err
+		return domainNameDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &domainNameDefinition, err
+		return domainNameDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameDefinition); err != nil {
-		return &domainNameDefinition, err
+		return domainNameDefinition, err
 	}
 
-	return &domainNameDefinition, nil
+	return domainNameDefinition, nil
 }
 
-// UpdateDomainNameDefinition creates a new domain name definition
-func UpdateDomainNameDefinition(id uint, jsonDomainNameDefinition []byte, apiAddr, apiToken string) (*v0.DomainNameDefinition, error) {
-	var domainNameDefinition v0.DomainNameDefinition
+// UpdateDomainNameDefinition updates a domain name definition
+func UpdateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, apiAddr, apiToken string) (*v0.DomainNameDefinition, error) {
+	jsonDomainNameDefinition, err := client.MarshalObject(domainNameDefinition)
+	if err != nil {
+		return domainNameDefinition, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/domain_name_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/domain_name_definitions/%d", apiAddr, ApiVersion, *domainNameDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameDefinition),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &domainNameDefinition, err
+		return domainNameDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &domainNameDefinition, err
+		return domainNameDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameDefinition); err != nil {
-		return &domainNameDefinition, err
+		return domainNameDefinition, err
 	}
 
-	return &domainNameDefinition, nil
+	return domainNameDefinition, nil
 }
 
 // GetDomainNameInstanceByID feteches a domain name instance by ID
@@ -188,8 +195,11 @@ func GetDomainNameInstanceByName(name, apiAddr, apiToken string) (*v0.DomainName
 }
 
 // CreateDomainNameInstance creates a new domain name instance
-func CreateDomainNameInstance(jsonDomainNameInstance []byte, apiAddr, apiToken string) (*v0.DomainNameInstance, error) {
-	var domainNameInstance v0.DomainNameInstance
+func CreateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr, apiToken string) (*v0.DomainNameInstance, error) {
+	jsonDomainNameInstance, err := client.MarshalObject(domainNameInstance)
+	if err != nil {
+		return domainNameInstance, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/domain_name_instances", apiAddr, ApiVersion),
@@ -199,44 +209,47 @@ func CreateDomainNameInstance(jsonDomainNameInstance []byte, apiAddr, apiToken s
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &domainNameInstance, err
+		return domainNameInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &domainNameInstance, err
+		return domainNameInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameInstance); err != nil {
-		return &domainNameInstance, err
+		return domainNameInstance, err
 	}
 
-	return &domainNameInstance, nil
+	return domainNameInstance, nil
 }
 
-// UpdateDomainNameInstance creates a new domain name instance
-func UpdateDomainNameInstance(id uint, jsonDomainNameInstance []byte, apiAddr, apiToken string) (*v0.DomainNameInstance, error) {
-	var domainNameInstance v0.DomainNameInstance
+// UpdateDomainNameInstance updates a domain name instance
+func UpdateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr, apiToken string) (*v0.DomainNameInstance, error) {
+	jsonDomainNameInstance, err := client.MarshalObject(domainNameInstance)
+	if err != nil {
+		return domainNameInstance, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/domain_name_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/domain_name_instances/%d", apiAddr, ApiVersion, *domainNameInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameInstance),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &domainNameInstance, err
+		return domainNameInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &domainNameInstance, err
+		return domainNameInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameInstance); err != nil {
-		return &domainNameInstance, err
+		return domainNameInstance, err
 	}
 
-	return &domainNameInstance, nil
+	return domainNameInstance, nil
 }

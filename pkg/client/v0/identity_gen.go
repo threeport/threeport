@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -73,8 +74,11 @@ func GetUserByName(name, apiAddr, apiToken string) (*v0.User, error) {
 }
 
 // CreateUser creates a new user
-func CreateUser(jsonUser []byte, apiAddr, apiToken string) (*v0.User, error) {
-	var user v0.User
+func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
+	jsonUser, err := client.MarshalObject(user)
+	if err != nil {
+		return user, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/users", apiAddr, ApiVersion),
@@ -84,46 +88,49 @@ func CreateUser(jsonUser []byte, apiAddr, apiToken string) (*v0.User, error) {
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &user, err
+		return user, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &user, err
+		return user, err
 	}
 
 	if err = json.Unmarshal(jsonData, &user); err != nil {
-		return &user, err
+		return user, err
 	}
 
-	return &user, nil
+	return user, nil
 }
 
-// UpdateUser creates a new user
-func UpdateUser(id uint, jsonUser []byte, apiAddr, apiToken string) (*v0.User, error) {
-	var user v0.User
+// UpdateUser updates a user
+func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
+	jsonUser, err := client.MarshalObject(user)
+	if err != nil {
+		return user, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, *user.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonUser),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &user, err
+		return user, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &user, err
+		return user, err
 	}
 
 	if err = json.Unmarshal(jsonData, &user); err != nil {
-		return &user, err
+		return user, err
 	}
 
-	return &user, nil
+	return user, nil
 }
 
 // GetCompanyByID feteches a company by ID
@@ -188,8 +195,11 @@ func GetCompanyByName(name, apiAddr, apiToken string) (*v0.Company, error) {
 }
 
 // CreateCompany creates a new company
-func CreateCompany(jsonCompany []byte, apiAddr, apiToken string) (*v0.Company, error) {
-	var company v0.Company
+func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
+	jsonCompany, err := client.MarshalObject(company)
+	if err != nil {
+		return company, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/companies", apiAddr, ApiVersion),
@@ -199,44 +209,47 @@ func CreateCompany(jsonCompany []byte, apiAddr, apiToken string) (*v0.Company, e
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &company, err
+		return company, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &company, err
+		return company, err
 	}
 
 	if err = json.Unmarshal(jsonData, &company); err != nil {
-		return &company, err
+		return company, err
 	}
 
-	return &company, nil
+	return company, nil
 }
 
-// UpdateCompany creates a new company
-func UpdateCompany(id uint, jsonCompany []byte, apiAddr, apiToken string) (*v0.Company, error) {
-	var company v0.Company
+// UpdateCompany updates a company
+func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
+	jsonCompany, err := client.MarshalObject(company)
+	if err != nil {
+		return company, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, *company.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonCompany),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &company, err
+		return company, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &company, err
+		return company, err
 	}
 
 	if err = json.Unmarshal(jsonData, &company); err != nil {
-		return &company, err
+		return company, err
 	}
 
-	return &company, nil
+	return company, nil
 }

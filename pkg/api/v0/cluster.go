@@ -15,15 +15,15 @@ type ClusterDefinition struct {
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
 	// The number of zones the cluster should span for availability.
-	ZoneCount *int32 `json:"ZoneCount,omitempty" query:"zonecount" gorm:"not null" validate:"required"`
+	ZoneCount *int32 `json:"ZoneCount,omitempty" query:"zonecount" gorm:"not null" validate:"optional"`
 
-	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" query:"defaultnodegroupinstancetype" gorm:"not null" validate:"required"`
+	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" query:"defaultnodegroupinstancetype" gorm:"not null" validate:"optional"`
 
-	DefaultNodeGroupInitialSize *int32 `json:"DefaultNodeGroupInitialSize,omitempty" query:"defaultnodegroupinitialsize" gorm:"not null" validate:"required"`
+	DefaultNodeGroupInitialSize *int32 `json:"DefaultNodeGroupInitialSize,omitempty" query:"defaultnodegroupinitialsize" gorm:"not null" validate:"optional"`
 
-	DefaultNodeGroupMinimumSize *int32 `json:"DefaultNodeGroupMinimumSize,omitempty" query:"defaultnodegroupminimumsize" gorm:"not null" validate:"required"`
+	DefaultNodeGroupMinimumSize *int32 `json:"DefaultNodeGroupMinimumSize,omitempty" query:"defaultnodegroupminimumsize" gorm:"not null" validate:"optional"`
 
-	DefaultNodeGroupMaximumSize *int32 `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" gorm:"not null" validate:"required"`
+	DefaultNodeGroupMaximumSize *int32 `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" gorm:"not null" validate:"optional"`
 }
 
 type ClusterInstance struct {

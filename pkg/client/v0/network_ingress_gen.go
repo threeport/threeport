@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -73,8 +74,11 @@ func GetNetworkIngressDefinitionByName(name, apiAddr, apiToken string) (*v0.Netw
 }
 
 // CreateNetworkIngressDefinition creates a new network ingress definition
-func CreateNetworkIngressDefinition(jsonNetworkIngressDefinition []byte, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
-	var networkIngressDefinition v0.NetworkIngressDefinition
+func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
+	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
+	if err != nil {
+		return networkIngressDefinition, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/network_ingress_definitions", apiAddr, ApiVersion),
@@ -84,46 +88,49 @@ func CreateNetworkIngressDefinition(jsonNetworkIngressDefinition []byte, apiAddr
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &networkIngressDefinition, err
+		return networkIngressDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &networkIngressDefinition, err
+		return networkIngressDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressDefinition); err != nil {
-		return &networkIngressDefinition, err
+		return networkIngressDefinition, err
 	}
 
-	return &networkIngressDefinition, nil
+	return networkIngressDefinition, nil
 }
 
-// UpdateNetworkIngressDefinition creates a new network ingress definition
-func UpdateNetworkIngressDefinition(id uint, jsonNetworkIngressDefinition []byte, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
-	var networkIngressDefinition v0.NetworkIngressDefinition
+// UpdateNetworkIngressDefinition updates a network ingress definition
+func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
+	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
+	if err != nil {
+		return networkIngressDefinition, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network_ingress_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/network_ingress_definitions/%d", apiAddr, ApiVersion, *networkIngressDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonNetworkIngressDefinition),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &networkIngressDefinition, err
+		return networkIngressDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &networkIngressDefinition, err
+		return networkIngressDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressDefinition); err != nil {
-		return &networkIngressDefinition, err
+		return networkIngressDefinition, err
 	}
 
-	return &networkIngressDefinition, nil
+	return networkIngressDefinition, nil
 }
 
 // GetNetworkIngressInstanceByID feteches a network ingress instance by ID
@@ -188,8 +195,11 @@ func GetNetworkIngressInstanceByName(name, apiAddr, apiToken string) (*v0.Networ
 }
 
 // CreateNetworkIngressInstance creates a new network ingress instance
-func CreateNetworkIngressInstance(jsonNetworkIngressInstance []byte, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
-	var networkIngressInstance v0.NetworkIngressInstance
+func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
+	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
+	if err != nil {
+		return networkIngressInstance, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/network_ingress_instances", apiAddr, ApiVersion),
@@ -199,44 +209,47 @@ func CreateNetworkIngressInstance(jsonNetworkIngressInstance []byte, apiAddr, ap
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &networkIngressInstance, err
+		return networkIngressInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &networkIngressInstance, err
+		return networkIngressInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressInstance); err != nil {
-		return &networkIngressInstance, err
+		return networkIngressInstance, err
 	}
 
-	return &networkIngressInstance, nil
+	return networkIngressInstance, nil
 }
 
-// UpdateNetworkIngressInstance creates a new network ingress instance
-func UpdateNetworkIngressInstance(id uint, jsonNetworkIngressInstance []byte, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
-	var networkIngressInstance v0.NetworkIngressInstance
+// UpdateNetworkIngressInstance updates a network ingress instance
+func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
+	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
+	if err != nil {
+		return networkIngressInstance, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network_ingress_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/network_ingress_instances/%d", apiAddr, ApiVersion, *networkIngressInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonNetworkIngressInstance),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &networkIngressInstance, err
+		return networkIngressInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &networkIngressInstance, err
+		return networkIngressInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressInstance); err != nil {
-		return &networkIngressInstance, err
+		return networkIngressInstance, err
 	}
 
-	return &networkIngressInstance, nil
+	return networkIngressInstance, nil
 }

@@ -16,6 +16,10 @@ build-codegen:
 generate: build-codegen
 	go generate ./...
 
+#build-tptdev: @ Build tptdev binary
+build-tptdev:
+	go build -a -o bin/tptdev cmd/tptdev/main.go
+
 #build-tptctl: @ Build tptctl binary
 build-tptctl:
 	go build -a -o bin/tptctl cmd/tptctl/main.go
@@ -35,40 +39,21 @@ endif
 
 ## dev environment targets
 
-#dev-down: @ Delete the local development environment
-dev-down:
-	kind delete cluster --name threeport-dev
-
-#dev-cluster: @ Start a kind cluster for local development
-dev-cluster:
-	./dev/kind-config.sh
-	kind create cluster --config dev/kind-config.yaml
-	./dev/kind-install-metallb.sh
-
-#dev-image-build: @ Build a development docker image for API that supports hot reloading
-dev-image-build:
-	docker image build -t threeport-rest-api-dev:latest -f cmd/rest-api/image/Dockerfile-dev .
-	docker image build -t threeport-workload-controller-dev:latest -f cmd/workload-controller/image/Dockerfile-dev .
-
-#dev-image-load: @ Build and load a development API image onto the kind cluster
-dev-image-load: dev-image-build
-	kind load docker-image threeport-rest-api-dev:latest -n threeport-dev
-	kind load docker-image threeport-workload-controller-dev:latest -n threeport-dev
-
-#dev-deps: @ Start a local kube cluster, build a new API image, deploy the message broker and API database
-dev-deps: dev-cluster dev-image-load
-	#kubectl apply -f dev/dependencies-cr.yaml -f dev/crdb.yaml -f dev/db-create.yaml -f dev/db-load.yaml
-	kubectl apply -f dev/dependencies-cr.yaml -f dev/crdb.yaml -f dev/db-create.yaml
-
 #dev-up: @ Run a local development environment
-dev-up: dev-down dev-deps
-	./dev/cr-wait.sh
-	sleep 10  # allow time for all dependency containers to start
-	kubectl apply -f dev/api.yaml -f dev/workload-controller.yaml
+dev-up: build-tptdev
+	./bin/tptdev up
+
+#dev-down: @ Delete the local development environment
+dev-down: build-tptdev
+	./bin/tptdev down
 
 #dev-forward-api: @ Forward local port 1323 to the local dev API
 dev-forward-api:
 	kubectl port-forward -n threeport-control-plane service/threeport-api-server 1323:80
+
+##dev-query-cr: @ Open a terminal connection to the dev cockroach database
+#dev-query-cr:
+#	cockroach sql --host $$(kubectl get svc threeport-api-db -n threeport-control-plane -ojson | jq '.status.loadBalancer.ingress[0].ip' -r) --insecure --database threeport_api
 
 ## container image builds
 

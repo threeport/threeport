@@ -169,7 +169,7 @@ func (c *ControlPlane) CreateControlPlaneOnKind(providerConfigDir string) error 
 	if err != nil {
 		return fmt.Errorf("failed to marshal workload cluster to json: %w", err)
 	}
-	wc, err := client.CreateClusterDefinition(wcJSON, install.GetThreeportAPIEndpoint(), "")
+	wc, err := client.CreateClusterDefinition(wcJSON, getThreeportAPIEndpointOnKind(), "")
 	if err != nil {
 		return fmt.Errorf("failed to create workload cluster in Threeport API: %w", err)
 	}
@@ -192,7 +192,7 @@ func (c *ControlPlane) CreateControlPlaneOnKind(providerConfigDir string) error 
 	if err != nil {
 		return fmt.Errorf("failed to marshal forward proxy workload definition to json: %w", err)
 	}
-	fpwd, err := client.CreateWorkloadDefinition(fpwdJSON, install.GetThreeportAPIEndpoint(), "")
+	fpwd, err := client.CreateWorkloadDefinition(fpwdJSON, getThreeportAPIEndpointOnKind(), "")
 	if err != nil {
 		return fmt.Errorf("failed to create forward proxy workload definition in Threeport API: %w", err)
 	}
@@ -220,4 +220,27 @@ func (c *ControlPlane) DeleteControlPlaneOnKind() error {
 	output.Info("kind cluster deleted")
 
 	return nil
+}
+
+// getThreeportAPIEndpointOnKind returns the threeport API endpoint
+func getThreeportAPIEndpointOnKind() string {
+	//var apiProtocol string
+	//var apiHostname string
+	//var apiPort string
+
+	//switch infraProvider {
+	//case "kind":
+	//	apiProtocol = provider.KindThreeportAPIProtocol
+	//	apiHostname = provider.KindThreeportAPIHostname
+	//	apiPort = provider.KindThreeportAPIPort
+	//case "eks":
+	//	apiProtocol = "?"
+	//	apiHostname = "?"
+	//	apiPort = "?"
+	//}
+
+	return fmt.Sprintf(
+		"%s://%s:%s",
+		KindThreeportAPIProtocol, KindThreeportAPIHostname, KindThreeportAPIPort,
+	)
 }

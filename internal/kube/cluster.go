@@ -12,8 +12,8 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// GetClient creates a dynamic client interface and rest mapper from a workload
-// cluster object.
+// GetClient creates a dynamic client interface and rest mapper from a cluster
+// instance.
 func GetClient(cluster *v0.ClusterInstance) (dynamic.Interface, *meta.RESTMapper, error) {
 	tlsConfig := rest.TLSClientConfig{
 		CertData: []byte(*cluster.Certificate),

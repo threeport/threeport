@@ -8,8 +8,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	kubecluster "github.com/threeport/threeport/internal/cluster/kube"
-	kubeworkload "github.com/threeport/threeport/internal/workload/kube"
+	//kubecluster "github.com/threeport/threeport/internal/cluster/kube"
+	//kubeworkload "github.com/threeport/threeport/internal/workload/kube"
+	"github.com/threeport/threeport/internal/kube"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/controller"
@@ -171,7 +172,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// create a client to connect to kube API
-			dynamicKubeClient, mapper, err := kubecluster.GetClient(clusterInstance)
+			dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance)
 			if err != nil {
 				log.Error(err, "failed to create kube API client object")
 				r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
@@ -201,7 +202,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				}
 
 				// create kube resource
-				result, err := kubeworkload.CreateResource(kubeObject, dynamicKubeClient, *mapper)
+				result, err := kube.CreateResource(kubeObject, dynamicKubeClient, *mapper)
 				if err != nil {
 					wrdLog.Error(err, "failed to create Kubernetes resource")
 					createFail++

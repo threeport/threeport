@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -73,8 +74,11 @@ func GetAwsAccountByName(name, apiAddr, apiToken string) (*v0.AwsAccount, error)
 }
 
 // CreateAwsAccount creates a new aws account
-func CreateAwsAccount(jsonAwsAccount []byte, apiAddr, apiToken string) (*v0.AwsAccount, error) {
-	var awsAccount v0.AwsAccount
+func CreateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.AwsAccount, error) {
+	jsonAwsAccount, err := client.MarshalObject(awsAccount)
+	if err != nil {
+		return awsAccount, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/aws_accounts", apiAddr, ApiVersion),
@@ -84,46 +88,49 @@ func CreateAwsAccount(jsonAwsAccount []byte, apiAddr, apiToken string) (*v0.AwsA
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &awsAccount, err
+		return awsAccount, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsAccount, err
+		return awsAccount, err
 	}
 
 	if err = json.Unmarshal(jsonData, &awsAccount); err != nil {
-		return &awsAccount, err
+		return awsAccount, err
 	}
 
-	return &awsAccount, nil
+	return awsAccount, nil
 }
 
-// UpdateAwsAccount creates a new aws account
-func UpdateAwsAccount(id uint, jsonAwsAccount []byte, apiAddr, apiToken string) (*v0.AwsAccount, error) {
-	var awsAccount v0.AwsAccount
+// UpdateAwsAccount updates a aws account
+func UpdateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.AwsAccount, error) {
+	jsonAwsAccount, err := client.MarshalObject(awsAccount)
+	if err != nil {
+		return awsAccount, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_accounts/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws_accounts/%d", apiAddr, ApiVersion, *awsAccount.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsAccount),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsAccount, err
+		return awsAccount, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsAccount, err
+		return awsAccount, err
 	}
 
 	if err = json.Unmarshal(jsonData, &awsAccount); err != nil {
-		return &awsAccount, err
+		return awsAccount, err
 	}
 
-	return &awsAccount, nil
+	return awsAccount, nil
 }
 
 // GetAwsEksClusterDefinitionByID feteches a aws eks cluster definition by ID
@@ -188,8 +195,11 @@ func GetAwsEksClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.AwsEk
 }
 
 // CreateAwsEksClusterDefinition creates a new aws eks cluster definition
-func CreateAwsEksClusterDefinition(jsonAwsEksClusterDefinition []byte, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
-	var awsEksClusterDefinition v0.AwsEksClusterDefinition
+func CreateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefinition, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
+	jsonAwsEksClusterDefinition, err := client.MarshalObject(awsEksClusterDefinition)
+	if err != nil {
+		return awsEksClusterDefinition, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/aws_eks_cluster_definitions", apiAddr, ApiVersion),
@@ -199,46 +209,49 @@ func CreateAwsEksClusterDefinition(jsonAwsEksClusterDefinition []byte, apiAddr, 
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &awsEksClusterDefinition, err
+		return awsEksClusterDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsEksClusterDefinition, err
+		return awsEksClusterDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &awsEksClusterDefinition); err != nil {
-		return &awsEksClusterDefinition, err
+		return awsEksClusterDefinition, err
 	}
 
-	return &awsEksClusterDefinition, nil
+	return awsEksClusterDefinition, nil
 }
 
-// UpdateAwsEksClusterDefinition creates a new aws eks cluster definition
-func UpdateAwsEksClusterDefinition(id uint, jsonAwsEksClusterDefinition []byte, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
-	var awsEksClusterDefinition v0.AwsEksClusterDefinition
+// UpdateAwsEksClusterDefinition updates a aws eks cluster definition
+func UpdateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefinition, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
+	jsonAwsEksClusterDefinition, err := client.MarshalObject(awsEksClusterDefinition)
+	if err != nil {
+		return awsEksClusterDefinition, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_eks_cluster_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws_eks_cluster_definitions/%d", apiAddr, ApiVersion, *awsEksClusterDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsEksClusterDefinition),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsEksClusterDefinition, err
+		return awsEksClusterDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsEksClusterDefinition, err
+		return awsEksClusterDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &awsEksClusterDefinition); err != nil {
-		return &awsEksClusterDefinition, err
+		return awsEksClusterDefinition, err
 	}
 
-	return &awsEksClusterDefinition, nil
+	return awsEksClusterDefinition, nil
 }
 
 // GetAwsEksClusterInstanceByID feteches a aws eks cluster instance by ID
@@ -303,8 +316,11 @@ func GetAwsEksClusterInstanceByName(name, apiAddr, apiToken string) (*v0.AwsEksC
 }
 
 // CreateAwsEksClusterInstance creates a new aws eks cluster instance
-func CreateAwsEksClusterInstance(jsonAwsEksClusterInstance []byte, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
-	var awsEksClusterInstance v0.AwsEksClusterInstance
+func CreateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
+	jsonAwsEksClusterInstance, err := client.MarshalObject(awsEksClusterInstance)
+	if err != nil {
+		return awsEksClusterInstance, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/aws_eks_cluster_instances", apiAddr, ApiVersion),
@@ -314,46 +330,49 @@ func CreateAwsEksClusterInstance(jsonAwsEksClusterInstance []byte, apiAddr, apiT
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &awsEksClusterInstance, err
+		return awsEksClusterInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsEksClusterInstance, err
+		return awsEksClusterInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &awsEksClusterInstance); err != nil {
-		return &awsEksClusterInstance, err
+		return awsEksClusterInstance, err
 	}
 
-	return &awsEksClusterInstance, nil
+	return awsEksClusterInstance, nil
 }
 
-// UpdateAwsEksClusterInstance creates a new aws eks cluster instance
-func UpdateAwsEksClusterInstance(id uint, jsonAwsEksClusterInstance []byte, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
-	var awsEksClusterInstance v0.AwsEksClusterInstance
+// UpdateAwsEksClusterInstance updates a aws eks cluster instance
+func UpdateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
+	jsonAwsEksClusterInstance, err := client.MarshalObject(awsEksClusterInstance)
+	if err != nil {
+		return awsEksClusterInstance, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_eks_cluster_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws_eks_cluster_instances/%d", apiAddr, ApiVersion, *awsEksClusterInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsEksClusterInstance),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsEksClusterInstance, err
+		return awsEksClusterInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsEksClusterInstance, err
+		return awsEksClusterInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &awsEksClusterInstance); err != nil {
-		return &awsEksClusterInstance, err
+		return awsEksClusterInstance, err
 	}
 
-	return &awsEksClusterInstance, nil
+	return awsEksClusterInstance, nil
 }
 
 // GetAwsRelationalDatabaseDefinitionByID feteches a aws relational database definition by ID
@@ -418,8 +437,11 @@ func GetAwsRelationalDatabaseDefinitionByName(name, apiAddr, apiToken string) (*
 }
 
 // CreateAwsRelationalDatabaseDefinition creates a new aws relational database definition
-func CreateAwsRelationalDatabaseDefinition(jsonAwsRelationalDatabaseDefinition []byte, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
-	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
+func CreateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
+	jsonAwsRelationalDatabaseDefinition, err := client.MarshalObject(awsRelationalDatabaseDefinition)
+	if err != nil {
+		return awsRelationalDatabaseDefinition, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/aws_relational_database_definitions", apiAddr, ApiVersion),
@@ -429,46 +451,49 @@ func CreateAwsRelationalDatabaseDefinition(jsonAwsRelationalDatabaseDefinition [
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &awsRelationalDatabaseDefinition, err
+		return awsRelationalDatabaseDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsRelationalDatabaseDefinition, err
+		return awsRelationalDatabaseDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseDefinition); err != nil {
-		return &awsRelationalDatabaseDefinition, err
+		return awsRelationalDatabaseDefinition, err
 	}
 
-	return &awsRelationalDatabaseDefinition, nil
+	return awsRelationalDatabaseDefinition, nil
 }
 
-// UpdateAwsRelationalDatabaseDefinition creates a new aws relational database definition
-func UpdateAwsRelationalDatabaseDefinition(id uint, jsonAwsRelationalDatabaseDefinition []byte, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
-	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
+// UpdateAwsRelationalDatabaseDefinition updates a aws relational database definition
+func UpdateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
+	jsonAwsRelationalDatabaseDefinition, err := client.MarshalObject(awsRelationalDatabaseDefinition)
+	if err != nil {
+		return awsRelationalDatabaseDefinition, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_relational_database_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws_relational_database_definitions/%d", apiAddr, ApiVersion, *awsRelationalDatabaseDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseDefinition),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsRelationalDatabaseDefinition, err
+		return awsRelationalDatabaseDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsRelationalDatabaseDefinition, err
+		return awsRelationalDatabaseDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseDefinition); err != nil {
-		return &awsRelationalDatabaseDefinition, err
+		return awsRelationalDatabaseDefinition, err
 	}
 
-	return &awsRelationalDatabaseDefinition, nil
+	return awsRelationalDatabaseDefinition, nil
 }
 
 // GetAwsRelationalDatabaseInstanceByID feteches a aws relational database instance by ID
@@ -533,8 +558,11 @@ func GetAwsRelationalDatabaseInstanceByName(name, apiAddr, apiToken string) (*v0
 }
 
 // CreateAwsRelationalDatabaseInstance creates a new aws relational database instance
-func CreateAwsRelationalDatabaseInstance(jsonAwsRelationalDatabaseInstance []byte, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
-	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
+func CreateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
+	jsonAwsRelationalDatabaseInstance, err := client.MarshalObject(awsRelationalDatabaseInstance)
+	if err != nil {
+		return awsRelationalDatabaseInstance, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/aws_relational_database_instances", apiAddr, ApiVersion),
@@ -544,44 +572,47 @@ func CreateAwsRelationalDatabaseInstance(jsonAwsRelationalDatabaseInstance []byt
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &awsRelationalDatabaseInstance, err
+		return awsRelationalDatabaseInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsRelationalDatabaseInstance, err
+		return awsRelationalDatabaseInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseInstance); err != nil {
-		return &awsRelationalDatabaseInstance, err
+		return awsRelationalDatabaseInstance, err
 	}
 
-	return &awsRelationalDatabaseInstance, nil
+	return awsRelationalDatabaseInstance, nil
 }
 
-// UpdateAwsRelationalDatabaseInstance creates a new aws relational database instance
-func UpdateAwsRelationalDatabaseInstance(id uint, jsonAwsRelationalDatabaseInstance []byte, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
-	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
+// UpdateAwsRelationalDatabaseInstance updates a aws relational database instance
+func UpdateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
+	jsonAwsRelationalDatabaseInstance, err := client.MarshalObject(awsRelationalDatabaseInstance)
+	if err != nil {
+		return awsRelationalDatabaseInstance, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_relational_database_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws_relational_database_instances/%d", apiAddr, ApiVersion, *awsRelationalDatabaseInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseInstance),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsRelationalDatabaseInstance, err
+		return awsRelationalDatabaseInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsRelationalDatabaseInstance, err
+		return awsRelationalDatabaseInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseInstance); err != nil {
-		return &awsRelationalDatabaseInstance, err
+		return awsRelationalDatabaseInstance, err
 	}
 
-	return &awsRelationalDatabaseInstance, nil
+	return awsRelationalDatabaseInstance, nil
 }

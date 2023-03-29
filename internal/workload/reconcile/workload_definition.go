@@ -194,16 +194,22 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true
 			wdReconciled := true
-			reconciledWD := v0.WorkloadDefinition{Reconciled: &wdReconciled}
-			reconciledWDJSON, err := json.Marshal(&reconciledWD)
-			if err != nil {
-				log.Error(err, "failed to marshal json for workload definition update to mark as reconciled")
-				r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
-				continue
+			reconciledWD := v0.WorkloadDefinition{
+				Common: v0.Common{
+					ID: workloadDefinition.ID,
+				},
+				Reconciled: &wdReconciled,
 			}
+			//reconciledWDJSON, err := json.Marshal(&reconciledWD)
+			//if err != nil {
+			//	log.Error(err, "failed to marshal json for workload definition update to mark as reconciled")
+			//	r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+			//	continue
+			//}
 			updatedWD, err := client.UpdateWorkloadDefinition(
-				*workloadDefinition.ID,
-				reconciledWDJSON,
+				&reconciledWD,
+				//*workloadDefinition.ID,
+				//reconciledWDJSON,
 				r.APIServer,
 				"",
 			)

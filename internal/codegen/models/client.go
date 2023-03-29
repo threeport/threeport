@@ -176,7 +176,10 @@ func (cc *ControllerConfig) ClientLib() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(createFuncName).Params(
-			Id(fmt.Sprintf("json%s", mc.TypeName)).Index().Byte().Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
+			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
+				"github.com/threeport/threeport/pkg/api/v0",
+				mc.TypeName,
+			).Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
 		).Parens(List(
 			Op("*").Qual(
 				"github.com/threeport/threeport/pkg/api/v0",
@@ -184,10 +187,13 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Error(),
 		)).Block(
-			Var().Id(strcase.ToLowerCamel(mc.TypeName)).Qual(
-				"github.com/threeport/threeport/pkg/api/v0",
-				mc.TypeName,
-			),
+			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/client",
+				"MarshalObject",
+			).Call(Id(strcase.ToLowerCamel(mc.TypeName))),
+			If(Id("err").Op("!=").Nil().Block(
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+			)),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
 				Line().Qual("fmt", "Sprintf").Call(
@@ -205,37 +211,39 @@ func (cc *ControllerConfig) ClientLib() error {
 				Line(),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
 			)),
 			Line(),
 			Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
 				Id("response").Dot("Data").Index(Lit(0)),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
 			)),
 			Line(),
 			If(
 				Id("err").Op("=").Qual("encoding/json", "Unmarshal").Call(
 					Id("jsonData").Op(",").Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
 				).Op(";").Id("err").Op("!=").Nil().Block(
-					Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+					Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
 				),
 			),
 			Line(),
-			Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
+			Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
 		)
 		f.Line()
 		// update object
 		updateFuncName := fmt.Sprintf("Update%s", mc.TypeName)
 		f.Comment(fmt.Sprintf(
-			"%s creates a new %s",
+			"%s updates a %s",
 			updateFuncName,
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(updateFuncName).Params(
-			Id("id").Uint().Op(",").Id(fmt.Sprintf("json%s", mc.TypeName)).Index().Byte().
-				Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
+			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
+				"github.com/threeport/threeport/pkg/api/v0",
+				mc.TypeName,
+			).Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
 		).Parens(List(
 			Op("*").Qual(
 				"github.com/threeport/threeport/pkg/api/v0",
@@ -243,17 +251,22 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Error(),
 		)).Block(
-			Var().Id(strcase.ToLowerCamel(mc.TypeName)).Qual(
-				"github.com/threeport/threeport/pkg/api/v0",
-				mc.TypeName,
-			),
+			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/client",
+				"MarshalObject",
+			).Call(Id(strcase.ToLowerCamel(mc.TypeName))),
+			If(Id("err").Op("!=").Nil().Block(
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+			)),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToSnake(mc.TypeName), 2, false),
 					)).Op(",").
-						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("id"),
+						Id("apiAddr").Op(",").
+						Id("ApiVersion").Op(",").
+						Op("*").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID"),
 				),
 				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodPatch"),
@@ -264,27 +277,28 @@ func (cc *ControllerConfig) ClientLib() error {
 				Line(),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
 			)),
 			Line(),
 			Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
 				Id("response").Dot("Data").Index(Lit(0)),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
 			)),
 			Line(),
 			If(
 				Id("err").Op("=").Qual("encoding/json", "Unmarshal").Call(
 					Id("jsonData").Op(",").Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
 				).Op(";").Id("err").Op("!=").Nil().Block(
-					Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+					Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
 				),
 			),
 			Line(),
-			Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
+			Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
 		)
 		f.Line()
+		// TODO: replace object
 	}
 
 	// write code to file

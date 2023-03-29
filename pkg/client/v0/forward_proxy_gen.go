@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -73,8 +74,11 @@ func GetForwardProxyDefinitionByName(name, apiAddr, apiToken string) (*v0.Forwar
 }
 
 // CreateForwardProxyDefinition creates a new forward proxy definition
-func CreateForwardProxyDefinition(jsonForwardProxyDefinition []byte, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
-	var forwardProxyDefinition v0.ForwardProxyDefinition
+func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinition, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
+	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
+	if err != nil {
+		return forwardProxyDefinition, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/forward_proxy_definitions", apiAddr, ApiVersion),
@@ -84,46 +88,49 @@ func CreateForwardProxyDefinition(jsonForwardProxyDefinition []byte, apiAddr, ap
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &forwardProxyDefinition, err
+		return forwardProxyDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &forwardProxyDefinition, err
+		return forwardProxyDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyDefinition); err != nil {
-		return &forwardProxyDefinition, err
+		return forwardProxyDefinition, err
 	}
 
-	return &forwardProxyDefinition, nil
+	return forwardProxyDefinition, nil
 }
 
-// UpdateForwardProxyDefinition creates a new forward proxy definition
-func UpdateForwardProxyDefinition(id uint, jsonForwardProxyDefinition []byte, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
-	var forwardProxyDefinition v0.ForwardProxyDefinition
+// UpdateForwardProxyDefinition updates a forward proxy definition
+func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinition, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
+	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
+	if err != nil {
+		return forwardProxyDefinition, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/forward_proxy_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/forward_proxy_definitions/%d", apiAddr, ApiVersion, *forwardProxyDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonForwardProxyDefinition),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &forwardProxyDefinition, err
+		return forwardProxyDefinition, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &forwardProxyDefinition, err
+		return forwardProxyDefinition, err
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyDefinition); err != nil {
-		return &forwardProxyDefinition, err
+		return forwardProxyDefinition, err
 	}
 
-	return &forwardProxyDefinition, nil
+	return forwardProxyDefinition, nil
 }
 
 // GetForwardProxyInstanceByID feteches a forward proxy instance by ID
@@ -188,8 +195,11 @@ func GetForwardProxyInstanceByName(name, apiAddr, apiToken string) (*v0.ForwardP
 }
 
 // CreateForwardProxyInstance creates a new forward proxy instance
-func CreateForwardProxyInstance(jsonForwardProxyInstance []byte, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
-	var forwardProxyInstance v0.ForwardProxyInstance
+func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
+	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
+	if err != nil {
+		return forwardProxyInstance, err
+	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/forward_proxy_instances", apiAddr, ApiVersion),
@@ -199,44 +209,47 @@ func CreateForwardProxyInstance(jsonForwardProxyInstance []byte, apiAddr, apiTok
 		http.StatusCreated,
 	)
 	if err != nil {
-		return &forwardProxyInstance, err
+		return forwardProxyInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &forwardProxyInstance, err
+		return forwardProxyInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyInstance); err != nil {
-		return &forwardProxyInstance, err
+		return forwardProxyInstance, err
 	}
 
-	return &forwardProxyInstance, nil
+	return forwardProxyInstance, nil
 }
 
-// UpdateForwardProxyInstance creates a new forward proxy instance
-func UpdateForwardProxyInstance(id uint, jsonForwardProxyInstance []byte, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
-	var forwardProxyInstance v0.ForwardProxyInstance
+// UpdateForwardProxyInstance updates a forward proxy instance
+func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
+	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
+	if err != nil {
+		return forwardProxyInstance, err
+	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/forward_proxy_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/forward_proxy_instances/%d", apiAddr, ApiVersion, *forwardProxyInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonForwardProxyInstance),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &forwardProxyInstance, err
+		return forwardProxyInstance, err
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &forwardProxyInstance, err
+		return forwardProxyInstance, err
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyInstance); err != nil {
-		return &forwardProxyInstance, err
+		return forwardProxyInstance, err
 	}
 
-	return &forwardProxyInstance, nil
+	return forwardProxyInstance, nil
 }
