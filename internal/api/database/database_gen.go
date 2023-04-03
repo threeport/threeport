@@ -48,6 +48,8 @@ func Init(autoMigrate bool) (*gorm.DB, error) {
 		db.AutoMigrate(&v0.ClusterInstance{})
 		db.AutoMigrate(&v0.DomainNameDefinition{})
 		db.AutoMigrate(&v0.DomainNameInstance{})
+		db.AutoMigrate(&v0.EthereumNodeDefinition{})
+		db.AutoMigrate(&v0.EthereumNodeInstance{})
 		db.AutoMigrate(&v0.ForwardProxyDefinition{})
 		db.AutoMigrate(&v0.ForwardProxyInstance{})
 		db.AutoMigrate(&v0.User{})

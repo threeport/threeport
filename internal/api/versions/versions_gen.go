@@ -14,6 +14,8 @@ func AddVersions() {
 	AddClusterInstanceVersions()
 	AddDomainNameDefinitionVersions()
 	AddDomainNameInstanceVersions()
+	AddEthereumNodeDefinitionVersions()
+	AddEthereumNodeInstanceVersions()
 	AddForwardProxyDefinitionVersions()
 	AddForwardProxyInstanceVersions()
 	AddUserVersions()

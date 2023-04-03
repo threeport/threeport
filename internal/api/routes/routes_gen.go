@@ -19,6 +19,8 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	ClusterInstanceRoutes(e, h)
 	DomainNameDefinitionRoutes(e, h)
 	DomainNameInstanceRoutes(e, h)
+	EthereumNodeDefinitionRoutes(e, h)
+	EthereumNodeInstanceRoutes(e, h)
 	ForwardProxyDefinitionRoutes(e, h)
 	ForwardProxyInstanceRoutes(e, h)
 	UserRoutes(e, h)
