@@ -20,6 +20,8 @@ import (
 	"sigs.k8s.io/kind/pkg/errors"
 	"sigs.k8s.io/kind/pkg/exec"
 	"sigs.k8s.io/kind/pkg/fs"
+
+	"github.com/threeport/threeport/internal/threeport"
 )
 
 type BuildErrorLine struct {
@@ -33,18 +35,10 @@ type ErrorDetail struct {
 
 type imageTagFetcher func(nodes.Node, string) (map[string]bool, error)
 
-// devImages returns a map of main package dirs to image names
-func DevImages() map[string]string {
-	return map[string]string{
-		"rest-api":            "threeport-rest-api-dev:latest",
-		"workload-controller": "threeport-workload-controller-dev:latest",
-	}
-}
-
 // PrepareDevImages builds and loads the threeport control plane images for
 // development use.
 func PrepareDevImages(threeportPath, kindClusterName string) error {
-	devImages := DevImages()
+	devImages := threeport.ThreeportDevImages()
 
 	if err := BuildDevImages(threeportPath, devImages); err != nil {
 		return fmt.Errorf("failed to build dev images: %w", err)
@@ -135,16 +129,6 @@ func LoadDevImages(kindClusterName string, devImages map[string]string) error {
 	// we want to load container images to all nodes - no need to select
 	// specific nodes
 	candidateNodes := nodeList
-	//if len(flags.Nodes) > 0 {
-	//	candidateNodes = []nodes.Node{}
-	//	for _, name := range flags.Nodes {
-	//		node, ok := nodesByName[name]
-	//		if !ok {
-	//			return fmt.Errorf("unknown node: %q", name)
-	//		}
-	//		candidateNodes = append(candidateNodes, node)
-	//	}
-	//}
 
 	// pick only the nodes that don't have the image
 	selectedNodes := map[string]nodes.Node{}
@@ -153,25 +137,11 @@ func LoadDevImages(kindClusterName string, devImages map[string]string) error {
 		imageID := imageIDs[i]
 		processed := false
 		for _, node := range candidateNodes {
-			//exists, reTagRequired, sanitizedImageName := checkIfImageReTagRequired(node, imageID, imageName, nodeutils.ImageTags)
 			exists := checkIfImageExists(node, imageID, imageName, nodeutils.ImageTags)
-			//if exists && !reTagRequired {
 			if exists {
 				continue
 			}
 
-			//if reTagRequired {
-			//	// We will try to re-tag the image. If the re-tag fails, we will fall back to the default behavior of loading
-			//	// the images into the nodes again
-			//	logger.V(0).Infof("Image with ID: %s already present on the node %s but is missing the tag %s. re-tagging...", imageID, node.String(), sanitizedImageName)
-			//	if err := nodeutils.ReTagImage(node, imageID, sanitizedImageName); err != nil {
-			//		logger.Errorf("failed to re-tag image on the node %s due to an error %s. Will load it instead...", node.String(), err)
-			//		selectedNodes[node.String()] = node
-			//	} else {
-			//		processed = true
-			//	}
-			//	continue
-			//}
 			id, err := nodeutils.ImageID(node, imageName)
 			if err != nil || id != imageID {
 				selectedNodes[node.String()] = node
@@ -189,20 +159,20 @@ func LoadDevImages(kindClusterName string, devImages map[string]string) error {
 		return nil
 	}
 
-	// Setup the tar path where the images will be saved
+	// setup the tar path where the images will be saved
 	dir, err := fs.TempDir("", "images-tar")
 	if err != nil {
 		return errors.Wrap(err, "failed to create tempdir")
 	}
 	defer os.RemoveAll(dir)
 	imagesTarPath := filepath.Join(dir, "images.tar")
-	// Save the images into a tar
+	// save the images into a tar
 	err = save(imageNames, imagesTarPath)
 	if err != nil {
 		return err
 	}
 
-	// Load the images on the selected nodes
+	// load the images on the selected nodes
 	for _, selectedNode := range selectedNodes {
 		selectedNode := selectedNode // capture loop variable
 		fns = append(fns, func() error {
@@ -264,12 +234,7 @@ func checkIfImageExists(
 		return
 	}
 	exists = true
-	//sanitizedImage = sanitizeImage(imageName)
-	//if ok := tags[sanitizedImage]; ok {
-	//	reTagRequired = false
-	//	return
-	//}
-	//reTagRequired = true
+
 	return
 }
 
@@ -288,28 +253,3 @@ func loadImage(imageTarName string, node nodes.Node) error {
 	defer f.Close()
 	return nodeutils.LoadImageArchive(node, f)
 }
-
-//// sanitizeImage is a helper to return human readable image name
-//func sanitizeImage(image string) (sanitizedName string) {
-//	const (
-//		defaultDomain    = "docker.io/"
-//		officialRepoName = "library"
-//	)
-//	sanitizedName = image
-//
-//	if !strings.ContainsRune(image, '/') {
-//		sanitizedName = officialRepoName + "/" + image
-//	}
-//
-//	i := strings.IndexRune(sanitizedName, '/')
-//	if i == -1 || (!strings.ContainsAny(sanitizedName[:i], ".:") && sanitizedName[:i] != "localhost") {
-//		sanitizedName = defaultDomain + sanitizedName
-//	}
-//
-//	i = strings.IndexRune(sanitizedName, ':')
-//	if i == -1 {
-//		sanitizedName += ":latest"
-//	}
-//
-//	return
-//}

@@ -62,5 +62,7 @@ type AwsRelationalDatabaseInstance struct {
 	//// Unique name for DB instance.
 	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
+	AwsRelationalDatabaseDefinitionID *uint ``
+
 	Status *string `json:"Status,omitempty" query:"status" gorm:"not null" validate:"required"`
 }

@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/threeport/threeport/internal/tptctl/config"
-	"github.com/threeport/threeport/internal/tptctl/output"
+	"github.com/threeport/threeport/internal/tptctl"
+	"github.com/threeport/threeport/internal/cli"
 )
 
 var createWorkloadDefinitionConfigPath string
@@ -28,23 +28,23 @@ var CreateWorkloadDefinitionCmd = &cobra.Command{
 		// load config
 		configContent, err := ioutil.ReadFile(createWorkloadDefinitionConfigPath)
 		if err != nil {
-			output.Error("failed to read config file", err)
+			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var workloadDefinition config.WorkloadDefinitionConfig
+		var workloadDefinition tptctl.WorkloadDefinitionConfig
 		if err := yaml.Unmarshal(configContent, &workloadDefinition); err != nil {
-			output.Error("failed to unmarshal config file yaml content", err)
+			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
 
 		// create workload definition
 		wd, err := workloadDefinition.Create()
 		if err != nil {
-			output.Error("failed to create workload definition", err)
+			cli.Error("failed to create workload definition", err)
 			os.Exit(1)
 		}
 
-		output.Complete(fmt.Sprintf("workload definition %s created\n", *wd.Name))
+		cli.Complete(fmt.Sprintf("workload definition %s created\n", *wd.Name))
 	},
 }
 

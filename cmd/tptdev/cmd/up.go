@@ -9,10 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
-	"github.com/threeport/threeport/internal/provider/kind"
+	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
-	"github.com/threeport/threeport/internal/tptctl/output"
 	"github.com/threeport/threeport/internal/tptdev"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -28,12 +28,13 @@ var upCmd = &cobra.Command{
 	Use:   "up",
 	Short: "Spin up a new threeport development environment",
 	Long:  `Spin up a new threeport development environment.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		// get default kubeconfig if not provided
 		if createKubeconfig == "" {
-			ck, err := defaultKubeconfig()
+			ck, err := kube.DefaultKubeconfig()
 			if err != nil {
-				return fmt.Errorf("failed to get path to default kubeconfig: %w", err)
+				cli.Error("failed to get path to default kubeconfig", err)
+				os.Exit(1)
 			}
 			createKubeconfig = ck
 		}
@@ -44,28 +45,29 @@ var upCmd = &cobra.Command{
 		if threeportPath == "" {
 			tp, err := os.Getwd()
 			if err != nil {
-				return fmt.Errorf("failed to get current working directory: %w", err)
+				cli.Error("failed to get current working directory", err)
+				os.Exit(1)
 			}
 			threeportPath = tp
 		}
 
 		// create kind cluster
-		kubeConnectionInfo, err := kind.CreateKindDevCluster(
-			kindClusterName(createThreeportDevName),
-			createKubeconfig,
-			threeportPath,
-		)
+		controlPlaneInfra := provider.ControlPlaneInfraKind{
+			ThreeportInstanceName: createThreeportDevName,
+			KubeconfigPath:        createKubeconfig,
+			ThreeportPath:         threeportPath,
+		}
+		devEnvironment := true
+		kindConfig := controlPlaneInfra.GetKindConfig(devEnvironment)
+		controlPlaneInfra.KindConfig = kindConfig
+		kubeConnectionInfo, err := controlPlaneInfra.Create()
 		if err != nil {
-			return fmt.Errorf("failed to create kind cluster: %w", err)
+			cli.Error("failed to create kind cluster", err)
+			os.Exit(1)
 		}
 
-		// create cluster definition and instance objects
-		//clusterDefName := fmt.Sprintf("compute-space-%s", createThreeportDevName)
-		//clusterDefinition := v0.ClusterDefinition{
-		//	Definition: v0.Definition{
-		//		Name: &clusterDefName,
-		//	},
-		//}
+		// the cluster instance is the default compute space cluster to be added
+		// to the API
 		clusterInstName := fmt.Sprintf("compute-space-%s-0", createThreeportDevName)
 		clusterInstance := v0.ClusterInstance{
 			Instance: v0.Instance{
@@ -80,27 +82,31 @@ var upCmd = &cobra.Command{
 		// create a client to connect to kind cluster kube API
 		dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance)
 		if err != nil {
-			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
+			cli.Error("failed to get a Kubernetes client and mapper", err)
+			os.Exit(1)
 		}
 
 		// install the threeport control plane dependencies
 		if err := threeport.InstallThreeportControlPlaneDependencies(dynamicKubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to install threeport control plane dependencies: %w", err)
+			cli.Error("failed to install threeport control plane dependencies", err)
+			os.Exit(1)
 		}
 
 		// build and load dev images
-		if err := tptdev.PrepareDevImages(threeportPath, kindClusterName(createThreeportDevName)); err != nil {
-			return fmt.Errorf("failed to build and load dev control plane images: %w", err)
+		if err := tptdev.PrepareDevImages(threeportPath, provider.ThreeportClusterName(createThreeportDevName)); err != nil {
+			cli.Error("failed to build and load dev control plane images", err)
+			os.Exit(1)
 		}
 
 		// install the threeport control plane API and controllers
-		if err := threeport.InstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to install threeport control plane components: %w", err)
+		if err := threeport.InstallThreeportControlPlaneComponents(dynamicKubeClient, mapper, true); err != nil {
+			cli.Error("failed to install threeport control plane components", err)
+			os.Exit(1)
 		}
 
-		output.Complete(fmt.Sprintf("Threeport dev instance %s created", createThreeportDevName))
+		// create the default compute space cluster in API
 
-		return nil
+		cli.Complete(fmt.Sprintf("Threeport dev instance %s created", createThreeportDevName))
 	},
 }
 
@@ -108,7 +114,7 @@ func init() {
 	rootCmd.AddCommand(upCmd)
 
 	upCmd.Flags().StringVarP(&createThreeportDevName,
-		"name", "n", defaultDevName, "name of dev control plane instance")
+		"name", "n", tptdev.DefaultInstanceName, "name of dev control plane instance")
 	upCmd.Flags().StringVarP(&createKubeconfig,
 		"kubeconfig", "k", "", "path to kubeconfig - default is ~/.kube/config")
 	upCmd.Flags().StringVarP(&threeportPath,

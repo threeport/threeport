@@ -4,17 +4,74 @@ import (
 	"fmt"
 
 	"github.com/threeport/threeport/internal/kube"
+	"github.com/threeport/threeport/internal/version"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 )
+
+const (
+	ThreeportContainerRepo           = "ghcr.io/threeport"
+	ThreeportAPIImage                = "threeport-rest-api"
+	ThreeportWorkloadControllerImage = "threeport-workload-controller"
+)
+
+// ThreeportDevImages returns a map of main package dirs to image names
+func ThreeportDevImages() map[string]string {
+	return map[string]string{
+		"rest-api":            fmt.Sprintf("%s-dev:latest", ThreeportAPIImage),
+		"workload-controller": fmt.Sprintf("%s-dev:latest", ThreeportWorkloadControllerImage),
+	}
+}
 
 // InstallThreeportControlPlaneComponents installs the threeport API and
 // controllers.
 func InstallThreeportControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	devEnvironment bool,
 ) error {
+
+	var apiImage string
+	var workloadControllerImage string
+	apiVols, apiVolMounts := apiVolumes()
+	workloadControllerVols, workloadControllerVolMounts := workloadControllerVolumes()
+	if devEnvironment {
+		// set dev environment images
+		devImages := ThreeportDevImages()
+		apiImage = devImages["rest-api"]
+		workloadControllerImage = devImages["workload-controller"]
+
+		// set dev environment code mount into container
+		codePathVol := map[string]interface{}{
+			"name": "code-path",
+			"hostPath": map[string]interface{}{
+				"path": "/threeport",
+				"type": "Directory",
+			},
+		}
+		codePathVolMount := map[string]interface{}{
+			"name":      "code-path",
+			"mountPath": "/threeport",
+		}
+		apiVols = append(apiVols, codePathVol)
+		apiVolMounts = append(apiVolMounts, codePathVolMount)
+		workloadControllerVols = append(workloadControllerVols, codePathVol)
+		workloadControllerVolMounts = append(workloadControllerVolMounts, codePathVolMount)
+	} else {
+		apiImage = fmt.Sprintf(
+			"%s/%s:%s",
+			ThreeportContainerRepo,
+			ThreeportAPIImage,
+			version.GetVersion(),
+		)
+		workloadControllerImage = fmt.Sprintf(
+			"%s/%s:%s",
+			ThreeportContainerRepo,
+			ThreeportWorkloadControllerImage,
+			version.GetVersion(),
+		)
+	}
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -111,8 +168,8 @@ NATS_PORT=4222
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "api-server",
-								"image":           "threeport-rest-api-dev:latest",
-								"imagePullPolicy": "Never",
+								"image":           apiImage,
+								"imagePullPolicy": "IfNotPresent",
 								"ports": []interface{}{
 									map[string]interface{}{
 										"containerPort": 1323,
@@ -120,60 +177,10 @@ NATS_PORT=4222
 										"protocol":      "TCP",
 									},
 								},
-								"volumeMounts": []interface{}{
-									map[string]interface{}{
-										"name":      "db-config",
-										"mountPath": "/etc/threeport/",
-									},
-									map[string]interface{}{
-										"name":      "code-path",
-										"mountPath": "/threeport",
-										//env:
-										//- name: AUTHENTIK_HOST
-										//  value: "authentik.threeport-api.svc.cluster.local"
-										//- name: AUTHENTIK_SCHEME
-										//  value: "https"
-										//- name: AUTHENTIK_BOOTSTRAP_PASSWORD
-										//  valueFrom:
-										//    secretKeyRef:
-										//      name: authentik-bootstrap
-										//      key: authentik-bootstrap-password
-										//- name: AUTHENTIK_BOOTSTRAP_TOKEN
-										//  valueFrom:
-										//    secretKeyRef:
-										//      name: authentik-bootstrap
-										//      key: authentik-bootstrap-token
-									},
-								},
+								"volumeMounts": apiVolMounts,
 							},
 						},
-						"volumes": []interface{}{
-							map[string]interface{}{
-								"name": "db-config",
-								"secret": map[string]interface{}{
-									"secretName": "db-config",
-								},
-							},
-							map[string]interface{}{
-								"name": "db-create",
-								"configMap": map[string]interface{}{
-									"name": "db-create",
-								},
-							},
-							map[string]interface{}{
-								"name": "db-load",
-								"configMap": map[string]interface{}{
-									"name": "db-load",
-								},
-							},
-							map[string]interface{}{
-								"name": "code-path",
-								"hostPath": map[string]interface{}{
-									"path": "/threeport",
-									"type": "Directory",
-								},
-							},
-						},
+						"volumes": apiVols,
 					},
 				},
 			},
@@ -195,7 +202,7 @@ NATS_PORT=4222
 				"selector": map[string]interface{}{
 					"app.kubernetes.io/name": "threeport-api-server",
 				},
-				"type": "LoadBalancer",
+				//"type": "LoadBalancer",
 				"ports": []interface{}{
 					map[string]interface{}{
 						"name":       "http",
@@ -256,7 +263,7 @@ NATS_PORT=4222
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "workload-controller",
-								"image":           "threeport-workload-controller-dev:latest",
+								"image":           workloadControllerImage,
 								"imagePullPolicy": "IfNotPresent",
 								"envFrom": []interface{}{
 									map[string]interface{}{
@@ -265,23 +272,10 @@ NATS_PORT=4222
 										},
 									},
 								},
-								"volumeMounts": []interface{}{
-									map[string]interface{}{
-										"name":      "code-path",
-										"mountPath": "/threeport",
-									},
-								},
+								"volumeMounts": workloadControllerVolMounts,
 							},
 						},
-						"volumes": []interface{}{
-							map[string]interface{}{
-								"name": "code-path",
-								"hostPath": map[string]interface{}{
-									"path": "/threeport",
-									"type": "Directory",
-								},
-							},
-						},
+						"volumes": workloadControllerVols,
 					},
 				},
 			},
@@ -292,4 +286,43 @@ NATS_PORT=4222
 	}
 
 	return nil
+}
+
+func apiVolumes() ([]interface{}, []interface{}) {
+	vols := []interface{}{
+		map[string]interface{}{
+			"name": "db-config",
+			"secret": map[string]interface{}{
+				"secretName": "db-config",
+			},
+		},
+		map[string]interface{}{
+			"name": "db-create",
+			"configMap": map[string]interface{}{
+				"name": "db-create",
+			},
+		},
+		map[string]interface{}{
+			"name": "db-load",
+			"configMap": map[string]interface{}{
+				"name": "db-load",
+			},
+		},
+	}
+
+	volMounts := []interface{}{
+		map[string]interface{}{
+			"name":      "db-config",
+			"mountPath": "/etc/threeport/",
+		},
+	}
+
+	return vols, volMounts
+}
+
+func workloadControllerVolumes() ([]interface{}, []interface{}) {
+	vols := []interface{}{}
+	volMounts := []interface{}{}
+
+	return vols, volMounts
 }

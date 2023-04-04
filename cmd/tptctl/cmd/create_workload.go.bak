@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/threeport/threeport/internal/tptctl/config"
-	"github.com/threeport/threeport/internal/tptctl/output"
+	"github.com/threeport/threeport/internal/tptctl"
+	"github.com/threeport/threeport/internal/cli"
 )
 
 var createWorkloadConfigPath string
@@ -28,22 +28,22 @@ var CreateWorkloadCmd = &cobra.Command{
 		// load config
 		configContent, err := ioutil.ReadFile(createWorkloadConfigPath)
 		if err != nil {
-			output.Error("failed to read config file", err)
+			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var workloadConfig config.WorkloadConfig
+		var workloadConfig tptctl.WorkloadConfig
 		if err := yaml.Unmarshal(configContent, &workloadConfig); err != nil {
-			output.Error("failed to unmarshal config file yaml content", err)
+			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
 
 		// create workload
 		if err := workloadConfig.Create(); err != nil {
-			output.Error("failed to create workload", err)
+			cli.Error("failed to create workload", err)
 			os.Exit(1)
 		}
 
-		output.Complete(fmt.Sprintf("workload %s created\n", workloadConfig.Name))
+		cli.Complete(fmt.Sprintf("workload %s created\n", workloadConfig.Name))
 	},
 }
 

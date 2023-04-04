@@ -1,4 +1,4 @@
-package config
+package tptctl
 
 import "errors"
 
@@ -10,9 +10,10 @@ type ThreeportConfig struct {
 
 // ThreeportInstance is an instance of Threeport the client can use
 type Instance struct {
-	Name      string `yaml:"Name"`
-	Provider  string `yaml:"Provider"`
-	APIServer string `yaml:"APIServer"`
+	Name       string `yaml:"Name"`
+	Provider   string `yaml:"Provider"`
+	APIServer  string `yaml:"APIServer"`
+	Kubeconfig string `yaml: "Kubeconfig"`
 }
 
 func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
