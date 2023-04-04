@@ -1,0 +1,4 @@
+FROM scratch
+COPY threeport-ethereum-node-controller /threeport-ethereum-node-controller
+ENTRYPOINT ["/threeport-ethereum-node-controller"]
+
