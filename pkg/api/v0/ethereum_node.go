@@ -8,6 +8,9 @@ type EthereumNodeDefinition struct {
 
 	// Network to join (e.g. mainnet, ropsten, rinkeby, goerli, kovan, etc.).
 	Network *string `json:"Network,omitempty" query:"network" validate:"optional"`
+
+	// Indicates if object is considered to be reconciled by ethereum node controller.
+	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
 type EthereumNodeInstance struct {

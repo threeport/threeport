@@ -193,13 +193,13 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 			// }
 
 			// set the object's Reconciled field to true
-			// wdReconciled := true
-			// reconciledWD := v0.EthereumNodeDefinition{
-			// 	Common: v0.Common{
-			// 		ID: ethereumNodeDefinition.ID,
-			// 	},
-			// 	Reconciled: &wdReconciled,
-			// }
+			wdReconciled := true
+			reconciledWD := v0.EthereumNodeDefinition{
+				Common: v0.Common{
+					ID: ethereumNodeDefinition.ID,
+				},
+				Reconciled: &wdReconciled,
+			}
 			//reconciledWDJSON, err := json.Marshal(&reconciledWD)
 			//if err != nil {
 			//	log.Error(err, "failed to marshal json for ethereum node definition update to mark as reconciled")
