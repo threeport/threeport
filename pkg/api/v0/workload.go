@@ -32,7 +32,7 @@ type WorkloadDefinition struct {
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 
 	// The dependencies needed in order for the workload to run properly.
-	Dependencies []WorkloadDependency `json:"Dependencies,omitempty" query:"dependencies" validate:"optional"`
+	// Dependencies []WorkloadDependency `json:"Dependencies,omitempty" query:"dependencies" validate:"optional"`
 }
 
 // WorkloadResourceDefinition is an individual Kubernetes resource manifest.
