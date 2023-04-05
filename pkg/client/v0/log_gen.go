@@ -17,7 +17,7 @@ func GetLogBackendByID(id uint, apiAddr, apiToken string) (*v0.LogBackend, error
 	var logBackend v0.LogBackend
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_backends/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -44,7 +44,7 @@ func GetLogBackendByName(name, apiAddr, apiToken string) (*v0.LogBackend, error)
 	var logBackends []v0.LogBackend
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_backends?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/log-backends?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -81,7 +81,7 @@ func CreateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_backends", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/log-backends", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonLogBackend),
@@ -111,7 +111,7 @@ func UpdateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_backends/%d", apiAddr, ApiVersion, *logBackend.ID),
+		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, *logBackend.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogBackend),
@@ -138,7 +138,7 @@ func GetLogStorageDefinitionByID(id uint, apiAddr, apiToken string) (*v0.LogStor
 	var logStorageDefinition v0.LogStorageDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_storage_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -165,7 +165,7 @@ func GetLogStorageDefinitionByName(name, apiAddr, apiToken string) (*v0.LogStora
 	var logStorageDefinitions []v0.LogStorageDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_storage_definitions?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/log-storage-definitions?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -202,7 +202,7 @@ func CreateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, a
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_storage_definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/log-storage-definitions", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonLogStorageDefinition),
@@ -232,7 +232,7 @@ func UpdateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, a
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_storage_definitions/%d", apiAddr, ApiVersion, *logStorageDefinition.ID),
+		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, *logStorageDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogStorageDefinition),
@@ -259,7 +259,7 @@ func GetLogStorageInstanceByID(id uint, apiAddr, apiToken string) (*v0.LogStorag
 	var logStorageInstance v0.LogStorageInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_storage_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -286,7 +286,7 @@ func GetLogStorageInstanceByName(name, apiAddr, apiToken string) (*v0.LogStorage
 	var logStorageInstances []v0.LogStorageInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_storage_instances?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/log-storage-instances?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -323,7 +323,7 @@ func CreateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_storage_instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/log-storage-instances", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonLogStorageInstance),
@@ -353,7 +353,7 @@ func UpdateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log_storage_instances/%d", apiAddr, ApiVersion, *logStorageInstance.ID),
+		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, *logStorageInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogStorageInstance),

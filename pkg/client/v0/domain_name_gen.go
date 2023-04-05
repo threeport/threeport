@@ -17,7 +17,7 @@ func GetDomainNameDefinitionByID(id uint, apiAddr, apiToken string) (*v0.DomainN
 	var domainNameDefinition v0.DomainNameDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/domain_name_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -44,7 +44,7 @@ func GetDomainNameDefinitionByName(name, apiAddr, apiToken string) (*v0.DomainNa
 	var domainNameDefinitions []v0.DomainNameDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/domain_name_definitions?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/domain-name-definitions?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -81,7 +81,7 @@ func CreateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/domain_name_definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/domain-name-definitions", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonDomainNameDefinition),
@@ -111,7 +111,7 @@ func UpdateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/domain_name_definitions/%d", apiAddr, ApiVersion, *domainNameDefinition.ID),
+		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, *domainNameDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameDefinition),
@@ -138,7 +138,7 @@ func GetDomainNameInstanceByID(id uint, apiAddr, apiToken string) (*v0.DomainNam
 	var domainNameInstance v0.DomainNameInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/domain_name_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -165,7 +165,7 @@ func GetDomainNameInstanceByName(name, apiAddr, apiToken string) (*v0.DomainName
 	var domainNameInstances []v0.DomainNameInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/domain_name_instances?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/domain-name-instances?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -202,7 +202,7 @@ func CreateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/domain_name_instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/domain-name-instances", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonDomainNameInstance),
@@ -232,7 +232,7 @@ func UpdateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/domain_name_instances/%d", apiAddr, ApiVersion, *domainNameInstance.ID),
+		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, *domainNameInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameInstance),

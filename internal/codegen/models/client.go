@@ -48,7 +48,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
-						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToSnake(mc.TypeName), 2, false),
+						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("id"),
 				),
@@ -103,7 +103,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
-						"%%s/%%s/%s?name=%%s", pluralize.Pluralize(strcase.ToSnake(mc.TypeName), 2, false),
+						"%%s/%%s/%s?name=%%s", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("name"),
 				),
@@ -198,7 +198,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
-						"%%s/%%s/%s", pluralize.Pluralize(strcase.ToSnake(mc.TypeName), 2, false),
+						"%%s/%%s/%s", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion"),
 				),
@@ -262,7 +262,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
-						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToSnake(mc.TypeName), 2, false),
+						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 					)).Op(",").
 						Id("apiAddr").Op(",").
 						Id("ApiVersion").Op(",").
