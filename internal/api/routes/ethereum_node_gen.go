@@ -10,7 +10,7 @@ import (
 
 // EthereumNodeDefinitionRoutes sets up all routes for the EthereumNodeDefinition handlers.
 func EthereumNodeDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/ethereum_node_definitions/versions", h.GetEthereumNodeDefinitionVersions)
+	e.GET("/ethereum-node-definitions/versions", h.GetEthereumNodeDefinitionVersions)
 
 	e.POST(v0.PathEthereumNodeDefinitions, h.AddEthereumNodeDefinition)
 	e.GET(v0.PathEthereumNodeDefinitions, h.GetEthereumNodeDefinitions)
@@ -22,7 +22,7 @@ func EthereumNodeDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // EthereumNodeInstanceRoutes sets up all routes for the EthereumNodeInstance handlers.
 func EthereumNodeInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/ethereum_node_instances/versions", h.GetEthereumNodeInstanceVersions)
+	e.GET("/ethereum-node-instances/versions", h.GetEthereumNodeInstanceVersions)
 
 	e.POST(v0.PathEthereumNodeInstances, h.AddEthereumNodeInstance)
 	e.GET(v0.PathEthereumNodeInstances, h.GetEthereumNodeInstances)

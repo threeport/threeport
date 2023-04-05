@@ -565,107 +565,60 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-<<<<<<< HEAD
-=======
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - DomainNameDefinition
     - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - NetworkIngressDefinition
     - NetworkIngressInstance
-    - Profile
-    - Tier
-    - ClusterDefinition
-    - ClusterInstance
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
-<<<<<<< HEAD
-    - EthereumNodeDefinition
-    - EthereumNodeInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
+    - User
+    - Company
     - ClusterDefinition
     - ClusterInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - User
-    - Company
     - Profile
     - Tier
-=======
-    - User
-    - Company
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
+    - EthereumNodeDefinition
+    - EthereumNodeInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-<<<<<<< HEAD
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     type: string
     x-enum-varnames:
-=======
-    type: string
-    x-enum-varnames:
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeNetworkIngressDefinition
     - ObjectTypeNetworkIngressInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
-<<<<<<< HEAD
-    - ObjectTypeEthereumNodeDefinition
-    - ObjectTypeEthereumNodeInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
     - ObjectTypeClusterDefinition
     - ObjectTypeClusterInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
     - ObjectTypeProfile
     - ObjectTypeTier
-=======
-    - ObjectTypeUser
-    - ObjectTypeCompany
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
+    - ObjectTypeEthereumNodeDefinition
+    - ObjectTypeEthereumNodeInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-<<<<<<< HEAD
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-=======
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
   v0.Profile:
     properties:
       CompanyID:
@@ -1025,7 +978,6 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetDomainNameInstanceVersions gets the supported versions for the domain
         name instance API.
-<<<<<<< HEAD
   /ethereum_node_definitions/versions:
     get:
       description: Get the supported API versions for ethereum node definitions.
@@ -1052,10 +1004,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetEthereumNodeInstanceVersions gets the supported versions for the
         ethereum node instance API.
-  /forward_proxy_definitions/versions:
-=======
   /forward-proxy-definitions/versions:
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
     get:
       description: Get the supported API versions for forward proxy definitions.
       operationId: forwardProxyDefinition-get-versions
@@ -3138,7 +3087,6 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing domain name instance by replacing the entire object.
-<<<<<<< HEAD
   /v0/ethereum_node_definitions:
     get:
       consumes:
@@ -3531,10 +3479,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing ethereum node instance by replacing the entire
         object.
-  /v0/forward_proxy_definitions:
-=======
   /v0/forward-proxy-definitions:
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
     get:
       consumes:
       - application/json

@@ -194,7 +194,6 @@
                 }
             }
         },
-<<<<<<< HEAD
         "/ethereum_node_definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for ethereum node definitions.",
@@ -231,10 +230,7 @@
                 }
             }
         },
-        "/forward_proxy_definitions/versions": {
-=======
         "/forward-proxy-definitions/versions": {
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
             "get": {
                 "description": "Get the supported API versions for forward proxy definitions.",
                 "produces": [
@@ -3164,7 +3160,6 @@
                 }
             }
         },
-<<<<<<< HEAD
         "/v0/ethereum_node_definitions": {
             "get": {
                 "description": "Get all ethereum node definitions from the Threeport database.",
@@ -3715,10 +3710,7 @@
                 }
             }
         },
-        "/v0/forward_proxy_definitions": {
-=======
         "/v0/forward-proxy-definitions": {
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
             "get": {
                 "description": "Get all forward proxy definitions from the Threeport database.",
                 "consumes": [
@@ -8408,109 +8400,60 @@
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-<<<<<<< HEAD
-=======
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "NetworkIngressDefinition",
                 "NetworkIngressInstance",
-                "Profile",
-                "Tier",
-                "ClusterDefinition",
-                "ClusterInstance",
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
-<<<<<<< HEAD
-                "EthereumNodeDefinition",
-                "EthereumNodeInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
+                "User",
+                "Company",
                 "ClusterDefinition",
                 "ClusterInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "User",
-                "Company",
                 "Profile",
                 "Tier",
-=======
-                "User",
-                "Company",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
+                "EthereumNodeDefinition",
+                "EthereumNodeInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
-<<<<<<< HEAD
-                "AwsRelationalDatabaseInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance"
-            ],
-            "x-enum-varnames": [
-=======
                 "AwsRelationalDatabaseInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeNetworkIngressDefinition",
                 "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
-<<<<<<< HEAD
-                "ObjectTypeEthereumNodeDefinition",
-                "ObjectTypeEthereumNodeInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeUser",
+                "ObjectTypeCompany",
                 "ObjectTypeClusterDefinition",
                 "ObjectTypeClusterInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeUser",
-                "ObjectTypeCompany",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
-=======
-                "ObjectTypeUser",
-                "ObjectTypeCompany",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
+                "ObjectTypeEthereumNodeDefinition",
+                "ObjectTypeEthereumNodeInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
-<<<<<<< HEAD
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance"
-=======
                 "ObjectTypeAwsRelationalDatabaseInstance"
->>>>>>> b04987927d2215b1be8bc8570d8918970ba494c1
             ]
         },
         "v0.Profile": {

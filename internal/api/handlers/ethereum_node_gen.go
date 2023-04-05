@@ -21,7 +21,7 @@ import (
 // @ID ethereumNodeDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /ethereum_node_definitions/versions [get]
+// @Router /ethereum-node-definitions/versions [get]
 func (h Handler) GetEthereumNodeDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeEthereumNodeDefinition)])
 }
@@ -35,7 +35,7 @@ func (h Handler) GetEthereumNodeDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_definitions [post]
+// @Router /v0/ethereum-node-definitions [post]
 func (h Handler) AddEthereumNodeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeDefinition
 	var ethereumNodeDefinition v0.EthereumNodeDefinition
@@ -82,7 +82,7 @@ func (h Handler) AddEthereumNodeDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_definitions [get]
+// @Router /v0/ethereum-node-definitions [get]
 func (h Handler) GetEthereumNodeDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -122,7 +122,7 @@ func (h Handler) GetEthereumNodeDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_definitions/{id} [get]
+// @Router /v0/ethereum-node-definitions/{id} [get]
 func (h Handler) GetEthereumNodeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeDefinition
 	ethereumNodeDefinitionID := c.Param("id")
@@ -157,7 +157,7 @@ func (h Handler) GetEthereumNodeDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_definitions/{id} [patch]
+// @Router /v0/ethereum-node-definitions/{id} [patch]
 func (h Handler) UpdateEthereumNodeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeDefinition
 	ethereumNodeDefinitionID := c.Param("id")
@@ -208,7 +208,7 @@ func (h Handler) UpdateEthereumNodeDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_definitions/{id} [put]
+// @Router /v0/ethereum-node-definitions/{id} [put]
 func (h Handler) ReplaceEthereumNodeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeDefinition
 	ethereumNodeDefinitionID := c.Param("id")
@@ -267,7 +267,7 @@ func (h Handler) ReplaceEthereumNodeDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_definitions/{id} [delete]
+// @Router /v0/ethereum-node-definitions/{id} [delete]
 func (h Handler) DeleteEthereumNodeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeDefinition
 	ethereumNodeDefinitionID := c.Param("id")
@@ -300,7 +300,7 @@ func (h Handler) DeleteEthereumNodeDefinition(c echo.Context) error {
 // @ID ethereumNodeInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /ethereum_node_instances/versions [get]
+// @Router /ethereum-node-instances/versions [get]
 func (h Handler) GetEthereumNodeInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeEthereumNodeInstance)])
 }
@@ -314,7 +314,7 @@ func (h Handler) GetEthereumNodeInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_instances [post]
+// @Router /v0/ethereum-node-instances [post]
 func (h Handler) AddEthereumNodeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeInstance
 	var ethereumNodeInstance v0.EthereumNodeInstance
@@ -361,7 +361,7 @@ func (h Handler) AddEthereumNodeInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_instances [get]
+// @Router /v0/ethereum-node-instances [get]
 func (h Handler) GetEthereumNodeInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -401,7 +401,7 @@ func (h Handler) GetEthereumNodeInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_instances/{id} [get]
+// @Router /v0/ethereum-node-instances/{id} [get]
 func (h Handler) GetEthereumNodeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeInstance
 	ethereumNodeInstanceID := c.Param("id")
@@ -436,7 +436,7 @@ func (h Handler) GetEthereumNodeInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_instances/{id} [patch]
+// @Router /v0/ethereum-node-instances/{id} [patch]
 func (h Handler) UpdateEthereumNodeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeInstance
 	ethereumNodeInstanceID := c.Param("id")
@@ -487,7 +487,7 @@ func (h Handler) UpdateEthereumNodeInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_instances/{id} [put]
+// @Router /v0/ethereum-node-instances/{id} [put]
 func (h Handler) ReplaceEthereumNodeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeInstance
 	ethereumNodeInstanceID := c.Param("id")
@@ -546,7 +546,7 @@ func (h Handler) ReplaceEthereumNodeInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/ethereum_node_instances/{id} [delete]
+// @Router /v0/ethereum-node-instances/{id} [delete]
 func (h Handler) DeleteEthereumNodeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeEthereumNodeInstance
 	ethereumNodeInstanceID := c.Param("id")

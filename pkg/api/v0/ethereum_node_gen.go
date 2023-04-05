@@ -24,8 +24,8 @@ const (
 	EthereumNodeInstanceUpdateSubject = "ethereumNodeInstance.update"
 	EthereumNodeInstanceDeleteSubject = "ethereumNodeInstance.delete"
 
-	PathEthereumNodeDefinitions = "/v0/ethereum_node_definitions"
-	PathEthereumNodeInstances   = "/v0/ethereum_node_instances"
+	PathEthereumNodeDefinitions = "/v0/ethereum-node-definitions"
+	PathEthereumNodeInstances   = "/v0/ethereum-node-instances"
 )
 
 // GetEthereumNodeDefinitionSubjects returns the NATS subjects
