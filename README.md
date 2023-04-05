@@ -10,6 +10,9 @@ In order to run a local development instance of threeport, you'll need:
 * [kind](https://kind.sigs.k8s.io/)
 * [kubectl](https://kubernetes.io/docs/reference/kubectl/)
 
+The following may also be required for different development operations:
+* [swag CLI](https://github.com/swaggo/swag) for generating API docs.
+
 Spin up a local dev instance:
 
 ```bash

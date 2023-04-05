@@ -12,9 +12,9 @@ import (
 	"github.com/nats-io/nats.go"
 
 	//"github.com/threeport/threeport/internal/authority"
-	_ "github.com/threeport/threeport/docs"
 	iapi "github.com/threeport/threeport/internal/api"
 	"github.com/threeport/threeport/internal/api/database"
+	_ "github.com/threeport/threeport/internal/api/docs"
 	"github.com/threeport/threeport/internal/api/handlers"
 	"github.com/threeport/threeport/internal/api/routes"
 	"github.com/threeport/threeport/internal/api/versions"
@@ -23,7 +23,7 @@ import (
 )
 
 // @title Threeport RESTful API
-// @version 0.1.0
+// @version 0.0.5
 // @description Threeport RESTful API.
 // @termsOfService https://threeport.io/api-tos/
 // @contact.name Threeport Admin
@@ -33,6 +33,7 @@ import (
 // @BasePath /
 //
 //go:generate ../../bin/threeport-codegen api-version v0
+//go:generate swag init --dir ./,../../pkg/api,../../internal/api --parseDependency --generalInfo main.go --output ../../internal/api/docs
 func main() {
 	// flags
 	var envFile string
