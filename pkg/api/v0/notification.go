@@ -11,6 +11,10 @@ func GetSubjectByReconcilerName(name string) (string, error) {
 		return WorkloadDefinitionSubject, nil
 	case "WorkloadInstanceReconciler":
 		return WorkloadInstanceSubject, nil
+	case "EthereumNodeDefinitionReconciler":
+		return EthereumNodeDefinitionSubject, nil
+	case "EthereumNodeInstanceReconciler":
+		return EthereumNodeInstanceSubject, nil
 	default:
 		return "", errors.New("unrecognized reconciler name")
 	}

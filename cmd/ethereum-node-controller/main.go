@@ -17,7 +17,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
-	"github.com/threeport/threeport/internal/ethereum/reconcile"
+	"github.com/threeport/threeport/internal/ethereum-node/reconcile"
 	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"github.com/threeport/threeport/pkg/controller"
@@ -125,9 +125,9 @@ func main() {
 	// configure and start reconcilers
 	reconcilerConfigs := []controller.ReconcilerConfig{
 		{
-			Name:                 "WorkloadDefinitionReconciler",
-			ObjectType:           v0.ObjectTypeWorkloadDefinition,
-			ReconcileFunc:        reconcile.WorkloadDefinitionReconciler,
+			Name:                 "EthereumNodeDefinitionReconciler",
+			ObjectType:           v0.ObjectTypeEthereumNodeDefinition,
+			ReconcileFunc:        reconcile.EthereumNodeDefinitionReconciler,
 			ConcurrentReconciles: *ethereumNodeDefinitionConcurrentReconciles,
 		},
 	}
