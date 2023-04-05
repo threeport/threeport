@@ -1,2 +1,20 @@
 bin
 tmp
+
+# direnv
+**/.envrc
+
+# VS Code
+.vscode/
+**/**__debug_bin
+
+# temporary
+*.log
+*.out
+*.tmp
+*.bak
+*.swp
+*.swo
+*.DS_Store
+*.pyc
+
