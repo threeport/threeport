@@ -17,7 +17,7 @@ func GetWorkloadDefinitionByID(id uint, apiAddr, apiToken string) (*v0.WorkloadD
 	var workloadDefinition v0.WorkloadDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -44,7 +44,7 @@ func GetWorkloadDefinitionByName(name, apiAddr, apiToken string) (*v0.WorkloadDe
 	var workloadDefinitions []v0.WorkloadDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_definitions?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/workload-definitions?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -81,7 +81,7 @@ func CreateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/workload-definitions", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonWorkloadDefinition),
@@ -111,7 +111,7 @@ func UpdateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_definitions/%d", apiAddr, ApiVersion, *workloadDefinition.ID),
+		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, *workloadDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadDefinition),
@@ -138,7 +138,7 @@ func GetWorkloadResourceDefinitionByID(id uint, apiAddr, apiToken string) (*v0.W
 	var workloadResourceDefinition v0.WorkloadResourceDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_resource_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -165,7 +165,7 @@ func GetWorkloadResourceDefinitionByName(name, apiAddr, apiToken string) (*v0.Wo
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_resource_definitions?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/workload-resource-definitions?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -202,7 +202,7 @@ func CreateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadRes
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_resource_definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/workload-resource-definitions", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
@@ -232,7 +232,7 @@ func UpdateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadRes
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_resource_definitions/%d", apiAddr, ApiVersion, *workloadResourceDefinition.ID),
+		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, *workloadResourceDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
@@ -259,7 +259,7 @@ func GetWorkloadInstanceByID(id uint, apiAddr, apiToken string) (*v0.WorkloadIns
 	var workloadInstance v0.WorkloadInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -286,7 +286,7 @@ func GetWorkloadInstanceByName(name, apiAddr, apiToken string) (*v0.WorkloadInst
 	var workloadInstances []v0.WorkloadInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_instances?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/workload-instances?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -323,7 +323,7 @@ func CreateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiT
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/workload-instances", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonWorkloadInstance),
@@ -353,7 +353,7 @@ func UpdateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiT
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_instances/%d", apiAddr, ApiVersion, *workloadInstance.ID),
+		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, *workloadInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadInstance),
@@ -380,7 +380,7 @@ func GetWorkloadResourceInstanceByID(id uint, apiAddr, apiToken string) (*v0.Wor
 	var workloadResourceInstance v0.WorkloadResourceInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_resource_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -407,7 +407,7 @@ func GetWorkloadResourceInstanceByName(name, apiAddr, apiToken string) (*v0.Work
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_resource_instances?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/workload-resource-instances?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -444,7 +444,7 @@ func CreateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourc
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_resource_instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/workload-resource-instances", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),
@@ -474,7 +474,7 @@ func UpdateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourc
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload_resource_instances/%d", apiAddr, ApiVersion, *workloadResourceInstance.ID),
+		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, *workloadResourceInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),

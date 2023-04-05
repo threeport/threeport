@@ -17,7 +17,7 @@ func GetClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.ClusterDef
 	var clusterDefinition v0.ClusterDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/cluster_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/cluster-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -44,7 +44,7 @@ func GetClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.ClusterDefi
 	var clusterDefinitions []v0.ClusterDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/cluster_definitions?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/cluster-definitions?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -81,7 +81,7 @@ func CreateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, a
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/cluster_definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/cluster-definitions", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonClusterDefinition),
@@ -111,7 +111,7 @@ func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, a
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/cluster_definitions/%d", apiAddr, ApiVersion, *clusterDefinition.ID),
+		fmt.Sprintf("%s/%s/cluster-definitions/%d", apiAddr, ApiVersion, *clusterDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonClusterDefinition),
@@ -138,7 +138,7 @@ func GetClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.ClusterInsta
 	var clusterInstance v0.ClusterInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/cluster_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/cluster-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -165,7 +165,7 @@ func GetClusterInstanceByName(name, apiAddr, apiToken string) (*v0.ClusterInstan
 	var clusterInstances []v0.ClusterInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/cluster_instances?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/cluster-instances?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -202,7 +202,7 @@ func CreateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToke
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/cluster_instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/cluster-instances", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonClusterInstance),
@@ -232,7 +232,7 @@ func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToke
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/cluster_instances/%d", apiAddr, ApiVersion, *clusterInstance.ID),
+		fmt.Sprintf("%s/%s/cluster-instances/%d", apiAddr, ApiVersion, *clusterInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonClusterInstance),

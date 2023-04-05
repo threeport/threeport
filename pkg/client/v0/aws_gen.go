@@ -17,7 +17,7 @@ func GetAwsAccountByID(id uint, apiAddr, apiToken string) (*v0.AwsAccount, error
 	var awsAccount v0.AwsAccount
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_accounts/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws-accounts/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -44,7 +44,7 @@ func GetAwsAccountByName(name, apiAddr, apiToken string) (*v0.AwsAccount, error)
 	var awsAccounts []v0.AwsAccount
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_accounts?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/aws-accounts?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -81,7 +81,7 @@ func CreateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_accounts", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/aws-accounts", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonAwsAccount),
@@ -111,7 +111,7 @@ func UpdateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_accounts/%d", apiAddr, ApiVersion, *awsAccount.ID),
+		fmt.Sprintf("%s/%s/aws-accounts/%d", apiAddr, ApiVersion, *awsAccount.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsAccount),
@@ -138,7 +138,7 @@ func GetAwsEksClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.AwsE
 	var awsEksClusterDefinition v0.AwsEksClusterDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_eks_cluster_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -165,7 +165,7 @@ func GetAwsEksClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.AwsEk
 	var awsEksClusterDefinitions []v0.AwsEksClusterDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_eks_cluster_definitions?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -202,7 +202,7 @@ func CreateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefi
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_eks_cluster_definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonAwsEksClusterDefinition),
@@ -232,7 +232,7 @@ func UpdateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefi
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_eks_cluster_definitions/%d", apiAddr, ApiVersion, *awsEksClusterDefinition.ID),
+		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions/%d", apiAddr, ApiVersion, *awsEksClusterDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsEksClusterDefinition),
@@ -259,7 +259,7 @@ func GetAwsEksClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.AwsEks
 	var awsEksClusterInstance v0.AwsEksClusterInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_eks_cluster_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws-eks-cluster-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -286,7 +286,7 @@ func GetAwsEksClusterInstanceByName(name, apiAddr, apiToken string) (*v0.AwsEksC
 	var awsEksClusterInstances []v0.AwsEksClusterInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_eks_cluster_instances?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/aws-eks-cluster-instances?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -323,7 +323,7 @@ func CreateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_eks_cluster_instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/aws-eks-cluster-instances", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonAwsEksClusterInstance),
@@ -353,7 +353,7 @@ func UpdateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_eks_cluster_instances/%d", apiAddr, ApiVersion, *awsEksClusterInstance.ID),
+		fmt.Sprintf("%s/%s/aws-eks-cluster-instances/%d", apiAddr, ApiVersion, *awsEksClusterInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsEksClusterInstance),
@@ -380,7 +380,7 @@ func GetAwsRelationalDatabaseDefinitionByID(id uint, apiAddr, apiToken string) (
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_relational_database_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws-relational-database-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -407,7 +407,7 @@ func GetAwsRelationalDatabaseDefinitionByName(name, apiAddr, apiToken string) (*
 	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_relational_database_definitions?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/aws-relational-database-definitions?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -444,7 +444,7 @@ func CreateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.A
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_relational_database_definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/aws-relational-database-definitions", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseDefinition),
@@ -474,7 +474,7 @@ func UpdateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.A
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_relational_database_definitions/%d", apiAddr, ApiVersion, *awsRelationalDatabaseDefinition.ID),
+		fmt.Sprintf("%s/%s/aws-relational-database-definitions/%d", apiAddr, ApiVersion, *awsRelationalDatabaseDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseDefinition),
@@ -501,7 +501,7 @@ func GetAwsRelationalDatabaseInstanceByID(id uint, apiAddr, apiToken string) (*v
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_relational_database_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -528,7 +528,7 @@ func GetAwsRelationalDatabaseInstanceByName(name, apiAddr, apiToken string) (*v0
 	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_relational_database_instances?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/aws-relational-database-instances?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -565,7 +565,7 @@ func CreateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRe
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_relational_database_instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/aws-relational-database-instances", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseInstance),
@@ -595,7 +595,7 @@ func UpdateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRe
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws_relational_database_instances/%d", apiAddr, ApiVersion, *awsRelationalDatabaseInstance.ID),
+		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, *awsRelationalDatabaseInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseInstance),

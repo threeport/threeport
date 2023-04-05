@@ -17,7 +17,7 @@ func GetNetworkIngressDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Net
 	var networkIngressDefinition v0.NetworkIngressDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network_ingress_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -44,7 +44,7 @@ func GetNetworkIngressDefinitionByName(name, apiAddr, apiToken string) (*v0.Netw
 	var networkIngressDefinitions []v0.NetworkIngressDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network_ingress_definitions?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/network-ingress-definitions?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -81,7 +81,7 @@ func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network_ingress_definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/network-ingress-definitions", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonNetworkIngressDefinition),
@@ -111,7 +111,7 @@ func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network_ingress_definitions/%d", apiAddr, ApiVersion, *networkIngressDefinition.ID),
+		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, *networkIngressDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonNetworkIngressDefinition),
@@ -138,7 +138,7 @@ func GetNetworkIngressInstanceByID(id uint, apiAddr, apiToken string) (*v0.Netwo
 	var networkIngressInstance v0.NetworkIngressInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network_ingress_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -165,7 +165,7 @@ func GetNetworkIngressInstanceByName(name, apiAddr, apiToken string) (*v0.Networ
 	var networkIngressInstances []v0.NetworkIngressInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network_ingress_instances?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/network-ingress-instances?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -202,7 +202,7 @@ func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network_ingress_instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/network-ingress-instances", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonNetworkIngressInstance),
@@ -232,7 +232,7 @@ func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network_ingress_instances/%d", apiAddr, ApiVersion, *networkIngressInstance.ID),
+		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, *networkIngressInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonNetworkIngressInstance),
