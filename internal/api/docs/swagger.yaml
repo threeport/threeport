@@ -565,60 +565,60 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - DomainNameDefinition
     - DomainNameInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - User
     - Company
-    - ClusterDefinition
-    - ClusterInstance
     - Profile
     - Tier
-    - EthereumNodeDefinition
-    - EthereumNodeInstance
+    - ClusterDefinition
+    - ClusterInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - EthereumNodeDefinition
+    - EthereumNodeInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeUser
     - ObjectTypeCompany
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeEthereumNodeDefinition
-    - ObjectTypeEthereumNodeInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeEthereumNodeDefinition
+    - ObjectTypeEthereumNodeInstance
   v0.Profile:
     properties:
       CompanyID:
@@ -978,7 +978,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetDomainNameInstanceVersions gets the supported versions for the domain
         name instance API.
-  /ethereum_node_definitions/versions:
+  /ethereum-node-definitions/versions:
     get:
       description: Get the supported API versions for ethereum node definitions.
       operationId: ethereumNodeDefinition-get-versions
@@ -991,7 +991,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetEthereumNodeDefinitionVersions gets the supported versions for the
         ethereum node definition API.
-  /ethereum_node_instances/versions:
+  /ethereum-node-instances/versions:
     get:
       description: Get the supported API versions for ethereum node instances.
       operationId: ethereumNodeInstance-get-versions
@@ -3087,7 +3087,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing domain name instance by replacing the entire object.
-  /v0/ethereum_node_definitions:
+  /v0/ethereum-node-definitions:
     get:
       consumes:
       - application/json
@@ -3142,7 +3142,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new ethereum node definition.
-  /v0/ethereum_node_definitions/{id}:
+  /v0/ethereum-node-definitions/{id}:
     delete:
       consumes:
       - application/json
@@ -3283,7 +3283,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing ethereum node definition by replacing the entire
         object.
-  /v0/ethereum_node_instances:
+  /v0/ethereum-node-instances:
     get:
       consumes:
       - application/json
@@ -3338,7 +3338,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new ethereum node instance.
-  /v0/ethereum_node_instances/{id}:
+  /v0/ethereum-node-instances/{id}:
     delete:
       consumes:
       - application/json

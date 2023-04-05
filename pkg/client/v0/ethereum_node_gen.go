@@ -17,7 +17,7 @@ func GetEthereumNodeDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Ether
 	var ethereumNodeDefinition v0.EthereumNodeDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/ethereum_node_definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/ethereum-node-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -44,7 +44,7 @@ func GetEthereumNodeDefinitionByName(name, apiAddr, apiToken string) (*v0.Ethere
 	var ethereumNodeDefinitions []v0.EthereumNodeDefinition
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/ethereum_node_definitions?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/ethereum-node-definitions?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -81,7 +81,7 @@ func CreateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/ethereum_node_definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/ethereum-node-definitions", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonEthereumNodeDefinition),
@@ -111,7 +111,7 @@ func UpdateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/ethereum_node_definitions/%d", apiAddr, ApiVersion, *ethereumNodeDefinition.ID),
+		fmt.Sprintf("%s/%s/ethereum-node-definitions/%d", apiAddr, ApiVersion, *ethereumNodeDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonEthereumNodeDefinition),
@@ -138,7 +138,7 @@ func GetEthereumNodeInstanceByID(id uint, apiAddr, apiToken string) (*v0.Ethereu
 	var ethereumNodeInstance v0.EthereumNodeInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/ethereum_node_instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/ethereum-node-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -165,7 +165,7 @@ func GetEthereumNodeInstanceByName(name, apiAddr, apiToken string) (*v0.Ethereum
 	var ethereumNodeInstances []v0.EthereumNodeInstance
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/ethereum_node_instances?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/ethereum-node-instances?name=%s", apiAddr, ApiVersion, name),
 		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -202,7 +202,7 @@ func CreateEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, a
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/ethereum_node_instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/ethereum-node-instances", apiAddr, ApiVersion),
 		apiToken,
 		http.MethodGet,
 		bytes.NewBuffer(jsonEthereumNodeInstance),
@@ -232,7 +232,7 @@ func UpdateEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, a
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/ethereum_node_instances/%d", apiAddr, ApiVersion, *ethereumNodeInstance.ID),
+		fmt.Sprintf("%s/%s/ethereum-node-instances/%d", apiAddr, ApiVersion, *ethereumNodeInstance.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonEthereumNodeInstance),

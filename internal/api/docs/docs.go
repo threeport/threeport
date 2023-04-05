@@ -201,7 +201,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/ethereum_node_definitions/versions": {
+        "/ethereum-node-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for ethereum node definitions.",
                 "produces": [
@@ -219,7 +219,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/ethereum_node_instances/versions": {
+        "/ethereum-node-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for ethereum node instances.",
                 "produces": [
@@ -3167,7 +3167,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/ethereum_node_definitions": {
+        "/v0/ethereum-node-definitions": {
             "get": {
                 "description": "Get all ethereum node definitions from the Threeport database.",
                 "consumes": [
@@ -3250,7 +3250,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/ethereum_node_definitions/{id}": {
+        "/v0/ethereum-node-definitions/{id}": {
             "get": {
                 "description": "Get a particular ethereum node definition from the database.",
                 "consumes": [
@@ -3442,7 +3442,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/ethereum_node_instances": {
+        "/v0/ethereum-node-instances": {
             "get": {
                 "description": "Get all ethereum node instances from the Threeport database.",
                 "consumes": [
@@ -3525,7 +3525,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/ethereum_node_instances/{id}": {
+        "/v0/ethereum-node-instances/{id}": {
             "get": {
                 "description": "Get a particular ethereum node instance from the database.",
                 "consumes": [
@@ -8407,60 +8407,60 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
                 "User",
                 "Company",
-                "ClusterDefinition",
-                "ClusterInstance",
                 "Profile",
                 "Tier",
-                "EthereumNodeDefinition",
-                "EthereumNodeInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance"
+                "AwsRelationalDatabaseInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "EthereumNodeDefinition",
+                "EthereumNodeInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeUser",
                 "ObjectTypeCompany",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
-                "ObjectTypeEthereumNodeDefinition",
-                "ObjectTypeEthereumNodeInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance"
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeEthereumNodeDefinition",
+                "ObjectTypeEthereumNodeInstance"
             ]
         },
         "v0.Profile": {
