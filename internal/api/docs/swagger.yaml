@@ -308,6 +308,61 @@ definitions:
     - DomainNameDefinitionID
     - Name
     type: object
+  v0.EthereumNodeDefinition:
+    properties:
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      Network:
+        description: Network to join (e.g. mainnet, ropsten, rinkeby, goerli, kovan,
+          etc.).
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by ethereum
+          node controller.
+        type: boolean
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.EthereumNodeInstance:
+    properties:
+      ClusterInstanceID:
+        type: integer
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      EthereumNodeDefinitionID:
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Name
+    type: object
   v0.ForwardProxyDefinition:
     properties:
       CompanyID:
@@ -510,56 +565,60 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - Profile
-    - Tier
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
-    - ClusterDefinition
-    - ClusterInstance
+    - EthereumNodeDefinition
+    - EthereumNodeInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - User
-    - Company
     - NetworkIngressDefinition
     - NetworkIngressInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
+    - ClusterDefinition
+    - ClusterInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - User
+    - Company
+    - Profile
+    - Tier
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - DomainNameDefinition
-    - DomainNameInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeProfile
-    - ObjectTypeTier
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
+    - ObjectTypeEthereumNodeDefinition
+    - ObjectTypeEthereumNodeInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
     - ObjectTypeNetworkIngressDefinition
     - ObjectTypeNetworkIngressInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       CompanyID:
@@ -673,10 +732,6 @@ definitions:
       CompanyID:
         description: Required if no UserID.  The company that owns the object.
         type: integer
-      Dependencies:
-        description: The dependencies needed in order for the workload to run properly.
-        items: {}
-        type: array
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -792,7 +847,7 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: 0.1.0
+  version: v0.0.6
 paths:
   /aws_accounts/versions:
     get:
@@ -923,6 +978,32 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetDomainNameInstanceVersions gets the supported versions for the domain
         name instance API.
+  /ethereum_node_definitions/versions:
+    get:
+      description: Get the supported API versions for ethereum node definitions.
+      operationId: ethereumNodeDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetEthereumNodeDefinitionVersions gets the supported versions for the
+        ethereum node definition API.
+  /ethereum_node_instances/versions:
+    get:
+      description: Get the supported API versions for ethereum node instances.
+      operationId: ethereumNodeInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetEthereumNodeInstanceVersions gets the supported versions for the
+        ethereum node instance API.
   /forward_proxy_definitions/versions:
     get:
       description: Get the supported API versions for forward proxy definitions.
@@ -3006,6 +3087,398 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing domain name instance by replacing the entire object.
+  /v0/ethereum_node_definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all ethereum node definitions from the Threeport database.
+      operationId: get-ethereumNodeDefinitions
+      parameters:
+      - description: ethereum node definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all ethereum node definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new ethereum node definition to the Threeport database.
+      operationId: add-ethereumNodeDefinition
+      parameters:
+      - description: EthereumNodeDefinition object
+        in: body
+        name: ethereumNodeDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.EthereumNodeDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new ethereum node definition.
+  /v0/ethereum_node_definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a ethereum node definition by from the database.
+      operationId: delete-ethereumNodeDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a ethereum node definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular ethereum node definition from the database.
+      operationId: get-ethereumNodeDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a ethereum node definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a ethereum node definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating ethereum node definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-ethereumNodeDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: EthereumNodeDefinition object
+        in: body
+        name: ethereumNodeDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.EthereumNodeDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing ethereum node definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a ethereum node definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating ethereum node definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-ethereumNodeDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: EthereumNodeDefinition object
+        in: body
+        name: ethereumNodeDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.EthereumNodeDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing ethereum node definition by replacing the entire
+        object.
+  /v0/ethereum_node_instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all ethereum node instances from the Threeport database.
+      operationId: get-ethereumNodeInstances
+      parameters:
+      - description: ethereum node instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all ethereum node instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new ethereum node instance to the Threeport database.
+      operationId: add-ethereumNodeInstance
+      parameters:
+      - description: EthereumNodeInstance object
+        in: body
+        name: ethereumNodeInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.EthereumNodeInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new ethereum node instance.
+  /v0/ethereum_node_instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a ethereum node instance by from the database.
+      operationId: delete-ethereumNodeInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a ethereum node instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular ethereum node instance from the database.
+      operationId: get-ethereumNodeInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a ethereum node instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a ethereum node instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating ethereum node instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-ethereumNodeInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: EthereumNodeInstance object
+        in: body
+        name: ethereumNodeInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.EthereumNodeInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing ethereum node instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a ethereum node instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating ethereum node instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-ethereumNodeInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: EthereumNodeInstance object
+        in: body
+        name: ethereumNodeInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.EthereumNodeInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing ethereum node instance by replacing the entire
+        object.
   /v0/forward_proxy_definitions:
     get:
       consumes:
