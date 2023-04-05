@@ -1,0 +1,5846 @@
+basePath: /
+definitions:
+  api.RESTAPIVersions:
+    properties:
+      API:
+        description: Required.  REST API resource name.
+        type: string
+      Versions:
+        description: Required.  REST API resource versions.
+        items:
+          type: string
+        type: array
+    required:
+    - API
+    - Versions
+    type: object
+  v0.AwsAccount:
+    properties:
+      AccessKeyID:
+        description: The key ID credentials for the AWS account.
+        type: string
+      DefaultRegion:
+        description: The region to use for AWS managed services if not specified.
+        type: string
+      Name:
+        type: string
+      SecretAccessKey:
+        description: The secret key credentials for the AWS account.
+        type: string
+    required:
+    - AccessKeyID
+    - DefaultRegion
+    - Name
+    - SecretAccessKey
+    type: object
+  v0.AwsEksClusterDefinition:
+    properties:
+      AWSAccountID:
+        description: The AWS account in which the RDS instance will be provisioned.
+        type: integer
+      ClusterDefinitionID:
+        type: integer
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - AWSAccountID
+    - Name
+    type: object
+  v0.AwsEksClusterInstance:
+    properties:
+      ClusterInstanceID:
+        type: integer
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.AwsRelationalDatabaseDefinition:
+    properties:
+      AWSAccountID:
+        description: The AWS account in which the RDS instance will be provisioned.
+        type: integer
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Engine:
+        description: |-
+          The database engine for the instance.  One of:
+          * mysql
+          * postgres
+        type: string
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      Storage:
+        description: The amount of storage to allocate for the database.
+        type: integer
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - AWSAccountID
+    - Engine
+    - Name
+    - Storage
+    type: object
+  v0.AwsRelationalDatabaseInstance:
+    properties:
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Status:
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+      awsRelationalDatabaseDefinitionID:
+        type: integer
+    required:
+    - Name
+    - Status
+    type: object
+  v0.ClusterDefinition:
+    properties:
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      DefaultNodeGroupInitialSize:
+        type: integer
+      DefaultNodeGroupInstanceType:
+        type: string
+      DefaultNodeGroupMaximumSize:
+        type: integer
+      DefaultNodeGroupMinimumSize:
+        type: integer
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      Region:
+        description: |-
+          The geographical region for the cluster roughly corresponding to cloud
+          provider regions.
+          TODO: determine whether to make this attribute immutable b/c cluster
+          instances will not be moved once deployed.
+        type: string
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+      ZoneCount:
+        description: The number of zones the cluster should span for availability.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.ClusterInstance:
+    properties:
+      APIEndpoint:
+        description: Required.  The network endpoint at which to reach the kube-api.
+        type: string
+      CACertificate:
+        description: |-
+          Optional.  The CA certificate used to generate the cert and key if
+          self-signed.
+        type: string
+      Certificate:
+        description: Required.  The client certificate to use for auth to the kube-api.
+        type: string
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Key:
+        description: Required.  The client key to use for auth to the kube-api.
+        type: string
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Region:
+        description: |-
+          The geographical region for the cluster roughly corresponding to cloud
+          provider regions.  Stored in the instance (as well as definition) since a
+          change to the definition will not move a cluster.
+        type: string
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+      WorkloadInstance:
+        description: The associated workload instances running on this cluster.
+        items:
+          $ref: '#/definitions/v0.WorkloadInstance'
+        type: array
+      clusterDefinitionID:
+        type: integer
+    required:
+    - APIEndpoint
+    - Certificate
+    - Key
+    - Name
+    type: object
+  v0.Company:
+    properties:
+      Name:
+        description: Company's legal name.
+        type: string
+      Users:
+        description: Users that represent the company.
+        items:
+          $ref: '#/definitions/v0.User'
+        type: array
+    required:
+    - Name
+    type: object
+  v0.DomainNameDefinition:
+    properties:
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Domain:
+        description: |-
+          The base domain upon which the subdomain will be added to give a workload
+          a unique domain name.
+        type: string
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+      Zone:
+        description: The name of the zone in which the domain is managed.
+        type: string
+    required:
+    - Domain
+    - Name
+    - Zone
+    type: object
+  v0.DomainNameInstance:
+    properties:
+      ClusterInstnaceID:
+        description: The cluster where the workload that is using the domain name
+          is running.
+        type: integer
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      DomainNameDefinitionID:
+        description: The definition used to define the instance.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - ClusterInstnaceID
+    - DomainNameDefinitionID
+    - Name
+    type: object
+  v0.ForwardProxyDefinition:
+    properties:
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      UpstreamHost:
+        description: The hostname of the upstream service.
+        type: string
+      UpstreamPath:
+        description: The path for the upstream service.
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Name
+    - UpstreamHost
+    - UpstreamPath
+    type: object
+  v0.ForwardProxyInstance:
+    properties:
+      ClusterInstanceID:
+        type: integer
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      ForwardProxyDefinitionID:
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.LogBackend:
+    properties:
+      Destination:
+        description: The network address to connect to for storing log messages.
+        type: string
+    required:
+    - Destination
+    type: object
+  v0.LogStorageDefinition:
+    properties:
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      LogBackends:
+        description: The backend storage mechanisms for retaining logs.
+        items:
+          $ref: '#/definitions/v0.LogBackend'
+        type: array
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.LogStorageInstance:
+    properties:
+      ClusterID:
+        type: integer
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      LogStorageDefinitionID:
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.Meta:
+    properties:
+      Page:
+        description: current Page
+        example: 1
+        type: integer
+      Size:
+        description: Size of the current page (number of returned Object elements)
+        example: 1
+        type: integer
+      TotalCount:
+        description: TotalCount of returned Object elements
+        example: 1
+        type: integer
+    type: object
+  v0.NetworkIngressDefinition:
+    properties:
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      DomainNameID:
+        description: The domain name to serve requests for.
+        type: integer
+      HTTPPort:
+        description: Expose port 80.
+        type: boolean
+      HTTPSPort:
+        description: Expose port 443 with TLS termination.
+        type: boolean
+      HTTPSRedirect:
+        description: Redirect all requests to HTTP port to HTTPS.
+        type: boolean
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      Private:
+        description: |-
+          Allow requests from the private network outside the workload cluster but
+          not from the public internet.
+        type: boolean
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      Public:
+        description: Allow requests from the public internet.
+        type: boolean
+      TCPPort:
+        description: TCP Port to expose to outside network.
+        type: integer
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.NetworkIngressInstance:
+    properties:
+      ClusterInstanceID:
+        type: integer
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      NetworkIngressDefinitionID:
+        type: integer
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.ObjectType:
+    enum:
+    - Profile
+    - Tier
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - ClusterDefinition
+    - ClusterInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - User
+    - Company
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - AwsAccount
+    - AwsEksClusterDefinition
+    - AwsEksClusterInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    type: string
+    x-enum-varnames:
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksClusterDefinition
+    - ObjectTypeAwsEksClusterInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+  v0.Profile:
+    properties:
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Name:
+        description: The name of a profile
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.Response:
+    description: Meta info with ObjectType array of Data of Object
+    properties:
+      Data:
+        description: Data contains array of returned Object elements
+        items: {}
+        type: array
+      Meta:
+        allOf:
+        - $ref: '#/definitions/v0.Meta'
+        description: Meta contains PageRequestParams (current page and size of current
+          page) and TotalCount (number of returned Object elements)
+      Status:
+        allOf:
+        - $ref: '#/definitions/v0.Status'
+        description: Status represents an error that occurred while handling a request
+      Type:
+        allOf:
+        - $ref: '#/definitions/v0.ObjectType'
+        description: Type contains ObjectType of returned Data elements
+        example: Transfer
+    type: object
+  v0.Status:
+    properties:
+      code:
+        description: The HTTP response status code, e.g. 200 | 201 | 500
+        example: 200
+        type: integer
+      error:
+        description: The response error message if applicable, defaults to ""
+        example: ""
+        type: string
+      message:
+        description: The HTTP response status code message, e.g. OK | Created | Internal
+          Server Error
+        example: OK
+        type: string
+    type: object
+  v0.Tier:
+    properties:
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Criticality:
+        description: |-
+          The relative rank of criticality between tiers.  The higher the number,
+          the greater the criticality.  For example, a development tier could have
+          a criticality value of 10 while production could be 100.  Access control
+          can then use this criticality value to determine user access.
+        type: integer
+      Name:
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+    required:
+    - Criticality
+    - Name
+    type: object
+  v0.User:
+    properties:
+      CompanyID:
+        description: Company that the user represents.
+        type: integer
+      CountryOfResidence:
+        description: Country where user resides.
+        type: string
+      DateOfBirth:
+        description: 'User''s date of birth.  Format: `2006-01-02T00:00:00Z`'
+        type: string
+      Email:
+        description: User's email address.
+        type: string
+      FirstName:
+        description: User's first name.
+        type: string
+      LastName:
+        description: User's last name.
+        type: string
+      Nationality:
+        description: Country of which user is a citizen.
+        type: string
+      Password:
+        description: User's account password.
+        type: string
+    required:
+    - CountryOfResidence
+    - DateOfBirth
+    - Email
+    - FirstName
+    - LastName
+    - Nationality
+    - Password
+    type: object
+  v0.WorkloadDefinition:
+    properties:
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Dependencies:
+        description: The dependencies needed in order for the workload to run properly.
+        items: {}
+        type: array
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by workload
+          controller.
+        type: boolean
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+      WorkloadInstances:
+        description: The associated workload instances that are deployed from this
+          definition.
+        items:
+          $ref: '#/definitions/v0.WorkloadInstance'
+        type: array
+      WorkloadResourceDefinitions:
+        description: The associated workload resource definitions that are derived.
+        items:
+          $ref: '#/definitions/v0.WorkloadResourceDefinition'
+        type: array
+      YAMLDocument:
+        description: The yaml manifests that define the workload configuration.
+        type: string
+    required:
+    - Name
+    - YAMLDocument
+    type: object
+  v0.WorkloadInstance:
+    properties:
+      ClusterInstnaceID:
+        description: ClusterID is the cluster to which the workload is deployed.
+        type: integer
+      CompanyID:
+        description: Required if no UserID.  The company that owns the object.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      UserID:
+        description: Required if no CompanyID.  The user that owns the object.
+        type: integer
+      WorkloadDefinitionID:
+        description: |-
+          WorkloadDefinitionID is the definition used to configure the workload
+          instance.
+        type: integer
+    required:
+    - ClusterInstnaceID
+    - Name
+    - WorkloadDefinitionID
+    type: object
+  v0.WorkloadResourceDefinition:
+    properties:
+      JSONDefinition:
+        description: The individual manifest in JSON format.
+        items:
+          type: integer
+        type: array
+      WorkloadDefinitionID:
+        description: The workload definition this resource belongs to.
+        type: integer
+    required:
+    - JSONDefinition
+    - WorkloadDefinitionID
+    type: object
+  v0.WorkloadResourceInstance:
+    properties:
+      Status:
+        description: |-
+          The Kubernetes status of the deployed resource.
+          One of:
+          * Pending
+          * Running
+          * Succeeded
+          * Failed
+          * Unknown
+        type: string
+      WorkloadInstanceID:
+        description: The workload definition this resource belongs to.
+        type: integer
+    required:
+    - WorkloadInstanceID
+    type: object
+  version.RESTAPIVersion:
+    properties:
+      Version:
+        type: string
+    required:
+    - Version
+    type: object
+host: rest-api.threeport.io
+info:
+  contact:
+    email: support@threeport.io
+    name: Threeport Admin
+    url: https://threeport.io/support
+  description: Threeport RESTful API.
+  termsOfService: https://threeport.io/api-tos/
+  title: Threeport RESTful API
+  version: 0.1.0
+paths:
+  /aws_accounts/versions:
+    get:
+      description: Get the supported API versions for aws accounts.
+      operationId: awsAccount-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetAwsAccountVersions gets the supported versions for the aws account
+        API.
+  /aws_eks_cluster_definitions/versions:
+    get:
+      description: Get the supported API versions for aws eks cluster definitions.
+      operationId: awsEksClusterDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetAwsEksClusterDefinitionVersions gets the supported versions for
+        the aws eks cluster definition API.
+  /aws_eks_cluster_instances/versions:
+    get:
+      description: Get the supported API versions for aws eks cluster instances.
+      operationId: awsEksClusterInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetAwsEksClusterInstanceVersions gets the supported versions for the
+        aws eks cluster instance API.
+  /aws_relational_database_definitions/versions:
+    get:
+      description: Get the supported API versions for aws relational database definitions.
+      operationId: awsRelationalDatabaseDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetAwsRelationalDatabaseDefinitionVersions gets the supported versions
+        for the aws relational database definition API.
+  /aws_relational_database_instances/versions:
+    get:
+      description: Get the supported API versions for aws relational database instances.
+      operationId: awsRelationalDatabaseInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetAwsRelationalDatabaseInstanceVersions gets the supported versions
+        for the aws relational database instance API.
+  /cluster_definitions/versions:
+    get:
+      description: Get the supported API versions for cluster definitions.
+      operationId: clusterDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetClusterDefinitionVersions gets the supported versions for the cluster
+        definition API.
+  /cluster_instances/versions:
+    get:
+      description: Get the supported API versions for cluster instances.
+      operationId: clusterInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetClusterInstanceVersions gets the supported versions for the cluster
+        instance API.
+  /companies/versions:
+    get:
+      description: Get the supported API versions for companies.
+      operationId: company-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetCompanyVersions gets the supported versions for the company API.
+  /domain_name_definitions/versions:
+    get:
+      description: Get the supported API versions for domain name definitions.
+      operationId: domainNameDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetDomainNameDefinitionVersions gets the supported versions for the
+        domain name definition API.
+  /domain_name_instances/versions:
+    get:
+      description: Get the supported API versions for domain name instances.
+      operationId: domainNameInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetDomainNameInstanceVersions gets the supported versions for the domain
+        name instance API.
+  /forward_proxy_definitions/versions:
+    get:
+      description: Get the supported API versions for forward proxy definitions.
+      operationId: forwardProxyDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetForwardProxyDefinitionVersions gets the supported versions for the
+        forward proxy definition API.
+  /forward_proxy_instances/versions:
+    get:
+      description: Get the supported API versions for forward proxy instances.
+      operationId: forwardProxyInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetForwardProxyInstanceVersions gets the supported versions for the
+        forward proxy instance API.
+  /log_backends/versions:
+    get:
+      description: Get the supported API versions for log backends.
+      operationId: logBackend-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetLogBackendVersions gets the supported versions for the log backend
+        API.
+  /log_storage_definitions/versions:
+    get:
+      description: Get the supported API versions for log storage definitions.
+      operationId: logStorageDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetLogStorageDefinitionVersions gets the supported versions for the
+        log storage definition API.
+  /log_storage_instances/versions:
+    get:
+      description: Get the supported API versions for log storage instances.
+      operationId: logStorageInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetLogStorageInstanceVersions gets the supported versions for the log
+        storage instance API.
+  /network_ingress_definitions/versions:
+    get:
+      description: Get the supported API versions for network ingress definitions.
+      operationId: networkIngressDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetNetworkIngressDefinitionVersions gets the supported versions for
+        the network ingress definition API.
+  /network_ingress_instances/versions:
+    get:
+      description: Get the supported API versions for network ingress instances.
+      operationId: networkIngressInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetNetworkIngressInstanceVersions gets the supported versions for the
+        network ingress instance API.
+  /profiles/versions:
+    get:
+      description: Get the supported API versions for profiles.
+      operationId: profile-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetProfileVersions gets the supported versions for the profile API.
+  /tiers/versions:
+    get:
+      description: Get the supported API versions for tiers.
+      operationId: tier-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetTierVersions gets the supported versions for the tier API.
+  /users/versions:
+    get:
+      description: Get the supported API versions for users.
+      operationId: user-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetUserVersions gets the supported versions for the user API.
+  /v0/aws_accounts:
+    get:
+      consumes:
+      - application/json
+      description: Get all aws accounts from the Threeport database.
+      operationId: get-awsAccounts
+      parameters:
+      - description: aws account search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all aws accounts.
+    post:
+      consumes:
+      - application/json
+      description: Add a new aws account to the Threeport database.
+      operationId: add-awsAccount
+      parameters:
+      - description: AwsAccount object
+        in: body
+        name: awsAccount
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsAccount'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new aws account.
+  /v0/aws_accounts/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a aws account by from the database.
+      operationId: delete-awsAccount
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a aws account.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular aws account from the database.
+      operationId: get-awsAccount
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a aws account.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a aws account in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating aws account objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-awsAccount
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsAccount object
+        in: body
+        name: awsAccount
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsAccount'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing aws account.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a aws account in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating aws account objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-awsAccount
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsAccount object
+        in: body
+        name: awsAccount
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsAccount'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing aws account by replacing the entire object.
+  /v0/aws_eks_cluster_definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all aws eks cluster definitions from the Threeport database.
+      operationId: get-awsEksClusterDefinitions
+      parameters:
+      - description: aws eks cluster definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all aws eks cluster definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new aws eks cluster definition to the Threeport database.
+      operationId: add-awsEksClusterDefinition
+      parameters:
+      - description: AwsEksClusterDefinition object
+        in: body
+        name: awsEksClusterDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsEksClusterDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new aws eks cluster definition.
+  /v0/aws_eks_cluster_definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a aws eks cluster definition by from the database.
+      operationId: delete-awsEksClusterDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a aws eks cluster definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular aws eks cluster definition from the database.
+      operationId: get-awsEksClusterDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a aws eks cluster definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a aws eks cluster definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating aws eks cluster definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-awsEksClusterDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsEksClusterDefinition object
+        in: body
+        name: awsEksClusterDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsEksClusterDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing aws eks cluster definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a aws eks cluster definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating aws eks cluster definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-awsEksClusterDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsEksClusterDefinition object
+        in: body
+        name: awsEksClusterDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsEksClusterDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing aws eks cluster definition by replacing the entire
+        object.
+  /v0/aws_eks_cluster_instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all aws eks cluster instances from the Threeport database.
+      operationId: get-awsEksClusterInstances
+      parameters:
+      - description: aws eks cluster instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all aws eks cluster instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new aws eks cluster instance to the Threeport database.
+      operationId: add-awsEksClusterInstance
+      parameters:
+      - description: AwsEksClusterInstance object
+        in: body
+        name: awsEksClusterInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsEksClusterInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new aws eks cluster instance.
+  /v0/aws_eks_cluster_instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a aws eks cluster instance by from the database.
+      operationId: delete-awsEksClusterInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a aws eks cluster instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular aws eks cluster instance from the database.
+      operationId: get-awsEksClusterInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a aws eks cluster instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a aws eks cluster instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating aws eks cluster instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-awsEksClusterInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsEksClusterInstance object
+        in: body
+        name: awsEksClusterInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsEksClusterInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing aws eks cluster instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a aws eks cluster instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating aws eks cluster instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-awsEksClusterInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsEksClusterInstance object
+        in: body
+        name: awsEksClusterInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsEksClusterInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing aws eks cluster instance by replacing the entire
+        object.
+  /v0/aws_relational_database_definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all aws relational database definitions from the Threeport
+        database.
+      operationId: get-awsRelationalDatabaseDefinitions
+      parameters:
+      - description: aws relational database definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all aws relational database definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new aws relational database definition to the Threeport database.
+      operationId: add-awsRelationalDatabaseDefinition
+      parameters:
+      - description: AwsRelationalDatabaseDefinition object
+        in: body
+        name: awsRelationalDatabaseDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsRelationalDatabaseDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new aws relational database definition.
+  /v0/aws_relational_database_definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a aws relational database definition by from the database.
+      operationId: delete-awsRelationalDatabaseDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a aws relational database definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular aws relational database definition from the database.
+      operationId: get-awsRelationalDatabaseDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a aws relational database definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a aws relational database definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating aws relational database definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-awsRelationalDatabaseDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsRelationalDatabaseDefinition object
+        in: body
+        name: awsRelationalDatabaseDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsRelationalDatabaseDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing aws relational database definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a aws relational database definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating aws relational database definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-awsRelationalDatabaseDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsRelationalDatabaseDefinition object
+        in: body
+        name: awsRelationalDatabaseDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsRelationalDatabaseDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing aws relational database definition by replacing
+        the entire object.
+  /v0/aws_relational_database_instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all aws relational database instances from the Threeport database.
+      operationId: get-awsRelationalDatabaseInstances
+      parameters:
+      - description: aws relational database instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all aws relational database instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new aws relational database instance to the Threeport database.
+      operationId: add-awsRelationalDatabaseInstance
+      parameters:
+      - description: AwsRelationalDatabaseInstance object
+        in: body
+        name: awsRelationalDatabaseInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsRelationalDatabaseInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new aws relational database instance.
+  /v0/aws_relational_database_instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a aws relational database instance by from the database.
+      operationId: delete-awsRelationalDatabaseInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a aws relational database instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular aws relational database instance from the database.
+      operationId: get-awsRelationalDatabaseInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a aws relational database instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a aws relational database instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating aws relational database instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-awsRelationalDatabaseInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsRelationalDatabaseInstance object
+        in: body
+        name: awsRelationalDatabaseInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsRelationalDatabaseInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing aws relational database instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a aws relational database instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating aws relational database instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-awsRelationalDatabaseInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsRelationalDatabaseInstance object
+        in: body
+        name: awsRelationalDatabaseInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsRelationalDatabaseInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing aws relational database instance by replacing the
+        entire object.
+  /v0/cluster_definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all cluster definitions from the Threeport database.
+      operationId: get-clusterDefinitions
+      parameters:
+      - description: cluster definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all cluster definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new cluster definition to the Threeport database.
+      operationId: add-clusterDefinition
+      parameters:
+      - description: ClusterDefinition object
+        in: body
+        name: clusterDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ClusterDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new cluster definition.
+  /v0/cluster_definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a cluster definition by from the database.
+      operationId: delete-clusterDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a cluster definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular cluster definition from the database.
+      operationId: get-clusterDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a cluster definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a cluster definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating cluster definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-clusterDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ClusterDefinition object
+        in: body
+        name: clusterDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ClusterDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing cluster definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a cluster definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating cluster definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-clusterDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ClusterDefinition object
+        in: body
+        name: clusterDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ClusterDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing cluster definition by replacing the entire object.
+  /v0/cluster_instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all cluster instances from the Threeport database.
+      operationId: get-clusterInstances
+      parameters:
+      - description: cluster instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all cluster instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new cluster instance to the Threeport database.
+      operationId: add-clusterInstance
+      parameters:
+      - description: ClusterInstance object
+        in: body
+        name: clusterInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ClusterInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new cluster instance.
+  /v0/cluster_instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a cluster instance by from the database.
+      operationId: delete-clusterInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a cluster instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular cluster instance from the database.
+      operationId: get-clusterInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a cluster instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a cluster instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating cluster instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-clusterInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ClusterInstance object
+        in: body
+        name: clusterInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ClusterInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing cluster instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a cluster instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating cluster instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-clusterInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ClusterInstance object
+        in: body
+        name: clusterInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ClusterInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing cluster instance by replacing the entire object.
+  /v0/companies:
+    get:
+      consumes:
+      - application/json
+      description: Get all companies from the Threeport database.
+      operationId: get-companies
+      parameters:
+      - description: company search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all companies.
+    post:
+      consumes:
+      - application/json
+      description: Add a new company to the Threeport database.
+      operationId: add-company
+      parameters:
+      - description: Company object
+        in: body
+        name: company
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Company'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new company.
+  /v0/companies/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a company by from the database.
+      operationId: delete-company
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a company.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular company from the database.
+      operationId: get-company
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a company.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a company in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating company objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-company
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Company object
+        in: body
+        name: company
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Company'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing company.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a company in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating company objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-company
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Company object
+        in: body
+        name: company
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Company'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing company by replacing the entire object.
+  /v0/domain_name_definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all domain name definitions from the Threeport database.
+      operationId: get-domainNameDefinitions
+      parameters:
+      - description: domain name definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all domain name definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new domain name definition to the Threeport database.
+      operationId: add-domainNameDefinition
+      parameters:
+      - description: DomainNameDefinition object
+        in: body
+        name: domainNameDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.DomainNameDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new domain name definition.
+  /v0/domain_name_definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a domain name definition by from the database.
+      operationId: delete-domainNameDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a domain name definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular domain name definition from the database.
+      operationId: get-domainNameDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a domain name definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a domain name definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating domain name definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-domainNameDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: DomainNameDefinition object
+        in: body
+        name: domainNameDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.DomainNameDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing domain name definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a domain name definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating domain name definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-domainNameDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: DomainNameDefinition object
+        in: body
+        name: domainNameDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.DomainNameDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing domain name definition by replacing the entire
+        object.
+  /v0/domain_name_instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all domain name instances from the Threeport database.
+      operationId: get-domainNameInstances
+      parameters:
+      - description: domain name instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all domain name instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new domain name instance to the Threeport database.
+      operationId: add-domainNameInstance
+      parameters:
+      - description: DomainNameInstance object
+        in: body
+        name: domainNameInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.DomainNameInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new domain name instance.
+  /v0/domain_name_instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a domain name instance by from the database.
+      operationId: delete-domainNameInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a domain name instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular domain name instance from the database.
+      operationId: get-domainNameInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a domain name instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a domain name instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating domain name instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-domainNameInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: DomainNameInstance object
+        in: body
+        name: domainNameInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.DomainNameInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing domain name instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a domain name instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating domain name instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-domainNameInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: DomainNameInstance object
+        in: body
+        name: domainNameInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.DomainNameInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing domain name instance by replacing the entire object.
+  /v0/forward_proxy_definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all forward proxy definitions from the Threeport database.
+      operationId: get-forwardProxyDefinitions
+      parameters:
+      - description: forward proxy definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all forward proxy definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new forward proxy definition to the Threeport database.
+      operationId: add-forwardProxyDefinition
+      parameters:
+      - description: ForwardProxyDefinition object
+        in: body
+        name: forwardProxyDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ForwardProxyDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new forward proxy definition.
+  /v0/forward_proxy_definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a forward proxy definition by from the database.
+      operationId: delete-forwardProxyDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a forward proxy definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular forward proxy definition from the database.
+      operationId: get-forwardProxyDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a forward proxy definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a forward proxy definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating forward proxy definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-forwardProxyDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ForwardProxyDefinition object
+        in: body
+        name: forwardProxyDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ForwardProxyDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing forward proxy definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a forward proxy definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating forward proxy definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-forwardProxyDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ForwardProxyDefinition object
+        in: body
+        name: forwardProxyDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ForwardProxyDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing forward proxy definition by replacing the entire
+        object.
+  /v0/forward_proxy_instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all forward proxy instances from the Threeport database.
+      operationId: get-forwardProxyInstances
+      parameters:
+      - description: forward proxy instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all forward proxy instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new forward proxy instance to the Threeport database.
+      operationId: add-forwardProxyInstance
+      parameters:
+      - description: ForwardProxyInstance object
+        in: body
+        name: forwardProxyInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ForwardProxyInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new forward proxy instance.
+  /v0/forward_proxy_instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a forward proxy instance by from the database.
+      operationId: delete-forwardProxyInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a forward proxy instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular forward proxy instance from the database.
+      operationId: get-forwardProxyInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a forward proxy instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a forward proxy instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating forward proxy instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-forwardProxyInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ForwardProxyInstance object
+        in: body
+        name: forwardProxyInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ForwardProxyInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing forward proxy instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a forward proxy instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating forward proxy instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-forwardProxyInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ForwardProxyInstance object
+        in: body
+        name: forwardProxyInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ForwardProxyInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing forward proxy instance by replacing the entire
+        object.
+  /v0/log_backends:
+    get:
+      consumes:
+      - application/json
+      description: Get all log backends from the Threeport database.
+      operationId: get-logBackends
+      parameters:
+      - description: log backend search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all log backends.
+    post:
+      consumes:
+      - application/json
+      description: Add a new log backend to the Threeport database.
+      operationId: add-logBackend
+      parameters:
+      - description: LogBackend object
+        in: body
+        name: logBackend
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LogBackend'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new log backend.
+  /v0/log_backends/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a log backend by from the database.
+      operationId: delete-logBackend
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a log backend.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular log backend from the database.
+      operationId: get-logBackend
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a log backend.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a log backend in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating log backend objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-logBackend
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: LogBackend object
+        in: body
+        name: logBackend
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LogBackend'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing log backend.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a log backend in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating log backend objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-logBackend
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: LogBackend object
+        in: body
+        name: logBackend
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LogBackend'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing log backend by replacing the entire object.
+  /v0/log_storage_definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all log storage definitions from the Threeport database.
+      operationId: get-logStorageDefinitions
+      parameters:
+      - description: log storage definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all log storage definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new log storage definition to the Threeport database.
+      operationId: add-logStorageDefinition
+      parameters:
+      - description: LogStorageDefinition object
+        in: body
+        name: logStorageDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LogStorageDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new log storage definition.
+  /v0/log_storage_definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a log storage definition by from the database.
+      operationId: delete-logStorageDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a log storage definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular log storage definition from the database.
+      operationId: get-logStorageDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a log storage definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a log storage definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating log storage definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-logStorageDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: LogStorageDefinition object
+        in: body
+        name: logStorageDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LogStorageDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing log storage definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a log storage definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating log storage definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-logStorageDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: LogStorageDefinition object
+        in: body
+        name: logStorageDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LogStorageDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing log storage definition by replacing the entire
+        object.
+  /v0/log_storage_instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all log storage instances from the Threeport database.
+      operationId: get-logStorageInstances
+      parameters:
+      - description: log storage instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all log storage instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new log storage instance to the Threeport database.
+      operationId: add-logStorageInstance
+      parameters:
+      - description: LogStorageInstance object
+        in: body
+        name: logStorageInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LogStorageInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new log storage instance.
+  /v0/log_storage_instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a log storage instance by from the database.
+      operationId: delete-logStorageInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a log storage instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular log storage instance from the database.
+      operationId: get-logStorageInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a log storage instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a log storage instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating log storage instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-logStorageInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: LogStorageInstance object
+        in: body
+        name: logStorageInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LogStorageInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing log storage instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a log storage instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating log storage instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-logStorageInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: LogStorageInstance object
+        in: body
+        name: logStorageInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LogStorageInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing log storage instance by replacing the entire object.
+  /v0/network_ingress_definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all network ingress definitions from the Threeport database.
+      operationId: get-networkIngressDefinitions
+      parameters:
+      - description: network ingress definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all network ingress definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new network ingress definition to the Threeport database.
+      operationId: add-networkIngressDefinition
+      parameters:
+      - description: NetworkIngressDefinition object
+        in: body
+        name: networkIngressDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new network ingress definition.
+  /v0/network_ingress_definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a network ingress definition by from the database.
+      operationId: delete-networkIngressDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a network ingress definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular network ingress definition from the database.
+      operationId: get-networkIngressDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a network ingress definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a network ingress definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating network ingress definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-networkIngressDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: NetworkIngressDefinition object
+        in: body
+        name: networkIngressDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing network ingress definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a network ingress definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating network ingress definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-networkIngressDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: NetworkIngressDefinition object
+        in: body
+        name: networkIngressDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing network ingress definition by replacing the entire
+        object.
+  /v0/network_ingress_instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all network ingress instances from the Threeport database.
+      operationId: get-networkIngressInstances
+      parameters:
+      - description: network ingress instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all network ingress instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new network ingress instance to the Threeport database.
+      operationId: add-networkIngressInstance
+      parameters:
+      - description: NetworkIngressInstance object
+        in: body
+        name: networkIngressInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new network ingress instance.
+  /v0/network_ingress_instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a network ingress instance by from the database.
+      operationId: delete-networkIngressInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a network ingress instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular network ingress instance from the database.
+      operationId: get-networkIngressInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a network ingress instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a network ingress instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating network ingress instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-networkIngressInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: NetworkIngressInstance object
+        in: body
+        name: networkIngressInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing network ingress instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a network ingress instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating network ingress instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-networkIngressInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: NetworkIngressInstance object
+        in: body
+        name: networkIngressInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing network ingress instance by replacing the entire
+        object.
+  /v0/profiles:
+    get:
+      consumes:
+      - application/json
+      description: Get all profiles from the Threeport database.
+      operationId: get-profiles
+      parameters:
+      - description: profile search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all profiles.
+    post:
+      consumes:
+      - application/json
+      description: Add a new profile to the Threeport database.
+      operationId: add-profile
+      parameters:
+      - description: Profile object
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Profile'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new profile.
+  /v0/profiles/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a profile by from the database.
+      operationId: delete-profile
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a profile.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular profile from the database.
+      operationId: get-profile
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a profile.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a profile in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating profile objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-profile
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Profile object
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Profile'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing profile.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a profile in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating profile objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-profile
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Profile object
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Profile'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing profile by replacing the entire object.
+  /v0/tiers:
+    get:
+      consumes:
+      - application/json
+      description: Get all tiers from the Threeport database.
+      operationId: get-tiers
+      parameters:
+      - description: tier search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all tiers.
+    post:
+      consumes:
+      - application/json
+      description: Add a new tier to the Threeport database.
+      operationId: add-tier
+      parameters:
+      - description: Tier object
+        in: body
+        name: tier
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Tier'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new tier.
+  /v0/tiers/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a tier by from the database.
+      operationId: delete-tier
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a tier.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular tier from the database.
+      operationId: get-tier
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a tier.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a tier in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating tier objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-tier
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Tier object
+        in: body
+        name: tier
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Tier'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing tier.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a tier in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating tier objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-tier
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Tier object
+        in: body
+        name: tier
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Tier'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing tier by replacing the entire object.
+  /v0/users:
+    get:
+      consumes:
+      - application/json
+      description: Get all users from the Threeport database.
+      operationId: get-users
+      parameters:
+      - description: user search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all users.
+    post:
+      consumes:
+      - application/json
+      description: Add a new user to the Threeport database.
+      operationId: add-user
+      parameters:
+      - description: User object
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/v0.User'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new user.
+  /v0/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a user by from the database.
+      operationId: delete-user
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a user.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular user from the database.
+      operationId: get-user
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a user.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a user in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating user objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-user
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User object
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/v0.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing user.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a user in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating user objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-user
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User object
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/v0.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing user by replacing the entire object.
+  /v0/workload_definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all workload definitions from the Threeport database.
+      operationId: get-workloadDefinitions
+      parameters:
+      - description: workload definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all workload definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new workload definition to the Threeport database.
+      operationId: add-workloadDefinition
+      parameters:
+      - description: WorkloadDefinition object
+        in: body
+        name: workloadDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new workload definition.
+  /v0/workload_definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a workload definition by from the database.
+      operationId: delete-workloadDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a workload definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular workload definition from the database.
+      operationId: get-workloadDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a workload definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a workload definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating workload definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-workloadDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadDefinition object
+        in: body
+        name: workloadDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing workload definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a workload definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating workload definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-workloadDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadDefinition object
+        in: body
+        name: workloadDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing workload definition by replacing the entire object.
+  /v0/workload_instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all workload instances from the Threeport database.
+      operationId: get-workloadInstances
+      parameters:
+      - description: workload instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all workload instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new workload instance to the Threeport database.
+      operationId: add-workloadInstance
+      parameters:
+      - description: WorkloadInstance object
+        in: body
+        name: workloadInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new workload instance.
+  /v0/workload_instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a workload instance by from the database.
+      operationId: delete-workloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a workload instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular workload instance from the database.
+      operationId: get-workloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a workload instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a workload instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating workload instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-workloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadInstance object
+        in: body
+        name: workloadInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing workload instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a workload instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating workload instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-workloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadInstance object
+        in: body
+        name: workloadInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing workload instance by replacing the entire object.
+  /v0/workload_resource_definition_sets:
+    post:
+      consumes:
+      - application/json
+      description: Add a set of new workload resource definition to the Threeport
+        database.
+      operationId: add-workloadResourceDefinitions
+      parameters:
+      - description: WorkloadResourceDefinition object array
+        in: body
+        name: workloadResourceDefinitions
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/v0.WorkloadResourceDefinition'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new set of workload resource definitions.
+  /v0/workload_resource_definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all workload resource definitions from the Threeport database.
+      operationId: get-workloadResourceDefinitions
+      parameters:
+      - description: workload resource definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all workload resource definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new workload resource definition to the Threeport database.
+      operationId: add-workloadResourceDefinition
+      parameters:
+      - description: WorkloadResourceDefinition object
+        in: body
+        name: workloadResourceDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadResourceDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new workload resource definition.
+  /v0/workload_resource_definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a workload resource definition by from the database.
+      operationId: delete-workloadResourceDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a workload resource definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular workload resource definition from the database.
+      operationId: get-workloadResourceDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a workload resource definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a workload resource definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating workload resource definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-workloadResourceDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadResourceDefinition object
+        in: body
+        name: workloadResourceDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadResourceDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing workload resource definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a workload resource definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating workload resource definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-workloadResourceDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadResourceDefinition object
+        in: body
+        name: workloadResourceDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadResourceDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing workload resource definition by replacing the entire
+        object.
+  /v0/workload_resource_instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all workload resource instances from the Threeport database.
+      operationId: get-workloadResourceInstances
+      parameters:
+      - description: workload resource instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all workload resource instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new workload resource instance to the Threeport database.
+      operationId: add-workloadResourceInstance
+      parameters:
+      - description: WorkloadResourceInstance object
+        in: body
+        name: workloadResourceInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadResourceInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new workload resource instance.
+  /v0/workload_resource_instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a workload resource instance by from the database.
+      operationId: delete-workloadResourceInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a workload resource instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular workload resource instance from the database.
+      operationId: get-workloadResourceInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a workload resource instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a workload resource instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating workload resource instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-workloadResourceInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadResourceInstance object
+        in: body
+        name: workloadResourceInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadResourceInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing workload resource instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a workload resource instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating workload resource instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-workloadResourceInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadResourceInstance object
+        in: body
+        name: workloadResourceInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadResourceInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing workload resource instance by replacing the entire
+        object.
+  /version:
+    get:
+      description: Get a version of REST API.
+      operationId: get-api-version
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/version.RESTAPIVersion'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/version.RESTAPIVersion'
+      summary: gets an REST API version.
+  /workload_definitions/versions:
+    get:
+      description: Get the supported API versions for workload definitions.
+      operationId: workloadDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetWorkloadDefinitionVersions gets the supported versions for the workload
+        definition API.
+  /workload_instances/versions:
+    get:
+      description: Get the supported API versions for workload instances.
+      operationId: workloadInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetWorkloadInstanceVersions gets the supported versions for the workload
+        instance API.
+  /workload_resource_definitions/versions:
+    get:
+      description: Get the supported API versions for workload resource definitions.
+      operationId: workloadResourceDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetWorkloadResourceDefinitionVersions gets the supported versions for
+        the workload resource definition API.
+  /workload_resource_instances/versions:
+    get:
+      description: Get the supported API versions for workload resource instances.
+      operationId: workloadResourceInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetWorkloadResourceInstanceVersions gets the supported versions for
+        the workload resource instance API.
+swagger: "2.0"

@@ -17,8 +17,8 @@ import (
 // @Description Get a version of REST API.
 // @ID get-api-version
 // @Produce	json
-// @Success 200 {object} api.RESTAPIVersion	"OK"
-// @Failure 500 {object} api.RESTAPIVersion	"Internal Server Error"
+// @Success 200 {object} version.RESTAPIVersion	"OK"
+// @Failure 500 {object} version.RESTAPIVersion	"Internal Server Error"
 // @Router /version [get]
 func (h Handler) GetApiVersion(c echo.Context) error {
 	return c.JSON(http.StatusOK, version.RESTAPIVersion{

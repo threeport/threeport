@@ -1,0 +1,15 @@
+Name: "go-web3-sample-app"
+WorkloadDefinition:
+  Name: "go-web3-sample-app-definition"
+  YAMLDocument: "sample/go-web3-sample-app-manifest.yaml"
+  UserID: 1
+WorkloadInstance:
+  Name: "go-web3-sample-app-instance"
+  WorkloadClusterName: "default-threeport-compute-space"
+  WorkloadDefinitionName: "go-web3-sample-app-definition"
+WorkloadServiceDependency:
+  Name: "go-web3-sample-app-service"
+  UpstreamHost: "rpc.ankr.com"
+  UpstreamPath: "/eth"
+  WorkloadInstanceName: "go-web3-sample-app-instance"
+

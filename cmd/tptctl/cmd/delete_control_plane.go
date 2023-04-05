@@ -11,9 +11,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/threeport/threeport/internal/tptctl/config"
-	"github.com/threeport/threeport/internal/tptctl/output"
-	"github.com/threeport/threeport/internal/tptctl/provider"
+	"github.com/threeport/threeport/internal/cli"
+	"github.com/threeport/threeport/internal/provider"
+	"github.com/threeport/threeport/internal/threeport"
+	"github.com/threeport/threeport/internal/tptctl"
 )
 
 var deleteThreeportInstanceName string
@@ -27,16 +28,16 @@ var DeleteControlPlaneCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig := &config.ThreeportConfig{}
+		threeportConfig := &tptctl.ThreeportConfig{}
 		if err := viper.Unmarshal(threeportConfig); err != nil {
-			output.Error("Failed to get Threeport config", err)
+			cli.Error("Failed to get Threeport config", err)
 			os.Exit(1)
 		}
 
 		// check threeport config for exisiting instance
 		// find the threeport instance by name
 		threeportInstanceConfigExists := false
-		var instanceConfig config.Instance
+		var instanceConfig tptctl.Instance
 		for _, instance := range threeportConfig.Instances {
 			if instance.Name == deleteThreeportInstanceName {
 				instanceConfig = instance
@@ -44,37 +45,29 @@ var DeleteControlPlaneCmd = &cobra.Command{
 			}
 		}
 		if !threeportInstanceConfigExists {
-			output.Error("Failed to find threeport instance config",
+			cli.Error("failed to find threeport instance config",
 				errors.New(fmt.Sprintf(
 					"config for threeport instance with name %s not found", deleteThreeportInstanceName)))
 			os.Exit(1)
 		}
 
-		// the control plane object provides the config for installing on the
-		// provider
-		controlPlane := provider.ControlPlane{InstanceName: deleteThreeportInstanceName}
-
-		// determine infra provider
+		var controlPlaneInfra provider.ControlPlaneInfra
 		switch instanceConfig.Provider {
-		case "kind":
-			if err := controlPlane.DeleteControlPlaneOnKind(); err != nil {
-				output.Error("Failed to delete threeport control plane on kind", err)
-				os.Exit(1)
+		case threeport.ControlPlaneInfraProviderKind:
+			controlPlaneInfraKind := provider.ControlPlaneInfraKind{
+				ThreeportInstanceName: instanceConfig.Name,
+				KubeconfigPath:        instanceConfig.Kubeconfig,
 			}
-		case "eks":
-			if err := controlPlane.DeleteControlPlaneOnEKS(providerConfigDir); err != nil {
-				output.Error("Failed to delete threeport control plane on EKS", err)
-				os.Exit(1)
-			}
-		default:
-			output.Error("Unrecognized infra provider",
-				errors.New(fmt.Sprintf("infra provider %s not supported", infraProvider)))
+			controlPlaneInfra = &controlPlaneInfraKind
+		}
+		if err := controlPlaneInfra.Delete(); err != nil {
+			cli.Error("failed to delete control plane infra", err)
 			os.Exit(1)
 		}
 
 		// update threeport config to remove the deleted threeport instance and
 		// current instance
-		updatedInstances := []config.Instance{}
+		updatedInstances := []tptctl.Instance{}
 		for _, instance := range threeportConfig.Instances {
 			if instance.Name == deleteThreeportInstanceName {
 				continue
@@ -86,9 +79,9 @@ var DeleteControlPlaneCmd = &cobra.Command{
 		viper.Set("Instances", updatedInstances)
 		viper.Set("CurrentInstance", "")
 		viper.WriteConfig()
-		output.Info("Threeport config updated")
+		cli.Info("Threeport config updated")
 
-		output.Complete(fmt.Sprintf("Threeport instance %s deleted", deleteThreeportInstanceName))
+		cli.Complete(fmt.Sprintf("Threeport instance %s deleted", deleteThreeportInstanceName))
 	},
 }
 

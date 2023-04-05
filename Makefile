@@ -31,7 +31,9 @@ ifndef RELEASE_VERSION
 endif
 	@echo -n "Are you sure you want to release version ${RELEASE_VERSION} of threeport? [y/n] " && read ans && [ $${ans:-n} = y ]
 	@echo ${RELEASE_VERSION} > internal/version/version.txt
+	@sed -i "/\/\/ @version/c\\/\/ @version ${RELEASE_VERSION}" cmd/rest-api/main.go
 	@git add internal/version/version.txt
+	@git add cmd/rest-api/main.go
 	@git commit -s -m "release: cut version ${RELEASE_VERSION}"
 	@git tag ${RELEASE_VERSION}
 	@git push origin main --tag

@@ -11,10 +11,17 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/threeport/threeport/internal/tptctl/config"
-	"github.com/threeport/threeport/internal/tptctl/output"
-	"github.com/threeport/threeport/internal/tptctl/provider"
+	"github.com/threeport/threeport/internal/cli"
+	"github.com/threeport/threeport/internal/kube"
+	"github.com/threeport/threeport/internal/provider"
+	"github.com/threeport/threeport/internal/threeport"
+	"github.com/threeport/threeport/internal/tptctl"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
+
+// TODO: will become a variable once production-ready control plane instances are
+// available.
+const tier = threeport.ControlPlaneTierDev
 
 var (
 	createThreeportInstanceName string
@@ -23,6 +30,7 @@ var (
 	createAdminEmail            string
 	forceOverwriteConfig        bool
 	infraProvider               string
+	kubeconfigPath              string
 )
 
 // CreateControlPlaneCmd represents the create threeport command
@@ -34,9 +42,9 @@ var CreateControlPlaneCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig := &config.ThreeportConfig{}
+		threeportConfig := &tptctl.ThreeportConfig{}
 		if err := viper.Unmarshal(threeportConfig); err != nil {
-			output.Error("Failed to get Threeport config", err)
+			cli.Error("Failed to get Threeport config", err)
 			os.Exit(1)
 		}
 
@@ -46,12 +54,12 @@ var CreateControlPlaneCmd = &cobra.Command{
 			if instance.Name == createThreeportInstanceName {
 				threeportInstanceConfigExists = true
 				if !forceOverwriteConfig {
-					output.Error(
+					cli.Error(
 						"Interupted creation of Threeport instance",
 						errors.New(fmt.Sprintf("instance of Threeport with name %s already exists", instance.Name)),
 					)
-					output.Info("If you wish to overwrite the existing config use --force-overwrite-config flag")
-					output.Warning("You will lose the ability to connect to the existing Threeport instance if it still exists")
+					cli.Info("If you wish to overwrite the existing config use --force-overwrite-config flag")
+					cli.Warning("You will lose the ability to connect to the existing Threeport instance if it still exists")
 					os.Exit(1)
 				}
 			}
@@ -63,49 +71,88 @@ var CreateControlPlaneCmd = &cobra.Command{
 			createRootDomain,
 			createProviderAccountID,
 		); err != nil {
-			output.Error("Flag validation failed", err)
+			cli.Error("Flag validation failed", err)
 			os.Exit(1)
 		}
 
-		// the control plane object provides the config for installing on the
-		// provider
-		controlPlane := provider.NewControlPlane()
-		controlPlane.InstanceName = createThreeportInstanceName
-		if createRootDomain != "" {
-			controlPlane.RootDomainName = createRootDomain
-			controlPlane.ProviderAccountID = createProviderAccountID
-			controlPlane.AdminEmail = createAdminEmail
+		// configure the control plane
+		controlPlane := threeport.ControlPlane{
+			InfraProvider: threeport.ControlPlaneInfraProvider(infraProvider),
+			Tier:          tier,
 		}
 
-		// determine infra provider and create control plane
+		// configure the infra provider
+		var controlPlaneInfra provider.ControlPlaneInfra
+		switch controlPlane.InfraProvider {
+		case threeport.ControlPlaneInfraProviderKind:
+			// get kubeconfig to use for kind cluster
+			if kubeconfigPath == "" {
+				k, err := kube.DefaultKubeconfig()
+				if err != nil {
+					cli.Error("Failed to get default kubeconfig path", err)
+					os.Exit(1)
+				}
+				kubeconfigPath = k
+			}
+			controlPlaneInfraKind := provider.ControlPlaneInfraKind{
+				ThreeportInstanceName: createThreeportInstanceName,
+				KubeconfigPath:        kubeconfigPath,
+			}
+			devEnvironment := false
+			kindConfig := controlPlaneInfraKind.GetKindConfig(devEnvironment)
+			controlPlaneInfraKind.KindConfig = kindConfig
+			controlPlaneInfra = &controlPlaneInfraKind
+		}
+
+		// create control plane
 		var controlPlaneErr error
-		var threeportAPIEndpoint string
-		switch infraProvider {
-		case "kind":
-			if err := controlPlane.CreateControlPlaneOnKind(providerConfigDir); err != nil {
-				controlPlaneErr = fmt.Errorf("failed to install control plane on kind: %w", err)
-				threeportAPIEndpoint = fmt.Sprintf("%s://%s:%s",
-					provider.KindThreeportAPIProtocol, provider.KindThreeportAPIHostname,
-					provider.KindThreeportAPIPort)
-			}
-		case "eks":
-			tpapiEndpoint, err := controlPlane.CreateControlPlaneOnEKS(providerConfigDir)
-			if err != nil {
-				controlPlaneErr = fmt.Errorf("failed to install control plane on EKS: %w", err)
-			}
-			threeportAPIEndpoint = tpapiEndpoint
-		default:
-			output.Error("Unrecognized infra provider",
-				errors.New(fmt.Sprintf("infra provider %s not supported", infraProvider)))
+		kubeConnectionInfo, err := controlPlaneInfra.Create()
+		if err != nil {
+			//cli.Error("Failed to get create control plane infra for threeport", err)
+			//os.Exit(1)
+			controlPlaneErr = fmt.Errorf("failed to get create control plane infra for threeport", err)
+		}
+
+		// the cluster instance is the default compute space cluster to be added
+		// to the API
+		clusterInstName := fmt.Sprintf("compute-space-%s-0", createThreeportInstanceName)
+		clusterInstance := v0.ClusterInstance{
+			Instance: v0.Instance{
+				Name: &clusterInstName,
+			},
+			APIEndpoint:   &kubeConnectionInfo.APIEndpoint,
+			CACertificate: &kubeConnectionInfo.CACertificate,
+			Certificate:   &kubeConnectionInfo.Certificate,
+			Key:           &kubeConnectionInfo.Key,
+		}
+
+		// create a client to connect to kind cluster kube API
+		dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance)
+		if err != nil {
+			cli.Error("failed to get a Kubernetes client and mapper", err)
+			os.Exit(1)
+		}
+
+		// install the threeport control plane dependencies
+		if err := threeport.InstallThreeportControlPlaneDependencies(dynamicKubeClient, mapper); err != nil {
+			cli.Error("failed to install threeport control plane dependencies", err)
+			os.Exit(1)
+		}
+
+		// install the threeport control plane API and controllers
+		if err := threeport.InstallThreeportControlPlaneComponents(dynamicKubeClient, mapper, false); err != nil {
+			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)
 		}
 
 		// create threeport config for new instance
-		newThreeportInstance := &config.Instance{
-			Name:      createThreeportInstanceName,
-			Provider:  infraProvider,
-			APIServer: threeportAPIEndpoint,
+		newThreeportInstance := &tptctl.Instance{
+			Name:     createThreeportInstanceName,
+			Provider: infraProvider,
+			//APIServer: threeportAPIEndpoint,
+			APIServer: kubeConnectionInfo.APIEndpoint,
 			//APIServer: install.GetThreeportAPIEndpoint(),
+			Kubeconfig: kubeconfigPath,
 		}
 
 		// update threeport config to add the new instance and set as current instance
@@ -121,32 +168,38 @@ var CreateControlPlaneCmd = &cobra.Command{
 		viper.Set("Instances", threeportConfig.Instances)
 		viper.Set("CurrentInstance", createThreeportInstanceName)
 		viper.WriteConfig()
-		output.Info("Threeport config updated")
+		cli.Info("Threeport config updated")
 
 		if controlPlaneErr != nil {
-			output.Error("Problem encountered installing control plane", controlPlaneErr)
+			cli.Error("Problem encountered installing control plane", controlPlaneErr)
 		} else {
-			output.Complete(fmt.Sprintf("Threeport instance %s created", createThreeportInstanceName))
+			cli.Complete(fmt.Sprintf("Threeport instance %s created", createThreeportInstanceName))
 		}
 	},
 }
 
 func init() {
 	createCmd.AddCommand(CreateControlPlaneCmd)
-	CreateControlPlaneCmd.Flags().StringVarP(&infraProvider,
-		"provider", "p", "kind", "the infrasture provider to install upon")
 	CreateControlPlaneCmd.Flags().StringVarP(&createThreeportInstanceName,
 		"name", "n", "", "name of control plane instance")
+	CreateControlPlaneCmd.Flags().StringVarP(&infraProvider,
+		"provider", "p", "kind", "the infrasture provider to install upon")
+	// this flag will be enabled once production-ready control plane instances
+	// are available.
+	//CreateControlPlaneCmd.Flags().StringVarP(&tier,
+	//	"tier", "t", threeport.ControlPlaneTierDev, "determines the level of availability and data retention for the control plane")
 	CreateControlPlaneCmd.MarkFlagRequired("name")
+	CreateControlPlaneCmd.Flags().StringVarP(&kubeconfigPath,
+		"kubeconfig", "k", "", "path to kubeconfig needed for kind provider installs - default is ~/.kube/config")
 	CreateControlPlaneCmd.Flags().BoolVar(
 		&forceOverwriteConfig, "force-overwrite-config", false,
 		"force the overwrite of an existing Threeport instance config.  Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.")
-	CreateControlPlaneCmd.Flags().StringVarP(&createRootDomain,
-		"root-domain", "d", "",
-		"the root domain name to use for the Threeport API. Requires a public hosted zone in AWS Route53. A subdomain for the Threeport API will be added to the root domain.")
 	CreateControlPlaneCmd.Flags().StringVarP(&createProviderAccountID,
 		"provider-account-id", "a", "",
 		"the provider account ID.  Required if providing a root domain for automated DNS management.")
+	CreateControlPlaneCmd.Flags().StringVarP(&createRootDomain,
+		"root-domain", "d", "",
+		"the root domain name to use for the Threeport API. Requires a public hosted zone in AWS Route53. A subdomain for the Threeport API will be added to the root domain.")
 	CreateControlPlaneCmd.Flags().StringVarP(&createAdminEmail,
 		"admin-email", "e", "",
 		"email address of control plane admin.  Provided to TLS provider.")
@@ -154,10 +207,10 @@ func init() {
 
 // validateCreateControlPlaneFlags validates flag inputs as needed
 func validateCreateControlPlaneFlags(infraProvider, createRootDomain, createProviderAccountID string) error {
-	allowedInfraProviders := []string{"kind", "eks"}
+	allowedInfraProviders := threeport.SupportedInfraProviders()
 	matched := false
 	for _, prov := range allowedInfraProviders {
-		if infraProvider == prov {
+		if threeport.ControlPlaneInfraProvider(infraProvider) == prov {
 			matched = true
 			break
 		}
