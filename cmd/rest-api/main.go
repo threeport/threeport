@@ -117,10 +117,16 @@ func main() {
 		e.Logger.Fatalf("failed to create jetstream context: %v", err)
 	}
 
-	// add stream
+	// add workload stream
 	js.AddStream(&nats.StreamConfig{
 		Name:     v0.WorkloadStreamName,
 		Subjects: v0.GetWorkloadSubjects(),
+	})
+
+	// add ethereum node stream
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.EthereumNodeStreamName,
+		Subjects: v0.GetEthereumNodeSubjects(),
 	})
 
 	// handlers
