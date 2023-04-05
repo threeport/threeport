@@ -21,7 +21,7 @@ import (
 // @ID awsAccount-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws_accounts/versions [get]
+// @Router /aws-accounts/versions [get]
 func (h Handler) GetAwsAccountVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsAccount)])
 }
@@ -35,7 +35,7 @@ func (h Handler) GetAwsAccountVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_accounts [post]
+// @Router /v0/aws-accounts [post]
 func (h Handler) AddAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	var awsAccount v0.AwsAccount
@@ -82,7 +82,7 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_accounts [get]
+// @Router /v0/aws-accounts [get]
 func (h Handler) GetAwsAccounts(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -122,7 +122,7 @@ func (h Handler) GetAwsAccounts(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_accounts/{id} [get]
+// @Router /v0/aws-accounts/{id} [get]
 func (h Handler) GetAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	awsAccountID := c.Param("id")
@@ -157,7 +157,7 @@ func (h Handler) GetAwsAccount(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_accounts/{id} [patch]
+// @Router /v0/aws-accounts/{id} [patch]
 func (h Handler) UpdateAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	awsAccountID := c.Param("id")
@@ -208,7 +208,7 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_accounts/{id} [put]
+// @Router /v0/aws-accounts/{id} [put]
 func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	awsAccountID := c.Param("id")
@@ -267,7 +267,7 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_accounts/{id} [delete]
+// @Router /v0/aws-accounts/{id} [delete]
 func (h Handler) DeleteAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	awsAccountID := c.Param("id")
@@ -300,7 +300,7 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 // @ID awsEksClusterDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws_eks_cluster_definitions/versions [get]
+// @Router /aws-eks-cluster-definitions/versions [get]
 func (h Handler) GetAwsEksClusterDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsEksClusterDefinition)])
 }
@@ -314,7 +314,7 @@ func (h Handler) GetAwsEksClusterDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_definitions [post]
+// @Router /v0/aws-eks-cluster-definitions [post]
 func (h Handler) AddAwsEksClusterDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterDefinition
 	var awsEksClusterDefinition v0.AwsEksClusterDefinition
@@ -361,7 +361,7 @@ func (h Handler) AddAwsEksClusterDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_definitions [get]
+// @Router /v0/aws-eks-cluster-definitions [get]
 func (h Handler) GetAwsEksClusterDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -401,7 +401,7 @@ func (h Handler) GetAwsEksClusterDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_definitions/{id} [get]
+// @Router /v0/aws-eks-cluster-definitions/{id} [get]
 func (h Handler) GetAwsEksClusterDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterDefinition
 	awsEksClusterDefinitionID := c.Param("id")
@@ -436,7 +436,7 @@ func (h Handler) GetAwsEksClusterDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_definitions/{id} [patch]
+// @Router /v0/aws-eks-cluster-definitions/{id} [patch]
 func (h Handler) UpdateAwsEksClusterDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterDefinition
 	awsEksClusterDefinitionID := c.Param("id")
@@ -487,7 +487,7 @@ func (h Handler) UpdateAwsEksClusterDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_definitions/{id} [put]
+// @Router /v0/aws-eks-cluster-definitions/{id} [put]
 func (h Handler) ReplaceAwsEksClusterDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterDefinition
 	awsEksClusterDefinitionID := c.Param("id")
@@ -546,7 +546,7 @@ func (h Handler) ReplaceAwsEksClusterDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_definitions/{id} [delete]
+// @Router /v0/aws-eks-cluster-definitions/{id} [delete]
 func (h Handler) DeleteAwsEksClusterDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterDefinition
 	awsEksClusterDefinitionID := c.Param("id")
@@ -579,7 +579,7 @@ func (h Handler) DeleteAwsEksClusterDefinition(c echo.Context) error {
 // @ID awsEksClusterInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws_eks_cluster_instances/versions [get]
+// @Router /aws-eks-cluster-instances/versions [get]
 func (h Handler) GetAwsEksClusterInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsEksClusterInstance)])
 }
@@ -593,7 +593,7 @@ func (h Handler) GetAwsEksClusterInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_instances [post]
+// @Router /v0/aws-eks-cluster-instances [post]
 func (h Handler) AddAwsEksClusterInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterInstance
 	var awsEksClusterInstance v0.AwsEksClusterInstance
@@ -640,7 +640,7 @@ func (h Handler) AddAwsEksClusterInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_instances [get]
+// @Router /v0/aws-eks-cluster-instances [get]
 func (h Handler) GetAwsEksClusterInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -680,7 +680,7 @@ func (h Handler) GetAwsEksClusterInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_instances/{id} [get]
+// @Router /v0/aws-eks-cluster-instances/{id} [get]
 func (h Handler) GetAwsEksClusterInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterInstance
 	awsEksClusterInstanceID := c.Param("id")
@@ -715,7 +715,7 @@ func (h Handler) GetAwsEksClusterInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_instances/{id} [patch]
+// @Router /v0/aws-eks-cluster-instances/{id} [patch]
 func (h Handler) UpdateAwsEksClusterInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterInstance
 	awsEksClusterInstanceID := c.Param("id")
@@ -766,7 +766,7 @@ func (h Handler) UpdateAwsEksClusterInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_instances/{id} [put]
+// @Router /v0/aws-eks-cluster-instances/{id} [put]
 func (h Handler) ReplaceAwsEksClusterInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterInstance
 	awsEksClusterInstanceID := c.Param("id")
@@ -825,7 +825,7 @@ func (h Handler) ReplaceAwsEksClusterInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_eks_cluster_instances/{id} [delete]
+// @Router /v0/aws-eks-cluster-instances/{id} [delete]
 func (h Handler) DeleteAwsEksClusterInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksClusterInstance
 	awsEksClusterInstanceID := c.Param("id")
@@ -858,7 +858,7 @@ func (h Handler) DeleteAwsEksClusterInstance(c echo.Context) error {
 // @ID awsRelationalDatabaseDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws_relational_database_definitions/versions [get]
+// @Router /aws-relational-database-definitions/versions [get]
 func (h Handler) GetAwsRelationalDatabaseDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsRelationalDatabaseDefinition)])
 }
@@ -872,7 +872,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinitionVersions(c echo.Context) erro
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_definitions [post]
+// @Router /v0/aws-relational-database-definitions [post]
 func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
@@ -919,7 +919,7 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_definitions [get]
+// @Router /v0/aws-relational-database-definitions [get]
 func (h Handler) GetAwsRelationalDatabaseDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -959,7 +959,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_definitions/{id} [get]
+// @Router /v0/aws-relational-database-definitions/{id} [get]
 func (h Handler) GetAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	awsRelationalDatabaseDefinitionID := c.Param("id")
@@ -994,7 +994,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_definitions/{id} [patch]
+// @Router /v0/aws-relational-database-definitions/{id} [patch]
 func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	awsRelationalDatabaseDefinitionID := c.Param("id")
@@ -1045,7 +1045,7 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_definitions/{id} [put]
+// @Router /v0/aws-relational-database-definitions/{id} [put]
 func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	awsRelationalDatabaseDefinitionID := c.Param("id")
@@ -1104,7 +1104,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_definitions/{id} [delete]
+// @Router /v0/aws-relational-database-definitions/{id} [delete]
 func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	awsRelationalDatabaseDefinitionID := c.Param("id")
@@ -1137,7 +1137,7 @@ func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @ID awsRelationalDatabaseInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws_relational_database_instances/versions [get]
+// @Router /aws-relational-database-instances/versions [get]
 func (h Handler) GetAwsRelationalDatabaseInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsRelationalDatabaseInstance)])
 }
@@ -1151,7 +1151,7 @@ func (h Handler) GetAwsRelationalDatabaseInstanceVersions(c echo.Context) error 
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_instances [post]
+// @Router /v0/aws-relational-database-instances [post]
 func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
@@ -1198,7 +1198,7 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_instances [get]
+// @Router /v0/aws-relational-database-instances [get]
 func (h Handler) GetAwsRelationalDatabaseInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -1238,7 +1238,7 @@ func (h Handler) GetAwsRelationalDatabaseInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_instances/{id} [get]
+// @Router /v0/aws-relational-database-instances/{id} [get]
 func (h Handler) GetAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	awsRelationalDatabaseInstanceID := c.Param("id")
@@ -1273,7 +1273,7 @@ func (h Handler) GetAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_instances/{id} [patch]
+// @Router /v0/aws-relational-database-instances/{id} [patch]
 func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	awsRelationalDatabaseInstanceID := c.Param("id")
@@ -1324,7 +1324,7 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_instances/{id} [put]
+// @Router /v0/aws-relational-database-instances/{id} [put]
 func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	awsRelationalDatabaseInstanceID := c.Param("id")
@@ -1383,7 +1383,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws_relational_database_instances/{id} [delete]
+// @Router /v0/aws-relational-database-instances/{id} [delete]
 func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	awsRelationalDatabaseInstanceID := c.Param("id")

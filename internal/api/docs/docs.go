@@ -21,7 +21,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/aws_accounts/versions": {
+        "/aws-accounts/versions": {
             "get": {
                 "description": "Get the supported API versions for aws accounts.",
                 "produces": [
@@ -39,7 +39,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/aws_eks_cluster_definitions/versions": {
+        "/aws-eks-cluster-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for aws eks cluster definitions.",
                 "produces": [
@@ -57,7 +57,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/aws_eks_cluster_instances/versions": {
+        "/aws-eks-cluster-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for aws eks cluster instances.",
                 "produces": [
@@ -75,7 +75,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/aws_relational_database_definitions/versions": {
+        "/aws-relational-database-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for aws relational database definitions.",
                 "produces": [
@@ -93,7 +93,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/aws_relational_database_instances/versions": {
+        "/aws-relational-database-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for aws relational database instances.",
                 "produces": [
@@ -111,7 +111,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/cluster_definitions/versions": {
+        "/cluster-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for cluster definitions.",
                 "produces": [
@@ -129,7 +129,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/cluster_instances/versions": {
+        "/cluster-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for cluster instances.",
                 "produces": [
@@ -165,7 +165,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/domain_name_definitions/versions": {
+        "/domain-name-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for domain name definitions.",
                 "produces": [
@@ -183,7 +183,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/domain_name_instances/versions": {
+        "/domain-name-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for domain name instances.",
                 "produces": [
@@ -201,43 +201,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/ethereum_node_definitions/versions": {
-            "get": {
-                "description": "Get the supported API versions for ethereum node definitions.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "GetEthereumNodeDefinitionVersions gets the supported versions for the ethereum node definition API.",
-                "operationId": "ethereumNodeDefinition-get-versions",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
-                        }
-                    }
-                }
-            }
-        },
-        "/ethereum_node_instances/versions": {
-            "get": {
-                "description": "Get the supported API versions for ethereum node instances.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "GetEthereumNodeInstanceVersions gets the supported versions for the ethereum node instance API.",
-                "operationId": "ethereumNodeInstance-get-versions",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
-                        }
-                    }
-                }
-            }
-        },
-        "/forward_proxy_definitions/versions": {
+        "/forward-proxy-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for forward proxy definitions.",
                 "produces": [
@@ -255,7 +219,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/forward_proxy_instances/versions": {
+        "/forward-proxy-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for forward proxy instances.",
                 "produces": [
@@ -273,7 +237,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/log_backends/versions": {
+        "/log-backends/versions": {
             "get": {
                 "description": "Get the supported API versions for log backends.",
                 "produces": [
@@ -291,7 +255,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/log_storage_definitions/versions": {
+        "/log-storage-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for log storage definitions.",
                 "produces": [
@@ -309,7 +273,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/log_storage_instances/versions": {
+        "/log-storage-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for log storage instances.",
                 "produces": [
@@ -327,7 +291,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/network_ingress_definitions/versions": {
+        "/network-ingress-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for network ingress definitions.",
                 "produces": [
@@ -345,7 +309,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/network_ingress_instances/versions": {
+        "/network-ingress-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for network ingress instances.",
                 "produces": [
@@ -417,7 +381,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_accounts": {
+        "/v0/aws-accounts": {
             "get": {
                 "description": "Get all aws accounts from the Threeport database.",
                 "consumes": [
@@ -500,7 +464,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_accounts/{id}": {
+        "/v0/aws-accounts/{id}": {
             "get": {
                 "description": "Get a particular aws account from the database.",
                 "consumes": [
@@ -692,7 +656,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_eks_cluster_definitions": {
+        "/v0/aws-eks-cluster-definitions": {
             "get": {
                 "description": "Get all aws eks cluster definitions from the Threeport database.",
                 "consumes": [
@@ -775,7 +739,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_eks_cluster_definitions/{id}": {
+        "/v0/aws-eks-cluster-definitions/{id}": {
             "get": {
                 "description": "Get a particular aws eks cluster definition from the database.",
                 "consumes": [
@@ -967,7 +931,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_eks_cluster_instances": {
+        "/v0/aws-eks-cluster-instances": {
             "get": {
                 "description": "Get all aws eks cluster instances from the Threeport database.",
                 "consumes": [
@@ -1050,7 +1014,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_eks_cluster_instances/{id}": {
+        "/v0/aws-eks-cluster-instances/{id}": {
             "get": {
                 "description": "Get a particular aws eks cluster instance from the database.",
                 "consumes": [
@@ -1242,7 +1206,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_relational_database_definitions": {
+        "/v0/aws-relational-database-definitions": {
             "get": {
                 "description": "Get all aws relational database definitions from the Threeport database.",
                 "consumes": [
@@ -1325,7 +1289,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_relational_database_definitions/{id}": {
+        "/v0/aws-relational-database-definitions/{id}": {
             "get": {
                 "description": "Get a particular aws relational database definition from the database.",
                 "consumes": [
@@ -1517,7 +1481,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_relational_database_instances": {
+        "/v0/aws-relational-database-instances": {
             "get": {
                 "description": "Get all aws relational database instances from the Threeport database.",
                 "consumes": [
@@ -1600,7 +1564,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_relational_database_instances/{id}": {
+        "/v0/aws-relational-database-instances/{id}": {
             "get": {
                 "description": "Get a particular aws relational database instance from the database.",
                 "consumes": [
@@ -1792,7 +1756,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/cluster_definitions": {
+        "/v0/cluster-definitions": {
             "get": {
                 "description": "Get all cluster definitions from the Threeport database.",
                 "consumes": [
@@ -1875,7 +1839,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/cluster_definitions/{id}": {
+        "/v0/cluster-definitions/{id}": {
             "get": {
                 "description": "Get a particular cluster definition from the database.",
                 "consumes": [
@@ -2067,7 +2031,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/cluster_instances": {
+        "/v0/cluster-instances": {
             "get": {
                 "description": "Get all cluster instances from the Threeport database.",
                 "consumes": [
@@ -2150,7 +2114,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/cluster_instances/{id}": {
+        "/v0/cluster-instances/{id}": {
             "get": {
                 "description": "Get a particular cluster instance from the database.",
                 "consumes": [
@@ -2617,7 +2581,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/domain_name_definitions": {
+        "/v0/domain-name-definitions": {
             "get": {
                 "description": "Get all domain name definitions from the Threeport database.",
                 "consumes": [
@@ -2700,7 +2664,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/domain_name_definitions/{id}": {
+        "/v0/domain-name-definitions/{id}": {
             "get": {
                 "description": "Get a particular domain name definition from the database.",
                 "consumes": [
@@ -2892,7 +2856,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/domain_name_instances": {
+        "/v0/domain-name-instances": {
             "get": {
                 "description": "Get all domain name instances from the Threeport database.",
                 "consumes": [
@@ -2975,7 +2939,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/domain_name_instances/{id}": {
+        "/v0/domain-name-instances/{id}": {
             "get": {
                 "description": "Get a particular domain name instance from the database.",
                 "consumes": [
@@ -3167,557 +3131,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/ethereum_node_definitions": {
-            "get": {
-                "description": "Get all ethereum node definitions from the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets all ethereum node definitions.",
-                "operationId": "get-ethereumNodeDefinitions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ethereum node definition search by name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new ethereum node definition to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new ethereum node definition.",
-                "operationId": "add-ethereumNodeDefinition",
-                "parameters": [
-                    {
-                        "description": "EthereumNodeDefinition object",
-                        "name": "ethereumNodeDefinition",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.EthereumNodeDefinition"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/ethereum_node_definitions/{id}": {
-            "get": {
-                "description": "Get a particular ethereum node definition from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a ethereum node definition.",
-                "operationId": "get-ethereumNodeDefinition",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Replace a ethereum node definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating ethereum node definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates an existing ethereum node definition by replacing the entire object.",
-                "operationId": "replace-ethereumNodeDefinition",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "EthereumNodeDefinition object",
-                        "name": "ethereumNodeDefinition",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.EthereumNodeDefinition"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a ethereum node definition by from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a ethereum node definition.",
-                "operationId": "delete-ethereumNodeDefinition",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Update a ethereum node definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating ethereum node definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates specific fields for an existing ethereum node definition.",
-                "operationId": "update-ethereumNodeDefinition",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "EthereumNodeDefinition object",
-                        "name": "ethereumNodeDefinition",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.EthereumNodeDefinition"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/ethereum_node_instances": {
-            "get": {
-                "description": "Get all ethereum node instances from the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets all ethereum node instances.",
-                "operationId": "get-ethereumNodeInstances",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ethereum node instance search by name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new ethereum node instance to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new ethereum node instance.",
-                "operationId": "add-ethereumNodeInstance",
-                "parameters": [
-                    {
-                        "description": "EthereumNodeInstance object",
-                        "name": "ethereumNodeInstance",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.EthereumNodeInstance"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/ethereum_node_instances/{id}": {
-            "get": {
-                "description": "Get a particular ethereum node instance from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a ethereum node instance.",
-                "operationId": "get-ethereumNodeInstance",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Replace a ethereum node instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating ethereum node instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates an existing ethereum node instance by replacing the entire object.",
-                "operationId": "replace-ethereumNodeInstance",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "EthereumNodeInstance object",
-                        "name": "ethereumNodeInstance",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.EthereumNodeInstance"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a ethereum node instance by from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a ethereum node instance.",
-                "operationId": "delete-ethereumNodeInstance",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Update a ethereum node instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating ethereum node instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates specific fields for an existing ethereum node instance.",
-                "operationId": "update-ethereumNodeInstance",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "EthereumNodeInstance object",
-                        "name": "ethereumNodeInstance",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.EthereumNodeInstance"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/forward_proxy_definitions": {
+        "/v0/forward-proxy-definitions": {
             "get": {
                 "description": "Get all forward proxy definitions from the Threeport database.",
                 "consumes": [
@@ -3800,7 +3214,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/forward_proxy_definitions/{id}": {
+        "/v0/forward-proxy-definitions/{id}": {
             "get": {
                 "description": "Get a particular forward proxy definition from the database.",
                 "consumes": [
@@ -3992,7 +3406,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/forward_proxy_instances": {
+        "/v0/forward-proxy-instances": {
             "get": {
                 "description": "Get all forward proxy instances from the Threeport database.",
                 "consumes": [
@@ -4075,7 +3489,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/forward_proxy_instances/{id}": {
+        "/v0/forward-proxy-instances/{id}": {
             "get": {
                 "description": "Get a particular forward proxy instance from the database.",
                 "consumes": [
@@ -4267,7 +3681,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_backends": {
+        "/v0/log-backends": {
             "get": {
                 "description": "Get all log backends from the Threeport database.",
                 "consumes": [
@@ -4350,7 +3764,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_backends/{id}": {
+        "/v0/log-backends/{id}": {
             "get": {
                 "description": "Get a particular log backend from the database.",
                 "consumes": [
@@ -4542,7 +3956,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_storage_definitions": {
+        "/v0/log-storage-definitions": {
             "get": {
                 "description": "Get all log storage definitions from the Threeport database.",
                 "consumes": [
@@ -4625,7 +4039,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_storage_definitions/{id}": {
+        "/v0/log-storage-definitions/{id}": {
             "get": {
                 "description": "Get a particular log storage definition from the database.",
                 "consumes": [
@@ -4817,7 +4231,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_storage_instances": {
+        "/v0/log-storage-instances": {
             "get": {
                 "description": "Get all log storage instances from the Threeport database.",
                 "consumes": [
@@ -4900,7 +4314,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_storage_instances/{id}": {
+        "/v0/log-storage-instances/{id}": {
             "get": {
                 "description": "Get a particular log storage instance from the database.",
                 "consumes": [
@@ -5092,7 +4506,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/network_ingress_definitions": {
+        "/v0/network-ingress-definitions": {
             "get": {
                 "description": "Get all network ingress definitions from the Threeport database.",
                 "consumes": [
@@ -5175,7 +4589,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/network_ingress_definitions/{id}": {
+        "/v0/network-ingress-definitions/{id}": {
             "get": {
                 "description": "Get a particular network ingress definition from the database.",
                 "consumes": [
@@ -5367,7 +4781,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/network_ingress_instances": {
+        "/v0/network-ingress-instances": {
             "get": {
                 "description": "Get all network ingress instances from the Threeport database.",
                 "consumes": [
@@ -5450,7 +4864,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/network_ingress_instances/{id}": {
+        "/v0/network-ingress-instances/{id}": {
             "get": {
                 "description": "Get a particular network ingress instance from the database.",
                 "consumes": [
@@ -6467,7 +5881,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_definitions": {
+        "/v0/workload-definitions": {
             "get": {
                 "description": "Get all workload definitions from the Threeport database.",
                 "consumes": [
@@ -6550,7 +5964,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_definitions/{id}": {
+        "/v0/workload-definitions/{id}": {
             "get": {
                 "description": "Get a particular workload definition from the database.",
                 "consumes": [
@@ -6742,7 +6156,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_instances": {
+        "/v0/workload-instances": {
             "get": {
                 "description": "Get all workload instances from the Threeport database.",
                 "consumes": [
@@ -6825,7 +6239,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_instances/{id}": {
+        "/v0/workload-instances/{id}": {
             "get": {
                 "description": "Get a particular workload instance from the database.",
                 "consumes": [
@@ -7017,54 +6431,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_resource_definition_sets": {
-            "post": {
-                "description": "Add a set of new workload resource definition to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new set of workload resource definitions.",
-                "operationId": "add-workloadResourceDefinitions",
-                "parameters": [
-                    {
-                        "description": "WorkloadResourceDefinition object array",
-                        "name": "workloadResourceDefinitions",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/v0.WorkloadResourceDefinition"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/workload_resource_definitions": {
+        "/v0/workload-resource-definitions": {
             "get": {
                 "description": "Get all workload resource definitions from the Threeport database.",
                 "consumes": [
@@ -7147,7 +6514,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_resource_definitions/{id}": {
+        "/v0/workload-resource-definitions/{id}": {
             "get": {
                 "description": "Get a particular workload resource definition from the database.",
                 "consumes": [
@@ -7339,7 +6706,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_resource_instances": {
+        "/v0/workload-resource-instances": {
             "get": {
                 "description": "Get all workload resource instances from the Threeport database.",
                 "consumes": [
@@ -7422,7 +6789,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_resource_instances/{id}": {
+        "/v0/workload-resource-instances/{id}": {
             "get": {
                 "description": "Get a particular workload resource instance from the database.",
                 "consumes": [
@@ -7614,6 +6981,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/v0/workload_resource_definition_sets": {
+            "post": {
+                "description": "Add a set of new workload resource definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new set of workload resource definitions.",
+                "operationId": "add-workloadResourceDefinitions",
+                "parameters": [
+                    {
+                        "description": "WorkloadResourceDefinition object array",
+                        "name": "workloadResourceDefinitions",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/v0.WorkloadResourceDefinition"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/version": {
             "get": {
                 "description": "Get a version of REST API.",
@@ -7638,7 +7052,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/workload_definitions/versions": {
+        "/workload-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for workload definitions.",
                 "produces": [
@@ -7656,7 +7070,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/workload_instances/versions": {
+        "/workload-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for workload instances.",
                 "produces": [
@@ -7674,7 +7088,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/workload_resource_definitions/versions": {
+        "/workload-resource-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for workload resource definitions.",
                 "produces": [
@@ -7692,7 +7106,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/workload_resource_instances/versions": {
+        "/workload-resource-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for workload resource instances.",
                 "produces": [
@@ -8407,60 +7821,56 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
-                "EthereumNodeDefinition",
-                "EthereumNodeInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
                 "NetworkIngressDefinition",
                 "NetworkIngressInstance",
-                "ClusterDefinition",
-                "ClusterInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "User",
-                "Company",
                 "Profile",
                 "Tier",
+                "ClusterDefinition",
+                "ClusterInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance",
+                "User",
+                "Company",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance"
+                "AwsRelationalDatabaseInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeEthereumNodeDefinition",
-                "ObjectTypeEthereumNodeInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
                 "ObjectTypeNetworkIngressDefinition",
                 "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeUser",
-                "ObjectTypeCompany",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeUser",
+                "ObjectTypeCompany",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance"
+                "ObjectTypeAwsRelationalDatabaseInstance"
             ]
         },
         "v0.Profile": {

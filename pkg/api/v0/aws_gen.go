@@ -42,11 +42,11 @@ const (
 	AwsRelationalDatabaseInstanceUpdateSubject = "awsRelationalDatabaseInstance.update"
 	AwsRelationalDatabaseInstanceDeleteSubject = "awsRelationalDatabaseInstance.delete"
 
-	PathAwsAccounts                      = "/v0/aws_accounts"
-	PathAwsEksClusterDefinitions         = "/v0/aws_eks_cluster_definitions"
-	PathAwsEksClusterInstances           = "/v0/aws_eks_cluster_instances"
-	PathAwsRelationalDatabaseDefinitions = "/v0/aws_relational_database_definitions"
-	PathAwsRelationalDatabaseInstances   = "/v0/aws_relational_database_instances"
+	PathAwsAccounts                      = "/v0/aws-accounts"
+	PathAwsEksClusterDefinitions         = "/v0/aws-eks-cluster-definitions"
+	PathAwsEksClusterInstances           = "/v0/aws-eks-cluster-instances"
+	PathAwsRelationalDatabaseDefinitions = "/v0/aws-relational-database-definitions"
+	PathAwsRelationalDatabaseInstances   = "/v0/aws-relational-database-instances"
 )
 
 // GetAwsAccountSubjects returns the NATS subjects

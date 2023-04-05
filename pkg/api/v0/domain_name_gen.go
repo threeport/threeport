@@ -24,8 +24,8 @@ const (
 	DomainNameInstanceUpdateSubject = "domainNameInstance.update"
 	DomainNameInstanceDeleteSubject = "domainNameInstance.delete"
 
-	PathDomainNameDefinitions = "/v0/domain_name_definitions"
-	PathDomainNameInstances   = "/v0/domain_name_instances"
+	PathDomainNameDefinitions = "/v0/domain-name-definitions"
+	PathDomainNameInstances   = "/v0/domain-name-instances"
 )
 
 // GetDomainNameDefinitionSubjects returns the NATS subjects

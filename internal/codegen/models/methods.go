@@ -49,7 +49,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 	paths := &Statement{}
 	for _, mc := range cc.ModelConfigs {
 		paths.Id("Path" + pluralize.Pluralize(mc.TypeName, 2, false)).Op("=").Lit(
-			fmt.Sprintf("/%s/%s", cc.ParsedModelFile.Name, pluralize.Pluralize(strcase.ToSnake(mc.TypeName), 2, false)),
+			fmt.Sprintf("/%s/%s", cc.ParsedModelFile.Name, pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false)),
 		)
 		paths.Line()
 	}

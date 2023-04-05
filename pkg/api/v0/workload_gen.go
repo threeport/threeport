@@ -36,10 +36,10 @@ const (
 	WorkloadResourceInstanceUpdateSubject = "workloadResourceInstance.update"
 	WorkloadResourceInstanceDeleteSubject = "workloadResourceInstance.delete"
 
-	PathWorkloadDefinitions         = "/v0/workload_definitions"
-	PathWorkloadResourceDefinitions = "/v0/workload_resource_definitions"
-	PathWorkloadInstances           = "/v0/workload_instances"
-	PathWorkloadResourceInstances   = "/v0/workload_resource_instances"
+	PathWorkloadDefinitions         = "/v0/workload-definitions"
+	PathWorkloadResourceDefinitions = "/v0/workload-resource-definitions"
+	PathWorkloadInstances           = "/v0/workload-instances"
+	PathWorkloadResourceInstances   = "/v0/workload-resource-instances"
 )
 
 // GetWorkloadDefinitionSubjects returns the NATS subjects

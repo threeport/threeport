@@ -10,7 +10,7 @@ import (
 
 // ClusterDefinitionRoutes sets up all routes for the ClusterDefinition handlers.
 func ClusterDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/cluster_definitions/versions", h.GetClusterDefinitionVersions)
+	e.GET("/cluster-definitions/versions", h.GetClusterDefinitionVersions)
 
 	e.POST(v0.PathClusterDefinitions, h.AddClusterDefinition)
 	e.GET(v0.PathClusterDefinitions, h.GetClusterDefinitions)
@@ -22,7 +22,7 @@ func ClusterDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // ClusterInstanceRoutes sets up all routes for the ClusterInstance handlers.
 func ClusterInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/cluster_instances/versions", h.GetClusterInstanceVersions)
+	e.GET("/cluster-instances/versions", h.GetClusterInstanceVersions)
 
 	e.POST(v0.PathClusterInstances, h.AddClusterInstance)
 	e.GET(v0.PathClusterInstances, h.GetClusterInstances)

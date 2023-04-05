@@ -10,7 +10,7 @@ import (
 
 // AwsAccountRoutes sets up all routes for the AwsAccount handlers.
 func AwsAccountRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/aws_accounts/versions", h.GetAwsAccountVersions)
+	e.GET("/aws-accounts/versions", h.GetAwsAccountVersions)
 
 	e.POST(v0.PathAwsAccounts, h.AddAwsAccount)
 	e.GET(v0.PathAwsAccounts, h.GetAwsAccounts)
@@ -22,7 +22,7 @@ func AwsAccountRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // AwsEksClusterDefinitionRoutes sets up all routes for the AwsEksClusterDefinition handlers.
 func AwsEksClusterDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/aws_eks_cluster_definitions/versions", h.GetAwsEksClusterDefinitionVersions)
+	e.GET("/aws-eks-cluster-definitions/versions", h.GetAwsEksClusterDefinitionVersions)
 
 	e.POST(v0.PathAwsEksClusterDefinitions, h.AddAwsEksClusterDefinition)
 	e.GET(v0.PathAwsEksClusterDefinitions, h.GetAwsEksClusterDefinitions)
@@ -34,7 +34,7 @@ func AwsEksClusterDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // AwsEksClusterInstanceRoutes sets up all routes for the AwsEksClusterInstance handlers.
 func AwsEksClusterInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/aws_eks_cluster_instances/versions", h.GetAwsEksClusterInstanceVersions)
+	e.GET("/aws-eks-cluster-instances/versions", h.GetAwsEksClusterInstanceVersions)
 
 	e.POST(v0.PathAwsEksClusterInstances, h.AddAwsEksClusterInstance)
 	e.GET(v0.PathAwsEksClusterInstances, h.GetAwsEksClusterInstances)
@@ -46,7 +46,7 @@ func AwsEksClusterInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // AwsRelationalDatabaseDefinitionRoutes sets up all routes for the AwsRelationalDatabaseDefinition handlers.
 func AwsRelationalDatabaseDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/aws_relational_database_definitions/versions", h.GetAwsRelationalDatabaseDefinitionVersions)
+	e.GET("/aws-relational-database-definitions/versions", h.GetAwsRelationalDatabaseDefinitionVersions)
 
 	e.POST(v0.PathAwsRelationalDatabaseDefinitions, h.AddAwsRelationalDatabaseDefinition)
 	e.GET(v0.PathAwsRelationalDatabaseDefinitions, h.GetAwsRelationalDatabaseDefinitions)
@@ -58,7 +58,7 @@ func AwsRelationalDatabaseDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // AwsRelationalDatabaseInstanceRoutes sets up all routes for the AwsRelationalDatabaseInstance handlers.
 func AwsRelationalDatabaseInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/aws_relational_database_instances/versions", h.GetAwsRelationalDatabaseInstanceVersions)
+	e.GET("/aws-relational-database-instances/versions", h.GetAwsRelationalDatabaseInstanceVersions)
 
 	e.POST(v0.PathAwsRelationalDatabaseInstances, h.AddAwsRelationalDatabaseInstance)
 	e.GET(v0.PathAwsRelationalDatabaseInstances, h.GetAwsRelationalDatabaseInstances)

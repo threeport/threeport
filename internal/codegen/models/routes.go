@@ -51,7 +51,7 @@ func (cc *ControllerConfig) ModelRoutes() error {
 		).Block(
 			Id("e").Dot("GET").Call(
 				Lit(
-					fmt.Sprintf("/%s/versions", pluralize.Pluralize(strcase.ToSnake(mc.TypeName), 2, false)),
+					fmt.Sprintf("/%s/versions", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false)),
 				),
 				Id("h").Dot(mc.GetVersionHandlerName),
 			),

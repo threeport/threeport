@@ -21,7 +21,7 @@ import (
 // @ID clusterDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /cluster_definitions/versions [get]
+// @Router /cluster-definitions/versions [get]
 func (h Handler) GetClusterDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeClusterDefinition)])
 }
@@ -35,7 +35,7 @@ func (h Handler) GetClusterDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_definitions [post]
+// @Router /v0/cluster-definitions [post]
 func (h Handler) AddClusterDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterDefinition
 	var clusterDefinition v0.ClusterDefinition
@@ -82,7 +82,7 @@ func (h Handler) AddClusterDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_definitions [get]
+// @Router /v0/cluster-definitions [get]
 func (h Handler) GetClusterDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -122,7 +122,7 @@ func (h Handler) GetClusterDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_definitions/{id} [get]
+// @Router /v0/cluster-definitions/{id} [get]
 func (h Handler) GetClusterDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterDefinition
 	clusterDefinitionID := c.Param("id")
@@ -157,7 +157,7 @@ func (h Handler) GetClusterDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_definitions/{id} [patch]
+// @Router /v0/cluster-definitions/{id} [patch]
 func (h Handler) UpdateClusterDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterDefinition
 	clusterDefinitionID := c.Param("id")
@@ -208,7 +208,7 @@ func (h Handler) UpdateClusterDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_definitions/{id} [put]
+// @Router /v0/cluster-definitions/{id} [put]
 func (h Handler) ReplaceClusterDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterDefinition
 	clusterDefinitionID := c.Param("id")
@@ -267,7 +267,7 @@ func (h Handler) ReplaceClusterDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_definitions/{id} [delete]
+// @Router /v0/cluster-definitions/{id} [delete]
 func (h Handler) DeleteClusterDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterDefinition
 	clusterDefinitionID := c.Param("id")
@@ -300,7 +300,7 @@ func (h Handler) DeleteClusterDefinition(c echo.Context) error {
 // @ID clusterInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /cluster_instances/versions [get]
+// @Router /cluster-instances/versions [get]
 func (h Handler) GetClusterInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeClusterInstance)])
 }
@@ -314,7 +314,7 @@ func (h Handler) GetClusterInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_instances [post]
+// @Router /v0/cluster-instances [post]
 func (h Handler) AddClusterInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterInstance
 	var clusterInstance v0.ClusterInstance
@@ -361,7 +361,7 @@ func (h Handler) AddClusterInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_instances [get]
+// @Router /v0/cluster-instances [get]
 func (h Handler) GetClusterInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -401,7 +401,7 @@ func (h Handler) GetClusterInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_instances/{id} [get]
+// @Router /v0/cluster-instances/{id} [get]
 func (h Handler) GetClusterInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterInstance
 	clusterInstanceID := c.Param("id")
@@ -436,7 +436,7 @@ func (h Handler) GetClusterInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_instances/{id} [patch]
+// @Router /v0/cluster-instances/{id} [patch]
 func (h Handler) UpdateClusterInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterInstance
 	clusterInstanceID := c.Param("id")
@@ -487,7 +487,7 @@ func (h Handler) UpdateClusterInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_instances/{id} [put]
+// @Router /v0/cluster-instances/{id} [put]
 func (h Handler) ReplaceClusterInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterInstance
 	clusterInstanceID := c.Param("id")
@@ -546,7 +546,7 @@ func (h Handler) ReplaceClusterInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster_instances/{id} [delete]
+// @Router /v0/cluster-instances/{id} [delete]
 func (h Handler) DeleteClusterInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeClusterInstance
 	clusterInstanceID := c.Param("id")

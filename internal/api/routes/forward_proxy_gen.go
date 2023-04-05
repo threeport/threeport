@@ -10,7 +10,7 @@ import (
 
 // ForwardProxyDefinitionRoutes sets up all routes for the ForwardProxyDefinition handlers.
 func ForwardProxyDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/forward_proxy_definitions/versions", h.GetForwardProxyDefinitionVersions)
+	e.GET("/forward-proxy-definitions/versions", h.GetForwardProxyDefinitionVersions)
 
 	e.POST(v0.PathForwardProxyDefinitions, h.AddForwardProxyDefinition)
 	e.GET(v0.PathForwardProxyDefinitions, h.GetForwardProxyDefinitions)
@@ -22,7 +22,7 @@ func ForwardProxyDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // ForwardProxyInstanceRoutes sets up all routes for the ForwardProxyInstance handlers.
 func ForwardProxyInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/forward_proxy_instances/versions", h.GetForwardProxyInstanceVersions)
+	e.GET("/forward-proxy-instances/versions", h.GetForwardProxyInstanceVersions)
 
 	e.POST(v0.PathForwardProxyInstances, h.AddForwardProxyInstance)
 	e.GET(v0.PathForwardProxyInstances, h.GetForwardProxyInstances)

@@ -30,9 +30,9 @@ const (
 	LogStorageInstanceUpdateSubject = "logStorageInstance.update"
 	LogStorageInstanceDeleteSubject = "logStorageInstance.delete"
 
-	PathLogBackends           = "/v0/log_backends"
-	PathLogStorageDefinitions = "/v0/log_storage_definitions"
-	PathLogStorageInstances   = "/v0/log_storage_instances"
+	PathLogBackends           = "/v0/log-backends"
+	PathLogStorageDefinitions = "/v0/log-storage-definitions"
+	PathLogStorageInstances   = "/v0/log-storage-instances"
 )
 
 // GetLogBackendSubjects returns the NATS subjects

@@ -10,7 +10,7 @@ import (
 
 // WorkloadDefinitionRoutes sets up all routes for the WorkloadDefinition handlers.
 func WorkloadDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload_definitions/versions", h.GetWorkloadDefinitionVersions)
+	e.GET("/workload-definitions/versions", h.GetWorkloadDefinitionVersions)
 
 	e.POST(v0.PathWorkloadDefinitions, h.AddWorkloadDefinition)
 	e.GET(v0.PathWorkloadDefinitions, h.GetWorkloadDefinitions)
@@ -22,7 +22,7 @@ func WorkloadDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // WorkloadResourceDefinitionRoutes sets up all routes for the WorkloadResourceDefinition handlers.
 func WorkloadResourceDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload_resource_definitions/versions", h.GetWorkloadResourceDefinitionVersions)
+	e.GET("/workload-resource-definitions/versions", h.GetWorkloadResourceDefinitionVersions)
 
 	e.POST(v0.PathWorkloadResourceDefinitions, h.AddWorkloadResourceDefinition)
 	e.GET(v0.PathWorkloadResourceDefinitions, h.GetWorkloadResourceDefinitions)
@@ -34,7 +34,7 @@ func WorkloadResourceDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // WorkloadInstanceRoutes sets up all routes for the WorkloadInstance handlers.
 func WorkloadInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload_instances/versions", h.GetWorkloadInstanceVersions)
+	e.GET("/workload-instances/versions", h.GetWorkloadInstanceVersions)
 
 	e.POST(v0.PathWorkloadInstances, h.AddWorkloadInstance)
 	e.GET(v0.PathWorkloadInstances, h.GetWorkloadInstances)
@@ -46,7 +46,7 @@ func WorkloadInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // WorkloadResourceInstanceRoutes sets up all routes for the WorkloadResourceInstance handlers.
 func WorkloadResourceInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload_resource_instances/versions", h.GetWorkloadResourceInstanceVersions)
+	e.GET("/workload-resource-instances/versions", h.GetWorkloadResourceInstanceVersions)
 
 	e.POST(v0.PathWorkloadResourceInstances, h.AddWorkloadResourceInstance)
 	e.GET(v0.PathWorkloadResourceInstances, h.GetWorkloadResourceInstances)

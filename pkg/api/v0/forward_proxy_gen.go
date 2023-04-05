@@ -24,8 +24,8 @@ const (
 	ForwardProxyInstanceUpdateSubject = "forwardProxyInstance.update"
 	ForwardProxyInstanceDeleteSubject = "forwardProxyInstance.delete"
 
-	PathForwardProxyDefinitions = "/v0/forward_proxy_definitions"
-	PathForwardProxyInstances   = "/v0/forward_proxy_instances"
+	PathForwardProxyDefinitions = "/v0/forward-proxy-definitions"
+	PathForwardProxyInstances   = "/v0/forward-proxy-instances"
 )
 
 // GetForwardProxyDefinitionSubjects returns the NATS subjects

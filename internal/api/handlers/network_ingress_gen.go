@@ -21,7 +21,7 @@ import (
 // @ID networkIngressDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /network_ingress_definitions/versions [get]
+// @Router /network-ingress-definitions/versions [get]
 func (h Handler) GetNetworkIngressDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeNetworkIngressDefinition)])
 }
@@ -35,7 +35,7 @@ func (h Handler) GetNetworkIngressDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_definitions [post]
+// @Router /v0/network-ingress-definitions [post]
 func (h Handler) AddNetworkIngressDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressDefinition
 	var networkIngressDefinition v0.NetworkIngressDefinition
@@ -82,7 +82,7 @@ func (h Handler) AddNetworkIngressDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_definitions [get]
+// @Router /v0/network-ingress-definitions [get]
 func (h Handler) GetNetworkIngressDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -122,7 +122,7 @@ func (h Handler) GetNetworkIngressDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_definitions/{id} [get]
+// @Router /v0/network-ingress-definitions/{id} [get]
 func (h Handler) GetNetworkIngressDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressDefinition
 	networkIngressDefinitionID := c.Param("id")
@@ -157,7 +157,7 @@ func (h Handler) GetNetworkIngressDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_definitions/{id} [patch]
+// @Router /v0/network-ingress-definitions/{id} [patch]
 func (h Handler) UpdateNetworkIngressDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressDefinition
 	networkIngressDefinitionID := c.Param("id")
@@ -208,7 +208,7 @@ func (h Handler) UpdateNetworkIngressDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_definitions/{id} [put]
+// @Router /v0/network-ingress-definitions/{id} [put]
 func (h Handler) ReplaceNetworkIngressDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressDefinition
 	networkIngressDefinitionID := c.Param("id")
@@ -267,7 +267,7 @@ func (h Handler) ReplaceNetworkIngressDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_definitions/{id} [delete]
+// @Router /v0/network-ingress-definitions/{id} [delete]
 func (h Handler) DeleteNetworkIngressDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressDefinition
 	networkIngressDefinitionID := c.Param("id")
@@ -300,7 +300,7 @@ func (h Handler) DeleteNetworkIngressDefinition(c echo.Context) error {
 // @ID networkIngressInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /network_ingress_instances/versions [get]
+// @Router /network-ingress-instances/versions [get]
 func (h Handler) GetNetworkIngressInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeNetworkIngressInstance)])
 }
@@ -314,7 +314,7 @@ func (h Handler) GetNetworkIngressInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_instances [post]
+// @Router /v0/network-ingress-instances [post]
 func (h Handler) AddNetworkIngressInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressInstance
 	var networkIngressInstance v0.NetworkIngressInstance
@@ -361,7 +361,7 @@ func (h Handler) AddNetworkIngressInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_instances [get]
+// @Router /v0/network-ingress-instances [get]
 func (h Handler) GetNetworkIngressInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -401,7 +401,7 @@ func (h Handler) GetNetworkIngressInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_instances/{id} [get]
+// @Router /v0/network-ingress-instances/{id} [get]
 func (h Handler) GetNetworkIngressInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressInstance
 	networkIngressInstanceID := c.Param("id")
@@ -436,7 +436,7 @@ func (h Handler) GetNetworkIngressInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_instances/{id} [patch]
+// @Router /v0/network-ingress-instances/{id} [patch]
 func (h Handler) UpdateNetworkIngressInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressInstance
 	networkIngressInstanceID := c.Param("id")
@@ -487,7 +487,7 @@ func (h Handler) UpdateNetworkIngressInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_instances/{id} [put]
+// @Router /v0/network-ingress-instances/{id} [put]
 func (h Handler) ReplaceNetworkIngressInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressInstance
 	networkIngressInstanceID := c.Param("id")
@@ -546,7 +546,7 @@ func (h Handler) ReplaceNetworkIngressInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network_ingress_instances/{id} [delete]
+// @Router /v0/network-ingress-instances/{id} [delete]
 func (h Handler) DeleteNetworkIngressInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeNetworkIngressInstance
 	networkIngressInstanceID := c.Param("id")
