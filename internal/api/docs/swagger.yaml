@@ -510,20 +510,22 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - DomainNameDefinition
+    - DomainNameInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     - Profile
     - Tier
+    - ClusterDefinition
+    - ClusterInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - User
     - Company
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
@@ -532,24 +534,24 @@ definitions:
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - DomainNameDefinition
-    - DomainNameInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
     - ObjectTypeProfile
     - ObjectTypeTier
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeUser
     - ObjectTypeCompany
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
@@ -558,8 +560,6 @@ definitions:
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       CompanyID:
@@ -792,9 +792,9 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: 0.1.0
+  version: v0.0.6
 paths:
-  /aws_accounts/versions:
+  /aws-accounts/versions:
     get:
       description: Get the supported API versions for aws accounts.
       operationId: awsAccount-get-versions
@@ -807,7 +807,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetAwsAccountVersions gets the supported versions for the aws account
         API.
-  /aws_eks_cluster_definitions/versions:
+  /aws-eks-cluster-definitions/versions:
     get:
       description: Get the supported API versions for aws eks cluster definitions.
       operationId: awsEksClusterDefinition-get-versions
@@ -820,7 +820,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetAwsEksClusterDefinitionVersions gets the supported versions for
         the aws eks cluster definition API.
-  /aws_eks_cluster_instances/versions:
+  /aws-eks-cluster-instances/versions:
     get:
       description: Get the supported API versions for aws eks cluster instances.
       operationId: awsEksClusterInstance-get-versions
@@ -833,7 +833,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetAwsEksClusterInstanceVersions gets the supported versions for the
         aws eks cluster instance API.
-  /aws_relational_database_definitions/versions:
+  /aws-relational-database-definitions/versions:
     get:
       description: Get the supported API versions for aws relational database definitions.
       operationId: awsRelationalDatabaseDefinition-get-versions
@@ -846,7 +846,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetAwsRelationalDatabaseDefinitionVersions gets the supported versions
         for the aws relational database definition API.
-  /aws_relational_database_instances/versions:
+  /aws-relational-database-instances/versions:
     get:
       description: Get the supported API versions for aws relational database instances.
       operationId: awsRelationalDatabaseInstance-get-versions
@@ -859,7 +859,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetAwsRelationalDatabaseInstanceVersions gets the supported versions
         for the aws relational database instance API.
-  /cluster_definitions/versions:
+  /cluster-definitions/versions:
     get:
       description: Get the supported API versions for cluster definitions.
       operationId: clusterDefinition-get-versions
@@ -872,7 +872,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetClusterDefinitionVersions gets the supported versions for the cluster
         definition API.
-  /cluster_instances/versions:
+  /cluster-instances/versions:
     get:
       description: Get the supported API versions for cluster instances.
       operationId: clusterInstance-get-versions
@@ -897,7 +897,7 @@ paths:
           schema:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetCompanyVersions gets the supported versions for the company API.
-  /domain_name_definitions/versions:
+  /domain-name-definitions/versions:
     get:
       description: Get the supported API versions for domain name definitions.
       operationId: domainNameDefinition-get-versions
@@ -910,7 +910,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetDomainNameDefinitionVersions gets the supported versions for the
         domain name definition API.
-  /domain_name_instances/versions:
+  /domain-name-instances/versions:
     get:
       description: Get the supported API versions for domain name instances.
       operationId: domainNameInstance-get-versions
@@ -923,7 +923,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetDomainNameInstanceVersions gets the supported versions for the domain
         name instance API.
-  /forward_proxy_definitions/versions:
+  /forward-proxy-definitions/versions:
     get:
       description: Get the supported API versions for forward proxy definitions.
       operationId: forwardProxyDefinition-get-versions
@@ -936,7 +936,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetForwardProxyDefinitionVersions gets the supported versions for the
         forward proxy definition API.
-  /forward_proxy_instances/versions:
+  /forward-proxy-instances/versions:
     get:
       description: Get the supported API versions for forward proxy instances.
       operationId: forwardProxyInstance-get-versions
@@ -949,7 +949,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetForwardProxyInstanceVersions gets the supported versions for the
         forward proxy instance API.
-  /log_backends/versions:
+  /log-backends/versions:
     get:
       description: Get the supported API versions for log backends.
       operationId: logBackend-get-versions
@@ -962,7 +962,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetLogBackendVersions gets the supported versions for the log backend
         API.
-  /log_storage_definitions/versions:
+  /log-storage-definitions/versions:
     get:
       description: Get the supported API versions for log storage definitions.
       operationId: logStorageDefinition-get-versions
@@ -975,7 +975,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetLogStorageDefinitionVersions gets the supported versions for the
         log storage definition API.
-  /log_storage_instances/versions:
+  /log-storage-instances/versions:
     get:
       description: Get the supported API versions for log storage instances.
       operationId: logStorageInstance-get-versions
@@ -988,7 +988,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetLogStorageInstanceVersions gets the supported versions for the log
         storage instance API.
-  /network_ingress_definitions/versions:
+  /network-ingress-definitions/versions:
     get:
       description: Get the supported API versions for network ingress definitions.
       operationId: networkIngressDefinition-get-versions
@@ -1001,7 +1001,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetNetworkIngressDefinitionVersions gets the supported versions for
         the network ingress definition API.
-  /network_ingress_instances/versions:
+  /network-ingress-instances/versions:
     get:
       description: Get the supported API versions for network ingress instances.
       operationId: networkIngressInstance-get-versions
@@ -1050,7 +1050,7 @@ paths:
           schema:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetUserVersions gets the supported versions for the user API.
-  /v0/aws_accounts:
+  /v0/aws-accounts:
     get:
       consumes:
       - application/json
@@ -1105,7 +1105,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new aws account.
-  /v0/aws_accounts/{id}:
+  /v0/aws-accounts/{id}:
     delete:
       consumes:
       - application/json
@@ -1245,7 +1245,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing aws account by replacing the entire object.
-  /v0/aws_eks_cluster_definitions:
+  /v0/aws-eks-cluster-definitions:
     get:
       consumes:
       - application/json
@@ -1300,7 +1300,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new aws eks cluster definition.
-  /v0/aws_eks_cluster_definitions/{id}:
+  /v0/aws-eks-cluster-definitions/{id}:
     delete:
       consumes:
       - application/json
@@ -1441,7 +1441,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing aws eks cluster definition by replacing the entire
         object.
-  /v0/aws_eks_cluster_instances:
+  /v0/aws-eks-cluster-instances:
     get:
       consumes:
       - application/json
@@ -1496,7 +1496,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new aws eks cluster instance.
-  /v0/aws_eks_cluster_instances/{id}:
+  /v0/aws-eks-cluster-instances/{id}:
     delete:
       consumes:
       - application/json
@@ -1637,7 +1637,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing aws eks cluster instance by replacing the entire
         object.
-  /v0/aws_relational_database_definitions:
+  /v0/aws-relational-database-definitions:
     get:
       consumes:
       - application/json
@@ -1693,7 +1693,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new aws relational database definition.
-  /v0/aws_relational_database_definitions/{id}:
+  /v0/aws-relational-database-definitions/{id}:
     delete:
       consumes:
       - application/json
@@ -1834,7 +1834,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing aws relational database definition by replacing
         the entire object.
-  /v0/aws_relational_database_instances:
+  /v0/aws-relational-database-instances:
     get:
       consumes:
       - application/json
@@ -1889,7 +1889,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new aws relational database instance.
-  /v0/aws_relational_database_instances/{id}:
+  /v0/aws-relational-database-instances/{id}:
     delete:
       consumes:
       - application/json
@@ -2030,7 +2030,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing aws relational database instance by replacing the
         entire object.
-  /v0/cluster_definitions:
+  /v0/cluster-definitions:
     get:
       consumes:
       - application/json
@@ -2085,7 +2085,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new cluster definition.
-  /v0/cluster_definitions/{id}:
+  /v0/cluster-definitions/{id}:
     delete:
       consumes:
       - application/json
@@ -2225,7 +2225,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing cluster definition by replacing the entire object.
-  /v0/cluster_instances:
+  /v0/cluster-instances:
     get:
       consumes:
       - application/json
@@ -2280,7 +2280,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new cluster instance.
-  /v0/cluster_instances/{id}:
+  /v0/cluster-instances/{id}:
     delete:
       consumes:
       - application/json
@@ -2615,7 +2615,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing company by replacing the entire object.
-  /v0/domain_name_definitions:
+  /v0/domain-name-definitions:
     get:
       consumes:
       - application/json
@@ -2670,7 +2670,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new domain name definition.
-  /v0/domain_name_definitions/{id}:
+  /v0/domain-name-definitions/{id}:
     delete:
       consumes:
       - application/json
@@ -2811,7 +2811,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing domain name definition by replacing the entire
         object.
-  /v0/domain_name_instances:
+  /v0/domain-name-instances:
     get:
       consumes:
       - application/json
@@ -2866,7 +2866,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new domain name instance.
-  /v0/domain_name_instances/{id}:
+  /v0/domain-name-instances/{id}:
     delete:
       consumes:
       - application/json
@@ -3006,7 +3006,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing domain name instance by replacing the entire object.
-  /v0/forward_proxy_definitions:
+  /v0/forward-proxy-definitions:
     get:
       consumes:
       - application/json
@@ -3061,7 +3061,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new forward proxy definition.
-  /v0/forward_proxy_definitions/{id}:
+  /v0/forward-proxy-definitions/{id}:
     delete:
       consumes:
       - application/json
@@ -3202,7 +3202,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing forward proxy definition by replacing the entire
         object.
-  /v0/forward_proxy_instances:
+  /v0/forward-proxy-instances:
     get:
       consumes:
       - application/json
@@ -3257,7 +3257,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new forward proxy instance.
-  /v0/forward_proxy_instances/{id}:
+  /v0/forward-proxy-instances/{id}:
     delete:
       consumes:
       - application/json
@@ -3398,7 +3398,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing forward proxy instance by replacing the entire
         object.
-  /v0/log_backends:
+  /v0/log-backends:
     get:
       consumes:
       - application/json
@@ -3453,7 +3453,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new log backend.
-  /v0/log_backends/{id}:
+  /v0/log-backends/{id}:
     delete:
       consumes:
       - application/json
@@ -3593,7 +3593,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing log backend by replacing the entire object.
-  /v0/log_storage_definitions:
+  /v0/log-storage-definitions:
     get:
       consumes:
       - application/json
@@ -3648,7 +3648,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new log storage definition.
-  /v0/log_storage_definitions/{id}:
+  /v0/log-storage-definitions/{id}:
     delete:
       consumes:
       - application/json
@@ -3789,7 +3789,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing log storage definition by replacing the entire
         object.
-  /v0/log_storage_instances:
+  /v0/log-storage-instances:
     get:
       consumes:
       - application/json
@@ -3844,7 +3844,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new log storage instance.
-  /v0/log_storage_instances/{id}:
+  /v0/log-storage-instances/{id}:
     delete:
       consumes:
       - application/json
@@ -3984,7 +3984,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing log storage instance by replacing the entire object.
-  /v0/network_ingress_definitions:
+  /v0/network-ingress-definitions:
     get:
       consumes:
       - application/json
@@ -4039,7 +4039,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new network ingress definition.
-  /v0/network_ingress_definitions/{id}:
+  /v0/network-ingress-definitions/{id}:
     delete:
       consumes:
       - application/json
@@ -4180,7 +4180,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing network ingress definition by replacing the entire
         object.
-  /v0/network_ingress_instances:
+  /v0/network-ingress-instances:
     get:
       consumes:
       - application/json
@@ -4235,7 +4235,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new network ingress instance.
-  /v0/network_ingress_instances/{id}:
+  /v0/network-ingress-instances/{id}:
     delete:
       consumes:
       - application/json
@@ -4961,7 +4961,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing user by replacing the entire object.
-  /v0/workload_definitions:
+  /v0/workload-definitions:
     get:
       consumes:
       - application/json
@@ -5016,7 +5016,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new workload definition.
-  /v0/workload_definitions/{id}:
+  /v0/workload-definitions/{id}:
     delete:
       consumes:
       - application/json
@@ -5156,7 +5156,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload definition by replacing the entire object.
-  /v0/workload_instances:
+  /v0/workload-instances:
     get:
       consumes:
       - application/json
@@ -5211,7 +5211,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new workload instance.
-  /v0/workload_instances/{id}:
+  /v0/workload-instances/{id}:
     delete:
       consumes:
       - application/json
@@ -5351,39 +5351,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload instance by replacing the entire object.
-  /v0/workload_resource_definition_sets:
-    post:
-      consumes:
-      - application/json
-      description: Add a set of new workload resource definition to the Threeport
-        database.
-      operationId: add-workloadResourceDefinitions
-      parameters:
-      - description: WorkloadResourceDefinition object array
-        in: body
-        name: workloadResourceDefinitions
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/v0.WorkloadResourceDefinition'
-          type: array
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new set of workload resource definitions.
-  /v0/workload_resource_definitions:
+  /v0/workload-resource-definitions:
     get:
       consumes:
       - application/json
@@ -5438,7 +5406,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new workload resource definition.
-  /v0/workload_resource_definitions/{id}:
+  /v0/workload-resource-definitions/{id}:
     delete:
       consumes:
       - application/json
@@ -5579,7 +5547,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload resource definition by replacing the entire
         object.
-  /v0/workload_resource_instances:
+  /v0/workload-resource-instances:
     get:
       consumes:
       - application/json
@@ -5634,7 +5602,7 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new workload resource instance.
-  /v0/workload_resource_instances/{id}:
+  /v0/workload-resource-instances/{id}:
     delete:
       consumes:
       - application/json
@@ -5775,6 +5743,38 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload resource instance by replacing the entire
         object.
+  /v0/workload_resource_definition_sets:
+    post:
+      consumes:
+      - application/json
+      description: Add a set of new workload resource definition to the Threeport
+        database.
+      operationId: add-workloadResourceDefinitions
+      parameters:
+      - description: WorkloadResourceDefinition object array
+        in: body
+        name: workloadResourceDefinitions
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/v0.WorkloadResourceDefinition'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new set of workload resource definitions.
   /version:
     get:
       description: Get a version of REST API.
@@ -5791,7 +5791,7 @@ paths:
           schema:
             $ref: '#/definitions/version.RESTAPIVersion'
       summary: gets an REST API version.
-  /workload_definitions/versions:
+  /workload-definitions/versions:
     get:
       description: Get the supported API versions for workload definitions.
       operationId: workloadDefinition-get-versions
@@ -5804,7 +5804,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetWorkloadDefinitionVersions gets the supported versions for the workload
         definition API.
-  /workload_instances/versions:
+  /workload-instances/versions:
     get:
       description: Get the supported API versions for workload instances.
       operationId: workloadInstance-get-versions
@@ -5817,7 +5817,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetWorkloadInstanceVersions gets the supported versions for the workload
         instance API.
-  /workload_resource_definitions/versions:
+  /workload-resource-definitions/versions:
     get:
       description: Get the supported API versions for workload resource definitions.
       operationId: workloadResourceDefinition-get-versions
@@ -5830,7 +5830,7 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetWorkloadResourceDefinitionVersions gets the supported versions for
         the workload resource definition API.
-  /workload_resource_instances/versions:
+  /workload-resource-instances/versions:
     get:
       description: Get the supported API versions for workload resource instances.
       operationId: workloadResourceInstance-get-versions

@@ -21,7 +21,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/aws_accounts/versions": {
+        "/aws-accounts/versions": {
             "get": {
                 "description": "Get the supported API versions for aws accounts.",
                 "produces": [
@@ -39,7 +39,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/aws_eks_cluster_definitions/versions": {
+        "/aws-eks-cluster-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for aws eks cluster definitions.",
                 "produces": [
@@ -57,7 +57,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/aws_eks_cluster_instances/versions": {
+        "/aws-eks-cluster-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for aws eks cluster instances.",
                 "produces": [
@@ -75,7 +75,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/aws_relational_database_definitions/versions": {
+        "/aws-relational-database-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for aws relational database definitions.",
                 "produces": [
@@ -93,7 +93,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/aws_relational_database_instances/versions": {
+        "/aws-relational-database-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for aws relational database instances.",
                 "produces": [
@@ -111,7 +111,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/cluster_definitions/versions": {
+        "/cluster-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for cluster definitions.",
                 "produces": [
@@ -129,7 +129,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/cluster_instances/versions": {
+        "/cluster-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for cluster instances.",
                 "produces": [
@@ -165,7 +165,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/domain_name_definitions/versions": {
+        "/domain-name-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for domain name definitions.",
                 "produces": [
@@ -183,7 +183,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/domain_name_instances/versions": {
+        "/domain-name-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for domain name instances.",
                 "produces": [
@@ -201,7 +201,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/forward_proxy_definitions/versions": {
+        "/forward-proxy-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for forward proxy definitions.",
                 "produces": [
@@ -219,7 +219,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/forward_proxy_instances/versions": {
+        "/forward-proxy-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for forward proxy instances.",
                 "produces": [
@@ -237,7 +237,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/log_backends/versions": {
+        "/log-backends/versions": {
             "get": {
                 "description": "Get the supported API versions for log backends.",
                 "produces": [
@@ -255,7 +255,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/log_storage_definitions/versions": {
+        "/log-storage-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for log storage definitions.",
                 "produces": [
@@ -273,7 +273,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/log_storage_instances/versions": {
+        "/log-storage-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for log storage instances.",
                 "produces": [
@@ -291,7 +291,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/network_ingress_definitions/versions": {
+        "/network-ingress-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for network ingress definitions.",
                 "produces": [
@@ -309,7 +309,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/network_ingress_instances/versions": {
+        "/network-ingress-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for network ingress instances.",
                 "produces": [
@@ -381,7 +381,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_accounts": {
+        "/v0/aws-accounts": {
             "get": {
                 "description": "Get all aws accounts from the Threeport database.",
                 "consumes": [
@@ -464,7 +464,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_accounts/{id}": {
+        "/v0/aws-accounts/{id}": {
             "get": {
                 "description": "Get a particular aws account from the database.",
                 "consumes": [
@@ -656,7 +656,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_eks_cluster_definitions": {
+        "/v0/aws-eks-cluster-definitions": {
             "get": {
                 "description": "Get all aws eks cluster definitions from the Threeport database.",
                 "consumes": [
@@ -739,7 +739,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_eks_cluster_definitions/{id}": {
+        "/v0/aws-eks-cluster-definitions/{id}": {
             "get": {
                 "description": "Get a particular aws eks cluster definition from the database.",
                 "consumes": [
@@ -931,7 +931,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_eks_cluster_instances": {
+        "/v0/aws-eks-cluster-instances": {
             "get": {
                 "description": "Get all aws eks cluster instances from the Threeport database.",
                 "consumes": [
@@ -1014,7 +1014,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_eks_cluster_instances/{id}": {
+        "/v0/aws-eks-cluster-instances/{id}": {
             "get": {
                 "description": "Get a particular aws eks cluster instance from the database.",
                 "consumes": [
@@ -1206,7 +1206,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_relational_database_definitions": {
+        "/v0/aws-relational-database-definitions": {
             "get": {
                 "description": "Get all aws relational database definitions from the Threeport database.",
                 "consumes": [
@@ -1289,7 +1289,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_relational_database_definitions/{id}": {
+        "/v0/aws-relational-database-definitions/{id}": {
             "get": {
                 "description": "Get a particular aws relational database definition from the database.",
                 "consumes": [
@@ -1481,7 +1481,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_relational_database_instances": {
+        "/v0/aws-relational-database-instances": {
             "get": {
                 "description": "Get all aws relational database instances from the Threeport database.",
                 "consumes": [
@@ -1564,7 +1564,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/aws_relational_database_instances/{id}": {
+        "/v0/aws-relational-database-instances/{id}": {
             "get": {
                 "description": "Get a particular aws relational database instance from the database.",
                 "consumes": [
@@ -1756,7 +1756,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/cluster_definitions": {
+        "/v0/cluster-definitions": {
             "get": {
                 "description": "Get all cluster definitions from the Threeport database.",
                 "consumes": [
@@ -1839,7 +1839,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/cluster_definitions/{id}": {
+        "/v0/cluster-definitions/{id}": {
             "get": {
                 "description": "Get a particular cluster definition from the database.",
                 "consumes": [
@@ -2031,7 +2031,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/cluster_instances": {
+        "/v0/cluster-instances": {
             "get": {
                 "description": "Get all cluster instances from the Threeport database.",
                 "consumes": [
@@ -2114,7 +2114,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/cluster_instances/{id}": {
+        "/v0/cluster-instances/{id}": {
             "get": {
                 "description": "Get a particular cluster instance from the database.",
                 "consumes": [
@@ -2581,7 +2581,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/domain_name_definitions": {
+        "/v0/domain-name-definitions": {
             "get": {
                 "description": "Get all domain name definitions from the Threeport database.",
                 "consumes": [
@@ -2664,7 +2664,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/domain_name_definitions/{id}": {
+        "/v0/domain-name-definitions/{id}": {
             "get": {
                 "description": "Get a particular domain name definition from the database.",
                 "consumes": [
@@ -2856,7 +2856,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/domain_name_instances": {
+        "/v0/domain-name-instances": {
             "get": {
                 "description": "Get all domain name instances from the Threeport database.",
                 "consumes": [
@@ -2939,7 +2939,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/domain_name_instances/{id}": {
+        "/v0/domain-name-instances/{id}": {
             "get": {
                 "description": "Get a particular domain name instance from the database.",
                 "consumes": [
@@ -3131,7 +3131,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/forward_proxy_definitions": {
+        "/v0/forward-proxy-definitions": {
             "get": {
                 "description": "Get all forward proxy definitions from the Threeport database.",
                 "consumes": [
@@ -3214,7 +3214,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/forward_proxy_definitions/{id}": {
+        "/v0/forward-proxy-definitions/{id}": {
             "get": {
                 "description": "Get a particular forward proxy definition from the database.",
                 "consumes": [
@@ -3406,7 +3406,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/forward_proxy_instances": {
+        "/v0/forward-proxy-instances": {
             "get": {
                 "description": "Get all forward proxy instances from the Threeport database.",
                 "consumes": [
@@ -3489,7 +3489,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/forward_proxy_instances/{id}": {
+        "/v0/forward-proxy-instances/{id}": {
             "get": {
                 "description": "Get a particular forward proxy instance from the database.",
                 "consumes": [
@@ -3681,7 +3681,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_backends": {
+        "/v0/log-backends": {
             "get": {
                 "description": "Get all log backends from the Threeport database.",
                 "consumes": [
@@ -3764,7 +3764,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_backends/{id}": {
+        "/v0/log-backends/{id}": {
             "get": {
                 "description": "Get a particular log backend from the database.",
                 "consumes": [
@@ -3956,7 +3956,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_storage_definitions": {
+        "/v0/log-storage-definitions": {
             "get": {
                 "description": "Get all log storage definitions from the Threeport database.",
                 "consumes": [
@@ -4039,7 +4039,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_storage_definitions/{id}": {
+        "/v0/log-storage-definitions/{id}": {
             "get": {
                 "description": "Get a particular log storage definition from the database.",
                 "consumes": [
@@ -4231,7 +4231,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_storage_instances": {
+        "/v0/log-storage-instances": {
             "get": {
                 "description": "Get all log storage instances from the Threeport database.",
                 "consumes": [
@@ -4314,7 +4314,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/log_storage_instances/{id}": {
+        "/v0/log-storage-instances/{id}": {
             "get": {
                 "description": "Get a particular log storage instance from the database.",
                 "consumes": [
@@ -4506,7 +4506,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/network_ingress_definitions": {
+        "/v0/network-ingress-definitions": {
             "get": {
                 "description": "Get all network ingress definitions from the Threeport database.",
                 "consumes": [
@@ -4589,7 +4589,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/network_ingress_definitions/{id}": {
+        "/v0/network-ingress-definitions/{id}": {
             "get": {
                 "description": "Get a particular network ingress definition from the database.",
                 "consumes": [
@@ -4781,7 +4781,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/network_ingress_instances": {
+        "/v0/network-ingress-instances": {
             "get": {
                 "description": "Get all network ingress instances from the Threeport database.",
                 "consumes": [
@@ -4864,7 +4864,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/network_ingress_instances/{id}": {
+        "/v0/network-ingress-instances/{id}": {
             "get": {
                 "description": "Get a particular network ingress instance from the database.",
                 "consumes": [
@@ -5881,7 +5881,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_definitions": {
+        "/v0/workload-definitions": {
             "get": {
                 "description": "Get all workload definitions from the Threeport database.",
                 "consumes": [
@@ -5964,7 +5964,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_definitions/{id}": {
+        "/v0/workload-definitions/{id}": {
             "get": {
                 "description": "Get a particular workload definition from the database.",
                 "consumes": [
@@ -6156,7 +6156,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_instances": {
+        "/v0/workload-instances": {
             "get": {
                 "description": "Get all workload instances from the Threeport database.",
                 "consumes": [
@@ -6239,7 +6239,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_instances/{id}": {
+        "/v0/workload-instances/{id}": {
             "get": {
                 "description": "Get a particular workload instance from the database.",
                 "consumes": [
@@ -6431,54 +6431,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_resource_definition_sets": {
-            "post": {
-                "description": "Add a set of new workload resource definition to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new set of workload resource definitions.",
-                "operationId": "add-workloadResourceDefinitions",
-                "parameters": [
-                    {
-                        "description": "WorkloadResourceDefinition object array",
-                        "name": "workloadResourceDefinitions",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/v0.WorkloadResourceDefinition"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/workload_resource_definitions": {
+        "/v0/workload-resource-definitions": {
             "get": {
                 "description": "Get all workload resource definitions from the Threeport database.",
                 "consumes": [
@@ -6561,7 +6514,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_resource_definitions/{id}": {
+        "/v0/workload-resource-definitions/{id}": {
             "get": {
                 "description": "Get a particular workload resource definition from the database.",
                 "consumes": [
@@ -6753,7 +6706,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_resource_instances": {
+        "/v0/workload-resource-instances": {
             "get": {
                 "description": "Get all workload resource instances from the Threeport database.",
                 "consumes": [
@@ -6836,7 +6789,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_resource_instances/{id}": {
+        "/v0/workload-resource-instances/{id}": {
             "get": {
                 "description": "Get a particular workload resource instance from the database.",
                 "consumes": [
@@ -7028,6 +6981,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/v0/workload_resource_definition_sets": {
+            "post": {
+                "description": "Add a set of new workload resource definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new set of workload resource definitions.",
+                "operationId": "add-workloadResourceDefinitions",
+                "parameters": [
+                    {
+                        "description": "WorkloadResourceDefinition object array",
+                        "name": "workloadResourceDefinitions",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/v0.WorkloadResourceDefinition"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/version": {
             "get": {
                 "description": "Get a version of REST API.",
@@ -7052,7 +7052,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/workload_definitions/versions": {
+        "/workload-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for workload definitions.",
                 "produces": [
@@ -7070,7 +7070,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/workload_instances/versions": {
+        "/workload-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for workload instances.",
                 "produces": [
@@ -7088,7 +7088,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/workload_resource_definitions/versions": {
+        "/workload-resource-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for workload resource definitions.",
                 "produces": [
@@ -7106,7 +7106,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/workload_resource_instances/versions": {
+        "/workload-resource-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for workload resource instances.",
                 "produces": [
@@ -7755,20 +7755,22 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
                 "Profile",
                 "Tier",
+                "ClusterDefinition",
+                "ClusterInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
-                "ClusterDefinition",
-                "ClusterInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "User",
                 "Company",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
@@ -7776,25 +7778,25 @@ const docTemplate = `{
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance"
+                "AwsRelationalDatabaseInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeUser",
                 "ObjectTypeCompany",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
@@ -7802,9 +7804,7 @@ const docTemplate = `{
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance"
+                "ObjectTypeAwsRelationalDatabaseInstance"
             ]
         },
         "v0.Profile": {
@@ -8095,7 +8095,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "0.1.0",
+	Version:          "v0.0.6",
 	Host:             "rest-api.threeport.io",
 	BasePath:         "/",
 	Schemes:          []string{},

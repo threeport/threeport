@@ -24,8 +24,8 @@ const (
 	NetworkIngressInstanceUpdateSubject = "networkIngressInstance.update"
 	NetworkIngressInstanceDeleteSubject = "networkIngressInstance.delete"
 
-	PathNetworkIngressDefinitions = "/v0/network_ingress_definitions"
-	PathNetworkIngressInstances   = "/v0/network_ingress_instances"
+	PathNetworkIngressDefinitions = "/v0/network-ingress-definitions"
+	PathNetworkIngressInstances   = "/v0/network-ingress-instances"
 )
 
 // GetNetworkIngressDefinitionSubjects returns the NATS subjects

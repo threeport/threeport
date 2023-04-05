@@ -21,7 +21,7 @@ import (
 // @ID logBackend-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /log_backends/versions [get]
+// @Router /log-backends/versions [get]
 func (h Handler) GetLogBackendVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeLogBackend)])
 }
@@ -35,7 +35,7 @@ func (h Handler) GetLogBackendVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_backends [post]
+// @Router /v0/log-backends [post]
 func (h Handler) AddLogBackend(c echo.Context) error {
 	objectType := v0.ObjectTypeLogBackend
 	var logBackend v0.LogBackend
@@ -82,7 +82,7 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_backends [get]
+// @Router /v0/log-backends [get]
 func (h Handler) GetLogBackends(c echo.Context) error {
 	objectType := v0.ObjectTypeLogBackend
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -122,7 +122,7 @@ func (h Handler) GetLogBackends(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_backends/{id} [get]
+// @Router /v0/log-backends/{id} [get]
 func (h Handler) GetLogBackend(c echo.Context) error {
 	objectType := v0.ObjectTypeLogBackend
 	logBackendID := c.Param("id")
@@ -157,7 +157,7 @@ func (h Handler) GetLogBackend(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_backends/{id} [patch]
+// @Router /v0/log-backends/{id} [patch]
 func (h Handler) UpdateLogBackend(c echo.Context) error {
 	objectType := v0.ObjectTypeLogBackend
 	logBackendID := c.Param("id")
@@ -208,7 +208,7 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_backends/{id} [put]
+// @Router /v0/log-backends/{id} [put]
 func (h Handler) ReplaceLogBackend(c echo.Context) error {
 	objectType := v0.ObjectTypeLogBackend
 	logBackendID := c.Param("id")
@@ -267,7 +267,7 @@ func (h Handler) ReplaceLogBackend(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_backends/{id} [delete]
+// @Router /v0/log-backends/{id} [delete]
 func (h Handler) DeleteLogBackend(c echo.Context) error {
 	objectType := v0.ObjectTypeLogBackend
 	logBackendID := c.Param("id")
@@ -300,7 +300,7 @@ func (h Handler) DeleteLogBackend(c echo.Context) error {
 // @ID logStorageDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /log_storage_definitions/versions [get]
+// @Router /log-storage-definitions/versions [get]
 func (h Handler) GetLogStorageDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeLogStorageDefinition)])
 }
@@ -314,7 +314,7 @@ func (h Handler) GetLogStorageDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_definitions [post]
+// @Router /v0/log-storage-definitions [post]
 func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageDefinition
 	var logStorageDefinition v0.LogStorageDefinition
@@ -361,7 +361,7 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_definitions [get]
+// @Router /v0/log-storage-definitions [get]
 func (h Handler) GetLogStorageDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -401,7 +401,7 @@ func (h Handler) GetLogStorageDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_definitions/{id} [get]
+// @Router /v0/log-storage-definitions/{id} [get]
 func (h Handler) GetLogStorageDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageDefinition
 	logStorageDefinitionID := c.Param("id")
@@ -436,7 +436,7 @@ func (h Handler) GetLogStorageDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_definitions/{id} [patch]
+// @Router /v0/log-storage-definitions/{id} [patch]
 func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageDefinition
 	logStorageDefinitionID := c.Param("id")
@@ -487,7 +487,7 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_definitions/{id} [put]
+// @Router /v0/log-storage-definitions/{id} [put]
 func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageDefinition
 	logStorageDefinitionID := c.Param("id")
@@ -546,7 +546,7 @@ func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_definitions/{id} [delete]
+// @Router /v0/log-storage-definitions/{id} [delete]
 func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageDefinition
 	logStorageDefinitionID := c.Param("id")
@@ -579,7 +579,7 @@ func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 // @ID logStorageInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /log_storage_instances/versions [get]
+// @Router /log-storage-instances/versions [get]
 func (h Handler) GetLogStorageInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeLogStorageInstance)])
 }
@@ -593,7 +593,7 @@ func (h Handler) GetLogStorageInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_instances [post]
+// @Router /v0/log-storage-instances [post]
 func (h Handler) AddLogStorageInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageInstance
 	var logStorageInstance v0.LogStorageInstance
@@ -640,7 +640,7 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_instances [get]
+// @Router /v0/log-storage-instances [get]
 func (h Handler) GetLogStorageInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -680,7 +680,7 @@ func (h Handler) GetLogStorageInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_instances/{id} [get]
+// @Router /v0/log-storage-instances/{id} [get]
 func (h Handler) GetLogStorageInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageInstance
 	logStorageInstanceID := c.Param("id")
@@ -715,7 +715,7 @@ func (h Handler) GetLogStorageInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_instances/{id} [patch]
+// @Router /v0/log-storage-instances/{id} [patch]
 func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageInstance
 	logStorageInstanceID := c.Param("id")
@@ -766,7 +766,7 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_instances/{id} [put]
+// @Router /v0/log-storage-instances/{id} [put]
 func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageInstance
 	logStorageInstanceID := c.Param("id")
@@ -825,7 +825,7 @@ func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/log_storage_instances/{id} [delete]
+// @Router /v0/log-storage-instances/{id} [delete]
 func (h Handler) DeleteLogStorageInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageInstance
 	logStorageInstanceID := c.Param("id")

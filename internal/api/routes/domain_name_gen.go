@@ -10,7 +10,7 @@ import (
 
 // DomainNameDefinitionRoutes sets up all routes for the DomainNameDefinition handlers.
 func DomainNameDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/domain_name_definitions/versions", h.GetDomainNameDefinitionVersions)
+	e.GET("/domain-name-definitions/versions", h.GetDomainNameDefinitionVersions)
 
 	e.POST(v0.PathDomainNameDefinitions, h.AddDomainNameDefinition)
 	e.GET(v0.PathDomainNameDefinitions, h.GetDomainNameDefinitions)
@@ -22,7 +22,7 @@ func DomainNameDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // DomainNameInstanceRoutes sets up all routes for the DomainNameInstance handlers.
 func DomainNameInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/domain_name_instances/versions", h.GetDomainNameInstanceVersions)
+	e.GET("/domain-name-instances/versions", h.GetDomainNameInstanceVersions)
 
 	e.POST(v0.PathDomainNameInstances, h.AddDomainNameInstance)
 	e.GET(v0.PathDomainNameInstances, h.GetDomainNameInstances)

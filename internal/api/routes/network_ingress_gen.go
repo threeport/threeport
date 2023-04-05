@@ -10,7 +10,7 @@ import (
 
 // NetworkIngressDefinitionRoutes sets up all routes for the NetworkIngressDefinition handlers.
 func NetworkIngressDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/network_ingress_definitions/versions", h.GetNetworkIngressDefinitionVersions)
+	e.GET("/network-ingress-definitions/versions", h.GetNetworkIngressDefinitionVersions)
 
 	e.POST(v0.PathNetworkIngressDefinitions, h.AddNetworkIngressDefinition)
 	e.GET(v0.PathNetworkIngressDefinitions, h.GetNetworkIngressDefinitions)
@@ -22,7 +22,7 @@ func NetworkIngressDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // NetworkIngressInstanceRoutes sets up all routes for the NetworkIngressInstance handlers.
 func NetworkIngressInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/network_ingress_instances/versions", h.GetNetworkIngressInstanceVersions)
+	e.GET("/network-ingress-instances/versions", h.GetNetworkIngressInstanceVersions)
 
 	e.POST(v0.PathNetworkIngressInstances, h.AddNetworkIngressInstance)
 	e.GET(v0.PathNetworkIngressInstances, h.GetNetworkIngressInstances)

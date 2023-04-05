@@ -24,8 +24,8 @@ const (
 	ClusterInstanceUpdateSubject = "clusterInstance.update"
 	ClusterInstanceDeleteSubject = "clusterInstance.delete"
 
-	PathClusterDefinitions = "/v0/cluster_definitions"
-	PathClusterInstances   = "/v0/cluster_instances"
+	PathClusterDefinitions = "/v0/cluster-definitions"
+	PathClusterInstances   = "/v0/cluster-instances"
 )
 
 // GetClusterDefinitionSubjects returns the NATS subjects

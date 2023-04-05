@@ -21,7 +21,7 @@ import (
 // @ID domainNameDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /domain_name_definitions/versions [get]
+// @Router /domain-name-definitions/versions [get]
 func (h Handler) GetDomainNameDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeDomainNameDefinition)])
 }
@@ -35,7 +35,7 @@ func (h Handler) GetDomainNameDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_definitions [post]
+// @Router /v0/domain-name-definitions [post]
 func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	var domainNameDefinition v0.DomainNameDefinition
@@ -82,7 +82,7 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_definitions [get]
+// @Router /v0/domain-name-definitions [get]
 func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -122,7 +122,7 @@ func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_definitions/{id} [get]
+// @Router /v0/domain-name-definitions/{id} [get]
 func (h Handler) GetDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	domainNameDefinitionID := c.Param("id")
@@ -157,7 +157,7 @@ func (h Handler) GetDomainNameDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_definitions/{id} [patch]
+// @Router /v0/domain-name-definitions/{id} [patch]
 func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	domainNameDefinitionID := c.Param("id")
@@ -208,7 +208,7 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_definitions/{id} [put]
+// @Router /v0/domain-name-definitions/{id} [put]
 func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	domainNameDefinitionID := c.Param("id")
@@ -267,7 +267,7 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_definitions/{id} [delete]
+// @Router /v0/domain-name-definitions/{id} [delete]
 func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	domainNameDefinitionID := c.Param("id")
@@ -300,7 +300,7 @@ func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 // @ID domainNameInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /domain_name_instances/versions [get]
+// @Router /domain-name-instances/versions [get]
 func (h Handler) GetDomainNameInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeDomainNameInstance)])
 }
@@ -314,7 +314,7 @@ func (h Handler) GetDomainNameInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_instances [post]
+// @Router /v0/domain-name-instances [post]
 func (h Handler) AddDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	var domainNameInstance v0.DomainNameInstance
@@ -361,7 +361,7 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_instances [get]
+// @Router /v0/domain-name-instances [get]
 func (h Handler) GetDomainNameInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -401,7 +401,7 @@ func (h Handler) GetDomainNameInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_instances/{id} [get]
+// @Router /v0/domain-name-instances/{id} [get]
 func (h Handler) GetDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	domainNameInstanceID := c.Param("id")
@@ -436,7 +436,7 @@ func (h Handler) GetDomainNameInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_instances/{id} [patch]
+// @Router /v0/domain-name-instances/{id} [patch]
 func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	domainNameInstanceID := c.Param("id")
@@ -487,7 +487,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_instances/{id} [put]
+// @Router /v0/domain-name-instances/{id} [put]
 func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	domainNameInstanceID := c.Param("id")
@@ -546,7 +546,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain_name_instances/{id} [delete]
+// @Router /v0/domain-name-instances/{id} [delete]
 func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	domainNameInstanceID := c.Param("id")
