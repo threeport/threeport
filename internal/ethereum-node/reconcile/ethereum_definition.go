@@ -189,7 +189,7 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 
 			// aggregate manifests into a single yaml
 			var objects []runtime.Object
-			objects = append(objects, authJWT, executionClient, consensusClient)
+			objects = append(objects, authJWT, executionClient, consensusClient, CreateCRDNodesEthereumKotalIo(), CreateCRDBeaconnodesEthereum2KotalIo())
 
 			// marshal objects to yaml
 			yaml, err := yaml.Marshal(objects)
