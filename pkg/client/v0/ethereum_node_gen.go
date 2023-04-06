@@ -83,7 +83,7 @@ func CreateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/ethereum-node-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonEthereumNodeDefinition),
 		http.StatusCreated,
 	)

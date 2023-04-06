@@ -1,13 +1,19 @@
 package reconcile
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 
 	"github.com/mitchellh/mapstructure"
+	"gopkg.in/yaml.v2"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/controller"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EthereumNodeDefinitionReconciler reconciles system state when a EthereumNodeDefinition
@@ -102,86 +108,124 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 				ethereumNodeDefinition = *latestEthereumNodeDefinition
 			}
 
-			// // generate random 32 byte hex string
-			// b := make([]byte, 32)
-			// _, err = rand.Read(b)
-			// if err != nil {
-			// 	panic(err)
-			// }
+			// generate random 32 byte hex string
+			b := make([]byte, 32)
+			_, err = rand.Read(b)
+			if err != nil {
+				panic(err)
+			}
 
-			// // Convert the byte slice to a hex string
-			// hexString := hex.EncodeToString(b)
+			// Convert the byte slice to a hex string
+			hexString := hex.EncodeToString(b)
 
-			// // Create auth jwt secret for consensus client -> execution client auth
-			// var authJWT = &unstructured.Unstructured{
-			// 	Object: map[string]interface{}{
-			// 		"apiVersion": "v1",
-			// 		"kind":       "Secret",
-			// 		"metadata": map[string]interface{}{
-			// 			"name":      "auth-jwt",
-			// 			"namespace": "default",
-			// 		},
-			// 		"stringData": map[string]interface{}{
-			// 			"secret": hexString,
-			// 		},
-			// 	},
-			// }
+			// Create auth jwt secret for consensus client -> execution client auth
+			var authJWT = &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Secret",
+					"metadata": map[string]interface{}{
+						"name":      "auth-jwt",
+						"namespace": "default",
+					},
+					"stringData": map[string]interface{}{
+						"secret": hexString,
+					},
+				},
+			}
 
-			// // define execution client manifest
-			// var executionClient = &unstructured.Unstructured{
-			// 	Object: map[string]interface{}{
-			// 		"apiVersion": "ethereum.kotal.io/v1alpha1",
-			// 		"kind":       "Node",
-			// 		"metadata": map[string]interface{}{
-			// 			"name":      "ethereum-node-execution",
-			// 			"namespace": "default",
-			// 		},
-			// 		"spec": map[string]interface{}{
-			// 			"image":         "ethereum/client-go:v1.11.5",
-			// 			"client":        "geth",
-			// 			"network":       *ethereumNodeDefinition.Network,
-			// 			"rpc":           "true",
-			// 			"jwtSecretName": "auth-jwt",
-			// 			"engine":        "true",
-			// 			"enginePort":    "8551",
-			// 			"resources": map[string]interface{}{
-			// 				"cpu":         "2",
-			// 				"cpuLimit":    "4",
-			// 				"memory":      "8Gi",
-			// 				"memoryLimit": "16Gi",
-			// 			},
-			// 		},
-			// 	},
-			// }
+			// define execution client manifest
+			var executionClient = &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "ethereum.kotal.io/v1alpha1",
+					"kind":       "Node",
+					"metadata": map[string]interface{}{
+						"name":      "ethereum-node-execution",
+						"namespace": "default",
+					},
+					"spec": map[string]interface{}{
+						"image":         "ethereum/client-go:v1.11.5",
+						"client":        "geth",
+						"network":       *ethereumNodeDefinition.Network,
+						"rpc":           "true",
+						"jwtSecretName": "auth-jwt",
+						"engine":        "true",
+						"enginePort":    "8551",
+						"resources": map[string]interface{}{
+							"cpu":         "2",
+							"cpuLimit":    "4",
+							"memory":      "8Gi",
+							"memoryLimit": "16Gi",
+						},
+					},
+				},
+			}
 
-			// // define consensus client manifest
-			// var consensusClient = &unstructured.Unstructured{
-			// 	Object: map[string]interface{}{
-			// 		"apiVersion": "ethereum2.kotal.io/v1alpha1",
-			// 		"kind":       "BeaconNode",
-			// 		"metadata": map[string]interface{}{
-			// 			"name":      "ethereum-node-consensus",
-			// 			"namespace": "default",
-			// 		},
-			// 		"spec": map[string]interface{}{
-			// 			"image":                   "prysmaticlabs/prysm-beacon-chain:v4.0.1",
-			// 			"client":                  "prysm",
-			// 			"network":                 *ethereumNodeDefinition.Network,
-			// 			"rpc":                     "true",
-			// 			"jwtSecretName":           "auth-jwt",
-			// 			"executionEngineEndpoint": "http://ethereum-node.default.svc.cluster.local:8551",
-			// 			"checkpointSyncUrl":       "https://prater-checkpoint-sync.stakely.io/",
-			// 			"resources": map[string]interface{}{
-			// 				"cpu":         "2",
-			// 				"cpuLimit":    "4",
-			// 				"memory":      "8Gi",
-			// 				"memoryLimit": "16Gi",
-			// 			},
-			// 		},
-			// 	},
-			// }
+			// define consensus client manifest
+			var consensusClient = &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "ethereum2.kotal.io/v1alpha1",
+					"kind":       "BeaconNode",
+					"metadata": map[string]interface{}{
+						"name":      "ethereum-node-consensus",
+						"namespace": "default",
+					},
+					"spec": map[string]interface{}{
+						"image":                   "prysmaticlabs/prysm-beacon-chain:v4.0.1",
+						"client":                  "prysm",
+						"network":                 *ethereumNodeDefinition.Network,
+						"rpc":                     "true",
+						"jwtSecretName":           "auth-jwt",
+						"executionEngineEndpoint": "http://ethereum-node.default.svc.cluster.local:8551",
+						"checkpointSyncUrl":       "https://prater-checkpoint-sync.stakely.io/",
+						"resources": map[string]interface{}{
+							"cpu":         "2",
+							"cpuLimit":    "4",
+							"memory":      "8Gi",
+							"memoryLimit": "16Gi",
+						},
+					},
+				},
+			}
 
-			// set the object's Reconciled field to true
+			// aggregate manifests into a single yaml
+			var objects []runtime.Object
+			objects = append(objects, authJWT, executionClient, consensusClient)
+
+			// marshal objects to yaml
+			yaml, err := yaml.Marshal(objects)
+			if err != nil {
+				log.Error(err, "failed to marshal ethereum node definition to yaml")
+				continue
+			}
+
+			// create workload definition
+			yamlString := string(yaml)
+
+			name := "ethereum-node"
+			var companyID uint = 0
+			var userID uint = 0
+			workloadDefinition := v0.WorkloadDefinition{
+				Definition: v0.Definition{
+					Name: &name,
+					CompanyID: &companyID,
+					UserID: &userID,
+				},
+				YAMLDocument: &yamlString,
+			}
+
+			// persist workload definition to database
+			_, err = client.CreateWorkloadDefinition(
+				&workloadDefinition,
+				r.APIServer,
+				"",
+			)
+			if err != nil {
+				log.Error(err, "failed to create workload definition")
+				r.UnlockAndRequeue(&ethereumNodeDefinition, msg.Subject, notifPayload, requeueDelay)
+				continue
+			}
+
+			// set the ethereum node definition object's Reconciled field to true
 			isReconciled := true
 			reconciledDefinition := v0.EthereumNodeDefinition{
 				Reconciled: &isReconciled,

@@ -83,7 +83,7 @@ func CreateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/workload-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadDefinition),
 		http.StatusCreated,
 	)

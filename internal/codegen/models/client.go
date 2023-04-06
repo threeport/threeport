@@ -203,7 +203,7 @@ func (cc *ControllerConfig) ClientLib() error {
 						Id("apiAddr").Op(",").Id("ApiVersion"),
 				),
 				Line().Id("apiToken"),
-				Line().Qual("net/http", "MethodGet"),
+				Line().Qual("net/http", "MethodPost"),
 				Line().Qual("bytes", "NewBuffer").Call(Id(
 					fmt.Sprintf("json%s", mc.TypeName),
 				)),
