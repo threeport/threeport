@@ -1,4 +1,4 @@
-package notifications
+package reconcile
 
 import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"

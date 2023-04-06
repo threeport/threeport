@@ -104,14 +104,14 @@ func CreateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 }
 
 // UpdateEthereumNodeDefinition updates a ethereum node definition
-func UpdateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinition, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
+func UpdateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinition, apiAddr, apiToken string, id uint) (*v0.EthereumNodeDefinition, error) {
 	jsonEthereumNodeDefinition, err := client.MarshalObject(ethereumNodeDefinition)
 	if err != nil {
 		return ethereumNodeDefinition, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/ethereum-node-definitions/%d", apiAddr, ApiVersion, *ethereumNodeDefinition.ID),
+		fmt.Sprintf("%s/%s/ethereum-node-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonEthereumNodeDefinition),
