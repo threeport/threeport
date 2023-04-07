@@ -785,7 +785,7 @@ data:
                                                  updated_at timestamp with time zone,
                                                  deleted_at timestamp with time zone,
                                                  name text NOT NULL,
-                                                 yaml_document text NOT NULL,
+                                                 json_document text NOT NULL,
                                                  user_id bigint,
                                                  company_id bigint,
                                                  reconciled boolean DEFAULT false
@@ -2612,7 +2612,7 @@ data:
     ca_certificate, certificate, key) FROM stdin;\n\\.\n\n\n--\n-- TOC entry 3523
     (class 0 OID 16462)\n-- Dependencies: 240\n-- Data for Name: workload_definitions;
     Type: TABLE DATA; Schema: public; Owner: tp_rest_api\n--\n\nCOPY public.workload_definitions
-    (id, created_at, updated_at, deleted_at, name, yaml_document, user_id, company_id,
+    (id, created_at, updated_at, deleted_at, name, json_document, user_id, company_id,
     reconciled) FROM stdin;\n\\.\n\n\n--\n-- TOC entry 3525 (class 0 OID 16468)\n--
     Dependencies: 242\n-- Data for Name: workload_instances; Type: TABLE DATA; Schema:
     public; Owner: tp_rest_api\n--\n\nCOPY public.workload_instances (id, created_at,
