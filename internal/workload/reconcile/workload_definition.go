@@ -14,7 +14,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/controller"
-	"github.com/threeport/threeport/pkg/notifications"
 )
 
 // WorkloadDefinitionReconciler reconciles system state when a WorkloadDefinition
@@ -46,7 +45,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// unmarshal notification from message data
-			var notif notifications.Notification
+			var notif WorkloadNotification
 			if err := json.Unmarshal(msg.Data, &notif); err != nil {
 				log.Error(
 					err, "failed to unmarshal message data from NATS",
