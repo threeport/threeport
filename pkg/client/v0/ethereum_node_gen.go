@@ -39,7 +39,7 @@ func GetEthereumNodeDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Ether
 	return &ethereumNodeDefinition, nil
 }
 
-// GetEthereumNodeDefinitionByName feteches a ethereum node definition by name
+// GetEthereumNodeDefinitionByName fetches a ethereum node definition by name
 func GetEthereumNodeDefinitionByName(name, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
 	var ethereumNodeDefinitions []v0.EthereumNodeDefinition
 
@@ -104,14 +104,14 @@ func CreateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 }
 
 // UpdateEthereumNodeDefinition updates a ethereum node definition
-func UpdateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinition, apiAddr, apiToken string, id uint) (*v0.EthereumNodeDefinition, error) {
+func UpdateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinition, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
 	jsonEthereumNodeDefinition, err := client.MarshalObject(ethereumNodeDefinition)
 	if err != nil {
 		return ethereumNodeDefinition, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/ethereum-node-definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/ethereum-node-definitions/%d", apiAddr, ApiVersion, *ethereumNodeDefinition.ID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonEthereumNodeDefinition),
@@ -160,7 +160,7 @@ func GetEthereumNodeInstanceByID(id uint, apiAddr, apiToken string) (*v0.Ethereu
 	return &ethereumNodeInstance, nil
 }
 
-// GetEthereumNodeInstanceByName feteches a ethereum node instance by name
+// GetEthereumNodeInstanceByName fetches a ethereum node instance by name
 func GetEthereumNodeInstanceByName(name, apiAddr, apiToken string) (*v0.EthereumNodeInstance, error) {
 	var ethereumNodeInstances []v0.EthereumNodeInstance
 
@@ -204,7 +204,7 @@ func CreateEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, a
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/ethereum-node-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonEthereumNodeInstance),
 		http.StatusCreated,
 	)

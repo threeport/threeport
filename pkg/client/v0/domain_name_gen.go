@@ -39,7 +39,7 @@ func GetDomainNameDefinitionByID(id uint, apiAddr, apiToken string) (*v0.DomainN
 	return &domainNameDefinition, nil
 }
 
-// GetDomainNameDefinitionByName feteches a domain name definition by name
+// GetDomainNameDefinitionByName fetches a domain name definition by name
 func GetDomainNameDefinitionByName(name, apiAddr, apiToken string) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinitions []v0.DomainNameDefinition
 
@@ -83,7 +83,7 @@ func CreateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/domain-name-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameDefinition),
 		http.StatusCreated,
 	)
@@ -160,7 +160,7 @@ func GetDomainNameInstanceByID(id uint, apiAddr, apiToken string) (*v0.DomainNam
 	return &domainNameInstance, nil
 }
 
-// GetDomainNameInstanceByName feteches a domain name instance by name
+// GetDomainNameInstanceByName fetches a domain name instance by name
 func GetDomainNameInstanceByName(name, apiAddr, apiToken string) (*v0.DomainNameInstance, error) {
 	var domainNameInstances []v0.DomainNameInstance
 
@@ -204,7 +204,7 @@ func CreateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/domain-name-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameInstance),
 		http.StatusCreated,
 	)

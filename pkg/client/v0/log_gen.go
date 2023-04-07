@@ -39,7 +39,7 @@ func GetLogBackendByID(id uint, apiAddr, apiToken string) (*v0.LogBackend, error
 	return &logBackend, nil
 }
 
-// GetLogBackendByName feteches a log backend by name
+// GetLogBackendByName fetches a log backend by name
 func GetLogBackendByName(name, apiAddr, apiToken string) (*v0.LogBackend, error) {
 	var logBackends []v0.LogBackend
 
@@ -83,7 +83,7 @@ func CreateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/log-backends", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonLogBackend),
 		http.StatusCreated,
 	)
@@ -160,7 +160,7 @@ func GetLogStorageDefinitionByID(id uint, apiAddr, apiToken string) (*v0.LogStor
 	return &logStorageDefinition, nil
 }
 
-// GetLogStorageDefinitionByName feteches a log storage definition by name
+// GetLogStorageDefinitionByName fetches a log storage definition by name
 func GetLogStorageDefinitionByName(name, apiAddr, apiToken string) (*v0.LogStorageDefinition, error) {
 	var logStorageDefinitions []v0.LogStorageDefinition
 
@@ -204,7 +204,7 @@ func CreateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, a
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/log-storage-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonLogStorageDefinition),
 		http.StatusCreated,
 	)
@@ -281,7 +281,7 @@ func GetLogStorageInstanceByID(id uint, apiAddr, apiToken string) (*v0.LogStorag
 	return &logStorageInstance, nil
 }
 
-// GetLogStorageInstanceByName feteches a log storage instance by name
+// GetLogStorageInstanceByName fetches a log storage instance by name
 func GetLogStorageInstanceByName(name, apiAddr, apiToken string) (*v0.LogStorageInstance, error) {
 	var logStorageInstances []v0.LogStorageInstance
 
@@ -325,7 +325,7 @@ func CreateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/log-storage-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonLogStorageInstance),
 		http.StatusCreated,
 	)

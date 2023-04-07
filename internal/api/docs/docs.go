@@ -8407,60 +8407,60 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "DomainNameDefinition",
-                "DomainNameInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "User",
-                "Company",
-                "Profile",
-                "Tier",
-                "ClusterDefinition",
-                "ClusterInstance",
                 "NetworkIngressDefinition",
                 "NetworkIngressInstance",
+                "User",
+                "Company",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
+                "EthereumNodeDefinition",
+                "EthereumNodeInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
-                "EthereumNodeDefinition",
-                "EthereumNodeInstance"
+                "ClusterDefinition",
+                "ClusterInstance",
+                "Profile",
+                "Tier",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeUser",
-                "ObjectTypeCompany",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
                 "ObjectTypeNetworkIngressDefinition",
                 "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeUser",
+                "ObjectTypeCompany",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeEthereumNodeDefinition",
+                "ObjectTypeEthereumNodeInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
-                "ObjectTypeEthereumNodeDefinition",
-                "ObjectTypeEthereumNodeInstance"
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance"
             ]
         },
         "v0.Profile": {
@@ -8612,13 +8612,17 @@ const docTemplate = `{
         "v0.WorkloadDefinition": {
             "type": "object",
             "required": [
-                "Name",
-                "YAMLDocument"
+                "JSONDocument",
+                "Name"
             ],
             "properties": {
                 "CompanyID": {
                     "description": "Required if no UserID.  The company that owns the object.",
                     "type": "integer"
+                },
+                "JSONDocument": {
+                    "description": "The yaml manifests that define the workload configuration.",
+                    "type": "string"
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
@@ -8653,10 +8657,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/v0.WorkloadResourceDefinition"
                     }
-                },
-                "YAMLDocument": {
-                    "description": "The yaml manifests that define the workload configuration.",
-                    "type": "string"
                 }
             }
         },

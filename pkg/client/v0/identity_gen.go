@@ -39,7 +39,7 @@ func GetUserByID(id uint, apiAddr, apiToken string) (*v0.User, error) {
 	return &user, nil
 }
 
-// GetUserByName feteches a user by name
+// GetUserByName fetches a user by name
 func GetUserByName(name, apiAddr, apiToken string) (*v0.User, error) {
 	var users []v0.User
 
@@ -83,7 +83,7 @@ func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/users", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonUser),
 		http.StatusCreated,
 	)
@@ -160,7 +160,7 @@ func GetCompanyByID(id uint, apiAddr, apiToken string) (*v0.Company, error) {
 	return &company, nil
 }
 
-// GetCompanyByName feteches a company by name
+// GetCompanyByName fetches a company by name
 func GetCompanyByName(name, apiAddr, apiToken string) (*v0.Company, error) {
 	var companies []v0.Company
 
@@ -204,7 +204,7 @@ func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/companies", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonCompany),
 		http.StatusCreated,
 	)

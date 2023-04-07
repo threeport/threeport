@@ -39,7 +39,7 @@ func GetProfileByID(id uint, apiAddr, apiToken string) (*v0.Profile, error) {
 	return &profile, nil
 }
 
-// GetProfileByName feteches a profile by name
+// GetProfileByName fetches a profile by name
 func GetProfileByName(name, apiAddr, apiToken string) (*v0.Profile, error) {
 	var profiles []v0.Profile
 
@@ -83,7 +83,7 @@ func CreateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/profiles", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonProfile),
 		http.StatusCreated,
 	)
@@ -160,7 +160,7 @@ func GetTierByID(id uint, apiAddr, apiToken string) (*v0.Tier, error) {
 	return &tier, nil
 }
 
-// GetTierByName feteches a tier by name
+// GetTierByName fetches a tier by name
 func GetTierByName(name, apiAddr, apiToken string) (*v0.Tier, error) {
 	var tiers []v0.Tier
 
@@ -204,7 +204,7 @@ func CreateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/tiers", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonTier),
 		http.StatusCreated,
 	)

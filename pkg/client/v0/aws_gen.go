@@ -39,7 +39,7 @@ func GetAwsAccountByID(id uint, apiAddr, apiToken string) (*v0.AwsAccount, error
 	return &awsAccount, nil
 }
 
-// GetAwsAccountByName feteches a aws account by name
+// GetAwsAccountByName fetches a aws account by name
 func GetAwsAccountByName(name, apiAddr, apiToken string) (*v0.AwsAccount, error) {
 	var awsAccounts []v0.AwsAccount
 
@@ -83,7 +83,7 @@ func CreateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/aws-accounts", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonAwsAccount),
 		http.StatusCreated,
 	)
@@ -160,7 +160,7 @@ func GetAwsEksClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.AwsE
 	return &awsEksClusterDefinition, nil
 }
 
-// GetAwsEksClusterDefinitionByName feteches a aws eks cluster definition by name
+// GetAwsEksClusterDefinitionByName fetches a aws eks cluster definition by name
 func GetAwsEksClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
 	var awsEksClusterDefinitions []v0.AwsEksClusterDefinition
 
@@ -204,7 +204,7 @@ func CreateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefi
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonAwsEksClusterDefinition),
 		http.StatusCreated,
 	)
@@ -281,7 +281,7 @@ func GetAwsEksClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.AwsEks
 	return &awsEksClusterInstance, nil
 }
 
-// GetAwsEksClusterInstanceByName feteches a aws eks cluster instance by name
+// GetAwsEksClusterInstanceByName fetches a aws eks cluster instance by name
 func GetAwsEksClusterInstanceByName(name, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
 	var awsEksClusterInstances []v0.AwsEksClusterInstance
 
@@ -325,7 +325,7 @@ func CreateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/aws-eks-cluster-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonAwsEksClusterInstance),
 		http.StatusCreated,
 	)
@@ -402,7 +402,7 @@ func GetAwsRelationalDatabaseDefinitionByID(id uint, apiAddr, apiToken string) (
 	return &awsRelationalDatabaseDefinition, nil
 }
 
-// GetAwsRelationalDatabaseDefinitionByName feteches a aws relational database definition by name
+// GetAwsRelationalDatabaseDefinitionByName fetches a aws relational database definition by name
 func GetAwsRelationalDatabaseDefinitionByName(name, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
 
@@ -446,7 +446,7 @@ func CreateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.A
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/aws-relational-database-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseDefinition),
 		http.StatusCreated,
 	)
@@ -523,7 +523,7 @@ func GetAwsRelationalDatabaseInstanceByID(id uint, apiAddr, apiToken string) (*v
 	return &awsRelationalDatabaseInstance, nil
 }
 
-// GetAwsRelationalDatabaseInstanceByName feteches a aws relational database instance by name
+// GetAwsRelationalDatabaseInstanceByName fetches a aws relational database instance by name
 func GetAwsRelationalDatabaseInstanceByName(name, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
 
@@ -567,7 +567,7 @@ func CreateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRe
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/aws-relational-database-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseInstance),
 		http.StatusCreated,
 	)

@@ -39,7 +39,7 @@ func GetNetworkIngressDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Net
 	return &networkIngressDefinition, nil
 }
 
-// GetNetworkIngressDefinitionByName feteches a network ingress definition by name
+// GetNetworkIngressDefinitionByName fetches a network ingress definition by name
 func GetNetworkIngressDefinitionByName(name, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinitions []v0.NetworkIngressDefinition
 
@@ -83,7 +83,7 @@ func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/network-ingress-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonNetworkIngressDefinition),
 		http.StatusCreated,
 	)
@@ -160,7 +160,7 @@ func GetNetworkIngressInstanceByID(id uint, apiAddr, apiToken string) (*v0.Netwo
 	return &networkIngressInstance, nil
 }
 
-// GetNetworkIngressInstanceByName feteches a network ingress instance by name
+// GetNetworkIngressInstanceByName fetches a network ingress instance by name
 func GetNetworkIngressInstanceByName(name, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
 	var networkIngressInstances []v0.NetworkIngressInstance
 
@@ -204,7 +204,7 @@ func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/network-ingress-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonNetworkIngressInstance),
 		http.StatusCreated,
 	)

@@ -39,7 +39,7 @@ func GetWorkloadDefinitionByID(id uint, apiAddr, apiToken string) (*v0.WorkloadD
 	return &workloadDefinition, nil
 }
 
-// GetWorkloadDefinitionByName feteches a workload definition by name
+// GetWorkloadDefinitionByName fetches a workload definition by name
 func GetWorkloadDefinitionByName(name, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
 	var workloadDefinitions []v0.WorkloadDefinition
 
@@ -160,7 +160,7 @@ func GetWorkloadResourceDefinitionByID(id uint, apiAddr, apiToken string) (*v0.W
 	return &workloadResourceDefinition, nil
 }
 
-// GetWorkloadResourceDefinitionByName feteches a workload resource definition by name
+// GetWorkloadResourceDefinitionByName fetches a workload resource definition by name
 func GetWorkloadResourceDefinitionByName(name, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
@@ -204,7 +204,7 @@ func CreateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadRes
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/workload-resource-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
 		http.StatusCreated,
 	)
@@ -281,7 +281,7 @@ func GetWorkloadInstanceByID(id uint, apiAddr, apiToken string) (*v0.WorkloadIns
 	return &workloadInstance, nil
 }
 
-// GetWorkloadInstanceByName feteches a workload instance by name
+// GetWorkloadInstanceByName fetches a workload instance by name
 func GetWorkloadInstanceByName(name, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
 
@@ -325,7 +325,7 @@ func CreateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiT
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/workload-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadInstance),
 		http.StatusCreated,
 	)
@@ -402,7 +402,7 @@ func GetWorkloadResourceInstanceByID(id uint, apiAddr, apiToken string) (*v0.Wor
 	return &workloadResourceInstance, nil
 }
 
-// GetWorkloadResourceInstanceByName feteches a workload resource instance by name
+// GetWorkloadResourceInstanceByName fetches a workload resource instance by name
 func GetWorkloadResourceInstanceByName(name, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 
@@ -446,7 +446,7 @@ func CreateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourc
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/workload-resource-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),
 		http.StatusCreated,
 	)

@@ -14,7 +14,7 @@ type WorkloadDefinition struct {
 	Definition `mapstructure:",squash"`
 
 	// The yaml manifests that define the workload configuration.
-	YAMLDocument *string `json:"YAMLDocument,omitempty" gorm:"not null" validate:"required"`
+	JSONDocument *string `json:"JSONDocument,omitempty" gorm:"not null" validate:"required"`
 
 	//// Required if no CompanyID.  The user that owns the workload.
 	//UserID *uint `json:"UserID,omitempty" query:"userid" validate:"optional"`

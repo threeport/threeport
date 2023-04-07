@@ -39,7 +39,7 @@ func GetForwardProxyDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Forwa
 	return &forwardProxyDefinition, nil
 }
 
-// GetForwardProxyDefinitionByName feteches a forward proxy definition by name
+// GetForwardProxyDefinitionByName fetches a forward proxy definition by name
 func GetForwardProxyDefinitionByName(name, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinitions []v0.ForwardProxyDefinition
 
@@ -83,7 +83,7 @@ func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/forward-proxy-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonForwardProxyDefinition),
 		http.StatusCreated,
 	)
@@ -160,7 +160,7 @@ func GetForwardProxyInstanceByID(id uint, apiAddr, apiToken string) (*v0.Forward
 	return &forwardProxyInstance, nil
 }
 
-// GetForwardProxyInstanceByName feteches a forward proxy instance by name
+// GetForwardProxyInstanceByName fetches a forward proxy instance by name
 func GetForwardProxyInstanceByName(name, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
 	var forwardProxyInstances []v0.ForwardProxyInstance
 
@@ -204,7 +204,7 @@ func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/forward-proxy-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonForwardProxyInstance),
 		http.StatusCreated,
 	)

@@ -108,9 +108,9 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				workloadDefinition = *latestWorkloadDefinition
 			}
 
-			// iterate over each resource in the yaml doc and construct a workload
+			// iterate over each resource in the json doc and construct a workload
 			// resource definition
-			decoder := yamlv3.NewDecoder(strings.NewReader(*workloadDefinition.YAMLDocument))
+			decoder := yamlv3.NewDecoder(strings.NewReader(*workloadDefinition.JSONDocument))
 			var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 			wrdConstructSuccess := true
 			for {

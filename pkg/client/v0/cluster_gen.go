@@ -39,7 +39,7 @@ func GetClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.ClusterDef
 	return &clusterDefinition, nil
 }
 
-// GetClusterDefinitionByName feteches a cluster definition by name
+// GetClusterDefinitionByName fetches a cluster definition by name
 func GetClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
 	var clusterDefinitions []v0.ClusterDefinition
 
@@ -83,7 +83,7 @@ func CreateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, a
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/cluster-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonClusterDefinition),
 		http.StatusCreated,
 	)
@@ -160,7 +160,7 @@ func GetClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.ClusterInsta
 	return &clusterInstance, nil
 }
 
-// GetClusterInstanceByName feteches a cluster instance by name
+// GetClusterInstanceByName fetches a cluster instance by name
 func GetClusterInstanceByName(name, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
 	var clusterInstances []v0.ClusterInstance
 
@@ -204,7 +204,7 @@ func CreateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToke
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/cluster-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonClusterInstance),
 		http.StatusCreated,
 	)

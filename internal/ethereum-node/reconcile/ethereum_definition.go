@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 
 	"github.com/mitchellh/mapstructure"
-	"gopkg.in/yaml.v2"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -191,26 +190,25 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 			var objects []runtime.Object
 			objects = append(objects, authJWT, executionClient, consensusClient, CreateCRDNodesEthereumKotalIo(), CreateCRDBeaconnodesEthereum2KotalIo())
 
-			// marshal objects to yaml
-			yaml, err := yaml.Marshal(objects)
+			json, err := json.Marshal(objects)
 			if err != nil {
-				log.Error(err, "failed to marshal ethereum node definition to yaml")
+				log.Error(err, "failed to marshal workload definition")
+				r.UnlockAndRequeue(&ethereumNodeDefinition, msg.Subject, notifPayload, requeueDelay)
 				continue
 			}
 
 			// create workload definition
-			yamlString := string(yaml)
-
+			jsonString := string(json)
 			name := "ethereum-node"
 			var companyID uint = 0
 			var userID uint = 0
 			workloadDefinition := v0.WorkloadDefinition{
 				Definition: v0.Definition{
-					Name: &name,
+					Name:      &name,
 					CompanyID: &companyID,
-					UserID: &userID,
+					UserID:    &userID,
 				},
-				YAMLDocument: &yamlString,
+				JSONDocument: &jsonString,
 			}
 
 			// persist workload definition to database
