@@ -24,16 +24,16 @@ func GetProfileByID(id uint, apiAddr, apiToken string) (*v0.Profile, error) {
 		http.StatusOK,
 	)
 	if err != nil {
-		return &profile, err
+		return &profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &profile, err
+		return &profile, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &profile); err != nil {
-		return &profile, err
+		return &profile, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &profile, nil
@@ -51,16 +51,16 @@ func GetProfileByName(name, apiAddr, apiToken string) (*v0.Profile, error) {
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.Profile{}, err
+		return &v0.Profile{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.Profile{}, err
+		return &v0.Profile{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &profiles); err != nil {
-		return &v0.Profile{}, err
+		return &v0.Profile{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -77,27 +77,27 @@ func GetProfileByName(name, apiAddr, apiToken string) (*v0.Profile, error) {
 func CreateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, error) {
 	jsonProfile, err := client.MarshalObject(profile)
 	if err != nil {
-		return profile, err
+		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/profiles", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonProfile),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return profile, err
+		return profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return profile, err
+		return profile, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &profile); err != nil {
-		return profile, err
+		return profile, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return profile, nil
@@ -107,7 +107,7 @@ func CreateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, 
 func UpdateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, error) {
 	jsonProfile, err := client.MarshalObject(profile)
 	if err != nil {
-		return profile, err
+		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -118,16 +118,16 @@ func UpdateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, 
 		http.StatusOK,
 	)
 	if err != nil {
-		return profile, err
+		return profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return profile, err
+		return profile, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &profile); err != nil {
-		return profile, err
+		return profile, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return profile, nil
@@ -145,16 +145,16 @@ func GetTierByID(id uint, apiAddr, apiToken string) (*v0.Tier, error) {
 		http.StatusOK,
 	)
 	if err != nil {
-		return &tier, err
+		return &tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &tier, err
+		return &tier, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &tier); err != nil {
-		return &tier, err
+		return &tier, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &tier, nil
@@ -172,16 +172,16 @@ func GetTierByName(name, apiAddr, apiToken string) (*v0.Tier, error) {
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.Tier{}, err
+		return &v0.Tier{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.Tier{}, err
+		return &v0.Tier{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &tiers); err != nil {
-		return &v0.Tier{}, err
+		return &v0.Tier{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -198,27 +198,27 @@ func GetTierByName(name, apiAddr, apiToken string) (*v0.Tier, error) {
 func CreateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 	jsonTier, err := client.MarshalObject(tier)
 	if err != nil {
-		return tier, err
+		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/tiers", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonTier),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return tier, err
+		return tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return tier, err
+		return tier, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &tier); err != nil {
-		return tier, err
+		return tier, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return tier, nil
@@ -228,7 +228,7 @@ func CreateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 func UpdateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 	jsonTier, err := client.MarshalObject(tier)
 	if err != nil {
-		return tier, err
+		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -239,16 +239,16 @@ func UpdateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 		http.StatusOK,
 	)
 	if err != nil {
-		return tier, err
+		return tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return tier, err
+		return tier, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &tier); err != nil {
-		return tier, err
+		return tier, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return tier, nil

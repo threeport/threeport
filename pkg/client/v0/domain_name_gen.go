@@ -24,16 +24,16 @@ func GetDomainNameDefinitionByID(id uint, apiAddr, apiToken string) (*v0.DomainN
 		http.StatusOK,
 	)
 	if err != nil {
-		return &domainNameDefinition, err
+		return &domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &domainNameDefinition, err
+		return &domainNameDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameDefinition); err != nil {
-		return &domainNameDefinition, err
+		return &domainNameDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &domainNameDefinition, nil
@@ -51,16 +51,16 @@ func GetDomainNameDefinitionByName(name, apiAddr, apiToken string) (*v0.DomainNa
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.DomainNameDefinition{}, err
+		return &v0.DomainNameDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.DomainNameDefinition{}, err
+		return &v0.DomainNameDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameDefinitions); err != nil {
-		return &v0.DomainNameDefinition{}, err
+		return &v0.DomainNameDefinition{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -77,27 +77,27 @@ func GetDomainNameDefinitionByName(name, apiAddr, apiToken string) (*v0.DomainNa
 func CreateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, apiAddr, apiToken string) (*v0.DomainNameDefinition, error) {
 	jsonDomainNameDefinition, err := client.MarshalObject(domainNameDefinition)
 	if err != nil {
-		return domainNameDefinition, err
+		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/domain-name-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameDefinition),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return domainNameDefinition, err
+		return domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return domainNameDefinition, err
+		return domainNameDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameDefinition); err != nil {
-		return domainNameDefinition, err
+		return domainNameDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return domainNameDefinition, nil
@@ -107,7 +107,7 @@ func CreateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 func UpdateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, apiAddr, apiToken string) (*v0.DomainNameDefinition, error) {
 	jsonDomainNameDefinition, err := client.MarshalObject(domainNameDefinition)
 	if err != nil {
-		return domainNameDefinition, err
+		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -118,16 +118,16 @@ func UpdateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 		http.StatusOK,
 	)
 	if err != nil {
-		return domainNameDefinition, err
+		return domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return domainNameDefinition, err
+		return domainNameDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameDefinition); err != nil {
-		return domainNameDefinition, err
+		return domainNameDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return domainNameDefinition, nil
@@ -145,16 +145,16 @@ func GetDomainNameInstanceByID(id uint, apiAddr, apiToken string) (*v0.DomainNam
 		http.StatusOK,
 	)
 	if err != nil {
-		return &domainNameInstance, err
+		return &domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &domainNameInstance, err
+		return &domainNameInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameInstance); err != nil {
-		return &domainNameInstance, err
+		return &domainNameInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &domainNameInstance, nil
@@ -172,16 +172,16 @@ func GetDomainNameInstanceByName(name, apiAddr, apiToken string) (*v0.DomainName
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.DomainNameInstance{}, err
+		return &v0.DomainNameInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.DomainNameInstance{}, err
+		return &v0.DomainNameInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameInstances); err != nil {
-		return &v0.DomainNameInstance{}, err
+		return &v0.DomainNameInstance{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -198,27 +198,27 @@ func GetDomainNameInstanceByName(name, apiAddr, apiToken string) (*v0.DomainName
 func CreateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr, apiToken string) (*v0.DomainNameInstance, error) {
 	jsonDomainNameInstance, err := client.MarshalObject(domainNameInstance)
 	if err != nil {
-		return domainNameInstance, err
+		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/domain-name-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameInstance),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return domainNameInstance, err
+		return domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return domainNameInstance, err
+		return domainNameInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameInstance); err != nil {
-		return domainNameInstance, err
+		return domainNameInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return domainNameInstance, nil
@@ -228,7 +228,7 @@ func CreateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 func UpdateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr, apiToken string) (*v0.DomainNameInstance, error) {
 	jsonDomainNameInstance, err := client.MarshalObject(domainNameInstance)
 	if err != nil {
-		return domainNameInstance, err
+		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -239,16 +239,16 @@ func UpdateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 		http.StatusOK,
 	)
 	if err != nil {
-		return domainNameInstance, err
+		return domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return domainNameInstance, err
+		return domainNameInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &domainNameInstance); err != nil {
-		return domainNameInstance, err
+		return domainNameInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return domainNameInstance, nil

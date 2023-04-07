@@ -34,5 +34,5 @@ type Instance struct {
 
 	// The status of the instance.
 	//TODO: use a custom type
-	Status *string `json:"Status,omitempty" query:"status" gorm:"not null" validate:"optional"`
+	Status *string `json:"Status,omitempty" query:"status" validate:"optional"`
 }

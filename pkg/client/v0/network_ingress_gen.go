@@ -24,16 +24,16 @@ func GetNetworkIngressDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Net
 		http.StatusOK,
 	)
 	if err != nil {
-		return &networkIngressDefinition, err
+		return &networkIngressDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &networkIngressDefinition, err
+		return &networkIngressDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressDefinition); err != nil {
-		return &networkIngressDefinition, err
+		return &networkIngressDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &networkIngressDefinition, nil
@@ -51,16 +51,16 @@ func GetNetworkIngressDefinitionByName(name, apiAddr, apiToken string) (*v0.Netw
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.NetworkIngressDefinition{}, err
+		return &v0.NetworkIngressDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.NetworkIngressDefinition{}, err
+		return &v0.NetworkIngressDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressDefinitions); err != nil {
-		return &v0.NetworkIngressDefinition{}, err
+		return &v0.NetworkIngressDefinition{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -77,27 +77,27 @@ func GetNetworkIngressDefinitionByName(name, apiAddr, apiToken string) (*v0.Netw
 func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
 	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
 	if err != nil {
-		return networkIngressDefinition, err
+		return networkIngressDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/network-ingress-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonNetworkIngressDefinition),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return networkIngressDefinition, err
+		return networkIngressDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return networkIngressDefinition, err
+		return networkIngressDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressDefinition); err != nil {
-		return networkIngressDefinition, err
+		return networkIngressDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return networkIngressDefinition, nil
@@ -107,7 +107,7 @@ func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
 	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
 	if err != nil {
-		return networkIngressDefinition, err
+		return networkIngressDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -118,16 +118,16 @@ func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 		http.StatusOK,
 	)
 	if err != nil {
-		return networkIngressDefinition, err
+		return networkIngressDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return networkIngressDefinition, err
+		return networkIngressDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressDefinition); err != nil {
-		return networkIngressDefinition, err
+		return networkIngressDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return networkIngressDefinition, nil
@@ -145,16 +145,16 @@ func GetNetworkIngressInstanceByID(id uint, apiAddr, apiToken string) (*v0.Netwo
 		http.StatusOK,
 	)
 	if err != nil {
-		return &networkIngressInstance, err
+		return &networkIngressInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &networkIngressInstance, err
+		return &networkIngressInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressInstance); err != nil {
-		return &networkIngressInstance, err
+		return &networkIngressInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &networkIngressInstance, nil
@@ -172,16 +172,16 @@ func GetNetworkIngressInstanceByName(name, apiAddr, apiToken string) (*v0.Networ
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.NetworkIngressInstance{}, err
+		return &v0.NetworkIngressInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.NetworkIngressInstance{}, err
+		return &v0.NetworkIngressInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressInstances); err != nil {
-		return &v0.NetworkIngressInstance{}, err
+		return &v0.NetworkIngressInstance{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -198,27 +198,27 @@ func GetNetworkIngressInstanceByName(name, apiAddr, apiToken string) (*v0.Networ
 func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
 	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
 	if err != nil {
-		return networkIngressInstance, err
+		return networkIngressInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/network-ingress-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonNetworkIngressInstance),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return networkIngressInstance, err
+		return networkIngressInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return networkIngressInstance, err
+		return networkIngressInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressInstance); err != nil {
-		return networkIngressInstance, err
+		return networkIngressInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return networkIngressInstance, nil
@@ -228,7 +228,7 @@ func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
 	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
 	if err != nil {
-		return networkIngressInstance, err
+		return networkIngressInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -239,16 +239,16 @@ func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 		http.StatusOK,
 	)
 	if err != nil {
-		return networkIngressInstance, err
+		return networkIngressInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return networkIngressInstance, err
+		return networkIngressInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &networkIngressInstance); err != nil {
-		return networkIngressInstance, err
+		return networkIngressInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return networkIngressInstance, nil

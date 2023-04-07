@@ -12,6 +12,13 @@ import (
 	"github.com/threeport/threeport/internal/codegen/name"
 )
 
+const (
+	MarshalObjectErr       = "failed to marshal provided object to JSON: %w"
+	ResponseErr            = "call to threeport API returned unexpected response: %w"
+	MarshalResponseDataErr = "failed to marshal response data from threeport API: %w"
+	UnmarshalObjectErr     = "failed unmarshal object from threeport response data: %w"
+)
+
 // apiHandlersPath returns the path from the models to the API's internal handlers
 // package.
 func clientLibPath(packageName string) string {
@@ -59,21 +66,27 @@ func (cc *ControllerConfig) ClientLib() error {
 				Line(),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(ResponseErr).Op(",").Id("err")),
 			)),
 			Line(),
 			Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
 				Id("response").Dot("Data").Index(Lit(0)),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
 			)),
 			Line(),
 			If(
 				Id("err").Op("=").Qual("encoding/json", "Unmarshal").Call(
 					Id("jsonData").Op(",").Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
 				).Op(";").Id("err").Op("!=").Nil().Block(
-					Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+					Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+						"fmt", "Errorf",
+					).Call(Lit(UnmarshalObjectErr).Op(",").Id("err")),
 				),
 			),
 			Line(),
@@ -117,7 +130,9 @@ func (cc *ControllerConfig) ClientLib() error {
 				Return().Op("&").Qual(
 					"github.com/threeport/threeport/pkg/api/v0",
 					mc.TypeName,
-				).Values().Op(",").Id("err"),
+				).Values().Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(ResponseErr).Op(",").Id("err")),
 			)),
 			Line(),
 			Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
@@ -127,7 +142,9 @@ func (cc *ControllerConfig) ClientLib() error {
 				Return().Op("&").Qual(
 					"github.com/threeport/threeport/pkg/api/v0",
 					mc.TypeName,
-				).Values().Op(",").Id("err"),
+				).Values().Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
 			)),
 			Line(),
 			If(
@@ -137,7 +154,9 @@ func (cc *ControllerConfig) ClientLib() error {
 					Return().Op("&").Qual(
 						"github.com/threeport/threeport/pkg/api/v0",
 						mc.TypeName,
-					).Values().Op(",").Id("err"),
+					).Values().Op(",").Qual(
+						"fmt", "Errorf",
+					).Call(Lit(UnmarshalObjectErr).Op(",").Id("err")),
 				),
 			),
 			Line(),
@@ -192,7 +211,9 @@ func (cc *ControllerConfig) ClientLib() error {
 				"MarshalObject",
 			).Call(Id(strcase.ToLowerCamel(mc.TypeName))),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(MarshalObjectErr).Op(",").Id("err")),
 			)),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
@@ -203,7 +224,7 @@ func (cc *ControllerConfig) ClientLib() error {
 						Id("apiAddr").Op(",").Id("ApiVersion"),
 				),
 				Line().Id("apiToken"),
-				Line().Qual("net/http", "MethodGet"),
+				Line().Qual("net/http", "MethodPost"),
 				Line().Qual("bytes", "NewBuffer").Call(Id(
 					fmt.Sprintf("json%s", mc.TypeName),
 				)),
@@ -211,21 +232,27 @@ func (cc *ControllerConfig) ClientLib() error {
 				Line(),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(ResponseErr).Op(",").Id("err")),
 			)),
 			Line(),
 			Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
 				Id("response").Dot("Data").Index(Lit(0)),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
 			)),
 			Line(),
 			If(
 				Id("err").Op("=").Qual("encoding/json", "Unmarshal").Call(
 					Id("jsonData").Op(",").Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
 				).Op(";").Id("err").Op("!=").Nil().Block(
-					Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+					Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+						"fmt", "Errorf",
+					).Call(Lit(UnmarshalObjectErr).Op(",").Id("err")),
 				),
 			),
 			Line(),
@@ -256,7 +283,9 @@ func (cc *ControllerConfig) ClientLib() error {
 				"MarshalObject",
 			).Call(Id(strcase.ToLowerCamel(mc.TypeName))),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(MarshalObjectErr).Op(",").Id("err")),
 			)),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
@@ -277,21 +306,27 @@ func (cc *ControllerConfig) ClientLib() error {
 				Line(),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(ResponseErr).Op(",").Id("err")),
 			)),
 			Line(),
 			Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
 				Id("response").Dot("Data").Index(Lit(0)),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
 			)),
 			Line(),
 			If(
 				Id("err").Op("=").Qual("encoding/json", "Unmarshal").Call(
 					Id("jsonData").Op(",").Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
 				).Op(";").Id("err").Op("!=").Nil().Block(
-					Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("err"),
+					Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+						"fmt", "Errorf",
+					).Call(Lit(UnmarshalObjectErr).Op(",").Id("err")),
 				),
 			),
 			Line(),

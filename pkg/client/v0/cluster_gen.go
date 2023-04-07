@@ -24,16 +24,16 @@ func GetClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.ClusterDef
 		http.StatusOK,
 	)
 	if err != nil {
-		return &clusterDefinition, err
+		return &clusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &clusterDefinition, err
+		return &clusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &clusterDefinition); err != nil {
-		return &clusterDefinition, err
+		return &clusterDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &clusterDefinition, nil
@@ -51,16 +51,16 @@ func GetClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.ClusterDefi
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.ClusterDefinition{}, err
+		return &v0.ClusterDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.ClusterDefinition{}, err
+		return &v0.ClusterDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &clusterDefinitions); err != nil {
-		return &v0.ClusterDefinition{}, err
+		return &v0.ClusterDefinition{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -77,27 +77,27 @@ func GetClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.ClusterDefi
 func CreateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
 	jsonClusterDefinition, err := client.MarshalObject(clusterDefinition)
 	if err != nil {
-		return clusterDefinition, err
+		return clusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/cluster-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonClusterDefinition),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return clusterDefinition, err
+		return clusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return clusterDefinition, err
+		return clusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &clusterDefinition); err != nil {
-		return clusterDefinition, err
+		return clusterDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return clusterDefinition, nil
@@ -107,7 +107,7 @@ func CreateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, a
 func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
 	jsonClusterDefinition, err := client.MarshalObject(clusterDefinition)
 	if err != nil {
-		return clusterDefinition, err
+		return clusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -118,16 +118,16 @@ func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, a
 		http.StatusOK,
 	)
 	if err != nil {
-		return clusterDefinition, err
+		return clusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return clusterDefinition, err
+		return clusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &clusterDefinition); err != nil {
-		return clusterDefinition, err
+		return clusterDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return clusterDefinition, nil
@@ -145,16 +145,16 @@ func GetClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.ClusterInsta
 		http.StatusOK,
 	)
 	if err != nil {
-		return &clusterInstance, err
+		return &clusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &clusterInstance, err
+		return &clusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &clusterInstance); err != nil {
-		return &clusterInstance, err
+		return &clusterInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &clusterInstance, nil
@@ -172,16 +172,16 @@ func GetClusterInstanceByName(name, apiAddr, apiToken string) (*v0.ClusterInstan
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.ClusterInstance{}, err
+		return &v0.ClusterInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.ClusterInstance{}, err
+		return &v0.ClusterInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &clusterInstances); err != nil {
-		return &v0.ClusterInstance{}, err
+		return &v0.ClusterInstance{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -198,27 +198,27 @@ func GetClusterInstanceByName(name, apiAddr, apiToken string) (*v0.ClusterInstan
 func CreateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
 	jsonClusterInstance, err := client.MarshalObject(clusterInstance)
 	if err != nil {
-		return clusterInstance, err
+		return clusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/cluster-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonClusterInstance),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return clusterInstance, err
+		return clusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return clusterInstance, err
+		return clusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &clusterInstance); err != nil {
-		return clusterInstance, err
+		return clusterInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return clusterInstance, nil
@@ -228,7 +228,7 @@ func CreateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToke
 func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
 	jsonClusterInstance, err := client.MarshalObject(clusterInstance)
 	if err != nil {
-		return clusterInstance, err
+		return clusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -239,16 +239,16 @@ func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToke
 		http.StatusOK,
 	)
 	if err != nil {
-		return clusterInstance, err
+		return clusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return clusterInstance, err
+		return clusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &clusterInstance); err != nil {
-		return clusterInstance, err
+		return clusterInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return clusterInstance, nil

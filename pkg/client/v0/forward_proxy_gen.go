@@ -24,16 +24,16 @@ func GetForwardProxyDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Forwa
 		http.StatusOK,
 	)
 	if err != nil {
-		return &forwardProxyDefinition, err
+		return &forwardProxyDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &forwardProxyDefinition, err
+		return &forwardProxyDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyDefinition); err != nil {
-		return &forwardProxyDefinition, err
+		return &forwardProxyDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &forwardProxyDefinition, nil
@@ -51,16 +51,16 @@ func GetForwardProxyDefinitionByName(name, apiAddr, apiToken string) (*v0.Forwar
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.ForwardProxyDefinition{}, err
+		return &v0.ForwardProxyDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.ForwardProxyDefinition{}, err
+		return &v0.ForwardProxyDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyDefinitions); err != nil {
-		return &v0.ForwardProxyDefinition{}, err
+		return &v0.ForwardProxyDefinition{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -77,27 +77,27 @@ func GetForwardProxyDefinitionByName(name, apiAddr, apiToken string) (*v0.Forwar
 func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinition, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
 	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
 	if err != nil {
-		return forwardProxyDefinition, err
+		return forwardProxyDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/forward-proxy-definitions", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonForwardProxyDefinition),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return forwardProxyDefinition, err
+		return forwardProxyDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return forwardProxyDefinition, err
+		return forwardProxyDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyDefinition); err != nil {
-		return forwardProxyDefinition, err
+		return forwardProxyDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return forwardProxyDefinition, nil
@@ -107,7 +107,7 @@ func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinition, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
 	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
 	if err != nil {
-		return forwardProxyDefinition, err
+		return forwardProxyDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -118,16 +118,16 @@ func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 		http.StatusOK,
 	)
 	if err != nil {
-		return forwardProxyDefinition, err
+		return forwardProxyDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return forwardProxyDefinition, err
+		return forwardProxyDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyDefinition); err != nil {
-		return forwardProxyDefinition, err
+		return forwardProxyDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return forwardProxyDefinition, nil
@@ -145,16 +145,16 @@ func GetForwardProxyInstanceByID(id uint, apiAddr, apiToken string) (*v0.Forward
 		http.StatusOK,
 	)
 	if err != nil {
-		return &forwardProxyInstance, err
+		return &forwardProxyInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &forwardProxyInstance, err
+		return &forwardProxyInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyInstance); err != nil {
-		return &forwardProxyInstance, err
+		return &forwardProxyInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &forwardProxyInstance, nil
@@ -172,16 +172,16 @@ func GetForwardProxyInstanceByName(name, apiAddr, apiToken string) (*v0.ForwardP
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.ForwardProxyInstance{}, err
+		return &v0.ForwardProxyInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.ForwardProxyInstance{}, err
+		return &v0.ForwardProxyInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyInstances); err != nil {
-		return &v0.ForwardProxyInstance{}, err
+		return &v0.ForwardProxyInstance{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -198,27 +198,27 @@ func GetForwardProxyInstanceByName(name, apiAddr, apiToken string) (*v0.ForwardP
 func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
 	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
 	if err != nil {
-		return forwardProxyInstance, err
+		return forwardProxyInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/forward-proxy-instances", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonForwardProxyInstance),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return forwardProxyInstance, err
+		return forwardProxyInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return forwardProxyInstance, err
+		return forwardProxyInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyInstance); err != nil {
-		return forwardProxyInstance, err
+		return forwardProxyInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return forwardProxyInstance, nil
@@ -228,7 +228,7 @@ func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
 	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
 	if err != nil {
-		return forwardProxyInstance, err
+		return forwardProxyInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -239,16 +239,16 @@ func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 		http.StatusOK,
 	)
 	if err != nil {
-		return forwardProxyInstance, err
+		return forwardProxyInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return forwardProxyInstance, err
+		return forwardProxyInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &forwardProxyInstance); err != nil {
-		return forwardProxyInstance, err
+		return forwardProxyInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return forwardProxyInstance, nil

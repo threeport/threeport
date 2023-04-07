@@ -24,16 +24,16 @@ func GetUserByID(id uint, apiAddr, apiToken string) (*v0.User, error) {
 		http.StatusOK,
 	)
 	if err != nil {
-		return &user, err
+		return &user, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &user, err
+		return &user, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &user); err != nil {
-		return &user, err
+		return &user, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &user, nil
@@ -51,16 +51,16 @@ func GetUserByName(name, apiAddr, apiToken string) (*v0.User, error) {
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.User{}, err
+		return &v0.User{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.User{}, err
+		return &v0.User{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &users); err != nil {
-		return &v0.User{}, err
+		return &v0.User{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -77,27 +77,27 @@ func GetUserByName(name, apiAddr, apiToken string) (*v0.User, error) {
 func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 	jsonUser, err := client.MarshalObject(user)
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/users", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonUser),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &user); err != nil {
-		return user, err
+		return user, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return user, nil
@@ -107,7 +107,7 @@ func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 	jsonUser, err := client.MarshalObject(user)
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -118,16 +118,16 @@ func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 		http.StatusOK,
 	)
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &user); err != nil {
-		return user, err
+		return user, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return user, nil
@@ -145,16 +145,16 @@ func GetCompanyByID(id uint, apiAddr, apiToken string) (*v0.Company, error) {
 		http.StatusOK,
 	)
 	if err != nil {
-		return &company, err
+		return &company, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &company, err
+		return &company, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &company); err != nil {
-		return &company, err
+		return &company, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return &company, nil
@@ -172,16 +172,16 @@ func GetCompanyByName(name, apiAddr, apiToken string) (*v0.Company, error) {
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.Company{}, err
+		return &v0.Company{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.Company{}, err
+		return &v0.Company{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &companies); err != nil {
-		return &v0.Company{}, err
+		return &v0.Company{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	switch {
@@ -198,27 +198,27 @@ func GetCompanyByName(name, apiAddr, apiToken string) (*v0.Company, error) {
 func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
 	jsonCompany, err := client.MarshalObject(company)
 	if err != nil {
-		return company, err
+		return company, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/companies", apiAddr, ApiVersion),
 		apiToken,
-		http.MethodGet,
+		http.MethodPost,
 		bytes.NewBuffer(jsonCompany),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return company, err
+		return company, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return company, err
+		return company, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &company); err != nil {
-		return company, err
+		return company, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return company, nil
@@ -228,7 +228,7 @@ func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
 	jsonCompany, err := client.MarshalObject(company)
 	if err != nil {
-		return company, err
+		return company, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -239,16 +239,16 @@ func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 		http.StatusOK,
 	)
 	if err != nil {
-		return company, err
+		return company, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return company, err
+		return company, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	if err = json.Unmarshal(jsonData, &company); err != nil {
-		return company, err
+		return company, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
 	}
 
 	return company, nil

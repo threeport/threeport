@@ -11,11 +11,18 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-func GetResponse(url string, apiToken string, httpMethod string, reqBody *bytes.Buffer, expectedStatusCode int) (*v0.Response, error) {
+// GetResponse calls the threeport API and returns a response.
+func GetResponse(
+	url string,
+	apiToken string,
+	httpMethod string,
+	reqBody *bytes.Buffer,
+	expectedStatusCode int,
+) (*v0.Response, error) {
 
 	req, err := http.NewRequest(httpMethod, url, reqBody)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build request to threeport API: %w", err)
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", apiToken))
 	req.Header.Add("Content-Type", "application/json")
@@ -23,29 +30,29 @@ func GetResponse(url string, apiToken string, httpMethod string, reqBody *bytes.
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed execute call to threeport API: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body from threeport API: %w", err)
 	}
 
 	var response v0.Response
 	if resp.StatusCode != expectedStatusCode {
 		if err := json.Unmarshal(respBody, &response); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to unmarshal response body from threeport API: %w", err)
 		}
 		status, err := json.MarshalIndent(response.Status, "", "  ")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to marshal response status from threeport API: %w", err)
 		}
-		return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s", response.Status.Code, response.Status.Message, string(status)))
+		return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s\nexpected: %d", response.Status.Code, response.Status.Message, string(status), expectedStatusCode))
 	}
 
 	if err := json.Unmarshal(respBody, &response); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal response body from threeport API: %w", err)
 	}
 
 	if IsDebug() {
