@@ -194,9 +194,6 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			// set the object's Reconciled field to true
 			wdReconciled := true
 			reconciledWD := v0.WorkloadDefinition{
-				Common: v0.Common{
-					ID: workloadDefinition.ID,
-				},
 				Reconciled: &wdReconciled,
 			}
 			//reconciledWDJSON, err := json.Marshal(&reconciledWD)
@@ -211,6 +208,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				//reconciledWDJSON,
 				r.APIServer,
 				"",
+				*workloadDefinition.ID,
 			)
 			if err != nil {
 				log.Error(err, "failed to update workload definition to mark as reconciled")
