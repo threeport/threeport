@@ -104,14 +104,14 @@ func CreateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, 
 }
 
 // UpdateProfile updates a profile
-func UpdateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, error) {
+func UpdateProfile(profile *v0.Profile, apiAddr, apiToken string, id uint) (*v0.Profile, error) {
 	jsonProfile, err := client.MarshalObject(profile)
 	if err != nil {
 		return profile, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, *profile.ID),
+		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonProfile),
@@ -225,14 +225,14 @@ func CreateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 }
 
 // UpdateTier updates a tier
-func UpdateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
+func UpdateTier(tier *v0.Tier, apiAddr, apiToken string, id uint) (*v0.Tier, error) {
 	jsonTier, err := client.MarshalObject(tier)
 	if err != nil {
 		return tier, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, *tier.ID),
+		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonTier),

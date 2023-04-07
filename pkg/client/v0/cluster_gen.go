@@ -104,14 +104,14 @@ func CreateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, a
 }
 
 // UpdateClusterDefinition updates a cluster definition
-func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
+func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, apiToken string, id uint) (*v0.ClusterDefinition, error) {
 	jsonClusterDefinition, err := client.MarshalObject(clusterDefinition)
 	if err != nil {
 		return clusterDefinition, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/cluster-definitions/%d", apiAddr, ApiVersion, *clusterDefinition.ID),
+		fmt.Sprintf("%s/%s/cluster-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonClusterDefinition),
@@ -225,14 +225,14 @@ func CreateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToke
 }
 
 // UpdateClusterInstance updates a cluster instance
-func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
+func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToken string, id uint) (*v0.ClusterInstance, error) {
 	jsonClusterInstance, err := client.MarshalObject(clusterInstance)
 	if err != nil {
 		return clusterInstance, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/cluster-instances/%d", apiAddr, ApiVersion, *clusterInstance.ID),
+		fmt.Sprintf("%s/%s/cluster-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonClusterInstance),

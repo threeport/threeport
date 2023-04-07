@@ -104,14 +104,14 @@ func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 }
 
 // UpdateNetworkIngressDefinition updates a network ingress definition
-func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
+func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string, id uint) (*v0.NetworkIngressDefinition, error) {
 	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
 	if err != nil {
 		return networkIngressDefinition, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, *networkIngressDefinition.ID),
+		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonNetworkIngressDefinition),
@@ -225,14 +225,14 @@ func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 }
 
 // UpdateNetworkIngressInstance updates a network ingress instance
-func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
+func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string, id uint) (*v0.NetworkIngressInstance, error) {
 	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
 	if err != nil {
 		return networkIngressInstance, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, *networkIngressInstance.ID),
+		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonNetworkIngressInstance),

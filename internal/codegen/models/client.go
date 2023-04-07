@@ -243,7 +243,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
 				"github.com/threeport/threeport/pkg/api/v0",
 				mc.TypeName,
-			).Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
+			).Op(",").Id("apiAddr").Op(",").Id("apiToken").String().Op(",").Id("id").Uint(),
 		).Parens(List(
 			Op("*").Qual(
 				"github.com/threeport/threeport/pkg/api/v0",
@@ -266,7 +266,7 @@ func (cc *ControllerConfig) ClientLib() error {
 					)).Op(",").
 						Id("apiAddr").Op(",").
 						Id("ApiVersion").Op(",").
-						Op("*").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID"),
+						Id("id"),
 				),
 				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodPatch"),

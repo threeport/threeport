@@ -104,14 +104,14 @@ func CreateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr
 }
 
 // UpdateWorkloadDefinition updates a workload definition
-func UpdateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
+func UpdateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr, apiToken string, id uint) (*v0.WorkloadDefinition, error) {
 	jsonWorkloadDefinition, err := client.MarshalObject(workloadDefinition)
 	if err != nil {
 		return workloadDefinition, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, *workloadDefinition.ID),
+		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadDefinition),
@@ -225,14 +225,14 @@ func CreateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadRes
 }
 
 // UpdateWorkloadResourceDefinition updates a workload resource definition
-func UpdateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadResourceDefinition, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
+func UpdateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadResourceDefinition, apiAddr, apiToken string, id uint) (*v0.WorkloadResourceDefinition, error) {
 	jsonWorkloadResourceDefinition, err := client.MarshalObject(workloadResourceDefinition)
 	if err != nil {
 		return workloadResourceDefinition, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, *workloadResourceDefinition.ID),
+		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
@@ -346,14 +346,14 @@ func CreateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiT
 }
 
 // UpdateWorkloadInstance updates a workload instance
-func UpdateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
+func UpdateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiToken string, id uint) (*v0.WorkloadInstance, error) {
 	jsonWorkloadInstance, err := client.MarshalObject(workloadInstance)
 	if err != nil {
 		return workloadInstance, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, *workloadInstance.ID),
+		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadInstance),
@@ -467,14 +467,14 @@ func CreateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourc
 }
 
 // UpdateWorkloadResourceInstance updates a workload resource instance
-func UpdateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourceInstance, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
+func UpdateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourceInstance, apiAddr, apiToken string, id uint) (*v0.WorkloadResourceInstance, error) {
 	jsonWorkloadResourceInstance, err := client.MarshalObject(workloadResourceInstance)
 	if err != nil {
 		return workloadResourceInstance, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, *workloadResourceInstance.ID),
+		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),

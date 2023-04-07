@@ -104,14 +104,14 @@ func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 }
 
 // UpdateUser updates a user
-func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
+func UpdateUser(user *v0.User, apiAddr, apiToken string, id uint) (*v0.User, error) {
 	jsonUser, err := client.MarshalObject(user)
 	if err != nil {
 		return user, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, *user.ID),
+		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonUser),
@@ -225,14 +225,14 @@ func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 }
 
 // UpdateCompany updates a company
-func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
+func UpdateCompany(company *v0.Company, apiAddr, apiToken string, id uint) (*v0.Company, error) {
 	jsonCompany, err := client.MarshalObject(company)
 	if err != nil {
 		return company, err
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, *company.ID),
+		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonCompany),

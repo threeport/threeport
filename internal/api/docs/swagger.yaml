@@ -565,60 +565,60 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - User
+    - Company
+    - ClusterDefinition
+    - ClusterInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     - NetworkIngressDefinition
     - NetworkIngressInstance
-    - User
-    - Company
+    - EthereumNodeDefinition
+    - EthereumNodeInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - Profile
+    - Tier
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - EthereumNodeDefinition
-    - EthereumNodeInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - Profile
-    - Tier
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - DomainNameDefinition
-    - DomainNameInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeUser
+    - ObjectTypeCompany
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeNetworkIngressDefinition
     - ObjectTypeNetworkIngressInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
+    - ObjectTypeEthereumNodeDefinition
+    - ObjectTypeEthereumNodeInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeEthereumNodeDefinition
-    - ObjectTypeEthereumNodeInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       CompanyID:
