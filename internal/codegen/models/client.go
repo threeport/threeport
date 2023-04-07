@@ -83,7 +83,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		// get object by name
 		getByNameFuncName := fmt.Sprintf("Get%sByName", mc.TypeName)
 		f.Comment(fmt.Sprintf(
-			"%s feteches a %s by name",
+			"%s fetches a %s by name",
 			getByNameFuncName,
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
