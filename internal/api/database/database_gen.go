@@ -3,16 +3,27 @@
 package database
 
 import (
+	"context"
 	"fmt"
+	log "github.com/threeport/threeport/internal/log"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	zap "go.uber.org/zap"
 	postgres "gorm.io/driver/postgres"
 	gorm "gorm.io/gorm"
 	logger "gorm.io/gorm/logger"
 	"os"
+	"reflect"
+	"strings"
 	"time"
 )
 
-func Init(autoMigrate bool) (*gorm.DB, error) {
+// ZapLogger is a custom GORM logger that forwards log messages to a Zap logger.
+type ZapLogger struct {
+	Logger *zap.Logger
+}
+
+// Init initializes the API database.
+func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=UTC",
 		os.Getenv("DB_HOST"),
@@ -24,7 +35,7 @@ func Init(autoMigrate bool) (*gorm.DB, error) {
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: &ZapLogger{Logger: logger},
 		NowFunc: func() time.Time {
 			utc, _ := time.LoadLocation("UTC")
 			return time.Now().In(utc).Truncate(time.Microsecond)
@@ -65,4 +76,76 @@ func Init(autoMigrate bool) (*gorm.DB, error) {
 	}
 
 	return db, nil
+}
+
+// LogMode overrides the standard GORM logger's LogMode method to set the logger mode.
+func (zl *ZapLogger) LogMode(level logger.LogLevel) logger.Interface {
+	return zl
+}
+
+// Info overrides the standard GORM logger's Info method to forward log messages
+// to the zap logger.
+func (zl *ZapLogger) Info(ctx context.Context, msg string, data ...interface{}) {
+	fields := make([]zap.Field, 0, len(data))
+	for i := 0; i < len(data); i += 2 {
+		fields = append(fields, zap.Any(data[i].(string), data[i+1]))
+	}
+	zl.Logger.Info(msg, fields...)
+}
+
+// Warn overrides the standard GORM logger's Warn method to forward log messages
+// to the zap logger.
+func (zl *ZapLogger) Warn(ctx context.Context, msg string, data ...interface{}) {
+	fields := make([]zap.Field, 0, len(data))
+	for i := 0; i < len(data); i += 2 {
+		fields = append(fields, zap.Any(data[i].(string), data[i+1]))
+	}
+	zl.Logger.Warn(msg, fields...)
+}
+
+// Error overrides the standard GORM logger's Error method to forward log messages
+// to the zap logger.
+func (zl *ZapLogger) Error(ctx context.Context, msg string, data ...interface{}) {
+	fields := make([]zap.Field, 0, len(data))
+	for i := 0; i < len(data); i += 2 {
+		if reflect.TypeOf(data[i]).Kind() == reflect.Ptr {
+			data[i] = fmt.Sprintf("%+v", data[i])
+		}
+		fields = append(fields, zap.Any(data[i].(string), data[i+1]))
+	}
+	zl.Logger.Error(msg, fields...)
+}
+
+// Trace overrides the standard GORM logger's Trace method to forward log messages
+// to the zap logger.
+func (zl *ZapLogger) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
+	// use the fc function to get the SQL statement and execution time
+	sql, rows := fc()
+
+	// create a new logger with some additional fields
+	logger := zl.Logger.With(
+		zap.String("type", "sql"),
+		zap.String("sql", suppressSensitive(sql)),
+		zap.Int64("rows", rows),
+		zap.Duration("elapsed", time.Since(begin)),
+	)
+
+	// if an error occurred, add it as a field to the logger
+	if err != nil {
+		logger = logger.With(zap.Error(err))
+	}
+
+	// log the message using the logger
+	logger.Debug("gorm query")
+}
+
+// suppressSensitive supresses messages containing sesitive strings.
+func suppressSensitive(msg string) string {
+	for _, str := range log.SensitiveStrings() {
+		if strings.Contains(msg, str) {
+			return fmt.Sprintf("[log message containing %s supporessed]", str)
+		}
+	}
+
+	return msg
 }

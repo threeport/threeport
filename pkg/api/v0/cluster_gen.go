@@ -82,6 +82,11 @@ func (cd *ClusterDefinition) GetID() uint {
 	return *cd.ID
 }
 
+// String returns a string representation of the ojbect.
+func (cd ClusterDefinition) String() string {
+	return fmt.Sprintf("v0.ClusterDefinition")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -103,4 +108,9 @@ func (ci *ClusterInstance) NotificationPayload(requeue bool, lastDelay int64) (*
 // GetID returns the unique ID for the object.
 func (ci *ClusterInstance) GetID() uint {
 	return *ci.ID
+}
+
+// String returns a string representation of the ojbect.
+func (ci ClusterInstance) String() string {
+	return fmt.Sprintf("v0.ClusterInstance")
 }

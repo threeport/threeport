@@ -15,8 +15,8 @@ type LogStorageDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	// The backend storage mechanisms for retaining logs.
-	LogBackends *[]LogBackend `json:"LogBackends,omitempty" validate:"optional,association"`
+	//// The backend storage mechanisms for retaining logs.
+	//LogBackends []*LogBackend `json:"LogBackends,omitempty" query:"logbackends" validate:"optional,association"`
 }
 
 type LogStorageInstance struct {

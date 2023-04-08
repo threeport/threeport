@@ -82,6 +82,11 @@ func (u *User) GetID() uint {
 	return *u.ID
 }
 
+// String returns a string representation of the ojbect.
+func (u User) String() string {
+	return fmt.Sprintf("v0.User")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -103,4 +108,9 @@ func (c *Company) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, e
 // GetID returns the unique ID for the object.
 func (c *Company) GetID() uint {
 	return *c.ID
+}
+
+// String returns a string representation of the ojbect.
+func (c Company) String() string {
+	return fmt.Sprintf("v0.Company")
 }

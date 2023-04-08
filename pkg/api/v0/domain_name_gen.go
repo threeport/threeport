@@ -82,6 +82,11 @@ func (dnd *DomainNameDefinition) GetID() uint {
 	return *dnd.ID
 }
 
+// String returns a string representation of the ojbect.
+func (dnd DomainNameDefinition) String() string {
+	return fmt.Sprintf("v0.DomainNameDefinition")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -103,4 +108,9 @@ func (dni *DomainNameInstance) NotificationPayload(requeue bool, lastDelay int64
 // GetID returns the unique ID for the object.
 func (dni *DomainNameInstance) GetID() uint {
 	return *dni.ID
+}
+
+// String returns a string representation of the ojbect.
+func (dni DomainNameInstance) String() string {
+	return fmt.Sprintf("v0.DomainNameInstance")
 }

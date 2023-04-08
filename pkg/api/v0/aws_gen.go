@@ -136,6 +136,11 @@ func (aa *AwsAccount) GetID() uint {
 	return *aa.ID
 }
 
+// String returns a string representation of the ojbect.
+func (aa AwsAccount) String() string {
+	return fmt.Sprintf("v0.AwsAccount")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -157,6 +162,11 @@ func (aecd *AwsEksClusterDefinition) NotificationPayload(requeue bool, lastDelay
 // GetID returns the unique ID for the object.
 func (aecd *AwsEksClusterDefinition) GetID() uint {
 	return *aecd.ID
+}
+
+// String returns a string representation of the ojbect.
+func (aecd AwsEksClusterDefinition) String() string {
+	return fmt.Sprintf("v0.AwsEksClusterDefinition")
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -182,6 +192,11 @@ func (aeci *AwsEksClusterInstance) GetID() uint {
 	return *aeci.ID
 }
 
+// String returns a string representation of the ojbect.
+func (aeci AwsEksClusterInstance) String() string {
+	return fmt.Sprintf("v0.AwsEksClusterInstance")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -205,6 +220,11 @@ func (ardd *AwsRelationalDatabaseDefinition) GetID() uint {
 	return *ardd.ID
 }
 
+// String returns a string representation of the ojbect.
+func (ardd AwsRelationalDatabaseDefinition) String() string {
+	return fmt.Sprintf("v0.AwsRelationalDatabaseDefinition")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -226,4 +246,9 @@ func (ardi *AwsRelationalDatabaseInstance) NotificationPayload(requeue bool, las
 // GetID returns the unique ID for the object.
 func (ardi *AwsRelationalDatabaseInstance) GetID() uint {
 	return *ardi.ID
+}
+
+// String returns a string representation of the ojbect.
+func (ardi AwsRelationalDatabaseInstance) String() string {
+	return fmt.Sprintf("v0.AwsRelationalDatabaseInstance")
 }

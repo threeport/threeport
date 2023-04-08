@@ -27,8 +27,19 @@ func (gvc *GlobalVersionConfig) DatabaseInit() error {
 		}
 	}
 
+	f.Comment("ZapLogger is a custom GORM logger that forwards log messages to a Zap logger.")
+	f.Type().Id("ZapLogger").Struct(
+		Id("Logger").Op("*").Qual(
+			"go.uber.org/zap", "Logger",
+		),
+	)
+	f.Line()
+
+	f.Comment("Init initializes the API database.")
 	f.Func().Id("Init").Params(
-		Id("autoMigrate").Bool(),
+		Id("autoMigrate").Bool().Op(",").Id("logger").Op("*").Qual(
+			"go.uber.org/zap", "Logger",
+		),
 	).Parens(Op("*").Qual(
 		"gorm.io/gorm",
 		"DB",
@@ -67,13 +78,16 @@ func (gvc *GlobalVersionConfig) DatabaseInit() error {
 			"gorm.io/gorm",
 			"Config",
 		).Values(Dict{
-			Id("Logger"): Qual(
-				"gorm.io/gorm/logger",
-				"Default",
-			).Dot("LogMode").Call(Qual(
-				"gorm.io/gorm/logger",
-				"Info",
-			).Op(",")),
+			Id("Logger"): Op("&").Id("ZapLogger").Values(Dict{
+				Id("Logger"): Id("logger").Op(","),
+			}),
+			//Id("Logger"): Qual(
+			//	"gorm.io/gorm/logger",
+			//	"Default",
+			//).Dot("LogMode").Call(Qual(
+			//	"gorm.io/gorm/logger",
+			//	"Info",
+			//).Op(",")),
 			Id("NowFunc"): Func().Call().Qual(
 				"time", "Time",
 			).Block(
@@ -100,6 +114,142 @@ func (gvc *GlobalVersionConfig) DatabaseInit() error {
 		),
 		Line(),
 		Return().Id("db").Op(",").Nil(),
+	)
+
+	f.Comment("LogMode overrides the standard GORM logger's LogMode method to set the logger mode.")
+	f.Func().Parens(
+		Id("zl").Op("*").Id("ZapLogger"),
+	).Id("LogMode").Params(
+		Id("level").Qual("gorm.io/gorm/logger", "LogLevel"),
+	).Qual("gorm.io/gorm/logger", "Interface").Block(
+		Return().Id("zl"),
+	)
+	f.Line()
+
+	f.Comment("Info overrides the standard GORM logger's Info method to forward log messages")
+	f.Comment("to the zap logger.")
+	f.Func().Parens(
+		Id("zl").Op("*").Id("ZapLogger"),
+	).Id("Info").Params(
+		Id("ctx").Qual("context", "Context").Op(",").Id("msg").String().Op(",").Id("data").Op("...").Interface(),
+	).Block(
+		Id("fields").Op(":=").Make(
+			Index().Qual(
+				"go.uber.org/zap", "Field",
+			).Op(",").Lit(0).Op(",").Len(Id("data")),
+		),
+		For(Id("i").Op(":=").Lit(0).Op(";").Id("i").Op("<").Len(Id("data")).Op(";").Id("i").Op("+=").Lit(2)).Block(
+			Id("fields").Op("=").Append(Id("fields").Op(",").Qual(
+				"go.uber.org/zap", "Any",
+			).Call(Id("data").Index(Id("i")).Assert(String()).Op(",").Id("data").Index(Id("i").Op("+").Lit(1)))),
+		),
+		Id("zl").Dot("Logger").Dot("Info").Call(Id("msg").Op(",").Id("fields").Op("...")),
+	)
+	f.Line()
+
+	f.Comment("Warn overrides the standard GORM logger's Warn method to forward log messages")
+	f.Comment("to the zap logger.")
+	f.Func().Parens(
+		Id("zl").Op("*").Id("ZapLogger"),
+	).Id("Warn").Params(
+		Id("ctx").Qual("context", "Context").Op(",").Id("msg").String().Op(",").Id("data").Op("...").Interface(),
+	).Block(
+		Id("fields").Op(":=").Make(
+			Index().Qual(
+				"go.uber.org/zap", "Field",
+			).Op(",").Lit(0).Op(",").Len(Id("data")),
+		),
+		For(Id("i").Op(":=").Lit(0).Op(";").Id("i").Op("<").Len(Id("data")).Op(";").Id("i").Op("+=").Lit(2)).Block(
+			Id("fields").Op("=").Append(Id("fields").Op(",").Qual(
+				"go.uber.org/zap", "Any",
+			).Call(Id("data").Index(Id("i")).Assert(String()).Op(",").Id("data").Index(Id("i").Op("+").Lit(1)))),
+		),
+		Id("zl").Dot("Logger").Dot("Warn").Call(Id("msg").Op(",").Id("fields").Op("...")),
+	)
+	f.Line()
+
+	f.Comment("Error overrides the standard GORM logger's Error method to forward log messages")
+	f.Comment("to the zap logger.")
+	f.Func().Parens(
+		Id("zl").Op("*").Id("ZapLogger"),
+	).Id("Error").Params(
+		Id("ctx").Qual("context", "Context").Op(",").Id("msg").String().Op(",").Id("data").Op("...").Interface(),
+	).Block(
+		Id("fields").Op(":=").Make(
+			Index().Qual(
+				"go.uber.org/zap", "Field",
+			).Op(",").Lit(0).Op(",").Len(Id("data")),
+		),
+		For(Id("i").Op(":=").Lit(0).Op(";").Id("i").Op("<").Len(Id("data")).Op(";").Id("i").Op("+=").Lit(2)).Block(
+			If(Qual(
+				"reflect", "TypeOf",
+			).Call(Id("data").Index(Id("i"))).Dot("Kind").Call().Op("==").Qual(
+				"reflect", "Ptr",
+			).Block(
+				Id("data").Index(Id("i")).Op("=").Qual(
+					"fmt", "Sprintf",
+				).Call(Lit("%+v").Op(",").Id("data").Index(Id("i"))),
+			)),
+			Id("fields").Op("=").Append(Id("fields").Op(",").Qual(
+				"go.uber.org/zap", "Any",
+			).Call(Id("data").Index(Id("i")).Assert(String()).Op(",").Id("data").Index(Id("i").Op("+").Lit(1)))),
+		),
+		Id("zl").Dot("Logger").Dot("Error").Call(Id("msg").Op(",").Id("fields").Op("...")),
+	)
+	f.Line()
+
+	f.Comment("Trace overrides the standard GORM logger's Trace method to forward log messages")
+	f.Comment("to the zap logger.")
+	f.Func().Parens(
+		Id("zl").Op("*").Id("ZapLogger"),
+	).Id("Trace").Params(
+		Id("ctx").Qual(
+			"context", "Context",
+		).Op(",").Id("begin").Qual(
+			"time", "Time",
+		).Op(",").Id("fc").Func().Call().Parens(String().Op(",").Int64()).Op(",").Id("err").Error(),
+	).Block(
+		Comment("use the fc function to get the SQL statement and execution time"),
+		Id("sql").Op(",").Id("rows").Op(":=").Id("fc").Call(),
+		Line(),
+		Comment("create a new logger with some additional fields"),
+		Id("logger").Op(":=").Id("zl").Dot("Logger").Dot("With").Call(
+			Line().Qual("go.uber.org/zap", "String").Call(Lit("type").Op(",").Lit("sql")),
+			Line().Qual("go.uber.org/zap", "String").Call(Lit("sql").Op(",").Id("suppressSensitive").Call(Id("sql"))),
+			Line().Qual("go.uber.org/zap", "Int64").Call(Lit("rows").Op(",").Id("rows")),
+			Line().Qual("go.uber.org/zap", "Duration").Call(Lit("elapsed").Op(",").Qual(
+				"time", "Since",
+			).Call(Id("begin"))),
+			Line(),
+		),
+		Line(),
+		Comment("if an error occurred, add it as a field to the logger"),
+		If(Id("err").Op("!=").Nil().Block(
+			Id("logger").Op("=").Qual(
+				"gorm.io/gorm/logger", "With",
+			).Call(Qual(
+				"go.uber.org/zap", "Error",
+			).Call(Id("err"))),
+		)),
+		Line(),
+		Comment("log the message using the logger"),
+		Qual("gorm.io/gorm/logger", "Debug").Call(Lit("gorm query")),
+	)
+	f.Line()
+
+	f.Comment("suppressSensitive supresses messages containing sesitive strings.")
+	f.Func().Id("suppressSensitive").Params(
+		Id("msg").String(),
+	).String().Block(
+		For(Id("_").Op(",").Id("str").Op(":=").Range().Qual(
+			"github.com/threeport/threeport/internal/log", "SensitiveStrings",
+		).Call()).Block(
+			If(Qual("strings", "Contains").Call(Id("msg").Op(",").Id("str"))).Block(
+				Return().Qual("fmt", "Sprintf").Call(Lit("[log message containing %s supporessed]").Op(",").Id("str")),
+			),
+		),
+		Line(),
+		Return().Id("msg"),
 	)
 
 	// write code to file

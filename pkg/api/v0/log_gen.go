@@ -100,6 +100,11 @@ func (lb *LogBackend) GetID() uint {
 	return *lb.ID
 }
 
+// String returns a string representation of the ojbect.
+func (lb LogBackend) String() string {
+	return fmt.Sprintf("v0.LogBackend")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -123,6 +128,11 @@ func (lsd *LogStorageDefinition) GetID() uint {
 	return *lsd.ID
 }
 
+// String returns a string representation of the ojbect.
+func (lsd LogStorageDefinition) String() string {
+	return fmt.Sprintf("v0.LogStorageDefinition")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -144,4 +154,9 @@ func (lsi *LogStorageInstance) NotificationPayload(requeue bool, lastDelay int64
 // GetID returns the unique ID for the object.
 func (lsi *LogStorageInstance) GetID() uint {
 	return *lsi.ID
+}
+
+// String returns a string representation of the ojbect.
+func (lsi LogStorageInstance) String() string {
+	return fmt.Sprintf("v0.LogStorageInstance")
 }

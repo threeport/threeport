@@ -82,6 +82,11 @@ func (nid *NetworkIngressDefinition) GetID() uint {
 	return *nid.ID
 }
 
+// String returns a string representation of the ojbect.
+func (nid NetworkIngressDefinition) String() string {
+	return fmt.Sprintf("v0.NetworkIngressDefinition")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -103,4 +108,9 @@ func (nii *NetworkIngressInstance) NotificationPayload(requeue bool, lastDelay i
 // GetID returns the unique ID for the object.
 func (nii *NetworkIngressInstance) GetID() uint {
 	return *nii.ID
+}
+
+// String returns a string representation of the ojbect.
+func (nii NetworkIngressInstance) String() string {
+	return fmt.Sprintf("v0.NetworkIngressInstance")
 }

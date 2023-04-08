@@ -7592,13 +7592,6 @@ const docTemplate = `{
                     "description": "Required if no UserID.  The company that owns the object.",
                     "type": "integer"
                 },
-                "LogBackends": {
-                    "description": "The backend storage mechanisms for retaining logs.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.LogBackend"
-                    }
-                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -7756,56 +7749,56 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ClusterDefinition",
-                "ClusterInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
+                "Profile",
+                "Tier",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
                 "NetworkIngressDefinition",
                 "NetworkIngressInstance",
-                "Profile",
-                "Tier",
+                "ClusterDefinition",
+                "ClusterInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
                 "User",
-                "Company",
-                "DomainNameDefinition",
-                "DomainNameInstance"
+                "Company"
             ],
             "x-enum-varnames": [
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeNetworkIngressDefinition",
                 "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeUser",
-                "ObjectTypeCompany",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance"
+                "ObjectTypeCompany"
             ]
         },
         "v0.Profile": {
@@ -7964,11 +7957,6 @@ const docTemplate = `{
                 "CompanyID": {
                     "description": "Required if no UserID.  The company that owns the object.",
                     "type": "integer"
-                },
-                "Dependencies": {
-                    "description": "The dependencies needed in order for the workload to run properly.",
-                    "type": "array",
-                    "items": {}
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",

@@ -31,8 +31,8 @@ type WorkloadDefinition struct {
 	// Indicates if object is considered to be reconciled by workload controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 
-	// The dependencies needed in order for the workload to run properly.
-	Dependencies []WorkloadDependency `json:"Dependencies,omitempty" query:"dependencies" validate:"optional"`
+	//// The dependencies needed in order for the workload to run properly.
+	//Dependencies []WorkloadDependency `json:"Dependencies,omitempty" query:"dependencies" validate:"optional"`
 }
 
 // WorkloadResourceDefinition is an individual Kubernetes resource manifest.

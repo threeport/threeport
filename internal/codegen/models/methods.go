@@ -158,6 +158,16 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 		).Id("GetID").Params().Uint().Block(
 			Return(Op("*").Id(name.TypeAbbrev(mc.TypeName)).Dot("ID")),
 		)
+		// String method
+		f.Comment("String returns a string representation of the ojbect.")
+		f.Func().Params(
+			Id(name.TypeAbbrev(mc.TypeName)).Id(mc.TypeName),
+		).Id("String").Params().String().Block(
+			Return(Qual(
+				"fmt", "Sprintf",
+			).Call(Lit(fmt.Sprintf("%s.%s", cc.PackageName, mc.TypeName))),
+			),
+		)
 	}
 
 	// write code to file
