@@ -56,7 +56,6 @@ func main() {
 
 	// logging setup
 	var log logr.Logger
-
 	switch *verbose {
 	case true:
 		zapLog, err := zap.NewDevelopment()

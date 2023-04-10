@@ -15,15 +15,15 @@ type ClusterDefinition struct {
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
 	// The number of zones the cluster should span for availability.
-	ZoneCount *int32 `json:"ZoneCount,omitempty" query:"zonecount" gorm:"not null" validate:"optional"`
+	ZoneCount *int32 `json:"ZoneCount,omitempty" query:"zonecount" validate:"optional"`
 
-	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" query:"defaultnodegroupinstancetype" gorm:"not null" validate:"optional"`
+	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" query:"defaultnodegroupinstancetype" validate:"optional"`
 
-	DefaultNodeGroupInitialSize *int32 `json:"DefaultNodeGroupInitialSize,omitempty" query:"defaultnodegroupinitialsize" gorm:"not null" validate:"optional"`
+	DefaultNodeGroupInitialSize *int32 `json:"DefaultNodeGroupInitialSize,omitempty" query:"defaultnodegroupinitialsize" validate:"optional"`
 
-	DefaultNodeGroupMinimumSize *int32 `json:"DefaultNodeGroupMinimumSize,omitempty" query:"defaultnodegroupminimumsize" gorm:"not null" validate:"optional"`
+	DefaultNodeGroupMinimumSize *int32 `json:"DefaultNodeGroupMinimumSize,omitempty" query:"defaultnodegroupminimumsize" validate:"optional"`
 
-	DefaultNodeGroupMaximumSize *int32 `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" gorm:"not null" validate:"optional"`
+	DefaultNodeGroupMaximumSize *int32 `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" validate:"optional"`
 }
 
 type ClusterInstance struct {
@@ -51,7 +51,7 @@ type ClusterInstance struct {
 	// Required.  The client key to use for auth to the kube-api.
 	Key *string `json:"Key,omitempty" gorm:"not null" validate:"required"`
 
-	ClusterDefinitionID *uint
+	ClusterDefinitionID *uint `json:"ClusterDefinitionID,omitempty" gorm:"not null" validate:"required"`
 
 	// The associated workload instances running on this cluster.
 	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstance,omitempty" validate:"optional,association"`

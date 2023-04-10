@@ -5,7 +5,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-const PathWorkloadResourceDefinitionSets = "/v0/workload_resource_definition_sets"
+const PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-sets"
 
 // WorkloadDefinition is the collection of Kubernetes manifests that define a
 // distinct workload.
@@ -31,8 +31,8 @@ type WorkloadDefinition struct {
 	// Indicates if object is considered to be reconciled by workload controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 
-	// The dependencies needed in order for the workload to run properly.
-	// Dependencies []WorkloadDependency `json:"Dependencies,omitempty" query:"dependencies" validate:"optional"`
+	//// The dependencies needed in order for the workload to run properly.
+	//Dependencies []WorkloadDependency `json:"Dependencies,omitempty" query:"dependencies" validate:"optional"`
 }
 
 // WorkloadResourceDefinition is an individual Kubernetes resource manifest.
@@ -55,7 +55,7 @@ type WorkloadInstance struct {
 	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
 	// ClusterID is the cluster to which the workload is deployed.
-	ClusterInstanceID *uint `json:"ClusterInstnaceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
+	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
 
 	// WorkloadDefinitionID is the definition used to configure the workload
 	// instance.

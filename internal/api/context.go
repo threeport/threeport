@@ -17,10 +17,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-type CustomContext struct {
-	echo.Context
-}
-
 const (
 	QueryParamPage                   = "page"
 	QueryParamSize                   = "size"
@@ -32,7 +28,11 @@ const (
 	BearerKey                        = "Bearer "
 )
 
-// GetBearerToken extracts the OAuth token from Authorization header
+type CustomContext struct {
+	echo.Context
+}
+
+// GetBearerToken extracts the OAuth token from Authorization header.
 func (c *CustomContext) GetBearerToken() (token string, err error) {
 
 	reqToken := c.Request().Header.Get(AuthorizationKey)
@@ -56,7 +56,7 @@ func indexAt(s, substr string, n int) int {
 	return idx
 }
 
-// GetPaginationParams parses pagination query parameters into PageRequestParams
+// GetPaginationParams parses pagination query parameters into PageRequestParams.
 func (c *CustomContext) GetPaginationParams() (params v0.PageRequestParams, err error) {
 
 	strPage := c.Request().URL.Query().Get(QueryParamPage)

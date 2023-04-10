@@ -10,6 +10,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/controller"
+	"github.com/threeport/threeport/pkg/notifications"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,15 +45,15 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// unmarshal notification from message data
-			var notif EthereumNodeNotification
-			if err := json.Unmarshal(msg.Data, &notif); err != nil {
+			notif, err := notifications.ConsumeMessage(msg.Data)
+			if err != nil {
 				log.Error(
-					err, "failed to unmarshal message data from NATS",
+					err, "failed to consume message data from NATS",
 					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
 				go r.RequeueRaw(msg.Subject, msg.Data)
-				log.V(1).Info("ethereum node definition reconciliation requeued with identical payload and fixed delay")
+				log.V(1).Info("workload definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
 
@@ -226,6 +227,9 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 			// set the ethereum node definition object's Reconciled field to true
 			isReconciled := true
 			reconciledDefinition := v0.EthereumNodeDefinition{
+				Common: v0.Common{
+					ID: ethereumNodeDefinition.ID,
+				},
 				Reconciled: &isReconciled,
 			}
 
@@ -233,7 +237,6 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 				&reconciledDefinition,
 				r.APIServer,
 				"",
-				*ethereumNodeDefinition.ID,
 			)
 			if err != nil {
 				log.Error(err, "failed to update ethereum node definition to mark as reconciled")

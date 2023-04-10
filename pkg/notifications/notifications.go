@@ -1,5 +1,11 @@
 package notifications
 
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+)
+
 // Notification is the message that is sent to NATS to alert a controller that a
 // change has been made to an object.  A notification is sent by the API Server
 // when a change is make by a client, or by a controller when reconciliation was
@@ -23,4 +29,15 @@ type Notification struct {
 
 	// The API object that has been changed.
 	Object interface{}
+}
+
+func ConsumeMessage(msgData []byte) (*Notification, error) {
+	var notif Notification
+	decoder := json.NewDecoder(bytes.NewReader(msgData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&notif); err != nil {
+		return nil, fmt.Errorf("failed to decode notification json from NATS message data", err)
+	}
+
+	return &notif, nil
 }

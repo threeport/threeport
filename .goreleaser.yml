@@ -49,6 +49,7 @@ changelog:
   use: github
   filters:
     exclude:
+      - '^dev(\(.*\))?:'
       - '^docs(\(.*\))?:'
       - '^test(\(.*\))?:'
       - '^ci(\(.*\))?:'

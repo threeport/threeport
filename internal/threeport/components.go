@@ -14,6 +14,7 @@ const (
 	ThreeportContainerRepo           = "ghcr.io/threeport"
 	ThreeportAPIImage                = "threeport-rest-api"
 	ThreeportWorkloadControllerImage = "threeport-workload-controller"
+	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
 )
 
 // ThreeportDevImages returns a map of main package dirs to image names
@@ -30,10 +31,12 @@ func InstallThreeportControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
+	apiHostname string,
 ) error {
-
 	var apiImage string
 	var workloadControllerImage string
+	var apiIngressAnnotations map[string]interface{}
+	var apiIngressTLS []interface{}
 	apiVols, apiVolMounts := apiVolumes()
 	workloadControllerVols, workloadControllerVolMounts := workloadControllerVolumes()
 	if devEnvironment {
@@ -71,6 +74,16 @@ func InstallThreeportControlPlaneComponents(
 			ThreeportWorkloadControllerImage,
 			version.GetVersion(),
 		)
+		apiIngressAnnotations = map[string]interface{}{
+			"cert-manager.io/cluster-issuer": "letsencrypt-staging",
+		}
+		apiIngressTLS = []interface{}{
+			map[string]interface{}{
+				"hosts": []interface{}{
+					apiHostname,
+				},
+			},
+		}
 	}
 
 	var dbCreateConfig = &unstructured.Unstructured{
@@ -283,6 +296,46 @@ NATS_PORT=4222
 	}
 	if _, err := kube.CreateResource(workloadControllerDeployment, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
+	}
+
+	var apiIngress = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "networking.k8s.io/v1",
+			"kind":       "Ingress",
+			"metadata": map[string]interface{}{
+				"name":        ThreeportAPIIngressResourceName,
+				"namespace":   ControlPlaneNamespace,
+				"annotations": apiIngressAnnotations,
+			},
+			"spec": map[string]interface{}{
+				"ingressClassName": "kong",
+				"rules": []interface{}{
+					map[string]interface{}{
+						"host": apiHostname,
+						"http": map[string]interface{}{
+							"paths": []interface{}{
+								map[string]interface{}{
+									"path":     "/",
+									"pathType": "Prefix",
+									"backend": map[string]interface{}{
+										"service": map[string]interface{}{
+											"name": "threeport-api-server",
+											"port": map[string]interface{}{
+												"number": 80,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				"tls": apiIngressTLS,
+			},
+		},
+	}
+	if _, err := kube.CreateResource(apiIngress, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create API ingress: %w", err)
 	}
 
 	return nil

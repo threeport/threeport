@@ -197,6 +197,8 @@ definitions:
       Certificate:
         description: Required.  The client certificate to use for auth to the kube-api.
         type: string
+      ClusterDefinitionID:
+        type: integer
       CompanyID:
         description: Required if no UserID.  The company that owns the object.
         type: integer
@@ -225,11 +227,10 @@ definitions:
         items:
           $ref: '#/definitions/v0.WorkloadInstance'
         type: array
-      clusterDefinitionID:
-        type: integer
     required:
     - APIEndpoint
     - Certificate
+    - ClusterDefinitionID
     - Key
     - Name
     type: object
@@ -282,7 +283,7 @@ definitions:
     type: object
   v0.DomainNameInstance:
     properties:
-      ClusterInstnaceID:
+      ClusterInstanceID:
         description: The cluster where the workload that is using the domain name
           is running.
         type: integer
@@ -304,7 +305,7 @@ definitions:
         description: Required if no CompanyID.  The user that owns the object.
         type: integer
     required:
-    - ClusterInstnaceID
+    - ClusterInstanceID
     - DomainNameDefinitionID
     - Name
     type: object
@@ -431,11 +432,6 @@ definitions:
       CompanyID:
         description: Required if no UserID.  The company that owns the object.
         type: integer
-      LogBackends:
-        description: The backend storage mechanisms for retaining logs.
-        items:
-          $ref: '#/definitions/v0.LogBackend'
-        type: array
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -565,25 +561,8 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - User
-    - Company
-    - ClusterDefinition
-    - ClusterInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - DomainNameDefinition
     - DomainNameInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - EthereumNodeDefinition
-    - EthereumNodeInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - Profile
     - Tier
     - AwsAccount
@@ -591,27 +570,27 @@ definitions:
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - ClusterDefinition
+    - ClusterInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - EthereumNodeDefinition
+    - EthereumNodeInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - User
+    - Company
     type: string
     x-enum-varnames:
-    - ObjectTypeUser
-    - ObjectTypeCompany
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeEthereumNodeDefinition
-    - ObjectTypeEthereumNodeInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeProfile
     - ObjectTypeTier
     - ObjectTypeAwsAccount
@@ -619,6 +598,23 @@ definitions:
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeEthereumNodeDefinition
+    - ObjectTypeEthereumNodeInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
   v0.Profile:
     properties:
       CompanyID:
@@ -772,7 +768,7 @@ definitions:
     type: object
   v0.WorkloadInstance:
     properties:
-      ClusterInstnaceID:
+      ClusterInstanceID:
         description: ClusterID is the cluster to which the workload is deployed.
         type: integer
       CompanyID:
@@ -795,7 +791,7 @@ definitions:
           instance.
         type: integer
     required:
-    - ClusterInstnaceID
+    - ClusterInstanceID
     - Name
     - WorkloadDefinitionID
     type: object
@@ -5824,6 +5820,38 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload instance by replacing the entire object.
+  /v0/workload-resource-definition-sets:
+    post:
+      consumes:
+      - application/json
+      description: Add a set of new workload resource definition to the Threeport
+        database.
+      operationId: add-workloadResourceDefinitions
+      parameters:
+      - description: WorkloadResourceDefinition object array
+        in: body
+        name: workloadResourceDefinitions
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/v0.WorkloadResourceDefinition'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new set of workload resource definitions.
   /v0/workload-resource-definitions:
     get:
       consumes:
@@ -6216,38 +6244,6 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload resource instance by replacing the entire
         object.
-  /v0/workload_resource_definition_sets:
-    post:
-      consumes:
-      - application/json
-      description: Add a set of new workload resource definition to the Threeport
-        database.
-      operationId: add-workloadResourceDefinitions
-      parameters:
-      - description: WorkloadResourceDefinition object array
-        in: body
-        name: workloadResourceDefinitions
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/v0.WorkloadResourceDefinition'
-          type: array
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new set of workload resource definitions.
   /version:
     get:
       description: Get a version of REST API.

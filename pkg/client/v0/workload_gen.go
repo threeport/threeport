@@ -24,22 +24,24 @@ func GetWorkloadDefinitionByID(id uint, apiAddr, apiToken string) (*v0.WorkloadD
 		http.StatusOK,
 	)
 	if err != nil {
-		return &workloadDefinition, err
+		return &workloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &workloadDefinition, err
+		return &workloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadDefinition); err != nil {
-		return &workloadDefinition, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &workloadDefinition, nil
 }
 
-// GetWorkloadDefinitionByName fetches a workload definition by name
+// GetWorkloadDefinitionByName feteches a workload definition by name
 func GetWorkloadDefinitionByName(name, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
 	var workloadDefinitions []v0.WorkloadDefinition
 
@@ -51,16 +53,18 @@ func GetWorkloadDefinitionByName(name, apiAddr, apiToken string) (*v0.WorkloadDe
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.WorkloadDefinition{}, err
+		return &v0.WorkloadDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.WorkloadDefinition{}, err
+		return &v0.WorkloadDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadDefinitions); err != nil {
-		return &v0.WorkloadDefinition{}, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -77,7 +81,7 @@ func GetWorkloadDefinitionByName(name, apiAddr, apiToken string) (*v0.WorkloadDe
 func CreateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
 	jsonWorkloadDefinition, err := client.MarshalObject(workloadDefinition)
 	if err != nil {
-		return workloadDefinition, err
+		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -88,46 +92,55 @@ func CreateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr
 		http.StatusCreated,
 	)
 	if err != nil {
-		return workloadDefinition, err
+		return workloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return workloadDefinition, err
+		return workloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadDefinition); err != nil {
-		return workloadDefinition, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return workloadDefinition, nil
 }
 
 // UpdateWorkloadDefinition updates a workload definition
-func UpdateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr, apiToken string, id uint) (*v0.WorkloadDefinition, error) {
+func UpdateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	workloadDefinitionID := *workloadDefinition.ID
+	workloadDefinition.ID = nil
+
 	jsonWorkloadDefinition, err := client.MarshalObject(workloadDefinition)
 	if err != nil {
-		return workloadDefinition, err
+		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, workloadDefinitionID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadDefinition),
 		http.StatusOK,
 	)
 	if err != nil {
-		return workloadDefinition, err
+		return workloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return workloadDefinition, err
+		return workloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadDefinition); err != nil {
-		return workloadDefinition, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return workloadDefinition, nil
@@ -145,22 +158,24 @@ func GetWorkloadResourceDefinitionByID(id uint, apiAddr, apiToken string) (*v0.W
 		http.StatusOK,
 	)
 	if err != nil {
-		return &workloadResourceDefinition, err
+		return &workloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &workloadResourceDefinition, err
+		return &workloadResourceDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadResourceDefinition); err != nil {
-		return &workloadResourceDefinition, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &workloadResourceDefinition, nil
 }
 
-// GetWorkloadResourceDefinitionByName fetches a workload resource definition by name
+// GetWorkloadResourceDefinitionByName feteches a workload resource definition by name
 func GetWorkloadResourceDefinitionByName(name, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
@@ -172,16 +187,18 @@ func GetWorkloadResourceDefinitionByName(name, apiAddr, apiToken string) (*v0.Wo
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.WorkloadResourceDefinition{}, err
+		return &v0.WorkloadResourceDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.WorkloadResourceDefinition{}, err
+		return &v0.WorkloadResourceDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadResourceDefinitions); err != nil {
-		return &v0.WorkloadResourceDefinition{}, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -198,7 +215,7 @@ func GetWorkloadResourceDefinitionByName(name, apiAddr, apiToken string) (*v0.Wo
 func CreateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadResourceDefinition, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
 	jsonWorkloadResourceDefinition, err := client.MarshalObject(workloadResourceDefinition)
 	if err != nil {
-		return workloadResourceDefinition, err
+		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -209,46 +226,55 @@ func CreateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadRes
 		http.StatusCreated,
 	)
 	if err != nil {
-		return workloadResourceDefinition, err
+		return workloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return workloadResourceDefinition, err
+		return workloadResourceDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadResourceDefinition); err != nil {
-		return workloadResourceDefinition, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return workloadResourceDefinition, nil
 }
 
 // UpdateWorkloadResourceDefinition updates a workload resource definition
-func UpdateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadResourceDefinition, apiAddr, apiToken string, id uint) (*v0.WorkloadResourceDefinition, error) {
+func UpdateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadResourceDefinition, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	workloadResourceDefinitionID := *workloadResourceDefinition.ID
+	workloadResourceDefinition.ID = nil
+
 	jsonWorkloadResourceDefinition, err := client.MarshalObject(workloadResourceDefinition)
 	if err != nil {
-		return workloadResourceDefinition, err
+		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, workloadResourceDefinitionID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
 		http.StatusOK,
 	)
 	if err != nil {
-		return workloadResourceDefinition, err
+		return workloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return workloadResourceDefinition, err
+		return workloadResourceDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadResourceDefinition); err != nil {
-		return workloadResourceDefinition, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return workloadResourceDefinition, nil
@@ -266,22 +292,24 @@ func GetWorkloadInstanceByID(id uint, apiAddr, apiToken string) (*v0.WorkloadIns
 		http.StatusOK,
 	)
 	if err != nil {
-		return &workloadInstance, err
+		return &workloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &workloadInstance, err
+		return &workloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadInstance); err != nil {
-		return &workloadInstance, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &workloadInstance, nil
 }
 
-// GetWorkloadInstanceByName fetches a workload instance by name
+// GetWorkloadInstanceByName feteches a workload instance by name
 func GetWorkloadInstanceByName(name, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
 
@@ -293,16 +321,18 @@ func GetWorkloadInstanceByName(name, apiAddr, apiToken string) (*v0.WorkloadInst
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.WorkloadInstance{}, err
+		return &v0.WorkloadInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.WorkloadInstance{}, err
+		return &v0.WorkloadInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadInstances); err != nil {
-		return &v0.WorkloadInstance{}, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -319,7 +349,7 @@ func GetWorkloadInstanceByName(name, apiAddr, apiToken string) (*v0.WorkloadInst
 func CreateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
 	jsonWorkloadInstance, err := client.MarshalObject(workloadInstance)
 	if err != nil {
-		return workloadInstance, err
+		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -330,46 +360,55 @@ func CreateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiT
 		http.StatusCreated,
 	)
 	if err != nil {
-		return workloadInstance, err
+		return workloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return workloadInstance, err
+		return workloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadInstance); err != nil {
-		return workloadInstance, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return workloadInstance, nil
 }
 
 // UpdateWorkloadInstance updates a workload instance
-func UpdateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiToken string, id uint) (*v0.WorkloadInstance, error) {
+func UpdateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	workloadInstanceID := *workloadInstance.ID
+	workloadInstance.ID = nil
+
 	jsonWorkloadInstance, err := client.MarshalObject(workloadInstance)
 	if err != nil {
-		return workloadInstance, err
+		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, workloadInstanceID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadInstance),
 		http.StatusOK,
 	)
 	if err != nil {
-		return workloadInstance, err
+		return workloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return workloadInstance, err
+		return workloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadInstance); err != nil {
-		return workloadInstance, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return workloadInstance, nil
@@ -387,22 +426,24 @@ func GetWorkloadResourceInstanceByID(id uint, apiAddr, apiToken string) (*v0.Wor
 		http.StatusOK,
 	)
 	if err != nil {
-		return &workloadResourceInstance, err
+		return &workloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &workloadResourceInstance, err
+		return &workloadResourceInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadResourceInstance); err != nil {
-		return &workloadResourceInstance, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &workloadResourceInstance, nil
 }
 
-// GetWorkloadResourceInstanceByName fetches a workload resource instance by name
+// GetWorkloadResourceInstanceByName feteches a workload resource instance by name
 func GetWorkloadResourceInstanceByName(name, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 
@@ -414,16 +455,18 @@ func GetWorkloadResourceInstanceByName(name, apiAddr, apiToken string) (*v0.Work
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.WorkloadResourceInstance{}, err
+		return &v0.WorkloadResourceInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.WorkloadResourceInstance{}, err
+		return &v0.WorkloadResourceInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadResourceInstances); err != nil {
-		return &v0.WorkloadResourceInstance{}, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -440,7 +483,7 @@ func GetWorkloadResourceInstanceByName(name, apiAddr, apiToken string) (*v0.Work
 func CreateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourceInstance, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
 	jsonWorkloadResourceInstance, err := client.MarshalObject(workloadResourceInstance)
 	if err != nil {
-		return workloadResourceInstance, err
+		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
@@ -451,46 +494,55 @@ func CreateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourc
 		http.StatusCreated,
 	)
 	if err != nil {
-		return workloadResourceInstance, err
+		return workloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return workloadResourceInstance, err
+		return workloadResourceInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadResourceInstance); err != nil {
-		return workloadResourceInstance, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return workloadResourceInstance, nil
 }
 
 // UpdateWorkloadResourceInstance updates a workload resource instance
-func UpdateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourceInstance, apiAddr, apiToken string, id uint) (*v0.WorkloadResourceInstance, error) {
+func UpdateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourceInstance, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	workloadResourceInstanceID := *workloadResourceInstance.ID
+	workloadResourceInstance.ID = nil
+
 	jsonWorkloadResourceInstance, err := client.MarshalObject(workloadResourceInstance)
 	if err != nil {
-		return workloadResourceInstance, err
+		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, workloadResourceInstanceID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),
 		http.StatusOK,
 	)
 	if err != nil {
-		return workloadResourceInstance, err
+		return workloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return workloadResourceInstance, err
+		return workloadResourceInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &workloadResourceInstance); err != nil {
-		return workloadResourceInstance, err
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return workloadResourceInstance, nil

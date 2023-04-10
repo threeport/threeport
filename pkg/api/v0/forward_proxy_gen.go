@@ -82,6 +82,11 @@ func (fpd *ForwardProxyDefinition) GetID() uint {
 	return *fpd.ID
 }
 
+// String returns a string representation of the ojbect.
+func (fpd ForwardProxyDefinition) String() string {
+	return fmt.Sprintf("v0.ForwardProxyDefinition")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -103,4 +108,9 @@ func (fpi *ForwardProxyInstance) NotificationPayload(requeue bool, lastDelay int
 // GetID returns the unique ID for the object.
 func (fpi *ForwardProxyInstance) GetID() uint {
 	return *fpi.ID
+}
+
+// String returns a string representation of the ojbect.
+func (fpi ForwardProxyInstance) String() string {
+	return fmt.Sprintf("v0.ForwardProxyInstance")
 }

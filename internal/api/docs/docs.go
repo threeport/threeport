@@ -7017,6 +7017,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/v0/workload-resource-definition-sets": {
+            "post": {
+                "description": "Add a set of new workload resource definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new set of workload resource definitions.",
+                "operationId": "add-workloadResourceDefinitions",
+                "parameters": [
+                    {
+                        "description": "WorkloadResourceDefinition object array",
+                        "name": "workloadResourceDefinitions",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/v0.WorkloadResourceDefinition"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/workload-resource-definitions": {
             "get": {
                 "description": "Get all workload resource definitions from the Threeport database.",
@@ -7567,53 +7614,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload_resource_definition_sets": {
-            "post": {
-                "description": "Add a set of new workload resource definition to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new set of workload resource definitions.",
-                "operationId": "add-workloadResourceDefinitions",
-                "parameters": [
-                    {
-                        "description": "WorkloadResourceDefinition object array",
-                        "name": "workloadResourceDefinitions",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/v0.WorkloadResourceDefinition"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/version": {
             "get": {
                 "description": "Get a version of REST API.",
@@ -7944,6 +7944,7 @@ const docTemplate = `{
             "required": [
                 "APIEndpoint",
                 "Certificate",
+                "ClusterDefinitionID",
                 "Key",
                 "Name"
             ],
@@ -7959,6 +7960,9 @@ const docTemplate = `{
                 "Certificate": {
                     "description": "Required.  The client certificate to use for auth to the kube-api.",
                     "type": "string"
+                },
+                "ClusterDefinitionID": {
+                    "type": "integer"
                 },
                 "CompanyID": {
                     "description": "Required if no UserID.  The company that owns the object.",
@@ -7990,9 +7994,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/v0.WorkloadInstance"
                     }
-                },
-                "clusterDefinitionID": {
-                    "type": "integer"
                 }
             }
         },
@@ -8056,12 +8057,12 @@ const docTemplate = `{
         "v0.DomainNameInstance": {
             "type": "object",
             "required": [
-                "ClusterInstnaceID",
+                "ClusterInstanceID",
                 "DomainNameDefinitionID",
                 "Name"
             ],
             "properties": {
-                "ClusterInstnaceID": {
+                "ClusterInstanceID": {
                     "description": "The cluster where the workload that is using the domain name is running.",
                     "type": "integer"
                 },
@@ -8243,13 +8244,6 @@ const docTemplate = `{
                     "description": "Required if no UserID.  The company that owns the object.",
                     "type": "integer"
                 },
-                "LogBackends": {
-                    "description": "The backend storage mechanisms for retaining logs.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.LogBackend"
-                    }
-                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -8407,60 +8401,60 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "User",
-                "Company",
-                "ClusterDefinition",
-                "ClusterInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
-                "EthereumNodeDefinition",
-                "EthereumNodeInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "Profile",
                 "Tier",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance"
+                "AwsRelationalDatabaseInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "EthereumNodeDefinition",
+                "EthereumNodeInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "User",
+                "Company"
             ],
             "x-enum-varnames": [
-                "ObjectTypeUser",
-                "ObjectTypeCompany",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeEthereumNodeDefinition",
-                "ObjectTypeEthereumNodeInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance"
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeEthereumNodeDefinition",
+                "ObjectTypeEthereumNodeInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeUser",
+                "ObjectTypeCompany"
             ]
         },
         "v0.Profile": {
@@ -8663,12 +8657,12 @@ const docTemplate = `{
         "v0.WorkloadInstance": {
             "type": "object",
             "required": [
-                "ClusterInstnaceID",
+                "ClusterInstanceID",
                 "Name",
                 "WorkloadDefinitionID"
             ],
             "properties": {
-                "ClusterInstnaceID": {
+                "ClusterInstanceID": {
                     "description": "ClusterID is the cluster to which the workload is deployed.",
                     "type": "integer"
                 },

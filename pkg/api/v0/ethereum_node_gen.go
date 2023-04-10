@@ -82,6 +82,11 @@ func (end *EthereumNodeDefinition) GetID() uint {
 	return *end.ID
 }
 
+// String returns a string representation of the ojbect.
+func (end EthereumNodeDefinition) String() string {
+	return fmt.Sprintf("v0.EthereumNodeDefinition")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -103,4 +108,9 @@ func (eni *EthereumNodeInstance) NotificationPayload(requeue bool, lastDelay int
 // GetID returns the unique ID for the object.
 func (eni *EthereumNodeInstance) GetID() uint {
 	return *eni.ID
+}
+
+// String returns a string representation of the ojbect.
+func (eni EthereumNodeInstance) String() string {
+	return fmt.Sprintf("v0.EthereumNodeInstance")
 }

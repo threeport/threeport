@@ -33,5 +33,5 @@ type DomainNameInstance struct {
 	DomainNameDefinitionID *uint `json:"DomainNameDefinitionID,omitempty" query:"domainnamedefinitionid" gorm:"not null" validate:"required"`
 
 	// The cluster where the workload that is using the domain name is running.
-	ClusterInstanceID *uint `json:"ClusterInstnaceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
+	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
 }

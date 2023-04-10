@@ -82,6 +82,11 @@ func (p *Profile) GetID() uint {
 	return *p.ID
 }
 
+// String returns a string representation of the ojbect.
+func (p Profile) String() string {
+	return fmt.Sprintf("v0.Profile")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -103,4 +108,9 @@ func (t *Tier) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, erro
 // GetID returns the unique ID for the object.
 func (t *Tier) GetID() uint {
 	return *t.ID
+}
+
+// String returns a string representation of the ojbect.
+func (t Tier) String() string {
+	return fmt.Sprintf("v0.Tier")
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/nats-io/nats.go"
+	"go.uber.org/zap"
 
 	//"github.com/threeport/threeport/internal/authority"
 	iapi "github.com/threeport/threeport/internal/api"
@@ -18,6 +19,7 @@ import (
 	"github.com/threeport/threeport/internal/api/handlers"
 	"github.com/threeport/threeport/internal/api/routes"
 	"github.com/threeport/threeport/internal/api/versions"
+	"github.com/threeport/threeport/internal/log"
 	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -38,8 +40,10 @@ func main() {
 	// flags
 	var envFile string
 	var autoMigrate bool
+	var verbose bool
 	flag.StringVar(&envFile, "env-file", "/etc/threeport/env", "File from which to load environment")
 	flag.BoolVar(&autoMigrate, "auto-migrate", false, "If true API server will auto migrate DB schema")
+	flag.BoolVar(&verbose, "verbose", false, "Write logs with v(1).InfoLevel and above")
 	flag.Parse()
 
 	e := echo.New()
@@ -53,16 +57,30 @@ func main() {
 	e.Validator = &iapi.CustomValidator{Validator: validate}
 
 	// middleware
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-	//e.Use(iapi.AuthorizationTokenCheck)
-
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			cc := &iapi.CustomContext{Context: c}
 			return next(cc)
 		}
 	})
+	logger, err := log.NewLogger(verbose)
+	if err != nil {
+		panic(err)
+	}
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogURI:    true,
+		LogStatus: true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			logger.Info("request",
+				zap.String("URI", v.URI),
+				zap.Int("status", v.Status),
+			)
+			return nil
+		},
+	}))
+	//e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+	//e.Use(iapi.AuthorizationTokenCheck)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
 		// Take required information from error and context and send it to a service like New Relic etc.
@@ -78,7 +96,7 @@ func main() {
 	}
 
 	// database connection
-	db, err := database.Init(autoMigrate)
+	db, err := database.Init(autoMigrate, &logger)
 	if err != nil {
 		e.Logger.Fatalf("failed to initialize database: %v", err)
 	}
@@ -135,6 +153,7 @@ func main() {
 
 	// routes
 	routes.AddRoutes(e, &h)
+	routes.AddCustomRoutes(e, &h)
 	routes.SwaggerRoutes(e)
 	routes.VersionRoutes(e, &h)
 

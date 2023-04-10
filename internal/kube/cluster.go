@@ -32,7 +32,10 @@ func GetClient(cluster *v0.ClusterInstance) (dynamic.Interface, *meta.RESTMapper
 	}
 
 	// the rest mapper allows us to deterimine resource types
-	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(&restConfig)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(&restConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get discovery client: %w", err)
+	}
 	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get kube API group resources: %w", err)

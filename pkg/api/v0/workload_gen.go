@@ -118,6 +118,11 @@ func (wd *WorkloadDefinition) GetID() uint {
 	return *wd.ID
 }
 
+// String returns a string representation of the ojbect.
+func (wd WorkloadDefinition) String() string {
+	return fmt.Sprintf("v0.WorkloadDefinition")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -139,6 +144,11 @@ func (wrd *WorkloadResourceDefinition) NotificationPayload(requeue bool, lastDel
 // GetID returns the unique ID for the object.
 func (wrd *WorkloadResourceDefinition) GetID() uint {
 	return *wrd.ID
+}
+
+// String returns a string representation of the ojbect.
+func (wrd WorkloadResourceDefinition) String() string {
+	return fmt.Sprintf("v0.WorkloadResourceDefinition")
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -164,6 +174,11 @@ func (wi *WorkloadInstance) GetID() uint {
 	return *wi.ID
 }
 
+// String returns a string representation of the ojbect.
+func (wi WorkloadInstance) String() string {
+	return fmt.Sprintf("v0.WorkloadInstance")
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -185,4 +200,9 @@ func (wri *WorkloadResourceInstance) NotificationPayload(requeue bool, lastDelay
 // GetID returns the unique ID for the object.
 func (wri *WorkloadResourceInstance) GetID() uint {
 	return *wri.ID
+}
+
+// String returns a string representation of the ojbect.
+func (wri WorkloadResourceInstance) String() string {
+	return fmt.Sprintf("v0.WorkloadResourceInstance")
 }
