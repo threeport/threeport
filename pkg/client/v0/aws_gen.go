@@ -32,8 +32,10 @@ func GetAwsAccountByID(id uint, apiAddr, apiToken string) (*v0.AwsAccount, error
 		return &awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsAccount); err != nil {
-		return &awsAccount, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsAccount); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &awsAccount, nil
@@ -59,8 +61,10 @@ func GetAwsAccountByName(name, apiAddr, apiToken string) (*v0.AwsAccount, error)
 		return &v0.AwsAccount{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsAccounts); err != nil {
-		return &v0.AwsAccount{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsAccounts); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -96,8 +100,10 @@ func CreateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.
 		return awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsAccount); err != nil {
-		return awsAccount, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsAccount); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return awsAccount, nil
@@ -105,13 +111,18 @@ func CreateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.
 
 // UpdateAwsAccount updates a aws account
 func UpdateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.AwsAccount, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	awsAccountID := *awsAccount.ID
+	awsAccount.ID = nil
+
 	jsonAwsAccount, err := client.MarshalObject(awsAccount)
 	if err != nil {
 		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws-accounts/%d", apiAddr, ApiVersion, *awsAccount.ID),
+		fmt.Sprintf("%s/%s/aws-accounts/%d", apiAddr, ApiVersion, awsAccountID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsAccount),
@@ -126,8 +137,10 @@ func UpdateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.
 		return awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsAccount); err != nil {
-		return awsAccount, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsAccount); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return awsAccount, nil
@@ -153,8 +166,10 @@ func GetAwsEksClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.AwsE
 		return &awsEksClusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsEksClusterDefinition); err != nil {
-		return &awsEksClusterDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &awsEksClusterDefinition, nil
@@ -180,8 +195,10 @@ func GetAwsEksClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.AwsEk
 		return &v0.AwsEksClusterDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsEksClusterDefinitions); err != nil {
-		return &v0.AwsEksClusterDefinition{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -217,8 +234,10 @@ func CreateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefi
 		return awsEksClusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsEksClusterDefinition); err != nil {
-		return awsEksClusterDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return awsEksClusterDefinition, nil
@@ -226,13 +245,18 @@ func CreateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefi
 
 // UpdateAwsEksClusterDefinition updates a aws eks cluster definition
 func UpdateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefinition, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	awsEksClusterDefinitionID := *awsEksClusterDefinition.ID
+	awsEksClusterDefinition.ID = nil
+
 	jsonAwsEksClusterDefinition, err := client.MarshalObject(awsEksClusterDefinition)
 	if err != nil {
 		return awsEksClusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions/%d", apiAddr, ApiVersion, *awsEksClusterDefinition.ID),
+		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions/%d", apiAddr, ApiVersion, awsEksClusterDefinitionID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsEksClusterDefinition),
@@ -247,8 +271,10 @@ func UpdateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefi
 		return awsEksClusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsEksClusterDefinition); err != nil {
-		return awsEksClusterDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return awsEksClusterDefinition, nil
@@ -274,8 +300,10 @@ func GetAwsEksClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.AwsEks
 		return &awsEksClusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsEksClusterInstance); err != nil {
-		return &awsEksClusterInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &awsEksClusterInstance, nil
@@ -301,8 +329,10 @@ func GetAwsEksClusterInstanceByName(name, apiAddr, apiToken string) (*v0.AwsEksC
 		return &v0.AwsEksClusterInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsEksClusterInstances); err != nil {
-		return &v0.AwsEksClusterInstance{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -338,8 +368,10 @@ func CreateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance
 		return awsEksClusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsEksClusterInstance); err != nil {
-		return awsEksClusterInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return awsEksClusterInstance, nil
@@ -347,13 +379,18 @@ func CreateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance
 
 // UpdateAwsEksClusterInstance updates a aws eks cluster instance
 func UpdateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	awsEksClusterInstanceID := *awsEksClusterInstance.ID
+	awsEksClusterInstance.ID = nil
+
 	jsonAwsEksClusterInstance, err := client.MarshalObject(awsEksClusterInstance)
 	if err != nil {
 		return awsEksClusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws-eks-cluster-instances/%d", apiAddr, ApiVersion, *awsEksClusterInstance.ID),
+		fmt.Sprintf("%s/%s/aws-eks-cluster-instances/%d", apiAddr, ApiVersion, awsEksClusterInstanceID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsEksClusterInstance),
@@ -368,8 +405,10 @@ func UpdateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance
 		return awsEksClusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsEksClusterInstance); err != nil {
-		return awsEksClusterInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return awsEksClusterInstance, nil
@@ -395,8 +434,10 @@ func GetAwsRelationalDatabaseDefinitionByID(id uint, apiAddr, apiToken string) (
 		return &awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseDefinition); err != nil {
-		return &awsRelationalDatabaseDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &awsRelationalDatabaseDefinition, nil
@@ -422,8 +463,10 @@ func GetAwsRelationalDatabaseDefinitionByName(name, apiAddr, apiToken string) (*
 		return &v0.AwsRelationalDatabaseDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseDefinitions); err != nil {
-		return &v0.AwsRelationalDatabaseDefinition{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -459,8 +502,10 @@ func CreateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.A
 		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseDefinition); err != nil {
-		return awsRelationalDatabaseDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return awsRelationalDatabaseDefinition, nil
@@ -468,13 +513,18 @@ func CreateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.A
 
 // UpdateAwsRelationalDatabaseDefinition updates a aws relational database definition
 func UpdateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	awsRelationalDatabaseDefinitionID := *awsRelationalDatabaseDefinition.ID
+	awsRelationalDatabaseDefinition.ID = nil
+
 	jsonAwsRelationalDatabaseDefinition, err := client.MarshalObject(awsRelationalDatabaseDefinition)
 	if err != nil {
 		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws-relational-database-definitions/%d", apiAddr, ApiVersion, *awsRelationalDatabaseDefinition.ID),
+		fmt.Sprintf("%s/%s/aws-relational-database-definitions/%d", apiAddr, ApiVersion, awsRelationalDatabaseDefinitionID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseDefinition),
@@ -489,8 +539,10 @@ func UpdateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.A
 		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseDefinition); err != nil {
-		return awsRelationalDatabaseDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return awsRelationalDatabaseDefinition, nil
@@ -516,8 +568,10 @@ func GetAwsRelationalDatabaseInstanceByID(id uint, apiAddr, apiToken string) (*v
 		return &awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseInstance); err != nil {
-		return &awsRelationalDatabaseInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &awsRelationalDatabaseInstance, nil
@@ -543,8 +597,10 @@ func GetAwsRelationalDatabaseInstanceByName(name, apiAddr, apiToken string) (*v0
 		return &v0.AwsRelationalDatabaseInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseInstances); err != nil {
-		return &v0.AwsRelationalDatabaseInstance{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -580,8 +636,10 @@ func CreateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRe
 		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseInstance); err != nil {
-		return awsRelationalDatabaseInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return awsRelationalDatabaseInstance, nil
@@ -589,13 +647,18 @@ func CreateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRe
 
 // UpdateAwsRelationalDatabaseInstance updates a aws relational database instance
 func UpdateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	awsRelationalDatabaseInstanceID := *awsRelationalDatabaseInstance.ID
+	awsRelationalDatabaseInstance.ID = nil
+
 	jsonAwsRelationalDatabaseInstance, err := client.MarshalObject(awsRelationalDatabaseInstance)
 	if err != nil {
 		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, *awsRelationalDatabaseInstance.ID),
+		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, awsRelationalDatabaseInstanceID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseInstance),
@@ -610,8 +673,10 @@ func UpdateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRe
 		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &awsRelationalDatabaseInstance); err != nil {
-		return awsRelationalDatabaseInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return awsRelationalDatabaseInstance, nil

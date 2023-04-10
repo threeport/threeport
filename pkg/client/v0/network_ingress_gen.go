@@ -32,8 +32,10 @@ func GetNetworkIngressDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Net
 		return &networkIngressDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &networkIngressDefinition); err != nil {
-		return &networkIngressDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &networkIngressDefinition, nil
@@ -59,8 +61,10 @@ func GetNetworkIngressDefinitionByName(name, apiAddr, apiToken string) (*v0.Netw
 		return &v0.NetworkIngressDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &networkIngressDefinitions); err != nil {
-		return &v0.NetworkIngressDefinition{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -96,8 +100,10 @@ func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 		return networkIngressDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &networkIngressDefinition); err != nil {
-		return networkIngressDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return networkIngressDefinition, nil
@@ -105,13 +111,18 @@ func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 
 // UpdateNetworkIngressDefinition updates a network ingress definition
 func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	networkIngressDefinitionID := *networkIngressDefinition.ID
+	networkIngressDefinition.ID = nil
+
 	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
 	if err != nil {
 		return networkIngressDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, *networkIngressDefinition.ID),
+		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, networkIngressDefinitionID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonNetworkIngressDefinition),
@@ -126,8 +137,10 @@ func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 		return networkIngressDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &networkIngressDefinition); err != nil {
-		return networkIngressDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return networkIngressDefinition, nil
@@ -153,8 +166,10 @@ func GetNetworkIngressInstanceByID(id uint, apiAddr, apiToken string) (*v0.Netwo
 		return &networkIngressInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &networkIngressInstance); err != nil {
-		return &networkIngressInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &networkIngressInstance, nil
@@ -180,8 +195,10 @@ func GetNetworkIngressInstanceByName(name, apiAddr, apiToken string) (*v0.Networ
 		return &v0.NetworkIngressInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &networkIngressInstances); err != nil {
-		return &v0.NetworkIngressInstance{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -217,8 +234,10 @@ func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 		return networkIngressInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &networkIngressInstance); err != nil {
-		return networkIngressInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return networkIngressInstance, nil
@@ -226,13 +245,18 @@ func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 
 // UpdateNetworkIngressInstance updates a network ingress instance
 func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	networkIngressInstanceID := *networkIngressInstance.ID
+	networkIngressInstance.ID = nil
+
 	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
 	if err != nil {
 		return networkIngressInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, *networkIngressInstance.ID),
+		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, networkIngressInstanceID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonNetworkIngressInstance),
@@ -247,8 +271,10 @@ func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 		return networkIngressInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &networkIngressInstance); err != nil {
-		return networkIngressInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return networkIngressInstance, nil

@@ -57,6 +57,12 @@ func main() {
 	e.Validator = &iapi.CustomValidator{Validator: validate}
 
 	// middleware
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			cc := &iapi.CustomContext{Context: c}
+			return next(cc)
+		}
+	})
 	logger, err := log.NewLogger(verbose)
 	if err != nil {
 		panic(err)
@@ -75,13 +81,6 @@ func main() {
 	//e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	//e.Use(iapi.AuthorizationTokenCheck)
-
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			cc := &iapi.CustomContext{Context: c}
-			return next(cc)
-		}
-	})
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
 		// Take required information from error and context and send it to a service like New Relic etc.
@@ -148,6 +147,7 @@ func main() {
 
 	// routes
 	routes.AddRoutes(e, &h)
+	routes.AddCustomRoutes(e, &h)
 	routes.SwaggerRoutes(e)
 	routes.VersionRoutes(e, &h)
 

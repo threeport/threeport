@@ -49,13 +49,41 @@ dev-up: build-tptdev
 dev-down: build-tptdev
 	./bin/tptdev down
 
+#dev-logs-api: @ Follow log output from the local dev API
+dev-logs-api:
+	kubectl logs deploy/threeport-api-server -n threeport-control-plane -f
+
+#dev-logs-wrk: @ Follow log output from the local dev workload controller
+dev-logs-wrk:
+	kubectl logs deploy/threeport-workload-controller -n threeport-control-plane -f
+
 #dev-forward-api: @ Forward local port 1323 to the local dev API
 dev-forward-api:
 	kubectl port-forward -n threeport-control-plane service/threeport-api-server 1323:80
 
-##dev-query-cr: @ Open a terminal connection to the dev cockroach database
-#dev-query-cr:
-#	cockroach sql --host $$(kubectl get svc threeport-api-db -n threeport-control-plane -ojson | jq '.status.loadBalancer.ingress[0].ip' -r) --insecure --database threeport_api
+#dev-forward-crdb: @ Forward local port 26257 to local dev cockroach database
+dev-forward-crdb:
+	kubectl port-forward -n threeport-control-plane service/crdb 26257
+
+#dev-forward-nats: @ Forward local port 33993 to the local dev API nats server
+dev-forward-nats:
+	kubectl port-forward -n threeport-control-plane service/nats-js 4222:4222
+
+#dev-query-crdb: @ Open a terminal connection to the dev cockroach database (must first run `make dev-forward-crdb` in another terminal)
+dev-query-crdb:
+	cockroach sql --host localhost --insecure --database threeport_api
+
+#dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal)
+dev-sub-nats:
+	nats sub -s "nats://127.0.0.1:4222" ">"
+
+#dev-debug-api: @ Start debugging session for API (must first run `make dev-forward-nats` in another terminal)
+dev-debug-api:
+	dlv debug cmd/rest-api/main.go -- -env-file env -auto-migrate -verbose
+
+#dev-debug-wrk: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
+dev-debug-wrk:
+	dlv debug cmd/workload-controller/main.go -- -api-server http://localhost:1323 -msg-broker-host localhost -msg-broker-port 4222
 
 ## container image builds
 

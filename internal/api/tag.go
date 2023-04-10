@@ -73,7 +73,6 @@ func ParseStruct(tagName string, v reflect.Value, tag reflect.StructTag, fn func
 			case OPTIONAL_ASSOCIATION:
 				tf[tagName].OptionalAssociations = append(tf[tagName].OptionalAssociations, t.Field(i).Name)
 			}
-			//fmt.Println("field: ", t.Field(i).Name, ", tag value: ", t.Field(i).Tag.Get("validate"))
 			ParseStruct(tagName, v.Field(i), t.Field(i).Tag, fn, tf)
 		}
 	case reflect.Slice, reflect.Array:

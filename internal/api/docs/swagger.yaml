@@ -506,56 +506,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - DomainNameDefinition
-    - DomainNameInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - Profile
-    - Tier
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - ClusterDefinition
+    - ClusterInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     - User
     - Company
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - Profile
+    - Tier
+    - DomainNameDefinition
+    - DomainNameInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
     - ObjectTypeUser
     - ObjectTypeCompany
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
   v0.Profile:
     properties:
       CompanyID:
@@ -5343,6 +5343,38 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload instance by replacing the entire object.
+  /v0/workload-resource-definition-sets:
+    post:
+      consumes:
+      - application/json
+      description: Add a set of new workload resource definition to the Threeport
+        database.
+      operationId: add-workloadResourceDefinitions
+      parameters:
+      - description: WorkloadResourceDefinition object array
+        in: body
+        name: workloadResourceDefinitions
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/v0.WorkloadResourceDefinition'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new set of workload resource definitions.
   /v0/workload-resource-definitions:
     get:
       consumes:
@@ -5735,38 +5767,6 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload resource instance by replacing the entire
         object.
-  /v0/workload_resource_definition_sets:
-    post:
-      consumes:
-      - application/json
-      description: Add a set of new workload resource definition to the Threeport
-        database.
-      operationId: add-workloadResourceDefinitions
-      parameters:
-      - description: WorkloadResourceDefinition object array
-        in: body
-        name: workloadResourceDefinitions
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/v0.WorkloadResourceDefinition'
-          type: array
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new set of workload resource definitions.
   /version:
     get:
       description: Get a version of REST API.

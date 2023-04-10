@@ -32,8 +32,10 @@ func GetLogBackendByID(id uint, apiAddr, apiToken string) (*v0.LogBackend, error
 		return &logBackend, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logBackend); err != nil {
-		return &logBackend, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logBackend); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &logBackend, nil
@@ -59,8 +61,10 @@ func GetLogBackendByName(name, apiAddr, apiToken string) (*v0.LogBackend, error)
 		return &v0.LogBackend{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logBackends); err != nil {
-		return &v0.LogBackend{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logBackends); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -96,8 +100,10 @@ func CreateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.
 		return logBackend, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logBackend); err != nil {
-		return logBackend, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logBackend); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return logBackend, nil
@@ -105,13 +111,18 @@ func CreateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.
 
 // UpdateLogBackend updates a log backend
 func UpdateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.LogBackend, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	logBackendID := *logBackend.ID
+	logBackend.ID = nil
+
 	jsonLogBackend, err := client.MarshalObject(logBackend)
 	if err != nil {
 		return logBackend, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, *logBackend.ID),
+		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, logBackendID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogBackend),
@@ -126,8 +137,10 @@ func UpdateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.
 		return logBackend, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logBackend); err != nil {
-		return logBackend, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logBackend); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return logBackend, nil
@@ -153,8 +166,10 @@ func GetLogStorageDefinitionByID(id uint, apiAddr, apiToken string) (*v0.LogStor
 		return &logStorageDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logStorageDefinition); err != nil {
-		return &logStorageDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logStorageDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &logStorageDefinition, nil
@@ -180,8 +195,10 @@ func GetLogStorageDefinitionByName(name, apiAddr, apiToken string) (*v0.LogStora
 		return &v0.LogStorageDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logStorageDefinitions); err != nil {
-		return &v0.LogStorageDefinition{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logStorageDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -217,8 +234,10 @@ func CreateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, a
 		return logStorageDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logStorageDefinition); err != nil {
-		return logStorageDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logStorageDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return logStorageDefinition, nil
@@ -226,13 +245,18 @@ func CreateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, a
 
 // UpdateLogStorageDefinition updates a log storage definition
 func UpdateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, apiAddr, apiToken string) (*v0.LogStorageDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	logStorageDefinitionID := *logStorageDefinition.ID
+	logStorageDefinition.ID = nil
+
 	jsonLogStorageDefinition, err := client.MarshalObject(logStorageDefinition)
 	if err != nil {
 		return logStorageDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, *logStorageDefinition.ID),
+		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, logStorageDefinitionID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogStorageDefinition),
@@ -247,8 +271,10 @@ func UpdateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, a
 		return logStorageDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logStorageDefinition); err != nil {
-		return logStorageDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logStorageDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return logStorageDefinition, nil
@@ -274,8 +300,10 @@ func GetLogStorageInstanceByID(id uint, apiAddr, apiToken string) (*v0.LogStorag
 		return &logStorageInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logStorageInstance); err != nil {
-		return &logStorageInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logStorageInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &logStorageInstance, nil
@@ -301,8 +329,10 @@ func GetLogStorageInstanceByName(name, apiAddr, apiToken string) (*v0.LogStorage
 		return &v0.LogStorageInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logStorageInstances); err != nil {
-		return &v0.LogStorageInstance{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logStorageInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -338,8 +368,10 @@ func CreateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr
 		return logStorageInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logStorageInstance); err != nil {
-		return logStorageInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logStorageInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return logStorageInstance, nil
@@ -347,13 +379,18 @@ func CreateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr
 
 // UpdateLogStorageInstance updates a log storage instance
 func UpdateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr, apiToken string) (*v0.LogStorageInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	logStorageInstanceID := *logStorageInstance.ID
+	logStorageInstance.ID = nil
+
 	jsonLogStorageInstance, err := client.MarshalObject(logStorageInstance)
 	if err != nil {
 		return logStorageInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, *logStorageInstance.ID),
+		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, logStorageInstanceID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogStorageInstance),
@@ -368,8 +405,10 @@ func UpdateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr
 		return logStorageInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &logStorageInstance); err != nil {
-		return logStorageInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logStorageInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return logStorageInstance, nil

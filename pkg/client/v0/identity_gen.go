@@ -32,8 +32,10 @@ func GetUserByID(id uint, apiAddr, apiToken string) (*v0.User, error) {
 		return &user, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &user); err != nil {
-		return &user, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&user); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &user, nil
@@ -59,8 +61,10 @@ func GetUserByName(name, apiAddr, apiToken string) (*v0.User, error) {
 		return &v0.User{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &users); err != nil {
-		return &v0.User{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&users); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -96,8 +100,10 @@ func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 		return user, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &user); err != nil {
-		return user, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&user); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return user, nil
@@ -105,13 +111,18 @@ func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 
 // UpdateUser updates a user
 func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	userID := *user.ID
+	user.ID = nil
+
 	jsonUser, err := client.MarshalObject(user)
 	if err != nil {
 		return user, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, *user.ID),
+		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, userID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonUser),
@@ -126,8 +137,10 @@ func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 		return user, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &user); err != nil {
-		return user, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&user); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return user, nil
@@ -153,8 +166,10 @@ func GetCompanyByID(id uint, apiAddr, apiToken string) (*v0.Company, error) {
 		return &company, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &company); err != nil {
-		return &company, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&company); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &company, nil
@@ -180,8 +195,10 @@ func GetCompanyByName(name, apiAddr, apiToken string) (*v0.Company, error) {
 		return &v0.Company{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &companies); err != nil {
-		return &v0.Company{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&companies); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -217,8 +234,10 @@ func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 		return company, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &company); err != nil {
-		return company, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&company); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return company, nil
@@ -226,13 +245,18 @@ func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 
 // UpdateCompany updates a company
 func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	companyID := *company.ID
+	company.ID = nil
+
 	jsonCompany, err := client.MarshalObject(company)
 	if err != nil {
 		return company, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, *company.ID),
+		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, companyID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonCompany),
@@ -247,8 +271,10 @@ func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 		return company, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &company); err != nil {
-		return company, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&company); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return company, nil

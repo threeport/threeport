@@ -51,8 +51,10 @@ func GetResponse(
 		return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s\nexpected: %d", response.Status.Code, response.Status.Message, string(status), expectedStatusCode))
 	}
 
-	if err := json.Unmarshal(respBody, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response body from threeport API: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(respBody))
+	decoder.UseNumber()
+	if err := decoder.Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response body from threeport API", err)
 	}
 
 	if IsDebug() {

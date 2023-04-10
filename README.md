@@ -10,8 +10,14 @@ In order to run a local development instance of threeport, you'll need:
 * [kind](https://kind.sigs.k8s.io/)
 * [kubectl](https://kubernetes.io/docs/reference/kubectl/)
 
-The following may also be required for different development operations:
+The following may also be required for different development operations and make
+targets:
 * [swag CLI](https://github.com/swaggo/swag) for generating API docs.
+* [cockroachDB](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux.html)
+  for interacting directly with dev database instance.
+* [NATS CLI](https://github.com/nats-io/natscli) for interacting with NATS
+  messages used by the control plane.
+* [delve](https://github.com/go-delve/delve) for running debug sessions.
 
 Spin up a local dev instance:
 

@@ -20,7 +20,7 @@ import (
 // @Success 201 {object} v0.Response	"Created"
 // @Failure 400 {object} v0.Response	"Bad Request"
 // @Failure 500 {object} v0.Response	"Internal Server Error"
-// @Router /v0/workload_resource_definition_sets [post]
+// @Router /v0/workload-resource-definition-sets [post]
 func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceDefinition
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition

@@ -32,8 +32,10 @@ func GetForwardProxyDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Forwa
 		return &forwardProxyDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &forwardProxyDefinition); err != nil {
-		return &forwardProxyDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &forwardProxyDefinition, nil
@@ -59,8 +61,10 @@ func GetForwardProxyDefinitionByName(name, apiAddr, apiToken string) (*v0.Forwar
 		return &v0.ForwardProxyDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &forwardProxyDefinitions); err != nil {
-		return &v0.ForwardProxyDefinition{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -96,8 +100,10 @@ func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 		return forwardProxyDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &forwardProxyDefinition); err != nil {
-		return forwardProxyDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return forwardProxyDefinition, nil
@@ -105,13 +111,18 @@ func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 
 // UpdateForwardProxyDefinition updates a forward proxy definition
 func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinition, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	forwardProxyDefinitionID := *forwardProxyDefinition.ID
+	forwardProxyDefinition.ID = nil
+
 	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
 	if err != nil {
 		return forwardProxyDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, *forwardProxyDefinition.ID),
+		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, forwardProxyDefinitionID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonForwardProxyDefinition),
@@ -126,8 +137,10 @@ func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 		return forwardProxyDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &forwardProxyDefinition); err != nil {
-		return forwardProxyDefinition, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return forwardProxyDefinition, nil
@@ -153,8 +166,10 @@ func GetForwardProxyInstanceByID(id uint, apiAddr, apiToken string) (*v0.Forward
 		return &forwardProxyInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &forwardProxyInstance); err != nil {
-		return &forwardProxyInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return &forwardProxyInstance, nil
@@ -180,8 +195,10 @@ func GetForwardProxyInstanceByName(name, apiAddr, apiToken string) (*v0.ForwardP
 		return &v0.ForwardProxyInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &forwardProxyInstances); err != nil {
-		return &v0.ForwardProxyInstance{}, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	switch {
@@ -217,8 +234,10 @@ func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 		return forwardProxyInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &forwardProxyInstance); err != nil {
-		return forwardProxyInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return forwardProxyInstance, nil
@@ -226,13 +245,18 @@ func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 
 // UpdateForwardProxyInstance updates a forward proxy instance
 func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	forwardProxyInstanceID := *forwardProxyInstance.ID
+	forwardProxyInstance.ID = nil
+
 	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
 	if err != nil {
 		return forwardProxyInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, *forwardProxyInstance.ID),
+		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, forwardProxyInstanceID),
 		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonForwardProxyInstance),
@@ -247,8 +271,10 @@ func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 		return forwardProxyInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	if err = json.Unmarshal(jsonData, &forwardProxyInstance); err != nil {
-		return forwardProxyInstance, fmt.Errorf("failed unmarshal object from threeport response data: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
 	}
 
 	return forwardProxyInstance, nil

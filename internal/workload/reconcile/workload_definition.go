@@ -1,7 +1,6 @@
 package reconcile
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"strings"
@@ -46,10 +45,10 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// unmarshal notification from message data
-			var notif notifications.Notification
-			if err := json.Unmarshal(msg.Data, &notif); err != nil {
+			notif, err := notifications.ConsumeMessage(msg.Data)
+			if err != nil {
 				log.Error(
-					err, "failed to unmarshal message data from NATS",
+					err, "failed to consume message data from NATS",
 					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
@@ -166,17 +165,10 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// marshal the workload resource definitions to JSON for creation in API
-			wrdsJSON, err := json.Marshal(&workloadResourceDefinitions)
-			if err != nil {
-				log.Error(err, "failed to marshal workload resource definitions to json")
-				r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-
 			// create workload resource definitions in API
 			wrds, err := client.CreateWorkloadResourceDefinitions(
-				wrdsJSON,
+				//wrdsJSON,
+				&workloadResourceDefinitions,
 				r.APIServer,
 				"",
 			)
@@ -200,16 +192,8 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				},
 				Reconciled: &wdReconciled,
 			}
-			//reconciledWDJSON, err := json.Marshal(&reconciledWD)
-			//if err != nil {
-			//	log.Error(err, "failed to marshal json for workload definition update to mark as reconciled")
-			//	r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
-			//	continue
-			//}
 			updatedWD, err := client.UpdateWorkloadDefinition(
 				&reconciledWD,
-				//*workloadDefinition.ID,
-				//reconciledWDJSON,
 				r.APIServer,
 				"",
 			)

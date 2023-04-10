@@ -6431,6 +6431,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/v0/workload-resource-definition-sets": {
+            "post": {
+                "description": "Add a set of new workload resource definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new set of workload resource definitions.",
+                "operationId": "add-workloadResourceDefinitions",
+                "parameters": [
+                    {
+                        "description": "WorkloadResourceDefinition object array",
+                        "name": "workloadResourceDefinitions",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/v0.WorkloadResourceDefinition"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/workload-resource-definitions": {
             "get": {
                 "description": "Get all workload resource definitions from the Threeport database.",
@@ -6968,53 +7015,6 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/workload_resource_definition_sets": {
-            "post": {
-                "description": "Add a set of new workload resource definition to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new set of workload resource definitions.",
-                "operationId": "add-workloadResourceDefinitions",
-                "parameters": [
-                    {
-                        "description": "WorkloadResourceDefinition object array",
-                        "name": "workloadResourceDefinitions",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/v0.WorkloadResourceDefinition"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -7749,56 +7749,56 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "Profile",
-                "Tier",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
-                "ClusterDefinition",
-                "ClusterInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
                 "User",
-                "Company"
+                "Company",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance",
+                "Profile",
+                "Tier",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeUser",
-                "ObjectTypeCompany"
+                "ObjectTypeCompany",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance"
             ]
         },
         "v0.Profile": {

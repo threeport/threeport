@@ -80,14 +80,18 @@ func (cc *ControllerConfig) ClientLib() error {
 				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
 			)),
 			Line(),
-			If(
-				Id("err").Op("=").Qual("encoding/json", "Unmarshal").Call(
-					Id("jsonData").Op(",").Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
-				).Op(";").Id("err").Op("!=").Nil().Block(
-					Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
-						"fmt", "Errorf",
-					).Call(Lit(UnmarshalObjectErr).Op(",").Id("err")),
-				),
+			Id("decoder").Op(":=").Qual(
+				"encoding/json", "NewDecoder",
+			).Call(Qual(
+				"bytes", "NewReader",
+			).Call(Id("jsonData"))),
+			Id("decoder").Dot("UseNumber").Call(),
+			If(Id("err").Op(":=").Id("decoder").Dot("Decode").Call(
+				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
+			).Op(";").Id("err").Op("!=").Nil()).Block(
+				Return().Nil().Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit("failed to decode object in response data from threeport API").Op(",").Id("err")),
 			),
 			Line(),
 			Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
@@ -147,17 +151,18 @@ func (cc *ControllerConfig) ClientLib() error {
 				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
 			)),
 			Line(),
-			If(
-				Id("err").Op("=").Qual("encoding/json", "Unmarshal").Call(
-					Id("jsonData").Op(",").Op("&").Id(pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false)),
-				).Op(";").Id("err").Op("!=").Nil().Block(
-					Return().Op("&").Qual(
-						"github.com/threeport/threeport/pkg/api/v0",
-						mc.TypeName,
-					).Values().Op(",").Qual(
-						"fmt", "Errorf",
-					).Call(Lit(UnmarshalObjectErr).Op(",").Id("err")),
-				),
+			Id("decoder").Op(":=").Qual(
+				"encoding/json", "NewDecoder",
+			).Call(Qual(
+				"bytes", "NewReader",
+			).Call(Id("jsonData"))),
+			Id("decoder").Dot("UseNumber").Call(),
+			If(Id("err").Op(":=").Id("decoder").Dot("Decode").Call(
+				Op("&").Id(pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false)),
+			).Op(";").Id("err").Op("!=").Nil()).Block(
+				Return().Nil().Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit("failed to decode object in response data from threeport API").Op(",").Id("err")),
 			),
 			Line(),
 			Switch().Block(
@@ -246,14 +251,18 @@ func (cc *ControllerConfig) ClientLib() error {
 				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
 			)),
 			Line(),
-			If(
-				Id("err").Op("=").Qual("encoding/json", "Unmarshal").Call(
-					Id("jsonData").Op(",").Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
-				).Op(";").Id("err").Op("!=").Nil().Block(
-					Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
-						"fmt", "Errorf",
-					).Call(Lit(UnmarshalObjectErr).Op(",").Id("err")),
-				),
+			Id("decoder").Op(":=").Qual(
+				"encoding/json", "NewDecoder",
+			).Call(Qual(
+				"bytes", "NewReader",
+			).Call(Id("jsonData"))),
+			Id("decoder").Dot("UseNumber").Call(),
+			If(Id("err").Op(":=").Id("decoder").Dot("Decode").Call(
+				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
+			).Op(";").Id("err").Op("!=").Nil()).Block(
+				Return().Nil().Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit("failed to decode object in response data from threeport API").Op(",").Id("err")),
 			),
 			Line(),
 			Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
@@ -278,6 +287,13 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Error(),
 		)).Block(
+			Comment("capture the object ID then remove it from the object since the API will not"),
+			Comment("allow an update the ID field"),
+			Id(
+				fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName)),
+			).Op(":=").Op("*").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID"),
+			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID").Op("=").Nil(),
+			Line(),
 			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/client",
 				"MarshalObject",
@@ -295,7 +311,7 @@ func (cc *ControllerConfig) ClientLib() error {
 					)).Op(",").
 						Id("apiAddr").Op(",").
 						Id("ApiVersion").Op(",").
-						Op("*").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID"),
+						Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName))),
 				),
 				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodPatch"),
@@ -320,14 +336,18 @@ func (cc *ControllerConfig) ClientLib() error {
 				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
 			)),
 			Line(),
-			If(
-				Id("err").Op("=").Qual("encoding/json", "Unmarshal").Call(
-					Id("jsonData").Op(",").Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
-				).Op(";").Id("err").Op("!=").Nil().Block(
-					Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
-						"fmt", "Errorf",
-					).Call(Lit(UnmarshalObjectErr).Op(",").Id("err")),
-				),
+			Id("decoder").Op(":=").Qual(
+				"encoding/json", "NewDecoder",
+			).Call(Qual(
+				"bytes", "NewReader",
+			).Call(Id("jsonData"))),
+			Id("decoder").Dot("UseNumber").Call(),
+			If(Id("err").Op(":=").Id("decoder").Dot("Decode").Call(
+				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
+			).Op(";").Id("err").Op("!=").Nil()).Block(
+				Return().Nil().Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit("failed to decode object in response data from threeport API").Op(",").Id("err")),
 			),
 			Line(),
 			Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),

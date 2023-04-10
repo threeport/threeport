@@ -5,7 +5,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-const PathWorkloadResourceDefinitionSets = "/v0/workload_resource_definitions"
+const PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-sets"
 
 // WorkloadDefinition is the collection of Kubernetes manifests that define a
 // distinct workload.
