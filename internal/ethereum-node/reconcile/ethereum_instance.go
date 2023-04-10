@@ -126,7 +126,7 @@ func EthereumNodeInstanceReconciler(r *controller.Reconciler) {
 				r.UnlockAndRequeue(&ethereumNodeInstance, msg.Subject, notifPayload, requeueDelay)
 				continue
 			}
-			if ethereumNodeDefinition.Reconciled != nil && *ethereumNodeDefinition.Reconciled != true {
+			if ethereumNodeDefinition.Reconciled != nil && !*ethereumNodeDefinition.Reconciled {
 				log.V(1).Info("ethereum node definition not yet reconciled - requeueing ethereum node instance")
 				r.UnlockAndRequeue(&ethereumNodeInstance, msg.Subject, notifPayload, requeueDelay)
 				continue
