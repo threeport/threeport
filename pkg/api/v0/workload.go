@@ -55,7 +55,7 @@ type WorkloadInstance struct {
 	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
 	// ClusterID is the cluster to which the workload is deployed.
-	ClusterInstanceID *uint `json:"ClusterInstnaceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
+	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
 
 	// WorkloadDefinitionID is the definition used to configure the workload
 	// instance.

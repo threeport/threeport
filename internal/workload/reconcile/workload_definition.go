@@ -44,7 +44,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// unmarshal notification from message data
+			// consume message data to capture notification from API
 			notif, err := notifications.ConsumeMessage(msg.Data)
 			if err != nil {
 				log.Error(

@@ -1,7 +1,6 @@
 package reconcile
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -46,16 +45,16 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// unmarshal notification from message data
-			var notif notifications.Notification
-			if err := json.Unmarshal(msg.Data, &notif); err != nil {
+			// consume message data to capture notification from API
+			notif, err := notifications.ConsumeMessage(msg.Data)
+			if err != nil {
 				log.Error(
-					err, "failed to unmarshal message data from NATS",
+					err, "failed to consume message data from NATS",
 					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
 				go r.RequeueRaw(msg.Subject, msg.Data)
-				log.V(1).Info("workload instance reconciliation requeued with identical payload and fixed delay")
+				log.V(1).Info("workload definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
 
@@ -122,7 +121,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				"",
 			)
 			if err != nil {
-				continue
 				log.Error(
 					err, "failed to get workload definition by workload definition ID",
 					"workloadDefinitionID", *workloadInstance.WorkloadDefinitionID,

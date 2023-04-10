@@ -73,7 +73,7 @@ var upCmd = &cobra.Command{
 		// the cluster instance is the default compute space cluster to be added
 		// to the API - it is used to kube client for creating control plane
 		// resources
-		clusterInstName := fmt.Sprintf("compute-space-%s-0", createThreeportDevName)
+		clusterInstName := fmt.Sprintf("%s-compute-space-0", createThreeportDevName)
 		clusterInstance := v0.ClusterInstance{
 			Instance: v0.Instance{
 				Name: &clusterInstName,
