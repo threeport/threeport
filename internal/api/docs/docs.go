@@ -7364,15 +7364,15 @@ const docTemplate = `{
             ],
             "properties": {
                 "APIEndpoint": {
-                    "description": "Required.  The network endpoint at which to reach the kube-api.",
+                    "description": "The network endpoint at which to reach the kube-api.",
                     "type": "string"
                 },
                 "CACertificate": {
-                    "description": "Optional.  The CA certificate used to generate the cert and key if\nself-signed.",
+                    "description": "The CA certificate used to generate the cert and key if\nself-signed.",
                     "type": "string"
                 },
                 "Certificate": {
-                    "description": "Required.  The client certificate to use for auth to the kube-api.",
+                    "description": "The client certificate to use for auth to the kube-api.",
                     "type": "string"
                 },
                 "ClusterDefinitionID": {
@@ -7383,7 +7383,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "Key": {
-                    "description": "Required.  The client key to use for auth to the kube-api.",
+                    "description": "The client key to use for auth to the kube-api.",
                     "type": "string"
                 },
                 "Name": {
@@ -7397,6 +7397,10 @@ const docTemplate = `{
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "ThreeportControlPlaneCluster": {
+                    "description": "If true, controllers will connect to the kube API using internal DSN\nrather than the APIEndpoint.",
+                    "type": "boolean"
                 },
                 "UserID": {
                     "description": "Required if no CompanyID.  The user that owns the object.",
@@ -7471,12 +7475,12 @@ const docTemplate = `{
         "v0.DomainNameInstance": {
             "type": "object",
             "required": [
-                "ClusterInstnaceID",
+                "ClusterInstanceID",
                 "DomainNameDefinitionID",
                 "Name"
             ],
             "properties": {
-                "ClusterInstnaceID": {
+                "ClusterInstanceID": {
                     "description": "The cluster where the workload that is using the domain name is running.",
                     "type": "integer"
                 },
@@ -7749,54 +7753,54 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "ClusterDefinition",
-                "ClusterInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
                 "User",
                 "Company",
+                "Profile",
+                "Tier",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
-                "Profile",
-                "Tier",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeUser",
                 "ObjectTypeCompany",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance"
             ]
@@ -8001,12 +8005,12 @@ const docTemplate = `{
         "v0.WorkloadInstance": {
             "type": "object",
             "required": [
-                "ClusterInstnaceID",
+                "ClusterInstanceID",
                 "Name",
                 "WorkloadDefinitionID"
             ],
             "properties": {
-                "ClusterInstnaceID": {
+                "ClusterInstanceID": {
                     "description": "ClusterID is the cluster to which the workload is deployed.",
                     "type": "integer"
                 },

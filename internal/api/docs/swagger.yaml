@@ -187,15 +187,15 @@ definitions:
   v0.ClusterInstance:
     properties:
       APIEndpoint:
-        description: Required.  The network endpoint at which to reach the kube-api.
+        description: The network endpoint at which to reach the kube-api.
         type: string
       CACertificate:
         description: |-
-          Optional.  The CA certificate used to generate the cert and key if
+          The CA certificate used to generate the cert and key if
           self-signed.
         type: string
       Certificate:
-        description: Required.  The client certificate to use for auth to the kube-api.
+        description: The client certificate to use for auth to the kube-api.
         type: string
       ClusterDefinitionID:
         type: integer
@@ -203,7 +203,7 @@ definitions:
         description: Required if no UserID.  The company that owns the object.
         type: integer
       Key:
-        description: Required.  The client key to use for auth to the kube-api.
+        description: The client key to use for auth to the kube-api.
         type: string
       Name:
         description: An arbitrary name the instance
@@ -219,6 +219,11 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      ThreeportControlPlaneCluster:
+        description: |-
+          If true, controllers will connect to the kube API using internal DSN
+          rather than the APIEndpoint.
+        type: boolean
       UserID:
         description: Required if no CompanyID.  The user that owns the object.
         type: integer
@@ -283,7 +288,7 @@ definitions:
     type: object
   v0.DomainNameInstance:
     properties:
-      ClusterInstnaceID:
+      ClusterInstanceID:
         description: The cluster where the workload that is using the domain name
           is running.
         type: integer
@@ -305,7 +310,7 @@ definitions:
         description: Required if no CompanyID.  The user that owns the object.
         type: integer
     required:
-    - ClusterInstnaceID
+    - ClusterInstanceID
     - DomainNameDefinitionID
     - Name
     type: object
@@ -506,54 +511,54 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - ClusterDefinition
+    - ClusterInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
     - User
     - Company
+    - Profile
+    - Tier
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
-    - Profile
-    - Tier
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     - DomainNameDefinition
     - DomainNameInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
     - ObjectTypeUser
     - ObjectTypeCompany
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
   v0.Profile:
@@ -709,7 +714,7 @@ definitions:
     type: object
   v0.WorkloadInstance:
     properties:
-      ClusterInstnaceID:
+      ClusterInstanceID:
         description: ClusterID is the cluster to which the workload is deployed.
         type: integer
       CompanyID:
@@ -732,7 +737,7 @@ definitions:
           instance.
         type: integer
     required:
-    - ClusterInstnaceID
+    - ClusterInstanceID
     - Name
     - WorkloadDefinitionID
     type: object

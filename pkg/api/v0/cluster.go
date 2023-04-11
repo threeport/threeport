@@ -30,7 +30,7 @@ type ClusterInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
 
-	//// Required.  The provider or technology used to provision the cluster.
+	//// The provider or technology used to provision the cluster.
 	//Provider *string `json:"Provider,omitempty" query:"provider" gorm:"not null" validate:"required"`
 
 	// The geographical region for the cluster roughly corresponding to cloud
@@ -38,17 +38,21 @@ type ClusterInstance struct {
 	// change to the definition will not move a cluster.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
-	// Required.  The network endpoint at which to reach the kube-api.
+	// If true, controllers will connect to the kube API using internal DSN
+	// rather than the APIEndpoint.
+	ThreeportControlPlaneCluster *bool `json:"ThreeportControlPlaneCluster,omitempty" query:"threeportcontrolplanecluster" gorm:"default:false" validate:"optional"`
+
+	// The network endpoint at which to reach the kube-api.
 	APIEndpoint *string `json:"APIEndpoint,omitempty" gorm:"not null" validate:"required"`
 
-	// Optional.  The CA certificate used to generate the cert and key if
+	// The CA certificate used to generate the cert and key if
 	// self-signed.
 	CACertificate *string `json:"CACertificate,omitempty" validate:"optional"`
 
-	// Required.  The client certificate to use for auth to the kube-api.
+	// The client certificate to use for auth to the kube-api.
 	Certificate *string `json:"Certificate,omitempty" gorm:"not null" validate:"required"`
 
-	// Required.  The client key to use for auth to the kube-api.
+	// The client key to use for auth to the kube-api.
 	Key *string `json:"Key,omitempty" gorm:"not null" validate:"required"`
 
 	ClusterDefinitionID *uint `json:"ClusterDefinitionID,omitempty" gorm:"not null" validate:"required"`

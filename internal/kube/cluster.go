@@ -14,14 +14,20 @@ import (
 
 // GetClient creates a dynamic client interface and rest mapper from a cluster
 // instance.
-func GetClient(cluster *v0.ClusterInstance) (dynamic.Interface, *meta.RESTMapper, error) {
+func GetClient(cluster *v0.ClusterInstance, threeportControlPlane bool) (dynamic.Interface, *meta.RESTMapper, error) {
+	// determine if the client is for a control plane component calling the
+	// local kube API and set endpoint as needed
+	kubeAPIEndpoint := *cluster.APIEndpoint
+	if *cluster.ThreeportControlPlaneCluster && threeportControlPlane {
+		kubeAPIEndpoint = "kubernetes.default.svc.cluster.local"
+	}
 	tlsConfig := rest.TLSClientConfig{
 		CertData: []byte(*cluster.Certificate),
 		KeyData:  []byte(*cluster.Key),
 		CAData:   []byte(*cluster.CACertificate),
 	}
 	restConfig := rest.Config{
-		Host:            *cluster.APIEndpoint,
+		Host:            kubeAPIEndpoint,
 		TLSClientConfig: tlsConfig,
 	}
 

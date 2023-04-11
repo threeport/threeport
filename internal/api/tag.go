@@ -58,7 +58,13 @@ func Translate(tagName string, v reflect.Value, tag reflect.StructTag) {
 }
 
 // ParseStruct parses structure's fields into respective Required, Optional and OptionalAssociations arrays
-func ParseStruct(tagName string, v reflect.Value, tag reflect.StructTag, fn func(string, reflect.Value, reflect.StructTag), tf map[string]*FieldsByTag) {
+func ParseStruct(
+	tagName string,
+	v reflect.Value,
+	tag reflect.StructTag,
+	fn func(string, reflect.Value, reflect.StructTag),
+	tf map[string]*FieldsByTag,
+) {
 	v = reflect.Indirect(v)
 
 	switch v.Kind() {
