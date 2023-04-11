@@ -1,11 +1,8 @@
 package reconcile
 
 import (
-	"errors"
-	"io"
-	"strings"
+	"encoding/json"
 
-	"github.com/ghodss/yaml"
 	"github.com/mitchellh/mapstructure"
 	yamlv3 "gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
@@ -110,41 +107,23 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 
 			// iterate over each resource in the json doc and construct a workload
 			// resource definition
-			decoder := yamlv3.NewDecoder(strings.NewReader(*workloadDefinition.JSONDocument))
 			var workloadResourceDefinitions []v0.WorkloadResourceDefinition
+
+			var jsonObjects []map[string]interface{}
+			err = yamlv3.Unmarshal([]byte(*workloadDefinition.JSONDocument), &jsonObjects)
+			if err != nil {
+				log.Error(err, "failed to unmarshal json document")
+				r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+				continue
+			}
+
 			wrdConstructSuccess := true
-			for {
-				// decode the next resource, exit loop if the end has been reached
-				var node yamlv3.Node
-				err := decoder.Decode(&node)
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				if err != nil {
-					log.Error(err, "failed to decode yaml node in workload definition")
-					wrdConstructSuccess = false
-					break
-				}
-
-				// marshal the yaml
-				yamlContent, err := yamlv3.Marshal(&node)
-				if err != nil {
-					log.Error(err, "failed to marshal yaml from workload definition")
-					wrdConstructSuccess = false
-					break
-				}
-
-				// convert yaml to json
-				jsonContent, err := yaml.YAMLToJSON(yamlContent)
-				if err != nil {
-					log.Error(err, "failed to convert yaml to json")
-					wrdConstructSuccess = false
-					break
-				}
+			for _, jsonObject := range jsonObjects {
 
 				// unmarshal the json into the type used by API
+				bytes, _ := json.Marshal(jsonObject)
 				var jsonDefinition datatypes.JSON
-				if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
+				if err := jsonDefinition.UnmarshalJSON(bytes); err != nil {
 					log.Error(err, "failed to unmarshal json to datatypes.JSON")
 					wrdConstructSuccess = false
 					break
