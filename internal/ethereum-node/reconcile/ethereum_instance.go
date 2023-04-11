@@ -152,6 +152,33 @@ func EthereumNodeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
+			// create workload instance
+			workloadInstance := v0.WorkloadInstance {
+				Instance: v0.Instance{
+					Name: ethereumNodeInstance.Name,
+					UserID: ethereumNodeInstance.UserID,
+					CompanyID: ethereumNodeInstance.CompanyID,
+				},
+				ClusterInstanceID: ethereumNodeInstance.ClusterInstanceID,
+				WorkloadDefinitionID: ethereumNodeDefinition.WorkloadDefinitionID,
+			}
+
+			_, err = client.CreateWorkloadInstance(
+				&workloadInstance,
+				r.APIServer,
+				"",
+			)
+			if err != nil {
+				log.Error(err, "failed to create workload instance")
+				r.UnlockAndRequeue(&ethereumNodeInstance, msg.Subject, notifPayload, requeueDelay)
+				continue
+			}
+			log.V(1).Info(
+				"workload instance created in API",
+				"workloadInstanceName", workloadInstance.Name,
+			)
+
+
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&ethereumNodeInstance); !ok {
 				log.V(1).Info("ethereum node instance remains locked - will unlock when TTL expires")
@@ -159,7 +186,7 @@ func EthereumNodeInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("ethereum node instance unlocked")
 			}
 
-			log.V(1).Info("ethereum node instance successfully reconciled", "ethereumNodeInstanceID", ethereumNodeInstance.ID)
+			log.Info("ethereum node instance successfully reconciled")
 		}
 	}
 

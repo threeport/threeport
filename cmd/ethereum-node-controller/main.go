@@ -29,6 +29,10 @@ func main() {
 		"ethereum-node-definition-concurrent-reconciles", 1,
 		"Number of concurrent reconcilers to run for ethereum node definitions",
 	)
+	var ethereumNodeInstanceConcurrentReconciles = flag.Int(
+		"workload-instance-concurrent-reconciles", 1,
+		"Number of concurrent reconcilers to run for workload instances",
+	)
 	var apiServer = flag.String("api-server", "threeport-api-server", "Threepoort REST API server endpoint")
 	var msgBrokerHost = flag.String("msg-broker-host", "", "Threeport message broker hostname")
 	var msgBrokerPort = flag.String("msg-broker-port", "", "Threeport message broker port")
@@ -129,6 +133,12 @@ func main() {
 			ObjectType:           v0.ObjectTypeEthereumNodeDefinition,
 			ReconcileFunc:        reconcile.EthereumNodeDefinitionReconciler,
 			ConcurrentReconciles: *ethereumNodeDefinitionConcurrentReconciles,
+		},
+		{
+			Name:                 "EthereumNodeInstanceReconciler",
+			ObjectType:           v0.ObjectTypeEthereumNodeInstance,
+			ReconcileFunc:        reconcile.EthereumNodeInstanceReconciler,
+			ConcurrentReconciles: *ethereumNodeInstanceConcurrentReconciles,
 		},
 	}
 	for _, r := range reconcilerConfigs {
