@@ -213,7 +213,7 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// persist workload definition to database
-			_, err = client.CreateWorkloadDefinition(
+			workloadDefinitionResponse, err := client.CreateWorkloadDefinition(
 				&workloadDefinition,
 				r.APIServer,
 				"",
@@ -231,6 +231,7 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 					ID: ethereumNodeDefinition.ID,
 				},
 				Reconciled: &isReconciled,
+				WorkloadDefinitionID: workloadDefinitionResponse.ID,
 			}
 
 			updatedDefinition, err := client.UpdateEthereumNodeDefinition(

@@ -11,6 +11,9 @@ type EthereumNodeDefinition struct {
 
 	// Indicates if object is considered to be reconciled by ethereum node controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
+
+	// The workload definition this resource belongs to.
+	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"omitempty" validate:"optional"`
 }
 
 type EthereumNodeInstance struct {
