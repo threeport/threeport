@@ -71,7 +71,7 @@ dev-forward-nats:
 
 #dev-query-crdb: @ Open a terminal connection to the dev cockroach database (must first run `make dev-forward-crdb` in another terminal)
 dev-query-crdb:
-	cockroach sql --host localhost --insecure --database threeport_api
+	kubectl exec -it statefulset/crdb -n threeport-control-plane -- cockroach sql --host localhost --insecure --database threeport_api
 
 #dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal)
 dev-sub-nats:
