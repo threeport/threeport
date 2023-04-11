@@ -108,9 +108,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		var controlPlaneErr error
 		kubeConnectionInfo, err := controlPlaneInfra.Create()
 		if err != nil {
-			//cli.Error("Failed to get create control plane infra for threeport", err)
-			//os.Exit(1)
-			controlPlaneErr = fmt.Errorf("failed to get create control plane infra for threeport", err)
+			controlPlaneErr = fmt.Errorf("failed to get create control plane infra for threeport: %w", err)
 		}
 
 		// the cluster instance is the default compute space cluster to be added
@@ -127,7 +125,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		}
 
 		// create a client to connect to kind cluster kube API
-		dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance)
+		dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance, false)
 		if err != nil {
 			cli.Error("failed to get a Kubernetes client and mapper", err)
 			os.Exit(1)
@@ -140,18 +138,21 @@ var CreateControlPlaneCmd = &cobra.Command{
 		}
 
 		// install the threeport control plane API and controllers
-		if err := threeport.InstallThreeportControlPlaneComponents(dynamicKubeClient, mapper, false); err != nil {
+		if err := threeport.InstallThreeportControlPlaneComponents(
+			dynamicKubeClient,
+			mapper,
+			false,
+			"localhost",
+		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)
 		}
 
 		// create threeport config for new instance
 		newThreeportInstance := &tptctl.Instance{
-			Name:     createThreeportInstanceName,
-			Provider: infraProvider,
-			//APIServer: threeportAPIEndpoint,
-			APIServer: kubeConnectionInfo.APIEndpoint,
-			//APIServer: install.GetThreeportAPIEndpoint(),
+			Name:       createThreeportInstanceName,
+			Provider:   infraProvider,
+			APIServer:  kubeConnectionInfo.APIEndpoint,
 			Kubeconfig: kubeconfigPath,
 		}
 
@@ -172,6 +173,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 
 		if controlPlaneErr != nil {
 			cli.Error("Problem encountered installing control plane", controlPlaneErr)
+			os.Exit(1)
 		} else {
 			cli.Complete(fmt.Sprintf("Threeport instance %s created", createThreeportInstanceName))
 		}

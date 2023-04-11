@@ -35,7 +35,7 @@ func GetNetworkIngressDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Net
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&networkIngressDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &networkIngressDefinition, nil
@@ -64,7 +64,7 @@ func GetNetworkIngressDefinitionByName(name, apiAddr, apiToken string) (*v0.Netw
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&networkIngressDefinitions); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -103,7 +103,7 @@ func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&networkIngressDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return networkIngressDefinition, nil
@@ -140,7 +140,7 @@ func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&networkIngressDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return networkIngressDefinition, nil
@@ -169,7 +169,7 @@ func GetNetworkIngressInstanceByID(id uint, apiAddr, apiToken string) (*v0.Netwo
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&networkIngressInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &networkIngressInstance, nil
@@ -198,7 +198,7 @@ func GetNetworkIngressInstanceByName(name, apiAddr, apiToken string) (*v0.Networ
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&networkIngressInstances); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -237,7 +237,7 @@ func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&networkIngressInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return networkIngressInstance, nil
@@ -274,7 +274,7 @@ func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&networkIngressInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return networkIngressInstance, nil

@@ -54,7 +54,7 @@ func GetResponse(
 	decoder := json.NewDecoder(bytes.NewReader(respBody))
 	decoder.UseNumber()
 	if err := decoder.Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response body from threeport API", err)
+		return nil, fmt.Errorf("failed to decode response body from threeport API: %w", err)
 	}
 
 	if IsDebug() {

@@ -35,7 +35,7 @@ func GetDomainNameDefinitionByID(id uint, apiAddr, apiToken string) (*v0.DomainN
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&domainNameDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &domainNameDefinition, nil
@@ -64,7 +64,7 @@ func GetDomainNameDefinitionByName(name, apiAddr, apiToken string) (*v0.DomainNa
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&domainNameDefinitions); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -103,7 +103,7 @@ func CreateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&domainNameDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return domainNameDefinition, nil
@@ -140,7 +140,7 @@ func UpdateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&domainNameDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return domainNameDefinition, nil
@@ -169,7 +169,7 @@ func GetDomainNameInstanceByID(id uint, apiAddr, apiToken string) (*v0.DomainNam
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&domainNameInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &domainNameInstance, nil
@@ -198,7 +198,7 @@ func GetDomainNameInstanceByName(name, apiAddr, apiToken string) (*v0.DomainName
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&domainNameInstances); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -237,7 +237,7 @@ func CreateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&domainNameInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return domainNameInstance, nil
@@ -274,7 +274,7 @@ func UpdateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&domainNameInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return domainNameInstance, nil

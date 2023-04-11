@@ -41,7 +41,7 @@ func CreateWorkloadResourceDefinitions(
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&workloadResourceDefinitions); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return workloadResourceDefinitions, nil
@@ -71,7 +71,7 @@ func GetWorkloadResourceDefinitionByWorkloadDefinitionID(id uint, apiAddr, apiTo
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&workloadResourceDefinitions); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &workloadResourceDefinitions, nil

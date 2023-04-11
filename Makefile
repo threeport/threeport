@@ -16,6 +16,10 @@ build-codegen:
 generate: build-codegen
 	go generate ./...
 
+#test: @ Run automated tests
+test:
+	go test ./...
+
 #build-tptdev: @ Build tptdev binary
 build-tptdev:
 	go build -a -o bin/tptdev cmd/tptdev/main.go
@@ -81,7 +85,7 @@ dev-sub-nats:
 
 #dev-debug-api: @ Start debugging session for API (must first run `make dev-forward-nats` in another terminal)
 dev-debug-api:
-	dlv debug cmd/rest-api/main.go -- -env-file env -auto-migrate -verbose
+	dlv debug cmd/rest-api/main.go -- -env-file hack/env -auto-migrate -verbose
 
 #dev-debug-wrk: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
 dev-debug-wrk:
