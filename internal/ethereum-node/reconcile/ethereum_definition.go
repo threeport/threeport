@@ -189,7 +189,41 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 
 			// aggregate manifests into a single yaml
 			var objects []runtime.Object
-			objects = append(objects, authJWT, executionClient, consensusClient, CreateCRDNodesEthereumKotalIo(), CreateCRDBeaconnodesEthereum2KotalIo())
+			objects = append(
+								objects,
+								CreateManifestMutatingWebhookConfiguration(),
+								CreateManifestValidatingWebhookConfiguration(),
+								CreateManifestNamespace(),
+								CreateCRDNodesEthereumKotalIo(),
+								CreateCRDBeaconnodesEthereum2KotalIo(),
+								CreateCRDAptosKotalIo(),
+								CreateCRDBitcoinKotalIo(),
+								CreateCRDChainlinkKotalIo(),
+								CreateCRDIpfsKotalIo(),
+								CreateCRDIpfsPeerKotalIo(),
+								CreateCRDFilecoinKotalIo(),
+								CreateCRDNearKotalIo(),
+								CreateCRDGraphKotalIo(),
+								CreateCRDPolkadotKotalIo(),
+								CreateCRDStacksKotalIo(),
+								CreateCRDValidatorKotalIo(),
+								CreateManifestClusterRole(),
+								CreateManifestClusterRoleMetricsReader(),
+								CreateManifestClusterRoleProxyRole(),
+								CreateManifestClusterRoleBindingManager(),
+								CreateManifestClusterRoleBindingProxy(),
+								CreateManifestRoleBindingLeaderElection(),
+								CreateManifestRole(),
+								CreateManifestServiceMetrics(),
+								CreateManifestServiceWebhook(),
+								CreateManifestServiceAccount(),
+								CreateManifestDeploymentControllerManager(),
+								CreateManifestCertificate(),
+								CreateManifestIssuer(),
+								authJWT,
+								executionClient,
+								consensusClient,
+							)
 
 			json, err := json.Marshal(objects)
 			if err != nil {
