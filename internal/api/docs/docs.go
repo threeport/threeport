@@ -7018,6 +7018,51 @@ const docTemplate = `{
             }
         },
         "/v0/workload-resource-definition-sets": {
+            "put": {
+                "description": "Update a set of existing workload resource definitions in the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates a set of workload resource definitions.",
+                "operationId": "update-workloadResourceDefinitions",
+                "parameters": [
+                    {
+                        "description": "WorkloadResourceDefinition object array",
+                        "name": "workloadResourceDefinitions",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/v0.WorkloadResourceDefinition"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "Add a set of new workload resource definition to the Threeport database.",
                 "consumes": [
@@ -7045,6 +7090,51 @@ const docTemplate = `{
                 "responses": {
                     "201": {
                         "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a set of existing workload resource definitions in the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a set of workload resource definitions.",
+                "operationId": "update-workloadResourceDefinitions",
+                "parameters": [
+                    {
+                        "description": "WorkloadResourceDefinition object array",
+                        "name": "workloadResourceDefinitions",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/v0.WorkloadResourceDefinition"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -8121,6 +8211,10 @@ const docTemplate = `{
                 "UserID": {
                     "description": "Required if no CompanyID.  The user that owns the object.",
                     "type": "integer"
+                },
+                "WorkloadDefinitionID": {
+                    "description": "The workload definition this resource belongs to.",
+                    "type": "integer"
                 }
             }
         },
@@ -8401,56 +8495,56 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "Profile",
-                "Tier",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "ClusterDefinition",
-                "ClusterInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
-                "EthereumNodeDefinition",
-                "EthereumNodeInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
+                "EthereumNodeDefinition",
+                "EthereumNodeInstance",
+                "Profile",
+                "Tier",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
                 "User",
                 "Company"
             ],
             "x-enum-varnames": [
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeEthereumNodeDefinition",
-                "ObjectTypeEthereumNodeInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
+                "ObjectTypeEthereumNodeDefinition",
+                "ObjectTypeEthereumNodeInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
                 "ObjectTypeUser",

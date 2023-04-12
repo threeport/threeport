@@ -28,6 +28,13 @@ func ResponseStatus201(c echo.Context, response v0.Response) error {
 	return c.JSON(code, response)
 }
 
+func ResponseStatus204(c echo.Context, response v0.Response) error {
+	code := http.StatusNoContent
+	message := http.StatusText(code)
+	v0.UpdateResponseStatus(&response, code, message, "")
+	return c.JSON(code, response)
+}
+
 func ResponseStatus400(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
 	return c.JSON(http.StatusBadRequest, v0.CreateResponseWithError400(params, error, objectType))
 }

@@ -70,10 +70,10 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 // @Accept  json
 // @Produce  json
 // @Param   workloadResourceDefinitions	body	[]v0.WorkloadResourceDefinition	true	"WorkloadResourceDefinition object array"
-// @Success 201 {object} v0.Response	"Created"
+// @Success 200 {object} v0.Response	"OK"
 // @Failure 400 {object} v0.Response	"Bad Request"
 // @Failure 500 {object} v0.Response	"Internal Server Error"
-// @Router /v0/workload-resource-definition-sets [post]
+// @Router /v0/workload-resource-definition-sets [put]
 func (h Handler) UpdateWorkloadResourceDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceDefinition
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
@@ -113,7 +113,7 @@ func (h Handler) UpdateWorkloadResourceDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	return iapi.ResponseStatus201(c, *response)
+	return iapi.ResponseStatus200(c, *response)
 }
 
 // DeleteWorkloadResourceDefinitions deletes a set of workload resource definitions.
@@ -123,10 +123,10 @@ func (h Handler) UpdateWorkloadResourceDefinitions(c echo.Context) error {
 // @Accept  json
 // @Produce  json
 // @Param   workloadResourceDefinitions	body	[]v0.WorkloadResourceDefinition	true	"WorkloadResourceDefinition object array"
-// @Success 201 {object} v0.Response	"Created"
+// @Success 204 {object} v0.Response	"No Content"
 // @Failure 400 {object} v0.Response	"Bad Request"
 // @Failure 500 {object} v0.Response	"Internal Server Error"
-// @Router /v0/workload-resource-definition-sets [post]
+// @Router /v0/workload-resource-definition-sets [delete]
 func (h Handler) DeleteWorkloadResourceDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceDefinition
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
@@ -166,5 +166,5 @@ func (h Handler) DeleteWorkloadResourceDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	return iapi.ResponseStatus201(c, *response)
+	return iapi.ResponseStatus204(c, *response)
 }
