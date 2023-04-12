@@ -153,31 +153,75 @@ func EthereumNodeInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// create workload instance
-			workloadInstance := v0.WorkloadInstance {
+			workloadInstance := v0.WorkloadInstance{
 				Instance: v0.Instance{
-					Name: ethereumNodeInstance.Name,
-					UserID: ethereumNodeInstance.UserID,
+					Name:      ethereumNodeInstance.Name,
+					UserID:    ethereumNodeInstance.UserID,
 					CompanyID: ethereumNodeInstance.CompanyID,
 				},
-				ClusterInstanceID: ethereumNodeInstance.ClusterInstanceID,
+				ClusterInstanceID:    ethereumNodeInstance.ClusterInstanceID,
 				WorkloadDefinitionID: ethereumNodeDefinition.WorkloadDefinitionID,
 			}
 
-			_, err = client.CreateWorkloadInstance(
-				&workloadInstance,
-				r.APIServer,
-				"",
-			)
-			if err != nil {
-				log.Error(err, "failed to create workload instance")
-				r.UnlockAndRequeue(&ethereumNodeInstance, msg.Subject, notifPayload, requeueDelay)
+			switch notif.Operation {
+
+			case "Created":
+				log.V(1).Info("received created notification")
+
+				_, err = client.CreateWorkloadInstance(
+					&workloadInstance,
+					r.APIServer,
+					"",
+				)
+				if err != nil {
+					log.Error(err, "failed to create workload instance")
+					r.UnlockAndRequeue(&ethereumNodeInstance, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+				log.V(1).Info(
+					"workload instance created in API",
+					"workloadInstanceName", workloadInstance.Name,
+				)
+
+			case "Updated":
+				log.V(1).Info("received updated notification")
+
+				_, err = client.UpdateWorkloadInstance(
+					&workloadInstance,
+					r.APIServer,
+					"",
+				)
+				if err != nil {
+					log.Error(err, "failed to update workload instance")
+					r.UnlockAndRequeue(&ethereumNodeInstance, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+				log.V(1).Info(
+					"workload instance updated in API",
+					"workloadInstanceName", workloadInstance.Name,
+				)
+
+			case "Deleted":
+				log.V(1).Info("received deleted notification")
+
+				// _, err = client.DeleteWorkloadInstance(
+				// 	&workloadInstance,
+				// 	r.APIServer,
+				// 	"",
+				// )
+				// if err != nil {
+				// 	log.Error(err, "failed to update workload instance")
+				// 	r.UnlockAndRequeue(&ethereumNodeInstance, msg.Subject, notifPayload, requeueDelay)
+				// 	continue
+				// }
+				// log.V(1).Info(
+				// 	"workload instance deleted in API",
+				// 	"workloadInstanceName", workloadInstance.Name,
+				// )
+			default:
+				log.Error(err, "notification must be one of Created, Updated, or Deleted")
 				continue
 			}
-			log.V(1).Info(
-				"workload instance created in API",
-				"workloadInstanceName", workloadInstance.Name,
-			)
-
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&ethereumNodeInstance); !ok {
