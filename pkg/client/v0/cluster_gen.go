@@ -158,7 +158,7 @@ func DeleteClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, a
 		return clusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/cluster-definitions/%d", apiAddr, ApiVersion, clusterDefinitionID),
 		apiToken,
 		http.MethodDelete,
@@ -318,7 +318,7 @@ func DeleteClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToke
 		return clusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/cluster-instances/%d", apiAddr, ApiVersion, clusterInstanceID),
 		apiToken,
 		http.MethodDelete,

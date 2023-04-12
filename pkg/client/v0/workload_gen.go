@@ -158,7 +158,7 @@ func DeleteWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr
 		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, workloadDefinitionID),
 		apiToken,
 		http.MethodDelete,
@@ -318,7 +318,7 @@ func DeleteWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadRes
 		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, workloadResourceDefinitionID),
 		apiToken,
 		http.MethodDelete,
@@ -478,7 +478,7 @@ func DeleteWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiT
 		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, workloadInstanceID),
 		apiToken,
 		http.MethodDelete,
@@ -638,7 +638,7 @@ func DeleteWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourc
 		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, workloadResourceInstanceID),
 		apiToken,
 		http.MethodDelete,

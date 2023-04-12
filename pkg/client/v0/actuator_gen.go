@@ -158,7 +158,7 @@ func DeleteProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, 
 		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, profileID),
 		apiToken,
 		http.MethodDelete,
@@ -318,7 +318,7 @@ func DeleteTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, tierID),
 		apiToken,
 		http.MethodDelete,

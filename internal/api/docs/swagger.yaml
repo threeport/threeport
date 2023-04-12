@@ -564,6 +564,21 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - AwsAccount
+    - AwsEksClusterDefinition
+    - AwsEksClusterInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - Profile
+    - Tier
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - EthereumNodeDefinition
     - EthereumNodeInstance
     - ClusterDefinition
@@ -572,26 +587,26 @@ definitions:
     - Company
     - DomainNameDefinition
     - DomainNameInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - AwsAccount
-    - AwsEksClusterDefinition
-    - AwsEksClusterInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - Profile
-    - Tier
     type: string
     x-enum-varnames:
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksClusterDefinition
+    - ObjectTypeAwsEksClusterInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeEthereumNodeDefinition
     - ObjectTypeEthereumNodeInstance
     - ObjectTypeClusterDefinition
@@ -600,24 +615,9 @@ definitions:
     - ObjectTypeCompany
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksClusterDefinition
-    - ObjectTypeAwsEksClusterInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
   v0.Profile:
     properties:
       CompanyID:

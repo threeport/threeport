@@ -158,7 +158,7 @@ func DeleteEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 		return ethereumNodeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/ethereum-node-definitions/%d", apiAddr, ApiVersion, ethereumNodeDefinitionID),
 		apiToken,
 		http.MethodDelete,
@@ -318,7 +318,7 @@ func DeleteEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, a
 		return ethereumNodeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/ethereum-node-instances/%d", apiAddr, ApiVersion, ethereumNodeInstanceID),
 		apiToken,
 		http.MethodDelete,

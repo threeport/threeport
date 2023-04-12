@@ -158,7 +158,7 @@ func DeleteLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.
 		return logBackend, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, logBackendID),
 		apiToken,
 		http.MethodDelete,
@@ -318,7 +318,7 @@ func DeleteLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, a
 		return logStorageDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, logStorageDefinitionID),
 		apiToken,
 		http.MethodDelete,
@@ -478,7 +478,7 @@ func DeleteLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr
 		return logStorageInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, logStorageInstanceID),
 		apiToken,
 		http.MethodDelete,

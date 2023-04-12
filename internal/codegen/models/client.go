@@ -390,7 +390,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				).Call(Lit(MarshalObjectErr).Op(",").Id("err")),
 			)),
 			Line(),
-			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+			Id("_").Op(",").Id("err").Op("=").Id("GetResponse").Call(
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),

@@ -158,7 +158,7 @@ func DeleteUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 		return user, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, userID),
 		apiToken,
 		http.MethodDelete,
@@ -318,7 +318,7 @@ func DeleteCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 		return company, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, companyID),
 		apiToken,
 		http.MethodDelete,

@@ -158,7 +158,7 @@ func DeleteForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 		return forwardProxyDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, forwardProxyDefinitionID),
 		apiToken,
 		http.MethodDelete,
@@ -318,7 +318,7 @@ func DeleteForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 		return forwardProxyInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, forwardProxyInstanceID),
 		apiToken,
 		http.MethodDelete,

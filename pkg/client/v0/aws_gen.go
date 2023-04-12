@@ -158,7 +158,7 @@ func DeleteAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.
 		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/aws-accounts/%d", apiAddr, ApiVersion, awsAccountID),
 		apiToken,
 		http.MethodDelete,
@@ -318,7 +318,7 @@ func DeleteAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefi
 		return awsEksClusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions/%d", apiAddr, ApiVersion, awsEksClusterDefinitionID),
 		apiToken,
 		http.MethodDelete,
@@ -478,7 +478,7 @@ func DeleteAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance
 		return awsEksClusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/aws-eks-cluster-instances/%d", apiAddr, ApiVersion, awsEksClusterInstanceID),
 		apiToken,
 		http.MethodDelete,
@@ -638,7 +638,7 @@ func DeleteAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.A
 		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/aws-relational-database-definitions/%d", apiAddr, ApiVersion, awsRelationalDatabaseDefinitionID),
 		apiToken,
 		http.MethodDelete,
@@ -798,7 +798,7 @@ func DeleteAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRe
 		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, awsRelationalDatabaseInstanceID),
 		apiToken,
 		http.MethodDelete,

@@ -91,12 +91,13 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
+			var workloadResourceDefinitions []v0.WorkloadResourceDefinition
+
 			// check for deletion
 			if notif.Operation == "Deleted" {
 				log.V(1).Info("received deleted notification")
 
-				wrds, err = client.DeleteWorkloadResourceDefinitions(
-					//wrdsJSON,
+				_, err = client.DeleteWorkloadResourceDefinitions(
 					&workloadResourceDefinitions,
 					r.APIServer,
 					"",
@@ -130,7 +131,6 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 
 			// iterate over each resource in the json doc and construct a workload
 			// resource definition
-			var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 			var jsonObjects []map[string]interface{}
 			err = yamlv3.Unmarshal([]byte(*workloadDefinition.JSONDocument), &jsonObjects)
@@ -176,7 +176,6 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("received created notification")
 
 				wrds, err = client.CreateWorkloadResourceDefinitions(
-					//wrdsJSON,
 					&workloadResourceDefinitions,
 					r.APIServer,
 					"",
@@ -195,10 +194,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			case "Updated":
 				log.V(1).Info("received updated notification")
 
-				for _, wrd := range workloadResourceDefinitions {
-				}
-				wrds, err = client.UpdateWorkloadResourceDefinition(
-					//wrdsJSON,
+				wrds, err = client.UpdateWorkloadResourceDefinitions(
 					&workloadResourceDefinitions,
 					r.APIServer,
 					"",

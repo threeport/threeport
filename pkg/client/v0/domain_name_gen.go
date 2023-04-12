@@ -158,7 +158,7 @@ func DeleteDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, domainNameDefinitionID),
 		apiToken,
 		http.MethodDelete,
@@ -318,7 +318,7 @@ func DeleteDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, domainNameInstanceID),
 		apiToken,
 		http.MethodDelete,

@@ -158,7 +158,7 @@ func DeleteNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 		return networkIngressDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, networkIngressDefinitionID),
 		apiToken,
 		http.MethodDelete,
@@ -318,7 +318,7 @@ func DeleteNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 		return networkIngressInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	_, err = GetResponse(
 		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, networkIngressInstanceID),
 		apiToken,
 		http.MethodDelete,
