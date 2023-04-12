@@ -17,19 +17,117 @@ limitations under the License.
 package reconcile
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	// "sigs.k8s.io/controller-runtime/pkg/client"
-
 	// "github.com/nukleros/operator-builder-tools/pkg/controller/workload"
-
 	// appsv1alpha1 "github.com/randalljohnson/operator-builder-kotal/apis/apps/v1alpha1"
 	// "github.com/randalljohnson/operator-builder-kotal/apis/apps/v1alpha1/standaloneworkloadconfig/mutate"
 )
 
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;create;update;patch;delete
 
+// Create auth jwt secret for consensus client -> execution client auth
+func CreateManifestAuthJwt() *unstructured.Unstructured {
+
+	// generate random 32 byte hex string
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	// Convert the byte slice to a hex string
+	hexString := hex.EncodeToString(b)
+
+	var resourceObj = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "auth-jwt",
+				"namespace": "default",
+			},
+			"stringData": map[string]interface{}{
+				"secret": hexString,
+			},
+		},
+	}
+
+	return resourceObj
+
+}
+
+// define execution client manifest
+func CreateManifestEthereumNodeExecution(network *string) *unstructured.Unstructured {
+
+	var resourceObj = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "ethereum.kotal.io/v1alpha1",
+			"kind":       "Node",
+			"metadata": map[string]interface{}{
+				"name":      "ethereum-node-execution",
+				"namespace": "default",
+			},
+			"spec": map[string]interface{}{
+				"image":         "ethereum/client-go:v1.11.5",
+				"client":        "geth",
+				"network":       network,
+				"rpc":           true,
+				"jwtSecretName": "auth-jwt",
+				"engine":        true,
+				"enginePort":    8551,
+				"resources": map[string]interface{}{
+					"cpu":         "2",
+					"cpuLimit":    "4",
+					"memory":      "8Gi",
+					"memoryLimit": "16Gi",
+				},
+			},
+		},
+	}
+
+	return resourceObj
+
+}
+
+// define consensus client manifest
+func CreateManifestEthereumNodeConsensus(network *string) *unstructured.Unstructured {
+
+	var resourceObj = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "ethereum2.kotal.io/v1alpha1",
+			"kind":       "BeaconNode",
+			"metadata": map[string]interface{}{
+				"name":      "ethereum-node-consensus",
+				"namespace": "default",
+			},
+			"spec": map[string]interface{}{
+				"image":                   "prysmaticlabs/prysm-beacon-chain:v4.0.1",
+				"client":                  "prysm",
+				"network":                 network,
+				"rpc":                     true,
+				"jwtSecretName":           "auth-jwt",
+				"executionEngineEndpoint": "http://ethereum-node.default.svc.cluster.local:8551",
+				"checkpointSyncUrl":       "https://prater-checkpoint-sync.stakely.io/",
+				"resources": map[string]interface{}{
+					"cpu":         "2",
+					"cpuLimit":    "4",
+					"memory":      "8Gi",
+					"memoryLimit": "16Gi",
+				},
+			},
+		},
+	}
+
+	return resourceObj
+
+}
+
 // CreateCRDBeaconnodesEthereum2KotalIo creates the CustomResourceDefinition resource with name beaconnodes.ethereum2.kotal.io.
-func CreateCRDBeaconnodesEthereum2KotalIo() (*unstructured.Unstructured) {
+func CreateCRDBeaconnodesEthereum2KotalIo() *unstructured.Unstructured {
 
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -259,9 +357,8 @@ func CreateCRDBeaconnodesEthereum2KotalIo() (*unstructured.Unstructured) {
 
 }
 
-
 // CreateCRDNodesEthereumKotalIo creates the CustomResourceDefinition resource with name nodes.ethereum.kotal.io.
-func CreateCRDNodesEthereumKotalIo() (*unstructured.Unstructured) {
+func CreateCRDNodesEthereumKotalIo() *unstructured.Unstructured {
 
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -829,8 +926,7 @@ func CreateCRDNodesEthereumKotalIo() (*unstructured.Unstructured) {
 
 }
 
-
-func CreateCRDAptosKotalIo() (*unstructured.Unstructured) {
+func CreateCRDAptosKotalIo() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
@@ -1015,7 +1111,7 @@ func CreateCRDAptosKotalIo() (*unstructured.Unstructured) {
 
 }
 
-func CreateCRDBitcoinKotalIo() (*unstructured.Unstructured) {
+func CreateCRDBitcoinKotalIo() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
@@ -1201,7 +1297,7 @@ func CreateCRDBitcoinKotalIo() (*unstructured.Unstructured) {
 
 }
 
-func CreateCRDChainlinkKotalIo() (*unstructured.Unstructured) {
+func CreateCRDChainlinkKotalIo() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
@@ -1437,7 +1533,7 @@ func CreateCRDChainlinkKotalIo() (*unstructured.Unstructured) {
 
 }
 
-func CreateCRDIpfsKotalIo() (*unstructured.Unstructured) {
+func CreateCRDIpfsKotalIo() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
@@ -1630,7 +1726,7 @@ func CreateCRDIpfsKotalIo() (*unstructured.Unstructured) {
 	return resourceObj
 }
 
-func CreateManifestClusterRole() (*unstructured.Unstructured) {
+func CreateManifestClusterRole() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -2169,7 +2265,7 @@ func CreateManifestClusterRole() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestClusterRoleMetricsReader() (*unstructured.Unstructured) {
+func CreateManifestClusterRoleMetricsReader() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -2194,7 +2290,7 @@ func CreateManifestClusterRoleMetricsReader() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestClusterRoleProxyRole() (*unstructured.Unstructured) {
+func CreateManifestClusterRoleProxyRole() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -2233,7 +2329,7 @@ func CreateManifestClusterRoleProxyRole() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestRoleBindingLeaderElection() (*unstructured.Unstructured) {
+func CreateManifestRoleBindingLeaderElection() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -2261,7 +2357,7 @@ func CreateManifestRoleBindingLeaderElection() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestClusterRoleBindingManager() (*unstructured.Unstructured) {
+func CreateManifestClusterRoleBindingManager() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -2287,7 +2383,7 @@ func CreateManifestClusterRoleBindingManager() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestClusterRoleBindingProxy() (*unstructured.Unstructured) {
+func CreateManifestClusterRoleBindingProxy() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -2313,7 +2409,7 @@ func CreateManifestClusterRoleBindingProxy() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestDeploymentControllerManager() (*unstructured.Unstructured) {
+func CreateManifestDeploymentControllerManager() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -2352,7 +2448,7 @@ func CreateManifestDeploymentControllerManager() (*unstructured.Unstructured) {
 								"command": []interface{}{
 									"/manager",
 								},
-								"image": "localhost/kotal-controller-manager:latest",
+								"image":           "localhost/kotal-controller-manager:latest",
 								"imagePullPolicy": "IfNotPresent",
 								"livenessProbe": map[string]interface{}{
 									"httpGet": map[string]interface{}{
@@ -2447,7 +2543,7 @@ func CreateManifestDeploymentControllerManager() (*unstructured.Unstructured) {
 
 }
 
-func CreateCRDFilecoinKotalIo() (*unstructured.Unstructured) {
+func CreateCRDFilecoinKotalIo() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
@@ -2636,7 +2732,7 @@ func CreateCRDFilecoinKotalIo() (*unstructured.Unstructured) {
 
 }
 
-func CreateCRDGraphKotalIo() (*unstructured.Unstructured) {
+func CreateCRDGraphKotalIo() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
@@ -2717,7 +2813,7 @@ func CreateCRDGraphKotalIo() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestIssuer() (*unstructured.Unstructured) {
+func CreateManifestIssuer() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cert-manager.io/v1",
@@ -2736,7 +2832,7 @@ func CreateManifestIssuer() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestMutatingWebhookConfiguration() (*unstructured.Unstructured) {
+func CreateManifestMutatingWebhookConfiguration() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "admissionregistration.k8s.io/v1",
@@ -3141,7 +3237,7 @@ func CreateManifestMutatingWebhookConfiguration() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestNamespace() (*unstructured.Unstructured) {
+func CreateManifestNamespace() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -3159,7 +3255,7 @@ func CreateManifestNamespace() (*unstructured.Unstructured) {
 
 }
 
-func CreateCRDNearKotalIo() (*unstructured.Unstructured) {
+func CreateCRDNearKotalIo() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
@@ -3354,7 +3450,7 @@ func CreateCRDNearKotalIo() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestRole() (*unstructured.Unstructured) {
+func CreateManifestRole() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -3418,7 +3514,7 @@ func CreateManifestRole() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestServiceMetrics() (*unstructured.Unstructured) {
+func CreateManifestServiceMetrics() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -3450,7 +3546,7 @@ func CreateManifestServiceMetrics() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestServiceWebhook() (*unstructured.Unstructured) {
+func CreateManifestServiceWebhook() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -3477,7 +3573,7 @@ func CreateManifestServiceWebhook() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestServiceAccount() (*unstructured.Unstructured) {
+func CreateManifestServiceAccount() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -3493,7 +3589,7 @@ func CreateManifestServiceAccount() (*unstructured.Unstructured) {
 
 }
 
-func CreateManifestValidatingWebhookConfiguration() (*unstructured.Unstructured) {
+func CreateManifestValidatingWebhookConfiguration() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "admissionregistration.k8s.io/v1",
@@ -3898,7 +3994,7 @@ func CreateManifestValidatingWebhookConfiguration() (*unstructured.Unstructured)
 
 }
 
-func CreateManifestCertificate() (*unstructured.Unstructured) {
+func CreateManifestCertificate() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cert-manager.io/v1",
@@ -3925,7 +4021,7 @@ func CreateManifestCertificate() (*unstructured.Unstructured) {
 
 }
 
-func CreateCRDIpfsPeerKotalIo() (*unstructured.Unstructured) {
+func CreateCRDIpfsPeerKotalIo() *unstructured.Unstructured {
 
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -4131,12 +4227,11 @@ func CreateCRDIpfsPeerKotalIo() (*unstructured.Unstructured) {
 		},
 	}
 
-
-return resourceObj
+	return resourceObj
 
 }
 
-func CreateCRDPolkadotKotalIo() (*unstructured.Unstructured) {
+func CreateCRDPolkadotKotalIo() *unstructured.Unstructured {
 
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -4350,8 +4445,7 @@ func CreateCRDPolkadotKotalIo() (*unstructured.Unstructured) {
 	return resourceObj
 }
 
-
-func CreateCRDStacksKotalIo() (*unstructured.Unstructured) {
+func CreateCRDStacksKotalIo() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
@@ -4562,9 +4656,7 @@ func CreateCRDStacksKotalIo() (*unstructured.Unstructured) {
 
 }
 
-
-
-func CreateCRDValidatorKotalIo() (*unstructured.Unstructured) {
+func CreateCRDValidatorKotalIo() *unstructured.Unstructured {
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",

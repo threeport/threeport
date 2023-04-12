@@ -1,8 +1,6 @@
 package reconcile
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 
 	"github.com/mitchellh/mapstructure"
@@ -12,7 +10,6 @@ import (
 	"github.com/threeport/threeport/pkg/controller"
 	"github.com/threeport/threeport/pkg/notifications"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -108,122 +105,43 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 				ethereumNodeDefinition = *latestEthereumNodeDefinition
 			}
 
-			// generate random 32 byte hex string
-			b := make([]byte, 32)
-			_, err = rand.Read(b)
-			if err != nil {
-				panic(err)
-			}
-
-			// Convert the byte slice to a hex string
-			hexString := hex.EncodeToString(b)
-
-			// Create auth jwt secret for consensus client -> execution client auth
-			var authJWT = &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "v1",
-					"kind":       "Secret",
-					"metadata": map[string]interface{}{
-						"name":      "auth-jwt",
-						"namespace": "default",
-					},
-					"stringData": map[string]interface{}{
-						"secret": hexString,
-					},
-				},
-			}
-
-			// define execution client manifest
-			var executionClient = &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "ethereum.kotal.io/v1alpha1",
-					"kind":       "Node",
-					"metadata": map[string]interface{}{
-						"name":      "ethereum-node-execution",
-						"namespace": "default",
-					},
-					"spec": map[string]interface{}{
-						"image":         "ethereum/client-go:v1.11.5",
-						"client":        "geth",
-						"network":       *ethereumNodeDefinition.Network,
-						"rpc":           true,
-						"jwtSecretName": "auth-jwt",
-						"engine":        true,
-						"enginePort":    8551,
-						"resources": map[string]interface{}{
-							"cpu":         "2",
-							"cpuLimit":    "4",
-							"memory":      "8Gi",
-							"memoryLimit": "16Gi",
-						},
-					},
-				},
-			}
-
-			// define consensus client manifest
-			var consensusClient = &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "ethereum2.kotal.io/v1alpha1",
-					"kind":       "BeaconNode",
-					"metadata": map[string]interface{}{
-						"name":      "ethereum-node-consensus",
-						"namespace": "default",
-					},
-					"spec": map[string]interface{}{
-						"image":                   "prysmaticlabs/prysm-beacon-chain:v4.0.1",
-						"client":                  "prysm",
-						"network":                 *ethereumNodeDefinition.Network,
-						"rpc":                     true,
-						"jwtSecretName":           "auth-jwt",
-						"executionEngineEndpoint": "http://ethereum-node.default.svc.cluster.local:8551",
-						"checkpointSyncUrl":       "https://prater-checkpoint-sync.stakely.io/",
-						"resources": map[string]interface{}{
-							"cpu":         "2",
-							"cpuLimit":    "4",
-							"memory":      "8Gi",
-							"memoryLimit": "16Gi",
-						},
-					},
-				},
-			}
-
 			// aggregate manifests into a single yaml
 			var objects []runtime.Object
 			objects = append(
-						objects,
-						CreateManifestMutatingWebhookConfiguration(),
-						CreateManifestValidatingWebhookConfiguration(),
-						CreateManifestNamespace(),
-						CreateCRDNodesEthereumKotalIo(),
-						CreateCRDBeaconnodesEthereum2KotalIo(),
-						CreateCRDAptosKotalIo(),
-						CreateCRDBitcoinKotalIo(),
-						CreateCRDChainlinkKotalIo(),
-						CreateCRDIpfsKotalIo(),
-						CreateCRDIpfsPeerKotalIo(),
-						CreateCRDFilecoinKotalIo(),
-						CreateCRDNearKotalIo(),
-						CreateCRDGraphKotalIo(),
-						CreateCRDPolkadotKotalIo(),
-						CreateCRDStacksKotalIo(),
-						CreateCRDValidatorKotalIo(),
-						CreateManifestClusterRole(),
-						CreateManifestClusterRoleMetricsReader(),
-						CreateManifestClusterRoleProxyRole(),
-						CreateManifestClusterRoleBindingManager(),
-						CreateManifestClusterRoleBindingProxy(),
-						CreateManifestRoleBindingLeaderElection(),
-						CreateManifestRole(),
-						CreateManifestServiceMetrics(),
-						CreateManifestServiceWebhook(),
-						CreateManifestServiceAccount(),
-						CreateManifestDeploymentControllerManager(),
-						CreateManifestCertificate(),
-						CreateManifestIssuer(),
-						authJWT,
-						executionClient,
-						consensusClient,
-					)
+				objects,
+				CreateManifestMutatingWebhookConfiguration(),
+				CreateManifestValidatingWebhookConfiguration(),
+				CreateManifestNamespace(),
+				CreateCRDNodesEthereumKotalIo(),
+				CreateCRDBeaconnodesEthereum2KotalIo(),
+				CreateCRDAptosKotalIo(),
+				CreateCRDBitcoinKotalIo(),
+				CreateCRDChainlinkKotalIo(),
+				CreateCRDIpfsKotalIo(),
+				CreateCRDIpfsPeerKotalIo(),
+				CreateCRDFilecoinKotalIo(),
+				CreateCRDNearKotalIo(),
+				CreateCRDGraphKotalIo(),
+				CreateCRDPolkadotKotalIo(),
+				CreateCRDStacksKotalIo(),
+				CreateCRDValidatorKotalIo(),
+				CreateManifestClusterRole(),
+				CreateManifestClusterRoleMetricsReader(),
+				CreateManifestClusterRoleProxyRole(),
+				CreateManifestClusterRoleBindingManager(),
+				CreateManifestClusterRoleBindingProxy(),
+				CreateManifestRoleBindingLeaderElection(),
+				CreateManifestRole(),
+				CreateManifestServiceMetrics(),
+				CreateManifestServiceWebhook(),
+				CreateManifestServiceAccount(),
+				CreateManifestDeploymentControllerManager(),
+				CreateManifestCertificate(),
+				CreateManifestIssuer(),
+				CreateManifestAuthJwt(),
+				CreateManifestEthereumNodeExecution(ethereumNodeDefinition.Network),
+				CreateManifestEthereumNodeConsensus(ethereumNodeDefinition.Network),
+			)
 
 			json, err := json.Marshal(objects)
 			if err != nil {
@@ -264,7 +182,7 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 				Common: v0.Common{
 					ID: ethereumNodeDefinition.ID,
 				},
-				Reconciled: &isReconciled,
+				Reconciled:           &isReconciled,
 				WorkloadDefinitionID: workloadDefinitionResponse.ID,
 			}
 
