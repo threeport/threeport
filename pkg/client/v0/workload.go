@@ -47,7 +47,7 @@ func CreateWorkloadResourceDefinitions(
 	return workloadResourceDefinitions, nil
 }
 
-// CreateWorkloadResourceDefinitions creates a new set of workload resource
+// UpdateWorkloadResourceDefinitions updates set of existing workload resource
 // definitions.
 func UpdateWorkloadResourceDefinitions(
 	workloadResourceDefinitions *[]v0.WorkloadResourceDefinition,
@@ -62,7 +62,7 @@ func UpdateWorkloadResourceDefinitions(
 	response, err := GetResponse(
 		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceDefinitionSets),
 		apiToken,
-		http.MethodPatch,
+		http.MethodPut,
 		bytes.NewBuffer(jsonWorkloadResourceDefinitions),
 		http.StatusCreated,
 	)
@@ -84,9 +84,9 @@ func UpdateWorkloadResourceDefinitions(
 	return workloadResourceDefinitions, nil
 }
 
-// CreateWorkloadResourceDefinitions creates a new set of workload resource
+// DeleteWorkloadResourceDefinitions deletes set of workload resource
 // definitions.
-func CreateWorkloadResourceDefinitions(
+func DeleteWorkloadResourceDefinitions(
 	workloadResourceDefinitions *[]v0.WorkloadResourceDefinition,
 	apiAddr string,
 	apiToken string,
@@ -99,7 +99,7 @@ func CreateWorkloadResourceDefinitions(
 	response, err := GetResponse(
 		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceDefinitionSets),
 		apiToken,
-		http.MethodPost,
+		http.MethodDelete,
 		bytes.NewBuffer(jsonWorkloadResourceDefinitions),
 		http.StatusCreated,
 	)
