@@ -15,4 +15,6 @@ func WorkloadResourceDefinitionSetRoutes(e *echo.Echo, h *handlers.Handler) {
 	//e.GET("/workload_resource_definition_sets/versions", h.GetWorkloadResourceDefinitionVersions)
 
 	e.POST(v0.PathWorkloadResourceDefinitionSets, h.AddWorkloadResourceDefinitions)
+	e.PUT(v0.PathWorkloadResourceDefinitionSets, h.UpdateWorkloadResourceDefinitions)
+	e.DELETE(v0.PathWorkloadResourceDefinitionSets, h.DeleteWorkloadResourceDefinitions)
 }
