@@ -41,6 +41,57 @@ func CreateResource(
 	return result, nil
 }
 
+// UpdateResource takes an unstructured object, dynamic client interface and rest
+// mapper and updates the resource in the target Kubernetes cluster.
+func UpdateResource(
+	kubeObject *unstructured.Unstructured,
+	kubeClient dynamic.Interface,
+	mapper meta.RESTMapper,
+) (*unstructured.Unstructured, error) {
+	// get the mapping for resource from kube object's group, kind
+	mapping, err := getResourceMapping(kubeObject, mapper)
+	if err != nil {
+		return nil, err
+	}
+
+	// create the kube resource
+	result, err := kubeClient.
+		Resource(mapping.Resource).
+		Namespace(kubeObject.GetNamespace()).
+		Update(context.TODO(), kubeObject, kubemetav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// DeleteResource takes an unstructured object, dynamic client interface and rest
+// mapper and deletes the resource in the target Kubernetes cluster.
+func DeleteResource(
+	kubeObject *unstructured.Unstructured,
+	kubeClient dynamic.Interface,
+	mapper meta.RESTMapper,
+) error {
+	// get the mapping for resource from kube object's group, kind
+	mapping, err := getResourceMapping(kubeObject, mapper)
+	if err != nil {
+		return err
+	}
+
+	// delete the kube resource
+	// name :kubeObject.GetName()
+	err = kubeClient.
+		Resource(mapping.Resource).
+		Namespace(kubeObject.GetNamespace()).
+		Delete(context.TODO(), kubeObject.GetName(), kubemetav1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // getResourceMapping gets the REST mapping for a given unstructured Kubernetes
 // object.
 func getResourceMapping(kubeObject *unstructured.Unstructured, mapper meta.RESTMapper) (*meta.RESTMapping, error) {
