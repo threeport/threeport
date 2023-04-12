@@ -3,6 +3,7 @@ package reconcile
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -178,8 +179,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// create each resource in the target kube cluster
-			createSuccess := 0
-			createFail := 0
+			operationSuccess := 0
+			operationFail := 0
 			for _, wrd := range *workloadResourceDefinitions {
 				wrdLog := r.Log.WithValues("workloadResourceDefinitionID", wrd.ID)
 
@@ -187,7 +188,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				jsonDefinition, err := wrd.JSONDefinition.MarshalJSON()
 				if err != nil {
 					wrdLog.Error(err, "failed to marshal the workload resource definition json")
-					createFail++
+					operationFail++
 					continue
 				}
 
@@ -195,33 +196,72 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
 				if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
 					wrdLog.Error(err, "failed to unmarshal json to kubernetes unstructured object")
-					createFail++
+					operationFail++
 					continue
 				}
 
-				// create kube resource
-				result, err := kube.CreateResource(kubeObject, dynamicKubeClient, *mapper)
-				if err != nil {
-					wrdLog.Error(err, "failed to create Kubernetes resource")
-					createFail++
+				// use the correct kube API based on notif operation
+
+				var result *unstructured.Unstructured
+				switch notif.Operation {
+
+				// create, update, or delete kube resources
+				case "Created":
+					result, err = kube.CreateResource(kubeObject, dynamicKubeClient, *mapper)
+					if err != nil {
+						wrdLog.Error(err, "failed to create Kubernetes resource")
+						operationFail++
+						continue
+					}
+					log.V(1).Info(
+						"workload instance created in API",
+						"workloadInstanceName", workloadInstance.Name,
+					)
+
+				case "Updated":
+					result, err = kube.UpdateResource(kubeObject, dynamicKubeClient, *mapper)
+					if err != nil {
+						wrdLog.Error(err, "failed to update Kubernetes resource")
+						operationFail++
+						continue
+					}
+					log.V(1).Info(
+						"workload instance updated in API",
+						"workloadInstanceName", workloadInstance.Name,
+					)
+
+				case "Deleted":
+					err = kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper)
+					if err != nil {
+						wrdLog.Error(err, "failed to delete Kubernetes resource")
+						operationFail++
+						continue
+					}
+					log.V(1).Info(
+						"workload instance deleted in API",
+						"workloadInstanceName", workloadInstance.Name,
+					)
+
+				default:
+					log.Error(err, "operation must be one of Created, Updated, or Deleted")
 					continue
 				}
 
-				createSuccess++
+				operationSuccess++
 				log.V(1).Info(
-					"created kubernetes resource",
+					notif.Operation + " kubernetes resource",
 					"kubeResourceName", result.GetName(),
 					"kubeResourceKind", result.GetKind(),
 					"workloadInstanceID", workloadInstance.ID,
 				)
 			}
 
-			// requeue if any kube resources failed creation
-			if createFail > 0 {
+			// requeue if any operations failed
+			if operationFail > 0 {
 				log.Error(
-					errors.New("one or more resources not created"), "some Kubernetes resources failed creation",
-					"resourceCreatedCount", createSuccess,
-					"resourceFailedCount", createFail,
+					errors.New("one or more resources not created"), "some Kubernetes resources failed to be " + strings.ToLower(notif.Operation),
+					"resourceCreatedCount", operationSuccess,
+					"resourceFailedCount", operationFail,
 				)
 				r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
 				continue
@@ -235,8 +275,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			log.V(1).Info(
-				"kubernetes resource creation complete",
-				"kubeResourcesCreated", createSuccess,
+				"kubernetes resource(s) have been " + strings.ToLower(notif.Operation),
+				"kubeResources", operationSuccess,
 				"workloadInstanceID", workloadInstance.ID,
 			)
 

@@ -190,7 +190,7 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 				)
 
 			default:
-				log.Error(err, "notification must be one of Created, Updated, or Deleted")
+				log.Error(err, "operation must be one of Created, Updated, or Deleted")
 				continue
 			}
 
