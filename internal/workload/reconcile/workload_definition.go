@@ -2,6 +2,7 @@ package reconcile
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	yamlv3 "gopkg.in/yaml.v3"
@@ -90,6 +91,28 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
+			// check for deletion
+			if notif.Operation == "Deleted" {
+				log.V(1).Info("received deleted notification")
+
+				wrds, err = client.DeleteWorkloadResourceDefinitions(
+					//wrdsJSON,
+					&workloadResourceDefinitions,
+					r.APIServer,
+					"",
+				)
+				if err != nil {
+					log.Error(err, "failed to delete workload resource definitions in API")
+					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+
+				log.V(1).Info(
+					"workload resource definitions deleted in API",
+					"workloadDefinitionName", workloadDefinition.Name,
+				)
+			}
+
 			// retrieve latest version of object if requeued
 			if notif.Requeue {
 				latestWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
@@ -144,21 +167,61 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// create workload resource definitions in API
-			wrds, err := client.CreateWorkloadResourceDefinitions(
-				//wrdsJSON,
-				&workloadResourceDefinitions,
-				r.APIServer,
-				"",
-			)
-			if err != nil {
-				log.Error(err, "failed to create workload resource definitions in API")
-				r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+			var wrds *[]v0.WorkloadResourceDefinition
+
+			// create or update workload resource definitions in API
+			switch notif.Operation {
+
+			case "Created":
+				log.V(1).Info("received created notification")
+
+				wrds, err = client.CreateWorkloadResourceDefinitions(
+					//wrdsJSON,
+					&workloadResourceDefinitions,
+					r.APIServer,
+					"",
+				)
+				if err != nil {
+					log.Error(err, "failed to create workload resource definitions in API")
+					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+
+				log.V(1).Info(
+					"workload resource definitions created in API",
+					"workloadDefinitionName", workloadDefinition.Name,
+				)
+
+			case "Updated":
+				log.V(1).Info("received updated notification")
+
+				for _, wrd := range workloadResourceDefinitions {
+				}
+				wrds, err = client.UpdateWorkloadResourceDefinition(
+					//wrdsJSON,
+					&workloadResourceDefinitions,
+					r.APIServer,
+					"",
+				)
+				if err != nil {
+					log.Error(err, "failed to update workload resource definitions in API")
+					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+
+				log.V(1).Info(
+					"workload resource definitions updated in API",
+					"workloadDefinitionName", workloadDefinition.Name,
+				)
+
+			default:
+				log.Error(err, "operation must be one of Created, Updated, or Deleted")
 				continue
 			}
+
 			for _, wrd := range *wrds {
 				log.V(1).Info(
-					"workload resource definition created",
+					"workload resource definitions "+strings.ToLower(notif.Operation),
 					"workloadResourceDefinitionID", wrd.ID,
 				)
 			}

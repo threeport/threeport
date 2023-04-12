@@ -88,21 +88,6 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// retrieve latest version of object if requeued
-			if notif.Requeue {
-				latestEthereumNodeDefinition, err := client.GetEthereumNodeDefinitionByID(
-					*ethereumNodeDefinition.ID,
-					r.APIServer,
-					"",
-				)
-				if err != nil {
-					log.Error(err, "failed to get ethereum node definition by ID from API")
-					r.UnlockAndRequeue(&ethereumNodeDefinition, msg.Subject, notifPayload, requeueDelay)
-					continue
-				}
-				ethereumNodeDefinition = *latestEthereumNodeDefinition
-			}
-
 			// check for deletion
 			if notif.Operation == "Deleted" {
 				log.V(1).Info("received deleted notification")
@@ -124,6 +109,21 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// if definition isn't being deleted, then we'll need to generate its manifests
+
+			// retrieve latest version of object if requeued
+			if notif.Requeue {
+				latestEthereumNodeDefinition, err := client.GetEthereumNodeDefinitionByID(
+					*ethereumNodeDefinition.ID,
+					r.APIServer,
+					"",
+				)
+				if err != nil {
+					log.Error(err, "failed to get ethereum node definition by ID from API")
+					r.UnlockAndRequeue(&ethereumNodeDefinition, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+				ethereumNodeDefinition = *latestEthereumNodeDefinition
+			}
 
 			// get manifest objects and marshal into json
 			json, err := json.Marshal(GetManifestObjects(ethereumNodeDefinition.Network))
