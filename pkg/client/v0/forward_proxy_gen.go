@@ -146,6 +146,32 @@ func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 	return forwardProxyDefinition, nil
 }
 
+// DeleteForwardProxyDefinition delete a forward proxy definition
+func DeleteForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinition, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	forwardProxyDefinitionID := *forwardProxyDefinition.ID
+	forwardProxyDefinition.ID = nil
+
+	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
+	if err != nil {
+		return forwardProxyDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, forwardProxyDefinitionID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonForwardProxyDefinition),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return forwardProxyDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return forwardProxyDefinition, nil
+}
+
 // GetForwardProxyInstanceByID feteches a forward proxy instance by ID
 func GetForwardProxyInstanceByID(id uint, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
 	var forwardProxyInstance v0.ForwardProxyInstance
@@ -275,6 +301,32 @@ func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 	decoder.UseNumber()
 	if err := decoder.Decode(&forwardProxyInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+	}
+
+	return forwardProxyInstance, nil
+}
+
+// DeleteForwardProxyInstance delete a forward proxy instance
+func DeleteForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	forwardProxyInstanceID := *forwardProxyInstance.ID
+	forwardProxyInstance.ID = nil
+
+	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
+	if err != nil {
+		return forwardProxyInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, forwardProxyInstanceID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonForwardProxyInstance),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return forwardProxyInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	return forwardProxyInstance, nil

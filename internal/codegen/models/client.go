@@ -354,6 +354,68 @@ func (cc *ControllerConfig) ClientLib() error {
 		)
 		f.Line()
 		// TODO: replace object
+		// delete object
+		deleteFuncName := fmt.Sprintf("Delete%s", mc.TypeName)
+		f.Comment(fmt.Sprintf(
+			"%s delete a %s",
+			deleteFuncName,
+			strcase.ToDelimited(mc.TypeName, ' '),
+		))
+		f.Func().Id(deleteFuncName).Params(
+			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
+				"github.com/threeport/threeport/pkg/api/v0",
+				mc.TypeName,
+			).Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
+		).Parens(List(
+			Op("*").Qual(
+				"github.com/threeport/threeport/pkg/api/v0",
+				mc.TypeName,
+			),
+			Error(),
+		)).Block(
+			Comment("capture the object ID then remove it from the object since the API will not"),
+			Comment("allow an update the ID field"),
+			Id(
+				fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName)),
+			).Op(":=").Op("*").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID"),
+			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID").Op("=").Nil(),
+			Line(),
+			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/client",
+				"MarshalObject",
+			).Call(Id(strcase.ToLowerCamel(mc.TypeName))),
+			If(Id("err").Op("!=").Nil().Block(
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(MarshalObjectErr).Op(",").Id("err")),
+			)),
+			Line(),
+			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Qual("fmt", "Sprintf").Call(
+					Lit(fmt.Sprintf(
+						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
+					)).Op(",").
+						Id("apiAddr").Op(",").
+						Id("ApiVersion").Op(",").
+						Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName))),
+				),
+				Line().Id("apiToken"),
+				Line().Qual("net/http", "MethodDelete"),
+				Line().Qual("bytes", "NewBuffer").Call(Id(
+					fmt.Sprintf("json%s", mc.TypeName),
+				)),
+				Line().Qual("net/http", "StatusNoContent"),
+				Line(),
+			),
+			If(Id("err").Op("!=").Nil().Block(
+				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(ResponseErr).Op(",").Id("err")),
+			)),
+			Line(),
+			Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
+		)
+		f.Line()
 	}
 
 	// write code to file

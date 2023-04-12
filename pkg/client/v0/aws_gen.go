@@ -146,6 +146,32 @@ func UpdateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.
 	return awsAccount, nil
 }
 
+// DeleteAwsAccount delete a aws account
+func DeleteAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.AwsAccount, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	awsAccountID := *awsAccount.ID
+	awsAccount.ID = nil
+
+	jsonAwsAccount, err := client.MarshalObject(awsAccount)
+	if err != nil {
+		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-accounts/%d", apiAddr, ApiVersion, awsAccountID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonAwsAccount),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return awsAccount, nil
+}
+
 // GetAwsEksClusterDefinitionByID feteches a aws eks cluster definition by ID
 func GetAwsEksClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
 	var awsEksClusterDefinition v0.AwsEksClusterDefinition
@@ -275,6 +301,32 @@ func UpdateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefi
 	decoder.UseNumber()
 	if err := decoder.Decode(&awsEksClusterDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+	}
+
+	return awsEksClusterDefinition, nil
+}
+
+// DeleteAwsEksClusterDefinition delete a aws eks cluster definition
+func DeleteAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefinition, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	awsEksClusterDefinitionID := *awsEksClusterDefinition.ID
+	awsEksClusterDefinition.ID = nil
+
+	jsonAwsEksClusterDefinition, err := client.MarshalObject(awsEksClusterDefinition)
+	if err != nil {
+		return awsEksClusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions/%d", apiAddr, ApiVersion, awsEksClusterDefinitionID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonAwsEksClusterDefinition),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return awsEksClusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	return awsEksClusterDefinition, nil
@@ -414,6 +466,32 @@ func UpdateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance
 	return awsEksClusterInstance, nil
 }
 
+// DeleteAwsEksClusterInstance delete a aws eks cluster instance
+func DeleteAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	awsEksClusterInstanceID := *awsEksClusterInstance.ID
+	awsEksClusterInstance.ID = nil
+
+	jsonAwsEksClusterInstance, err := client.MarshalObject(awsEksClusterInstance)
+	if err != nil {
+		return awsEksClusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-eks-cluster-instances/%d", apiAddr, ApiVersion, awsEksClusterInstanceID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonAwsEksClusterInstance),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return awsEksClusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return awsEksClusterInstance, nil
+}
+
 // GetAwsRelationalDatabaseDefinitionByID feteches a aws relational database definition by ID
 func GetAwsRelationalDatabaseDefinitionByID(id uint, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
@@ -548,6 +626,32 @@ func UpdateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.A
 	return awsRelationalDatabaseDefinition, nil
 }
 
+// DeleteAwsRelationalDatabaseDefinition delete a aws relational database definition
+func DeleteAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	awsRelationalDatabaseDefinitionID := *awsRelationalDatabaseDefinition.ID
+	awsRelationalDatabaseDefinition.ID = nil
+
+	jsonAwsRelationalDatabaseDefinition, err := client.MarshalObject(awsRelationalDatabaseDefinition)
+	if err != nil {
+		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-relational-database-definitions/%d", apiAddr, ApiVersion, awsRelationalDatabaseDefinitionID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonAwsRelationalDatabaseDefinition),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return awsRelationalDatabaseDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return awsRelationalDatabaseDefinition, nil
+}
+
 // GetAwsRelationalDatabaseInstanceByID feteches a aws relational database instance by ID
 func GetAwsRelationalDatabaseInstanceByID(id uint, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
@@ -677,6 +781,32 @@ func UpdateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRe
 	decoder.UseNumber()
 	if err := decoder.Decode(&awsRelationalDatabaseInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+	}
+
+	return awsRelationalDatabaseInstance, nil
+}
+
+// DeleteAwsRelationalDatabaseInstance delete a aws relational database instance
+func DeleteAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	awsRelationalDatabaseInstanceID := *awsRelationalDatabaseInstance.ID
+	awsRelationalDatabaseInstance.ID = nil
+
+	jsonAwsRelationalDatabaseInstance, err := client.MarshalObject(awsRelationalDatabaseInstance)
+	if err != nil {
+		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, awsRelationalDatabaseInstanceID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonAwsRelationalDatabaseInstance),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return awsRelationalDatabaseInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	return awsRelationalDatabaseInstance, nil

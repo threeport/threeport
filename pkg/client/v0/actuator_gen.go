@@ -146,6 +146,32 @@ func UpdateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, 
 	return profile, nil
 }
 
+// DeleteProfile delete a profile
+func DeleteProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	profileID := *profile.ID
+	profile.ID = nil
+
+	jsonProfile, err := client.MarshalObject(profile)
+	if err != nil {
+		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, profileID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonProfile),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return profile, nil
+}
+
 // GetTierByID feteches a tier by ID
 func GetTierByID(id uint, apiAddr, apiToken string) (*v0.Tier, error) {
 	var tier v0.Tier
@@ -275,6 +301,32 @@ func UpdateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 	decoder.UseNumber()
 	if err := decoder.Decode(&tier); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+	}
+
+	return tier, nil
+}
+
+// DeleteTier delete a tier
+func DeleteTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	tierID := *tier.ID
+	tier.ID = nil
+
+	jsonTier, err := client.MarshalObject(tier)
+	if err != nil {
+		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, tierID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonTier),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	return tier, nil

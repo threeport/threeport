@@ -564,60 +564,60 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - EthereumNodeDefinition
+    - EthereumNodeInstance
+    - ClusterDefinition
+    - ClusterInstance
+    - User
+    - Company
+    - DomainNameDefinition
+    - DomainNameInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - EthereumNodeDefinition
-    - EthereumNodeInstance
     - Profile
     - Tier
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - User
-    - Company
     type: string
     x-enum-varnames:
+    - ObjectTypeEthereumNodeDefinition
+    - ObjectTypeEthereumNodeInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeEthereumNodeDefinition
-    - ObjectTypeEthereumNodeInstance
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
   v0.Profile:
     properties:
       CompanyID:

@@ -146,6 +146,32 @@ func UpdateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 	return ethereumNodeDefinition, nil
 }
 
+// DeleteEthereumNodeDefinition delete a ethereum node definition
+func DeleteEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinition, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	ethereumNodeDefinitionID := *ethereumNodeDefinition.ID
+	ethereumNodeDefinition.ID = nil
+
+	jsonEthereumNodeDefinition, err := client.MarshalObject(ethereumNodeDefinition)
+	if err != nil {
+		return ethereumNodeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/ethereum-node-definitions/%d", apiAddr, ApiVersion, ethereumNodeDefinitionID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonEthereumNodeDefinition),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return ethereumNodeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return ethereumNodeDefinition, nil
+}
+
 // GetEthereumNodeInstanceByID feteches a ethereum node instance by ID
 func GetEthereumNodeInstanceByID(id uint, apiAddr, apiToken string) (*v0.EthereumNodeInstance, error) {
 	var ethereumNodeInstance v0.EthereumNodeInstance
@@ -275,6 +301,32 @@ func UpdateEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, a
 	decoder.UseNumber()
 	if err := decoder.Decode(&ethereumNodeInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+	}
+
+	return ethereumNodeInstance, nil
+}
+
+// DeleteEthereumNodeInstance delete a ethereum node instance
+func DeleteEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, apiAddr, apiToken string) (*v0.EthereumNodeInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	ethereumNodeInstanceID := *ethereumNodeInstance.ID
+	ethereumNodeInstance.ID = nil
+
+	jsonEthereumNodeInstance, err := client.MarshalObject(ethereumNodeInstance)
+	if err != nil {
+		return ethereumNodeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/ethereum-node-instances/%d", apiAddr, ApiVersion, ethereumNodeInstanceID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonEthereumNodeInstance),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return ethereumNodeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	return ethereumNodeInstance, nil

@@ -146,6 +146,32 @@ func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 	return networkIngressDefinition, nil
 }
 
+// DeleteNetworkIngressDefinition delete a network ingress definition
+func DeleteNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	networkIngressDefinitionID := *networkIngressDefinition.ID
+	networkIngressDefinition.ID = nil
+
+	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
+	if err != nil {
+		return networkIngressDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, networkIngressDefinitionID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonNetworkIngressDefinition),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return networkIngressDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return networkIngressDefinition, nil
+}
+
 // GetNetworkIngressInstanceByID feteches a network ingress instance by ID
 func GetNetworkIngressInstanceByID(id uint, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
 	var networkIngressInstance v0.NetworkIngressInstance
@@ -275,6 +301,32 @@ func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 	decoder.UseNumber()
 	if err := decoder.Decode(&networkIngressInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+	}
+
+	return networkIngressInstance, nil
+}
+
+// DeleteNetworkIngressInstance delete a network ingress instance
+func DeleteNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	networkIngressInstanceID := *networkIngressInstance.ID
+	networkIngressInstance.ID = nil
+
+	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
+	if err != nil {
+		return networkIngressInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, networkIngressInstanceID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonNetworkIngressInstance),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return networkIngressInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	return networkIngressInstance, nil

@@ -146,6 +146,32 @@ func UpdateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.
 	return logBackend, nil
 }
 
+// DeleteLogBackend delete a log backend
+func DeleteLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.LogBackend, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	logBackendID := *logBackend.ID
+	logBackend.ID = nil
+
+	jsonLogBackend, err := client.MarshalObject(logBackend)
+	if err != nil {
+		return logBackend, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, logBackendID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonLogBackend),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return logBackend, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return logBackend, nil
+}
+
 // GetLogStorageDefinitionByID feteches a log storage definition by ID
 func GetLogStorageDefinitionByID(id uint, apiAddr, apiToken string) (*v0.LogStorageDefinition, error) {
 	var logStorageDefinition v0.LogStorageDefinition
@@ -280,6 +306,32 @@ func UpdateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, a
 	return logStorageDefinition, nil
 }
 
+// DeleteLogStorageDefinition delete a log storage definition
+func DeleteLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, apiAddr, apiToken string) (*v0.LogStorageDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	logStorageDefinitionID := *logStorageDefinition.ID
+	logStorageDefinition.ID = nil
+
+	jsonLogStorageDefinition, err := client.MarshalObject(logStorageDefinition)
+	if err != nil {
+		return logStorageDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, logStorageDefinitionID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonLogStorageDefinition),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return logStorageDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return logStorageDefinition, nil
+}
+
 // GetLogStorageInstanceByID feteches a log storage instance by ID
 func GetLogStorageInstanceByID(id uint, apiAddr, apiToken string) (*v0.LogStorageInstance, error) {
 	var logStorageInstance v0.LogStorageInstance
@@ -409,6 +461,32 @@ func UpdateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr
 	decoder.UseNumber()
 	if err := decoder.Decode(&logStorageInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+	}
+
+	return logStorageInstance, nil
+}
+
+// DeleteLogStorageInstance delete a log storage instance
+func DeleteLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr, apiToken string) (*v0.LogStorageInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	logStorageInstanceID := *logStorageInstance.ID
+	logStorageInstance.ID = nil
+
+	jsonLogStorageInstance, err := client.MarshalObject(logStorageInstance)
+	if err != nil {
+		return logStorageInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, logStorageInstanceID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonLogStorageInstance),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return logStorageInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	return logStorageInstance, nil

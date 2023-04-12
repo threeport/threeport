@@ -146,6 +146,32 @@ func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 	return user, nil
 }
 
+// DeleteUser delete a user
+func DeleteUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	userID := *user.ID
+	user.ID = nil
+
+	jsonUser, err := client.MarshalObject(user)
+	if err != nil {
+		return user, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, userID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonUser),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return user, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return user, nil
+}
+
 // GetCompanyByID feteches a company by ID
 func GetCompanyByID(id uint, apiAddr, apiToken string) (*v0.Company, error) {
 	var company v0.Company
@@ -275,6 +301,32 @@ func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 	decoder.UseNumber()
 	if err := decoder.Decode(&company); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+	}
+
+	return company, nil
+}
+
+// DeleteCompany delete a company
+func DeleteCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	companyID := *company.ID
+	company.ID = nil
+
+	jsonCompany, err := client.MarshalObject(company)
+	if err != nil {
+		return company, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, companyID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonCompany),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return company, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	return company, nil

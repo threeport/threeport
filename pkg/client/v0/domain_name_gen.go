@@ -146,6 +146,32 @@ func UpdateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 	return domainNameDefinition, nil
 }
 
+// DeleteDomainNameDefinition delete a domain name definition
+func DeleteDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, apiAddr, apiToken string) (*v0.DomainNameDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	domainNameDefinitionID := *domainNameDefinition.ID
+	domainNameDefinition.ID = nil
+
+	jsonDomainNameDefinition, err := client.MarshalObject(domainNameDefinition)
+	if err != nil {
+		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, domainNameDefinitionID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonDomainNameDefinition),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return domainNameDefinition, nil
+}
+
 // GetDomainNameInstanceByID feteches a domain name instance by ID
 func GetDomainNameInstanceByID(id uint, apiAddr, apiToken string) (*v0.DomainNameInstance, error) {
 	var domainNameInstance v0.DomainNameInstance
@@ -275,6 +301,32 @@ func UpdateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 	decoder.UseNumber()
 	if err := decoder.Decode(&domainNameInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+	}
+
+	return domainNameInstance, nil
+}
+
+// DeleteDomainNameInstance delete a domain name instance
+func DeleteDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr, apiToken string) (*v0.DomainNameInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	domainNameInstanceID := *domainNameInstance.ID
+	domainNameInstance.ID = nil
+
+	jsonDomainNameInstance, err := client.MarshalObject(domainNameInstance)
+	if err != nil {
+		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, domainNameInstanceID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonDomainNameInstance),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	return domainNameInstance, nil

@@ -146,6 +146,32 @@ func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, a
 	return clusterDefinition, nil
 }
 
+// DeleteClusterDefinition delete a cluster definition
+func DeleteClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	clusterDefinitionID := *clusterDefinition.ID
+	clusterDefinition.ID = nil
+
+	jsonClusterDefinition, err := client.MarshalObject(clusterDefinition)
+	if err != nil {
+		return clusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/cluster-definitions/%d", apiAddr, ApiVersion, clusterDefinitionID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonClusterDefinition),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return clusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	return clusterDefinition, nil
+}
+
 // GetClusterInstanceByID feteches a cluster instance by ID
 func GetClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
 	var clusterInstance v0.ClusterInstance
@@ -275,6 +301,32 @@ func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToke
 	decoder.UseNumber()
 	if err := decoder.Decode(&clusterInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+	}
+
+	return clusterInstance, nil
+}
+
+// DeleteClusterInstance delete a cluster instance
+func DeleteClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
+	// capture the object ID then remove it from the object since the API will not
+	// allow an update the ID field
+	clusterInstanceID := *clusterInstance.ID
+	clusterInstance.ID = nil
+
+	jsonClusterInstance, err := client.MarshalObject(clusterInstance)
+	if err != nil {
+		return clusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/cluster-instances/%d", apiAddr, ApiVersion, clusterInstanceID),
+		apiToken,
+		http.MethodDelete,
+		bytes.NewBuffer(jsonClusterInstance),
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return clusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	return clusterInstance, nil
