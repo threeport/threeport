@@ -9,8 +9,6 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/controller"
 	"github.com/threeport/threeport/pkg/notifications"
-
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EthereumNodeDefinitionReconciler reconciles system state when a EthereumNodeDefinition
@@ -105,45 +103,30 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 				ethereumNodeDefinition = *latestEthereumNodeDefinition
 			}
 
-			// aggregate manifests into a single yaml
-			var objects []runtime.Object
-			objects = append(
-				objects,
-				CreateManifestMutatingWebhookConfiguration(),
-				CreateManifestValidatingWebhookConfiguration(),
-				CreateManifestNamespace(),
-				CreateCRDNodesEthereumKotalIo(),
-				CreateCRDBeaconnodesEthereum2KotalIo(),
-				CreateCRDAptosKotalIo(),
-				CreateCRDBitcoinKotalIo(),
-				CreateCRDChainlinkKotalIo(),
-				CreateCRDIpfsKotalIo(),
-				CreateCRDIpfsPeerKotalIo(),
-				CreateCRDFilecoinKotalIo(),
-				CreateCRDNearKotalIo(),
-				CreateCRDGraphKotalIo(),
-				CreateCRDPolkadotKotalIo(),
-				CreateCRDStacksKotalIo(),
-				CreateCRDValidatorKotalIo(),
-				CreateManifestClusterRole(),
-				CreateManifestClusterRoleMetricsReader(),
-				CreateManifestClusterRoleProxyRole(),
-				CreateManifestClusterRoleBindingManager(),
-				CreateManifestClusterRoleBindingProxy(),
-				CreateManifestRoleBindingLeaderElection(),
-				CreateManifestRole(),
-				CreateManifestServiceMetrics(),
-				CreateManifestServiceWebhook(),
-				CreateManifestServiceAccount(),
-				CreateManifestDeploymentControllerManager(),
-				CreateManifestCertificate(),
-				CreateManifestIssuer(),
-				CreateManifestAuthJwt(),
-				CreateManifestEthereumNodeExecution(ethereumNodeDefinition.Network),
-				CreateManifestEthereumNodeConsensus(ethereumNodeDefinition.Network),
-			)
+			// check for deletion
+			if notif.Operation == "Deleted" {
+				log.V(1).Info("received deleted notification")
 
-			json, err := json.Marshal(objects)
+				// _, err = client.DeleteWorkloadInstance(
+				// 	&workloadInstance,
+				// 	r.APIServer,
+				// 	"",
+				// )
+				// if err != nil {
+				// 	log.Error(err, "failed to update workload instance")
+				// 	r.UnlockAndRequeue(&ethereumNodeInstance, msg.Subject, notifPayload, requeueDelay)
+				// 	continue
+				// }
+				// log.V(1).Info(
+				// 	"workload instance deleted in API",
+				// 	"workloadInstanceName", workloadInstance.Name,
+				// )
+			}
+
+			// if definition isn't being deleted, then we'll need to generate its manifests
+
+			// get manifest objects and marshal into json
+			json, err := json.Marshal(GetManifestObjects(ethereumNodeDefinition.Network))
 			if err != nil {
 				log.Error(err, "failed to marshal workload definition")
 				r.UnlockAndRequeue(&ethereumNodeDefinition, msg.Subject, notifPayload, requeueDelay)
@@ -164,15 +147,50 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 				JSONDocument: &jsonString,
 			}
 
-			// persist workload definition to database
-			workloadDefinitionResponse, err := client.CreateWorkloadDefinition(
-				&workloadDefinition,
-				r.APIServer,
-				"",
-			)
-			if err != nil {
-				log.Error(err, "failed to create workload definition")
-				r.UnlockAndRequeue(&ethereumNodeDefinition, msg.Subject, notifPayload, requeueDelay)
+
+			var workloadDefinitionResponse *v0.WorkloadDefinition
+
+			switch notif.Operation {
+
+			case "Created":
+				log.V(1).Info("received created notification")
+
+				// persist workload definition to database
+				workloadDefinitionResponse, err = client.CreateWorkloadDefinition(
+					&workloadDefinition,
+					r.APIServer,
+					"",
+				)
+				if err != nil {
+					log.Error(err, "failed to create workload definition")
+					r.UnlockAndRequeue(&ethereumNodeDefinition, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+				log.V(1).Info(
+					"workload definition created in API",
+					"workloadDefinitionName", workloadDefinition.Name,
+				)
+
+			case "Updated":
+				log.V(1).Info("received updated notification")
+
+				workloadDefinitionResponse, err = client.UpdateWorkloadDefinition(
+					&workloadDefinition,
+					r.APIServer,
+					"",
+				)
+				if err != nil {
+					log.Error(err, "failed to update workload definition")
+					r.UnlockAndRequeue(&ethereumNodeDefinition, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+				log.V(1).Info(
+					"workload definition updated in API",
+					"workloadDefinitionName", workloadDefinition.Name,
+				)
+
+			default:
+				log.Error(err, "notification must be one of Created, Updated, or Deleted")
 				continue
 			}
 

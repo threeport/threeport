@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	// "sigs.k8s.io/controller-runtime/pkg/client"
 	// "github.com/nukleros/operator-builder-tools/pkg/controller/workload"
 	// appsv1alpha1 "github.com/randalljohnson/operator-builder-kotal/apis/apps/v1alpha1"
@@ -28,6 +29,47 @@ import (
 )
 
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;create;update;patch;delete
+func GetManifestObjects(network *string) *[]runtime.Object {
+	// aggregate manifests into a single yaml
+	var objects []runtime.Object
+	objects = append(
+		objects,
+		CreateManifestMutatingWebhookConfiguration(),
+		CreateManifestValidatingWebhookConfiguration(),
+		CreateManifestNamespace(),
+		CreateCRDNodesEthereumKotalIo(),
+		CreateCRDBeaconnodesEthereum2KotalIo(),
+		CreateCRDAptosKotalIo(),
+		CreateCRDBitcoinKotalIo(),
+		CreateCRDChainlinkKotalIo(),
+		CreateCRDIpfsKotalIo(),
+		CreateCRDIpfsPeerKotalIo(),
+		CreateCRDFilecoinKotalIo(),
+		CreateCRDNearKotalIo(),
+		CreateCRDGraphKotalIo(),
+		CreateCRDPolkadotKotalIo(),
+		CreateCRDStacksKotalIo(),
+		CreateCRDValidatorKotalIo(),
+		CreateManifestClusterRole(),
+		CreateManifestClusterRoleMetricsReader(),
+		CreateManifestClusterRoleProxyRole(),
+		CreateManifestClusterRoleBindingManager(),
+		CreateManifestClusterRoleBindingProxy(),
+		CreateManifestRoleBindingLeaderElection(),
+		CreateManifestRole(),
+		CreateManifestServiceMetrics(),
+		CreateManifestServiceWebhook(),
+		CreateManifestServiceAccount(),
+		CreateManifestDeploymentControllerManager(),
+		CreateManifestCertificate(),
+		CreateManifestIssuer(),
+		CreateManifestAuthJwt(),
+		CreateManifestEthereumNodeExecution(network),
+		CreateManifestEthereumNodeConsensus(network),
+	)
+
+	return &objects
+}
 
 // Create auth jwt secret for consensus client -> execution client auth
 func CreateManifestAuthJwt() *unstructured.Unstructured {
