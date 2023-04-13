@@ -185,6 +185,14 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := updatedDomainNameDefinition.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.DomainNameDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, existingDomainNameDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -472,6 +480,14 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	if result := h.DB.Model(&existingDomainNameInstance).Updates(updatedDomainNameInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := updatedDomainNameInstance.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.DomainNameInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, existingDomainNameInstance)
 	if err != nil {

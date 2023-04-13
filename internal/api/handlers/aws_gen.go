@@ -185,6 +185,14 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := updatedAwsAccount.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsAccountCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, existingAwsAccount)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -472,6 +480,14 @@ func (h Handler) UpdateAwsEksClusterDefinition(c echo.Context) error {
 	if result := h.DB.Model(&existingAwsEksClusterDefinition).Updates(updatedAwsEksClusterDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := updatedAwsEksClusterDefinition.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsEksClusterDefinitionCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, existingAwsEksClusterDefinition)
 	if err != nil {
@@ -761,6 +777,14 @@ func (h Handler) UpdateAwsEksClusterInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := updatedAwsEksClusterInstance.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsEksClusterInstanceCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, existingAwsEksClusterInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1049,6 +1073,14 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := updatedAwsRelationalDatabaseDefinition.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsRelationalDatabaseDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1336,6 +1368,14 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 	if result := h.DB.Model(&existingAwsRelationalDatabaseInstance).Updates(updatedAwsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := updatedAwsRelationalDatabaseInstance.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsRelationalDatabaseInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseInstance)
 	if err != nil {

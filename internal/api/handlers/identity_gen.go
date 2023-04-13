@@ -185,6 +185,14 @@ func (h Handler) UpdateUser(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := updatedUser.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.UserCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, existingUser)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -472,6 +480,14 @@ func (h Handler) UpdateCompany(c echo.Context) error {
 	if result := h.DB.Model(&existingCompany).Updates(updatedCompany); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := updatedCompany.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.CompanyCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, existingCompany)
 	if err != nil {

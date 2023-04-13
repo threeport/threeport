@@ -185,6 +185,14 @@ func (h Handler) UpdateEthereumNodeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := updatedEthereumNodeDefinition.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.EthereumNodeDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, existingEthereumNodeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -472,6 +480,14 @@ func (h Handler) UpdateEthereumNodeInstance(c echo.Context) error {
 	if result := h.DB.Model(&existingEthereumNodeInstance).Updates(updatedEthereumNodeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := updatedEthereumNodeInstance.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.EthereumNodeInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, existingEthereumNodeInstance)
 	if err != nil {

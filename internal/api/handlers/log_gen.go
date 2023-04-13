@@ -185,6 +185,14 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := updatedLogBackend.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.LogBackendCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, existingLogBackend)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -473,6 +481,14 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := updatedLogStorageDefinition.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.LogStorageDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, existingLogStorageDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -760,6 +776,14 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 	if result := h.DB.Model(&existingLogStorageInstance).Updates(updatedLogStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := updatedLogStorageInstance.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.LogStorageInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, existingLogStorageInstance)
 	if err != nil {

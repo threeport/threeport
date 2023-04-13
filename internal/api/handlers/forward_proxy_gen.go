@@ -185,6 +185,14 @@ func (h Handler) UpdateForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := updatedForwardProxyDefinition.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ForwardProxyDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, existingForwardProxyDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -472,6 +480,14 @@ func (h Handler) UpdateForwardProxyInstance(c echo.Context) error {
 	if result := h.DB.Model(&existingForwardProxyInstance).Updates(updatedForwardProxyInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := updatedForwardProxyInstance.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ForwardProxyInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, existingForwardProxyInstance)
 	if err != nil {

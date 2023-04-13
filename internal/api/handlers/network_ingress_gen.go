@@ -185,6 +185,14 @@ func (h Handler) UpdateNetworkIngressDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := updatedNetworkIngressDefinition.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.NetworkIngressDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, existingNetworkIngressDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -472,6 +480,14 @@ func (h Handler) UpdateNetworkIngressInstance(c echo.Context) error {
 	if result := h.DB.Model(&existingNetworkIngressInstance).Updates(updatedNetworkIngressInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := updatedNetworkIngressInstance.NotificationPayload(false, 0, "Updated")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.NetworkIngressInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, existingNetworkIngressInstance)
 	if err != nil {
