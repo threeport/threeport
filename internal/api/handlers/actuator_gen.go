@@ -49,9 +49,6 @@ func (h Handler) AddProfile(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addProfile.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, profile, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -182,9 +179,6 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 	if err := c.Bind(&updatedProfile); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedProfile.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingProfile).Updates(updatedProfile); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -334,9 +328,6 @@ func (h Handler) AddTier(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addTier.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, tier, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -467,9 +458,6 @@ func (h Handler) UpdateTier(c echo.Context) error {
 	if err := c.Bind(&updatedTier); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedTier.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingTier).Updates(updatedTier); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)

@@ -49,9 +49,6 @@ func (h Handler) AddEthereumNodeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addEthereumNodeDefinition.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, ethereumNodeDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -182,9 +179,6 @@ func (h Handler) UpdateEthereumNodeDefinition(c echo.Context) error {
 	if err := c.Bind(&updatedEthereumNodeDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedEthereumNodeDefinition.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingEthereumNodeDefinition).Updates(updatedEthereumNodeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -334,9 +328,6 @@ func (h Handler) AddEthereumNodeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addEthereumNodeInstance.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, ethereumNodeInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -467,9 +458,6 @@ func (h Handler) UpdateEthereumNodeInstance(c echo.Context) error {
 	if err := c.Bind(&updatedEthereumNodeInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedEthereumNodeInstance.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingEthereumNodeInstance).Updates(updatedEthereumNodeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)

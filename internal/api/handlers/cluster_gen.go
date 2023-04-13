@@ -49,9 +49,6 @@ func (h Handler) AddClusterDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addClusterDefinition.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, clusterDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -182,9 +179,6 @@ func (h Handler) UpdateClusterDefinition(c echo.Context) error {
 	if err := c.Bind(&updatedClusterDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedClusterDefinition.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingClusterDefinition).Updates(updatedClusterDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -334,9 +328,6 @@ func (h Handler) AddClusterInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addClusterInstance.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, clusterInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -467,9 +458,6 @@ func (h Handler) UpdateClusterInstance(c echo.Context) error {
 	if err := c.Bind(&updatedClusterInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedClusterInstance.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingClusterInstance).Updates(updatedClusterInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)

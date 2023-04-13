@@ -569,60 +569,60 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ClusterDefinition
-    - ClusterInstance
-    - Profile
-    - Tier
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - EthereumNodeDefinition
-    - EthereumNodeInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - User
+    - Company
+    - ClusterDefinition
+    - ClusterInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - User
-    - Company
     - ForwardProxyDefinition
     - ForwardProxyInstance
+    - Profile
+    - Tier
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - EthereumNodeDefinition
+    - EthereumNodeInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeEthereumNodeDefinition
-    - ObjectTypeEthereumNodeInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeEthereumNodeDefinition
+    - ObjectTypeEthereumNodeInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
   v0.Profile:
     properties:
       CompanyID:

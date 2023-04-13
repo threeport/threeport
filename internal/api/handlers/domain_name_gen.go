@@ -49,9 +49,6 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addDomainNameDefinition.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, domainNameDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -182,9 +179,6 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 	if err := c.Bind(&updatedDomainNameDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedDomainNameDefinition.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingDomainNameDefinition).Updates(updatedDomainNameDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -334,9 +328,6 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addDomainNameInstance.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, domainNameInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -467,9 +458,6 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	if err := c.Bind(&updatedDomainNameInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedDomainNameInstance.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingDomainNameInstance).Updates(updatedDomainNameInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)

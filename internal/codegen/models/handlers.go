@@ -164,9 +164,9 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")),
 				),
 			)),
-			Line(),
-			Id("reconciled").Op(":=").Lit(false),
-			Id(fmt.Sprintf("add%s", mc.TypeName)).Dot("Reconciled").Op("=").Op("&").Id("reconciled"),
+			// Line(),
+			// Id("reconciled").Op(":=").Lit(false),
+			// Id(fmt.Sprintf("add%s", mc.TypeName)).Dot("Reconciled").Op("=").Op("&").Id("reconciled"),
 			Line(),
 			Comment("check for missing required fields"),
 			If(Id("id").Op(",").Id("err").Op(":=").Qual(
@@ -614,9 +614,9 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
 			),
-			Line(),
-			Id("reconciled").Op(":=").Lit(false),
-			Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("=").Op("&").Id("reconciled"),
+			// Line(),
+			// Id("reconciled").Op(":=").Lit(false),
+			// Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("=").Op("&").Id("reconciled"),
 			Line(),
 			If(
 				Id("result").Op(":=").Id("h").Dot("DB").Dot("Model").Call(

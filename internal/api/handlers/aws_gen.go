@@ -49,9 +49,6 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addAwsAccount.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, awsAccount, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -182,9 +179,6 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 	if err := c.Bind(&updatedAwsAccount); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedAwsAccount.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingAwsAccount).Updates(updatedAwsAccount); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -334,9 +328,6 @@ func (h Handler) AddAwsEksClusterDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addAwsEksClusterDefinition.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, awsEksClusterDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -467,9 +458,6 @@ func (h Handler) UpdateAwsEksClusterDefinition(c echo.Context) error {
 	if err := c.Bind(&updatedAwsEksClusterDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedAwsEksClusterDefinition.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingAwsEksClusterDefinition).Updates(updatedAwsEksClusterDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -619,9 +607,6 @@ func (h Handler) AddAwsEksClusterInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addAwsEksClusterInstance.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, awsEksClusterInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -752,9 +737,6 @@ func (h Handler) UpdateAwsEksClusterInstance(c echo.Context) error {
 	if err := c.Bind(&updatedAwsEksClusterInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedAwsEksClusterInstance.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingAwsEksClusterInstance).Updates(updatedAwsEksClusterInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -904,9 +886,6 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addAwsRelationalDatabaseDefinition.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, awsRelationalDatabaseDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -1037,9 +1016,6 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 	if err := c.Bind(&updatedAwsRelationalDatabaseDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedAwsRelationalDatabaseDefinition.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingAwsRelationalDatabaseDefinition).Updates(updatedAwsRelationalDatabaseDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -1189,9 +1165,6 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addAwsRelationalDatabaseInstance.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, awsRelationalDatabaseInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -1322,9 +1295,6 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 	if err := c.Bind(&updatedAwsRelationalDatabaseInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedAwsRelationalDatabaseInstance.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingAwsRelationalDatabaseInstance).Updates(updatedAwsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)

@@ -49,9 +49,6 @@ func (h Handler) AddNetworkIngressDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addNetworkIngressDefinition.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, networkIngressDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -182,9 +179,6 @@ func (h Handler) UpdateNetworkIngressDefinition(c echo.Context) error {
 	if err := c.Bind(&updatedNetworkIngressDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedNetworkIngressDefinition.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingNetworkIngressDefinition).Updates(updatedNetworkIngressDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -334,9 +328,6 @@ func (h Handler) AddNetworkIngressInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addNetworkIngressInstance.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, networkIngressInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -467,9 +458,6 @@ func (h Handler) UpdateNetworkIngressInstance(c echo.Context) error {
 	if err := c.Bind(&updatedNetworkIngressInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedNetworkIngressInstance.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingNetworkIngressInstance).Updates(updatedNetworkIngressInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)

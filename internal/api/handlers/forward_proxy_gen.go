@@ -49,9 +49,6 @@ func (h Handler) AddForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addForwardProxyDefinition.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, forwardProxyDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -182,9 +179,6 @@ func (h Handler) UpdateForwardProxyDefinition(c echo.Context) error {
 	if err := c.Bind(&updatedForwardProxyDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedForwardProxyDefinition.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingForwardProxyDefinition).Updates(updatedForwardProxyDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -334,9 +328,6 @@ func (h Handler) AddForwardProxyInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	reconciled := false
-	addForwardProxyInstance.Reconciled = &reconciled
-
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, forwardProxyInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -467,9 +458,6 @@ func (h Handler) UpdateForwardProxyInstance(c echo.Context) error {
 	if err := c.Bind(&updatedForwardProxyInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-
-	reconciled := false
-	updatedForwardProxyInstance.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingForwardProxyInstance).Updates(updatedForwardProxyInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
