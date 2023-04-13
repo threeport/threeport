@@ -80,10 +80,11 @@ func GetLogSubjects() []string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (lb *LogBackend) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (lb *LogBackend) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           lb,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -108,10 +109,11 @@ func (lb LogBackend) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (lsd *LogStorageDefinition) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (lsd *LogStorageDefinition) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           lsd,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -136,10 +138,11 @@ func (lsd LogStorageDefinition) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (lsi *LogStorageInstance) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (lsi *LogStorageInstance) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           lsi,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 

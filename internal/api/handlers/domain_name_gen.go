@@ -59,11 +59,12 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := domainNameDefinition.NotificationPayload(false, 0)
+	notifyPayload, err := domainNameDefinition.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.DomainNameDefinitionCreateSubject, *notifPayload)
+	h.JS.Publish(v0.DomainNameDefinitionCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, domainNameDefinition)
 	if err != nil {
@@ -283,6 +284,14 @@ func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := domainNameDefinition.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.DomainNameDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, domainNameDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -338,11 +347,12 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := domainNameInstance.NotificationPayload(false, 0)
+	notifyPayload, err := domainNameInstance.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.DomainNameInstanceCreateSubject, *notifPayload)
+	h.JS.Publish(v0.DomainNameInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, domainNameInstance)
 	if err != nil {
@@ -561,6 +571,14 @@ func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 	if result := h.DB.Delete(&domainNameInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := domainNameInstance.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.DomainNameInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, domainNameInstance)
 	if err != nil {

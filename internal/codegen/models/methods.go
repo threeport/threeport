@@ -116,6 +116,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 		).Id("NotificationPayload").Params(
 			Id("requeue").Bool(),
 			Id("lastDelay").Int64(),
+			Id("operation").String(),
 		).Parens(List(
 			Op("*").Index().Byte(),
 			Error(),
@@ -127,6 +128,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 				Id("Requeue"):          Id("requeue"),
 				Id("LastRequeueDelay"): Op("&").Id("lastDelay"),
 				Id("Object"):           Id(name.TypeAbbrev(mc.TypeName)),
+				Id("Operation"):        Id("operation"),
 			}),
 			Line(),
 			List(

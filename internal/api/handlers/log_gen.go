@@ -59,11 +59,12 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := logBackend.NotificationPayload(false, 0)
+	notifyPayload, err := logBackend.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.LogBackendCreateSubject, *notifPayload)
+	h.JS.Publish(v0.LogBackendCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, logBackend)
 	if err != nil {
@@ -283,6 +284,14 @@ func (h Handler) DeleteLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := logBackend.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.LogBackendCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, logBackend)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -338,11 +347,12 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := logStorageDefinition.NotificationPayload(false, 0)
+	notifyPayload, err := logStorageDefinition.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.LogStorageDefinitionCreateSubject, *notifPayload)
+	h.JS.Publish(v0.LogStorageDefinitionCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, logStorageDefinition)
 	if err != nil {
@@ -562,6 +572,14 @@ func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := logStorageDefinition.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.LogStorageDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, logStorageDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -617,11 +635,12 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := logStorageInstance.NotificationPayload(false, 0)
+	notifyPayload, err := logStorageInstance.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.LogStorageInstanceCreateSubject, *notifPayload)
+	h.JS.Publish(v0.LogStorageInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, logStorageInstance)
 	if err != nil {
@@ -840,6 +859,14 @@ func (h Handler) DeleteLogStorageInstance(c echo.Context) error {
 	if result := h.DB.Delete(&logStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := logStorageInstance.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.LogStorageInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, logStorageInstance)
 	if err != nil {

@@ -59,11 +59,12 @@ func (h Handler) AddUser(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := user.NotificationPayload(false, 0)
+	notifyPayload, err := user.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.UserCreateSubject, *notifPayload)
+	h.JS.Publish(v0.UserCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, user)
 	if err != nil {
@@ -283,6 +284,14 @@ func (h Handler) DeleteUser(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := user.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.UserCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, user)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -338,11 +347,12 @@ func (h Handler) AddCompany(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := company.NotificationPayload(false, 0)
+	notifyPayload, err := company.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.CompanyCreateSubject, *notifPayload)
+	h.JS.Publish(v0.CompanyCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, company)
 	if err != nil {
@@ -561,6 +571,14 @@ func (h Handler) DeleteCompany(c echo.Context) error {
 	if result := h.DB.Delete(&company); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := company.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.CompanyCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, company)
 	if err != nil {

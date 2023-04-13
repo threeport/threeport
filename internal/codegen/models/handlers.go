@@ -195,8 +195,9 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			),
 			Line(),
 			Comment("notify controller"),
-			Id("notifPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).
-				Dot("NotificationPayload").Call(Lit(false).Op(",").Lit(0)),
+			Id("notifyPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).
+				Dot("NotificationPayload").Call(Lit(false).Op(",").Lit(0).Op(",").Lit("Created")),
+			Line(),
 			If(Id("err").Op("!=").Nil().Block(
 				Return(Qual(
 					"github.com/threeport/threeport/internal/api",
@@ -209,7 +210,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					cc.ParsedModelFile.Name.Name,
 				),
 				mc.CreateSubject,
-			).Op(",").Op("*").Id("notifPayload")),
+			).Op(",").Op("*").Id("notifyPayload")),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
@@ -631,6 +632,24 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 			),
 			Line(),
+			// Comment("notify controller"),
+			// Id("notifyPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).
+			// 	Dot("NotificationPayload").Call(Lit(false).Op(",").Lit(0).Op(",").Lit("Updated")),
+			// Line(),
+			// If(Id("err").Op("!=").Nil().Block(
+			// 	Return(Qual(
+			// 		"github.com/threeport/threeport/internal/api",
+			// 		"ResponseStatus500",
+			// 	).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
+			// ),
+			// Id("h").Dot("JS").Dot("Publish").Call(Qual(
+			// 	fmt.Sprintf(
+			// 		"github.com/threeport/threeport/pkg/api/%s",
+			// 		cc.ParsedModelFile.Name.Name,
+			// 	),
+			// 	mc.CreateSubject,
+			// ).Op(",").Op("*").Id("notifyPayload")),
+			// Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
@@ -968,6 +987,24 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 				),
 			),
+			Line(),
+			Comment("notify controller"),
+			Id("notifyPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).
+				Dot("NotificationPayload").Call(Lit(false).Op(",").Lit(0).Op(",").Lit("Deleted")),
+			Line(),
+			If(Id("err").Op("!=").Nil().Block(
+				Return(Qual(
+					"github.com/threeport/threeport/internal/api",
+					"ResponseStatus500",
+				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
+			),
+			Id("h").Dot("JS").Dot("Publish").Call(Qual(
+				fmt.Sprintf(
+					"github.com/threeport/threeport/pkg/api/%s",
+					cc.ParsedModelFile.Name.Name,
+				),
+				mc.CreateSubject,
+			).Op(",").Op("*").Id("notifyPayload")),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(

@@ -59,11 +59,12 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := awsAccount.NotificationPayload(false, 0)
+	notifyPayload, err := awsAccount.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.AwsAccountCreateSubject, *notifPayload)
+	h.JS.Publish(v0.AwsAccountCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, awsAccount)
 	if err != nil {
@@ -283,6 +284,14 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := awsAccount.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsAccountCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, awsAccount)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -338,11 +347,12 @@ func (h Handler) AddAwsEksClusterDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := awsEksClusterDefinition.NotificationPayload(false, 0)
+	notifyPayload, err := awsEksClusterDefinition.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.AwsEksClusterDefinitionCreateSubject, *notifPayload)
+	h.JS.Publish(v0.AwsEksClusterDefinitionCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, awsEksClusterDefinition)
 	if err != nil {
@@ -562,6 +572,14 @@ func (h Handler) DeleteAwsEksClusterDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := awsEksClusterDefinition.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsEksClusterDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, awsEksClusterDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -617,11 +635,12 @@ func (h Handler) AddAwsEksClusterInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := awsEksClusterInstance.NotificationPayload(false, 0)
+	notifyPayload, err := awsEksClusterInstance.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.AwsEksClusterInstanceCreateSubject, *notifPayload)
+	h.JS.Publish(v0.AwsEksClusterInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, awsEksClusterInstance)
 	if err != nil {
@@ -841,6 +860,14 @@ func (h Handler) DeleteAwsEksClusterInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := awsEksClusterInstance.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsEksClusterInstanceCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, awsEksClusterInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -896,11 +923,12 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(false, 0)
+	notifyPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.AwsRelationalDatabaseDefinitionCreateSubject, *notifPayload)
+	h.JS.Publish(v0.AwsRelationalDatabaseDefinitionCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition)
 	if err != nil {
@@ -1120,6 +1148,14 @@ func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsRelationalDatabaseDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1175,11 +1211,12 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(false, 0)
+	notifyPayload, err := awsRelationalDatabaseInstance.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.AwsRelationalDatabaseInstanceCreateSubject, *notifPayload)
+	h.JS.Publish(v0.AwsRelationalDatabaseInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
 	if err != nil {
@@ -1398,6 +1435,14 @@ func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 	if result := h.DB.Delete(&awsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := awsRelationalDatabaseInstance.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsRelationalDatabaseInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
 	if err != nil {

@@ -4,7 +4,7 @@ package v0
 
 type APIObject interface {
 	GetID() uint
-	NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error)
+	NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error)
 }
 
 type WorkloadDependency interface {

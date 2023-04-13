@@ -62,10 +62,11 @@ func GetEthereumNodeSubjects() []string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (end *EthereumNodeDefinition) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (end *EthereumNodeDefinition) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           end,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -90,10 +91,11 @@ func (end EthereumNodeDefinition) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (eni *EthereumNodeInstance) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (eni *EthereumNodeInstance) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           eni,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 

@@ -65,7 +65,7 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 			)
 
 			// build the notif payload for requeues
-			notifPayload, err := ethereumNodeDefinition.NotificationPayload(true, requeueDelay)
+			notifPayload, err := ethereumNodeDefinition.NotificationPayload(true, requeueDelay, notif.Operation)
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
 				go r.RequeueRaw(msg.Subject, msg.Data)

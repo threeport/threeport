@@ -116,10 +116,11 @@ func GetAwsSubjects() []string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (aa *AwsAccount) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (aa *AwsAccount) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           aa,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -144,10 +145,11 @@ func (aa AwsAccount) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (aecd *AwsEksClusterDefinition) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (aecd *AwsEksClusterDefinition) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           aecd,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -172,10 +174,11 @@ func (aecd AwsEksClusterDefinition) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (aeci *AwsEksClusterInstance) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (aeci *AwsEksClusterInstance) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           aeci,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -200,10 +203,11 @@ func (aeci AwsEksClusterInstance) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (ardd *AwsRelationalDatabaseDefinition) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (ardd *AwsRelationalDatabaseDefinition) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           ardd,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -228,10 +232,11 @@ func (ardd AwsRelationalDatabaseDefinition) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (ardi *AwsRelationalDatabaseInstance) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (ardi *AwsRelationalDatabaseInstance) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           ardi,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 

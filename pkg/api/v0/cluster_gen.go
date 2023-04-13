@@ -62,10 +62,11 @@ func GetClusterSubjects() []string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (cd *ClusterDefinition) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (cd *ClusterDefinition) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           cd,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -90,10 +91,11 @@ func (cd ClusterDefinition) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (ci *ClusterInstance) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (ci *ClusterInstance) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           ci,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 

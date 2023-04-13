@@ -62,10 +62,11 @@ func GetNetworkIngressSubjects() []string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (nid *NetworkIngressDefinition) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (nid *NetworkIngressDefinition) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           nid,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -90,10 +91,11 @@ func (nid NetworkIngressDefinition) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (nii *NetworkIngressInstance) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (nii *NetworkIngressInstance) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           nii,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 

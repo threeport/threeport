@@ -59,11 +59,12 @@ func (h Handler) AddNetworkIngressDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := networkIngressDefinition.NotificationPayload(false, 0)
+	notifyPayload, err := networkIngressDefinition.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.NetworkIngressDefinitionCreateSubject, *notifPayload)
+	h.JS.Publish(v0.NetworkIngressDefinitionCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, networkIngressDefinition)
 	if err != nil {
@@ -283,6 +284,14 @@ func (h Handler) DeleteNetworkIngressDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := networkIngressDefinition.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.NetworkIngressDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, networkIngressDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -338,11 +347,12 @@ func (h Handler) AddNetworkIngressInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := networkIngressInstance.NotificationPayload(false, 0)
+	notifyPayload, err := networkIngressInstance.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.NetworkIngressInstanceCreateSubject, *notifPayload)
+	h.JS.Publish(v0.NetworkIngressInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, networkIngressInstance)
 	if err != nil {
@@ -561,6 +571,14 @@ func (h Handler) DeleteNetworkIngressInstance(c echo.Context) error {
 	if result := h.DB.Delete(&networkIngressInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := networkIngressInstance.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.NetworkIngressInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, networkIngressInstance)
 	if err != nil {

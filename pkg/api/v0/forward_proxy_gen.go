@@ -62,10 +62,11 @@ func GetForwardProxySubjects() []string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (fpd *ForwardProxyDefinition) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (fpd *ForwardProxyDefinition) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           fpd,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -90,10 +91,11 @@ func (fpd ForwardProxyDefinition) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (fpi *ForwardProxyInstance) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (fpi *ForwardProxyInstance) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           fpi,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 

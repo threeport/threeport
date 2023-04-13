@@ -59,11 +59,12 @@ func (h Handler) AddEthereumNodeDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := ethereumNodeDefinition.NotificationPayload(false, 0)
+	notifyPayload, err := ethereumNodeDefinition.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.EthereumNodeDefinitionCreateSubject, *notifPayload)
+	h.JS.Publish(v0.EthereumNodeDefinitionCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, ethereumNodeDefinition)
 	if err != nil {
@@ -283,6 +284,14 @@ func (h Handler) DeleteEthereumNodeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := ethereumNodeDefinition.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.EthereumNodeDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, ethereumNodeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -338,11 +347,12 @@ func (h Handler) AddEthereumNodeInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := ethereumNodeInstance.NotificationPayload(false, 0)
+	notifyPayload, err := ethereumNodeInstance.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.EthereumNodeInstanceCreateSubject, *notifPayload)
+	h.JS.Publish(v0.EthereumNodeInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, ethereumNodeInstance)
 	if err != nil {
@@ -561,6 +571,14 @@ func (h Handler) DeleteEthereumNodeInstance(c echo.Context) error {
 	if result := h.DB.Delete(&ethereumNodeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := ethereumNodeInstance.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.EthereumNodeInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, ethereumNodeInstance)
 	if err != nil {

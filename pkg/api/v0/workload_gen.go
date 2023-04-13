@@ -98,10 +98,11 @@ func GetWorkloadSubjects() []string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (wd *WorkloadDefinition) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (wd *WorkloadDefinition) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           wd,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -126,10 +127,11 @@ func (wd WorkloadDefinition) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (wrd *WorkloadResourceDefinition) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (wrd *WorkloadResourceDefinition) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           wrd,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -154,10 +156,11 @@ func (wrd WorkloadResourceDefinition) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (wi *WorkloadInstance) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (wi *WorkloadInstance) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           wi,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -182,10 +185,11 @@ func (wi WorkloadInstance) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (wri *WorkloadResourceInstance) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (wri *WorkloadResourceInstance) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           wri,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 

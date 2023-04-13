@@ -59,11 +59,12 @@ func (h Handler) AddForwardProxyDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := forwardProxyDefinition.NotificationPayload(false, 0)
+	notifyPayload, err := forwardProxyDefinition.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.ForwardProxyDefinitionCreateSubject, *notifPayload)
+	h.JS.Publish(v0.ForwardProxyDefinitionCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, forwardProxyDefinition)
 	if err != nil {
@@ -283,6 +284,14 @@ func (h Handler) DeleteForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := forwardProxyDefinition.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ForwardProxyDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, forwardProxyDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -338,11 +347,12 @@ func (h Handler) AddForwardProxyInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := forwardProxyInstance.NotificationPayload(false, 0)
+	notifyPayload, err := forwardProxyInstance.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.ForwardProxyInstanceCreateSubject, *notifPayload)
+	h.JS.Publish(v0.ForwardProxyInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, forwardProxyInstance)
 	if err != nil {
@@ -561,6 +571,14 @@ func (h Handler) DeleteForwardProxyInstance(c echo.Context) error {
 	if result := h.DB.Delete(&forwardProxyInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := forwardProxyInstance.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ForwardProxyInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, forwardProxyInstance)
 	if err != nil {

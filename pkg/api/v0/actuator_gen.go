@@ -62,10 +62,11 @@ func GetActuatorSubjects() []string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (p *Profile) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (p *Profile) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           p,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -90,10 +91,11 @@ func (p Profile) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (t *Tier) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (t *Tier) NotificationPayload(requeue bool, lastDelay int64, operation string) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           t,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 

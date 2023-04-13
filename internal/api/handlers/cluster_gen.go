@@ -59,11 +59,12 @@ func (h Handler) AddClusterDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := clusterDefinition.NotificationPayload(false, 0)
+	notifyPayload, err := clusterDefinition.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.ClusterDefinitionCreateSubject, *notifPayload)
+	h.JS.Publish(v0.ClusterDefinitionCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, clusterDefinition)
 	if err != nil {
@@ -283,6 +284,14 @@ func (h Handler) DeleteClusterDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifyPayload, err := clusterDefinition.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ClusterDefinitionCreateSubject, *notifyPayload)
+
 	response, err := v0.CreateResponse(nil, clusterDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -338,11 +347,12 @@ func (h Handler) AddClusterInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := clusterInstance.NotificationPayload(false, 0)
+	notifyPayload, err := clusterInstance.NotificationPayload(false, 0, "Created")
+
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.ClusterInstanceCreateSubject, *notifPayload)
+	h.JS.Publish(v0.ClusterInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, clusterInstance)
 	if err != nil {
@@ -561,6 +571,14 @@ func (h Handler) DeleteClusterInstance(c echo.Context) error {
 	if result := h.DB.Delete(&clusterInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifyPayload, err := clusterInstance.NotificationPayload(false, 0, "Deleted")
+
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ClusterInstanceCreateSubject, *notifyPayload)
 
 	response, err := v0.CreateResponse(nil, clusterInstance)
 	if err != nil {
