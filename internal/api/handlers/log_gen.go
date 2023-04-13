@@ -49,6 +49,9 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	reconciled := false
+	addLogBackend.Reconciled = &reconciled
+
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, logBackend, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -179,6 +182,9 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 	if err := c.Bind(&updatedLogBackend); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
+
+	reconciled := false
+	updatedLogBackend.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingLogBackend).Updates(updatedLogBackend); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -328,6 +334,9 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	reconciled := false
+	addLogStorageDefinition.Reconciled = &reconciled
+
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, logStorageDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -458,6 +467,9 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 	if err := c.Bind(&updatedLogStorageDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
+
+	reconciled := false
+	updatedLogStorageDefinition.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingLogStorageDefinition).Updates(updatedLogStorageDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -607,6 +619,9 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	reconciled := false
+	addLogStorageInstance.Reconciled = &reconciled
+
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, logStorageInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -737,6 +752,9 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 	if err := c.Bind(&updatedLogStorageInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
+
+	reconciled := false
+	updatedLogStorageInstance.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingLogStorageInstance).Updates(updatedLogStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)

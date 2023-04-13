@@ -564,60 +564,60 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
     - Profile
     - Tier
+    - ClusterDefinition
+    - ClusterInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
     - EthereumNodeDefinition
     - EthereumNodeInstance
-    - ClusterDefinition
-    - ClusterInstance
     - User
     - Company
     - DomainNameDefinition
     - DomainNameInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeProfile
     - ObjectTypeTier
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
     - ObjectTypeEthereumNodeDefinition
     - ObjectTypeEthereumNodeInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
     - ObjectTypeUser
     - ObjectTypeCompany
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       CompanyID:

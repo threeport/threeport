@@ -49,6 +49,9 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	reconciled := false
+	addWorkloadDefinition.Reconciled = &reconciled
+
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, workloadDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -179,6 +182,9 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 	if err := c.Bind(&updatedWorkloadDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
+
+	reconciled := false
+	updatedWorkloadDefinition.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingWorkloadDefinition).Updates(updatedWorkloadDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -328,6 +334,9 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	reconciled := false
+	addWorkloadResourceDefinition.Reconciled = &reconciled
+
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, workloadResourceDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -458,6 +467,9 @@ func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 	if err := c.Bind(&updatedWorkloadResourceDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
+
+	reconciled := false
+	updatedWorkloadResourceDefinition.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingWorkloadResourceDefinition).Updates(updatedWorkloadResourceDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -607,6 +619,9 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	reconciled := false
+	addWorkloadInstance.Reconciled = &reconciled
+
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, workloadInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -737,6 +752,9 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 	if err := c.Bind(&updatedWorkloadInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
+
+	reconciled := false
+	updatedWorkloadInstance.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingWorkloadInstance).Updates(updatedWorkloadInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -886,6 +904,9 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	reconciled := false
+	addWorkloadResourceInstance.Reconciled = &reconciled
+
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, workloadResourceInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
@@ -1016,6 +1037,9 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 	if err := c.Bind(&updatedWorkloadResourceInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
+
+	reconciled := false
+	updatedWorkloadResourceInstance.Reconciled = &reconciled
 
 	if result := h.DB.Model(&existingWorkloadResourceInstance).Updates(updatedWorkloadResourceInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
