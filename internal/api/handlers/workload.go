@@ -92,14 +92,14 @@ func (h Handler) UpdateWorkloadResourceDefinitions(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// create all workload resource definitions or none at all
-	var createdWRDs []v0.WorkloadResourceDefinition
+	// update all workload resource definitions or none at all
+	var updatedWRDs []v0.WorkloadResourceDefinition
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
 		for _, wrd := range workloadResourceDefinitions {
 			if result := h.DB.Updates(&wrd); result.Error != nil {
 				return result.Error
 			}
-			createdWRDs = append(createdWRDs, wrd)
+			updatedWRDs = append(updatedWRDs, wrd)
 		}
 
 		return nil
@@ -108,7 +108,7 @@ func (h Handler) UpdateWorkloadResourceDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, createdWRDs)
+	response, err := v0.CreateResponse(nil, updatedWRDs)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -145,14 +145,14 @@ func (h Handler) DeleteWorkloadResourceDefinitions(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// create all workload resource definitions or none at all
-	var createdWRDs []v0.WorkloadResourceDefinition
+	// delete all workload resource definitions or none at all
+	var deletedWRDs []v0.WorkloadResourceDefinition
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
 		for _, wrd := range workloadResourceDefinitions {
 			if result := h.DB.Delete(&wrd); result.Error != nil {
 				return result.Error
 			}
-			createdWRDs = append(createdWRDs, wrd)
+			deletedWRDs = append(deletedWRDs, wrd)
 		}
 
 		return nil
@@ -161,7 +161,7 @@ func (h Handler) DeleteWorkloadResourceDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, createdWRDs)
+	response, err := v0.CreateResponse(nil, deletedWRDs)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
