@@ -9,10 +9,11 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 
-	"github.com/threeport/threeport/internal/tptctl"
 	"github.com/threeport/threeport/internal/cli"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 var createWorkloadInstancePath string
@@ -20,25 +21,38 @@ var createWorkloadInstancePath string
 // CreateWorkloadInstanceCmd represents the workload-instance command
 var CreateWorkloadInstanceCmd = &cobra.Command{
 	Use:          "workload-instance",
-	Example:      "tptctl create workload-instance -c /path/to/config.yaml",
+	Example:      "tptctl create workload-instance --config /path/to/config.yaml",
 	Short:        "Create a new workload instance",
 	Long:         `Create a new workload instance.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		// load config
+		// get threeport config and extract threeport API endpoint
+		threeportConfig := &config.ThreeportConfig{}
+		if err := viper.Unmarshal(threeportConfig); err != nil {
+			cli.Error("Failed to get threeport config", err)
+			os.Exit(1)
+		}
+		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
+		if err != nil {
+			cli.Error("failed to get threeport API endpoint from config", err)
+			os.Exit(1)
+		}
+
+		// load workload instance config
 		configContent, err := ioutil.ReadFile(createWorkloadInstancePath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var workloadInstance tptctl.WorkloadInstanceConfig
-		if err := yaml.Unmarshal(configContent, &workloadInstance); err != nil {
+		var workloadInstanceConfig config.WorkloadInstanceConfig
+		if err := yaml.Unmarshal(configContent, &workloadInstanceConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
 
 		// create workload instance
-		wi, err := workloadInstance.Create()
+		workloadInstance := workloadInstanceConfig.WorkloadInstance
+		wi, err := workloadInstance.Create(apiEndpoint)
 		if err != nil {
 			cli.Error("failed to create workload", err)
 			os.Exit(1)
@@ -51,6 +65,9 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 func init() {
 	createCmd.AddCommand(CreateWorkloadInstanceCmd)
 
-	CreateWorkloadInstanceCmd.Flags().StringVarP(&createWorkloadInstancePath, "config", "c", "", "path to file with workload instance config")
+	CreateWorkloadInstanceCmd.Flags().StringVarP(
+		&createWorkloadInstancePath,
+		"config", "c", "", "Path to file with workload instance config.",
+	)
 	CreateWorkloadInstanceCmd.MarkFlagRequired("config")
 }

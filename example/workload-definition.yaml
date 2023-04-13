@@ -1,0 +1,4 @@
+WorkloadDefinition:
+  Name: "go-web3-sample-app-def"
+  YAMLDocument: "example/go-web3-sample-app-manifest-1.yaml"
+

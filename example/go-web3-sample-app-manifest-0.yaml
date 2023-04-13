@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: go-web3-sample-app
+  name: go-web3-sample-app-0
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: go-web3-sample-app-config
-  namespace: go-web3-sample-app
+  namespace: go-web3-sample-app-0
 data:
   RPCENDPOINT: http://forward-proxy.forward-proxy-system.svc.cluster.local
 ---
@@ -15,7 +15,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: go-web3-sample-app
-  namespace: go-web3-sample-app
+  namespace: go-web3-sample-app-0
 spec:
   selector:
     matchLabels:
@@ -44,7 +44,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: go-web3-sample-app
-  namespace: go-web3-sample-app
+  namespace: go-web3-sample-app-0
 spec:
   ports:
     - port: 8080
