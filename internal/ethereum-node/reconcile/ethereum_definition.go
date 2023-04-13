@@ -92,20 +92,20 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 			if notif.Operation == "Deleted" {
 				log.V(1).Info("received deleted notification")
 
-				// _, err = client.DeleteWorkloadInstance(
-				// 	&workloadInstance,
-				// 	r.APIServer,
-				// 	"",
-				// )
-				// if err != nil {
-				// 	log.Error(err, "failed to update workload instance")
-				// 	r.UnlockAndRequeue(&ethereumNodeInstance, msg.Subject, notifPayload, requeueDelay)
-				// 	continue
-				// }
-				// log.V(1).Info(
-				// 	"workload instance deleted in API",
-				// 	"workloadInstanceName", workloadInstance.Name,
-				// )
+				_, err = client.DeleteEthereumNodeDefinition(
+					&ethereumNodeDefinition,
+					r.APIServer,
+					"",
+				)
+				if err != nil {
+					log.Error(err, "failed to delete ethereum node definition")
+					r.UnlockAndRequeue(&ethereumNodeDefinition, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+				log.V(1).Info(
+					"workload definition deleted in API",
+					"ethereumNodeDefinitionName", ethereumNodeDefinition.Name,
+				)
 			}
 
 			// if definition isn't being deleted, then we'll need to generate its manifests
@@ -147,15 +147,14 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 				JSONDocument: &jsonString,
 			}
 
-
 			var workloadDefinitionResponse *v0.WorkloadDefinition
 
 			switch notif.Operation {
 
+			// create or update workload definition in database
 			case "Created":
 				log.V(1).Info("received created notification")
 
-				// persist workload definition to database
 				workloadDefinitionResponse, err = client.CreateWorkloadDefinition(
 					&workloadDefinition,
 					r.APIServer,
