@@ -57,6 +57,13 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 			mapstructure.Decode(notif.Object, &ethereumNodeDefinition)
 			log = log.WithValues("ethereumNodeDefinitionID", ethereumNodeDefinition.ID)
 
+
+			// check if the object has been reconciled
+			if *ethereumNodeDefinition.Reconciled {
+				log.V(1).Info("ethereum node definition has already been reconciled, ignoring notification")
+				continue
+			}
+
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
 				notif.LastRequeueDelay,

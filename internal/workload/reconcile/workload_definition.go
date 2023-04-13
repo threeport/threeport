@@ -60,6 +60,12 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			mapstructure.Decode(notif.Object, &workloadDefinition)
 			log = log.WithValues("workloadDefinitionID", workloadDefinition.ID)
 
+			// check if the object has been reconciled
+			if *workloadDefinition.Reconciled {
+				log.V(1).Info("workload definition has already been reconciled, ignoring notification")
+				continue
+			}
+
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
 				notif.LastRequeueDelay,
