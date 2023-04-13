@@ -35,7 +35,7 @@ func GetForwardProxyDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Forwa
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&forwardProxyDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &forwardProxyDefinition, nil
@@ -64,7 +64,7 @@ func GetForwardProxyDefinitionByName(name, apiAddr, apiToken string) (*v0.Forwar
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&forwardProxyDefinitions); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -103,7 +103,7 @@ func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&forwardProxyDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return forwardProxyDefinition, nil
@@ -140,7 +140,7 @@ func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&forwardProxyDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return forwardProxyDefinition, nil
@@ -195,7 +195,7 @@ func GetForwardProxyInstanceByID(id uint, apiAddr, apiToken string) (*v0.Forward
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&forwardProxyInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &forwardProxyInstance, nil
@@ -224,7 +224,7 @@ func GetForwardProxyInstanceByName(name, apiAddr, apiToken string) (*v0.ForwardP
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&forwardProxyInstances); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -263,7 +263,7 @@ func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&forwardProxyInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return forwardProxyInstance, nil
@@ -300,7 +300,7 @@ func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&forwardProxyInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return forwardProxyInstance, nil

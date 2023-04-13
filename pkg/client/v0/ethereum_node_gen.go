@@ -35,7 +35,7 @@ func GetEthereumNodeDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Ether
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&ethereumNodeDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &ethereumNodeDefinition, nil
@@ -64,7 +64,7 @@ func GetEthereumNodeDefinitionByName(name, apiAddr, apiToken string) (*v0.Ethere
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&ethereumNodeDefinitions); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -103,7 +103,7 @@ func CreateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&ethereumNodeDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return ethereumNodeDefinition, nil
@@ -140,7 +140,7 @@ func UpdateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&ethereumNodeDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return ethereumNodeDefinition, nil
@@ -195,7 +195,7 @@ func GetEthereumNodeInstanceByID(id uint, apiAddr, apiToken string) (*v0.Ethereu
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&ethereumNodeInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &ethereumNodeInstance, nil
@@ -224,7 +224,7 @@ func GetEthereumNodeInstanceByName(name, apiAddr, apiToken string) (*v0.Ethereum
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&ethereumNodeInstances); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -263,7 +263,7 @@ func CreateEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, a
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&ethereumNodeInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return ethereumNodeInstance, nil
@@ -300,7 +300,7 @@ func UpdateEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, a
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&ethereumNodeInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return ethereumNodeInstance, nil

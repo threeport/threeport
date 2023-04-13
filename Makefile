@@ -16,6 +16,10 @@ build-codegen:
 generate: build-codegen
 	go generate ./...
 
+#test: @ Run automated tests
+test:
+	go test ./...
+
 #build-tptdev: @ Build tptdev binary
 build-tptdev:
 	go build -a -o bin/tptdev cmd/tptdev/main.go
@@ -69,21 +73,23 @@ dev-forward-crdb:
 dev-forward-nats:
 	kubectl port-forward -n threeport-control-plane service/nats-js 4222:4222
 
+#TODO: move to kubectl exec command that uses `cockroach` binary in contianer
 #dev-query-crdb: @ Open a terminal connection to the dev cockroach database (must first run `make dev-forward-crdb` in another terminal)
 dev-query-crdb:
 	kubectl exec -it statefulset/crdb -n threeport-control-plane -- cockroach sql --host localhost --insecure --database threeport_api
 
+#TODO: move to kubectl exec command that uses `nats` binary in contianer
 #dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal)
 dev-sub-nats:
 	nats sub -s "nats://127.0.0.1:4222" ">"
 
 #dev-debug-api: @ Start debugging session for API (must first run `make dev-forward-nats` in another terminal)
 dev-debug-api:
-	dlv debug cmd/rest-api/main.go -- -env-file env -auto-migrate -verbose
+	dlv debug cmd/rest-api/main.go -- -env-file hack/env -auto-migrate -verbose
 
 #dev-debug-wrk: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
 dev-debug-wrk:
-	dlv debug cmd/workload-controller/main.go -- -api-server http://localhost -msg-broker-host localhost -msg-broker-port 4222
+	dlv debug cmd/workload-controller/main.go -- -api-server http://localhost:1323 -msg-broker-host localhost -msg-broker-port 4222
 
 ## container image builds
 

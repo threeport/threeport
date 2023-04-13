@@ -238,7 +238,7 @@ func PayloadCheck(c echo.Context, checkAssociation bool, objectType v0.ObjectTyp
 //		splitToken := strings.Split(reqToken, "Bearer ")
 //
 //		// construct ObjectType from Request Path
-//		objectType := v0.GetObjectTypeByMethod(c.Request().URL.Path)
+//		objectType := v0.GetObjectTypeByPath(c.Request().URL.Path)
 //
 //		if len(strings.TrimSpace(reqToken)) == 0 || len(splitToken) == 1 {
 //			return ResponseStatus400(c, nil, errors.New(ErrTokenIsNotProvided), objectType)

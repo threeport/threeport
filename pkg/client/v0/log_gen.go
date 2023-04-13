@@ -35,7 +35,7 @@ func GetLogBackendByID(id uint, apiAddr, apiToken string) (*v0.LogBackend, error
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logBackend); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &logBackend, nil
@@ -64,7 +64,7 @@ func GetLogBackendByName(name, apiAddr, apiToken string) (*v0.LogBackend, error)
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logBackends); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -103,7 +103,7 @@ func CreateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logBackend); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return logBackend, nil
@@ -140,7 +140,7 @@ func UpdateLogBackend(logBackend *v0.LogBackend, apiAddr, apiToken string) (*v0.
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logBackend); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return logBackend, nil
@@ -195,7 +195,7 @@ func GetLogStorageDefinitionByID(id uint, apiAddr, apiToken string) (*v0.LogStor
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logStorageDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &logStorageDefinition, nil
@@ -224,7 +224,7 @@ func GetLogStorageDefinitionByName(name, apiAddr, apiToken string) (*v0.LogStora
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logStorageDefinitions); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -263,7 +263,7 @@ func CreateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, a
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logStorageDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return logStorageDefinition, nil
@@ -300,7 +300,7 @@ func UpdateLogStorageDefinition(logStorageDefinition *v0.LogStorageDefinition, a
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logStorageDefinition); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return logStorageDefinition, nil
@@ -355,7 +355,7 @@ func GetLogStorageInstanceByID(id uint, apiAddr, apiToken string) (*v0.LogStorag
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logStorageInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return &logStorageInstance, nil
@@ -384,7 +384,7 @@ func GetLogStorageInstanceByName(name, apiAddr, apiToken string) (*v0.LogStorage
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logStorageInstances); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
@@ -423,7 +423,7 @@ func CreateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logStorageInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return logStorageInstance, nil
@@ -460,7 +460,7 @@ func UpdateLogStorageInstance(logStorageInstance *v0.LogStorageInstance, apiAddr
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&logStorageInstance); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API", err)
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	return logStorageInstance, nil

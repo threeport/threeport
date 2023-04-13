@@ -74,18 +74,20 @@ var upCmd = &cobra.Command{
 		// to the API - it is used to kube client for creating control plane
 		// resources
 		clusterInstName := fmt.Sprintf("%s-compute-space-0", createThreeportDevName)
+		controlPlaneCluster := true
 		clusterInstance := v0.ClusterInstance{
 			Instance: v0.Instance{
 				Name: &clusterInstName,
 			},
-			APIEndpoint:   &kubeConnectionInfo.APIEndpoint,
-			CACertificate: &kubeConnectionInfo.CACertificate,
-			Certificate:   &kubeConnectionInfo.Certificate,
-			Key:           &kubeConnectionInfo.Key,
+			ThreeportControlPlaneCluster: &controlPlaneCluster,
+			APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
+			CACertificate:                &kubeConnectionInfo.CACertificate,
+			Certificate:                  &kubeConnectionInfo.Certificate,
+			Key:                          &kubeConnectionInfo.Key,
 		}
 
 		// create a client to connect to kind cluster kube API
-		dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance)
+		dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance, false)
 		if err != nil {
 			cli.Error("failed to get a Kubernetes client and mapper", err)
 			os.Exit(1)

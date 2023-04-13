@@ -36,7 +36,7 @@ func ConsumeMessage(msgData []byte) (*Notification, error) {
 	decoder := json.NewDecoder(bytes.NewReader(msgData))
 	decoder.UseNumber()
 	if err := decoder.Decode(&notif); err != nil {
-		return nil, fmt.Errorf("failed to decode notification json from NATS message data", err)
+		return nil, fmt.Errorf("failed to decode notification json from NATS message data: %w", err)
 	}
 
 	return &notif, nil

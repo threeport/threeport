@@ -91,7 +91,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return().Nil().Op(",").Qual(
 					"fmt", "Errorf",
-				).Call(Lit("failed to decode object in response data from threeport API").Op(",").Id("err")),
+				).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
 			),
 			Line(),
 			Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
@@ -162,7 +162,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return().Nil().Op(",").Qual(
 					"fmt", "Errorf",
-				).Call(Lit("failed to decode object in response data from threeport API").Op(",").Id("err")),
+				).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
 			),
 			Line(),
 			Switch().Block(
@@ -262,7 +262,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return().Nil().Op(",").Qual(
 					"fmt", "Errorf",
-				).Call(Lit("failed to decode object in response data from threeport API").Op(",").Id("err")),
+				).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
 			),
 			Line(),
 			Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
@@ -347,7 +347,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return().Nil().Op(",").Qual(
 					"fmt", "Errorf",
-				).Call(Lit("failed to decode object in response data from threeport API").Op(",").Id("err")),
+				).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
 			),
 			Line(),
 			Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),

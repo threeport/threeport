@@ -71,66 +71,6 @@ type Meta struct {
 	TotalCount int64 `json:"TotalCount" example:"1"`
 }
 
-func GetStructByObjectType(objectType ObjectType) Object {
-	var objStruct Object
-
-	switch objectType {
-	//case ObjectTypeCompany:
-	//	objStruct = Company{}
-	//case ObjectTypeUser:
-	//	objStruct = User{}
-	//case ObjectTypeWorkloadCluster:
-	//	objStruct = WorkloadCluster{}
-	case ObjectTypeWorkloadDefinition:
-		objStruct = WorkloadDefinition{}
-	case ObjectTypeWorkloadResourceDefinition:
-		objStruct = WorkloadResourceDefinition{}
-	case ObjectTypeWorkloadInstance:
-		objStruct = WorkloadInstance{}
-	}
-	return objStruct
-}
-
-func GetObjectTypeByMethod(path string) ObjectType {
-	switch path {
-	//case PathCompanies:
-	//	return ObjectTypeCompany
-	//case PathUsers:
-	//	return ObjectTypeUser
-	//case PathUsersIDP:
-	//	return ObjectTypeUserIDP
-	//case PathWorkloadClusters:
-	//	return ObjectTypeWorkloadCluster
-	case PathWorkloadDefinitions:
-		return ObjectTypeWorkloadDefinition
-	case PathWorkloadResourceDefinitions:
-		return ObjectTypeWorkloadResourceDefinition
-	case PathWorkloadInstances:
-		return ObjectTypeWorkloadInstance
-	}
-
-	return ObjectTypeUnknown
-}
-
-func GetObjectType(v interface{}) ObjectType {
-	switch v.(type) {
-	//case Company, *Company, []Company:
-	//	return ObjectTypeCompany
-	//case User, *User, []User:
-	//	return ObjectTypeUser
-	//case UserIDP, *UserIDP, []UserIDP:
-	//	return ObjectTypeUserIDP
-	case WorkloadDefinition, *WorkloadDefinition, []WorkloadDefinition:
-		return ObjectTypeWorkloadDefinition
-	case WorkloadResourceDefinition, *WorkloadResourceDefinition, []WorkloadResourceDefinition:
-		return ObjectTypeWorkloadResourceDefinition
-	case WorkloadInstance, *WorkloadInstance, []WorkloadInstance:
-		return ObjectTypeWorkloadInstance
-	}
-
-	return ObjectTypeUnknown
-}
-
 func CreateMeta(params PageRequestParams, totalCount int64) *Meta {
 	return &Meta{PageRequestParams: PageRequestParams{Page: params.Page, Size: params.Size}, TotalCount: totalCount}
 }

@@ -171,7 +171,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// create a client to connect to kube API
-			dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance)
+			dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
 			if err != nil {
 				log.Error(err, "failed to create kube API client object")
 				r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)

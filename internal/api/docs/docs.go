@@ -8040,15 +8040,15 @@ const docTemplate = `{
             ],
             "properties": {
                 "APIEndpoint": {
-                    "description": "Required.  The network endpoint at which to reach the kube-api.",
+                    "description": "The network endpoint at which to reach the kube-api.",
                     "type": "string"
                 },
                 "CACertificate": {
-                    "description": "Optional.  The CA certificate used to generate the cert and key if\nself-signed.",
+                    "description": "The CA certificate used to generate the cert and key if\nself-signed.",
                     "type": "string"
                 },
                 "Certificate": {
-                    "description": "Required.  The client certificate to use for auth to the kube-api.",
+                    "description": "The client certificate to use for auth to the kube-api.",
                     "type": "string"
                 },
                 "ClusterDefinitionID": {
@@ -8059,7 +8059,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "Key": {
-                    "description": "Required.  The client key to use for auth to the kube-api.",
+                    "description": "The client key to use for auth to the kube-api.",
                     "type": "string"
                 },
                 "Name": {
@@ -8073,6 +8073,10 @@ const docTemplate = `{
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "ThreeportControlPlaneCluster": {
+                    "description": "If true, controllers will connect to the kube API using internal DSN\nrather than the APIEndpoint.",
+                    "type": "boolean"
                 },
                 "UserID": {
                     "description": "Required if no CompanyID.  The user that owns the object.",
@@ -8495,6 +8499,20 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "ClusterDefinition",
+                "ClusterInstance",
+                "Profile",
+                "Tier",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "EthereumNodeDefinition",
+                "EthereumNodeInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
@@ -8503,26 +8521,26 @@ const docTemplate = `{
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
-                "Profile",
-                "Tier",
-                "ClusterDefinition",
-                "ClusterInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "EthereumNodeDefinition",
-                "EthereumNodeInstance",
                 "User",
                 "Company",
-                "DomainNameDefinition",
-                "DomainNameInstance"
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeEthereumNodeDefinition",
+                "ObjectTypeEthereumNodeInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
@@ -8531,24 +8549,10 @@ const docTemplate = `{
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeEthereumNodeDefinition",
-                "ObjectTypeEthereumNodeInstance",
                 "ObjectTypeUser",
                 "ObjectTypeCompany",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance"
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance"
             ]
         },
         "v0.Profile": {

@@ -92,7 +92,6 @@ for all the models in the supplied version/s.  The generated code includes:
 									routeNames = append(
 										routeNames,
 										typeSpec.Name.Name,
-										//fmt.Sprintf("%sRoutes", typeSpec.Name.Name),
 									)
 								}
 								if includeDBInit {
@@ -131,10 +130,10 @@ for all the models in the supplied version/s.  The generated code includes:
 			return fmt.Errorf("failed to write add versions source code: %w", err)
 		}
 
-		//// generate the client library code
-		//if err := globalVersionConf.ClientLibrary(); err != nil {
-		//	return fmt.Errorf("failed to write client library source code: %w", err)
-		//}
+		// generate response object type conversions
+		if err := globalVersionConf.ResponseObjects(); err != nil {
+			return fmt.Errorf("failed to write response object source code: %w", err)
+		}
 
 		return nil
 	},
