@@ -16,7 +16,7 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-var createWorkloadInstancePath string
+var createWorkloadInstanceConfigPath string
 
 // CreateWorkloadInstanceCmd represents the workload-instance command
 var CreateWorkloadInstanceCmd = &cobra.Command{
@@ -39,7 +39,7 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 		}
 
 		// load workload instance config
-		configContent, err := ioutil.ReadFile(createWorkloadInstancePath)
+		configContent, err := ioutil.ReadFile(createWorkloadInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
@@ -66,7 +66,7 @@ func init() {
 	createCmd.AddCommand(CreateWorkloadInstanceCmd)
 
 	CreateWorkloadInstanceCmd.Flags().StringVarP(
-		&createWorkloadInstancePath,
+		&createWorkloadInstanceConfigPath,
 		"config", "c", "", "Path to file with workload instance config.",
 	)
 	CreateWorkloadInstanceCmd.MarkFlagRequired("config")

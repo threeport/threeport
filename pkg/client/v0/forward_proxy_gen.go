@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetForwardProxyDefinitionByID feteches a forward proxy definition by ID
+// GetForwardProxyDefinitionByID feteches a forward proxy definition by ID.
 func GetForwardProxyDefinitionByID(id uint, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinition v0.ForwardProxyDefinition
 
@@ -41,7 +41,7 @@ func GetForwardProxyDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Forwa
 	return &forwardProxyDefinition, nil
 }
 
-// GetForwardProxyDefinitionByName feteches a forward proxy definition by name
+// GetForwardProxyDefinitionByName feteches a forward proxy definition by name.
 func GetForwardProxyDefinitionByName(name, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinitions []v0.ForwardProxyDefinition
 
@@ -77,7 +77,7 @@ func GetForwardProxyDefinitionByName(name, apiAddr, apiToken string) (*v0.Forwar
 	return &forwardProxyDefinitions[0], nil
 }
 
-// CreateForwardProxyDefinition creates a new forward proxy definition
+// CreateForwardProxyDefinition creates a new forward proxy definition.
 func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinition, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
 	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
 	if err != nil {
@@ -109,7 +109,7 @@ func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 	return forwardProxyDefinition, nil
 }
 
-// UpdateForwardProxyDefinition updates a forward proxy definition
+// UpdateForwardProxyDefinition updates a forward proxy definition.
 func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinition, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -146,7 +146,36 @@ func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 	return forwardProxyDefinition, nil
 }
 
-// GetForwardProxyInstanceByID feteches a forward proxy instance by ID
+// DeleteForwardProxyDefinition deletes a forward proxy definition by ID.
+func DeleteForwardProxyDefinition(id uint, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
+	var forwardProxyDefinition v0.ForwardProxyDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &forwardProxyDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &forwardProxyDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &forwardProxyDefinition, nil
+}
+
+// GetForwardProxyInstanceByID feteches a forward proxy instance by ID.
 func GetForwardProxyInstanceByID(id uint, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
 	var forwardProxyInstance v0.ForwardProxyInstance
 
@@ -175,7 +204,7 @@ func GetForwardProxyInstanceByID(id uint, apiAddr, apiToken string) (*v0.Forward
 	return &forwardProxyInstance, nil
 }
 
-// GetForwardProxyInstanceByName feteches a forward proxy instance by name
+// GetForwardProxyInstanceByName feteches a forward proxy instance by name.
 func GetForwardProxyInstanceByName(name, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
 	var forwardProxyInstances []v0.ForwardProxyInstance
 
@@ -211,7 +240,7 @@ func GetForwardProxyInstanceByName(name, apiAddr, apiToken string) (*v0.ForwardP
 	return &forwardProxyInstances[0], nil
 }
 
-// CreateForwardProxyInstance creates a new forward proxy instance
+// CreateForwardProxyInstance creates a new forward proxy instance.
 func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
 	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
 	if err != nil {
@@ -243,7 +272,7 @@ func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 	return forwardProxyInstance, nil
 }
 
-// UpdateForwardProxyInstance updates a forward proxy instance
+// UpdateForwardProxyInstance updates a forward proxy instance.
 func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -278,4 +307,33 @@ func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 	}
 
 	return forwardProxyInstance, nil
+}
+
+// DeleteForwardProxyInstance deletes a forward proxy instance by ID.
+func DeleteForwardProxyInstance(id uint, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
+	var forwardProxyInstance v0.ForwardProxyInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &forwardProxyInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &forwardProxyInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &forwardProxyInstance, nil
 }

@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetAwsAccountByID feteches a aws account by ID
+// GetAwsAccountByID feteches a aws account by ID.
 func GetAwsAccountByID(id uint, apiAddr, apiToken string) (*v0.AwsAccount, error) {
 	var awsAccount v0.AwsAccount
 
@@ -41,7 +41,7 @@ func GetAwsAccountByID(id uint, apiAddr, apiToken string) (*v0.AwsAccount, error
 	return &awsAccount, nil
 }
 
-// GetAwsAccountByName feteches a aws account by name
+// GetAwsAccountByName feteches a aws account by name.
 func GetAwsAccountByName(name, apiAddr, apiToken string) (*v0.AwsAccount, error) {
 	var awsAccounts []v0.AwsAccount
 
@@ -77,7 +77,7 @@ func GetAwsAccountByName(name, apiAddr, apiToken string) (*v0.AwsAccount, error)
 	return &awsAccounts[0], nil
 }
 
-// CreateAwsAccount creates a new aws account
+// CreateAwsAccount creates a new aws account.
 func CreateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.AwsAccount, error) {
 	jsonAwsAccount, err := client.MarshalObject(awsAccount)
 	if err != nil {
@@ -109,7 +109,7 @@ func CreateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.
 	return awsAccount, nil
 }
 
-// UpdateAwsAccount updates a aws account
+// UpdateAwsAccount updates a aws account.
 func UpdateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.AwsAccount, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -146,7 +146,36 @@ func UpdateAwsAccount(awsAccount *v0.AwsAccount, apiAddr, apiToken string) (*v0.
 	return awsAccount, nil
 }
 
-// GetAwsEksClusterDefinitionByID feteches a aws eks cluster definition by ID
+// DeleteAwsAccount deletes a aws account by ID.
+func DeleteAwsAccount(id uint, apiAddr, apiToken string) (*v0.AwsAccount, error) {
+	var awsAccount v0.AwsAccount
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-accounts/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsAccount); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsAccount, nil
+}
+
+// GetAwsEksClusterDefinitionByID feteches a aws eks cluster definition by ID.
 func GetAwsEksClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
 	var awsEksClusterDefinition v0.AwsEksClusterDefinition
 
@@ -175,7 +204,7 @@ func GetAwsEksClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.AwsE
 	return &awsEksClusterDefinition, nil
 }
 
-// GetAwsEksClusterDefinitionByName feteches a aws eks cluster definition by name
+// GetAwsEksClusterDefinitionByName feteches a aws eks cluster definition by name.
 func GetAwsEksClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
 	var awsEksClusterDefinitions []v0.AwsEksClusterDefinition
 
@@ -211,7 +240,7 @@ func GetAwsEksClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.AwsEk
 	return &awsEksClusterDefinitions[0], nil
 }
 
-// CreateAwsEksClusterDefinition creates a new aws eks cluster definition
+// CreateAwsEksClusterDefinition creates a new aws eks cluster definition.
 func CreateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefinition, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
 	jsonAwsEksClusterDefinition, err := client.MarshalObject(awsEksClusterDefinition)
 	if err != nil {
@@ -243,7 +272,7 @@ func CreateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefi
 	return awsEksClusterDefinition, nil
 }
 
-// UpdateAwsEksClusterDefinition updates a aws eks cluster definition
+// UpdateAwsEksClusterDefinition updates a aws eks cluster definition.
 func UpdateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefinition, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -280,7 +309,36 @@ func UpdateAwsEksClusterDefinition(awsEksClusterDefinition *v0.AwsEksClusterDefi
 	return awsEksClusterDefinition, nil
 }
 
-// GetAwsEksClusterInstanceByID feteches a aws eks cluster instance by ID
+// DeleteAwsEksClusterDefinition deletes a aws eks cluster definition by ID.
+func DeleteAwsEksClusterDefinition(id uint, apiAddr, apiToken string) (*v0.AwsEksClusterDefinition, error) {
+	var awsEksClusterDefinition v0.AwsEksClusterDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsEksClusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsEksClusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsEksClusterDefinition, nil
+}
+
+// GetAwsEksClusterInstanceByID feteches a aws eks cluster instance by ID.
 func GetAwsEksClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
 	var awsEksClusterInstance v0.AwsEksClusterInstance
 
@@ -309,7 +367,7 @@ func GetAwsEksClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.AwsEks
 	return &awsEksClusterInstance, nil
 }
 
-// GetAwsEksClusterInstanceByName feteches a aws eks cluster instance by name
+// GetAwsEksClusterInstanceByName feteches a aws eks cluster instance by name.
 func GetAwsEksClusterInstanceByName(name, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
 	var awsEksClusterInstances []v0.AwsEksClusterInstance
 
@@ -345,7 +403,7 @@ func GetAwsEksClusterInstanceByName(name, apiAddr, apiToken string) (*v0.AwsEksC
 	return &awsEksClusterInstances[0], nil
 }
 
-// CreateAwsEksClusterInstance creates a new aws eks cluster instance
+// CreateAwsEksClusterInstance creates a new aws eks cluster instance.
 func CreateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
 	jsonAwsEksClusterInstance, err := client.MarshalObject(awsEksClusterInstance)
 	if err != nil {
@@ -377,7 +435,7 @@ func CreateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance
 	return awsEksClusterInstance, nil
 }
 
-// UpdateAwsEksClusterInstance updates a aws eks cluster instance
+// UpdateAwsEksClusterInstance updates a aws eks cluster instance.
 func UpdateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -414,7 +472,36 @@ func UpdateAwsEksClusterInstance(awsEksClusterInstance *v0.AwsEksClusterInstance
 	return awsEksClusterInstance, nil
 }
 
-// GetAwsRelationalDatabaseDefinitionByID feteches a aws relational database definition by ID
+// DeleteAwsEksClusterInstance deletes a aws eks cluster instance by ID.
+func DeleteAwsEksClusterInstance(id uint, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
+	var awsEksClusterInstance v0.AwsEksClusterInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-eks-cluster-instances/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsEksClusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsEksClusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsEksClusterInstance, nil
+}
+
+// GetAwsRelationalDatabaseDefinitionByID feteches a aws relational database definition by ID.
 func GetAwsRelationalDatabaseDefinitionByID(id uint, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
 
@@ -443,7 +530,7 @@ func GetAwsRelationalDatabaseDefinitionByID(id uint, apiAddr, apiToken string) (
 	return &awsRelationalDatabaseDefinition, nil
 }
 
-// GetAwsRelationalDatabaseDefinitionByName feteches a aws relational database definition by name
+// GetAwsRelationalDatabaseDefinitionByName feteches a aws relational database definition by name.
 func GetAwsRelationalDatabaseDefinitionByName(name, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
 
@@ -479,7 +566,7 @@ func GetAwsRelationalDatabaseDefinitionByName(name, apiAddr, apiToken string) (*
 	return &awsRelationalDatabaseDefinitions[0], nil
 }
 
-// CreateAwsRelationalDatabaseDefinition creates a new aws relational database definition
+// CreateAwsRelationalDatabaseDefinition creates a new aws relational database definition.
 func CreateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	jsonAwsRelationalDatabaseDefinition, err := client.MarshalObject(awsRelationalDatabaseDefinition)
 	if err != nil {
@@ -511,7 +598,7 @@ func CreateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.A
 	return awsRelationalDatabaseDefinition, nil
 }
 
-// UpdateAwsRelationalDatabaseDefinition updates a aws relational database definition
+// UpdateAwsRelationalDatabaseDefinition updates a aws relational database definition.
 func UpdateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -548,7 +635,36 @@ func UpdateAwsRelationalDatabaseDefinition(awsRelationalDatabaseDefinition *v0.A
 	return awsRelationalDatabaseDefinition, nil
 }
 
-// GetAwsRelationalDatabaseInstanceByID feteches a aws relational database instance by ID
+// DeleteAwsRelationalDatabaseDefinition deletes a aws relational database definition by ID.
+func DeleteAwsRelationalDatabaseDefinition(id uint, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
+	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-relational-database-definitions/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsRelationalDatabaseDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsRelationalDatabaseDefinition, nil
+}
+
+// GetAwsRelationalDatabaseInstanceByID feteches a aws relational database instance by ID.
 func GetAwsRelationalDatabaseInstanceByID(id uint, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
 
@@ -577,7 +693,7 @@ func GetAwsRelationalDatabaseInstanceByID(id uint, apiAddr, apiToken string) (*v
 	return &awsRelationalDatabaseInstance, nil
 }
 
-// GetAwsRelationalDatabaseInstanceByName feteches a aws relational database instance by name
+// GetAwsRelationalDatabaseInstanceByName feteches a aws relational database instance by name.
 func GetAwsRelationalDatabaseInstanceByName(name, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
 
@@ -613,7 +729,7 @@ func GetAwsRelationalDatabaseInstanceByName(name, apiAddr, apiToken string) (*v0
 	return &awsRelationalDatabaseInstances[0], nil
 }
 
-// CreateAwsRelationalDatabaseInstance creates a new aws relational database instance
+// CreateAwsRelationalDatabaseInstance creates a new aws relational database instance.
 func CreateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
 	jsonAwsRelationalDatabaseInstance, err := client.MarshalObject(awsRelationalDatabaseInstance)
 	if err != nil {
@@ -645,7 +761,7 @@ func CreateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRe
 	return awsRelationalDatabaseInstance, nil
 }
 
-// UpdateAwsRelationalDatabaseInstance updates a aws relational database instance
+// UpdateAwsRelationalDatabaseInstance updates a aws relational database instance.
 func UpdateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -680,4 +796,33 @@ func UpdateAwsRelationalDatabaseInstance(awsRelationalDatabaseInstance *v0.AwsRe
 	}
 
 	return awsRelationalDatabaseInstance, nil
+}
+
+// DeleteAwsRelationalDatabaseInstance deletes a aws relational database instance by ID.
+func DeleteAwsRelationalDatabaseInstance(id uint, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseInstance, error) {
+	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsRelationalDatabaseInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsRelationalDatabaseInstance, nil
 }

@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetClusterDefinitionByID feteches a cluster definition by ID
+// GetClusterDefinitionByID feteches a cluster definition by ID.
 func GetClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
 	var clusterDefinition v0.ClusterDefinition
 
@@ -41,7 +41,7 @@ func GetClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.ClusterDef
 	return &clusterDefinition, nil
 }
 
-// GetClusterDefinitionByName feteches a cluster definition by name
+// GetClusterDefinitionByName feteches a cluster definition by name.
 func GetClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
 	var clusterDefinitions []v0.ClusterDefinition
 
@@ -77,7 +77,7 @@ func GetClusterDefinitionByName(name, apiAddr, apiToken string) (*v0.ClusterDefi
 	return &clusterDefinitions[0], nil
 }
 
-// CreateClusterDefinition creates a new cluster definition
+// CreateClusterDefinition creates a new cluster definition.
 func CreateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
 	jsonClusterDefinition, err := client.MarshalObject(clusterDefinition)
 	if err != nil {
@@ -109,7 +109,7 @@ func CreateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, a
 	return clusterDefinition, nil
 }
 
-// UpdateClusterDefinition updates a cluster definition
+// UpdateClusterDefinition updates a cluster definition.
 func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -146,7 +146,36 @@ func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr, a
 	return clusterDefinition, nil
 }
 
-// GetClusterInstanceByID feteches a cluster instance by ID
+// DeleteClusterDefinition deletes a cluster definition by ID.
+func DeleteClusterDefinition(id uint, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
+	var clusterDefinition v0.ClusterDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/cluster-definitions/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &clusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &clusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&clusterDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &clusterDefinition, nil
+}
+
+// GetClusterInstanceByID feteches a cluster instance by ID.
 func GetClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
 	var clusterInstance v0.ClusterInstance
 
@@ -175,7 +204,7 @@ func GetClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.ClusterInsta
 	return &clusterInstance, nil
 }
 
-// GetClusterInstanceByName feteches a cluster instance by name
+// GetClusterInstanceByName feteches a cluster instance by name.
 func GetClusterInstanceByName(name, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
 	var clusterInstances []v0.ClusterInstance
 
@@ -211,7 +240,7 @@ func GetClusterInstanceByName(name, apiAddr, apiToken string) (*v0.ClusterInstan
 	return &clusterInstances[0], nil
 }
 
-// CreateClusterInstance creates a new cluster instance
+// CreateClusterInstance creates a new cluster instance.
 func CreateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
 	jsonClusterInstance, err := client.MarshalObject(clusterInstance)
 	if err != nil {
@@ -243,7 +272,7 @@ func CreateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToke
 	return clusterInstance, nil
 }
 
-// UpdateClusterInstance updates a cluster instance
+// UpdateClusterInstance updates a cluster instance.
 func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -278,4 +307,33 @@ func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr, apiToke
 	}
 
 	return clusterInstance, nil
+}
+
+// DeleteClusterInstance deletes a cluster instance by ID.
+func DeleteClusterInstance(id uint, apiAddr, apiToken string) (*v0.ClusterInstance, error) {
+	var clusterInstance v0.ClusterInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/cluster-instances/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &clusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &clusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&clusterInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &clusterInstance, nil
 }

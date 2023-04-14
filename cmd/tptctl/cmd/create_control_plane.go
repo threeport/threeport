@@ -46,7 +46,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		// get threeport config
 		threeportConfig := &config.ThreeportConfig{}
 		if err := viper.Unmarshal(threeportConfig); err != nil {
-			cli.Error("Failed to get threeport config", err)
+			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
 
@@ -57,11 +57,11 @@ var CreateControlPlaneCmd = &cobra.Command{
 				threeportInstanceConfigExists = true
 				if !forceOverwriteConfig {
 					cli.Error(
-						"Interupted creation of threeport instance",
+						"interupted creation of threeport instance",
 						errors.New(fmt.Sprintf("instance of threeport with name %s already exists", instance.Name)),
 					)
-					cli.Info("If you wish to overwrite the existing config use --force-overwrite-config flag")
-					cli.Warning("You will lose the ability to connect to the existing threeport instance if it still exists")
+					cli.Info("if you wish to overwrite the existing config use --force-overwrite-config flag")
+					cli.Warning("you will lose the ability to connect to the existing threeport instance if it still exists")
 					os.Exit(1)
 				}
 			}
@@ -73,7 +73,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			createRootDomain,
 			createProviderAccountID,
 		); err != nil {
-			cli.Error("Flag validation failed", err)
+			cli.Error("flag validation failed", err)
 			os.Exit(1)
 		}
 
@@ -95,7 +95,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			if kubeconfigPath == "" {
 				k, err := kube.DefaultKubeconfig()
 				if err != nil {
-					cli.Error("Failed to get default kubeconfig path", err)
+					cli.Error("failed to get default kubeconfig path", err)
 					os.Exit(1)
 				}
 				kubeconfigPath = k
@@ -317,13 +317,18 @@ func validateCreateControlPlaneFlags(infraProvider, createRootDomain, createProv
 		}
 	}
 	if !matched {
-		return errors.New(fmt.Sprintf("invalid provider value '%s' - must be one of %s",
-			infraProvider, allowedInfraProviders))
+		return errors.New(
+			fmt.Sprintf(
+				"invalid provider value '%s' - must be one of %s",
+				infraProvider, allowedInfraProviders,
+			),
+		)
 	}
 
 	if createRootDomain != "" && createProviderAccountID == "" {
 		return errors.New(
-			"if a root domain is provided for automated DNS management, your cloud provider account ID must also be provided. It is also recommended to provide an admin email, but not required.")
+			"if a root domain is provided for automated DNS management, your cloud provider account ID must also be provided. It is also recommended to provide an admin email, but not required.",
+		)
 	}
 
 	return nil

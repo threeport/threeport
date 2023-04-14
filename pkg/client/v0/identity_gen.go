@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetUserByID feteches a user by ID
+// GetUserByID feteches a user by ID.
 func GetUserByID(id uint, apiAddr, apiToken string) (*v0.User, error) {
 	var user v0.User
 
@@ -41,7 +41,7 @@ func GetUserByID(id uint, apiAddr, apiToken string) (*v0.User, error) {
 	return &user, nil
 }
 
-// GetUserByName feteches a user by name
+// GetUserByName feteches a user by name.
 func GetUserByName(name, apiAddr, apiToken string) (*v0.User, error) {
 	var users []v0.User
 
@@ -77,7 +77,7 @@ func GetUserByName(name, apiAddr, apiToken string) (*v0.User, error) {
 	return &users[0], nil
 }
 
-// CreateUser creates a new user
+// CreateUser creates a new user.
 func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 	jsonUser, err := client.MarshalObject(user)
 	if err != nil {
@@ -109,7 +109,7 @@ func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 	return user, nil
 }
 
-// UpdateUser updates a user
+// UpdateUser updates a user.
 func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -146,7 +146,36 @@ func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 	return user, nil
 }
 
-// GetCompanyByID feteches a company by ID
+// DeleteUser deletes a user by ID.
+func DeleteUser(id uint, apiAddr, apiToken string) (*v0.User, error) {
+	var user v0.User
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &user, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &user, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&user); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &user, nil
+}
+
+// GetCompanyByID feteches a company by ID.
 func GetCompanyByID(id uint, apiAddr, apiToken string) (*v0.Company, error) {
 	var company v0.Company
 
@@ -175,7 +204,7 @@ func GetCompanyByID(id uint, apiAddr, apiToken string) (*v0.Company, error) {
 	return &company, nil
 }
 
-// GetCompanyByName feteches a company by name
+// GetCompanyByName feteches a company by name.
 func GetCompanyByName(name, apiAddr, apiToken string) (*v0.Company, error) {
 	var companies []v0.Company
 
@@ -211,7 +240,7 @@ func GetCompanyByName(name, apiAddr, apiToken string) (*v0.Company, error) {
 	return &companies[0], nil
 }
 
-// CreateCompany creates a new company
+// CreateCompany creates a new company.
 func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
 	jsonCompany, err := client.MarshalObject(company)
 	if err != nil {
@@ -243,7 +272,7 @@ func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 	return company, nil
 }
 
-// UpdateCompany updates a company
+// UpdateCompany updates a company.
 func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -278,4 +307,33 @@ func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 	}
 
 	return company, nil
+}
+
+// DeleteCompany deletes a company by ID.
+func DeleteCompany(id uint, apiAddr, apiToken string) (*v0.Company, error) {
+	var company v0.Company
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, id),
+		apiToken,
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &company, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &company, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&company); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &company, nil
 }

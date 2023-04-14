@@ -19,7 +19,7 @@ const (
 	UnmarshalObjectErr     = "failed unmarshal object from threeport response data: %w"
 )
 
-// apiHandlersPath returns the path from the models to the API's internal handlers
+// clientLibPath returns the path from the models to the API's internal handlers
 // package.
 func clientLibPath(packageName string) string {
 	return filepath.Join("..", "..", "..", "pkg", "client", packageName)
@@ -36,7 +36,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		// get object by ID
 		getByIDFuncName := fmt.Sprintf("Get%sByID", mc.TypeName)
 		f.Comment(fmt.Sprintf(
-			"%s feteches a %s by ID",
+			"%s feteches a %s by ID.",
 			getByIDFuncName,
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
@@ -100,7 +100,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		// get object by name
 		getByNameFuncName := fmt.Sprintf("Get%sByName", mc.TypeName)
 		f.Comment(fmt.Sprintf(
-			"%s feteches a %s by name",
+			"%s feteches a %s by name.",
 			getByNameFuncName,
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
@@ -195,7 +195,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		// create object
 		createFuncName := fmt.Sprintf("Create%s", mc.TypeName)
 		f.Comment(fmt.Sprintf(
-			"%s creates a new %s",
+			"%s creates a new %s.",
 			createFuncName,
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
@@ -271,7 +271,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		// update object
 		updateFuncName := fmt.Sprintf("Update%s", mc.TypeName)
 		f.Comment(fmt.Sprintf(
-			"%s updates a %s",
+			"%s updates a %s.",
 			updateFuncName,
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
@@ -351,6 +351,70 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Line(),
 			Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
+		)
+		f.Line()
+		// delete object
+		deleteFuncName := fmt.Sprintf("Delete%s", mc.TypeName)
+		f.Comment(fmt.Sprintf(
+			"%s deletes a %s by ID.",
+			deleteFuncName,
+			strcase.ToDelimited(mc.TypeName, ' '),
+		))
+		f.Func().Id(deleteFuncName).Params(
+			Id("id").Uint(),
+			Id("apiAddr").Op(",").Id("apiToken").String(),
+		).Parens(List(
+			Op("*").Id(cc.PackageName).Dot(mc.TypeName),
+			Error(),
+		)).Block(
+			Var().Id(strcase.ToLowerCamel(mc.TypeName)).Qual(
+				"github.com/threeport/threeport/pkg/api/v0",
+				mc.TypeName,
+			),
+			Line(),
+			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Qual("fmt", "Sprintf").Call(
+					Lit(fmt.Sprintf(
+						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
+					)).Op(",").
+						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("id"),
+				),
+				Line().Id("apiToken"),
+				Line().Qual("net/http", "MethodDelete"),
+				Line().New(Qual("bytes", "Buffer")),
+				Line().Qual("net/http", "StatusOK"),
+				Line(),
+			),
+			If(Id("err").Op("!=").Nil().Block(
+				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(ResponseErr).Op(",").Id("err")),
+			)),
+			Line(),
+			Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
+				Id("response").Dot("Data").Index(Lit(0)),
+			),
+			If(Id("err").Op("!=").Nil().Block(
+				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
+			)),
+			Line(),
+			Id("decoder").Op(":=").Qual(
+				"encoding/json", "NewDecoder",
+			).Call(Qual(
+				"bytes", "NewReader",
+			).Call(Id("jsonData"))),
+			Id("decoder").Dot("UseNumber").Call(),
+			If(Id("err").Op(":=").Id("decoder").Dot("Decode").Call(
+				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
+			).Op(";").Id("err").Op("!=").Nil()).Block(
+				Return().Nil().Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
+			),
+			Line(),
+			Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
 		)
 		f.Line()
 		// TODO: replace object
