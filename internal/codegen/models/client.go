@@ -44,7 +44,6 @@ func (cc *ControllerConfig) ClientLib() error {
 		f.Func().Id(getAllFuncName).Params(
 			Id("apiAddr").Op(",").Id("apiToken").String(),
 		).Parens(List(
-			//Op("*").Id(cc.PackageName).Dot(mc.TypeName),
 			Op("*").Index().Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
@@ -112,7 +111,6 @@ func (cc *ControllerConfig) ClientLib() error {
 			Id("id").Uint(),
 			Id("apiAddr").Op(",").Id("apiToken").String(),
 		).Parens(List(
-			//Op("*").Id(cc.PackageName).Dot(mc.TypeName),
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
@@ -436,7 +434,6 @@ func (cc *ControllerConfig) ClientLib() error {
 			Id("id").Uint(),
 			Id("apiAddr").Op(",").Id("apiToken").String(),
 		).Parens(List(
-			//Op("*").Id(cc.PackageName).Dot(mc.TypeName),
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,

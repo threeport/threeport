@@ -32,7 +32,7 @@ func TestWorkload(t *testing.T) {
 
 	// create workload definition
 	workloadDefName := "test-workload"
-	workloadDefYAML := "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: go-web3-sample-app\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: go-web3-sample-app-config\n  namespace: go-web3-sample-app\ndata:\n  RPCENDPOINT: http://forward-proxy.forward-proxy-system.svc.cluster.local\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: go-web3-sample-app\n  namespace: go-web3-sample-app\nspec:\n  selector:\n    matchLabels:\n      app: web3-sample-app\n  template:\n    metadata:\n      labels:\n        app: web3-sample-app\n    spec:\n      containers:\n        - name: web3-sample-app\n          image: ghcr.io/qleet/go-web3-sample-app:v0.0.4\n          env:\n            - name: PORT\n              value: '8080'\n            - name: RPCENDPOINT\n              valueFrom:\n                configMapKeyRef:\n                  name: go-web3-sample-app-config\n                  key: RPCENDPOINT\n          ports:\n            - containerPort: 8080\n      restartPolicy: Always\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: go-web3-sample-app\n  namespace: go-web3-sample-app\nspec:\n  ports:\n    - port: 8080\n      targetPort: 8080\n  type: ClusterIP\n  selector:\n    app: web3-sample-app\n\n"
+	workloadDefYAML := workloadDefNamespace + workloadDefConfigMap + workloadDefDeployment + workloadDefService
 	workloadDef := v0.WorkloadDefinition{
 		Definition: v0.Definition{
 			Name: &workloadDefName,
@@ -55,8 +55,27 @@ func TestWorkload(t *testing.T) {
 		assert.Equal(*createdWorkloadDef.Reconciled, false, "created workload definition should not be reconciled at creation time")
 	}
 
-	// wait for workload reconciler to reconile workload defintion
-	time.Sleep(time.Second * 3)
+	// check to make sure workload definition gets reconciled by workload
+	// controller
+	workloadDefChecks := 0
+	workloadDefMaxChecks := 5
+	reconciled := false
+	var existingWorkloadDef *v0.WorkloadDefinition
+	for workloadDefChecks < workloadDefMaxChecks && !reconciled {
+		existingWorkloadDef, err = client.GetWorkloadDefinitionByID(
+			*createdWorkloadDef.ID,
+			apiAddr(),
+			apiToken,
+		)
+		assert.Nil(err, "should have no error getting workload definition by ID")
+		if *existingWorkloadDef.Reconciled {
+			reconciled = true
+			break
+		}
+		workloadDefChecks += 1
+		time.Sleep(time.Second * 1)
+	}
+	assert.Equal(*existingWorkloadDef.Reconciled, true, "created workload definition should be reconciled by workload controller after 5 seconds")
 
 	// check workload resource definitions
 	workloadResourceDefs, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
@@ -129,3 +148,66 @@ func TestWorkload(t *testing.T) {
 
 	// TODO: delete workload instance and definition then check results
 }
+
+const workloadDefNamespace = `---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: go-web3-sample-app-0
+`
+
+const workloadDefConfigMap = `---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: go-web3-sample-app-config
+  namespace: go-web3-sample-app-0
+data:
+  RPCENDPOINT: http://forward-proxy.forward-proxy-system.svc.cluster.local
+`
+
+const workloadDefDeployment = `---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-web3-sample-app
+  namespace: go-web3-sample-app-0
+spec:
+  selector:
+    matchLabels:
+      app: web3-sample-app
+  template:
+    metadata:
+      labels:
+        app: web3-sample-app
+    spec:
+      containers:
+        - name: web3-sample-app
+          image: ghcr.io/qleet/go-web3-sample-app:v0.0.4
+          env:
+            - name: PORT
+              value: '8080'
+            - name: RPCENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: go-web3-sample-app-config
+                  key: RPCENDPOINT
+          ports:
+            - containerPort: 8080
+      restartPolicy: Always
+`
+
+const workloadDefService = `---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-web3-sample-app
+  namespace: go-web3-sample-app-0
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP
+  selector:
+    app: web3-sample-app
+`
