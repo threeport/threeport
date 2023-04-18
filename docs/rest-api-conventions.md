@@ -1,8 +1,10 @@
 # REST API conventions
 
-The Qleet/Threeport REST API follows a set of conventions to make interacting with it more consistent.
-This document outlines those conventions.  For detailed documentation of all supported API objects and methods
-refer to the swagger docs at `{{host}}:{{port}}/swagger/index.html` on a running API instance.
+The Qleet/Threeport REST API follows a set of conventions to make interacting
+with it consistent.
+This document outlines those conventions.  For detailed documentation of all
+supported API objects and methods refer to the swagger docs at
+`{{host}}:{{port}}/swagger/index.html` on a running API instance.
 
 ## REST URLs
 
@@ -13,7 +15,7 @@ Each element type on the server is represented as a top-level URL with a plural 
 ```
 for example
 ```text
-http://localhost:1331/v0/accounts
+http://localhost:1331/v0/workload-definitions
 ```
 
 ## Versioning
@@ -29,32 +31,20 @@ There are two different versions to consider with the QleetOS API:
   `v0` and is a part of the path in the URL, e.g. `{{host}}:{{port}}/v0/users`.
   It is used to maintain backward compatibility for clients of the API.  This
   allows us to update the data model for any particular object without breaking
-  existing integrations.
+  existing integrations.  The available version for an API can be found at the
+  path `<rest-resource>/versions`.
 
 For particular API versions, when we add new optional fields no new API version
 will be created.  However, if we add any required fields or remove any existing
 fields, that will result in a new API version.
 
-## API Groups
-
-Groups are used for extensions to the API.  This prevents naming collisions
-between objects.  The core QleetOS objects have no group.  Objects in extended
-APIs contain the group in the URL path.
-
-For example, an ethereum API extension may have the following endpoint:
-`{{host}}:{{port}}/eth/v0/nodes`
-
-Whereas an avalanche API extensions may have this:
-`{{host}}:{{port}}/ava/v0/nodes`
-
-In this manner, each object may use a `Node` object, but in a different group.
-
 ## Required HTTP headers
 
-Qleet/Threeport REST API accept an input in JSON format and return an output in JSON format.
-Following HTTP conventions, the `Content-Type` request header is required for operations that provide JSON input,
-and the `Accept` request header is required for operations that produce JSON output,
-with the media type value of `application/json`.
+The threeport REST API accept an input in JSON format and return an output in
+JSON format.  Following HTTP conventions, the `Content-Type` request header is
+required for operations that provide JSON input, and the `Accept` request header
+is required for operations that produce JSON output, with the media type value
+of `application/json`.
 
 ## Basic operations
 

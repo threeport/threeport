@@ -2,6 +2,9 @@
 
 An application orchestration control plane.
 
+Following are docs are for developers.  See our [user
+documentation](https://docs.qleet.io/) for using threeport.
+
 ## Quickstart
 
 In order to run a local development instance of threeport, you'll need:
@@ -29,7 +32,7 @@ This will start a local kind cluster and install the control plane.  You can now
 make calls to the API server and make local code changes that will be
 hot-reloaded in place.
 
-Note: The development environement is created using tptdev tool.  The tptdev
+Note: The development environment is created using tptdev tool.  The tptdev
 tool references files in the source code so assumes, by default that it is being
 run from the root of this repo.
 
@@ -38,19 +41,13 @@ manages the live reload of code changes on your filesystem.  Therefore, if an
 error occurs, the container will not fail and restart.  For example, if the build
 fails due to a compile error for a live reload the container status will remain
 `Running` because air is still running.  View the pod logs with `kubectl logs`
-to see if this is the case.
+to see if this is the case. The workload controller, for example, comes up
+before the API.  In a dev environment, it will generally need to be restarted
+after the API is up to work correctly.
 
-You can call the API in one of two ways:
+Call the API:
 
-1. Call the API at the local IP exposed by a service type loadbalancer:
 ```bash
-export API_IP=$(kubectl get svc -n threeport-control-plane threeport-api-server -o=jsonpath='{.status.loadBalancer.ingress[0].ip}')
-curl $API_IP/swagger/index.html
-```
-
-2. Port forward localhost:1323 to the API:
-```bash
-make dev-forward-api
 curl localhost:1323/swagger/index.html
 ```
 
