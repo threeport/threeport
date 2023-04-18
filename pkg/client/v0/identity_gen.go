@@ -12,6 +12,36 @@ import (
 	"net/http"
 )
 
+// GetUsers feteches all users.
+// TODO: implement pagination
+func GetUsers(apiAddr, apiToken string) (*[]v0.User, error) {
+	var users []v0.User
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/users", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &users, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &users, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&users); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &users, nil
+}
+
 // GetUserByID feteches a user by ID.
 func GetUserByID(id uint, apiAddr, apiToken string) (*v0.User, error) {
 	var user v0.User
@@ -173,6 +203,36 @@ func DeleteUser(id uint, apiAddr, apiToken string) (*v0.User, error) {
 	}
 
 	return &user, nil
+}
+
+// GetCompanies feteches all companies.
+// TODO: implement pagination
+func GetCompanies(apiAddr, apiToken string) (*[]v0.Company, error) {
+	var companies []v0.Company
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/companies", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &companies, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &companies, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&companies); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &companies, nil
 }
 
 // GetCompanyByID feteches a company by ID.

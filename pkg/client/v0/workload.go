@@ -47,9 +47,9 @@ func CreateWorkloadResourceDefinitions(
 	return workloadResourceDefinitions, nil
 }
 
-// GetWorkloadResourceDefinitionById fetches a workload resource definition
+// GetWorkloadResourceDefinitionsById fetches workload resource definitions
 // by workload definition ID
-func GetWorkloadResourceDefinitionByWorkloadDefinitionID(id uint, apiAddr, apiToken string) (*[]v0.WorkloadResourceDefinition, error) {
+func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(id uint, apiAddr, apiToken string) (*[]v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 	response, err := GetResponse(

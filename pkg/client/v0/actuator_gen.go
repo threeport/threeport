@@ -12,6 +12,36 @@ import (
 	"net/http"
 )
 
+// GetProfiles feteches all profiles.
+// TODO: implement pagination
+func GetProfiles(apiAddr, apiToken string) (*[]v0.Profile, error) {
+	var profiles []v0.Profile
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/profiles", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &profiles, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &profiles, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&profiles); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &profiles, nil
+}
+
 // GetProfileByID feteches a profile by ID.
 func GetProfileByID(id uint, apiAddr, apiToken string) (*v0.Profile, error) {
 	var profile v0.Profile
@@ -173,6 +203,36 @@ func DeleteProfile(id uint, apiAddr, apiToken string) (*v0.Profile, error) {
 	}
 
 	return &profile, nil
+}
+
+// GetTiers feteches all tiers.
+// TODO: implement pagination
+func GetTiers(apiAddr, apiToken string) (*[]v0.Tier, error) {
+	var tiers []v0.Tier
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/tiers", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &tiers, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &tiers, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&tiers); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &tiers, nil
 }
 
 // GetTierByID feteches a tier by ID.

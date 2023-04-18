@@ -135,7 +135,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// use workload definition ID to get workload resource definitions
-			workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionByWorkloadDefinitionID(
+			workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
 				*workloadInstance.WorkloadDefinitionID,
 				r.APIServer,
 				"",
