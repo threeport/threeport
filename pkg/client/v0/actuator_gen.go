@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetProfileByID feteches a profile by ID
+// GetProfileByID fetches a profile by ID.
 func GetProfileByID(id uint, apiAddr, apiToken string) (*v0.Profile, error) {
 	var profile v0.Profile
 
@@ -41,7 +41,7 @@ func GetProfileByID(id uint, apiAddr, apiToken string) (*v0.Profile, error) {
 	return &profile, nil
 }
 
-// GetProfileByName feteches a profile by name
+// GetProfileByName fetches a profile by name.
 func GetProfileByName(name, apiAddr, apiToken string) (*v0.Profile, error) {
 	var profiles []v0.Profile
 
@@ -77,7 +77,7 @@ func GetProfileByName(name, apiAddr, apiToken string) (*v0.Profile, error) {
 	return &profiles[0], nil
 }
 
-// CreateProfile creates a new profile
+// CreateProfile creates a new profile.
 func CreateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, error) {
 	jsonProfile, err := client.MarshalObject(profile)
 	if err != nil {
@@ -109,7 +109,7 @@ func CreateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, 
 	return profile, nil
 }
 
-// UpdateProfile updates a profile
+// UpdateProfile updates a profile.
 func UpdateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -146,33 +146,36 @@ func UpdateProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, 
 	return profile, nil
 }
 
-// DeleteProfile delete a profile
-func DeleteProfile(profile *v0.Profile, apiAddr, apiToken string) (*v0.Profile, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
-	profileID := *profile.ID
-	profile.ID = nil
+// DeleteProfile deletes a profile by ID.
+func DeleteProfile(id uint, apiAddr, apiToken string) (*v0.Profile, error) {
+	var profile v0.Profile
 
-	jsonProfile, err := client.MarshalObject(profile)
-	if err != nil {
-		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	_, err = GetResponse(
-		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, profileID),
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodDelete,
-		bytes.NewBuffer(jsonProfile),
-		http.StatusNoContent,
+		new(bytes.Buffer),
+		http.StatusOK,
 	)
 	if err != nil {
-		return profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	return profile, nil
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &profile, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&profile); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &profile, nil
 }
 
-// GetTierByID feteches a tier by ID
+// GetTierByID fetches a tier by ID.
 func GetTierByID(id uint, apiAddr, apiToken string) (*v0.Tier, error) {
 	var tier v0.Tier
 
@@ -201,7 +204,7 @@ func GetTierByID(id uint, apiAddr, apiToken string) (*v0.Tier, error) {
 	return &tier, nil
 }
 
-// GetTierByName feteches a tier by name
+// GetTierByName fetches a tier by name.
 func GetTierByName(name, apiAddr, apiToken string) (*v0.Tier, error) {
 	var tiers []v0.Tier
 
@@ -237,7 +240,7 @@ func GetTierByName(name, apiAddr, apiToken string) (*v0.Tier, error) {
 	return &tiers[0], nil
 }
 
-// CreateTier creates a new tier
+// CreateTier creates a new tier.
 func CreateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 	jsonTier, err := client.MarshalObject(tier)
 	if err != nil {
@@ -269,7 +272,7 @@ func CreateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 	return tier, nil
 }
 
-// UpdateTier updates a tier
+// UpdateTier updates a tier.
 func UpdateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -306,28 +309,31 @@ func UpdateTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
 	return tier, nil
 }
 
-// DeleteTier delete a tier
-func DeleteTier(tier *v0.Tier, apiAddr, apiToken string) (*v0.Tier, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
-	tierID := *tier.ID
-	tier.ID = nil
+// DeleteTier deletes a tier by ID.
+func DeleteTier(id uint, apiAddr, apiToken string) (*v0.Tier, error) {
+	var tier v0.Tier
 
-	jsonTier, err := client.MarshalObject(tier)
-	if err != nil {
-		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	_, err = GetResponse(
-		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, tierID),
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodDelete,
-		bytes.NewBuffer(jsonTier),
-		http.StatusNoContent,
+		new(bytes.Buffer),
+		http.StatusOK,
 	)
 	if err != nil {
-		return tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	return tier, nil
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &tier, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&tier); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &tier, nil
 }

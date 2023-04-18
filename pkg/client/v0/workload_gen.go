@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetWorkloadDefinitionByID feteches a workload definition by ID
+// GetWorkloadDefinitionByID fetches a workload definition by ID.
 func GetWorkloadDefinitionByID(id uint, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
 	var workloadDefinition v0.WorkloadDefinition
 
@@ -41,7 +41,7 @@ func GetWorkloadDefinitionByID(id uint, apiAddr, apiToken string) (*v0.WorkloadD
 	return &workloadDefinition, nil
 }
 
-// GetWorkloadDefinitionByName feteches a workload definition by name
+// GetWorkloadDefinitionByName fetches a workload definition by name.
 func GetWorkloadDefinitionByName(name, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
 	var workloadDefinitions []v0.WorkloadDefinition
 
@@ -77,7 +77,7 @@ func GetWorkloadDefinitionByName(name, apiAddr, apiToken string) (*v0.WorkloadDe
 	return &workloadDefinitions[0], nil
 }
 
-// CreateWorkloadDefinition creates a new workload definition
+// CreateWorkloadDefinition creates a new workload definition.
 func CreateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
 	jsonWorkloadDefinition, err := client.MarshalObject(workloadDefinition)
 	if err != nil {
@@ -109,7 +109,7 @@ func CreateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr
 	return workloadDefinition, nil
 }
 
-// UpdateWorkloadDefinition updates a workload definition
+// UpdateWorkloadDefinition updates a workload definition.
 func UpdateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -146,33 +146,36 @@ func UpdateWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr
 	return workloadDefinition, nil
 }
 
-// DeleteWorkloadDefinition delete a workload definition
-func DeleteWorkloadDefinition(workloadDefinition *v0.WorkloadDefinition, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
-	workloadDefinitionID := *workloadDefinition.ID
-	workloadDefinition.ID = nil
+// DeleteWorkloadDefinition deletes a workload definition by ID.
+func DeleteWorkloadDefinition(id uint, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
+	var workloadDefinition v0.WorkloadDefinition
 
-	jsonWorkloadDefinition, err := client.MarshalObject(workloadDefinition)
-	if err != nil {
-		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	_, err = GetResponse(
-		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, workloadDefinitionID),
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodDelete,
-		bytes.NewBuffer(jsonWorkloadDefinition),
-		http.StatusNoContent,
+		new(bytes.Buffer),
+		http.StatusOK,
 	)
 	if err != nil {
-		return workloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &workloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	return workloadDefinition, nil
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &workloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadDefinition, nil
 }
 
-// GetWorkloadResourceDefinitionByID feteches a workload resource definition by ID
+// GetWorkloadResourceDefinitionByID fetches a workload resource definition by ID.
 func GetWorkloadResourceDefinitionByID(id uint, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinition v0.WorkloadResourceDefinition
 
@@ -201,7 +204,7 @@ func GetWorkloadResourceDefinitionByID(id uint, apiAddr, apiToken string) (*v0.W
 	return &workloadResourceDefinition, nil
 }
 
-// GetWorkloadResourceDefinitionByName feteches a workload resource definition by name
+// GetWorkloadResourceDefinitionByName fetches a workload resource definition by name.
 func GetWorkloadResourceDefinitionByName(name, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
@@ -237,7 +240,7 @@ func GetWorkloadResourceDefinitionByName(name, apiAddr, apiToken string) (*v0.Wo
 	return &workloadResourceDefinitions[0], nil
 }
 
-// CreateWorkloadResourceDefinition creates a new workload resource definition
+// CreateWorkloadResourceDefinition creates a new workload resource definition.
 func CreateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadResourceDefinition, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
 	jsonWorkloadResourceDefinition, err := client.MarshalObject(workloadResourceDefinition)
 	if err != nil {
@@ -269,7 +272,7 @@ func CreateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadRes
 	return workloadResourceDefinition, nil
 }
 
-// UpdateWorkloadResourceDefinition updates a workload resource definition
+// UpdateWorkloadResourceDefinition updates a workload resource definition.
 func UpdateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadResourceDefinition, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -306,33 +309,36 @@ func UpdateWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadRes
 	return workloadResourceDefinition, nil
 }
 
-// DeleteWorkloadResourceDefinition delete a workload resource definition
-func DeleteWorkloadResourceDefinition(workloadResourceDefinition *v0.WorkloadResourceDefinition, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
-	workloadResourceDefinitionID := *workloadResourceDefinition.ID
-	workloadResourceDefinition.ID = nil
+// DeleteWorkloadResourceDefinition deletes a workload resource definition by ID.
+func DeleteWorkloadResourceDefinition(id uint, apiAddr, apiToken string) (*v0.WorkloadResourceDefinition, error) {
+	var workloadResourceDefinition v0.WorkloadResourceDefinition
 
-	jsonWorkloadResourceDefinition, err := client.MarshalObject(workloadResourceDefinition)
-	if err != nil {
-		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	_, err = GetResponse(
-		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, workloadResourceDefinitionID),
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodDelete,
-		bytes.NewBuffer(jsonWorkloadResourceDefinition),
-		http.StatusNoContent,
+		new(bytes.Buffer),
+		http.StatusOK,
 	)
 	if err != nil {
-		return workloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &workloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	return workloadResourceDefinition, nil
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &workloadResourceDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadResourceDefinition, nil
 }
 
-// GetWorkloadInstanceByID feteches a workload instance by ID
+// GetWorkloadInstanceByID fetches a workload instance by ID.
 func GetWorkloadInstanceByID(id uint, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
 	var workloadInstance v0.WorkloadInstance
 
@@ -361,7 +367,7 @@ func GetWorkloadInstanceByID(id uint, apiAddr, apiToken string) (*v0.WorkloadIns
 	return &workloadInstance, nil
 }
 
-// GetWorkloadInstanceByName feteches a workload instance by name
+// GetWorkloadInstanceByName fetches a workload instance by name.
 func GetWorkloadInstanceByName(name, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
 
@@ -397,7 +403,7 @@ func GetWorkloadInstanceByName(name, apiAddr, apiToken string) (*v0.WorkloadInst
 	return &workloadInstances[0], nil
 }
 
-// CreateWorkloadInstance creates a new workload instance
+// CreateWorkloadInstance creates a new workload instance.
 func CreateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
 	jsonWorkloadInstance, err := client.MarshalObject(workloadInstance)
 	if err != nil {
@@ -429,7 +435,7 @@ func CreateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiT
 	return workloadInstance, nil
 }
 
-// UpdateWorkloadInstance updates a workload instance
+// UpdateWorkloadInstance updates a workload instance.
 func UpdateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -466,33 +472,36 @@ func UpdateWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiT
 	return workloadInstance, nil
 }
 
-// DeleteWorkloadInstance delete a workload instance
-func DeleteWorkloadInstance(workloadInstance *v0.WorkloadInstance, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
-	workloadInstanceID := *workloadInstance.ID
-	workloadInstance.ID = nil
+// DeleteWorkloadInstance deletes a workload instance by ID.
+func DeleteWorkloadInstance(id uint, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
+	var workloadInstance v0.WorkloadInstance
 
-	jsonWorkloadInstance, err := client.MarshalObject(workloadInstance)
-	if err != nil {
-		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	_, err = GetResponse(
-		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, workloadInstanceID),
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodDelete,
-		bytes.NewBuffer(jsonWorkloadInstance),
-		http.StatusNoContent,
+		new(bytes.Buffer),
+		http.StatusOK,
 	)
 	if err != nil {
-		return workloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &workloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	return workloadInstance, nil
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &workloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadInstance, nil
 }
 
-// GetWorkloadResourceInstanceByID feteches a workload resource instance by ID
+// GetWorkloadResourceInstanceByID fetches a workload resource instance by ID.
 func GetWorkloadResourceInstanceByID(id uint, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstance v0.WorkloadResourceInstance
 
@@ -521,7 +530,7 @@ func GetWorkloadResourceInstanceByID(id uint, apiAddr, apiToken string) (*v0.Wor
 	return &workloadResourceInstance, nil
 }
 
-// GetWorkloadResourceInstanceByName feteches a workload resource instance by name
+// GetWorkloadResourceInstanceByName fetches a workload resource instance by name.
 func GetWorkloadResourceInstanceByName(name, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 
@@ -557,7 +566,7 @@ func GetWorkloadResourceInstanceByName(name, apiAddr, apiToken string) (*v0.Work
 	return &workloadResourceInstances[0], nil
 }
 
-// CreateWorkloadResourceInstance creates a new workload resource instance
+// CreateWorkloadResourceInstance creates a new workload resource instance.
 func CreateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourceInstance, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
 	jsonWorkloadResourceInstance, err := client.MarshalObject(workloadResourceInstance)
 	if err != nil {
@@ -589,7 +598,7 @@ func CreateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourc
 	return workloadResourceInstance, nil
 }
 
-// UpdateWorkloadResourceInstance updates a workload resource instance
+// UpdateWorkloadResourceInstance updates a workload resource instance.
 func UpdateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourceInstance, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -626,28 +635,31 @@ func UpdateWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourc
 	return workloadResourceInstance, nil
 }
 
-// DeleteWorkloadResourceInstance delete a workload resource instance
-func DeleteWorkloadResourceInstance(workloadResourceInstance *v0.WorkloadResourceInstance, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
-	workloadResourceInstanceID := *workloadResourceInstance.ID
-	workloadResourceInstance.ID = nil
+// DeleteWorkloadResourceInstance deletes a workload resource instance by ID.
+func DeleteWorkloadResourceInstance(id uint, apiAddr, apiToken string) (*v0.WorkloadResourceInstance, error) {
+	var workloadResourceInstance v0.WorkloadResourceInstance
 
-	jsonWorkloadResourceInstance, err := client.MarshalObject(workloadResourceInstance)
-	if err != nil {
-		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	_, err = GetResponse(
-		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, workloadResourceInstanceID),
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodDelete,
-		bytes.NewBuffer(jsonWorkloadResourceInstance),
-		http.StatusNoContent,
+		new(bytes.Buffer),
+		http.StatusOK,
 	)
 	if err != nil {
-		return workloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &workloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	return workloadResourceInstance, nil
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &workloadResourceInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadResourceInstance, nil
 }

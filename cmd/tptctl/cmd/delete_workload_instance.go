@@ -1,0 +1,110 @@
+/*
+Copyright © 2023 Threeport admin@threeport.io
+*/
+package cmd
+
+import (
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
+
+	"github.com/threeport/threeport/internal/cli"
+	config "github.com/threeport/threeport/pkg/config/v0"
+)
+
+var (
+	deleteWorkloadInstanceConfigPath string
+	deleteWorkloadInstanceName       string
+)
+
+// DeleteWorkloadInstanceCmd represents the workload-instance command
+var DeleteWorkloadInstanceCmd = &cobra.Command{
+	Use:          "workload-instance",
+	Example:      "tptctl delete workload-instance --config /path/to/config.yaml",
+	Short:        "Delete an existing workload instance",
+	Long:         `Delete an existing workload instance.`,
+	SilenceUsage: true,
+	Run: func(cmd *cobra.Command, args []string) {
+		// get threeport config and extract threeport API endpoint
+		threeportConfig := &config.ThreeportConfig{}
+		if err := viper.Unmarshal(threeportConfig); err != nil {
+			cli.Error("Failed to get threeport config", err)
+			os.Exit(1)
+		}
+		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
+		if err != nil {
+			cli.Error("failed to get threeport API endpoint from config", err)
+			os.Exit(1)
+		}
+
+		// flag validation
+		if err := validateDeleteWorkloadInstanceFlags(
+			deleteWorkloadInstanceConfigPath,
+			deleteWorkloadInstanceName,
+		); err != nil {
+			cli.Error("flag validation failed", err)
+			os.Exit(1)
+		}
+
+		var workloadInstanceConfig config.WorkloadInstanceConfig
+		if deleteWorkloadInstanceConfigPath != "" {
+			// load workload instance config
+			configContent, err := ioutil.ReadFile(deleteWorkloadInstanceConfigPath)
+			if err != nil {
+				cli.Error("failed to read config file", err)
+				os.Exit(1)
+			}
+			if err := yaml.Unmarshal(configContent, &workloadInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+		} else {
+			workloadInstanceConfig = config.WorkloadInstanceConfig{
+				WorkloadInstance: config.WorkloadInstanceValues{
+					Name: deleteWorkloadInstanceName,
+				},
+			}
+		}
+
+		// delete workload instance
+		workloadInstance := workloadInstanceConfig.WorkloadInstance
+		wi, err := workloadInstance.Delete(apiEndpoint)
+		if err != nil {
+			cli.Error("failed to delete workload", err)
+			os.Exit(1)
+		}
+
+		cli.Complete(fmt.Sprintf("workload instance %s deleted\n", *wi.Name))
+	},
+}
+
+func init() {
+	deleteCmd.AddCommand(DeleteWorkloadInstanceCmd)
+
+	DeleteWorkloadInstanceCmd.Flags().StringVarP(
+		&deleteWorkloadInstanceConfigPath,
+		"config", "c", "", "Path to file with workload instance config.",
+	)
+	DeleteWorkloadInstanceCmd.Flags().StringVarP(
+		&deleteWorkloadInstanceName,
+		"name", "n", "", "Name of workload instance.",
+	)
+}
+
+// validateCreateControlPlaneFlags validates flag inputs as needed.
+func validateDeleteWorkloadInstanceFlags(workloadInstConfigPath, workloadInstName string) error {
+	if workloadInstConfigPath == "" && workloadInstName == "" {
+		return errors.New("must provide either workload instance name or path to config file")
+	}
+
+	if workloadInstConfigPath != "" && workloadInstName != "" {
+		return errors.New("workload instance name and path to config file provided - provide only one")
+	}
+
+	return nil
+}

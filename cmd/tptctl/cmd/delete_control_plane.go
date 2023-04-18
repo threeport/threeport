@@ -14,7 +14,7 @@ import (
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
-	"github.com/threeport/threeport/internal/tptctl"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 var deleteThreeportInstanceName string
@@ -22,22 +22,22 @@ var deleteThreeportInstanceName string
 // DeleteControlPlaneCmd represents the delete control-plane command
 var DeleteControlPlaneCmd = &cobra.Command{
 	Use:          "control-plane",
-	Example:      "tptctl delete control-plane",
+	Example:      "tptctl delete control-plane --name my-threeport",
 	Short:        "Delete an instance of the Threeport control plane",
 	Long:         `Delete an instance of the Threeport control plane.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig := &tptctl.ThreeportConfig{}
+		threeportConfig := &config.ThreeportConfig{}
 		if err := viper.Unmarshal(threeportConfig); err != nil {
-			cli.Error("Failed to get Threeport config", err)
+			cli.Error("failed to get Threeport config", err)
 			os.Exit(1)
 		}
 
 		// check threeport config for exisiting instance
 		// find the threeport instance by name
 		threeportInstanceConfigExists := false
-		var instanceConfig tptctl.Instance
+		var instanceConfig config.Instance
 		for _, instance := range threeportConfig.Instances {
 			if instance.Name == deleteThreeportInstanceName {
 				instanceConfig = instance
@@ -67,7 +67,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 
 		// update threeport config to remove the deleted threeport instance and
 		// current instance
-		updatedInstances := []tptctl.Instance{}
+		updatedInstances := []config.Instance{}
 		for _, instance := range threeportConfig.Instances {
 			if instance.Name == deleteThreeportInstanceName {
 				continue
@@ -79,16 +79,18 @@ var DeleteControlPlaneCmd = &cobra.Command{
 		viper.Set("Instances", updatedInstances)
 		viper.Set("CurrentInstance", "")
 		viper.WriteConfig()
-		cli.Info("Threeport config updated")
+		cli.Info("threeport config updated")
 
-		cli.Complete(fmt.Sprintf("Threeport instance %s deleted", deleteThreeportInstanceName))
+		cli.Complete(fmt.Sprintf("threeport instance %s deleted", deleteThreeportInstanceName))
 	},
 }
 
 func init() {
 	deleteCmd.AddCommand(DeleteControlPlaneCmd)
 
-	DeleteControlPlaneCmd.Flags().StringVarP(&deleteThreeportInstanceName,
-		"name", "n", "", "name of control plane instance")
+	DeleteControlPlaneCmd.Flags().StringVarP(
+		&deleteThreeportInstanceName,
+		"name", "n", "", "Required. Name of control plane instance.",
+	)
 	DeleteControlPlaneCmd.MarkFlagRequired("name")
 }

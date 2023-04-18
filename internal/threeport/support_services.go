@@ -24,12 +24,12 @@ const (
 	SupportServicesIngressComponentName        = "threeport-control-plane-ingress"
 	SupportServicesIngressNamespace            = "threeport-ingress"
 	SupportServicesIngressServiceName          = "threeport-ingress-service"
-	DevEnvironmentIngressNamespace             = "ingress-system"
+	LocalIngressNamespace                      = "ingress-system"
 )
 
-// InstallDevEnvSupportServices installs support services for a local dev
+// InstallLocalSupportServices installs support services for a local dev
 // environment, e.g. ingress controller with host port on kind
-func InstallDevEnvSupportServices(
+func InstallLocalSupportServices(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
@@ -38,7 +38,7 @@ func InstallDevEnvSupportServices(
 			"apiVersion": "v1",
 			"kind":       "Namespace",
 			"metadata": map[string]interface{}{
-				"name": DevEnvironmentIngressNamespace,
+				"name": LocalIngressNamespace,
 			},
 		},
 	}
@@ -52,7 +52,7 @@ func InstallDevEnvSupportServices(
 			"kind":       "ServiceAccount",
 			"metadata": map[string]interface{}{
 				"name":      "kong-serviceaccount",
-				"namespace": DevEnvironmentIngressNamespace,
+				"namespace": LocalIngressNamespace,
 			},
 		},
 	}
@@ -66,7 +66,7 @@ func InstallDevEnvSupportServices(
 			"kind":       "Role",
 			"metadata": map[string]interface{}{
 				"name":      "kong-leader-election",
-				"namespace": DevEnvironmentIngressNamespace,
+				"namespace": LocalIngressNamespace,
 			},
 			"rules": []interface{}{
 				map[string]interface{}{
@@ -680,7 +680,7 @@ func InstallDevEnvSupportServices(
 			"kind":       "RoleBinding",
 			"metadata": map[string]interface{}{
 				"name":      "kong-leader-election",
-				"namespace": DevEnvironmentIngressNamespace,
+				"namespace": LocalIngressNamespace,
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -691,7 +691,7 @@ func InstallDevEnvSupportServices(
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
 					"name":      "kong-serviceaccount",
-					"namespace": DevEnvironmentIngressNamespace,
+					"namespace": LocalIngressNamespace,
 				},
 			},
 		},
@@ -716,7 +716,7 @@ func InstallDevEnvSupportServices(
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
 					"name":      "kong-serviceaccount",
-					"namespace": DevEnvironmentIngressNamespace,
+					"namespace": LocalIngressNamespace,
 				},
 			},
 		},
@@ -741,7 +741,7 @@ func InstallDevEnvSupportServices(
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
 					"name":      "kong-serviceaccount",
-					"namespace": DevEnvironmentIngressNamespace,
+					"namespace": LocalIngressNamespace,
 				},
 			},
 		},
@@ -756,7 +756,7 @@ func InstallDevEnvSupportServices(
 			"kind":       "Service",
 			"metadata": map[string]interface{}{
 				"name":      "kong-admin",
-				"namespace": DevEnvironmentIngressNamespace,
+				"namespace": LocalIngressNamespace,
 			},
 			"spec": map[string]interface{}{
 				"clusterIP": "None",
@@ -788,7 +788,7 @@ func InstallDevEnvSupportServices(
 					"service.beta.kubernetes.io/aws-load-balancer-type":             "nlb",
 				},
 				"name":      "kong-proxy",
-				"namespace": DevEnvironmentIngressNamespace,
+				"namespace": LocalIngressNamespace,
 			},
 			"spec": map[string]interface{}{
 				"ports": []interface{}{
@@ -822,7 +822,7 @@ func InstallDevEnvSupportServices(
 			"kind":       "Service",
 			"metadata": map[string]interface{}{
 				"name":      "kong-validation-webhook",
-				"namespace": DevEnvironmentIngressNamespace,
+				"namespace": LocalIngressNamespace,
 			},
 			"spec": map[string]interface{}{
 				"ports": []interface{}{
@@ -852,7 +852,7 @@ func InstallDevEnvSupportServices(
 					"app": "ingress-kong",
 				},
 				"name":      "ingress-kong",
-				"namespace": DevEnvironmentIngressNamespace,
+				"namespace": LocalIngressNamespace,
 			},
 			"spec": map[string]interface{}{
 				"replicas": 1,
@@ -879,7 +879,7 @@ func InstallDevEnvSupportServices(
 								"env": []interface{}{
 									map[string]interface{}{
 										"name":  "CONTROLLER_KONG_ADMIN_SVC",
-										"value": fmt.Sprintf("%s/kong-admin", DevEnvironmentIngressNamespace),
+										"value": fmt.Sprintf("%s/kong-admin", LocalIngressNamespace),
 									},
 									map[string]interface{}{
 										"name":  "CONTROLLER_KONG_ADMIN_TLS_SKIP_VERIFY",
@@ -887,7 +887,7 @@ func InstallDevEnvSupportServices(
 									},
 									map[string]interface{}{
 										"name":  "CONTROLLER_PUBLISH_SERVICE",
-										"value": fmt.Sprintf("%s/kong-proxy", DevEnvironmentIngressNamespace),
+										"value": fmt.Sprintf("%s/kong-proxy", LocalIngressNamespace),
 									},
 									map[string]interface{}{
 										"name": "POD_NAME",
@@ -1014,7 +1014,7 @@ func InstallDevEnvSupportServices(
 					"app": "proxy-kong",
 				},
 				"name":      "proxy-kong",
-				"namespace": DevEnvironmentIngressNamespace,
+				"namespace": LocalIngressNamespace,
 			},
 			"spec": map[string]interface{}{
 				"replicas": 1,

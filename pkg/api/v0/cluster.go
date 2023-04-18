@@ -55,6 +55,10 @@ type ClusterInstance struct {
 	// The client key to use for auth to the kube-api.
 	Key *string `json:"Key,omitempty" gorm:"not null" validate:"required"`
 
+	// If true the cluster instance to use for deployments if not otherwise
+	// specified.  Can only have one per account.
+	DefaultCluster *bool `json:"DefaultCluster,omitempty" query:"defaultcluster" gorm:"default:false" validate:"optional"`
+
 	ClusterDefinitionID *uint `json:"ClusterDefinitionID,omitempty" gorm:"not null" validate:"required"`
 
 	// The associated workload instances running on this cluster.

@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetNetworkIngressDefinitionByID feteches a network ingress definition by ID
+// GetNetworkIngressDefinitionByID fetches a network ingress definition by ID.
 func GetNetworkIngressDefinitionByID(id uint, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinition v0.NetworkIngressDefinition
 
@@ -41,7 +41,7 @@ func GetNetworkIngressDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Net
 	return &networkIngressDefinition, nil
 }
 
-// GetNetworkIngressDefinitionByName feteches a network ingress definition by name
+// GetNetworkIngressDefinitionByName fetches a network ingress definition by name.
 func GetNetworkIngressDefinitionByName(name, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinitions []v0.NetworkIngressDefinition
 
@@ -77,7 +77,7 @@ func GetNetworkIngressDefinitionByName(name, apiAddr, apiToken string) (*v0.Netw
 	return &networkIngressDefinitions[0], nil
 }
 
-// CreateNetworkIngressDefinition creates a new network ingress definition
+// CreateNetworkIngressDefinition creates a new network ingress definition.
 func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
 	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
 	if err != nil {
@@ -109,7 +109,7 @@ func CreateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 	return networkIngressDefinition, nil
 }
 
-// UpdateNetworkIngressDefinition updates a network ingress definition
+// UpdateNetworkIngressDefinition updates a network ingress definition.
 func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -146,33 +146,36 @@ func UpdateNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressD
 	return networkIngressDefinition, nil
 }
 
-// DeleteNetworkIngressDefinition delete a network ingress definition
-func DeleteNetworkIngressDefinition(networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
-	networkIngressDefinitionID := *networkIngressDefinition.ID
-	networkIngressDefinition.ID = nil
+// DeleteNetworkIngressDefinition deletes a network ingress definition by ID.
+func DeleteNetworkIngressDefinition(id uint, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
+	var networkIngressDefinition v0.NetworkIngressDefinition
 
-	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
-	if err != nil {
-		return networkIngressDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	_, err = GetResponse(
-		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, networkIngressDefinitionID),
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodDelete,
-		bytes.NewBuffer(jsonNetworkIngressDefinition),
-		http.StatusNoContent,
+		new(bytes.Buffer),
+		http.StatusOK,
 	)
 	if err != nil {
-		return networkIngressDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &networkIngressDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	return networkIngressDefinition, nil
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &networkIngressDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &networkIngressDefinition, nil
 }
 
-// GetNetworkIngressInstanceByID feteches a network ingress instance by ID
+// GetNetworkIngressInstanceByID fetches a network ingress instance by ID.
 func GetNetworkIngressInstanceByID(id uint, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
 	var networkIngressInstance v0.NetworkIngressInstance
 
@@ -201,7 +204,7 @@ func GetNetworkIngressInstanceByID(id uint, apiAddr, apiToken string) (*v0.Netwo
 	return &networkIngressInstance, nil
 }
 
-// GetNetworkIngressInstanceByName feteches a network ingress instance by name
+// GetNetworkIngressInstanceByName fetches a network ingress instance by name.
 func GetNetworkIngressInstanceByName(name, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
 	var networkIngressInstances []v0.NetworkIngressInstance
 
@@ -237,7 +240,7 @@ func GetNetworkIngressInstanceByName(name, apiAddr, apiToken string) (*v0.Networ
 	return &networkIngressInstances[0], nil
 }
 
-// CreateNetworkIngressInstance creates a new network ingress instance
+// CreateNetworkIngressInstance creates a new network ingress instance.
 func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
 	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
 	if err != nil {
@@ -269,7 +272,7 @@ func CreateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 	return networkIngressInstance, nil
 }
 
-// UpdateNetworkIngressInstance updates a network ingress instance
+// UpdateNetworkIngressInstance updates a network ingress instance.
 func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -306,28 +309,31 @@ func UpdateNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInsta
 	return networkIngressInstance, nil
 }
 
-// DeleteNetworkIngressInstance delete a network ingress instance
-func DeleteNetworkIngressInstance(networkIngressInstance *v0.NetworkIngressInstance, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
-	networkIngressInstanceID := *networkIngressInstance.ID
-	networkIngressInstance.ID = nil
+// DeleteNetworkIngressInstance deletes a network ingress instance by ID.
+func DeleteNetworkIngressInstance(id uint, apiAddr, apiToken string) (*v0.NetworkIngressInstance, error) {
+	var networkIngressInstance v0.NetworkIngressInstance
 
-	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
-	if err != nil {
-		return networkIngressInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	_, err = GetResponse(
-		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, networkIngressInstanceID),
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodDelete,
-		bytes.NewBuffer(jsonNetworkIngressInstance),
-		http.StatusNoContent,
+		new(bytes.Buffer),
+		http.StatusOK,
 	)
 	if err != nil {
-		return networkIngressInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &networkIngressInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	return networkIngressInstance, nil
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &networkIngressInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &networkIngressInstance, nil
 }

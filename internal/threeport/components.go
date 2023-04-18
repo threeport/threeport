@@ -1,7 +1,10 @@
 package threeport
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/version"
@@ -11,10 +14,12 @@ import (
 )
 
 const (
-	ThreeportContainerRepo           = "ghcr.io/threeport"
+	ThreeportImageRepo               = "ghcr.io/threeport"
 	ThreeportAPIImage                = "threeport-rest-api"
 	ThreeportWorkloadControllerImage = "threeport-workload-controller"
 	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
+	ThreeportLocalAPIEndpoint        = "localhost"
+	ThreeportLocalAPIProtocol        = "http"
 )
 
 // ThreeportDevImages returns a map of main package dirs to image names
@@ -32,11 +37,13 @@ func InstallThreeportControlPlaneComponents(
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
 	apiHostname string,
+	customThreeportImageRepo string,
 ) error {
 	var apiImage string
 	var workloadControllerImage string
 	var apiIngressAnnotations map[string]interface{}
 	var apiIngressTLS []interface{}
+	var apiArgs []interface{}
 	apiVols, apiVolMounts := apiVolumes()
 	workloadControllerVols, workloadControllerVolMounts := workloadControllerVolumes()
 	if devEnvironment {
@@ -62,15 +69,19 @@ func InstallThreeportControlPlaneComponents(
 		workloadControllerVols = append(workloadControllerVols, codePathVol)
 		workloadControllerVolMounts = append(workloadControllerVolMounts, codePathVolMount)
 	} else {
+		imageRepo := ThreeportImageRepo
+		if customThreeportImageRepo != "" {
+			imageRepo = customThreeportImageRepo
+		}
 		apiImage = fmt.Sprintf(
 			"%s/%s:%s",
-			ThreeportContainerRepo,
+			imageRepo,
 			ThreeportAPIImage,
 			version.GetVersion(),
 		)
 		workloadControllerImage = fmt.Sprintf(
 			"%s/%s:%s",
-			ThreeportContainerRepo,
+			imageRepo,
 			ThreeportWorkloadControllerImage,
 			version.GetVersion(),
 		)
@@ -83,6 +94,10 @@ func InstallThreeportControlPlaneComponents(
 					apiHostname,
 				},
 			},
+		}
+		apiArgs = []interface{}{
+			"-auto-migrate",
+			"true",
 		}
 	}
 
@@ -183,6 +198,7 @@ NATS_PORT=4222
 								"name":            "api-server",
 								"image":           apiImage,
 								"imagePullPolicy": "IfNotPresent",
+								"args":            apiArgs,
 								"ports": []interface{}{
 									map[string]interface{}{
 										"containerPort": 1323,
@@ -336,6 +352,37 @@ NATS_PORT=4222
 	}
 	if _, err := kube.CreateResource(apiIngress, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create API ingress: %w", err)
+	}
+
+	return nil
+}
+
+// WaitForThreeportAPI waits for the threeport API to respond to a request.
+func WaitForThreeportAPI(apiEndpoint string) error {
+	attempts := 0
+	maxAttempts := 30
+	waitSeconds := 10
+	apiReady := false
+	for attempts < maxAttempts {
+		testResp, err := http.Get(fmt.Sprintf("%s/version", apiEndpoint))
+		if err != nil {
+			time.Sleep(time.Second * time.Duration(waitSeconds))
+			attempts += 1
+			continue
+		}
+		if testResp.StatusCode != http.StatusOK {
+			time.Sleep(time.Second * time.Duration(waitSeconds))
+			attempts += 1
+			continue
+		}
+		apiReady = true
+		break
+	}
+	if !apiReady {
+		return fmt.Errorf(
+			"timed out waiting for threeport API to become ready: %w",
+			errors.New(fmt.Sprintf("%d seconds elapsed without 200 response from threeport API", maxAttempts*waitSeconds)),
+		)
 	}
 
 	return nil

@@ -93,11 +93,19 @@ dev-debug-wrk:
 
 ## container image builds
 
-#rest-api-image: @ Build REST API container image
-rest-api-image:
+#rest-api-image-build: @ Build REST API container image
+rest-api-image-build:
 	docker build -t $(REST_API_IMG) -f cmd/rest-api/image/Dockerfile .
 
-#workload-controller-image: @ Build workload controller container image
-workload-controller-image:
+#workload-controller-image-build: @ Build workload controller container image
+workload-controller-image-build:
 	docker build -t $(WORKLOAD_CONTROLLER_IMG) -f cmd/workload-controller/image/Dockerfile .
+
+#rest-api-image: @ Build and push REST API container image
+rest-api-image: rest-api-image-build
+	docker push $(REST_API_IMG)
+
+#workload-controller-image: @ Build and push workload controller container image
+workload-controller-image: workload-controller-image-build
+	docker push $(WORKLOAD_CONTROLLER_IMG)
 

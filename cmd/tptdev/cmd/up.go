@@ -4,11 +4,8 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"net/http"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -94,7 +91,7 @@ var upCmd = &cobra.Command{
 		}
 
 		// install the threeport control plane support services
-		if err := threeport.InstallDevEnvSupportServices(dynamicKubeClient, mapper); err != nil {
+		if err := threeport.InstallLocalSupportServices(dynamicKubeClient, mapper); err != nil {
 			cli.Error("failed to install threeport control plane support services", err)
 			os.Exit(1)
 		}
@@ -116,7 +113,8 @@ var upCmd = &cobra.Command{
 			dynamicKubeClient,
 			mapper,
 			true,
-			"localhost",
+			threeport.ThreeportLocalAPIEndpoint,
+			"",
 		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)
@@ -124,30 +122,10 @@ var upCmd = &cobra.Command{
 
 		// wait for API server to start running
 		cli.Info("waiting for threeport API to start running")
-		attempts := 0
-		maxAttempts := 30
-		waitSeconds := 10
-		apiReady := false
-		for attempts < maxAttempts {
-			testResp, err := http.Get("http://localhost/version")
-			if err != nil {
-				time.Sleep(time.Second * time.Duration(waitSeconds))
-				attempts += 1
-				continue
-			}
-			if testResp.StatusCode != http.StatusOK {
-				time.Sleep(time.Second * time.Duration(waitSeconds))
-				attempts += 1
-				continue
-			}
-			apiReady = true
-			break
-		}
-		if !apiReady {
-			cli.Error(
-				"timed out waiting for threeport API to become ready",
-				errors.New(fmt.Sprintf("%d seconds elapsed without 200 response from threeport API", maxAttempts*waitSeconds)),
-			)
+		if err := threeport.WaitForThreeportAPI(
+			fmt.Sprintf("http://%s", threeport.ThreeportLocalAPIEndpoint),
+		); err != nil {
+			cli.Error("threeport API did not come up", err)
 			os.Exit(1)
 		}
 
@@ -158,7 +136,11 @@ var upCmd = &cobra.Command{
 				Name: &clusterDefName,
 			},
 		}
-		clusterDefResult, err := client.CreateClusterDefinition(&clusterDefinition, "http://localhost", "")
+		clusterDefResult, err := client.CreateClusterDefinition(
+			&clusterDefinition,
+			fmt.Sprintf("http://%s", threeport.ThreeportLocalAPIEndpoint),
+			"",
+		)
 		if err != nil {
 			cli.Error("failed to create new cluster definition for default compute space", err)
 			os.Exit(1)
@@ -166,7 +148,11 @@ var upCmd = &cobra.Command{
 
 		// create default compute space cluster instance in threeport API
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
-		_, err = client.CreateClusterInstance(&clusterInstance, "http://localhost", "")
+		_, err = client.CreateClusterInstance(
+			&clusterInstance,
+			fmt.Sprintf("http://%s", threeport.ThreeportLocalAPIEndpoint),
+			"",
+		)
 		if err != nil {
 			cli.Error("failed to create new cluster instance for default compute space", err)
 			os.Exit(1)

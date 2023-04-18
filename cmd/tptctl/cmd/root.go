@@ -48,10 +48,12 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "threeport-config", "",
-		"path to config file - default is $HOME/.config/threeport/config.yaml")
-	rootCmd.PersistentFlags().StringVar(&providerConfigDir, "provider-config", "",
-		"path to infra provider config directory - default is $HOME/.config/threeport/")
+	rootCmd.PersistentFlags().StringVar(
+		&cfgFile, "threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml).",
+	)
+	rootCmd.PersistentFlags().StringVar(
+		&providerConfigDir, "provider-config", "", "Path to infra provider config directory (default is $HOME/.config/threeport/).",
+	)
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 

@@ -21,9 +21,11 @@ require (
 	github.com/nats-io/nats.go v1.24.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
+	github.com/stretchr/testify v1.8.2
 	github.com/swaggo/echo-swagger v1.3.5
 	github.com/swaggo/swag v1.8.12
 	go.uber.org/zap v1.24.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.1.0
 	gorm.io/driver/postgres v1.4.8
@@ -96,6 +98,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
@@ -122,7 +125,6 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gorm.io/driver/mysql v1.4.7 // indirect
 	gotest.tools/v3 v3.4.0 // indirect
 	k8s.io/api v0.26.2 // indirect

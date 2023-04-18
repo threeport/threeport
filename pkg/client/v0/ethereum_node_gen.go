@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetEthereumNodeDefinitionByID feteches a ethereum node definition by ID
+// GetEthereumNodeDefinitionByID fetches a ethereum node definition by ID.
 func GetEthereumNodeDefinitionByID(id uint, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
 	var ethereumNodeDefinition v0.EthereumNodeDefinition
 
@@ -41,7 +41,7 @@ func GetEthereumNodeDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Ether
 	return &ethereumNodeDefinition, nil
 }
 
-// GetEthereumNodeDefinitionByName feteches a ethereum node definition by name
+// GetEthereumNodeDefinitionByName fetches a ethereum node definition by name.
 func GetEthereumNodeDefinitionByName(name, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
 	var ethereumNodeDefinitions []v0.EthereumNodeDefinition
 
@@ -77,7 +77,7 @@ func GetEthereumNodeDefinitionByName(name, apiAddr, apiToken string) (*v0.Ethere
 	return &ethereumNodeDefinitions[0], nil
 }
 
-// CreateEthereumNodeDefinition creates a new ethereum node definition
+// CreateEthereumNodeDefinition creates a new ethereum node definition.
 func CreateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinition, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
 	jsonEthereumNodeDefinition, err := client.MarshalObject(ethereumNodeDefinition)
 	if err != nil {
@@ -109,7 +109,7 @@ func CreateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 	return ethereumNodeDefinition, nil
 }
 
-// UpdateEthereumNodeDefinition updates a ethereum node definition
+// UpdateEthereumNodeDefinition updates a ethereum node definition.
 func UpdateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinition, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -146,33 +146,36 @@ func UpdateEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinit
 	return ethereumNodeDefinition, nil
 }
 
-// DeleteEthereumNodeDefinition delete a ethereum node definition
-func DeleteEthereumNodeDefinition(ethereumNodeDefinition *v0.EthereumNodeDefinition, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
-	ethereumNodeDefinitionID := *ethereumNodeDefinition.ID
-	ethereumNodeDefinition.ID = nil
+// DeleteEthereumNodeDefinition deletes a ethereum node definition by ID.
+func DeleteEthereumNodeDefinition(id uint, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
+	var ethereumNodeDefinition v0.EthereumNodeDefinition
 
-	jsonEthereumNodeDefinition, err := client.MarshalObject(ethereumNodeDefinition)
-	if err != nil {
-		return ethereumNodeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	_, err = GetResponse(
-		fmt.Sprintf("%s/%s/ethereum-node-definitions/%d", apiAddr, ApiVersion, ethereumNodeDefinitionID),
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/ethereum-node-definitions/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodDelete,
-		bytes.NewBuffer(jsonEthereumNodeDefinition),
-		http.StatusNoContent,
+		new(bytes.Buffer),
+		http.StatusOK,
 	)
 	if err != nil {
-		return ethereumNodeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &ethereumNodeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	return ethereumNodeDefinition, nil
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &ethereumNodeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&ethereumNodeDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &ethereumNodeDefinition, nil
 }
 
-// GetEthereumNodeInstanceByID feteches a ethereum node instance by ID
+// GetEthereumNodeInstanceByID fetches a ethereum node instance by ID.
 func GetEthereumNodeInstanceByID(id uint, apiAddr, apiToken string) (*v0.EthereumNodeInstance, error) {
 	var ethereumNodeInstance v0.EthereumNodeInstance
 
@@ -201,7 +204,7 @@ func GetEthereumNodeInstanceByID(id uint, apiAddr, apiToken string) (*v0.Ethereu
 	return &ethereumNodeInstance, nil
 }
 
-// GetEthereumNodeInstanceByName feteches a ethereum node instance by name
+// GetEthereumNodeInstanceByName fetches a ethereum node instance by name.
 func GetEthereumNodeInstanceByName(name, apiAddr, apiToken string) (*v0.EthereumNodeInstance, error) {
 	var ethereumNodeInstances []v0.EthereumNodeInstance
 
@@ -237,7 +240,7 @@ func GetEthereumNodeInstanceByName(name, apiAddr, apiToken string) (*v0.Ethereum
 	return &ethereumNodeInstances[0], nil
 }
 
-// CreateEthereumNodeInstance creates a new ethereum node instance
+// CreateEthereumNodeInstance creates a new ethereum node instance.
 func CreateEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, apiAddr, apiToken string) (*v0.EthereumNodeInstance, error) {
 	jsonEthereumNodeInstance, err := client.MarshalObject(ethereumNodeInstance)
 	if err != nil {
@@ -269,7 +272,7 @@ func CreateEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, a
 	return ethereumNodeInstance, nil
 }
 
-// UpdateEthereumNodeInstance updates a ethereum node instance
+// UpdateEthereumNodeInstance updates a ethereum node instance.
 func UpdateEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, apiAddr, apiToken string) (*v0.EthereumNodeInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
@@ -306,28 +309,31 @@ func UpdateEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, a
 	return ethereumNodeInstance, nil
 }
 
-// DeleteEthereumNodeInstance delete a ethereum node instance
-func DeleteEthereumNodeInstance(ethereumNodeInstance *v0.EthereumNodeInstance, apiAddr, apiToken string) (*v0.EthereumNodeInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
-	ethereumNodeInstanceID := *ethereumNodeInstance.ID
-	ethereumNodeInstance.ID = nil
+// DeleteEthereumNodeInstance deletes a ethereum node instance by ID.
+func DeleteEthereumNodeInstance(id uint, apiAddr, apiToken string) (*v0.EthereumNodeInstance, error) {
+	var ethereumNodeInstance v0.EthereumNodeInstance
 
-	jsonEthereumNodeInstance, err := client.MarshalObject(ethereumNodeInstance)
-	if err != nil {
-		return ethereumNodeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	_, err = GetResponse(
-		fmt.Sprintf("%s/%s/ethereum-node-instances/%d", apiAddr, ApiVersion, ethereumNodeInstanceID),
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/ethereum-node-instances/%d", apiAddr, ApiVersion, id),
 		apiToken,
 		http.MethodDelete,
-		bytes.NewBuffer(jsonEthereumNodeInstance),
-		http.StatusNoContent,
+		new(bytes.Buffer),
+		http.StatusOK,
 	)
 	if err != nil {
-		return ethereumNodeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &ethereumNodeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	return ethereumNodeInstance, nil
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &ethereumNodeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&ethereumNodeInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &ethereumNodeInstance, nil
 }
