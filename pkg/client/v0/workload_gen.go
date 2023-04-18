@@ -12,6 +12,36 @@ import (
 	"net/http"
 )
 
+// GetWorkloadDefinitions feteches all workload definitions.
+// TODO: implement pagination
+func GetWorkloadDefinitions(apiAddr, apiToken string) (*[]v0.WorkloadDefinition, error) {
+	var workloadDefinitions []v0.WorkloadDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/workload-definitions", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &workloadDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &workloadDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadDefinitions, nil
+}
+
 // GetWorkloadDefinitionByID feteches a workload definition by ID.
 func GetWorkloadDefinitionByID(id uint, apiAddr, apiToken string) (*v0.WorkloadDefinition, error) {
 	var workloadDefinition v0.WorkloadDefinition
@@ -173,6 +203,36 @@ func DeleteWorkloadDefinition(id uint, apiAddr, apiToken string) (*v0.WorkloadDe
 	}
 
 	return &workloadDefinition, nil
+}
+
+// GetWorkloadResourceDefinitions feteches all workload resource definitions.
+// TODO: implement pagination
+func GetWorkloadResourceDefinitions(apiAddr, apiToken string) (*[]v0.WorkloadResourceDefinition, error) {
+	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/workload-resource-definitions", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &workloadResourceDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &workloadResourceDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadResourceDefinitions, nil
 }
 
 // GetWorkloadResourceDefinitionByID feteches a workload resource definition by ID.
@@ -338,6 +398,36 @@ func DeleteWorkloadResourceDefinition(id uint, apiAddr, apiToken string) (*v0.Wo
 	return &workloadResourceDefinition, nil
 }
 
+// GetWorkloadInstances feteches all workload instances.
+// TODO: implement pagination
+func GetWorkloadInstances(apiAddr, apiToken string) (*[]v0.WorkloadInstance, error) {
+	var workloadInstances []v0.WorkloadInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/workload-instances", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &workloadInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &workloadInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadInstances, nil
+}
+
 // GetWorkloadInstanceByID feteches a workload instance by ID.
 func GetWorkloadInstanceByID(id uint, apiAddr, apiToken string) (*v0.WorkloadInstance, error) {
 	var workloadInstance v0.WorkloadInstance
@@ -499,6 +589,36 @@ func DeleteWorkloadInstance(id uint, apiAddr, apiToken string) (*v0.WorkloadInst
 	}
 
 	return &workloadInstance, nil
+}
+
+// GetWorkloadResourceInstances feteches all workload resource instances.
+// TODO: implement pagination
+func GetWorkloadResourceInstances(apiAddr, apiToken string) (*[]v0.WorkloadResourceInstance, error) {
+	var workloadResourceInstances []v0.WorkloadResourceInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/workload-resource-instances", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &workloadResourceInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &workloadResourceInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadResourceInstances, nil
 }
 
 // GetWorkloadResourceInstanceByID feteches a workload resource instance by ID.

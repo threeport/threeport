@@ -1,0 +1,23 @@
+Version: v0
+WorkloadDefinition:
+  Name: sample-app
+  YAMLDocument: sample-app-manifest.yaml
+  Dependencies:
+    - SupportService:
+        Type: Ingress
+        Name: https-ingress
+    - ExternalService:
+        Type: AwsRelationalDatabase
+        Name: sample-db
+    - Workload:
+        Type: WorkloadDefinition
+        Name: sample-service
+    - Workload:
+        Type: EthereumNode
+        Name: mainnet-node
+---
+Version: v0
+WorkloadDefinition:
+  Name: sample-service
+  YAMLDocument: "sample-app-manifest.yaml"
+

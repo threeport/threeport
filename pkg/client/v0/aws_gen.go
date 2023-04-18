@@ -12,6 +12,36 @@ import (
 	"net/http"
 )
 
+// GetAwsAccounts feteches all aws accounts.
+// TODO: implement pagination
+func GetAwsAccounts(apiAddr, apiToken string) (*[]v0.AwsAccount, error) {
+	var awsAccounts []v0.AwsAccount
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-accounts", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsAccounts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsAccounts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsAccounts); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsAccounts, nil
+}
+
 // GetAwsAccountByID feteches a aws account by ID.
 func GetAwsAccountByID(id uint, apiAddr, apiToken string) (*v0.AwsAccount, error) {
 	var awsAccount v0.AwsAccount
@@ -173,6 +203,36 @@ func DeleteAwsAccount(id uint, apiAddr, apiToken string) (*v0.AwsAccount, error)
 	}
 
 	return &awsAccount, nil
+}
+
+// GetAwsEksClusterDefinitions feteches all aws eks cluster definitions.
+// TODO: implement pagination
+func GetAwsEksClusterDefinitions(apiAddr, apiToken string) (*[]v0.AwsEksClusterDefinition, error) {
+	var awsEksClusterDefinitions []v0.AwsEksClusterDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsEksClusterDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsEksClusterDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsEksClusterDefinitions, nil
 }
 
 // GetAwsEksClusterDefinitionByID feteches a aws eks cluster definition by ID.
@@ -338,6 +398,36 @@ func DeleteAwsEksClusterDefinition(id uint, apiAddr, apiToken string) (*v0.AwsEk
 	return &awsEksClusterDefinition, nil
 }
 
+// GetAwsEksClusterInstances feteches all aws eks cluster instances.
+// TODO: implement pagination
+func GetAwsEksClusterInstances(apiAddr, apiToken string) (*[]v0.AwsEksClusterInstance, error) {
+	var awsEksClusterInstances []v0.AwsEksClusterInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-eks-cluster-instances", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsEksClusterInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsEksClusterInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksClusterInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsEksClusterInstances, nil
+}
+
 // GetAwsEksClusterInstanceByID feteches a aws eks cluster instance by ID.
 func GetAwsEksClusterInstanceByID(id uint, apiAddr, apiToken string) (*v0.AwsEksClusterInstance, error) {
 	var awsEksClusterInstance v0.AwsEksClusterInstance
@@ -501,6 +591,36 @@ func DeleteAwsEksClusterInstance(id uint, apiAddr, apiToken string) (*v0.AwsEksC
 	return &awsEksClusterInstance, nil
 }
 
+// GetAwsRelationalDatabaseDefinitions feteches all aws relational database definitions.
+// TODO: implement pagination
+func GetAwsRelationalDatabaseDefinitions(apiAddr, apiToken string) (*[]v0.AwsRelationalDatabaseDefinition, error) {
+	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-relational-database-definitions", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsRelationalDatabaseDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsRelationalDatabaseDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsRelationalDatabaseDefinitions, nil
+}
+
 // GetAwsRelationalDatabaseDefinitionByID feteches a aws relational database definition by ID.
 func GetAwsRelationalDatabaseDefinitionByID(id uint, apiAddr, apiToken string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
@@ -662,6 +782,36 @@ func DeleteAwsRelationalDatabaseDefinition(id uint, apiAddr, apiToken string) (*
 	}
 
 	return &awsRelationalDatabaseDefinition, nil
+}
+
+// GetAwsRelationalDatabaseInstances feteches all aws relational database instances.
+// TODO: implement pagination
+func GetAwsRelationalDatabaseInstances(apiAddr, apiToken string) (*[]v0.AwsRelationalDatabaseInstance, error) {
+	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/aws-relational-database-instances", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsRelationalDatabaseInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsRelationalDatabaseInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsRelationalDatabaseInstances, nil
 }
 
 // GetAwsRelationalDatabaseInstanceByID feteches a aws relational database instance by ID.

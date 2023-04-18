@@ -7,3 +7,4 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -o threeport-rest-api cmd/rest-api/main
 FROM scratch
 COPY --from=builder /build/threeport-rest-api /
 ENTRYPOINT ["/threeport-rest-api"]
+

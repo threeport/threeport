@@ -7,3 +7,4 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -o threeport-workload-controller cmd/wo
 FROM scratch
 COPY --from=builder /build/threeport-workload-controller /
 ENTRYPOINT ["/threeport-workload-controller"]
+

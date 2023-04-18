@@ -1,0 +1,58 @@
+# Step 1
+# User Defined
+---
+WorkloadDefinition:
+  Name: sample-app
+  YAMLDocument: sample-app-manifest.yaml
+  Dependencies:
+    - Dependency:
+        Name: sample-service-dep
+        WorkloadDefinition:
+          Name: sample-service
+---
+WorkloadDefinition:
+  Name: sample-service
+  YAMLDocument: sample-service-manifest.yaml
+---
+# System Defined (created by workload controller)
+Dependency:
+  Name: sample-service-dep  # not sample-app-dep
+  Providers:
+    - WorkloadDefinition:
+        Name: sample-service
+  ConsumingDefinitions:
+    - WorkloadDefinition:
+        Name: sample-app
+
+
+# Step 2
+# User Defined
+---
+Workload Instance:
+  Name: sample-app-0
+  WorkloadDefinition:
+    Name: sample-app
+  ClusterInstance:
+    Name: default-cluster
+---
+# System Definied (updated by workload controller)
+Dependency:
+  Name: sample-service-dep  # not sample-app-dep
+  Providers:
+    - WorkloadDefinition:
+        Name: sample-service
+  ConsumingDefinitions:
+    - WorkloadDefinition:
+        Name: sample-app
+  ConsumingInstances:
+    - WorkloadInstance:
+        Name: sample-app-0
+---
+# System Defined (created by dependency controller)
+WorkloadInstance:
+  Name: sample-service-0
+  WorkloadDefinition:
+    Name: sample-service
+  ClusterInstance:
+    Name: default-cluster
+

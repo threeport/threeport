@@ -1,0 +1,13 @@
+ConfigVersion: v0
+WorkloadDefinition:
+  Name: "sample-app"
+  YAMLDocument: "sample-app-manifest.yaml"
+---
+ConfigVersion: v0
+WorkloadInstance:
+  Name: "sample-app-0"
+  ClusterInstance:     # optional
+    Name: "cluster-0"  # optional
+  WorkloadDefinition:
+    Name: "sample-app"
+
