@@ -100,7 +100,7 @@ func EthereumNodeDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("received deleted notification")
 
 				_, err = client.DeleteEthereumNodeDefinition(
-					&ethereumNodeDefinition,
+					*ethereumNodeDefinition.ID,
 					r.APIServer,
 					"",
 				)
