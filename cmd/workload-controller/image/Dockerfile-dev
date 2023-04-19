@@ -1,13 +1,15 @@
 FROM golang:1.19-alpine
 
-RUN mkdir /threeport
-ADD . /threeport
-WORKDIR /threeport
-
 RUN apk add --no-cache --update \
     build-base
 RUN go install github.com/cosmtrek/air@latest
+
+RUN mkdir /threeport
+WORKDIR /threeport
+COPY ./go.mod /threeport/go.mod
 RUN go mod download
+
+ADD . /threeport
 
 CMD ["air", \
     "-c", "/threeport/cmd/workload-controller/image/air.toml", \
