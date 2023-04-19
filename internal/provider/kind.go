@@ -84,68 +84,74 @@ nodeRegistration:
 						Protocol:      v1alpha4.PortMappingProtocolTCP,
 					},
 				},
+				ExtraMounts: []v1alpha4.Mount{
+					{
+						ContainerPath: "/threeport",
+						HostPath:      i.ThreeportPath,
+					},
+				},
 			},
 		},
 	}
 
-	var workerNodes *[]v1alpha4.Node
-	if devEnvironment {
-		workerNodes = devEnvKindWorkers(i.ThreeportPath)
-	} else {
-		workerNodes = kindWorkers()
-	}
-	for _, n := range *workerNodes {
-		clusterConfig.Nodes = append(clusterConfig.Nodes, n)
-	}
+	// var workerNodes *[]v1alpha4.Node
+	// if devEnvironment {
+	// 	workerNodes = devEnvKindWorkers(i.ThreeportPath)
+	// } else {
+	// 	workerNodes = kindWorkers()
+	// }
+	// for _, n := range *workerNodes {
+	// 	clusterConfig.Nodes = append(clusterConfig.Nodes, n)
+	// }
 
 	return &clusterConfig
 }
 
-// devEnvKindWorkers returns worker nodes with host path mount for live code
-// reloads.
-func devEnvKindWorkers(threeportPath string) *[]v1alpha4.Node {
-	return &[]v1alpha4.Node{
-		{
-			Role: v1alpha4.WorkerRole,
-			ExtraMounts: []v1alpha4.Mount{
-				{
-					ContainerPath: "/threeport",
-					HostPath:      threeportPath,
-				},
-			},
-		},
-		{
-			Role: v1alpha4.WorkerRole,
-			ExtraMounts: []v1alpha4.Mount{
-				{
-					ContainerPath: "/threeport",
-					HostPath:      threeportPath,
-				},
-			},
-		},
-		{
-			Role: v1alpha4.WorkerRole,
-			ExtraMounts: []v1alpha4.Mount{
-				{
-					ContainerPath: "/threeport",
-					HostPath:      threeportPath,
-				},
-			},
-		},
-	}
-}
+// // devEnvKindWorkers returns worker nodes with host path mount for live code
+// // reloads.
+// func devEnvKindWorkers(threeportPath string) *[]v1alpha4.Node {
+// 	return &[]v1alpha4.Node{
+// 		{
+// 			Role: v1alpha4.WorkerRole,
+// 			ExtraMounts: []v1alpha4.Mount{
+// 				{
+// 					ContainerPath: "/threeport",
+// 					HostPath:      threeportPath,
+// 				},
+// 			},
+// 		},
+// 		{
+// 			Role: v1alpha4.WorkerRole,
+// 			ExtraMounts: []v1alpha4.Mount{
+// 				{
+// 					ContainerPath: "/threeport",
+// 					HostPath:      threeportPath,
+// 				},
+// 			},
+// 		},
+// 		{
+// 			Role: v1alpha4.WorkerRole,
+// 			ExtraMounts: []v1alpha4.Mount{
+// 				{
+// 					ContainerPath: "/threeport",
+// 					HostPath:      threeportPath,
+// 				},
+// 			},
+// 		},
+// 	}
+// }
 
-// kindWorkers returns regular worker nodes
-func kindWorkers() *[]v1alpha4.Node {
-	return &[]v1alpha4.Node{
-		{
-			Role: v1alpha4.WorkerRole,
-		},
-		{
-			Role: v1alpha4.WorkerRole,
-		},
-		{
-			Role: v1alpha4.WorkerRole,
-		},
-	}
-}
+// // kindWorkers returns regular worker nodes
+// func kindWorkers() *[]v1alpha4.Node {
+// 	return &[]v1alpha4.Node{
+// 		{
+// 			Role: v1alpha4.WorkerRole,
+// 		},
+// 		{
+// 			Role: v1alpha4.WorkerRole,
+// 		},
+// 		{
+// 			Role: v1alpha4.WorkerRole,
+// 		},
+// 	}
+// }

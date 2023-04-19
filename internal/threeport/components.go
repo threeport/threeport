@@ -14,19 +14,21 @@ import (
 )
 
 const (
-	ThreeportImageRepo               = "ghcr.io/threeport"
-	ThreeportAPIImage                = "threeport-rest-api"
-	ThreeportWorkloadControllerImage = "threeport-workload-controller"
-	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
-	ThreeportLocalAPIEndpoint        = "localhost"
-	ThreeportLocalAPIProtocol        = "http"
+	ThreeportImageRepo                   = "ghcr.io/threeport"
+	ThreeportAPIImage                    = "threeport-rest-api"
+	ThreeportWorkloadControllerImage     = "threeport-workload-controller"
+	ThreeportEthereumNodeControllerImage = "threeport-ethereum-node-controller"
+	ThreeportAPIIngressResourceName      = "threeport-api-ingress"
+	ThreeportLocalAPIEndpoint            = "localhost"
+	ThreeportLocalAPIProtocol            = "http"
 )
 
 // ThreeportDevImages returns a map of main package dirs to image names
 func ThreeportDevImages() map[string]string {
 	return map[string]string{
-		"rest-api":            fmt.Sprintf("%s-dev:latest", ThreeportAPIImage),
-		"workload-controller": fmt.Sprintf("%s-dev:latest", ThreeportWorkloadControllerImage),
+		"rest-api":                 fmt.Sprintf("%s-dev:latest", ThreeportAPIImage),
+		"workload-controller":      fmt.Sprintf("%s-dev:latest", ThreeportWorkloadControllerImage),
+		"ethereum-node-controller": fmt.Sprintf("%s-dev:latest", ThreeportEthereumNodeControllerImage),
 	}
 }
 
@@ -41,16 +43,18 @@ func InstallThreeportControlPlaneComponents(
 ) error {
 	var apiImage string
 	var workloadControllerImage string
+	var ethereumNodeControllerImage string
 	var apiIngressAnnotations map[string]interface{}
 	var apiIngressTLS []interface{}
 	var apiArgs []interface{}
 	apiVols, apiVolMounts := apiVolumes()
-	workloadControllerVols, workloadControllerVolMounts := workloadControllerVolumes()
+	controllerVols, controllerVolMounts := controllerVolumes()
 	if devEnvironment {
 		// set dev environment images
 		devImages := ThreeportDevImages()
 		apiImage = devImages["rest-api"]
 		workloadControllerImage = devImages["workload-controller"]
+		ethereumNodeControllerImage = devImages["ethereum-node-controller"]
 
 		// set dev environment code mount into container
 		codePathVol := map[string]interface{}{
@@ -66,8 +70,8 @@ func InstallThreeportControlPlaneComponents(
 		}
 		apiVols = append(apiVols, codePathVol)
 		apiVolMounts = append(apiVolMounts, codePathVolMount)
-		workloadControllerVols = append(workloadControllerVols, codePathVol)
-		workloadControllerVolMounts = append(workloadControllerVolMounts, codePathVolMount)
+		controllerVols = append(controllerVols, codePathVol)
+		controllerVolMounts = append(controllerVolMounts, codePathVolMount)
 	} else {
 		imageRepo := ThreeportImageRepo
 		if customThreeportImageRepo != "" {
@@ -83,6 +87,12 @@ func InstallThreeportControlPlaneComponents(
 			"%s/%s:%s",
 			imageRepo,
 			ThreeportWorkloadControllerImage,
+			version.GetVersion(),
+		)
+		ethereumNodeControllerImage = fmt.Sprintf(
+			"%s/%s:%s",
+			imageRepo,
+			ThreeportEthereumNodeControllerImage,
 			version.GetVersion(),
 		)
 		apiIngressAnnotations = map[string]interface{}{
@@ -247,12 +257,12 @@ NATS_PORT=4222
 		return fmt.Errorf("failed to create API server service: %w", err)
 	}
 
-	var workloadControllerSecret = &unstructured.Unstructured{
+	var controllerSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "Secret",
 			"metadata": map[string]interface{}{
-				"name":      "workload-controller-config",
+				"name":      "controller-config",
 				"namespace": ControlPlaneNamespace,
 			},
 			"type": "Opaque",
@@ -263,7 +273,7 @@ NATS_PORT=4222
 			},
 		},
 	}
-	if _, err := kube.CreateResource(workloadControllerSecret, kubeClient, *mapper); err != nil {
+	if _, err := kube.CreateResource(controllerSecret, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller secret: %w", err)
 	}
 
@@ -297,14 +307,14 @@ NATS_PORT=4222
 								"envFrom": []interface{}{
 									map[string]interface{}{
 										"secretRef": map[string]interface{}{
-											"name": "workload-controller-config",
+											"name": "controller-config",
 										},
 									},
 								},
-								"volumeMounts": workloadControllerVolMounts,
+								"volumeMounts": controllerVolMounts,
 							},
 						},
-						"volumes": workloadControllerVols,
+						"volumes": controllerVols,
 					},
 				},
 			},
@@ -312,6 +322,53 @@ NATS_PORT=4222
 	}
 	if _, err := kube.CreateResource(workloadControllerDeployment, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
+	}
+
+	var ethereumNodeControllerDeployment = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata": map[string]interface{}{
+				"name":      "threeport-ethereum-node-controller",
+				"namespace": ControlPlaneNamespace,
+			},
+			"spec": map[string]interface{}{
+				"replicas": 1,
+				"selector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"app.kubernetes.io/name": "threeport-ethereum-node-controller",
+					},
+				},
+				"template": map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{
+							"app.kubernetes.io/name": "threeport-ethereum-node-controller",
+						},
+					},
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								"name":            "ethereum-node-controller",
+								"image":           ethereumNodeControllerImage,
+								"imagePullPolicy": "IfNotPresent",
+								"envFrom": []interface{}{
+									map[string]interface{}{
+										"secretRef": map[string]interface{}{
+											"name": "controller-config",
+										},
+									},
+								},
+								"volumeMounts": controllerVolMounts,
+							},
+						},
+						"volumes": controllerVols,
+					},
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(ethereumNodeControllerDeployment, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create ethereum node controller deployment: %w", err)
 	}
 
 	var apiIngress = &unstructured.Unstructured{
@@ -420,7 +477,7 @@ func apiVolumes() ([]interface{}, []interface{}) {
 	return vols, volMounts
 }
 
-func workloadControllerVolumes() ([]interface{}, []interface{}) {
+func controllerVolumes() ([]interface{}, []interface{}) {
 	vols := []interface{}{}
 	volMounts := []interface{}{}
 
