@@ -12,6 +12,36 @@ import (
 	"net/http"
 )
 
+// GetNetworkIngressDefinitions fetches all network ingress definitions.
+// TODO: implement pagination
+func GetNetworkIngressDefinitions(apiAddr, apiToken string) (*[]v0.NetworkIngressDefinition, error) {
+	var networkIngressDefinitions []v0.NetworkIngressDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/network-ingress-definitions", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &networkIngressDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &networkIngressDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &networkIngressDefinitions, nil
+}
+
 // GetNetworkIngressDefinitionByID fetches a network ingress definition by ID.
 func GetNetworkIngressDefinitionByID(id uint, apiAddr, apiToken string) (*v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinition v0.NetworkIngressDefinition
@@ -173,6 +203,36 @@ func DeleteNetworkIngressDefinition(id uint, apiAddr, apiToken string) (*v0.Netw
 	}
 
 	return &networkIngressDefinition, nil
+}
+
+// GetNetworkIngressInstances fetches all network ingress instances.
+// TODO: implement pagination
+func GetNetworkIngressInstances(apiAddr, apiToken string) (*[]v0.NetworkIngressInstance, error) {
+	var networkIngressInstances []v0.NetworkIngressInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/network-ingress-instances", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &networkIngressInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &networkIngressInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&networkIngressInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &networkIngressInstances, nil
 }
 
 // GetNetworkIngressInstanceByID fetches a network ingress instance by ID.

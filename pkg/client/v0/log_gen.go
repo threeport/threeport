@@ -12,6 +12,36 @@ import (
 	"net/http"
 )
 
+// GetLogBackends fetches all log backends.
+// TODO: implement pagination
+func GetLogBackends(apiAddr, apiToken string) (*[]v0.LogBackend, error) {
+	var logBackends []v0.LogBackend
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/log-backends", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &logBackends, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &logBackends, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logBackends); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &logBackends, nil
+}
+
 // GetLogBackendByID fetches a log backend by ID.
 func GetLogBackendByID(id uint, apiAddr, apiToken string) (*v0.LogBackend, error) {
 	var logBackend v0.LogBackend
@@ -175,6 +205,36 @@ func DeleteLogBackend(id uint, apiAddr, apiToken string) (*v0.LogBackend, error)
 	return &logBackend, nil
 }
 
+// GetLogStorageDefinitions fetches all log storage definitions.
+// TODO: implement pagination
+func GetLogStorageDefinitions(apiAddr, apiToken string) (*[]v0.LogStorageDefinition, error) {
+	var logStorageDefinitions []v0.LogStorageDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/log-storage-definitions", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &logStorageDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &logStorageDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logStorageDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &logStorageDefinitions, nil
+}
+
 // GetLogStorageDefinitionByID fetches a log storage definition by ID.
 func GetLogStorageDefinitionByID(id uint, apiAddr, apiToken string) (*v0.LogStorageDefinition, error) {
 	var logStorageDefinition v0.LogStorageDefinition
@@ -336,6 +396,36 @@ func DeleteLogStorageDefinition(id uint, apiAddr, apiToken string) (*v0.LogStora
 	}
 
 	return &logStorageDefinition, nil
+}
+
+// GetLogStorageInstances fetches all log storage instances.
+// TODO: implement pagination
+func GetLogStorageInstances(apiAddr, apiToken string) (*[]v0.LogStorageInstance, error) {
+	var logStorageInstances []v0.LogStorageInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/log-storage-instances", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &logStorageInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &logStorageInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&logStorageInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &logStorageInstances, nil
 }
 
 // GetLogStorageInstanceByID fetches a log storage instance by ID.

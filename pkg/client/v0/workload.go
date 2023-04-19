@@ -47,6 +47,7 @@ func CreateWorkloadResourceDefinitions(
 	return workloadResourceDefinitions, nil
 }
 
+<<<<<<< HEAD
 // UpdateWorkloadResourceDefinitions updates set of existing workload resource
 // definitions.
 func UpdateWorkloadResourceDefinitions(
@@ -122,8 +123,11 @@ func DeleteWorkloadResourceDefinitions(
 }
 
 // GetWorkloadResourceDefinitionById fetches a workload resource definition
+=======
+// GetWorkloadResourceDefinitionsById fetches workload resource definitions
+>>>>>>> 1edfe779eb3b59cc8fc3d2c2b3319d47d70f65db
 // by workload definition ID
-func GetWorkloadResourceDefinitionByWorkloadDefinitionID(id uint, apiAddr, apiToken string) (*[]v0.WorkloadResourceDefinition, error) {
+func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(id uint, apiAddr, apiToken string) (*[]v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 	response, err := GetResponse(

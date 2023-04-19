@@ -38,7 +38,7 @@ type ClusterInstance struct {
 	// change to the definition will not move a cluster.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
-	// If true, controllers will connect to the kube API using internal DSN
+	// If true, controllers will connect to the kube API using internal DNS
 	// rather than the APIEndpoint.
 	ThreeportControlPlaneCluster *bool `json:"ThreeportControlPlaneCluster,omitempty" query:"threeportcontrolplanecluster" gorm:"default:false" validate:"optional"`
 

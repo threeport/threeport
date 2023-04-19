@@ -226,7 +226,7 @@ definitions:
         type: string
       ThreeportControlPlaneCluster:
         description: |-
-          If true, controllers will connect to the kube API using internal DSN
+          If true, controllers will connect to the kube API using internal DNS
           rather than the APIEndpoint.
         type: boolean
       UserID:
@@ -574,60 +574,60 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - EthereumNodeDefinition
-    - EthereumNodeInstance
-    - User
-    - Company
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - ClusterDefinition
-    - ClusterInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - Profile
-    - Tier
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - DomainNameDefinition
-    - DomainNameInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - User
+    - Company
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - EthereumNodeDefinition
+    - EthereumNodeInstance
+    - Profile
+    - Tier
+    - DomainNameDefinition
+    - DomainNameInstance
+    - ClusterDefinition
+    - ClusterInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeEthereumNodeDefinition
-    - ObjectTypeEthereumNodeInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeEthereumNodeDefinition
+    - ObjectTypeEthereumNodeInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
   v0.Profile:
     properties:
       CompanyID:

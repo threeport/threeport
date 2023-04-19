@@ -12,6 +12,36 @@ import (
 	"net/http"
 )
 
+// GetClusterDefinitions fetches all cluster definitions.
+// TODO: implement pagination
+func GetClusterDefinitions(apiAddr, apiToken string) (*[]v0.ClusterDefinition, error) {
+	var clusterDefinitions []v0.ClusterDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/cluster-definitions", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &clusterDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &clusterDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&clusterDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &clusterDefinitions, nil
+}
+
 // GetClusterDefinitionByID fetches a cluster definition by ID.
 func GetClusterDefinitionByID(id uint, apiAddr, apiToken string) (*v0.ClusterDefinition, error) {
 	var clusterDefinition v0.ClusterDefinition
@@ -173,6 +203,36 @@ func DeleteClusterDefinition(id uint, apiAddr, apiToken string) (*v0.ClusterDefi
 	}
 
 	return &clusterDefinition, nil
+}
+
+// GetClusterInstances fetches all cluster instances.
+// TODO: implement pagination
+func GetClusterInstances(apiAddr, apiToken string) (*[]v0.ClusterInstance, error) {
+	var clusterInstances []v0.ClusterInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/cluster-instances", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &clusterInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &clusterInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&clusterInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &clusterInstances, nil
 }
 
 // GetClusterInstanceByID fetches a cluster instance by ID.

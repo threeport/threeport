@@ -12,6 +12,36 @@ import (
 	"net/http"
 )
 
+// GetEthereumNodeDefinitions fetches all ethereum node definitions.
+// TODO: implement pagination
+func GetEthereumNodeDefinitions(apiAddr, apiToken string) (*[]v0.EthereumNodeDefinition, error) {
+	var ethereumNodeDefinitions []v0.EthereumNodeDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/ethereum-node-definitions", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &ethereumNodeDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &ethereumNodeDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&ethereumNodeDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &ethereumNodeDefinitions, nil
+}
+
 // GetEthereumNodeDefinitionByID fetches a ethereum node definition by ID.
 func GetEthereumNodeDefinitionByID(id uint, apiAddr, apiToken string) (*v0.EthereumNodeDefinition, error) {
 	var ethereumNodeDefinition v0.EthereumNodeDefinition
@@ -173,6 +203,36 @@ func DeleteEthereumNodeDefinition(id uint, apiAddr, apiToken string) (*v0.Ethere
 	}
 
 	return &ethereumNodeDefinition, nil
+}
+
+// GetEthereumNodeInstances fetches all ethereum node instances.
+// TODO: implement pagination
+func GetEthereumNodeInstances(apiAddr, apiToken string) (*[]v0.EthereumNodeInstance, error) {
+	var ethereumNodeInstances []v0.EthereumNodeInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/ethereum-node-instances", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &ethereumNodeInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &ethereumNodeInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&ethereumNodeInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &ethereumNodeInstances, nil
 }
 
 // GetEthereumNodeInstanceByID fetches a ethereum node instance by ID.

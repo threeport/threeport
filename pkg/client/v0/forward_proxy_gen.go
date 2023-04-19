@@ -12,6 +12,36 @@ import (
 	"net/http"
 )
 
+// GetForwardProxyDefinitions fetches all forward proxy definitions.
+// TODO: implement pagination
+func GetForwardProxyDefinitions(apiAddr, apiToken string) (*[]v0.ForwardProxyDefinition, error) {
+	var forwardProxyDefinitions []v0.ForwardProxyDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/forward-proxy-definitions", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &forwardProxyDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &forwardProxyDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &forwardProxyDefinitions, nil
+}
+
 // GetForwardProxyDefinitionByID fetches a forward proxy definition by ID.
 func GetForwardProxyDefinitionByID(id uint, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinition v0.ForwardProxyDefinition
@@ -173,6 +203,36 @@ func DeleteForwardProxyDefinition(id uint, apiAddr, apiToken string) (*v0.Forwar
 	}
 
 	return &forwardProxyDefinition, nil
+}
+
+// GetForwardProxyInstances fetches all forward proxy instances.
+// TODO: implement pagination
+func GetForwardProxyInstances(apiAddr, apiToken string) (*[]v0.ForwardProxyInstance, error) {
+	var forwardProxyInstances []v0.ForwardProxyInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/forward-proxy-instances", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &forwardProxyInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &forwardProxyInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&forwardProxyInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &forwardProxyInstances, nil
 }
 
 // GetForwardProxyInstanceByID fetches a forward proxy instance by ID.

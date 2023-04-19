@@ -12,6 +12,36 @@ import (
 	"net/http"
 )
 
+// GetDomainNameDefinitions fetches all domain name definitions.
+// TODO: implement pagination
+func GetDomainNameDefinitions(apiAddr, apiToken string) (*[]v0.DomainNameDefinition, error) {
+	var domainNameDefinitions []v0.DomainNameDefinition
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/domain-name-definitions", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &domainNameDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &domainNameDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&domainNameDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &domainNameDefinitions, nil
+}
+
 // GetDomainNameDefinitionByID fetches a domain name definition by ID.
 func GetDomainNameDefinitionByID(id uint, apiAddr, apiToken string) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinition v0.DomainNameDefinition
@@ -173,6 +203,36 @@ func DeleteDomainNameDefinition(id uint, apiAddr, apiToken string) (*v0.DomainNa
 	}
 
 	return &domainNameDefinition, nil
+}
+
+// GetDomainNameInstances fetches all domain name instances.
+// TODO: implement pagination
+func GetDomainNameInstances(apiAddr, apiToken string) (*[]v0.DomainNameInstance, error) {
+	var domainNameInstances []v0.DomainNameInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s/%s/domain-name-instances", apiAddr, ApiVersion),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &domainNameInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &domainNameInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&domainNameInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &domainNameInstances, nil
 }
 
 // GetDomainNameInstanceByID fetches a domain name instance by ID.
