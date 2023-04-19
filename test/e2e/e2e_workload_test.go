@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/threeport/threeport/internal/threeport"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	yamlv3 "gopkg.in/yaml.v3"
 )
 
 const (
@@ -33,11 +35,30 @@ func TestWorkload(t *testing.T) {
 	// create workload definition
 	workloadDefName := "test-workload"
 	workloadDefYAML := workloadDefNamespace + workloadDefConfigMap + workloadDefDeployment + workloadDefService
+
+	yamlObjects := strings.Split(workloadDefYAML, "---")
+
+	var jsonObjects []json.RawMessage
+
+	for _, yamlObj := range yamlObjects {
+		var yamlMap map[string]interface{}
+		err := yamlv3.Unmarshal([]byte(yamlObj), &yamlMap)
+		assert.Nil(err, "failed to unmarshal workload definition YAML")
+
+
+		jsonObj, err := json.Marshal(yamlMap)
+		assert.Nil(err, "failed to marshal workload definition YAML to JSON")
+		jsonObjects = append(jsonObjects, jsonObj)
+	}
+
+	jsonData, err := json.Marshal(jsonObjects)
+	workloadDefJson := string(jsonData)
+
 	workloadDef := v0.WorkloadDefinition{
 		Definition: v0.Definition{
 			Name: &workloadDefName,
 		},
-		YAMLDocument: &workloadDefYAML,
+		JSONDocument: &workloadDefJson,
 	}
 	createdWorkloadDef, err := client.CreateWorkloadDefinition(
 		&workloadDef,
@@ -51,7 +72,7 @@ func TestWorkload(t *testing.T) {
 		assert.NotNil(createdWorkloadDef.CreatedAt, "created workload definition should contain created timestamp")
 		assert.NotNil(createdWorkloadDef.UpdatedAt, "created workload definition should contain updated timestamp")
 		assert.Equal(*createdWorkloadDef.Name, workloadDefName, "created workload definition should contain the name we gave it")
-		assert.Equal(*createdWorkloadDef.YAMLDocument, workloadDefYAML, "created workload definition should contain the YAML document we provided")
+		assert.Equal(*createdWorkloadDef.JSONDocument, workloadDefJson, "created workload definition should contain the YAML document we provided")
 		assert.Equal(*createdWorkloadDef.Reconciled, false, "created workload definition should not be reconciled at creation time")
 	}
 
@@ -149,7 +170,7 @@ func TestWorkload(t *testing.T) {
 	// TODO: delete workload instance and definition then check results
 }
 
-const workloadDefNamespace = `---
+const workloadDefNamespace = `
 apiVersion: v1
 kind: Namespace
 metadata:

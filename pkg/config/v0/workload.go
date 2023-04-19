@@ -24,7 +24,7 @@ type WorkloadConfig struct {
 // definition and workload instance.
 type WorkloadValues struct {
 	Name            string                `yaml:"Name"`
-	YAMLDocument    string                `yaml:"YAMLDocument"`
+	JSONDocument    string                `yaml:"JSONDocument"`
 	ClusterInstance ClusterInstanceValues `yaml:"ClusterInstance"`
 }
 
@@ -37,7 +37,7 @@ type WorkloadDefinitionConfig struct {
 // definition.
 type WorkloadDefinitionValues struct {
 	Name         string `yaml:"Name"`
-	YAMLDocument string `yaml:"YAMLDocument"`
+	JSONDocument string `yaml:"JSONDocument"`
 	UserID       uint   `yaml:"UserID"`
 }
 
@@ -59,7 +59,7 @@ func (w *WorkloadValues) Create(apiEndpoint string) (*v0.WorkloadDefinition, *v0
 	// create the workload definition
 	workloadDefinition := WorkloadDefinitionValues{
 		Name:         w.Name,
-		YAMLDocument: w.YAMLDocument,
+		JSONDocument: w.JSONDocument,
 	}
 	createdWorkloadDefinition, err := workloadDefinition.Create(apiEndpoint)
 	if err != nil {
@@ -115,9 +115,9 @@ func (w *WorkloadValues) Delete(apiEndpoint string) (*v0.WorkloadDefinition, *v0
 // Create creates a workload definition in the Threeport API.
 func (wd *WorkloadDefinitionValues) Create(apiEndpoint string) (*v0.WorkloadDefinition, error) {
 	// load YAML document
-	definitionContent, err := ioutil.ReadFile(wd.YAMLDocument)
+	definitionContent, err := ioutil.ReadFile(wd.JSONDocument)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read definition YAMLDocument file %s: %w", wd.YAMLDocument, err)
+		return nil, fmt.Errorf("failed to read definition JSONDocument file %s: %w", wd.JSONDocument, err)
 	}
 	stringContent := string(definitionContent)
 
@@ -127,7 +127,7 @@ func (wd *WorkloadDefinitionValues) Create(apiEndpoint string) (*v0.WorkloadDefi
 			Name:   &wd.Name,
 			UserID: &wd.UserID,
 		},
-		YAMLDocument: &stringContent,
+		JSONDocument: &stringContent,
 	}
 
 	// create workload definition
