@@ -5,14 +5,16 @@ RUN apk add --no-cache --update \
 RUN go install github.com/cosmtrek/air@latest
 
 RUN mkdir /threeport
-COPY ./go.mod /threeport/go.mod
 WORKDIR /threeport
+COPY ./go.mod /threeport/go.mod
 RUN go mod download
 
 ADD . /threeport
 
-ENTRYPOINT ["air", \
-    "-c", "/threeport/cmd/ethereum-node-controller/image/air.toml", \
-    "-build.cmd", "go build -o bin/threeport-ethereum-node-controller cmd/ethereum-node-controller/main.go", \
-    "-build.bin", "./bin/threeport-ethereum-node-controller"]
+ARG BUILD_CACHE_FLAG
+ENV BUILD_CACHE_FLAG=${BUILD_CACHE_FLAG}
 
+CMD ["air", \
+    "-c", "/threeport/cmd/ethereum-node-controller/image/air.toml", \
+    "-build.cmd", "go build ${BUILD_CACHE_FLAG} -o bin/threeport-ethereum-node-controller cmd/ethereum-node-controller/main.go", \
+    "-build.bin", "./bin/threeport-ethereum-node-controller"]

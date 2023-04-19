@@ -23,6 +23,7 @@ var (
 	createKubeconfig       string
 	threeportPath          string
 	numWorkerNodes         int
+	noCache                bool
 )
 
 // upCmd represents the up command
@@ -104,7 +105,7 @@ var upCmd = &cobra.Command{
 		}
 
 		// build and load dev images for API and controllers
-		if err := tptdev.PrepareDevImages(threeportPath, provider.ThreeportClusterName(createThreeportDevName)); err != nil {
+		if err := tptdev.PrepareDevImages(threeportPath, provider.ThreeportClusterName(createThreeportDevName), noCache); err != nil {
 			cli.Error("failed to build and load dev control plane images", err)
 			os.Exit(1)
 		}
@@ -149,6 +150,7 @@ var upCmd = &cobra.Command{
 
 		// create default compute space cluster instance in threeport API
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
+
 		_, err = client.CreateClusterInstance(
 			&clusterInstance,
 			fmt.Sprintf("http://%s", threeport.ThreeportLocalAPIEndpoint),
@@ -174,4 +176,6 @@ func init() {
 		"threeport-path", "t", "", "path to threeport repository root - default is ./")
 	upCmd.Flags().IntVar(&numWorkerNodes,
 		"num-worker-nodes", 0, "number of additional worker nodes to deploy - default is 0")
+	upCmd.Flags().BoolVar(&noCache,
+		"no-cache", false, "disable docker build cache - default is false")
 }

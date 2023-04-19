@@ -11,8 +11,11 @@ RUN go mod download
 
 ADD . /threeport
 
+ARG BUILD_CACHE_FLAG
+ENV BUILD_CACHE_FLAG=${BUILD_CACHE_FLAG}
+
 CMD ["air", \
     "-c", "/threeport/cmd/workload-controller/image/air.toml", \
-    "-build.cmd", "go build -o bin/threeport-workload-controller cmd/workload-controller/main.go", \
+    "-build.cmd", "go build ${BUILD_CACHE_FLAG} -o bin/threeport-workload-controller cmd/workload-controller/main.go", \
     "-build.bin", "./bin/threeport-workload-controller"]
 

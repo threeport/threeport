@@ -37,10 +37,10 @@ type imageTagFetcher func(nodes.Node, string) (map[string]bool, error)
 
 // PrepareDevImages builds and loads the threeport control plane images for
 // development use.
-func PrepareDevImages(threeportPath, kindClusterName string) error {
+func PrepareDevImages(threeportPath, kindClusterName string, noCache bool) error {
 	devImages := threeport.ThreeportDevImages()
 
-	if err := BuildDevImages(threeportPath, devImages); err != nil {
+	if err := BuildDevImages(threeportPath, devImages, noCache); err != nil {
 		return fmt.Errorf("failed to build dev images: %w", err)
 	}
 
@@ -53,7 +53,7 @@ func PrepareDevImages(threeportPath, kindClusterName string) error {
 
 // BuildDevImages builds all the threeport control plane container images using
 // the dev dockerfile to provide live reload of code in the container.
-func BuildDevImages(threeportPath string, devImages map[string]string) error {
+func BuildDevImages(threeportPath string, devImages map[string]string, noCache bool) error {
 	dockerClient, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -71,10 +71,20 @@ func BuildDevImages(threeportPath string, devImages map[string]string) error {
 			return fmt.Errorf("failed to build tarball of threeport repo: %w", err)
 		}
 
+		// Set cache argument based on --no-cache flag
+		var buildCacheFlag string
+		if noCache {
+			buildCacheFlag = "-a"
+		}
+		buildArgs := map[string]*string{
+			"BUILD_CACHE_FLAG": &buildCacheFlag,
+		}
+
 		buildOpts := types.ImageBuildOptions{
 			Dockerfile: filepath.Join("cmd", buildDir, "image", "Dockerfile-dev"),
 			Tags:       []string{imageName},
 			Remove:     true,
+			BuildArgs:  buildArgs,
 		}
 
 		result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
