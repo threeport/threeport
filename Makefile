@@ -22,11 +22,11 @@ tests:
 
 #build-tptdev: @ Build tptdev binary
 build-tptdev:
-	go build -a -o bin/tptdev cmd/tptdev/main.go
+	go build -o bin/tptdev cmd/tptdev/main.go
 
 #build-tptctl: @ Build tptctl binary
 build-tptctl:
-	go build -a -o bin/tptctl cmd/tptctl/main.go
+	go build -o bin/tptctl cmd/tptctl/main.go
 
 release:
 ifndef RELEASE_VERSION
@@ -61,6 +61,10 @@ dev-logs-api:
 dev-logs-wrk:
 	kubectl logs deploy/threeport-workload-controller -n threeport-control-plane -f
 
+#dev-logs-eth: @ Follow log output from the local dev ethereum node controller
+dev-logs-eth:
+	kubectl logs deploy/threeport-ethereum-node-controller -n threeport-control-plane -f
+
 #dev-forward-api: @ Forward local port 1323 to the local dev API
 dev-forward-api:
 	kubectl port-forward -n threeport-control-plane service/threeport-api-server 1323:80
@@ -90,6 +94,10 @@ dev-debug-api:
 #dev-debug-wrk: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
 dev-debug-wrk:
 	dlv debug cmd/workload-controller/main.go -- -api-server http://localhost:1323 -msg-broker-host localhost -msg-broker-port 4222
+
+#dev-debug-eth: @ Start debugging session for ethereum-node-controller (must first run `make dev-forward-nats` in another terminal)
+dev-debug-eth:
+	dlv debug cmd/ethereum-node-controller/main.go -- -api-server http://localhost:1323 -msg-broker-host localhost -msg-broker-port 4222
 
 ## container image builds
 
