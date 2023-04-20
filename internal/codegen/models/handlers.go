@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gertd/go-pluralize"
@@ -11,6 +12,12 @@ import (
 
 	"github.com/threeport/threeport/internal/codegen/name"
 )
+
+// deletionInstanceCheckTypeNames returns the definition objects that need to
+// have related instances checked when deleting
+func deletionInstanceCheckTypeNames() []string {
+	return []string{"WorkloadDefinition"}
+}
 
 // apiHandlersPath returns the path from the models to the API's internal handlers
 // package.
@@ -27,6 +34,88 @@ func (cc *ControllerConfig) ModelHandlers() error {
 	f.ImportAlias("github.com/threeport/threeport/internal/api", "iapi")
 
 	for _, mc := range cc.ModelConfigs {
+		// delete handler includes instance check for definition objects to ensure
+		// no definitions with related instances get deleted
+		instanceCheck := false
+		for _, typeName := range deletionInstanceCheckTypeNames() {
+			if mc.TypeName == typeName {
+				instanceCheck = true
+			}
+		}
+		deleteObjectHandler := &Statement{}
+		if instanceCheck {
+			instancesName := strings.TrimSuffix(mc.TypeName, "Definition") + "Instances"
+			deleteObjectHandler = If(
+				Id("result").Op(":=").Id("h").Dot("DB").Dot("Preload").Call(
+					Lit(instancesName),
+				).Dot("First").Call(Op("&").Id(
+					strcase.ToLowerCamel(mc.TypeName),
+				).Op(",").Id(fmt.Sprintf(
+					"%sID", strcase.ToLowerCamel(mc.TypeName),
+				))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
+					If(
+						Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
+							"gorm.io/gorm",
+							"ErrRecordNotFound",
+						)).Block(
+							Return(Qual(
+								"github.com/threeport/threeport/internal/api",
+								"ResponseStatus404",
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
+							)),
+						Return(Qual(
+							"github.com/threeport/threeport/internal/api",
+							"ResponseStatus500",
+						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
+					),
+				),
+			).Line()
+			deleteObjectHandler.Line()
+			deleteObjectHandler.Comment("check to make sure no dependent instances exist for this definition")
+			deleteObjectHandler.Line()
+			deleteObjectHandler.If(
+				Len(Id(strcase.ToLowerCamel(mc.TypeName)).Dot(instancesName)).Op("!=").Lit(0).Block(
+					Id("err").Op(":=").Qual("errors", "New").Call(
+						Lit(fmt.Sprintf(
+							"%s has related %s - cannot be deleted",
+							strcase.ToDelimited(mc.TypeName, ' '),
+							strcase.ToDelimited(instancesName, ' '),
+						)),
+					),
+					Return().Qual(
+						"github.com/threeport/threeport/internal/api",
+						"ResponseStatus409",
+					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")),
+				),
+			)
+			deleteObjectHandler.Line()
+		} else {
+			deleteObjectHandler = If(
+				Id("result").Op(":=").Id("h").Dot("DB").
+					Dot("First").Call(Op("&").Id(
+					strcase.ToLowerCamel(mc.TypeName),
+				).Op(",").Id(fmt.Sprintf(
+					"%sID", strcase.ToLowerCamel(mc.TypeName),
+				))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
+					If(
+						Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
+							"gorm.io/gorm",
+							"ErrRecordNotFound",
+						)).Block(
+							Return(Qual(
+								"github.com/threeport/threeport/internal/api",
+								"ResponseStatus404",
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
+							)),
+						Return(Qual(
+							"github.com/threeport/threeport/internal/api",
+							"ResponseStatus500",
+						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
+					),
+				),
+			).Line()
+		}
+
 		f.Comment("///////////////////////////////////////////////////////////////////////////////")
 		f.Comment(mc.TypeName)
 		f.Comment("///////////////////////////////////////////////////////////////////////////////")
@@ -192,8 +281,15 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			),
 			Line(),
 			Comment("notify controller"),
-			Id("notifPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).
-				Dot("NotificationPayload").Call(Lit(false).Op(",").Lit(0)),
+			Id("notifPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("NotificationPayload").Call(
+				Line().Qual(
+					"github.com/threeport/threeport/pkg/notifications",
+					"NotificationOperationCreated",
+				),
+				Line().Lit(false),
+				Line().Lit(0),
+				Line(),
+			),
 			If(Id("err").Op("!=").Nil().Block(
 				Return(Qual(
 					"github.com/threeport/threeport/internal/api",
@@ -891,6 +987,10 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
+			"@Failure 409 {object} %s.Response \"Conflict\"",
+			cc.ParsedModelFile.Name.Name,
+		))
+		f.Comment(fmt.Sprintf(
 			"@Failure 500 {object} %s.Response \"Internal Server Error\"",
 			cc.ParsedModelFile.Name.Name,
 		))
@@ -928,30 +1028,8 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 				mc.TypeName,
 			),
-			If(
-				// TODO: figure out preload objects
-				Id("result").Op(":=").Id("h").Dot("DB").
-					Dot("First").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id(fmt.Sprintf(
-					"%sID", strcase.ToLowerCamel(mc.TypeName),
-				))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-					If(
-						Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
-							"gorm.io/gorm",
-							"ErrRecordNotFound",
-						)).Block(
-							Return(Qual(
-								"github.com/threeport/threeport/internal/api",
-								"ResponseStatus404",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
-							)),
-						Return(Qual(
-							"github.com/threeport/threeport/internal/api",
-							"ResponseStatus500",
-						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
-					),
-				),
-			),
-			Line(),
+			// TODO: figure out all preload objects
+			deleteObjectHandler,
 			If(
 				Id("result").Op(":=").Id("h").Dot("DB").Dot("Delete").Call(
 					Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
@@ -962,6 +1040,30 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 				),
 			),
+			Line(),
+			Comment("notify controller"),
+			Id("notifPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("NotificationPayload").Call(
+				Line().Qual(
+					"github.com/threeport/threeport/pkg/notifications",
+					"NotificationOperationDeleted",
+				),
+				Line().Lit(false),
+				Line().Lit(0),
+				Line(),
+			),
+			If(Id("err").Op("!=").Nil().Block(
+				Return(Qual(
+					"github.com/threeport/threeport/internal/api",
+					"ResponseStatus500",
+				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
+			),
+			Id("h").Dot("JS").Dot("Publish").Call(Qual(
+				fmt.Sprintf(
+					"github.com/threeport/threeport/pkg/api/%s",
+					cc.ParsedModelFile.Name.Name,
+				),
+				mc.DeleteSubject,
+			).Op(",").Op("*").Id("notifPayload")),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(

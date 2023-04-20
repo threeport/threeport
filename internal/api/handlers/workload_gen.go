@@ -8,6 +8,7 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	notifications "github.com/threeport/threeport/pkg/notifications"
 	gorm "gorm.io/gorm"
 	"net/http"
 )
@@ -59,7 +60,11 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := workloadDefinition.NotificationPayload(false, 0)
+	notifPayload, err := workloadDefinition.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -266,22 +271,40 @@ func (h Handler) ReplaceWorkloadDefinition(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/workload-definitions/{id} [delete]
 func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadDefinition
 	workloadDefinitionID := c.Param("id")
 	var workloadDefinition v0.WorkloadDefinition
-	if result := h.DB.First(&workloadDefinition, workloadDefinitionID); result.Error != nil {
+	if result := h.DB.Preload("WorkloadInstances").First(&workloadDefinition, workloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// check to make sure no dependent instances exist for this definition
+	if len(workloadDefinition.WorkloadInstances) != 0 {
+		err := errors.New("workload definition has related workload instances - cannot be deleted")
+		return iapi.ResponseStatus409(c, nil, err, objectType)
+	}
+
 	if result := h.DB.Delete(&workloadDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := workloadDefinition.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.WorkloadDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadDefinition)
 	if err != nil {
@@ -338,7 +361,11 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := workloadResourceDefinition.NotificationPayload(false, 0)
+	notifPayload, err := workloadResourceDefinition.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -545,6 +572,7 @@ func (h Handler) ReplaceWorkloadResourceDefinition(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/workload-resource-definitions/{id} [delete]
 func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
@@ -561,6 +589,17 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 	if result := h.DB.Delete(&workloadResourceDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := workloadResourceDefinition.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.WorkloadResourceDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadResourceDefinition)
 	if err != nil {
@@ -617,7 +656,11 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := workloadInstance.NotificationPayload(false, 0)
+	notifPayload, err := workloadInstance.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -824,6 +867,7 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/workload-instances/{id} [delete]
 func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
@@ -840,6 +884,17 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 	if result := h.DB.Delete(&workloadInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := workloadInstance.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.WorkloadInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadInstance)
 	if err != nil {
@@ -896,7 +951,11 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := workloadResourceInstance.NotificationPayload(false, 0)
+	notifPayload, err := workloadResourceInstance.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1103,6 +1162,7 @@ func (h Handler) ReplaceWorkloadResourceInstance(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/workload-resource-instances/{id} [delete]
 func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
@@ -1119,6 +1179,17 @@ func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 	if result := h.DB.Delete(&workloadResourceInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := workloadResourceInstance.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.WorkloadResourceInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadResourceInstance)
 	if err != nil {

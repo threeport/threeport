@@ -8,6 +8,7 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	notifications "github.com/threeport/threeport/pkg/notifications"
 	gorm "gorm.io/gorm"
 	"net/http"
 )
@@ -59,7 +60,11 @@ func (h Handler) AddClusterDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := clusterDefinition.NotificationPayload(false, 0)
+	notifPayload, err := clusterDefinition.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -266,6 +271,7 @@ func (h Handler) ReplaceClusterDefinition(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/cluster-definitions/{id} [delete]
 func (h Handler) DeleteClusterDefinition(c echo.Context) error {
@@ -282,6 +288,17 @@ func (h Handler) DeleteClusterDefinition(c echo.Context) error {
 	if result := h.DB.Delete(&clusterDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := clusterDefinition.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ClusterDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, clusterDefinition)
 	if err != nil {
@@ -338,7 +355,11 @@ func (h Handler) AddClusterInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := clusterInstance.NotificationPayload(false, 0)
+	notifPayload, err := clusterInstance.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -545,6 +566,7 @@ func (h Handler) ReplaceClusterInstance(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/cluster-instances/{id} [delete]
 func (h Handler) DeleteClusterInstance(c echo.Context) error {
@@ -561,6 +583,17 @@ func (h Handler) DeleteClusterInstance(c echo.Context) error {
 	if result := h.DB.Delete(&clusterInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := clusterInstance.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ClusterInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, clusterInstance)
 	if err != nil {

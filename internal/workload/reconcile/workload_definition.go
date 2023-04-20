@@ -2,13 +2,8 @@ package reconcile
 
 import (
 	"errors"
-	"io"
-	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/mitchellh/mapstructure"
-	yamlv3 "gopkg.in/yaml.v3"
-	"gorm.io/datatypes"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -70,7 +65,11 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			)
 
 			// build the notif payload for requeues
-			notifPayload, err := workloadDefinition.NotificationPayload(true, requeueDelay)
+			notifPayload, err := workloadDefinition.NotificationPayload(
+				notif.Operation,
+				true,
+				requeueDelay,
+			)
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
 				go r.RequeueRaw(msg.Subject, msg.Data)
@@ -108,80 +107,34 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				workloadDefinition = *latestWorkloadDefinition
 			}
 
-			// iterate over each resource in the yaml doc and construct a workload
-			// resource definition
-			decoder := yamlv3.NewDecoder(strings.NewReader(*workloadDefinition.YAMLDocument))
-			var workloadResourceDefinitions []v0.WorkloadResourceDefinition
-			wrdConstructSuccess := true
-			for {
-				// decode the next resource, exit loop if the end has been reached
-				var node yamlv3.Node
-				err := decoder.Decode(&node)
-				if errors.Is(err, io.EOF) {
-					break
-				}
+			// determine which operation and act accordingly
+			switch notif.Operation {
+			case notifications.NotificationOperationCreated:
+				workloadResourceDefs, err := WorkloadDefinitionCreated(r, &workloadDefinition)
 				if err != nil {
-					log.Error(err, "failed to decode yaml node in workload definition")
-					wrdConstructSuccess = false
-					break
+					log.Error(err, "failed to reconcile created workload definition object")
+					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+					continue
 				}
-
-				// marshal the yaml
-				yamlContent, err := yamlv3.Marshal(&node)
-				if err != nil {
-					log.Error(err, "failed to marshal yaml from workload definition")
-					wrdConstructSuccess = false
-					break
+				for _, wrd := range *workloadResourceDefs {
+					log.V(1).Info(
+						"workload resource definition created",
+						"workloadResourceDefinitionID", wrd.ID,
+					)
 				}
-
-				// convert yaml to json
-				jsonContent, err := yaml.YAMLToJSON(yamlContent)
-				if err != nil {
-					log.Error(err, "failed to convert yaml to json")
-					wrdConstructSuccess = false
-					break
+			case notifications.NotificationOperationDeleted:
+				if err := WorkloadDefinitionDeleted(r, &workloadDefinition); err != nil {
+					log.Error(err, "failed to reconcile deleted workload definition objects")
+					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+					continue
 				}
-
-				// unmarshal the json into the type used by API
-				var jsonDefinition datatypes.JSON
-				if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
-					log.Error(err, "failed to unmarshal json to datatypes.JSON")
-					wrdConstructSuccess = false
-					break
-				}
-
-				// build the workload resource definition and marshal to json
-				workloadResourceDefinition := v0.WorkloadResourceDefinition{
-					JSONDefinition:       &jsonDefinition,
-					WorkloadDefinitionID: workloadDefinition.ID,
-				}
-				workloadResourceDefinitions = append(workloadResourceDefinitions, workloadResourceDefinition)
-			}
-
-			// if any workload resource definitions failed construction, abort
-			if !wrdConstructSuccess {
-				log.Error(err, "failed to construct workload resource definition objects")
-				r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-
-			// create workload resource definitions in API
-			wrds, err := client.CreateWorkloadResourceDefinitions(
-				//wrdsJSON,
-				&workloadResourceDefinitions,
-				r.APIServer,
-				"",
-			)
-			if err != nil {
-				log.Error(err, "failed to create workload resource definitions in API")
-				r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-			for _, wrd := range *wrds {
-				log.V(1).Info(
-					"workload resource definition created",
-					"workloadResourceDefinitionID", wrd.ID,
+			default:
+				log.Error(
+					errors.New("unrecognized notifcation operation"),
+					"notification included an invalid operation",
 				)
+				r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+				continue
 			}
 
 			// set the object's Reconciled field to true

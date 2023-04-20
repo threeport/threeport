@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	"github.com/mitchellh/mapstructure"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	//kubecluster "github.com/threeport/threeport/internal/cluster/kube"
 	//kubeworkload "github.com/threeport/threeport/internal/workload/kube"
-	"github.com/threeport/threeport/internal/kube"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/controller"
@@ -75,7 +74,11 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			)
 
 			// build the notif payload for requeues
-			notifPayload, err := workloadInstance.NotificationPayload(true, requeueDelay)
+			notifPayload, err := workloadInstance.NotificationPayload(
+				notif.Operation,
+				true,
+				requeueDelay,
+			)
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
 				go r.RequeueRaw(msg.Subject, msg.Data)
@@ -113,115 +116,30 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				workloadInstance = *latestWorkloadInstance
 			}
 
-			// ensure workload definition is reconciled before working on
-			// instance for it
-			workloadDefinition, err := client.GetWorkloadDefinitionByID(
-				*workloadInstance.WorkloadDefinitionID,
-				r.APIServer,
-				"",
-			)
-			if err != nil {
-				log.Error(
-					err, "failed to get workload definition by workload definition ID",
-					"workloadDefinitionID", *workloadInstance.WorkloadDefinitionID,
-				)
-				r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-			if workloadDefinition.Reconciled != nil && *workloadDefinition.Reconciled != true {
-				log.V(1).Info("workload definition not yet reconciled - requeueing workload instance")
-				r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-
-			// use workload definition ID to get workload resource definitions
-			workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
-				*workloadInstance.WorkloadDefinitionID,
-				r.APIServer,
-				"",
-			)
-			log.V(1).Info(
-				"workload definitions retrieved",
-				"workloadResourceDefinitions", fmt.Sprintf("%+v\n", workloadResourceDefinitions),
-				"workloadInstanceID", workloadInstance.ID,
-			)
-			if err != nil {
-				log.Error(
-					err, "failed to get workload resource definitions by workload definition ID",
-					"workloadDefinitionID", *workloadInstance.WorkloadDefinitionID,
-				)
-				r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-
-			// get cluster instance info
-			clusterInstance, err := client.GetClusterInstanceByID(
-				*workloadInstance.ClusterInstanceID,
-				r.APIServer,
-				"",
-			)
-			if err != nil {
-				log.Error(
-					err, "failed to get workload cluster instance by ID",
-					"clusterInstanceID", *workloadInstance.ClusterInstanceID,
-				)
-				r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-
-			// create a client to connect to kube API
-			dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
-			if err != nil {
-				log.Error(err, "failed to create kube API client object")
-				r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-
-			// create each resource in the target kube cluster
-			createSuccess := 0
-			createFail := 0
-			for _, wrd := range *workloadResourceDefinitions {
-				wrdLog := r.Log.WithValues("workloadResourceDefinitionID", wrd.ID)
-
-				// marshal the resource definition json
-				jsonDefinition, err := wrd.JSONDefinition.MarshalJSON()
-				if err != nil {
-					wrdLog.Error(err, "failed to marshal the workload resource definition json")
-					createFail++
+			// determine which operation and act accordingly
+			switch notif.Operation {
+			case notifications.NotificationOperationCreated:
+				if err := WorkloadInstanceCreated(r, &workloadInstance); err != nil {
+					log.Error(
+						err, "failed to reconcile created workload instance object",
+						"workloadDefinitionID", *workloadInstance.WorkloadDefinitionID,
+					)
+					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
 					continue
 				}
-
-				// build kube unstructured object from json
-				kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-				if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
-					wrdLog.Error(err, "failed to unmarshal json to kubernetes unstructured object")
-					createFail++
+			case notifications.NotificationOperationDeleted:
+				if err := WorkloadInstanceDeleted(r, &workloadInstance); err != nil {
+					log.Error(
+						err, "failed to reconcile deleted workload instance object",
+						"workloadDefinitionID", *workloadInstance.WorkloadDefinitionID,
+					)
+					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
 					continue
 				}
-
-				// create kube resource
-				result, err := kube.CreateResource(kubeObject, dynamicKubeClient, *mapper)
-				if err != nil {
-					wrdLog.Error(err, "failed to create Kubernetes resource")
-					createFail++
-					continue
-				}
-
-				createSuccess++
-				log.V(1).Info(
-					"created kubernetes resource",
-					"kubeResourceName", result.GetName(),
-					"kubeResourceKind", result.GetKind(),
-					"workloadInstanceID", workloadInstance.ID,
-				)
-			}
-
-			// requeue if any kube resources failed creation
-			if createFail > 0 {
+			default:
 				log.Error(
-					errors.New("one or more resources not created"), "some Kubernetes resources failed creation",
-					"resourceCreatedCount", createSuccess,
-					"resourceFailedCount", createFail,
+					errors.New("unrecognized notifcation operation"),
+					"notification included an invalid operation",
 				)
 				r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
 				continue
@@ -236,15 +154,35 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 
 			log.V(1).Info(
 				"kubernetes resource creation complete",
-				"kubeResourcesCreated", createSuccess,
 				"workloadInstanceID", workloadInstance.ID,
 			)
 
-			log.V(1).Info("workload instance successfully reconciled", "workloadInstanceID", workloadInstance.ID)
+			log.Info("workload instance successfully reconciled", "workloadInstanceID", workloadInstance.ID)
 		}
 	}
 
 	r.Sub.Unsubscribe()
 	reconcilerLog.Info("reconciler shutting down")
 	r.ShutdownWait.Done()
+}
+
+// confirmWorkloadDefReconciled confirms the workload definition related to a
+// workload instance is reconciled.
+func confirmWorkloadDefReconciled(
+	r *controller.Reconciler,
+	workloadInstance *v0.WorkloadInstance,
+) (bool, error) {
+	workloadDefinition, err := client.GetWorkloadDefinitionByID(
+		*workloadInstance.WorkloadDefinitionID,
+		r.APIServer,
+		"",
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
+	}
+	if workloadDefinition.Reconciled != nil && *workloadDefinition.Reconciled != true {
+		return false, nil
+	}
+
+	return true, nil
 }

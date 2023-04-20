@@ -50,6 +50,10 @@ func ResponseStatus404(c echo.Context, params *v0.PageRequestParams, error error
 	return c.JSON(http.StatusNotFound, v0.CreateResponseWithError404(params, error, objectType))
 }
 
+func ResponseStatus409(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
+	return c.JSON(http.StatusConflict, v0.CreateResponseWithError409(params, error, objectType))
+}
+
 func ResponseStatus500(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
 	return c.JSON(http.StatusInternalServerError, v0.CreateResponseWithError500(params, error, objectType))
 }

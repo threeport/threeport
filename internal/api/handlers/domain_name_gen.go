@@ -8,6 +8,7 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	notifications "github.com/threeport/threeport/pkg/notifications"
 	gorm "gorm.io/gorm"
 	"net/http"
 )
@@ -59,7 +60,11 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := domainNameDefinition.NotificationPayload(false, 0)
+	notifPayload, err := domainNameDefinition.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -266,6 +271,7 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/domain-name-definitions/{id} [delete]
 func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
@@ -282,6 +288,17 @@ func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 	if result := h.DB.Delete(&domainNameDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := domainNameDefinition.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.DomainNameDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, domainNameDefinition)
 	if err != nil {
@@ -338,7 +355,11 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := domainNameInstance.NotificationPayload(false, 0)
+	notifPayload, err := domainNameInstance.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -545,6 +566,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/domain-name-instances/{id} [delete]
 func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
@@ -561,6 +583,17 @@ func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 	if result := h.DB.Delete(&domainNameInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := domainNameInstance.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.DomainNameInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, domainNameInstance)
 	if err != nil {
