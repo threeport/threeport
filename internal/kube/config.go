@@ -32,20 +32,6 @@ func DefaultKubeconfig() (string, error) {
 // GetConnectionInfoFromKubeconfig extracts the Kubernetes API connection info
 // from a kubeconfig.
 func GetConnectionInfoFromKubeconfig(kubeconfig string) (*KubeConnectionInfo, error) {
-	//// get kubeconfig
-	//defaultLoadRules := clientcmd.NewDefaultClientConfigLoadingRules()
-
-	//clientConfigLoadRules, err := defaultLoadRules.Load()
-	//if err != nil {
-	//	return fmt.Errorf("failed to load default kubeconfig rules: %w", err)
-	//}
-
-	//clientConfig := clientcmd.NewDefaultClientConfig(*clientConfigLoadRules, &clientcmd.ConfigOverrides{})
-	//kubeConfig, err := clientConfig.RawConfig()
-	//if err != nil {
-	//	return fmt.Errorf("failed to load kubeconfig: %w", err)
-	//}
-
 	var kubeConnInfo KubeConnectionInfo
 
 	// read kubeconfig
@@ -62,7 +48,6 @@ func GetConnectionInfoFromKubeconfig(kubeconfig string) (*KubeConnectionInfo, er
 	kubeConfig, err := clientConfig.RawConfig()
 
 	// get cluster CA and server endpoint
-	//var caCert string
 	clusterFound := false
 	for clusterName, cluster := range kubeConfig.Clusters {
 		if clusterName == kubeConfig.CurrentContext {
@@ -80,8 +65,6 @@ func GetConnectionInfoFromKubeconfig(kubeconfig string) (*KubeConnectionInfo, er
 	}
 
 	// get client certificate and key
-	//var cert string
-	//var key string
 	userFound := false
 	for userName, user := range kubeConfig.AuthInfos {
 		if userName == kubeConfig.CurrentContext {
