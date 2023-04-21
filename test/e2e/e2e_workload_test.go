@@ -156,7 +156,7 @@ func TestWorkload(t *testing.T) {
 	assert.NotNil(err, "should have an error returned when trying to delete workload definition with workload instance still in place")
 
 	// delete workload instance
-	_, err = client.DeleteWorkloadInstance(
+	deletedWorkloadInst, err := client.DeleteWorkloadInstance(
 		*createdWorkloadInst.ID,
 		apiAddr(),
 		apiToken,
@@ -170,13 +170,15 @@ func TestWorkload(t *testing.T) {
 	)
 	assert.Nil(err, "should have no errors geting all workload instances")
 	if assert.NotNil(workloadInsts, "should have an array of workload instances returned") {
-		assert.Equal(len(*workloadInsts), 0, "array of workload instances should be empty")
+		for _, wi := range *workloadInsts {
+			assert.NotEqual(wi.ID, deletedWorkloadInst.ID, "should not get back deleted workload instance when retrieving all workload instances")
+		}
 	}
 
 	// TODO: check to make sure kube resources are gone
 
 	// delete workload definition
-	_, err = client.DeleteWorkloadDefinition(
+	deletedWorkloadDef, err := client.DeleteWorkloadDefinition(
 		*createdWorkloadDef.ID,
 		apiAddr(),
 		apiToken,
@@ -184,13 +186,15 @@ func TestWorkload(t *testing.T) {
 	assert.Nil(err, "should have no error deleting workload definition")
 
 	// make sure there are zero workload definitions in system
-	allWorkloadInsts, err := client.GetWorkloadDefinitions(
+	workloadDefs, err := client.GetWorkloadDefinitions(
 		apiAddr(),
 		apiToken,
 	)
 	assert.Nil(err, "should have no errors geting all workload definitions")
-	if assert.NotNil(workloadInsts, "should have an array of workload definitions returned") {
-		assert.Equal(len(*allWorkloadInsts), 0, "array of workload definitions should be empty")
+	if assert.NotNil(workloadDefs, "should have an array of workload definitions returned") {
+		for _, wd := range *workloadDefs {
+			assert.NotEqual(wd.ID, deletedWorkloadDef.ID, "should not get back deleted workload definition when retrieving all workload definitions")
+		}
 	}
 }
 
