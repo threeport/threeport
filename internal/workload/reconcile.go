@@ -1,4 +1,4 @@
-package reconcile
+package workload
 
 const (
 	LockBucketName  = "workloadLock"

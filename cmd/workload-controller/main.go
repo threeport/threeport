@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/threeport/threeport/internal/version"
-	"github.com/threeport/threeport/internal/workload/reconcile"
+	"github.com/threeport/threeport/internal/workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"github.com/threeport/threeport/pkg/controller"
 )
@@ -97,15 +97,15 @@ func main() {
 
 	// JetStream key-value store setup
 	kvConfig := nats.KeyValueConfig{
-		Bucket:      reconcile.LockBucketName,
-		Description: reconcile.LockBucketDescr,
+		Bucket:      workload.LockBucketName,
+		Description: workload.LockBucketDescr,
 		TTL:         time.Minute * 20,
 	}
 	kv, err := controller.CreateLockBucketIfNotExists(js, &kvConfig)
 	if err != nil {
 		log.Error(
 			err, "failed to bind to JetStream key-value locking bucket",
-			"lockBucketName", reconcile.LockBucketName,
+			"lockBucketName", workload.LockBucketName,
 		)
 		os.Exit(1)
 	}
@@ -134,17 +134,17 @@ func main() {
 		{
 			Name:                 "WorkloadDefinitionReconciler",
 			ObjectType:           v0.ObjectTypeWorkloadDefinition,
-			ReconcileFunc:        reconcile.WorkloadDefinitionReconciler,
+			ReconcileFunc:        workload.WorkloadDefinitionReconciler,
 			ConcurrentReconciles: *workloadDefinitionConcurrentReconciles,
 		}, {
 			Name:                 "WorkloadInstanceReconciler",
 			ObjectType:           v0.ObjectTypeWorkloadInstance,
-			ReconcileFunc:        reconcile.WorkloadInstanceReconciler,
+			ReconcileFunc:        workload.WorkloadInstanceReconciler,
 			ConcurrentReconciles: *workloadInstanceConcurrentReconciles,
 		},
 		//}, {
 		//	Name:                 "WorkloadServiceDependencyReconciler",
-		//	ReconcileFunc:        reconcile.WorkloadServiceDependencyReconciler,
+		//	ReconcileFunc:        workload.WorkloadServiceDependencyReconciler,
 		//	ConcurrentReconciles: *workloadServiceDependencyConcurrentReconciles,
 		//},
 	}
@@ -199,7 +199,7 @@ func main() {
 		"version", version.GetVersion(),
 		"controllerID", controllerID.String(),
 		"NATSConnection", natsConn,
-		"lockBucketName", reconcile.LockBucketName,
+		"lockBucketName", workload.LockBucketName,
 	)
 
 	// add a shutdown endpoint for graceful shutdowns
