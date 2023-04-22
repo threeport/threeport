@@ -18,7 +18,8 @@ model file:
 * API handler code
 * methods for all the objects that comprise the API data model
 * API routes
-* API version responses and object validation
+* validation of objects received by the API from clients
+* API version responses
 
 # Codegen for Versions
 
@@ -35,6 +36,6 @@ The code generated includes:
 * database initialization
 * object type mappings for API responses
 * adding all routes to the server when API starts
-* object validation
-* API version responses
+* object field validation maps
+* API version mapping
 

@@ -19,7 +19,7 @@ Following is an overview of what lives at the root of this repo:
     control plane.
   * [tptctl](../cmd/tptctl/README.md) is the primary client CLI for threeport uers.
   * [tptdev](../cmd/tptdev/README.md) is a developer tool for threeport.
-  * [workload-controller](cmd/workload-controller/README.md) is the threeport
+  * [workload-controller](../cmd/workload-controller/README.md) is the threeport
     controller that manages containerized workloads on Kubernetes for users.
 * The `docs` directory contains these developer docs.
 * The `example` directory contains example configurations for testing threeport.
@@ -58,7 +58,7 @@ Following is an index of package documentation:
 * [`internal/threeport`](../internal/threeport/README.md)
 * [`internal/tptdev`](../internal/tptdev/README.md)
 * [`internal/version`](../internal/version/README.md)
-* [`internal/workload`](../internal/workload.README.md)
+* [`internal/workload`](../internal/workload/README.md)
 * [`pkg/api`](../pkg/api/README.md)
 * [`pkg/client`](../pkg/client/README.md)
 * [`pkg/config`](../pkg/config/README.md)

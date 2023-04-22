@@ -1,8 +1,8 @@
 # pkg/api
 
 The packages here contain the data model for the threeport API.  The types
-represent the objects that are manipulated through the API and correspond to
-tables in the database and the fields to the columns of those tables.
+represent the objects that are manipulated through the API and often correspond to
+tables in the database, the type fields to the columns of those tables.
 
 The generated code for the objects includes all the needed methods, the string
 constants that represent their object types (used in responses to client
