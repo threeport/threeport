@@ -1,6 +1,6 @@
 # inernal/api
 
-Here you will find packages used by the threeport API.  They include:
+Here you will find packages used by the threeport API.  Concerns include:
 * validating client requests
 * managing client responses
 * a custom context used as middleware by the echo framework

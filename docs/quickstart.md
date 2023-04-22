@@ -1,13 +1,15 @@
 ## Quickstart
 
-In order to run a local development instance of threeport, you'll need:
+In order to run a local development instance of threeport, you'll need the
+following installed:
 
 * [docker](https://docs.docker.com/get-docker/)
 * [kind](https://kind.sigs.k8s.io/)
 * [kubectl](https://kubernetes.io/docs/reference/kubectl/)
 
-The following may also be required for different development operations and make
-targets:
+The following will also need to be installed locally for the relevant development
+operations and make targets:
+
 * [swag CLI](https://github.com/swaggo/swag) for generating API docs.
 * [cockroachDB](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux.html)
   for interacting directly with dev database instance.
@@ -29,7 +31,8 @@ Note: The development environment is created using tptdev tool.  The tptdev
 tool references files in the source code so assumes, by default that it is being
 run from the root of this repo.
 
-Note: When running dev instances, the entrypoint process is air which
+Note: When running dev instances, the entrypoint process is
+[air](https://github.com/cosmtrek/air) which
 manages the live reload of code changes on your filesystem.  Therefore, if an
 error occurs, the container will not fail and restart.  For example, if the build
 fails due to a compile error for a live reload the container status will remain
@@ -41,7 +44,7 @@ after the API is up to work correctly.
 Call the API:
 
 ```bash
-curl localhost:1323/swagger/index.html
+curl localhost/swagger/index.html
 ```
 
 Delete a local dev instance:
