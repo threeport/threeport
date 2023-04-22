@@ -20,6 +20,10 @@ generate: build-codegen
 tests:
 	go test -v ./... -count=1
 
+#test-commit: @ Checks to make sure commit messages follow conventional commits format
+test-commit:
+	test/scripts/commit-check-latest.sh
+
 #build-tptdev: @ Build tptdev binary
 build-tptdev:
 	go build -a -o bin/tptdev cmd/tptdev/main.go
