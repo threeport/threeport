@@ -109,7 +109,8 @@ var upCmd = &cobra.Command{
 		}
 
 		// install the threeport control plane API and controllers
-		if err := threeport.InstallThreeportControlPlaneComponents(
+		//if err := threeport.InstallThreeportControlPlaneComponents(
+		if err := threeport.InstallThreeportAPI(
 			dynamicKubeClient,
 			mapper,
 			true,
@@ -126,6 +127,20 @@ var upCmd = &cobra.Command{
 			fmt.Sprintf("http://%s", threeport.ThreeportLocalAPIEndpoint),
 		); err != nil {
 			cli.Error("threeport API did not come up", err)
+			os.Exit(1)
+		}
+
+		// install the threeport controllers - these need to be installed once
+		// API server is running in dev environment because the air entrypoint
+		// prevents the controllers from crashlooping if they come up before
+		// the API server
+		if err := threeport.InstallThreeportControllers(
+			dynamicKubeClient,
+			mapper,
+			true,
+			"",
+		); err != nil {
+			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)
 		}
 
