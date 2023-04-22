@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/threeport"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -16,6 +18,17 @@ import (
 const (
 	apiToken = ""
 )
+
+// kubeResource contains the values needed to create and retrieve resources from
+// the Kubernetes API for this test.
+type kubeResource struct {
+	Group     string
+	Version   string
+	Kind      string
+	Namespace string
+	Name      string
+	Manifest  string
+}
 
 // apiAddr returns the address of a local instance of threeport API.
 func apiAddr() string {
@@ -26,13 +39,55 @@ func apiAddr() string {
 	)
 }
 
-// TestWorkload tests that workload creation works as expected.
-func TestWorkload(t *testing.T) {
+// testResources returns the test Kubernetes resources for this test.
+func testResources() *[]kubeResource {
+	return &[]kubeResource{
+		{
+			Group:     "",
+			Version:   "v1",
+			Kind:      "Namespace",
+			Namespace: "",
+			Name:      "go-web3-sample-app-0",
+			Manifest:  workloadDefNamespace,
+		},
+		{
+			Group:     "",
+			Version:   "v1",
+			Kind:      "ConfigMap",
+			Namespace: "go-web3-sample-app-0",
+			Name:      "go-web3-sample-app-config",
+			Manifest:  workloadDefConfigMap,
+		},
+		{
+			Group:     "apps",
+			Version:   "v1",
+			Kind:      "Deployment",
+			Namespace: "go-web3-sample-app-0",
+			Name:      "go-web3-sample-app",
+			Manifest:  workloadDefDeployment,
+		},
+		{
+			Group:     "",
+			Version:   "v1",
+			Kind:      "Service",
+			Namespace: "go-web3-sample-app-0",
+			Name:      "go-web3-sample-app",
+			Manifest:  workloadDefService,
+		},
+	}
+}
+
+// TestWorkloadE2E tests that workload creation and deletgion works as expected.
+func TestWorkloadE2E(t *testing.T) {
 	assert := assert.New(t)
+	testResources := testResources()
 
 	// create workload definition
 	workloadDefName := "test-workload"
-	workloadDefYAML := workloadDefNamespace + workloadDefConfigMap + workloadDefDeployment + workloadDefService
+	var workloadDefYAML string
+	for _, r := range *testResources {
+		workloadDefYAML = workloadDefYAML + r.Manifest
+	}
 	workloadDef := v0.WorkloadDefinition{
 		Definition: v0.Definition{
 			Name: &workloadDefName,
@@ -59,6 +114,7 @@ func TestWorkload(t *testing.T) {
 	// controller
 	workloadDefChecks := 0
 	workloadDefMaxChecks := 5
+	workloadDefCheckDurationSeconds := 1
 	reconciled := false
 	var existingWorkloadDef *v0.WorkloadDefinition
 	for workloadDefChecks < workloadDefMaxChecks && !reconciled {
@@ -73,9 +129,9 @@ func TestWorkload(t *testing.T) {
 			break
 		}
 		workloadDefChecks += 1
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Duration(workloadDefCheckDurationSeconds * 1000000000))
 	}
-	assert.Equal(*existingWorkloadDef.Reconciled, true, "created workload definition should be reconciled by workload controller after 5 seconds")
+	assert.Equal(*existingWorkloadDef.Reconciled, true, fmt.Sprintf("created workload definition should be reconciled by workload controller after %d seconds", workloadDefMaxChecks*workloadDefCheckDurationSeconds))
 
 	// check workload resource definitions
 	workloadResourceDefs, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
@@ -144,7 +200,50 @@ func TestWorkload(t *testing.T) {
 	assert.Nil(err, "should have no error creating workload instance")
 	assert.NotNil(createdWorkloadInst, "should have a workload instance returned")
 
-	// TODO: check kube cluster for expected resources
+	// get the cluster instance from the threeport API so we can connect to it
+	clusterInstance, err := client.GetClusterInstanceByID(
+		*testClusterInst.ID,
+		apiAddr(),
+		apiToken,
+	)
+	assert.Nil(err, "should have no error getting cluster instance")
+	assert.NotNil(clusterInstance, "should have a cluster instance returned")
+
+	// create a client to connect to kube API
+	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, false)
+	assert.Nil(err, "should have no error creating a client and REST mapper for Kubernetes cluster API")
+
+	// check kube cluster for expected resources
+	allResourcesFound := false
+	findAttempts := 0
+	findAttemptsMax := 30
+	//findCheckDurationSeconds := time.Duration(1 * 1000000000)
+	findCheckDurationSeconds := 1
+	for findAttempts < findAttemptsMax {
+		resourcesFound := 0
+		for _, r := range *testResources {
+			_, err := kube.GetResource(
+				r.Group,
+				r.Version,
+				r.Kind,
+				r.Namespace,
+				r.Name,
+				dynamicKubeClient,
+				*mapper,
+			)
+			if err != nil {
+				break
+			}
+			resourcesFound += 1
+		}
+		if resourcesFound == len(*testResources) {
+			allResourcesFound = true
+			break
+		}
+		findAttempts += 1
+		time.Sleep(time.Duration(findCheckDurationSeconds * 1000000000))
+	}
+	assert.Equal(allResourcesFound, true, fmt.Sprintf("should have found all resources in Kubernetes after %d seconds", findAttemptsMax*findCheckDurationSeconds))
 
 	// attempt deleting workload definition - should fail with instance still in
 	// place
@@ -175,7 +274,43 @@ func TestWorkload(t *testing.T) {
 		}
 	}
 
-	// TODO: check to make sure kube resources are gone
+	// check to make sure kube resources are gone
+	allResourcesGone := false
+	goneAttempts := 0
+	goneAttemptsMax := 15
+	goneCheckDurationSeconds := 1
+	for goneAttempts < goneAttemptsMax {
+		resourcesGone := 0
+		for _, r := range *testResources {
+			resource, err := kube.GetResource(
+				r.Group,
+				r.Version,
+				r.Kind,
+				r.Namespace,
+				r.Name,
+				dynamicKubeClient,
+				*mapper,
+			)
+			// if we get resource back, it's not yet gone
+			if resource != nil {
+				break
+			}
+			// if we get an error that is NOT a "not found" error we have a
+			// problem - log rather than exit in case it resolves
+			if err != nil && !errors.IsNotFound(err) {
+				t.Log(fmt.Errorf("an error occured that was NOT a \"not found\" error: %w", err))
+				break
+			}
+			resourcesGone += 1
+		}
+		if resourcesGone == len(*testResources) {
+			allResourcesGone = true
+			break
+		}
+		goneAttempts += 1
+		time.Sleep(time.Duration(goneCheckDurationSeconds * 1000000000))
+	}
+	assert.Equal(allResourcesGone, true, fmt.Sprintf("should have found that all resources are gone from Kubernetes after %d seconds", goneAttemptsMax*goneCheckDurationSeconds))
 
 	// delete workload definition
 	deletedWorkloadDef, err := client.DeleteWorkloadDefinition(
