@@ -1,4 +1,4 @@
-name: threeport release
+name: Release
 
 on:
   push:
