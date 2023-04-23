@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -172,6 +173,10 @@ var upCmd = &cobra.Command{
 			cli.Error("failed to create new cluster instance for default compute space", err)
 			os.Exit(1)
 		}
+
+		// wait for 20 seconds to allow time for controllers to build and start
+		// so that when this command returns, the control plane is ready
+		time.Sleep(time.Second * 20)
 
 		cli.Complete(fmt.Sprintf("threeport dev instance %s created", createThreeportDevName))
 	},
