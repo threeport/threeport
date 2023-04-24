@@ -1,8 +1,13 @@
 package threeport
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"time"
 
@@ -425,4 +430,120 @@ func workloadControllerVolumes() ([]interface{}, []interface{}) {
 	volMounts := []interface{}{}
 
 	return vols, volMounts
+}
+
+func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKey *rsa.PrivateKey, err error) {
+
+	// generate a random identifier for use as a serial number
+	max := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
+	randomNumber, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		fmt.Errorf("failed to generate random serial number: %w", err)
+		return nil, nil, nil, err
+	}
+
+	// set config options for a new CA certificate
+	caConfig = &x509.Certificate{
+		SerialNumber: randomNumber,
+		Subject: pkix.Name{
+			Organization: []string{"Threeport"},
+			Country:      []string{"US"},
+			Locality:     []string{"Tampa"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		IsCA:                  true,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+
+	// generate private and public keys for the CA
+	caPrivateKey, err = rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		fmt.Errorf("failed to generate CA private key: %w", err)
+		return nil, nil, nil, err
+	}
+
+	// generate a certificate authority
+	ca, err = x509.CreateCertificate(rand.Reader, caConfig, caConfig, &caPrivateKey.PublicKey, caPrivateKey)
+	if err != nil {
+		fmt.Errorf("failed to create CA certificate: %w", err)
+		return nil, nil, nil, err
+	}
+
+	// // encode the CA certificate in PEM format
+	// caPEM := new(bytes.Buffer)
+	// pem.Encode(caPEM, &pem.Block{
+	// 	Type:  "CERTIFICATE",
+	// 	Bytes: caBytes,
+	// })
+
+	// // encode the private key in PEM format
+	// caPrivateKeyPEM := new(bytes.Buffer)
+	// pem.Encode(caPrivateKeyPEM, &pem.Block{
+	// 	Type:  "RSA PRIVATE KEY",
+	// 	Bytes: x509.MarshalPKCS1PrivateKey(caPrivateKey),
+	// })
+
+	return caConfig, ca, caPrivateKey, nil
+
+}
+
+func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKey) (certificate []byte, privateKey *rsa.PrivateKey, err error) {
+
+	// generate a random identifier for use as a serial number
+	max := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
+	randomNumber, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		fmt.Errorf("failed to generate random serial number: %w", err)
+		return nil, nil, err
+	}
+
+	// set config options for a new CA certificate
+	cert := &x509.Certificate{
+		SerialNumber: randomNumber,
+		Subject: pkix.Name{
+			Organization: []string{"Threeport"},
+			Country:      []string{"US"},
+			Locality:     []string{"Tampa"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		IsCA:                  false,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+
+	// generate private and public keys for the CA
+	serverPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		fmt.Errorf("failed to generate CA private key: %w", err)
+		return nil, nil, err
+	}
+
+	// generate a certificate authority
+	serverCert, err := x509.CreateCertificate(rand.Reader, cert, caConfig, &serverPrivateKey.PublicKey, caPrivateKey)
+	if err != nil {
+		fmt.Errorf("failed to create CA certificate: %w", err)
+		return nil, nil, err
+	}
+
+	// // encode the CA certificate in PEM format
+	// serverCertPEM := new(bytes.Buffer)
+	// pem.Encode(serverCertPEM, &pem.Block{
+	// 	Type:  "CERTIFICATE",
+	// 	Bytes: serverCertBytes,
+	// })
+
+	// // encode the private key in PEM format
+	// serverPrivateKeyPEM := new(bytes.Buffer)
+	// pem.Encode(serverPrivateKeyPEM, &pem.Block{
+	// 	Type:  "RSA PRIVATE KEY",
+	// 	Bytes: x509.MarshalPKCS1PrivateKey(serverPrivateKey),
+	// })
+
+	return serverCert, serverPrivateKey, nil
+
 }

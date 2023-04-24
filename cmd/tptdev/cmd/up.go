@@ -96,6 +96,27 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// generate certificate authority for the threeport API
+		caConfig, ca, caPrivateKey, err := threeport.GenerateCACertificate()
+		if err != nil {
+			cli.Error("failed to generate certificate authority and private key", err)
+			os.Exit(1)
+		}
+
+		// generate server certificate
+		serverCertificate, serverPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
+		if err != nil {
+			cli.Error("failed to generate server certificate and private key", err)
+			os.Exit(1)
+		}
+
+		// generate client certificate
+		clientCertificate, clientPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
+		if err != nil {
+			cli.Error("failed to generate client certificate and private key", err)
+			os.Exit(1)
+		}
+
 		// install the threeport control plane dependencies
 		if err := threeport.InstallThreeportControlPlaneDependencies(dynamicKubeClient, mapper); err != nil {
 			cli.Error("failed to install threeport control plane dependencies", err)
