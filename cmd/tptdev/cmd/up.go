@@ -4,6 +4,7 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"crypto/x509"
 	"fmt"
 	"os"
 	"time"
@@ -130,6 +131,12 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// get PEM-encoded keypairs as strings to pass into deployment manifests
+		caEncoded := threeport.GetPEMEncoding(ca, "CERTIFICATE")
+		caPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(caPrivateKey), "RSA PRIVATE KEY")
+		serverCertificateEncoded := threeport.GetPEMEncoding(serverCertificate, "CERTIFICATE")
+		serverPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(serverPrivateKey), "RSA PRIVATE KEY")
+
 		// install the threeport control plane API and controllers
 		//if err := threeport.InstallThreeportControlPlaneComponents(
 		if err := threeport.InstallThreeportAPI(
@@ -138,6 +145,10 @@ var upCmd = &cobra.Command{
 			true,
 			threeport.ThreeportLocalAPIEndpoint,
 			"",
+			caEncoded,
+			caPrivateKeyEncoded,
+			serverCertificateEncoded,
+			serverPrivateKeyEncoded,
 		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)

@@ -1,10 +1,12 @@
 package threeport
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"math/big"
@@ -76,6 +78,10 @@ func InstallThreeportAPI(
 	devEnvironment bool,
 	apiHostname string,
 	customThreeportImageRepo string,
+	caCert string,
+	caPrivateKey string,
+	serverCert string,
+	serverPrivateKey string,
 ) error {
 	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo)
 	apiIngressAnnotations := getAPIIngressAnnotations(devEnvironment)
@@ -129,6 +135,44 @@ NATS_PORT=4222
 		},
 	}
 	if _, err := kube.CreateResource(apiSecret, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create API server secret: %w", err)
+	}
+
+	var tlsApiCA = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"type":       "kubernetes.io/tls",
+			"metadata": map[string]interface{}{
+				"name":      "tls-api-ca",
+				"namespace": ControlPlaneNamespace,
+			},
+			"stringData": map[string]interface{}{
+				"tls.crt": caCert,
+				"tls.key": caPrivateKey,
+			},
+		},
+	}
+	if _, err := kube.CreateResource(tlsApiCA, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create API server secret: %w", err)
+	}
+
+	var tlsApiCert = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"type":       "kubernetes.io/tls",
+			"metadata": map[string]interface{}{
+				"name":      "tls-api-cert",
+				"namespace": ControlPlaneNamespace,
+			},
+			"stringData": map[string]interface{}{
+				"tls.crt": serverCert,
+				"tls.key": serverPrivateKey,
+			},
+		},
+	}
+	if _, err := kube.CreateResource(tlsApiCert, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
 
@@ -463,12 +507,32 @@ func getAPIVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
 				"name": "db-load",
 			},
 		},
+		map[string]interface{}{
+			"name": "tls-api-ca",
+			"secret": map[string]interface{}{
+				"secretName": "tls-api-ca",
+			},
+		},
+		map[string]interface{}{
+			"name": "tls-api-cert",
+			"secret": map[string]interface{}{
+				"secretName": "tls-api-cert",
+			},
+		},
 	}
 
 	volMounts := []interface{}{
 		map[string]interface{}{
 			"name":      "db-config",
 			"mountPath": "/etc/threeport/",
+		},
+		map[string]interface{}{
+			"name":      "tls-api-ca",
+			"mountPath": "/etc/threeport/ca",
+		},
+		map[string]interface{}{
+			"name":      "tls-api-cert",
+			"mountPath": "/etc/threeport/cert",
 		},
 	}
 
@@ -558,20 +622,6 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 		return nil, nil, nil, err
 	}
 
-	// // encode the CA certificate in PEM format
-	// caPEM := new(bytes.Buffer)
-	// pem.Encode(caPEM, &pem.Block{
-	// 	Type:  "CERTIFICATE",
-	// 	Bytes: caBytes,
-	// })
-
-	// // encode the private key in PEM format
-	// caPrivateKeyPEM := new(bytes.Buffer)
-	// pem.Encode(caPrivateKeyPEM, &pem.Block{
-	// 	Type:  "RSA PRIVATE KEY",
-	// 	Bytes: x509.MarshalPKCS1PrivateKey(caPrivateKey),
-	// })
-
 	return caConfig, ca, caPrivateKey, nil
 
 }
@@ -616,21 +666,17 @@ func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKe
 		return nil, nil, err
 	}
 
-	// // encode the CA certificate in PEM format
-	// serverCertPEM := new(bytes.Buffer)
-	// pem.Encode(serverCertPEM, &pem.Block{
-	// 	Type:  "CERTIFICATE",
-	// 	Bytes: serverCertBytes,
-	// })
-
-	// // encode the private key in PEM format
-	// serverPrivateKeyPEM := new(bytes.Buffer)
-	// pem.Encode(serverPrivateKeyPEM, &pem.Block{
-	// 	Type:  "RSA PRIVATE KEY",
-	// 	Bytes: x509.MarshalPKCS1PrivateKey(serverPrivateKey),
-	// })
-
 	return serverCert, serverPrivateKey, nil
+
+func GetPEMEncoding(cert []byte, encodingType string) (pemEncodingString string) {
+	pemEncoding := new(bytes.Buffer)
+	pem.Encode(pemEncoding, &pem.Block{
+		Type:  encodingType,
+		Bytes: cert,
+	})
+
+	return pemEncoding.String()
+}
 
 // getCodePathVols returns the volume and volume mount for dev environments to
 // mount local codebase for live reloads.
