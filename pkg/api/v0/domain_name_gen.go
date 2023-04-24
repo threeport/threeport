@@ -62,10 +62,15 @@ func GetDomainNameSubjects() []string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (dnd *DomainNameDefinition) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (dnd *DomainNameDefinition) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	lastDelay int64,
+) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           dnd,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -90,10 +95,15 @@ func (dnd DomainNameDefinition) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (dni *DomainNameInstance) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (dni *DomainNameInstance) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	lastDelay int64,
+) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           dni,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 

@@ -8,6 +8,7 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	notifications "github.com/threeport/threeport/pkg/notifications"
 	gorm "gorm.io/gorm"
 	"net/http"
 )
@@ -59,7 +60,11 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := awsAccount.NotificationPayload(false, 0)
+	notifPayload, err := awsAccount.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -266,6 +271,7 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-accounts/{id} [delete]
 func (h Handler) DeleteAwsAccount(c echo.Context) error {
@@ -282,6 +288,17 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 	if result := h.DB.Delete(&awsAccount); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := awsAccount.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsAccountDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsAccount)
 	if err != nil {
@@ -338,7 +355,11 @@ func (h Handler) AddAwsEksClusterDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := awsEksClusterDefinition.NotificationPayload(false, 0)
+	notifPayload, err := awsEksClusterDefinition.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -545,6 +566,7 @@ func (h Handler) ReplaceAwsEksClusterDefinition(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-eks-cluster-definitions/{id} [delete]
 func (h Handler) DeleteAwsEksClusterDefinition(c echo.Context) error {
@@ -561,6 +583,17 @@ func (h Handler) DeleteAwsEksClusterDefinition(c echo.Context) error {
 	if result := h.DB.Delete(&awsEksClusterDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := awsEksClusterDefinition.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsEksClusterDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsEksClusterDefinition)
 	if err != nil {
@@ -617,7 +650,11 @@ func (h Handler) AddAwsEksClusterInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := awsEksClusterInstance.NotificationPayload(false, 0)
+	notifPayload, err := awsEksClusterInstance.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -824,6 +861,7 @@ func (h Handler) ReplaceAwsEksClusterInstance(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-eks-cluster-instances/{id} [delete]
 func (h Handler) DeleteAwsEksClusterInstance(c echo.Context) error {
@@ -840,6 +878,17 @@ func (h Handler) DeleteAwsEksClusterInstance(c echo.Context) error {
 	if result := h.DB.Delete(&awsEksClusterInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := awsEksClusterInstance.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsEksClusterInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsEksClusterInstance)
 	if err != nil {
@@ -896,7 +945,11 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(false, 0)
+	notifPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1103,6 +1156,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-relational-database-definitions/{id} [delete]
 func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
@@ -1119,6 +1173,17 @@ func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 	if result := h.DB.Delete(&awsRelationalDatabaseDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsRelationalDatabaseDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition)
 	if err != nil {
@@ -1175,7 +1240,11 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(false, 0)
+	notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1382,6 +1451,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/aws-relational-database-instances/{id} [delete]
 func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
@@ -1398,6 +1468,17 @@ func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 	if result := h.DB.Delete(&awsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.AwsRelationalDatabaseInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
 	if err != nil {

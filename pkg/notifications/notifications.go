@@ -6,6 +6,16 @@ import (
 	"fmt"
 )
 
+// NotificationOperation informs a reconciler what operation was performed in
+// the API to trigger the notification.
+type NotificationOperation string
+
+const (
+	NotificationOperationCreated = "Created"
+	NotificationOperationUpdated = "Updated"
+	NotificationOperationDeleted = "Deleted"
+)
+
 // Notification is the message that is sent to NATS to alert a controller that a
 // change has been made to an object.  A notification is sent by the API Server
 // when a change is make by a client, or by a controller when reconciliation was
@@ -16,7 +26,7 @@ type Notification struct {
 	// * Created
 	// * Updated
 	// * Deleted
-	Operation string
+	Operation NotificationOperation
 
 	// Whether the notification was a part of a requeue.  It will be false when
 	// the API Server sends the notification in response to a client change.  It

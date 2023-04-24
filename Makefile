@@ -18,7 +18,7 @@ generate: build-codegen
 
 #test: @ Run automated tests
 tests:
-	go test ./... -count=1
+	go test -v ./... -count=1
 
 #build-tptdev: @ Build tptdev binary
 build-tptdev:

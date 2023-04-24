@@ -62,10 +62,15 @@ func GetIdentitySubjects() []string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (u *User) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (u *User) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	lastDelay int64,
+) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           u,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 
@@ -90,10 +95,15 @@ func (u User) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (c *Company) NotificationPayload(requeue bool, lastDelay int64) (*[]byte, error) {
+func (c *Company) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	lastDelay int64,
+) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
 		Object:           c,
+		Operation:        operation,
 		Requeue:          requeue,
 	}
 

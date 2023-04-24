@@ -114,8 +114,13 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 		f.Func().Params(
 			Id(name.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
 		).Id("NotificationPayload").Params(
-			Id("requeue").Bool(),
-			Id("lastDelay").Int64(),
+			Line().Id("operation").Qual(
+				"github.com/threeport/threeport/pkg/notifications",
+				"NotificationOperation",
+			),
+			Line().Id("requeue").Bool(),
+			Line().Id("lastDelay").Int64(),
+			Line(),
 		).Parens(List(
 			Op("*").Index().Byte(),
 			Error(),
@@ -124,6 +129,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 				"github.com/threeport/threeport/pkg/notifications",
 				"Notification",
 			).Values(Dict{
+				Id("Operation"):        Id("operation"),
 				Id("Requeue"):          Id("requeue"),
 				Id("LastRequeueDelay"): Op("&").Id("lastDelay"),
 				Id("Object"):           Id(name.TypeAbbrev(mc.TypeName)),

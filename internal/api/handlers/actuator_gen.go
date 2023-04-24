@@ -8,6 +8,7 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	notifications "github.com/threeport/threeport/pkg/notifications"
 	gorm "gorm.io/gorm"
 	"net/http"
 )
@@ -59,7 +60,11 @@ func (h Handler) AddProfile(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := profile.NotificationPayload(false, 0)
+	notifPayload, err := profile.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -266,6 +271,7 @@ func (h Handler) ReplaceProfile(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/profiles/{id} [delete]
 func (h Handler) DeleteProfile(c echo.Context) error {
@@ -282,6 +288,17 @@ func (h Handler) DeleteProfile(c echo.Context) error {
 	if result := h.DB.Delete(&profile); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := profile.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ProfileDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, profile)
 	if err != nil {
@@ -338,7 +355,11 @@ func (h Handler) AddTier(c echo.Context) error {
 	}
 
 	// notify controller
-	notifPayload, err := tier.NotificationPayload(false, 0)
+	notifPayload, err := tier.NotificationPayload(
+		notifications.NotificationOperationCreated,
+		false,
+		0,
+	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -545,6 +566,7 @@ func (h Handler) ReplaceTier(c echo.Context) error {
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/tiers/{id} [delete]
 func (h Handler) DeleteTier(c echo.Context) error {
@@ -561,6 +583,17 @@ func (h Handler) DeleteTier(c echo.Context) error {
 	if result := h.DB.Delete(&tier); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := tier.NotificationPayload(
+		notifications.NotificationOperationDeleted,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.TierDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, tier)
 	if err != nil {
