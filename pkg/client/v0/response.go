@@ -2,11 +2,15 @@ package v0
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -28,6 +32,18 @@ func GetResponse(
 	req.Header.Add("Content-Type", "application/json")
 
 	client := &http.Client{}
+
+	// load certificates to authenticate via TLS conneection
+	tlsConfig, err := loadCertificates()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load certificates: %w", err)
+	}
+
+	// configure http client to use certificates
+	client.Transport = &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed execute call to threeport API: %w", err)
@@ -66,4 +82,47 @@ func GetResponse(
 	}
 
 	return &response, nil
+}
+
+// loads certificates from ~/.threeport or /etc/threeport
+func loadCertificates() (*tls.Config, error) {
+	homeDir, _ := os.UserHomeDir()
+	var certFile, keyFile, caFile string
+
+	_, errHomeDirectory := os.Stat(filepath.Join(homeDir, ".threeport"))
+	_, errThreeportCert := os.Stat("/etc/threeport/cert")
+	_, errThreeportCA := os.Stat("/etc/threeport/ca")
+
+	if errHomeDirectory == nil {
+		// Use certificates from ~/.threeport directory
+		certFile = filepath.Join(homeDir, ".threeport", "cert")
+		keyFile = filepath.Join(homeDir, ".threeport", "key")
+		caFile = filepath.Join(homeDir, ".threeport", "ca")
+	} else if errThreeportCert == nil && errThreeportCA == nil {
+		// Use certificates from /etc/threeport directory
+		certFile = "/etc/threeport/cert"
+		keyFile = "/etc/threeport/key"
+		caFile = "/etc/threeport/ca"
+	} else {
+		return nil, errors.New("could not find certificate files")
+	}
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	caCert, err := ioutil.ReadFile(caFile)
+	if err != nil {
+		return nil, err
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caCertPool,
+	}
+
+	return tlsConfig, nil
 }
