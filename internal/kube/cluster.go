@@ -15,6 +15,40 @@ import (
 // GetClient creates a dynamic client interface and rest mapper from a cluster
 // instance.
 func GetClient(cluster *v0.ClusterInstance, threeportControlPlane bool) (dynamic.Interface, *meta.RESTMapper, error) {
+	restConfig := GetRESTConfig(cluster, threeportControlPlane)
+
+	// create new dynamic client
+	dynamicKubeClient, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create dynamic kube client: %w", err)
+	}
+
+	// get the discovery client using rest config
+	discoveryClient, err := GetDiscoveryClient(cluster, threeportControlPlane)
+
+	// the rest mapper allows us to deterimine resource types
+	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get kube API group resources: %w", err)
+	}
+	mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
+	return dynamicKubeClient, &mapper, nil
+}
+
+// GetDiscoveryClient returns a new discovery client for a cluster instance.
+func GetDiscoveryClient(cluster *v0.ClusterInstance, threeportControlPlane bool) (*discovery.DiscoveryClient, error) {
+	restConfig := GetRESTConfig(cluster, threeportControlPlane)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new discovery client from rest config: %w", err)
+	}
+
+	return discoveryClient, nil
+}
+
+// GetRESTConfig returns a REST config for a cluster instance.
+func GetRESTConfig(cluster *v0.ClusterInstance, threeportControlPlane bool) *rest.Config {
 	// determine if the client is for a control plane component calling the
 	// local kube API and set endpoint as needed
 	kubeAPIEndpoint := *cluster.APIEndpoint
@@ -26,27 +60,9 @@ func GetClient(cluster *v0.ClusterInstance, threeportControlPlane bool) (dynamic
 		KeyData:  []byte(*cluster.Key),
 		CAData:   []byte(*cluster.CACertificate),
 	}
-	restConfig := rest.Config{
+
+	return &rest.Config{
 		Host:            kubeAPIEndpoint,
 		TLSClientConfig: tlsConfig,
 	}
-
-	// create new dynamic client
-	dynamicKubeClient, err := dynamic.NewForConfig(&restConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create dynamic kube client: %w", err)
-	}
-
-	// the rest mapper allows us to deterimine resource types
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(&restConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get discovery client: %w", err)
-	}
-	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get kube API group resources: %w", err)
-	}
-	mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
-
-	return dynamicKubeClient, &mapper, nil
 }

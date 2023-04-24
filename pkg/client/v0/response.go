@@ -11,6 +11,8 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
+var ErrorObjectNotFound = errors.New("object not found")
+
 // GetResponse calls the threeport API and returns a response.
 func GetResponse(
 	url string,
@@ -47,6 +49,11 @@ func GetResponse(
 		status, err := json.MarshalIndent(response.Status, "", "  ")
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal response status from threeport API: %w", err)
+		}
+		// return specific errors that need to be identified with `errors.As`
+		// elsewhere
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, ErrorObjectNotFound
 		}
 		return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s\nexpected: %d", response.Status.Code, response.Status.Message, string(status), expectedStatusCode))
 	}

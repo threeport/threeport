@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	//"github.com/threeport/threeport/internal/authority"
-	"github.com/threeport/threeport/internal/api/util"
+	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
@@ -118,7 +118,7 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 
 	// error out if a GORM Model field was passed for an update
 	for k, _ := range payloadObject {
-		if util.Contains(v0.GORMModelFields, k, false) {
+		if util.SliceContains(v0.GORMModelFields, k, false) {
 			*providedGORMModelFields = append(*providedGORMModelFields, k)
 		}
 	}
@@ -128,7 +128,7 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 
 	// error out if an association was passed for an update
 	for k, _ := range payloadObject {
-		if util.Contains(*associatedFields, k, false) {
+		if util.SliceContains(*associatedFields, k, false) {
 			*providedAssociationsFields = append(*providedAssociationsFields, k)
 		}
 	}
@@ -150,15 +150,15 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 	// }
 	for k, _ := range payloadObject {
 		// check the field k form the payload
-		if !util.Contains(*optionalFields, k, false) &&
-			!util.Contains(*optionalAssociationsFields, k, false) &&
-			!util.Contains(*requiredFields, k, false) {
+		if !util.SliceContains(*optionalFields, k, false) &&
+			!util.SliceContains(*optionalAssociationsFields, k, false) &&
+			!util.SliceContains(*requiredFields, k, false) {
 			// now we need to check the same for the alias of the k
 			kAlias := getFieldNameByJsonTag(k, "json", v0.GetStructByObjectType(objectType))
 			if len(kAlias) > 0 {
-				if !util.Contains(*optionalFields, kAlias, false) &&
-					!util.Contains(*optionalAssociationsFields, kAlias, false) &&
-					!util.Contains(*requiredFields, kAlias, false) {
+				if !util.SliceContains(*optionalFields, kAlias, false) &&
+					!util.SliceContains(*optionalAssociationsFields, kAlias, false) &&
+					!util.SliceContains(*requiredFields, kAlias, false) {
 					*unsupportedFields = append(*unsupportedFields, kAlias)
 				}
 			} else {
