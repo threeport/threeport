@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -117,6 +118,45 @@ var upCmd = &cobra.Command{
 		if err != nil {
 			cli.Error("failed to generate client certificate and private key", err)
 			os.Exit(1)
+		}
+
+		// write client certificate and private key to config directory
+		clientCertificateEncoded := threeport.GetPEMEncoding(clientCertificate, "CERTIFICATE")
+		clientPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(clientPrivateKey), "RSA PRIVATE KEY")
+
+		// Set the path to the directory and files
+		dirPath := filepath.Join(os.Getenv("HOME"), ".threeport")
+		certPath := filepath.Join(dirPath, "tls.crt")
+		keyPath := filepath.Join(dirPath, "tls.key")
+
+		// Ensure that the directory exists
+		if err := os.MkdirAll(dirPath, 0700); err != nil {
+			fmt.Printf("Error creating directory: %v\n", err)
+			return
+		}
+
+		// Create or overwrite the certificate file and write the string to it
+		certFile, err := os.OpenFile(certPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			fmt.Printf("Error opening certificate file: %v\n", err)
+			return
+		}
+		defer certFile.Close()
+		if _, err := certFile.WriteString(clientCertificateEncoded); err != nil {
+			fmt.Printf("Error writing to certificate file: %v\n", err)
+			return
+		}
+
+		// Create or overwrite the key file and write the string to it
+		keyFile, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			fmt.Printf("Error opening key file: %v\n", err)
+			return
+		}
+		defer keyFile.Close()
+		if _, err := keyFile.WriteString(clientPrivateKeyEncoded); err != nil {
+			fmt.Printf("Error writing to key file: %v\n", err)
+			return
 		}
 
 		// install the threeport control plane dependencies
