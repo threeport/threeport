@@ -161,13 +161,13 @@ func main() {
 	versions.AddVersions()
 
 	// load server certificate and private key
-	cert, err := tls.LoadX509KeyPair("/etc/threeport/server.crt", "/etc/threeport/server.key")
+	cert, err := tls.LoadX509KeyPair("/etc/threeport/cert/tls.crt", "/etc/threeport/cert/tls.key")
 	if err != nil {
 		e.Logger.Fatal(err)
 	}
 
 	// load server root certificate authority
-	caCert, err := ioutil.ReadFile("/etc/threeport/ca.crt")
+	caCert, err := ioutil.ReadFile("/etc/threeport/ca/tls.crt")
 	if err != nil {
 		e.Logger.Fatal(err)
 	}
