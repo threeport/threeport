@@ -123,11 +123,13 @@ var upCmd = &cobra.Command{
 		// write client certificate and private key to config directory
 		clientCertificateEncoded := threeport.GetPEMEncoding(clientCertificate, "CERTIFICATE")
 		clientPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(clientPrivateKey), "RSA PRIVATE KEY")
+		caEncoded := threeport.GetPEMEncoding(ca, "CERTIFICATE")
 
 		// Set the path to the directory and files
 		dirPath := filepath.Join(os.Getenv("HOME"), ".threeport")
 		certPath := filepath.Join(dirPath, "tls.crt")
 		keyPath := filepath.Join(dirPath, "tls.key")
+		caCertPath := filepath.Join(dirPath, "ca.crt")
 
 		// Ensure that the directory exists
 		if err := os.MkdirAll(dirPath, 0700); err != nil {
@@ -135,7 +137,7 @@ var upCmd = &cobra.Command{
 			return
 		}
 
-		// Create or overwrite the certificate file and write the string to it
+		// Create or overwrite the certificate file and write the client certificate to it
 		certFile, err := os.OpenFile(certPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			fmt.Printf("Error opening certificate file: %v\n", err)
@@ -147,7 +149,7 @@ var upCmd = &cobra.Command{
 			return
 		}
 
-		// Create or overwrite the key file and write the string to it
+		// Create or overwrite the key file and write the client private key to it
 		keyFile, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			fmt.Printf("Error opening key file: %v\n", err)
@@ -155,6 +157,18 @@ var upCmd = &cobra.Command{
 		}
 		defer keyFile.Close()
 		if _, err := keyFile.WriteString(clientPrivateKeyEncoded); err != nil {
+			fmt.Printf("Error writing to key file: %v\n", err)
+			return
+		}
+
+		// Create or overwrite the ca certificate file and write the ca certificate to it
+		caCertFile, err := os.OpenFile(caCertPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			fmt.Printf("Error opening ca cert file: %v\n", err)
+			return
+		}
+		defer caCertFile.Close()
+		if _, err := caCertFile.WriteString(caEncoded); err != nil {
 			fmt.Printf("Error writing to key file: %v\n", err)
 			return
 		}
@@ -172,7 +186,6 @@ var upCmd = &cobra.Command{
 		}
 
 		// get PEM-encoded keypairs as strings to pass into deployment manifests
-		caEncoded := threeport.GetPEMEncoding(ca, "CERTIFICATE")
 		caPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(caPrivateKey), "RSA PRIVATE KEY")
 		serverCertificateEncoded := threeport.GetPEMEncoding(serverCertificate, "CERTIFICATE")
 		serverPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(serverPrivateKey), "RSA PRIVATE KEY")
