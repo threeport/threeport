@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -109,7 +110,8 @@ var upCmd = &cobra.Command{
 		}
 
 		// install the threeport control plane API and controllers
-		if err := threeport.InstallThreeportControlPlaneComponents(
+		//if err := threeport.InstallThreeportControlPlaneComponents(
+		if err := threeport.InstallThreeportAPI(
 			dynamicKubeClient,
 			mapper,
 			true,
@@ -126,6 +128,20 @@ var upCmd = &cobra.Command{
 			fmt.Sprintf("http://%s", threeport.ThreeportLocalAPIEndpoint),
 		); err != nil {
 			cli.Error("threeport API did not come up", err)
+			os.Exit(1)
+		}
+
+		// install the threeport controllers - these need to be installed once
+		// API server is running in dev environment because the air entrypoint
+		// prevents the controllers from crashlooping if they come up before
+		// the API server
+		if err := threeport.InstallThreeportControllers(
+			dynamicKubeClient,
+			mapper,
+			true,
+			"",
+		); err != nil {
+			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)
 		}
 
@@ -157,6 +173,10 @@ var upCmd = &cobra.Command{
 			cli.Error("failed to create new cluster instance for default compute space", err)
 			os.Exit(1)
 		}
+
+		// wait for 20 seconds to allow time for controllers to build and start
+		// so that when this command returns, the control plane is ready
+		time.Sleep(time.Second * 20)
 
 		cli.Complete(fmt.Sprintf("threeport dev instance %s created", createThreeportDevName))
 	},

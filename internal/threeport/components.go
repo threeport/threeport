@@ -39,67 +39,44 @@ func InstallThreeportControlPlaneComponents(
 	apiHostname string,
 	customThreeportImageRepo string,
 ) error {
-	var apiImage string
-	var workloadControllerImage string
-	var apiIngressAnnotations map[string]interface{}
-	var apiIngressTLS []interface{}
-	var apiArgs []interface{}
-	apiVols, apiVolMounts := apiVolumes()
-	workloadControllerVols, workloadControllerVolMounts := workloadControllerVolumes()
-	if devEnvironment {
-		// set dev environment images
-		devImages := ThreeportDevImages()
-		apiImage = devImages["rest-api"]
-		workloadControllerImage = devImages["workload-controller"]
-
-		// set dev environment code mount into container
-		codePathVol := map[string]interface{}{
-			"name": "code-path",
-			"hostPath": map[string]interface{}{
-				"path": "/threeport",
-				"type": "Directory",
-			},
-		}
-		codePathVolMount := map[string]interface{}{
-			"name":      "code-path",
-			"mountPath": "/threeport",
-		}
-		apiVols = append(apiVols, codePathVol)
-		apiVolMounts = append(apiVolMounts, codePathVolMount)
-		workloadControllerVols = append(workloadControllerVols, codePathVol)
-		workloadControllerVolMounts = append(workloadControllerVolMounts, codePathVolMount)
-	} else {
-		imageRepo := ThreeportImageRepo
-		if customThreeportImageRepo != "" {
-			imageRepo = customThreeportImageRepo
-		}
-		apiImage = fmt.Sprintf(
-			"%s/%s:%s",
-			imageRepo,
-			ThreeportAPIImage,
-			version.GetVersion(),
-		)
-		workloadControllerImage = fmt.Sprintf(
-			"%s/%s:%s",
-			imageRepo,
-			ThreeportWorkloadControllerImage,
-			version.GetVersion(),
-		)
-		apiIngressAnnotations = map[string]interface{}{
-			"cert-manager.io/cluster-issuer": "letsencrypt-staging",
-		}
-		apiIngressTLS = []interface{}{
-			map[string]interface{}{
-				"hosts": []interface{}{
-					apiHostname,
-				},
-			},
-		}
-		apiArgs = []interface{}{
-			"-auto-migrate",
-			"true",
-		}
+	// install the API
+	if err := InstallThreeportAPI(
+		kubeClient,
+		mapper,
+		devEnvironment,
+		apiHostname,
+		customThreeportImageRepo,
+	); err != nil {
+		return fmt.Errorf("failed to install threeport API server: %w", err)
 	}
+
+	// install the controllers
+	if err := InstallThreeportControllers(
+		kubeClient,
+		mapper,
+		devEnvironment,
+		customThreeportImageRepo,
+	); err != nil {
+		return fmt.Errorf("failed to install threeport controllers: %w", err)
+	}
+
+	return nil
+}
+
+// InstallThreeportControlPlaneAPI installs the threeport API in a Kubernetes
+// cluster.
+func InstallThreeportAPI(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	devEnvironment bool,
+	apiHostname string,
+	customThreeportImageRepo string,
+) error {
+	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo)
+	apiIngressAnnotations := getAPIIngressAnnotations(devEnvironment)
+	apiIngressTLS := getAPIIngressTLS(devEnvironment, apiHostname)
+	apiArgs := getAPIArgs(devEnvironment)
+	apiVols, apiVolMounts := getAPIVolumes(devEnvironment)
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -231,7 +208,6 @@ NATS_PORT=4222
 				"selector": map[string]interface{}{
 					"app.kubernetes.io/name": "threeport-api-server",
 				},
-				//"type": "LoadBalancer",
 				"ports": []interface{}{
 					map[string]interface{}{
 						"name":       "http",
@@ -246,6 +222,60 @@ NATS_PORT=4222
 	if _, err := kube.CreateResource(apiService, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create API server service: %w", err)
 	}
+
+	var apiIngress = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "networking.k8s.io/v1",
+			"kind":       "Ingress",
+			"metadata": map[string]interface{}{
+				"name":        ThreeportAPIIngressResourceName,
+				"namespace":   ControlPlaneNamespace,
+				"annotations": apiIngressAnnotations,
+			},
+			"spec": map[string]interface{}{
+				"ingressClassName": "kong",
+				"rules": []interface{}{
+					map[string]interface{}{
+						"host": apiHostname,
+						"http": map[string]interface{}{
+							"paths": []interface{}{
+								map[string]interface{}{
+									"path":     "/",
+									"pathType": "Prefix",
+									"backend": map[string]interface{}{
+										"service": map[string]interface{}{
+											"name": "threeport-api-server",
+											"port": map[string]interface{}{
+												"number": 80,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				"tls": apiIngressTLS,
+			},
+		},
+	}
+	if _, err := kube.CreateResource(apiIngress, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create API ingress: %w", err)
+	}
+
+	return nil
+}
+
+// InstallThreeportControlPlaneControllers installs the threeport controllers in
+// a Kubernetes cluster
+func InstallThreeportControllers(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	devEnvironment bool,
+	customThreeportImageRepo string,
+) error {
+	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo)
+	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment)
 
 	var workloadControllerSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -314,46 +344,6 @@ NATS_PORT=4222
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
 	}
 
-	var apiIngress = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "networking.k8s.io/v1",
-			"kind":       "Ingress",
-			"metadata": map[string]interface{}{
-				"name":        ThreeportAPIIngressResourceName,
-				"namespace":   ControlPlaneNamespace,
-				"annotations": apiIngressAnnotations,
-			},
-			"spec": map[string]interface{}{
-				"ingressClassName": "kong",
-				"rules": []interface{}{
-					map[string]interface{}{
-						"host": apiHostname,
-						"http": map[string]interface{}{
-							"paths": []interface{}{
-								map[string]interface{}{
-									"path":     "/",
-									"pathType": "Prefix",
-									"backend": map[string]interface{}{
-										"service": map[string]interface{}{
-											"name": "threeport-api-server",
-											"port": map[string]interface{}{
-												"number": 80,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				"tls": apiIngressTLS,
-			},
-		},
-	}
-	if _, err := kube.CreateResource(apiIngress, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create API ingress: %w", err)
-	}
-
 	return nil
 }
 
@@ -388,7 +378,67 @@ func WaitForThreeportAPI(apiEndpoint string) error {
 	return nil
 }
 
-func apiVolumes() ([]interface{}, []interface{}) {
+// getAPIImage returns the proper container image to use for the API.
+func getAPIImage(devEnvironment bool, customThreeportImageRepo string) string {
+	if devEnvironment {
+		devImages := ThreeportDevImages()
+		return devImages["rest-api"]
+	}
+
+	imageRepo := ThreeportImageRepo
+	if customThreeportImageRepo != "" {
+		imageRepo = customThreeportImageRepo
+	}
+	apiImage := fmt.Sprintf(
+		"%s/%s:%s",
+		imageRepo,
+		ThreeportAPIImage,
+		version.GetVersion(),
+	)
+
+	return apiImage
+}
+
+// getAPIIngressAnnotations returns the annotaions for the API ingress resource.
+func getAPIIngressAnnotations(devEnvironment bool) map[string]interface{} {
+	if devEnvironment {
+		return map[string]interface{}{}
+	}
+
+	return map[string]interface{}{
+		"cert-manager.io/cluster-issuer": "letsencrypt-staging",
+	}
+}
+
+// getAPIIngressTLS returns the proper API ingress TLS object.
+func getAPIIngressTLS(devEnvironment bool, apiHostname string) []interface{} {
+	if devEnvironment {
+		return []interface{}{}
+	}
+
+	return []interface{}{
+		map[string]interface{}{
+			"hosts": []interface{}{
+				apiHostname,
+			},
+		},
+	}
+}
+
+// getAPIArgs returns the args that are passed to the API server.
+func getAPIArgs(devEnvironment bool) []interface{} {
+	if devEnvironment {
+		return []interface{}{}
+	}
+
+	return []interface{}{
+		"-auto-migrate",
+		"true",
+	}
+}
+
+// getAPIVolumes returns volumes and volume mounts for the API server.
+func getAPIVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
 	vols := []interface{}{
 		map[string]interface{}{
 			"name": "db-config",
@@ -417,12 +467,66 @@ func apiVolumes() ([]interface{}, []interface{}) {
 		},
 	}
 
+	if devEnvironment {
+		codePathVol, codePathVolMount := getCodePathVols()
+		vols = append(vols, codePathVol)
+		volMounts = append(volMounts, codePathVolMount)
+	}
+
 	return vols, volMounts
 }
 
-func workloadControllerVolumes() ([]interface{}, []interface{}) {
+// getWorkloadControllerImage returns the proper container image to use for the
+// workload controller.
+func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo string) string {
+	if devEnvironment {
+		devImages := ThreeportDevImages()
+		return devImages["workload-controller"]
+	}
+
+	imageRepo := ThreeportImageRepo
+	if customThreeportImageRepo != "" {
+		imageRepo = customThreeportImageRepo
+	}
+	workloadControllerImage := fmt.Sprintf(
+		"%s/%s:%s",
+		imageRepo,
+		ThreeportWorkloadControllerImage,
+		version.GetVersion(),
+	)
+
+	return workloadControllerImage
+}
+
+// getWorkloadControllerVolumes returns the volumes and volume mounts for the workload
+// controller.
+func getWorkloadControllerVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
 	vols := []interface{}{}
 	volMounts := []interface{}{}
 
+	if devEnvironment {
+		codePathVol, codePathVolMount := getCodePathVols()
+		vols = append(vols, codePathVol)
+		volMounts = append(volMounts, codePathVolMount)
+	}
+
 	return vols, volMounts
+}
+
+// getCodePathVols returns the volume and volume mount for dev environments to
+// mount local codebase for live reloads.
+func getCodePathVols() (map[string]interface{}, map[string]interface{}) {
+	codePathVol := map[string]interface{}{
+		"name": "code-path",
+		"hostPath": map[string]interface{}{
+			"path": "/threeport",
+			"type": "Directory",
+		},
+	}
+	codePathVolMount := map[string]interface{}{
+		"name":      "code-path",
+		"mountPath": "/threeport",
+	}
+
+	return codePathVol, codePathVolMount
 }

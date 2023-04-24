@@ -28,7 +28,7 @@ func GetResource(
 ) (*unstructured.Unstructured, error) {
 	// map the resource kind
 	var gvk schema.GroupVersionKind
-	if kubeAPIGroup == ""|"core" {
+	if kubeAPIGroup == "" || kubeAPIGroup == "core" {
 		gvk = schema.GroupVersionKind{Version: kubeAPIVersion, Kind: kubeKind}
 	} else {
 		gvk = schema.GroupVersionKind{Group: kubeAPIGroup, Version: kubeAPIVersion, Kind: kubeKind}
