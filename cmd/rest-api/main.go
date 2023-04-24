@@ -1,9 +1,14 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
+
+	"net/http"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
@@ -155,6 +160,36 @@ func main() {
 	iapi.Versions[0] = iapi.V0
 	versions.AddVersions()
 
+	// load server certificate and private key
+	cert, err := tls.LoadX509KeyPair("/etc/threeport/server.crt", "/etc/threeport/server.key")
+	if err != nil {
+		e.Logger.Fatal(err)
+	}
+
+	// load server root certificate authority
+	caCert, err := ioutil.ReadFile("/etc/threeport/ca.crt")
+	if err != nil {
+		e.Logger.Fatal(err)
+	}
+
+	// create certificate pool and add server root certificate authority
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	// configure http server
+	server := http.Server{
+		Addr:    ":1323",
+		Handler: e,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      caCertPool,
+			ClientCAs:    caCertPool,
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+		},
+	}
+
 	fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
-	e.Logger.Fatal(e.Start(":1323"))
+	if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+		e.Logger.Fatal(err)
+	}
 }
