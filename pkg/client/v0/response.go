@@ -100,25 +100,30 @@ func loadCertificates() (*tls.Config, error) {
 		caFile = filepath.Join(homeDir, ".threeport", "ca")
 	} else if errThreeportCert == nil && errThreeportCA == nil {
 		// Use certificates from /etc/threeport directory
-		certFile = "/etc/threeport/cert"
-		keyFile = "/etc/threeport/key"
-		caFile = "/etc/threeport/ca"
+		certFile = "/etc/threeport/cert/tls.crt"
+		keyFile = "/etc/threeport/cert/tls.key"
+		caFile = "/etc/threeport/ca/tls.crt"
 	} else {
 		return nil, errors.New("could not find certificate files")
 	}
 
+	// load client certificate and private key
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, err
 	}
 
+	// load root certificate authority
 	caCert, err := ioutil.ReadFile(caFile)
 	if err != nil {
 		return nil, err
 	}
+
+	// create certificate pool and add certificate authority
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
+	// create tls config required by http client
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
