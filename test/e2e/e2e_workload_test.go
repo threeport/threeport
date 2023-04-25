@@ -37,89 +37,6 @@ type kubeResource struct {
 	Manifest  string
 }
 
-// apiAddr returns the address of a local instance of threeport API.
-func apiAddr() string {
-	return fmt.Sprintf(
-		"%s://%s",
-		threeport.ThreeportLocalAPIProtocol,
-		threeport.ThreeportLocalAPIEndpoint,
-	)
-}
-
-// testResources returns the test workloads for this test.
-// func testResources() *[]kubeResource {
-func testResources() *[]testWorkload {
-	tests := []testWorkload{
-		{
-			Name:             "unmanaged-namespace-workload",
-			ManagedNamespace: false,
-			Resources: []kubeResource{
-				{
-					Group:     "",
-					Version:   "v1",
-					Kind:      "Namespace",
-					Namespace: "",
-					Name:      "go-web3-sample-app-0",
-					Manifest:  workloadDefNamespace,
-				},
-				{
-					Group:     "",
-					Version:   "v1",
-					Kind:      "ConfigMap",
-					Namespace: "go-web3-sample-app-0",
-					Name:      "go-web3-sample-app-config",
-					Manifest:  workloadDefConfigMap,
-				},
-				{
-					Group:     "apps",
-					Version:   "v1",
-					Kind:      "Deployment",
-					Namespace: "go-web3-sample-app-0",
-					Name:      "go-web3-sample-app",
-					Manifest:  workloadDefDeployment,
-				},
-				{
-					Group:     "",
-					Version:   "v1",
-					Kind:      "Service",
-					Namespace: "go-web3-sample-app-0",
-					Name:      "go-web3-sample-app",
-					Manifest:  workloadDefService,
-				},
-			},
-		},
-		{
-			Name:             "managed-namespace-workload",
-			ManagedNamespace: true,
-			Resources: []kubeResource{
-				{
-					Group:    "",
-					Version:  "v1",
-					Kind:     "ConfigMap",
-					Name:     "go-web3-sample-app-config",
-					Manifest: workloadDefConfigMapMinusNamespace,
-				},
-				{
-					Group:    "apps",
-					Version:  "v1",
-					Kind:     "Deployment",
-					Name:     "go-web3-sample-app",
-					Manifest: workloadDefDeploymentMinusNamespace,
-				},
-				{
-					Group:    "",
-					Version:  "v1",
-					Kind:     "Service",
-					Name:     "go-web3-sample-app",
-					Manifest: workloadDefServiceMinusNamespace,
-				},
-			},
-		},
-	}
-
-	return &tests
-}
-
 // TestWorkloadE2E tests that workload creation and deletgion works as expected.
 func TestWorkloadE2E(t *testing.T) {
 	assert := assert.New(t)
@@ -390,6 +307,89 @@ func TestWorkloadE2E(t *testing.T) {
 	}
 }
 
+// apiAddr returns the address of a local instance of threeport API.
+func apiAddr() string {
+	return fmt.Sprintf(
+		"%s://%s",
+		threeport.ThreeportLocalAPIProtocol,
+		threeport.ThreeportLocalAPIEndpoint,
+	)
+}
+
+// testResources returns the test workloads for this test.
+// func testResources() *[]kubeResource {
+func testResources() *[]testWorkload {
+	tests := []testWorkload{
+		{
+			Name:             "unmanaged-namespace-workload",
+			ManagedNamespace: false,
+			Resources: []kubeResource{
+				{
+					Group:     "",
+					Version:   "v1",
+					Kind:      "Namespace",
+					Namespace: "",
+					Name:      "go-web3-sample-app-0",
+					Manifest:  workloadDefNamespace,
+				},
+				{
+					Group:     "",
+					Version:   "v1",
+					Kind:      "ConfigMap",
+					Namespace: "go-web3-sample-app-0",
+					Name:      "go-web3-sample-app-config",
+					Manifest:  workloadDefConfigMap,
+				},
+				{
+					Group:     "apps",
+					Version:   "v1",
+					Kind:      "Deployment",
+					Namespace: "go-web3-sample-app-0",
+					Name:      "go-web3-sample-app",
+					Manifest:  workloadDefDeployment,
+				},
+				{
+					Group:     "",
+					Version:   "v1",
+					Kind:      "Service",
+					Namespace: "go-web3-sample-app-0",
+					Name:      "go-web3-sample-app",
+					Manifest:  workloadDefService,
+				},
+			},
+		},
+		{
+			Name:             "managed-namespace-workload",
+			ManagedNamespace: true,
+			Resources: []kubeResource{
+				{
+					Group:    "",
+					Version:  "v1",
+					Kind:     "ConfigMap",
+					Name:     "go-web3-sample-app-config",
+					Manifest: workloadDefConfigMapMinusNamespace,
+				},
+				{
+					Group:    "apps",
+					Version:  "v1",
+					Kind:     "Deployment",
+					Name:     "go-web3-sample-app",
+					Manifest: workloadDefDeploymentMinusNamespace,
+				},
+				{
+					Group:    "",
+					Version:  "v1",
+					Kind:     "Service",
+					Name:     "go-web3-sample-app",
+					Manifest: workloadDefServiceMinusNamespace,
+				},
+			},
+		},
+	}
+
+	return &tests
+}
+
 const workloadDefNamespace = `---
 apiVersion: v1
 kind: Namespace
@@ -497,6 +497,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: go-web3-sample-app
+  namespace: not-used
 spec:
   ports:
     - port: 8080
