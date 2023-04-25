@@ -74,7 +74,6 @@ func CreateResource(
 		Namespace(kubeObject.GetNamespace()).
 		Create(context.TODO(), kubeObject, kubemetav1.CreateOptions{})
 	if err != nil {
-		//if strings.Contains(err.Error(), "already exists") {
 		if errors.IsAlreadyExists(err) {
 			return kubeObject, nil
 		} else {

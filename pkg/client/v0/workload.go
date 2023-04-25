@@ -106,3 +106,33 @@ func GetWorkloadInstancesByWorkloadDefinitionID(id uint, apiAddr, apiToken strin
 
 	return &workloadInstances, nil
 }
+
+// GetWorkloadResourceInstancesByWorkloadInstanceID fetches a workload resource definition
+// by workload definition ID
+func GetWorkloadResourceInstancesByWorkloadInstanceID(id uint, apiAddr, apiToken string) (*[]v0.WorkloadResourceInstance, error) {
+	var workloadResourceInstances []v0.WorkloadResourceInstance
+
+	response, err := GetResponse(
+		fmt.Sprintf("%s%s?workloadinstanceid=%d", apiAddr, v0.PathWorkloadResourceInstances, id),
+		apiToken,
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &workloadResourceInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &workloadResourceInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadResourceInstances, nil
+}

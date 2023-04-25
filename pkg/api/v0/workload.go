@@ -60,11 +60,20 @@ type WorkloadInstance struct {
 	// WorkloadDefinitionID is the definition used to configure the workload
 	// instance.
 	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"not null" validate:"required"`
+
+	// The associated workload resource definitions that are derived.
+	WorkloadResourceInstances []*WorkloadResourceInstance `json:"WorkloadResourceInstances,omitempty" validate:"optional,association"`
 }
 
 // WorkloadResourceInstance is a Kubernetes resource instance.
 type WorkloadResourceInstance struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
+
+	// The individual manifest in JSON format.  This field is a superset of
+	// WorkloadResourceDefinition.JSONDefinition in that it has namespace
+	// management and other configuration - such as resource allocation
+	// management - added.
+	JSONDefinition *datatypes.JSON `json:"JSONDefinition,omitempty" gorm:"not null" validate:"required"`
 
 	// The workload definition this resource belongs to.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
@@ -76,5 +85,5 @@ type WorkloadResourceInstance struct {
 	// * Succeeded
 	// * Failed
 	// * Unknown
-	Status *string `json:"Status,omitempty" query:"status" gorm:"not null"`
+	Status *string `json:"Status,omitempty" query:"status" validate:"optional"`
 }

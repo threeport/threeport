@@ -105,6 +105,12 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					r.APIServer,
 					"",
 				)
+				// check if error is 404 - if object no longer exists, no need to requeue
+				if errors.Is(err, client.ErrorObjectNotFound) {
+					log.Error(err, "object no longer exists - halting reconciliation")
+					r.ReleaseLock(&workloadDefinition)
+					continue
+				}
 				if err != nil {
 					log.Error(err, "failed to get workload definition by ID from API")
 					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
