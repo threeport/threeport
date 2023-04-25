@@ -165,6 +165,9 @@ func createNamespaceWorkloadResourceInstance(
 			"kind":       "Namespace",
 			"metadata": map[string]interface{}{
 				"name": namespaceName,
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/managed-by": KubeManagedByLabel,
+				},
 			},
 		},
 	}
