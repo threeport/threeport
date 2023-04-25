@@ -1,15 +1,19 @@
 package kube
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 
-	"github.com/threeport/threeport/internal/util"
 	"gorm.io/datatypes"
+	kubemetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 
+	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
@@ -79,6 +83,28 @@ func SetNamespaces(
 	return &processedWRIs, nil
 }
 
+// GetManagedNamespaceNames returns the names of the namespaces created and manged
+// for the user by threeport.
+func GetManagedNamespaceNames(kubeClient dynamic.Interface) ([]string, error) {
+	var namespaceNames []string
+	gvr := schema.GroupVersionResource{
+		Version:  "v1",
+		Resource: "namespaces",
+	}
+	namespaces, err := kubeClient.Resource(gvr).List(context.TODO(), kubemetav1.ListOptions{
+		LabelSelector: fmt.Sprintf("app.kubernetes.io/managed-by=%s", KubeManagedByLabel),
+	})
+	if err != nil {
+		return namespaceNames, fmt.Errorf("failed to list namespaces by label selector")
+	}
+
+	for _, ns := range namespaces.Items {
+		namespaceNames = append(namespaceNames, ns.GetName())
+	}
+
+	return namespaceNames, nil
+}
+
 // updateNamespace takes the JSON definition for a Kubernetes resource and sets
 // the namespace.
 func updateNamespace(jsonDef []byte, namespace string) ([]byte, error) {
@@ -139,6 +165,9 @@ func createNamespaceWorkloadResourceInstance(
 			"kind":       "Namespace",
 			"metadata": map[string]interface{}{
 				"name": namespaceName,
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/managed-by": KubeManagedByLabel,
+				},
 			},
 		},
 	}
