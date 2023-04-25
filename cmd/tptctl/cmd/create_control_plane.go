@@ -4,6 +4,7 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"os"
@@ -166,6 +167,26 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// generate certificate authority for the threeport API
+		caConfig, ca, caPrivateKey, err := threeport.GenerateCACertificate()
+		if err != nil {
+			cli.Error("failed to generate certificate authority and private key", err)
+			os.Exit(1)
+		}
+
+		// generate server certificate
+		serverCertificate, serverPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
+		if err != nil {
+			cli.Error("failed to generate server certificate and private key", err)
+			os.Exit(1)
+		}
+
+		// get PEM-encoded keypairs as strings to pass into deployment manifests
+		caEncoded := threeport.GetPEMEncoding(ca, "CERTIFICATE")
+		caPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(caPrivateKey), "RSA PRIVATE KEY")
+		serverCertificateEncoded := threeport.GetPEMEncoding(serverCertificate, "CERTIFICATE")
+		serverPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(serverPrivateKey), "RSA PRIVATE KEY")
+
 		// install the threeport control plane API and controllers
 		if err := threeport.InstallThreeportControlPlaneComponents(
 			dynamicKubeClient,
@@ -173,6 +194,10 @@ var CreateControlPlaneCmd = &cobra.Command{
 			false,
 			threeportAPIEndpoint,
 			controlPlaneImageRepo,
+			caEncoded,
+			caPrivateKeyEncoded,
+			serverCertificateEncoded,
+			serverPrivateKeyEncoded,
 		); err != nil {
 			// delete control plane cluster
 			if err := controlPlaneInfra.Delete(); err != nil {

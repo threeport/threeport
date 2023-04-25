@@ -225,6 +225,9 @@ var upCmd = &cobra.Command{
 			mapper,
 			true,
 			"",
+			caEncoded,
+			clientCertificateEncoded,
+			clientPrivateKeyEncoded,
 		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)

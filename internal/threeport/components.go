@@ -45,6 +45,10 @@ func InstallThreeportControlPlaneComponents(
 	devEnvironment bool,
 	apiHostname string,
 	customThreeportImageRepo string,
+	caCert string,
+	caPrivateKey string,
+	serverCert string,
+	serverPrivateKey string,
 ) error {
 	// install the API
 	if err := InstallThreeportAPI(
@@ -53,6 +57,10 @@ func InstallThreeportControlPlaneComponents(
 		devEnvironment,
 		apiHostname,
 		customThreeportImageRepo,
+		caCert,
+		caPrivateKey,
+		serverCert,
+		serverPrivateKey,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport API server: %w", err)
 	}
@@ -63,6 +71,9 @@ func InstallThreeportControlPlaneComponents(
 		mapper,
 		devEnvironment,
 		customThreeportImageRepo,
+		caCert,
+		serverCert,
+		serverPrivateKey,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport controllers: %w", err)
 	}
@@ -322,6 +333,9 @@ func InstallThreeportControllers(
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
 	customThreeportImageRepo string,
+	caCert string,
+	clientCert string,
+	clientPrivateKey string,
 ) error {
 	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo)
 	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment)
@@ -344,6 +358,43 @@ func InstallThreeportControllers(
 	}
 	if _, err := kube.CreateResource(workloadControllerSecret, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller secret: %w", err)
+	}
+
+	var tlsApiCA = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"type":       "kubernetes.io/tls",
+			"metadata": map[string]interface{}{
+				"name":      "tls-api-ca",
+				"namespace": ControlPlaneNamespace,
+			},
+			"stringData": map[string]interface{}{
+				"tls.crt": caCert,
+			},
+		},
+	}
+	if _, err := kube.CreateResource(tlsApiCA, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create API server secret: %w", err)
+	}
+
+	var tlsApiCert = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"type":       "kubernetes.io/tls",
+			"metadata": map[string]interface{}{
+				"name":      "tls-api-cert",
+				"namespace": ControlPlaneNamespace,
+			},
+			"stringData": map[string]interface{}{
+				"tls.crt": clientCert,
+				"tls.key": clientPrivateKey,
+			},
+		},
+	}
+	if _, err := kube.CreateResource(tlsApiCert, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
 
 	var workloadControllerDeployment = &unstructured.Unstructured{
@@ -570,8 +621,30 @@ func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo st
 // getWorkloadControllerVolumes returns the volumes and volume mounts for the workload
 // controller.
 func getWorkloadControllerVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
-	vols := []interface{}{}
-	volMounts := []interface{}{}
+	vols := []interface{}{
+		map[string]interface{}{
+			"name": "tls-api-ca",
+			"secret": map[string]interface{}{
+				"secretName": "tls-api-ca",
+			},
+		},
+		map[string]interface{}{
+			"name": "tls-api-cert",
+			"secret": map[string]interface{}{
+				"secretName": "tls-api-cert",
+			},
+		},
+	}
+	volMounts := []interface{}{
+		map[string]interface{}{
+			"name":      "tls-api-ca",
+			"mountPath": "/etc/threeport/ca",
+		},
+		map[string]interface{}{
+			"name":      "tls-api-cert",
+			"mountPath": "/etc/threeport/cert",
+		},
+	}
 
 	if devEnvironment {
 		codePathVol, codePathVolMount := getCodePathVols()
