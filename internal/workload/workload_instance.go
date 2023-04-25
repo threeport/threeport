@@ -200,6 +200,16 @@ func workloadInstanceCreated(
 		return errors.New("zero workload resource definitions to deploy")
 	}
 
+	// get workload definition for this instance
+	workloadDefinition, err := client.GetWorkloadDefinitionByID(
+		*workloadInstance.WorkloadDefinitionID,
+		r.APIServer,
+		"",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get workload definition for the instance being deployed: %w", err)
+	}
+
 	// construct workload resource instances
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 	for _, wrd := range *workloadResourceDefinitions {
@@ -233,8 +243,6 @@ func workloadInstanceCreated(
 		return fmt.Errorf("failed to set namespaces for workload resource instances: %w", err)
 	}
 
-	// create workload resource instances in threeport API
-
 	// create a client to connect to kube API
 	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
 	if err != nil {
@@ -253,6 +261,16 @@ func workloadInstanceCreated(
 		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
 		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
 			return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
+		}
+
+		// set label metadata on kube object
+		kubeObject, err = kube.SetLabels(
+			kubeObject,
+			*workloadDefinition.Name,
+			*workloadInstance.Name,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to add label metadata to objects: %w", err)
 		}
 
 		// create kube resource
