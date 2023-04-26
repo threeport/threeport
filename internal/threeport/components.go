@@ -10,11 +10,15 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/version"
+	v0 "github.com/threeport/threeport/pkg/client/v0"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -26,7 +30,8 @@ const (
 	ThreeportWorkloadControllerImage = "threeport-workload-controller"
 	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
 	ThreeportLocalAPIEndpoint        = "localhost"
-	ThreeportLocalAPIProtocol        = "http"
+	ThreeportLocalAPIProtocol        = "https"
+	ThreeportLocalAPIPort            = "1323"
 )
 
 // ThreeportDevImages returns a map of main package dirs to image names
@@ -99,6 +104,7 @@ func InstallThreeportAPI(
 	apiIngressTLS := getAPIIngressTLS(devEnvironment, apiHostname)
 	apiArgs := getAPIArgs(devEnvironment)
 	apiVols, apiVolMounts := getAPIVolumes(devEnvironment)
+	apiPort := getAPIPort(devEnvironment)
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -236,14 +242,8 @@ NATS_PORT=4222
 								"image":           apiImage,
 								"imagePullPolicy": "IfNotPresent",
 								"args":            apiArgs,
-								"ports": []interface{}{
-									map[string]interface{}{
-										"containerPort": 1323,
-										"name":          "http",
-										"protocol":      "TCP",
-									},
-								},
-								"volumeMounts": apiVolMounts,
+								"ports":           []interface{}{apiPort},
+								"volumeMounts":    apiVolMounts,
 							},
 						},
 						"volumes": apiVols,
@@ -271,7 +271,7 @@ NATS_PORT=4222
 				"ports": []interface{}{
 					map[string]interface{}{
 						"name":       "http",
-						"port":       80,
+						"port":       1323,
 						"protocol":   "TCP",
 						"targetPort": 1323,
 					},
@@ -306,7 +306,7 @@ NATS_PORT=4222
 										"service": map[string]interface{}{
 											"name": "threeport-api-server",
 											"port": map[string]interface{}{
-												"number": 80,
+												"number": 1323,
 											},
 										},
 									},
@@ -350,7 +350,7 @@ func InstallThreeportControllers(
 			},
 			"type": "Opaque",
 			"stringData": map[string]interface{}{
-				"API_SERVER":      "http://threeport-api-server",
+				"API_SERVER":      "https://threeport-api-server:1323",
 				"MSG_BROKER_HOST": "nats-js",
 				"MSG_BROKER_PORT": "4222",
 			},
@@ -371,6 +371,7 @@ func InstallThreeportControllers(
 			},
 			"stringData": map[string]interface{}{
 				"tls.crt": caCert,
+				"tls.key": "",
 			},
 		},
 	}
@@ -454,13 +455,14 @@ func WaitForThreeportAPI(apiEndpoint string) error {
 	waitSeconds := 10
 	apiReady := false
 	for attempts < maxAttempts {
-		testResp, err := http.Get(fmt.Sprintf("%s/version", apiEndpoint))
+		_, err := v0.GetResponse(
+			fmt.Sprintf("%s/version", apiEndpoint),
+			"",
+			http.MethodGet,
+			new(bytes.Buffer),
+			http.StatusOK,
+		)
 		if err != nil {
-			time.Sleep(time.Second * time.Duration(waitSeconds))
-			attempts += 1
-			continue
-		}
-		if testResp.StatusCode != http.StatusOK {
 			time.Sleep(time.Second * time.Duration(waitSeconds))
 			attempts += 1
 			continue
@@ -476,6 +478,24 @@ func WaitForThreeportAPI(apiEndpoint string) error {
 	}
 
 	return nil
+}
+
+func getAPIPort(devEnvironment bool) map[string]interface{} {
+	port := map[string]interface{}{
+		"containerPort": 1323,
+		"name":          "https",
+		"protocol":      "TCP",
+	}
+
+	if devEnvironment {
+		num, err := strconv.Atoi(ThreeportLocalAPIPort)
+		if err != nil {
+			errors.New(fmt.Sprintf("failed to convert %s to int: %w", ThreeportLocalAPIPort, err))
+		}
+		port["hostPort"] = num
+	}
+
+	return port
 }
 
 // getAPIImage returns the proper container image to use for the API.
@@ -668,7 +688,18 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 	// set config options for a new CA certificate
 	caConfig = &x509.Certificate{
 		SerialNumber: randomNumber,
+		URIs:         []*url.URL{{Scheme: "https", Host: "localhost"}},
+		DNSNames: []string{
+			"localhost",
+			"threeport-api-server",
+			"threeport-api-server.threeport-control-plane",
+			"threeport-api-server.threeport-control-plane.svc",
+			"threeport-api-server.threeport-control-plane.svc.cluster",
+			"threeport-api-server.threeport-control-plane.svc.cluster.local",
+		},
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
 		Subject: pkix.Name{
+			CommonName:   "localhost",
 			Organization: []string{"Threeport"},
 			Country:      []string{"US"},
 			Locality:     []string{"Tampa"},
@@ -712,7 +743,18 @@ func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKe
 	// set config options for a new CA certificate
 	cert := &x509.Certificate{
 		SerialNumber: randomNumber,
+		URIs:         []*url.URL{{Scheme: "https", Host: "localhost"}},
+		DNSNames: []string{
+			"localhost",
+			"threeport-api-server",
+			"threeport-api-server.threeport-control-plane",
+			"threeport-api-server.threeport-control-plane.svc",
+			"threeport-api-server.threeport-control-plane.svc.cluster",
+			"threeport-api-server.threeport-control-plane.svc.cluster.local",
+		},
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
 		Subject: pkix.Name{
+			CommonName:   "localhost",
 			Organization: []string{"Threeport"},
 			Country:      []string{"US"},
 			Locality:     []string{"Tampa"},
