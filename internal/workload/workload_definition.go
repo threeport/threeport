@@ -103,7 +103,6 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				latestWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
 					*workloadDefinition.ID,
 					r.APIServer,
-					"",
 				)
 				// check if error is 404 - if object no longer exists, no need to requeue
 				if errors.Is(err, client.ErrorObjectNotFound) {
@@ -160,7 +159,6 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			updatedWD, err := client.UpdateWorkloadDefinition(
 				&reconciledWD,
 				r.APIServer,
-				"",
 			)
 			if err != nil {
 				log.Error(err, "failed to update workload definition to mark as reconciled")
@@ -249,7 +247,6 @@ func workloadDefinitionCreated(
 	wrds, err := client.CreateWorkloadResourceDefinitions(
 		&workloadResourceDefinitions,
 		r.APIServer,
-		"",
 	)
 	if err != nil {
 		return &workloadResourceDefinitions, fmt.Errorf("failed to create workload resource definitions in API: %w", wrdConstructError)
@@ -268,7 +265,6 @@ func workloadDefinitionDeleted(
 	workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
 		*workloadDefinition.ID,
 		r.APIServer,
-		"",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource definitions by workload definition ID: %w", err)
@@ -276,7 +272,7 @@ func workloadDefinitionDeleted(
 
 	// delete each related workload resource definition
 	for _, wrd := range *workloadResourceDefinitions {
-		_, err := client.DeleteWorkloadResourceDefinition(*wrd.ID, r.APIServer, "")
+		_, err := client.DeleteWorkloadResourceDefinition(*wrd.ID, r.APIServer)
 		if err != nil {
 			return fmt.Errorf("failed to delete workload resource definition with ID %d: %w", wrd.ID, err)
 		}

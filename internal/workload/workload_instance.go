@@ -105,7 +105,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				latestWorkloadInstance, err := client.GetWorkloadInstanceByID(
 					*workloadInstance.ID,
 					r.APIServer,
-					"",
 				)
 				// check if error is 404 - if object no longer exists, no need to requeue
 				if errors.Is(err, client.ErrorObjectNotFound) {
@@ -191,7 +190,6 @@ func workloadInstanceCreated(
 	workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
 		*workloadInstance.WorkloadDefinitionID,
 		r.APIServer,
-		"",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource definitions by workload definition ID: %w", err)
@@ -204,7 +202,6 @@ func workloadInstanceCreated(
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
 		*workloadInstance.WorkloadDefinitionID,
 		r.APIServer,
-		"",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload definition for the instance being deployed: %w", err)
@@ -224,7 +221,6 @@ func workloadInstanceCreated(
 	clusterInstance, err := client.GetClusterInstanceByID(
 		*workloadInstance.ClusterInstanceID,
 		r.APIServer,
-		"",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
@@ -283,7 +279,6 @@ func workloadInstanceCreated(
 		_, err = client.CreateWorkloadResourceInstance(
 			&wri,
 			r.APIServer,
-			"",
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create workload resource instance in threeport: %w", err)
@@ -313,7 +308,6 @@ func workloadInstanceDeleted(
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
 		*workloadInstance.ID,
 		r.APIServer,
-		"",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
@@ -326,7 +320,6 @@ func workloadInstanceDeleted(
 	clusterInstance, err := client.GetClusterInstanceByID(
 		*workloadInstance.ClusterInstanceID,
 		r.APIServer,
-		"",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
@@ -370,7 +363,6 @@ func confirmWorkloadDefReconciled(
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
 		*workloadInstance.WorkloadDefinitionID,
 		r.APIServer,
-		"",
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)

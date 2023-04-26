@@ -86,25 +86,25 @@ func (w *WorkloadValues) Create(apiEndpoint string) (*v0.WorkloadDefinition, *v0
 func (w *WorkloadValues) Delete(apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 	// get workload instance by name
 	workloadInstName := defaultWorkloadInstanceName(w.Name)
-	workloadInstance, err := client.GetWorkloadInstanceByName(workloadInstName, apiEndpoint, "")
+	workloadInstance, err := client.GetWorkloadInstanceByName(workloadInstName, apiEndpoint)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find workload instance with name %s: %w", workloadInstName, err)
 	}
 
 	// delete workload instance
-	deletedWorkloadInstance, err := client.DeleteWorkloadInstance(*workloadInstance.ID, apiEndpoint, "")
+	deletedWorkloadInstance, err := client.DeleteWorkloadInstance(*workloadInstance.ID, apiEndpoint)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
 	}
 
 	// get workload definition by name
-	workloadDefinition, err := client.GetWorkloadDefinitionByName(w.Name, apiEndpoint, "")
+	workloadDefinition, err := client.GetWorkloadDefinitionByName(w.Name, apiEndpoint)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find workload definition with name %s: %w", w.Name, err)
 	}
 
 	// delete workload definition
-	deletedWorkloadDefinition, err := client.DeleteWorkloadDefinition(*workloadDefinition.ID, apiEndpoint, "")
+	deletedWorkloadDefinition, err := client.DeleteWorkloadDefinition(*workloadDefinition.ID, apiEndpoint)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to delete workload definition from threeport API: %w", err)
 	}
@@ -131,7 +131,7 @@ func (wd *WorkloadDefinitionValues) Create(apiEndpoint string) (*v0.WorkloadDefi
 	}
 
 	// create workload definition
-	createdWorkloadDefinition, err := client.CreateWorkloadDefinition(&workloadDefinition, apiEndpoint, "")
+	createdWorkloadDefinition, err := client.CreateWorkloadDefinition(&workloadDefinition, apiEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workload definition in threeport API: %w", err)
 	}
@@ -142,13 +142,13 @@ func (wd *WorkloadDefinitionValues) Create(apiEndpoint string) (*v0.WorkloadDefi
 // Delete deletes a workload definition from the Threeport API.
 func (wd *WorkloadDefinitionValues) Delete(apiEndpoint string) (*v0.WorkloadDefinition, error) {
 	// get workload definition by name
-	workloadDefinition, err := client.GetWorkloadDefinitionByName(wd.Name, apiEndpoint, "")
+	workloadDefinition, err := client.GetWorkloadDefinitionByName(wd.Name, apiEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", wd.Name, err)
 	}
 
 	// delete workload definition
-	deletedWorkloadDefinition, err := client.DeleteWorkloadDefinition(*workloadDefinition.ID, apiEndpoint, "")
+	deletedWorkloadDefinition, err := client.DeleteWorkloadDefinition(*workloadDefinition.ID, apiEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete workload definition from threeport API: %w", err)
 	}
@@ -162,7 +162,7 @@ func (wi *WorkloadInstanceValues) Create(apiEndpoint string) (*v0.WorkloadInstan
 	var clusterInstance v0.ClusterInstance
 	if wi.ClusterInstance.Name == "" {
 		// get default cluster instance
-		clusterInst, err := client.GetDefaultClusterInstance(apiEndpoint, "")
+		clusterInst, err := client.GetDefaultClusterInstance(apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("cluster instance not provided and failed to find default cluster instance: %w", err)
 		}
@@ -171,7 +171,6 @@ func (wi *WorkloadInstanceValues) Create(apiEndpoint string) (*v0.WorkloadInstan
 		clusterInst, err := client.GetClusterInstanceByName(
 			wi.ClusterInstance.Name,
 			apiEndpoint,
-			"",
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to cluster instance by name %s: %w", wi.ClusterInstance.Name, err)
@@ -183,7 +182,6 @@ func (wi *WorkloadInstanceValues) Create(apiEndpoint string) (*v0.WorkloadInstan
 	workloadDefinition, err := client.GetWorkloadDefinitionByName(
 		wi.WorkloadDefinition.Name,
 		apiEndpoint,
-		"",
 	)
 	if err != nil {
 		return nil, err
@@ -199,7 +197,7 @@ func (wi *WorkloadInstanceValues) Create(apiEndpoint string) (*v0.WorkloadInstan
 	}
 
 	// create workload instance
-	createdWorkloadInstance, err := client.CreateWorkloadInstance(&workloadInstance, apiEndpoint, "")
+	createdWorkloadInstance, err := client.CreateWorkloadInstance(&workloadInstance, apiEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workload instance in threeport API: %w", err)
 	}
@@ -210,13 +208,13 @@ func (wi *WorkloadInstanceValues) Create(apiEndpoint string) (*v0.WorkloadInstan
 // Delete deletes a workload instance from the Threeport API.
 func (wd *WorkloadInstanceValues) Delete(apiEndpoint string) (*v0.WorkloadInstance, error) {
 	// get workload instance by name
-	workloadInstance, err := client.GetWorkloadInstanceByName(wd.Name, apiEndpoint, "")
+	workloadInstance, err := client.GetWorkloadInstanceByName(wd.Name, apiEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", wd.Name, err)
 	}
 
 	// delete workload instance
-	deletedWorkloadInstance, err := client.DeleteWorkloadInstance(*workloadInstance.ID, apiEndpoint, "")
+	deletedWorkloadInstance, err := client.DeleteWorkloadInstance(*workloadInstance.ID, apiEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
 	}

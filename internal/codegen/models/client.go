@@ -42,7 +42,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		))
 		f.Comment("TODO: implement pagination")
 		f.Func().Id(getAllFuncName).Params(
-			Id("apiAddr").Op(",").Id("apiToken").String(),
+			Id("apiAddr").String(),
 		).Parens(List(
 			Op("*").Index().Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -62,7 +62,6 @@ func (cc *ControllerConfig) ClientLib() error {
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion").Op(","),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodGet"),
 				Line().New(Qual("bytes", "Buffer")),
 				Line().Qual("net/http", "StatusOK"),
@@ -109,7 +108,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		))
 		f.Func().Id(getByIDFuncName).Params(
 			Id("id").Uint(),
-			Id("apiAddr").Op(",").Id("apiToken").String(),
+			Id("apiAddr").String(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -129,7 +128,6 @@ func (cc *ControllerConfig) ClientLib() error {
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("id"),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodGet"),
 				Line().New(Qual("bytes", "Buffer")),
 				Line().Qual("net/http", "StatusOK"),
@@ -175,7 +173,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(getByNameFuncName).Params(
-			Id("name").Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
+			Id("name").Op(",").Id("apiAddr").String(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -194,7 +192,6 @@ func (cc *ControllerConfig) ClientLib() error {
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("name"),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodGet"),
 				Line().New(Qual("bytes", "Buffer")),
 				Line().Qual("net/http", "StatusOK"),
@@ -273,7 +270,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
-			).Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
+			).Op(",").Id("apiAddr").String(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -298,7 +295,6 @@ func (cc *ControllerConfig) ClientLib() error {
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion"),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodPost"),
 				Line().Qual("bytes", "NewBuffer").Call(Id(
 					fmt.Sprintf("json%s", mc.TypeName),
@@ -349,7 +345,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
-			).Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
+			).Op(",").Id("apiAddr").String(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -383,7 +379,6 @@ func (cc *ControllerConfig) ClientLib() error {
 						Id("ApiVersion").Op(",").
 						Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName))),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodPatch"),
 				Line().Qual("bytes", "NewBuffer").Call(Id(
 					fmt.Sprintf("json%s", mc.TypeName),
@@ -432,7 +427,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		))
 		f.Func().Id(deleteFuncName).Params(
 			Id("id").Uint(),
-			Id("apiAddr").Op(",").Id("apiToken").String(),
+			Id("apiAddr").String(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -452,7 +447,6 @@ func (cc *ControllerConfig) ClientLib() error {
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("id"),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodDelete"),
 				Line().New(Qual("bytes", "Buffer")),
 				Line().Qual("net/http", "StatusOK"),

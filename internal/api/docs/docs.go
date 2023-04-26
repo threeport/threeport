@@ -7901,10 +7901,6 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "Profile",
-                "Tier",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
@@ -7912,25 +7908,25 @@ const docTemplate = `{
                 "AwsRelationalDatabaseInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "User",
-                "Company",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
+                "Profile",
+                "Tier",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-                "ClusterDefinition",
-                "ClusterInstance"
+                "User",
+                "Company",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
@@ -7938,19 +7934,23 @@ const docTemplate = `{
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeUser",
-                "ObjectTypeCompany",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance"
+                "ObjectTypeUser",
+                "ObjectTypeCompany",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance"
             ]
         },
         "v0.Profile": {
@@ -8181,6 +8181,13 @@ const docTemplate = `{
                 "WorkloadDefinitionID": {
                     "description": "WorkloadDefinitionID is the definition used to configure the workload\ninstance.",
                     "type": "integer"
+                },
+                "WorkloadResourceInstances": {
+                    "description": "The associated workload resource definitions that are derived.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadResourceInstance"
+                    }
                 }
             }
         },
@@ -8207,9 +8214,17 @@ const docTemplate = `{
         "v0.WorkloadResourceInstance": {
             "type": "object",
             "required": [
+                "JSONDefinition",
                 "WorkloadInstanceID"
             ],
             "properties": {
+                "JSONDefinition": {
+                    "description": "The individual manifest in JSON format.  This field is a superset of\nWorkloadResourceDefinition.JSONDefinition in that it has namespace\nmanagement and other configuration - such as resource allocation\nmanagement - added.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "Status": {
                     "description": "The Kubernetes status of the deployed resource.\nOne of:\n* Pending\n* Running\n* Succeeded\n* Failed\n* Unknown",
                     "type": "string"

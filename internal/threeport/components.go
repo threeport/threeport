@@ -457,7 +457,6 @@ func WaitForThreeportAPI(apiEndpoint string) error {
 	for attempts < maxAttempts {
 		_, err := v0.GetResponse(
 			fmt.Sprintf("%s/version", apiEndpoint),
-			"",
 			http.MethodGet,
 			new(bytes.Buffer),
 			http.StatusOK,

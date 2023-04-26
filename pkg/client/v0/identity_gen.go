@@ -14,12 +14,11 @@ import (
 
 // GetUsers feteches all users.
 // TODO: implement pagination
-func GetUsers(apiAddr, apiToken string) (*[]v0.User, error) {
+func GetUsers(apiAddr string) (*[]v0.User, error) {
 	var users []v0.User
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/users", apiAddr, ApiVersion),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -43,12 +42,11 @@ func GetUsers(apiAddr, apiToken string) (*[]v0.User, error) {
 }
 
 // GetUserByID feteches a user by ID.
-func GetUserByID(id uint, apiAddr, apiToken string) (*v0.User, error) {
+func GetUserByID(id uint, apiAddr string) (*v0.User, error) {
 	var user v0.User
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, id),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -72,12 +70,11 @@ func GetUserByID(id uint, apiAddr, apiToken string) (*v0.User, error) {
 }
 
 // GetUserByName feteches a user by name.
-func GetUserByName(name, apiAddr, apiToken string) (*v0.User, error) {
+func GetUserByName(name, apiAddr string) (*v0.User, error) {
 	var users []v0.User
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/users?name=%s", apiAddr, ApiVersion, name),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -108,7 +105,7 @@ func GetUserByName(name, apiAddr, apiToken string) (*v0.User, error) {
 }
 
 // CreateUser creates a new user.
-func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
+func CreateUser(user *v0.User, apiAddr string) (*v0.User, error) {
 	jsonUser, err := client.MarshalObject(user)
 	if err != nil {
 		return user, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -116,7 +113,6 @@ func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/users", apiAddr, ApiVersion),
-		apiToken,
 		http.MethodPost,
 		bytes.NewBuffer(jsonUser),
 		http.StatusCreated,
@@ -140,7 +136,7 @@ func CreateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 }
 
 // UpdateUser updates a user.
-func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
+func UpdateUser(user *v0.User, apiAddr string) (*v0.User, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	userID := *user.ID
@@ -153,7 +149,6 @@ func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, userID),
-		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonUser),
 		http.StatusOK,
@@ -177,12 +172,11 @@ func UpdateUser(user *v0.User, apiAddr, apiToken string) (*v0.User, error) {
 }
 
 // DeleteUser deletes a user by ID.
-func DeleteUser(id uint, apiAddr, apiToken string) (*v0.User, error) {
+func DeleteUser(id uint, apiAddr string) (*v0.User, error) {
 	var user v0.User
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, id),
-		apiToken,
 		http.MethodDelete,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -207,12 +201,11 @@ func DeleteUser(id uint, apiAddr, apiToken string) (*v0.User, error) {
 
 // GetCompanies feteches all companies.
 // TODO: implement pagination
-func GetCompanies(apiAddr, apiToken string) (*[]v0.Company, error) {
+func GetCompanies(apiAddr string) (*[]v0.Company, error) {
 	var companies []v0.Company
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/companies", apiAddr, ApiVersion),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -236,12 +229,11 @@ func GetCompanies(apiAddr, apiToken string) (*[]v0.Company, error) {
 }
 
 // GetCompanyByID feteches a company by ID.
-func GetCompanyByID(id uint, apiAddr, apiToken string) (*v0.Company, error) {
+func GetCompanyByID(id uint, apiAddr string) (*v0.Company, error) {
 	var company v0.Company
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, id),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -265,12 +257,11 @@ func GetCompanyByID(id uint, apiAddr, apiToken string) (*v0.Company, error) {
 }
 
 // GetCompanyByName feteches a company by name.
-func GetCompanyByName(name, apiAddr, apiToken string) (*v0.Company, error) {
+func GetCompanyByName(name, apiAddr string) (*v0.Company, error) {
 	var companies []v0.Company
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/companies?name=%s", apiAddr, ApiVersion, name),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -301,7 +292,7 @@ func GetCompanyByName(name, apiAddr, apiToken string) (*v0.Company, error) {
 }
 
 // CreateCompany creates a new company.
-func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
+func CreateCompany(company *v0.Company, apiAddr string) (*v0.Company, error) {
 	jsonCompany, err := client.MarshalObject(company)
 	if err != nil {
 		return company, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -309,7 +300,6 @@ func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/companies", apiAddr, ApiVersion),
-		apiToken,
 		http.MethodPost,
 		bytes.NewBuffer(jsonCompany),
 		http.StatusCreated,
@@ -333,7 +323,7 @@ func CreateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 }
 
 // UpdateCompany updates a company.
-func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, error) {
+func UpdateCompany(company *v0.Company, apiAddr string) (*v0.Company, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	companyID := *company.ID
@@ -346,7 +336,6 @@ func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, companyID),
-		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonCompany),
 		http.StatusOK,
@@ -370,12 +359,11 @@ func UpdateCompany(company *v0.Company, apiAddr, apiToken string) (*v0.Company, 
 }
 
 // DeleteCompany deletes a company by ID.
-func DeleteCompany(id uint, apiAddr, apiToken string) (*v0.Company, error) {
+func DeleteCompany(id uint, apiAddr string) (*v0.Company, error) {
 	var company v0.Company
 
 	response, err := GetResponse(
 		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, id),
-		apiToken,
 		http.MethodDelete,
 		new(bytes.Buffer),
 		http.StatusOK,

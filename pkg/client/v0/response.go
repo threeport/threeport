@@ -20,7 +20,6 @@ var ErrorObjectNotFound = errors.New("object not found")
 // GetResponse calls the threeport API and returns a response.
 func GetResponse(
 	url string,
-	apiToken string,
 	httpMethod string,
 	reqBody *bytes.Buffer,
 	expectedStatusCode int,
@@ -30,7 +29,6 @@ func GetResponse(
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request to threeport API: %w", err)
 	}
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", apiToken))
 	req.Header.Add("Content-Type", "application/json")
 
 	// load certificates to authenticate via TLS conneection

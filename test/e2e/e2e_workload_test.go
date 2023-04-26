@@ -14,11 +14,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
-
-const (
-	apiToken = ""
-)
-
 // testWorkload represents a test case for this e2e test.
 type testWorkload struct {
 	Name             string
@@ -58,7 +53,6 @@ func TestWorkloadE2E(t *testing.T) {
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			&workloadDef,
 			apiAddr(),
-			apiToken,
 		)
 		assert.Nil(err, "should have no error creating workload definition")
 
@@ -82,7 +76,6 @@ func TestWorkloadE2E(t *testing.T) {
 			existingWorkloadDef, err = client.GetWorkloadDefinitionByID(
 				*createdWorkloadDef.ID,
 				apiAddr(),
-				apiToken,
 			)
 			assert.Nil(err, "should have no error getting workload definition by ID")
 			if *existingWorkloadDef.Reconciled {
@@ -98,7 +91,6 @@ func TestWorkloadE2E(t *testing.T) {
 		workloadResourceDefs, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
 			*createdWorkloadDef.ID,
 			apiAddr(),
-			apiToken,
 		)
 		assert.Nil(err, "should have no error getting workload resource definitions")
 
@@ -120,7 +112,7 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 
 		// check cluster instance
-		clusterInsts, err := client.GetClusterInstances(apiAddr(), apiToken)
+		clusterInsts, err := client.GetClusterInstances(apiAddr())
 		assert.Nil(err, "should have no error getting workload resource definitions")
 		var testClusterInst v0.ClusterInstance
 		if assert.NotNil(clusterInsts, "should have an array of cluster instances returned") {
@@ -145,7 +137,6 @@ func TestWorkloadE2E(t *testing.T) {
 		createdWorkloadInst, err := client.CreateWorkloadInstance(
 			&workloadInst,
 			apiAddr(),
-			apiToken,
 		)
 		assert.Nil(err, "should have no error creating workload instance")
 		assert.NotNil(createdWorkloadInst, "should have a workload instance returned")
@@ -154,7 +145,6 @@ func TestWorkloadE2E(t *testing.T) {
 		clusterInstance, err := client.GetClusterInstanceByID(
 			*testClusterInst.ID,
 			apiAddr(),
-			apiToken,
 		)
 		assert.Nil(err, "should have no error getting cluster instance")
 		assert.NotNil(clusterInstance, "should have a cluster instance returned")
@@ -223,7 +213,6 @@ func TestWorkloadE2E(t *testing.T) {
 		_, err = client.DeleteWorkloadDefinition(
 			*createdWorkloadDef.ID,
 			apiAddr(),
-			apiToken,
 		)
 		assert.NotNil(err, "should have an error returned when trying to delete workload definition with workload instance still in place")
 
@@ -231,14 +220,12 @@ func TestWorkloadE2E(t *testing.T) {
 		deletedWorkloadInst, err := client.DeleteWorkloadInstance(
 			*createdWorkloadInst.ID,
 			apiAddr(),
-			apiToken,
 		)
 		assert.Nil(err, "should have no error deleting workload instance")
 
 		// make sure there are zero workload instances in system
 		workloadInsts, err := client.GetWorkloadInstances(
 			apiAddr(),
-			apiToken,
 		)
 		assert.Nil(err, "should have no errors geting all workload instances")
 		if assert.NotNil(workloadInsts, "should have an array of workload instances returned") {
@@ -289,14 +276,12 @@ func TestWorkloadE2E(t *testing.T) {
 		deletedWorkloadDef, err := client.DeleteWorkloadDefinition(
 			*createdWorkloadDef.ID,
 			apiAddr(),
-			apiToken,
 		)
 		assert.Nil(err, "should have no error deleting workload definition")
 
 		// make sure the workload definition is gone
 		workloadDefs, err := client.GetWorkloadDefinitions(
 			apiAddr(),
-			apiToken,
 		)
 		assert.Nil(err, "should have no errors geting all workload definitions")
 		if assert.NotNil(workloadDefs, "should have an array of workload definitions returned") {

@@ -243,7 +243,6 @@ var upCmd = &cobra.Command{
 		clusterDefResult, err := client.CreateClusterDefinition(
 			&clusterDefinition,
 			fmt.Sprintf("%s://%s:%s", threeport.ThreeportLocalAPIProtocol, threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
-			"",
 		)
 		if err != nil {
 			cli.Error("failed to create new cluster definition for default compute space", err)
@@ -255,7 +254,6 @@ var upCmd = &cobra.Command{
 		_, err = client.CreateClusterInstance(
 			&clusterInstance,
 			fmt.Sprintf("%s://%s:%s", threeport.ThreeportLocalAPIProtocol, threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
-			"",
 		)
 		if err != nil {
 			cli.Error("failed to create new cluster instance for default compute space", err)
