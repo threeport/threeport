@@ -210,6 +210,17 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// generate workload certificate
+		workloadCertificate, workloadPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
+		if err != nil {
+			cli.Error("failed to generate client certificate and private key", err)
+			os.Exit(1)
+		}
+
+		// get PEM-encoded keypairs as strings to pass into workload controller manfiests
+		workloadCertificateEncoded := threeport.GetPEMEncoding(workloadCertificate, "CERTIFICATE")
+		workloadPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(workloadPrivateKey), "RSA PRIVATE KEY")
+
 		// install the threeport controllers - these need to be installed once
 		// API server is running in dev environment because the air entrypoint
 		// prevents the controllers from crashlooping if they come up before
@@ -220,8 +231,8 @@ var upCmd = &cobra.Command{
 			true,
 			"",
 			caEncoded,
-			clientCertificateEncoded,
-			clientPrivateKeyEncoded,
+			workloadCertificateEncoded,
+			workloadPrivateKeyEncoded,
 		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)
