@@ -210,7 +210,7 @@ var upCmd = &cobra.Command{
 		// wait for API server to start running
 		cli.Info("waiting for threeport API to start running")
 		if err := threeport.WaitForThreeportAPI(
-			fmt.Sprintf("http://%s", threeport.ThreeportLocalAPIEndpoint),
+			fmt.Sprintf("https://%s:1323", threeport.ThreeportLocalAPIEndpoint),
 		); err != nil {
 			cli.Error("threeport API did not come up", err)
 			os.Exit(1)
@@ -242,7 +242,7 @@ var upCmd = &cobra.Command{
 		}
 		clusterDefResult, err := client.CreateClusterDefinition(
 			&clusterDefinition,
-			fmt.Sprintf("http://%s", threeport.ThreeportLocalAPIEndpoint),
+			fmt.Sprintf("%s://%s:%s", threeport.ThreeportLocalAPIProtocol, threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
 			"",
 		)
 		if err != nil {
@@ -254,7 +254,7 @@ var upCmd = &cobra.Command{
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
 		_, err = client.CreateClusterInstance(
 			&clusterInstance,
-			fmt.Sprintf("http://%s", threeport.ThreeportLocalAPIEndpoint),
+			fmt.Sprintf("%s://%s:%s", threeport.ThreeportLocalAPIProtocol, threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
 			"",
 		)
 		if err != nil {

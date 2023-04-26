@@ -33,9 +33,10 @@ type kubeResource struct {
 // apiAddr returns the address of a local instance of threeport API.
 func apiAddr() string {
 	return fmt.Sprintf(
-		"%s://%s",
+		"%s://%s:%s",
 		threeport.ThreeportLocalAPIProtocol,
 		threeport.ThreeportLocalAPIEndpoint,
+		threeport.ThreeportLocalAPIPort,
 	)
 }
 
