@@ -12,6 +12,7 @@ func AddVersions() {
 	AddAwsRelationalDatabaseInstanceVersions()
 	AddClusterDefinitionVersions()
 	AddClusterInstanceVersions()
+	AddWorkloadDependencyVersions()
 	AddDomainNameDefinitionVersions()
 	AddDomainNameInstanceVersions()
 	AddForwardProxyDefinitionVersions()

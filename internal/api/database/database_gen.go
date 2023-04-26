@@ -57,6 +57,7 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 		db.AutoMigrate(&v0.Instance{})
 		db.AutoMigrate(&v0.ClusterDefinition{})
 		db.AutoMigrate(&v0.ClusterInstance{})
+		db.AutoMigrate(&v0.WorkloadDependency{})
 		db.AutoMigrate(&v0.DomainNameDefinition{})
 		db.AutoMigrate(&v0.DomainNameInstance{})
 		db.AutoMigrate(&v0.ForwardProxyDefinition{})

@@ -6275,6 +6275,287 @@
                 }
             }
         },
+        "/v0/workload-dependencies": {
+            "get": {
+                "description": "Get all workload dependencies from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all workload dependencies.",
+                "operationId": "get-workloadDependencies",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workload dependency search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new workload dependency to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new workload dependency.",
+                "operationId": "add-workloadDependency",
+                "parameters": [
+                    {
+                        "description": "WorkloadDependency object",
+                        "name": "workloadDependency",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.WorkloadDependency"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/workload-dependencies/{id}": {
+            "get": {
+                "description": "Get a particular workload dependency from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a workload dependency.",
+                "operationId": "get-workloadDependency",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a workload dependency in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating workload dependency objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing workload dependency by replacing the entire object.",
+                "operationId": "replace-workloadDependency",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "WorkloadDependency object",
+                        "name": "workloadDependency",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.WorkloadDependency"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a workload dependency by from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a workload dependency.",
+                "operationId": "delete-workloadDependency",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a workload dependency in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating workload dependency objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing workload dependency.",
+                "operationId": "update-workloadDependency",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "WorkloadDependency object",
+                        "name": "workloadDependency",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.WorkloadDependency"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/workload-instances": {
             "get": {
                 "description": "Get all workload instances from the Threeport database.",
@@ -7207,6 +7488,24 @@
                 }
             }
         },
+        "/workload-dependencies/versions": {
+            "get": {
+                "description": "Get the supported API versions for workload dependencies.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetWorkloadDependencyVersions gets the supported versions for the workload dependency API.",
+                "operationId": "workloadDependency-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/workload-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for workload instances.",
@@ -7896,54 +8195,56 @@
             "enum": [
                 "Profile",
                 "Tier",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
+                "User",
+                "Company",
+                "WorkloadDependency",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "User",
-                "Company",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
                 "ClusterDefinition",
-                "ClusterInstance"
+                "ClusterInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance"
             ],
             "x-enum-varnames": [
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeUser",
+                "ObjectTypeCompany",
+                "ObjectTypeWorkloadDependency",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeUser",
-                "ObjectTypeCompany",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance"
+                "ObjectTypeClusterInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance"
             ]
         },
         "v0.Profile": {
@@ -8103,6 +8404,13 @@
                     "description": "Required if no UserID.  The company that owns the object.",
                     "type": "integer"
                 },
+                "ConsumesDependencies": {
+                    "description": "ConsumesDependencies are the dependencies the infrastructure, managed\nservices, support services and workloads needed by the workload to run.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadDependency"
+                    }
+                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -8110,6 +8418,13 @@
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
+                },
+                "ProvidesDependencies": {
+                    "description": "ProvidesDependencies references dependencies the workload fulfils when\nused as a dependency by another workload.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadDependency"
+                    }
                 },
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by workload controller.",
@@ -8143,6 +8458,51 @@
                 }
             }
         },
+        "v0.WorkloadDependency": {
+            "type": "object",
+            "required": [
+                "DependencyType"
+            ],
+            "properties": {
+                "ConsumingDefinitions": {
+                    "description": "ConsumingDefinitions are the workload definitions that declared this\ndependency and rely upon it.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadDefinition"
+                    }
+                },
+                "ConsumingInstances": {
+                    "description": "ConsumingInstances are the workload instances that are consuming this\ndependency.  When this array is empty for a non-persistent dependency,\nthe dependency should be removed.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadInstance"
+                    }
+                },
+                "Dedicated": {
+                    "description": "If true, this dependency should not be shared with other workload\ninstances.",
+                    "type": "boolean"
+                },
+                "DependencyType": {
+                    "description": "The type of dependency describes the nature of the dependency being\nmanaged for the workload.",
+                    "type": "string"
+                },
+                "Persistent": {
+                    "description": "If persistent, this dependency should remain running even when no\ninstances are consuming it.",
+                    "type": "boolean"
+                },
+                "Providers": {
+                    "description": "Providers are the workload definitions that satisfy the dependency.  Only\napplicable if the dependency is of type SupportService or Workload.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadDefinition"
+                    }
+                },
+                "Status": {
+                    "description": "The status of the dependency to expose whether it is ready and healthy.",
+                    "type": "string"
+                }
+            }
+        },
         "v0.WorkloadInstance": {
             "type": "object",
             "required": [
@@ -8159,6 +8519,13 @@
                     "description": "Required if no UserID.  The company that owns the object.",
                     "type": "integer"
                 },
+                "ConsumesDependencies": {
+                    "description": "ConsumesDependencies are the dependencies the infrastructure, managed\nservices, support services and workloads needed by the workload to run.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadDependency"
+                    }
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -8174,6 +8541,13 @@
                 "WorkloadDefinitionID": {
                     "description": "WorkloadDefinitionID is the definition used to configure the workload\ninstance.",
                     "type": "integer"
+                },
+                "WorkloadResourceInstances": {
+                    "description": "The associated workload resource definitions that are derived.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadResourceInstance"
+                    }
                 }
             }
         },
@@ -8200,9 +8574,17 @@
         "v0.WorkloadResourceInstance": {
             "type": "object",
             "required": [
+                "JSONDefinition",
                 "WorkloadInstanceID"
             ],
             "properties": {
+                "JSONDefinition": {
+                    "description": "The individual manifest in JSON format.  This field is a superset of\nWorkloadResourceDefinition.JSONDefinition in that it has namespace\nmanagement and other configuration - such as resource allocation\nmanagement - added.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "Status": {
                     "description": "The Kubernetes status of the deployed resource.\nOne of:\n* Pending\n* Running\n* Succeeded\n* Failed\n* Unknown",
                     "type": "string"

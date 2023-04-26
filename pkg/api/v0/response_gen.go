@@ -25,6 +25,8 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = ClusterDefinition{}
 	case ObjectTypeClusterInstance:
 		objStruct = ClusterInstance{}
+	case ObjectTypeWorkloadDependency:
+		objStruct = WorkloadDependency{}
 	case ObjectTypeDomainNameDefinition:
 		objStruct = DomainNameDefinition{}
 	case ObjectTypeDomainNameInstance:
@@ -82,6 +84,8 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeClusterDefinition
 	case PathClusterInstances:
 		return ObjectTypeClusterInstance
+	case PathWorkloadDependencies:
+		return ObjectTypeWorkloadDependency
 	case PathDomainNameDefinitions:
 		return ObjectTypeDomainNameDefinition
 	case PathDomainNameInstances:
@@ -139,6 +143,8 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeClusterDefinition
 	case ClusterInstance, *ClusterInstance, []ClusterInstance:
 		return ObjectTypeClusterInstance
+	case WorkloadDependency, *WorkloadDependency, []WorkloadDependency:
+		return ObjectTypeWorkloadDependency
 	case DomainNameDefinition, *DomainNameDefinition, []DomainNameDefinition:
 		return ObjectTypeDomainNameDefinition
 	case DomainNameInstance, *DomainNameInstance, []DomainNameInstance:

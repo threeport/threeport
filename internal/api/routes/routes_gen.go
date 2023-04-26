@@ -17,6 +17,7 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	AwsRelationalDatabaseInstanceRoutes(e, h)
 	ClusterDefinitionRoutes(e, h)
 	ClusterInstanceRoutes(e, h)
+	WorkloadDependencyRoutes(e, h)
 	DomainNameDefinitionRoutes(e, h)
 	DomainNameInstanceRoutes(e, h)
 	ForwardProxyDefinitionRoutes(e, h)

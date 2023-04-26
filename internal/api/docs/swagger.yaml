@@ -518,54 +518,56 @@ definitions:
     enum:
     - Profile
     - Tier
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
+    - User
+    - Company
+    - WorkloadDependency
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - ClusterDefinition
+    - ClusterInstance
     - DomainNameDefinition
     - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - User
-    - Company
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - ClusterDefinition
-    - ClusterInstance
     type: string
     x-enum-varnames:
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
+    - ObjectTypeWorkloadDependency
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
   v0.Profile:
     properties:
       CompanyID:
@@ -679,6 +681,13 @@ definitions:
       CompanyID:
         description: Required if no UserID.  The company that owns the object.
         type: integer
+      ConsumesDependencies:
+        description: |-
+          ConsumesDependencies are the dependencies the infrastructure, managed
+          services, support services and workloads needed by the workload to run.
+        items:
+          $ref: '#/definitions/v0.WorkloadDependency'
+        type: array
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -687,6 +696,13 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
+      ProvidesDependencies:
+        description: |-
+          ProvidesDependencies references dependencies the workload fulfils when
+          used as a dependency by another workload.
+        items:
+          $ref: '#/definitions/v0.WorkloadDependency'
+        type: array
       Reconciled:
         description: Indicates if object is considered to be reconciled by workload
           controller.
@@ -717,6 +733,52 @@ definitions:
     - Name
     - YAMLDocument
     type: object
+  v0.WorkloadDependency:
+    properties:
+      ConsumingDefinitions:
+        description: |-
+          ConsumingDefinitions are the workload definitions that declared this
+          dependency and rely upon it.
+        items:
+          $ref: '#/definitions/v0.WorkloadDefinition'
+        type: array
+      ConsumingInstances:
+        description: |-
+          ConsumingInstances are the workload instances that are consuming this
+          dependency.  When this array is empty for a non-persistent dependency,
+          the dependency should be removed.
+        items:
+          $ref: '#/definitions/v0.WorkloadInstance'
+        type: array
+      Dedicated:
+        description: |-
+          If true, this dependency should not be shared with other workload
+          instances.
+        type: boolean
+      DependencyType:
+        description: |-
+          The type of dependency describes the nature of the dependency being
+          managed for the workload.
+        type: string
+      Persistent:
+        description: |-
+          If persistent, this dependency should remain running even when no
+          instances are consuming it.
+        type: boolean
+      Providers:
+        description: |-
+          Providers are the workload definitions that satisfy the dependency.  Only
+          applicable if the dependency is of type SupportService or Workload.
+        items:
+          $ref: '#/definitions/v0.WorkloadDefinition'
+        type: array
+      Status:
+        description: The status of the dependency to expose whether it is ready and
+          healthy.
+        type: string
+    required:
+    - DependencyType
+    type: object
   v0.WorkloadInstance:
     properties:
       ClusterInstanceID:
@@ -725,6 +787,13 @@ definitions:
       CompanyID:
         description: Required if no UserID.  The company that owns the object.
         type: integer
+      ConsumesDependencies:
+        description: |-
+          ConsumesDependencies are the dependencies the infrastructure, managed
+          services, support services and workloads needed by the workload to run.
+        items:
+          $ref: '#/definitions/v0.WorkloadDependency'
+        type: array
       Name:
         description: An arbitrary name the instance
         type: string
@@ -741,6 +810,11 @@ definitions:
           WorkloadDefinitionID is the definition used to configure the workload
           instance.
         type: integer
+      WorkloadResourceInstances:
+        description: The associated workload resource definitions that are derived.
+        items:
+          $ref: '#/definitions/v0.WorkloadResourceInstance'
+        type: array
     required:
     - ClusterInstanceID
     - Name
@@ -762,6 +836,15 @@ definitions:
     type: object
   v0.WorkloadResourceInstance:
     properties:
+      JSONDefinition:
+        description: |-
+          The individual manifest in JSON format.  This field is a superset of
+          WorkloadResourceDefinition.JSONDefinition in that it has namespace
+          management and other configuration - such as resource allocation
+          management - added.
+        items:
+          type: integer
+        type: array
       Status:
         description: |-
           The Kubernetes status of the deployed resource.
@@ -776,6 +859,7 @@ definitions:
         description: The workload definition this resource belongs to.
         type: integer
     required:
+    - JSONDefinition
     - WorkloadInstanceID
     type: object
   version.RESTAPIVersion:
@@ -5242,6 +5326,205 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload definition by replacing the entire object.
+  /v0/workload-dependencies:
+    get:
+      consumes:
+      - application/json
+      description: Get all workload dependencies from the Threeport database.
+      operationId: get-workloadDependencies
+      parameters:
+      - description: workload dependency search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all workload dependencies.
+    post:
+      consumes:
+      - application/json
+      description: Add a new workload dependency to the Threeport database.
+      operationId: add-workloadDependency
+      parameters:
+      - description: WorkloadDependency object
+        in: body
+        name: workloadDependency
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadDependency'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new workload dependency.
+  /v0/workload-dependencies/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a workload dependency by from the database.
+      operationId: delete-workloadDependency
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a workload dependency.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular workload dependency from the database.
+      operationId: get-workloadDependency
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a workload dependency.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a workload dependency in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating workload dependency objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-workloadDependency
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadDependency object
+        in: body
+        name: workloadDependency
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadDependency'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing workload dependency.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a workload dependency in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating workload dependency objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-workloadDependency
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadDependency object
+        in: body
+        name: workloadDependency
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadDependency'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing workload dependency by replacing the entire object.
   /v0/workload-instances:
     get:
       consumes:
@@ -5902,6 +6185,19 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetWorkloadDefinitionVersions gets the supported versions for the workload
         definition API.
+  /workload-dependencies/versions:
+    get:
+      description: Get the supported API versions for workload dependencies.
+      operationId: workloadDependency-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetWorkloadDependencyVersions gets the supported versions for the workload
+        dependency API.
   /workload-instances/versions:
     get:
       description: Get the supported API versions for workload instances.
