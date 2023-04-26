@@ -31,17 +31,16 @@ func GetResponse(
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", apiToken))
 	req.Header.Add("Content-Type", "application/json")
 
-	client := &http.Client{}
-
 	// load certificates to authenticate via TLS conneection
 	tlsConfig, err := loadCertificates()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load certificates: %w", err)
 	}
 
-	// configure http client to use certificates
-	client.Transport = &http.Transport{
-		TLSClientConfig: tlsConfig,
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
 	}
 
 	resp, err := client.Do(req)
@@ -95,9 +94,9 @@ func loadCertificates() (*tls.Config, error) {
 
 	if errHomeDirectory == nil {
 		// Use certificates from ~/.threeport directory
-		certFile = filepath.Join(homeDir, ".threeport", "cert")
-		keyFile = filepath.Join(homeDir, ".threeport", "key")
-		caFile = filepath.Join(homeDir, ".threeport", "ca")
+		certFile = filepath.Join(homeDir, ".threeport", "tls.crt")
+		keyFile = filepath.Join(homeDir, ".threeport", "tls.key")
+		caFile = filepath.Join(homeDir, ".threeport", "ca.crt")
 	} else if errThreeportCert == nil && errThreeportCA == nil {
 		// Use certificates from /etc/threeport directory
 		certFile = "/etc/threeport/cert/tls.crt"
@@ -125,8 +124,8 @@ func loadCertificates() (*tls.Config, error) {
 
 	// create tls config required by http client
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caCertPool,
+		Certificates:       []tls.Certificate{cert},
+		RootCAs:            caCertPool,
 	}
 
 	return tlsConfig, nil
