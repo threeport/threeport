@@ -150,12 +150,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// install the threeport control plane support services
-		if err := threeport.InstallLocalSupportServices(dynamicKubeClient, mapper); err != nil {
-			cli.Error("failed to install threeport control plane support services", err)
-			os.Exit(1)
-		}
-
 		// install the threeport control plane dependencies
 		if err := threeport.InstallThreeportControlPlaneDependencies(dynamicKubeClient, mapper); err != nil {
 			// delete control plane cluster
@@ -232,7 +226,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 		clusterDefResult, err := client.CreateClusterDefinition(
 			&clusterDefinition,
 			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
-			"",
 		)
 		if err != nil {
 			// delete control plane cluster
@@ -249,7 +242,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 		_, err = client.CreateClusterInstance(
 			&clusterInstance,
 			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
-			"",
 		)
 		if err != nil {
 			// delete control plane cluster

@@ -93,12 +93,6 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// install the threeport control plane support services
-		if err := threeport.InstallLocalSupportServices(dynamicKubeClient, mapper); err != nil {
-			cli.Error("failed to install threeport control plane support services", err)
-			os.Exit(1)
-		}
-
 		// generate certificate authority for the threeport API
 		caConfig, ca, caPrivateKey, err := threeport.GenerateCACertificate()
 		if err != nil {

@@ -13,7 +13,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/threeport/threeport/internal/kube"
@@ -100,11 +99,9 @@ func InstallThreeportAPI(
 	serverPrivateKey string,
 ) error {
 	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo)
-	apiIngressAnnotations := getAPIIngressAnnotations(devEnvironment)
-	apiIngressTLS := getAPIIngressTLS(devEnvironment, apiHostname)
 	apiArgs := getAPIArgs(devEnvironment)
 	apiVols, apiVolMounts := getAPIVolumes(devEnvironment)
-	apiPort := getAPIPort(devEnvironment)
+	// apiPort := getAPIPort(devEnvironment)
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -242,8 +239,14 @@ NATS_PORT=4222
 								"image":           apiImage,
 								"imagePullPolicy": "IfNotPresent",
 								"args":            apiArgs,
-								"ports":           []interface{}{apiPort},
-								"volumeMounts":    apiVolMounts,
+								"ports": []interface{}{
+									map[string]interface{}{
+										"containerPort": 1323,
+										"name":          "https",
+										"protocol":      "TCP",
+									},
+								},
+								"volumeMounts": apiVolMounts,
 							},
 						},
 						"volumes": apiVols,
@@ -268,12 +271,14 @@ NATS_PORT=4222
 				"selector": map[string]interface{}{
 					"app.kubernetes.io/name": "threeport-api-server",
 				},
+				"type": "NodePort",
 				"ports": []interface{}{
 					map[string]interface{}{
 						"name":       "http",
 						"port":       1323,
 						"protocol":   "TCP",
 						"targetPort": 1323,
+						"nodePort":   30000,
 					},
 				},
 			},
@@ -281,46 +286,6 @@ NATS_PORT=4222
 	}
 	if _, err := kube.CreateResource(apiService, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create API server service: %w", err)
-	}
-
-	var apiIngress = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "networking.k8s.io/v1",
-			"kind":       "Ingress",
-			"metadata": map[string]interface{}{
-				"name":        ThreeportAPIIngressResourceName,
-				"namespace":   ControlPlaneNamespace,
-				"annotations": apiIngressAnnotations,
-			},
-			"spec": map[string]interface{}{
-				"ingressClassName": "kong",
-				"rules": []interface{}{
-					map[string]interface{}{
-						"host": apiHostname,
-						"http": map[string]interface{}{
-							"paths": []interface{}{
-								map[string]interface{}{
-									"path":     "/",
-									"pathType": "Prefix",
-									"backend": map[string]interface{}{
-										"service": map[string]interface{}{
-											"name": "threeport-api-server",
-											"port": map[string]interface{}{
-												"number": 1323,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				"tls": apiIngressTLS,
-			},
-		},
-	}
-	if _, err := kube.CreateResource(apiIngress, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create API ingress: %w", err)
 	}
 
 	return nil
@@ -477,24 +442,6 @@ func WaitForThreeportAPI(apiEndpoint string) error {
 	}
 
 	return nil
-}
-
-func getAPIPort(devEnvironment bool) map[string]interface{} {
-	port := map[string]interface{}{
-		"containerPort": 1323,
-		"name":          "https",
-		"protocol":      "TCP",
-	}
-
-	if devEnvironment {
-		num, err := strconv.Atoi(ThreeportLocalAPIPort)
-		if err != nil {
-			errors.New(fmt.Sprintf("failed to convert %s to int: %w", ThreeportLocalAPIPort, err))
-		}
-		port["hostPort"] = num
-	}
-
-	return port
 }
 
 // getAPIImage returns the proper container image to use for the API.
