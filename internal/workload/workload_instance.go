@@ -103,6 +103,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			// retrieve latest version of object if requeued
 			if notif.Requeue {
 				latestWorkloadInstance, err := client.GetWorkloadInstanceByID(
+					r.HTTPSClient,
 					*workloadInstance.ID,
 					r.APIServer,
 				)
@@ -188,6 +189,7 @@ func workloadInstanceCreated(
 
 	// use workload definition ID to get workload resource definitions
 	workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
+		r.HTTPSClient,
 		*workloadInstance.WorkloadDefinitionID,
 		r.APIServer,
 	)
@@ -200,6 +202,7 @@ func workloadInstanceCreated(
 
 	// get workload definition for this instance
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
+		r.HTTPSClient,
 		*workloadInstance.WorkloadDefinitionID,
 		r.APIServer,
 	)
@@ -219,6 +222,7 @@ func workloadInstanceCreated(
 
 	// get cluster instance info
 	clusterInstance, err := client.GetClusterInstanceByID(
+		r.HTTPSClient,
 		*workloadInstance.ClusterInstanceID,
 		r.APIServer,
 	)
@@ -277,6 +281,7 @@ func workloadInstanceCreated(
 
 		// create object in threeport API
 		_, err = client.CreateWorkloadResourceInstance(
+			r.HTTPSClient,
 			&wri,
 			r.APIServer,
 		)
@@ -306,6 +311,7 @@ func workloadInstanceDeleted(
 
 	// get workload resource instances
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
+		r.HTTPSClient,
 		*workloadInstance.ID,
 		r.APIServer,
 	)
@@ -318,6 +324,7 @@ func workloadInstanceDeleted(
 
 	// get cluster instance info
 	clusterInstance, err := client.GetClusterInstanceByID(
+		r.HTTPSClient,
 		*workloadInstance.ClusterInstanceID,
 		r.APIServer,
 	)
@@ -361,6 +368,7 @@ func confirmWorkloadDefReconciled(
 	workloadInstance *v0.WorkloadInstance,
 ) (bool, error) {
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
+		r.HTTPSClient,
 		*workloadInstance.WorkloadDefinitionID,
 		r.APIServer,
 	)

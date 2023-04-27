@@ -414,13 +414,14 @@ func InstallThreeportControllers(
 }
 
 // WaitForThreeportAPI waits for the threeport API to respond to a request.
-func WaitForThreeportAPI(apiEndpoint string) error {
+func WaitForThreeportAPI(httpsClient *http.Client, apiEndpoint string) error {
 	attempts := 0
 	maxAttempts := 30
 	waitSeconds := 10
 	apiReady := false
 	for attempts < maxAttempts {
 		_, err := v0.GetResponse(
+			httpsClient,
 			fmt.Sprintf("%s/version", apiEndpoint),
 			http.MethodGet,
 			new(bytes.Buffer),

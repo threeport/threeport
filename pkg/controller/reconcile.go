@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -34,6 +35,9 @@ type Reconciler struct {
 	// APIServer is the endpoint to reach Threeport REST API.
 	// format: [protocol]://[hostname]:[port]
 	APIServer string
+
+	// httpsClient is the HTTP client used to make requests to the Threeport API
+	HTTPSClient *http.Client
 
 	// JetStreamContext is the context for the NATS persistence layer.
 	JetStreamContext nats.JetStreamContext

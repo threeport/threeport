@@ -516,13 +516,13 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - DomainNameDefinition
+    - DomainNameInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - DomainNameDefinition
-    - DomainNameInstance
     - Profile
     - Tier
     - NetworkIngressDefinition
@@ -534,21 +534,21 @@ definitions:
     - LogStorageInstance
     - User
     - Company
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
     - ObjectTypeProfile
     - ObjectTypeTier
     - ObjectTypeNetworkIngressDefinition
@@ -560,12 +560,12 @@ definitions:
     - ObjectTypeLogStorageInstance
     - ObjectTypeUser
     - ObjectTypeCompany
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
   v0.Profile:
     properties:
       CompanyID:

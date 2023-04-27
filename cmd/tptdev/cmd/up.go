@@ -201,10 +201,17 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// load certificates to authenticate via TLS conneection
+		httpsClient, err := client.GetHTTPSClient()
+		if err != nil {
+			fmt.Errorf("failed to create https client: %w", err)
+			os.Exit(1)
+		}
+
 		// wait for API server to start running
 		cli.Info("waiting for threeport API to start running")
 		if err := threeport.WaitForThreeportAPI(
-			fmt.Sprintf("https://%s:1323", threeport.ThreeportLocalAPIEndpoint),
+			httpsClient, fmt.Sprintf("https://%s:1323", threeport.ThreeportLocalAPIEndpoint),
 		); err != nil {
 			cli.Error("threeport API did not come up", err)
 			os.Exit(1)
@@ -246,6 +253,7 @@ var upCmd = &cobra.Command{
 			},
 		}
 		clusterDefResult, err := client.CreateClusterDefinition(
+			httpsClient,
 			&clusterDefinition,
 			fmt.Sprintf("%s://%s:%s", threeport.ThreeportLocalAPIProtocol, threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
 		)
@@ -257,6 +265,7 @@ var upCmd = &cobra.Command{
 		// create default compute space cluster instance in threeport API
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
 		_, err = client.CreateClusterInstance(
+			httpsClient,
 			&clusterInstance,
 			fmt.Sprintf("%s://%s:%s", threeport.ThreeportLocalAPIProtocol, threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
 		)

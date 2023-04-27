@@ -19,6 +19,7 @@ var ErrorObjectNotFound = errors.New("object not found")
 
 // GetResponse calls the threeport API and returns a response.
 func GetResponse(
+	client *http.Client,
 	url string,
 	httpMethod string,
 	reqBody *bytes.Buffer,
@@ -30,18 +31,6 @@ func GetResponse(
 		return nil, fmt.Errorf("failed to build request to threeport API: %w", err)
 	}
 	req.Header.Add("Content-Type", "application/json")
-
-	// load certificates to authenticate via TLS conneection
-	tlsConfig, err := loadCertificates()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load certificates: %w", err)
-	}
-
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
-	}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -89,7 +78,7 @@ func GetResponse(
 }
 
 // loads certificates from ~/.threeport or /etc/threeport
-func loadCertificates() (*tls.Config, error) {
+func GetHTTPSClient() (*http.Client, error) {
 	homeDir, _ := os.UserHomeDir()
 	var certFile, keyFile, caFile string
 
@@ -129,9 +118,15 @@ func loadCertificates() (*tls.Config, error) {
 
 	// create tls config required by http client
 	tlsConfig := &tls.Config{
-		Certificates:       []tls.Certificate{cert},
-		RootCAs:            caCertPool,
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caCertPool,
 	}
 
-	return tlsConfig, nil
+	httpsClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
+	return httpsClient, nil
 }

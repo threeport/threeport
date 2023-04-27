@@ -20,6 +20,7 @@ import (
 	"github.com/threeport/threeport/internal/version"
 	"github.com/threeport/threeport/internal/workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/controller"
 )
 
@@ -129,6 +130,13 @@ func main() {
 	var shutdownChans []chan bool
 	var shutdownWait sync.WaitGroup
 
+	// load certificates to authenticate via TLS conneection
+	httpsClient, err := client.GetHTTPSClient()
+	if err != nil {
+		fmt.Errorf("failed to create https client: %w", err)
+		os.Exit(1)
+	}
+
 	// configure and start reconcilers
 	reconcilerConfigs := []controller.ReconcilerConfig{
 		{
@@ -181,6 +189,7 @@ func main() {
 			Name:             r.Name,
 			ObjectType:       r.ObjectType,
 			APIServer:        *apiServer,
+			HTTPSClient:      httpsClient,
 			JetStreamContext: js,
 			Sub:              sub,
 			KeyValue:         kv,

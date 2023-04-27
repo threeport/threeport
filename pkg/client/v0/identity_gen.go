@@ -14,10 +14,11 @@ import (
 
 // GetUsers feteches all users.
 // TODO: implement pagination
-func GetUsers(apiAddr string) (*[]v0.User, error) {
+func GetUsers(httpsClient *http.Client, apiAddr string) (*[]v0.User, error) {
 	var users []v0.User
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/users", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -42,10 +43,11 @@ func GetUsers(apiAddr string) (*[]v0.User, error) {
 }
 
 // GetUserByID feteches a user by ID.
-func GetUserByID(id uint, apiAddr string) (*v0.User, error) {
+func GetUserByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.User, error) {
 	var user v0.User
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -70,10 +72,11 @@ func GetUserByID(id uint, apiAddr string) (*v0.User, error) {
 }
 
 // GetUserByName feteches a user by name.
-func GetUserByName(name, apiAddr string) (*v0.User, error) {
+func GetUserByName(httpsClient *http.Client, name, apiAddr string) (*v0.User, error) {
 	var users []v0.User
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/users?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -105,13 +108,14 @@ func GetUserByName(name, apiAddr string) (*v0.User, error) {
 }
 
 // CreateUser creates a new user.
-func CreateUser(user *v0.User, apiAddr string) (*v0.User, error) {
+func CreateUser(httpsClient *http.Client, user *v0.User, apiAddr string) (*v0.User, error) {
 	jsonUser, err := client.MarshalObject(user)
 	if err != nil {
 		return user, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/users", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonUser),
@@ -136,7 +140,7 @@ func CreateUser(user *v0.User, apiAddr string) (*v0.User, error) {
 }
 
 // UpdateUser updates a user.
-func UpdateUser(user *v0.User, apiAddr string) (*v0.User, error) {
+func UpdateUser(httpsClient *http.Client, user *v0.User, apiAddr string) (*v0.User, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	userID := *user.ID
@@ -148,6 +152,7 @@ func UpdateUser(user *v0.User, apiAddr string) (*v0.User, error) {
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, userID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonUser),
@@ -172,10 +177,11 @@ func UpdateUser(user *v0.User, apiAddr string) (*v0.User, error) {
 }
 
 // DeleteUser deletes a user by ID.
-func DeleteUser(id uint, apiAddr string) (*v0.User, error) {
+func DeleteUser(httpsClient *http.Client, id uint, apiAddr string) (*v0.User, error) {
 	var user v0.User
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/users/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
@@ -201,10 +207,11 @@ func DeleteUser(id uint, apiAddr string) (*v0.User, error) {
 
 // GetCompanies feteches all companies.
 // TODO: implement pagination
-func GetCompanies(apiAddr string) (*[]v0.Company, error) {
+func GetCompanies(httpsClient *http.Client, apiAddr string) (*[]v0.Company, error) {
 	var companies []v0.Company
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/companies", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -229,10 +236,11 @@ func GetCompanies(apiAddr string) (*[]v0.Company, error) {
 }
 
 // GetCompanyByID feteches a company by ID.
-func GetCompanyByID(id uint, apiAddr string) (*v0.Company, error) {
+func GetCompanyByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.Company, error) {
 	var company v0.Company
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -257,10 +265,11 @@ func GetCompanyByID(id uint, apiAddr string) (*v0.Company, error) {
 }
 
 // GetCompanyByName feteches a company by name.
-func GetCompanyByName(name, apiAddr string) (*v0.Company, error) {
+func GetCompanyByName(httpsClient *http.Client, name, apiAddr string) (*v0.Company, error) {
 	var companies []v0.Company
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/companies?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -292,13 +301,14 @@ func GetCompanyByName(name, apiAddr string) (*v0.Company, error) {
 }
 
 // CreateCompany creates a new company.
-func CreateCompany(company *v0.Company, apiAddr string) (*v0.Company, error) {
+func CreateCompany(httpsClient *http.Client, company *v0.Company, apiAddr string) (*v0.Company, error) {
 	jsonCompany, err := client.MarshalObject(company)
 	if err != nil {
 		return company, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/companies", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonCompany),
@@ -323,7 +333,7 @@ func CreateCompany(company *v0.Company, apiAddr string) (*v0.Company, error) {
 }
 
 // UpdateCompany updates a company.
-func UpdateCompany(company *v0.Company, apiAddr string) (*v0.Company, error) {
+func UpdateCompany(httpsClient *http.Client, company *v0.Company, apiAddr string) (*v0.Company, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	companyID := *company.ID
@@ -335,6 +345,7 @@ func UpdateCompany(company *v0.Company, apiAddr string) (*v0.Company, error) {
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, companyID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonCompany),
@@ -359,10 +370,11 @@ func UpdateCompany(company *v0.Company, apiAddr string) (*v0.Company, error) {
 }
 
 // DeleteCompany deletes a company by ID.
-func DeleteCompany(id uint, apiAddr string) (*v0.Company, error) {
+func DeleteCompany(httpsClient *http.Client, id uint, apiAddr string) (*v0.Company, error) {
 	var company v0.Company
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/companies/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),

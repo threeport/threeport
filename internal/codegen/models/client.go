@@ -42,6 +42,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		))
 		f.Comment("TODO: implement pagination")
 		f.Func().Id(getAllFuncName).Params(
+			Id("httpsClient").Op("*").Qual("net/http", "Client"),
 			Id("apiAddr").String(),
 		).Parens(List(
 			Op("*").Index().Qual(
@@ -56,6 +57,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("httpsClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
@@ -107,6 +109,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(getByIDFuncName).Params(
+			Id("httpsClient").Op("*").Qual("net/http", "Client"),
 			Id("id").Uint(),
 			Id("apiAddr").String(),
 		).Parens(List(
@@ -122,6 +125,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("httpsClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
@@ -173,6 +177,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(getByNameFuncName).Params(
+			Id("httpsClient").Op("*").Qual("net/http", "Client"),
 			Id("name").Op(",").Id("apiAddr").String(),
 		).Parens(List(
 			Op("*").Qual(
@@ -186,6 +191,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			).Index().Id(cc.PackageName).Dot(mc.TypeName),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("httpsClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s?name=%%s", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
@@ -267,6 +273,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(createFuncName).Params(
+			Id("httpsClient").Op("*").Qual("net/http", "Client"),
 			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
@@ -289,6 +296,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			)),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("httpsClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
@@ -342,6 +350,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(updateFuncName).Params(
+			Id("httpsClient").Op("*").Qual("net/http", "Client"),
 			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
@@ -371,6 +380,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			)),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("httpsClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
@@ -426,6 +436,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(deleteFuncName).Params(
+			Id("httpsClient").Op("*").Qual("net/http", "Client"),
 			Id("id").Uint(),
 			Id("apiAddr").String(),
 		).Parens(List(
@@ -441,6 +452,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("httpsClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),

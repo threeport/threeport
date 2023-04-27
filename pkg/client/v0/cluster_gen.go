@@ -14,10 +14,11 @@ import (
 
 // GetClusterDefinitions feteches all cluster definitions.
 // TODO: implement pagination
-func GetClusterDefinitions(apiAddr string) (*[]v0.ClusterDefinition, error) {
+func GetClusterDefinitions(httpsClient *http.Client, apiAddr string) (*[]v0.ClusterDefinition, error) {
 	var clusterDefinitions []v0.ClusterDefinition
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -42,10 +43,11 @@ func GetClusterDefinitions(apiAddr string) (*[]v0.ClusterDefinition, error) {
 }
 
 // GetClusterDefinitionByID feteches a cluster definition by ID.
-func GetClusterDefinitionByID(id uint, apiAddr string) (*v0.ClusterDefinition, error) {
+func GetClusterDefinitionByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.ClusterDefinition, error) {
 	var clusterDefinition v0.ClusterDefinition
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -70,10 +72,11 @@ func GetClusterDefinitionByID(id uint, apiAddr string) (*v0.ClusterDefinition, e
 }
 
 // GetClusterDefinitionByName feteches a cluster definition by name.
-func GetClusterDefinitionByName(name, apiAddr string) (*v0.ClusterDefinition, error) {
+func GetClusterDefinitionByName(httpsClient *http.Client, name, apiAddr string) (*v0.ClusterDefinition, error) {
 	var clusterDefinitions []v0.ClusterDefinition
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -105,13 +108,14 @@ func GetClusterDefinitionByName(name, apiAddr string) (*v0.ClusterDefinition, er
 }
 
 // CreateClusterDefinition creates a new cluster definition.
-func CreateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr string) (*v0.ClusterDefinition, error) {
+func CreateClusterDefinition(httpsClient *http.Client, clusterDefinition *v0.ClusterDefinition, apiAddr string) (*v0.ClusterDefinition, error) {
 	jsonClusterDefinition, err := client.MarshalObject(clusterDefinition)
 	if err != nil {
 		return clusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonClusterDefinition),
@@ -136,7 +140,7 @@ func CreateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr st
 }
 
 // UpdateClusterDefinition updates a cluster definition.
-func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr string) (*v0.ClusterDefinition, error) {
+func UpdateClusterDefinition(httpsClient *http.Client, clusterDefinition *v0.ClusterDefinition, apiAddr string) (*v0.ClusterDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	clusterDefinitionID := *clusterDefinition.ID
@@ -148,6 +152,7 @@ func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr st
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-definitions/%d", apiAddr, ApiVersion, clusterDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonClusterDefinition),
@@ -172,10 +177,11 @@ func UpdateClusterDefinition(clusterDefinition *v0.ClusterDefinition, apiAddr st
 }
 
 // DeleteClusterDefinition deletes a cluster definition by ID.
-func DeleteClusterDefinition(id uint, apiAddr string) (*v0.ClusterDefinition, error) {
+func DeleteClusterDefinition(httpsClient *http.Client, id uint, apiAddr string) (*v0.ClusterDefinition, error) {
 	var clusterDefinition v0.ClusterDefinition
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
@@ -201,10 +207,11 @@ func DeleteClusterDefinition(id uint, apiAddr string) (*v0.ClusterDefinition, er
 
 // GetClusterInstances feteches all cluster instances.
 // TODO: implement pagination
-func GetClusterInstances(apiAddr string) (*[]v0.ClusterInstance, error) {
+func GetClusterInstances(httpsClient *http.Client, apiAddr string) (*[]v0.ClusterInstance, error) {
 	var clusterInstances []v0.ClusterInstance
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -229,10 +236,11 @@ func GetClusterInstances(apiAddr string) (*[]v0.ClusterInstance, error) {
 }
 
 // GetClusterInstanceByID feteches a cluster instance by ID.
-func GetClusterInstanceByID(id uint, apiAddr string) (*v0.ClusterInstance, error) {
+func GetClusterInstanceByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.ClusterInstance, error) {
 	var clusterInstance v0.ClusterInstance
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -257,10 +265,11 @@ func GetClusterInstanceByID(id uint, apiAddr string) (*v0.ClusterInstance, error
 }
 
 // GetClusterInstanceByName feteches a cluster instance by name.
-func GetClusterInstanceByName(name, apiAddr string) (*v0.ClusterInstance, error) {
+func GetClusterInstanceByName(httpsClient *http.Client, name, apiAddr string) (*v0.ClusterInstance, error) {
 	var clusterInstances []v0.ClusterInstance
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -292,13 +301,14 @@ func GetClusterInstanceByName(name, apiAddr string) (*v0.ClusterInstance, error)
 }
 
 // CreateClusterInstance creates a new cluster instance.
-func CreateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr string) (*v0.ClusterInstance, error) {
+func CreateClusterInstance(httpsClient *http.Client, clusterInstance *v0.ClusterInstance, apiAddr string) (*v0.ClusterInstance, error) {
 	jsonClusterInstance, err := client.MarshalObject(clusterInstance)
 	if err != nil {
 		return clusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonClusterInstance),
@@ -323,7 +333,7 @@ func CreateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr string) 
 }
 
 // UpdateClusterInstance updates a cluster instance.
-func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr string) (*v0.ClusterInstance, error) {
+func UpdateClusterInstance(httpsClient *http.Client, clusterInstance *v0.ClusterInstance, apiAddr string) (*v0.ClusterInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	clusterInstanceID := *clusterInstance.ID
@@ -335,6 +345,7 @@ func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr string) 
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-instances/%d", apiAddr, ApiVersion, clusterInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonClusterInstance),
@@ -359,10 +370,11 @@ func UpdateClusterInstance(clusterInstance *v0.ClusterInstance, apiAddr string) 
 }
 
 // DeleteClusterInstance deletes a cluster instance by ID.
-func DeleteClusterInstance(id uint, apiAddr string) (*v0.ClusterInstance, error) {
+func DeleteClusterInstance(httpsClient *http.Client, id uint, apiAddr string) (*v0.ClusterInstance, error) {
 	var clusterInstance v0.ClusterInstance
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),

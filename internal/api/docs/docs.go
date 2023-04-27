@@ -7901,13 +7901,13 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "DomainNameDefinition",
+                "DomainNameInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
                 "Profile",
                 "Tier",
                 "NetworkIngressDefinition",
@@ -7919,21 +7919,21 @@ const docTemplate = `{
                 "LogStorageInstance",
                 "User",
                 "Company",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
-                "WorkloadResourceInstance"
+                "WorkloadResourceInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
                 "ObjectTypeNetworkIngressDefinition",
@@ -7945,12 +7945,12 @@ const docTemplate = `{
                 "ObjectTypeLogStorageInstance",
                 "ObjectTypeUser",
                 "ObjectTypeCompany",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance"
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance"
             ]
         },
         "v0.Profile": {

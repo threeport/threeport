@@ -14,10 +14,11 @@ import (
 
 // GetDomainNameDefinitions feteches all domain name definitions.
 // TODO: implement pagination
-func GetDomainNameDefinitions(apiAddr string) (*[]v0.DomainNameDefinition, error) {
+func GetDomainNameDefinitions(httpsClient *http.Client, apiAddr string) (*[]v0.DomainNameDefinition, error) {
 	var domainNameDefinitions []v0.DomainNameDefinition
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -42,10 +43,11 @@ func GetDomainNameDefinitions(apiAddr string) (*[]v0.DomainNameDefinition, error
 }
 
 // GetDomainNameDefinitionByID feteches a domain name definition by ID.
-func GetDomainNameDefinitionByID(id uint, apiAddr string) (*v0.DomainNameDefinition, error) {
+func GetDomainNameDefinitionByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinition v0.DomainNameDefinition
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -70,10 +72,11 @@ func GetDomainNameDefinitionByID(id uint, apiAddr string) (*v0.DomainNameDefinit
 }
 
 // GetDomainNameDefinitionByName feteches a domain name definition by name.
-func GetDomainNameDefinitionByName(name, apiAddr string) (*v0.DomainNameDefinition, error) {
+func GetDomainNameDefinitionByName(httpsClient *http.Client, name, apiAddr string) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinitions []v0.DomainNameDefinition
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -105,13 +108,14 @@ func GetDomainNameDefinitionByName(name, apiAddr string) (*v0.DomainNameDefiniti
 }
 
 // CreateDomainNameDefinition creates a new domain name definition.
-func CreateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, apiAddr string) (*v0.DomainNameDefinition, error) {
+func CreateDomainNameDefinition(httpsClient *http.Client, domainNameDefinition *v0.DomainNameDefinition, apiAddr string) (*v0.DomainNameDefinition, error) {
 	jsonDomainNameDefinition, err := client.MarshalObject(domainNameDefinition)
 	if err != nil {
 		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameDefinition),
@@ -136,7 +140,7 @@ func CreateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 }
 
 // UpdateDomainNameDefinition updates a domain name definition.
-func UpdateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, apiAddr string) (*v0.DomainNameDefinition, error) {
+func UpdateDomainNameDefinition(httpsClient *http.Client, domainNameDefinition *v0.DomainNameDefinition, apiAddr string) (*v0.DomainNameDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	domainNameDefinitionID := *domainNameDefinition.ID
@@ -148,6 +152,7 @@ func UpdateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, domainNameDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameDefinition),
@@ -172,10 +177,11 @@ func UpdateDomainNameDefinition(domainNameDefinition *v0.DomainNameDefinition, a
 }
 
 // DeleteDomainNameDefinition deletes a domain name definition by ID.
-func DeleteDomainNameDefinition(id uint, apiAddr string) (*v0.DomainNameDefinition, error) {
+func DeleteDomainNameDefinition(httpsClient *http.Client, id uint, apiAddr string) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinition v0.DomainNameDefinition
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
@@ -201,10 +207,11 @@ func DeleteDomainNameDefinition(id uint, apiAddr string) (*v0.DomainNameDefiniti
 
 // GetDomainNameInstances feteches all domain name instances.
 // TODO: implement pagination
-func GetDomainNameInstances(apiAddr string) (*[]v0.DomainNameInstance, error) {
+func GetDomainNameInstances(httpsClient *http.Client, apiAddr string) (*[]v0.DomainNameInstance, error) {
 	var domainNameInstances []v0.DomainNameInstance
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -229,10 +236,11 @@ func GetDomainNameInstances(apiAddr string) (*[]v0.DomainNameInstance, error) {
 }
 
 // GetDomainNameInstanceByID feteches a domain name instance by ID.
-func GetDomainNameInstanceByID(id uint, apiAddr string) (*v0.DomainNameInstance, error) {
+func GetDomainNameInstanceByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.DomainNameInstance, error) {
 	var domainNameInstance v0.DomainNameInstance
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -257,10 +265,11 @@ func GetDomainNameInstanceByID(id uint, apiAddr string) (*v0.DomainNameInstance,
 }
 
 // GetDomainNameInstanceByName feteches a domain name instance by name.
-func GetDomainNameInstanceByName(name, apiAddr string) (*v0.DomainNameInstance, error) {
+func GetDomainNameInstanceByName(httpsClient *http.Client, name, apiAddr string) (*v0.DomainNameInstance, error) {
 	var domainNameInstances []v0.DomainNameInstance
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -292,13 +301,14 @@ func GetDomainNameInstanceByName(name, apiAddr string) (*v0.DomainNameInstance, 
 }
 
 // CreateDomainNameInstance creates a new domain name instance.
-func CreateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr string) (*v0.DomainNameInstance, error) {
+func CreateDomainNameInstance(httpsClient *http.Client, domainNameInstance *v0.DomainNameInstance, apiAddr string) (*v0.DomainNameInstance, error) {
 	jsonDomainNameInstance, err := client.MarshalObject(domainNameInstance)
 	if err != nil {
 		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameInstance),
@@ -323,7 +333,7 @@ func CreateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 }
 
 // UpdateDomainNameInstance updates a domain name instance.
-func UpdateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr string) (*v0.DomainNameInstance, error) {
+func UpdateDomainNameInstance(httpsClient *http.Client, domainNameInstance *v0.DomainNameInstance, apiAddr string) (*v0.DomainNameInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	domainNameInstanceID := *domainNameInstance.ID
@@ -335,6 +345,7 @@ func UpdateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 	}
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, domainNameInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameInstance),
@@ -359,10 +370,11 @@ func UpdateDomainNameInstance(domainNameInstance *v0.DomainNameInstance, apiAddr
 }
 
 // DeleteDomainNameInstance deletes a domain name instance by ID.
-func DeleteDomainNameInstance(id uint, apiAddr string) (*v0.DomainNameInstance, error) {
+func DeleteDomainNameInstance(httpsClient *http.Client, id uint, apiAddr string) (*v0.DomainNameInstance, error) {
 	var domainNameInstance v0.DomainNameInstance
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),

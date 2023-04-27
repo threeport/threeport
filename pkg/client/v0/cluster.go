@@ -10,10 +10,11 @@ import (
 )
 
 // GetDefaultClusterInstance gets the default cluster instance.
-func GetDefaultClusterInstance(apiAddr string) (*v0.ClusterInstance, error) {
+func GetDefaultClusterInstance(httpsClient *http.Client, apiAddr string) (*v0.ClusterInstance, error) {
 	var clusterInstance v0.ClusterInstance
 
 	response, err := GetResponse(
+		httpsClient,
 		fmt.Sprintf("%s/%s/cluster-instances?defaultcluster=true", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
