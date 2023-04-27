@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/threeport/threeport/internal/cli"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
@@ -72,9 +73,15 @@ and workload instance based on the workload config or name.`,
 			}
 		}
 
+		httpsClient, err := client.GetHTTPSClient()
+		if err != nil {
+			fmt.Errorf("failed to create https client: %w", err)
+			os.Exit(1)
+		}
+
 		// delete workload
 		workload := workloadConfig.Workload
-		wd, wi, err := workload.Delete(apiEndpoint)
+		wd, wi, err := workload.Delete(httpsClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload", err)
 			os.Exit(1)

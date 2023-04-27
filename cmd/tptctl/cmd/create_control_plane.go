@@ -202,9 +202,16 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		httpsClient, err := client.GetHTTPSClient()
+		if err != nil {
+			fmt.Errorf("failed to create https client: %w", err)
+			os.Exit(1)
+		}
+
 		// wait for API server to start running
 		cli.Info("waiting for threeport API to start running")
 		if err := threeport.WaitForThreeportAPI(
+			httpsClient,
 			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
 		); err != nil {
 			// delete control plane cluster
@@ -224,6 +231,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			},
 		}
 		clusterDefResult, err := client.CreateClusterDefinition(
+			httpsClient,
 			&clusterDefinition,
 			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
 		)
@@ -240,6 +248,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		// create default compute space cluster instance in threeport API
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
 		_, err = client.CreateClusterInstance(
+			httpsClient,
 			&clusterInstance,
 			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
 		)

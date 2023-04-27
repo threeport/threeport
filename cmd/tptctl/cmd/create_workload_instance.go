@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/threeport/threeport/internal/cli"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
@@ -50,9 +51,15 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		httpsClient, err := client.GetHTTPSClient()
+		if err != nil {
+			fmt.Errorf("failed to create https client: %w", err)
+			os.Exit(1)
+		}
+
 		// create workload instance
 		workloadInstance := workloadInstanceConfig.WorkloadInstance
-		wi, err := workloadInstance.Create(apiEndpoint)
+		wi, err := workloadInstance.Create(httpsClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to create workload", err)
 			os.Exit(1)

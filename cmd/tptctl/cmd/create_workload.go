@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/threeport/threeport/internal/cli"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
@@ -51,9 +52,15 @@ and workload instance based on the workload config.`,
 			os.Exit(1)
 		}
 
+		httpsClient, err := client.GetHTTPSClient()
+		if err != nil {
+			fmt.Errorf("failed to create https client: %w", err)
+			os.Exit(1)
+		}
+
 		// create workload
 		workload := workloadConfig.Workload
-		wd, wi, err := workload.Create(apiEndpoint)
+		wd, wi, err := workload.Create(httpsClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to create workload", err)
 			os.Exit(1)

@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/threeport/threeport/internal/cli"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
@@ -71,9 +72,15 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 			}
 		}
 
+		httpsClient, err := client.GetHTTPSClient()
+		if err != nil {
+			fmt.Errorf("failed to create https client: %w", err)
+			os.Exit(1)
+		}
+
 		// delete workload instance
 		workloadInstance := workloadInstanceConfig.WorkloadInstance
-		wi, err := workloadInstance.Delete(apiEndpoint)
+		wi, err := workloadInstance.Delete(httpsClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload", err)
 			os.Exit(1)
