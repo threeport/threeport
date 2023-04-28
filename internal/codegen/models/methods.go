@@ -8,7 +8,7 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
-	"github.com/threeport/threeport/internal/codegen/name"
+	"github.com/threeport/threeport/internal/codegen"
 )
 
 // ModelConstantsMethods generates the constants and methods for each model.
@@ -112,7 +112,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 		f.Comment("controller when a change is made.  It includes the object as presented by the")
 		f.Comment("client when the change was made.")
 		f.Func().Params(
-			Id(name.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+			Id(codegen.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
 		).Id("NotificationPayload").Params(
 			Line().Id("operation").Qual(
 				"github.com/threeport/threeport/pkg/notifications",
@@ -132,7 +132,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 				Id("Operation"):        Id("operation"),
 				Id("Requeue"):          Id("requeue"),
 				Id("LastRequeueDelay"): Op("&").Id("lastDelay"),
-				Id("Object"):           Id(name.TypeAbbrev(mc.TypeName)),
+				Id("Object"):           Id(codegen.TypeAbbrev(mc.TypeName)),
 			}),
 			Line(),
 			List(
@@ -145,7 +145,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 					Op("&").Id("payload"),
 					Qual("fmt", "Errorf").Call(
 						Lit("failed to marshal notification payload %+v: %w"),
-						Id(name.TypeAbbrev(mc.TypeName)),
+						Id(codegen.TypeAbbrev(mc.TypeName)),
 						Err(),
 					),
 				)),
@@ -160,14 +160,14 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 		// GetID method
 		f.Comment("GetID returns the unique ID for the object.")
 		f.Func().Params(
-			Id(name.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+			Id(codegen.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
 		).Id("GetID").Params().Uint().Block(
-			Return(Op("*").Id(name.TypeAbbrev(mc.TypeName)).Dot("ID")),
+			Return(Op("*").Id(codegen.TypeAbbrev(mc.TypeName)).Dot("ID")),
 		)
 		// String method
 		f.Comment("String returns a string representation of the ojbect.")
 		f.Func().Params(
-			Id(name.TypeAbbrev(mc.TypeName)).Id(mc.TypeName),
+			Id(codegen.TypeAbbrev(mc.TypeName)).Id(mc.TypeName),
 		).Id("String").Params().String().Block(
 			Return(Qual(
 				"fmt", "Sprintf",
@@ -177,7 +177,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 	}
 
 	// write code to file
-	genFilename := fmt.Sprintf("%s_gen.go", name.FilenameSansExt(cc.ModelFilename))
+	genFilename := fmt.Sprintf("%s_gen.go", codegen.FilenameSansExt(cc.ModelFilename))
 	file, err := os.OpenFile(genFilename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed open file to write generated code for database models: %w", err)

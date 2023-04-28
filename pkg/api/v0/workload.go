@@ -1,4 +1,5 @@
 //go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate ../../../bin/threeport-codegen controller --filename $GOFILE
 package v0
 
 import (
@@ -9,6 +10,7 @@ const PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-set
 
 // WorkloadDefinition is the collection of Kubernetes manifests that define a
 // distinct workload.
+// +threeport-codegen:reconciler
 type WorkloadDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
@@ -46,6 +48,7 @@ type WorkloadResourceDefinition struct {
 	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"not null" validate:"required"`
 }
 
+// +threeport-codegen:reconciler
 // WorkloadInstance is a deployed instance of a workload.
 type WorkloadInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`

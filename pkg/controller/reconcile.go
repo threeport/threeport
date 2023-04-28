@@ -15,9 +15,21 @@ import (
 // ReconcilerConfig contains values needed to start new reconcilers in
 // controllers.
 type ReconcilerConfig struct {
-	Name                 string
-	ObjectType           v0.ObjectType
-	ReconcileFunc        func(r *Reconciler)
+	// The name to use for the reconciler.
+	Name string
+
+	// The object type the reconciler will manage.
+	ObjectType v0.ObjectType
+
+	// The function that will perform object reconciliation.
+	ReconcileFunc func(r *Reconciler)
+
+	// The maximum number of concurrent reconilation process to run.  This
+	// number should be tuned (programatically) to be higher for reconcilers
+	// that are called more often.  The tuning should be based on the length of
+	// queue in NATS with a cap at some reasonable number that will keep CPU
+	// consumption at a reasonable level for each individual controller.  The
+	// proportion of activity among reconcilers within a controller is the key.
 	ConcurrentReconciles int
 }
 

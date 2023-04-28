@@ -32,6 +32,7 @@ require (
 	gorm.io/gorm v1.24.5
 	k8s.io/apimachinery v0.26.2
 	k8s.io/client-go v0.26.2
+	sigs.k8s.io/controller-tools v0.11.4
 	sigs.k8s.io/kind v0.17.0
 )
 

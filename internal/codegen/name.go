@@ -1,4 +1,4 @@
-package name
+package codegen
 
 import (
 	"path/filepath"

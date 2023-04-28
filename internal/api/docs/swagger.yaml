@@ -516,56 +516,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - Profile
-    - Tier
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - AwsAccount
-    - AwsEksClusterDefinition
-    - AwsEksClusterInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
     - DomainNameDefinition
     - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
+    - ClusterDefinition
+    - ClusterInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     - User
     - Company
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
+    - AwsAccount
+    - AwsEksClusterDefinition
+    - AwsEksClusterInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - Profile
+    - Tier
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - ClusterDefinition
-    - ClusterInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksClusterDefinition
-    - ObjectTypeAwsEksClusterInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
     - ObjectTypeUser
     - ObjectTypeCompany
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksClusterDefinition
+    - ObjectTypeAwsEksClusterInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
   v0.Profile:
     properties:
       CompanyID:
@@ -741,6 +741,11 @@ definitions:
           WorkloadDefinitionID is the definition used to configure the workload
           instance.
         type: integer
+      WorkloadResourceInstances:
+        description: The associated workload resource definitions that are derived.
+        items:
+          $ref: '#/definitions/v0.WorkloadResourceInstance'
+        type: array
     required:
     - ClusterInstanceID
     - Name
@@ -762,6 +767,15 @@ definitions:
     type: object
   v0.WorkloadResourceInstance:
     properties:
+      JSONDefinition:
+        description: |-
+          The individual manifest in JSON format.  This field is a superset of
+          WorkloadResourceDefinition.JSONDefinition in that it has namespace
+          management and other configuration - such as resource allocation
+          management - added.
+        items:
+          type: integer
+        type: array
       Status:
         description: |-
           The Kubernetes status of the deployed resource.
@@ -776,6 +790,7 @@ definitions:
         description: The workload definition this resource belongs to.
         type: integer
     required:
+    - JSONDefinition
     - WorkloadInstanceID
     type: object
   version.RESTAPIVersion:
