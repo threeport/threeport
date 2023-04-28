@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -53,8 +54,23 @@ func TestWorkloadE2E(t *testing.T) {
 			YAMLDocument: &workloadDefYAML,
 		}
 
+		// determine if the API is serving HTTPS or HTTP
+		var authEnabled bool
+		resp, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+
+		// Check if the scheme is HTTPS
+		if resp.Request.URL.Scheme == "https" {
+			authEnabled = true
+		} else {
+			authEnabled = false
+		}
+
 		// configure http client for calls to threeport API
-		apiClient, err := client.GetHTTPClient(false)
+		apiClient, err := client.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)
