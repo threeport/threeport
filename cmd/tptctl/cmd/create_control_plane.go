@@ -211,7 +211,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		cli.Info("waiting for threeport API to start running")
 		if err := threeport.WaitForThreeportAPI(
 			apiClient,
-			fmt.Sprintf("%s", threeportAPIEndpoint),
+			fmt.Sprintf("%s:1323", threeportAPIEndpoint),
 		); err != nil {
 			// delete control plane cluster
 			if err := controlPlaneInfra.Delete(); err != nil {
