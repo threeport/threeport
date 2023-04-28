@@ -50,7 +50,7 @@ func main() {
 	flag.StringVar(&envFile, "env-file", "/etc/threeport/env", "File from which to load environment")
 	flag.BoolVar(&autoMigrate, "auto-migrate", false, "If true API server will auto migrate DB schema")
 	flag.BoolVar(&verbose, "verbose", false, "Write logs with v(1).InfoLevel and above")
-	flag.BoolVar(&authEnabled, "auth-enabled", true, "Enable client certificate authentication (default is true)")
+	flag.BoolVar(&authEnabled, "auth-enabled", true, "Enable client certificate authentication")
 	flag.Parse()
 
 	e := echo.New()
