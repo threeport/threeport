@@ -14,11 +14,11 @@ import (
 
 // GetProfiles feteches all profiles.
 // TODO: implement pagination
-func GetProfiles(httpsClient *http.Client, apiAddr string) (*[]v0.Profile, error) {
+func GetProfiles(apiClient *http.Client, apiAddr string) (*[]v0.Profile, error) {
 	var profiles []v0.Profile
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/profiles", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -43,11 +43,11 @@ func GetProfiles(httpsClient *http.Client, apiAddr string) (*[]v0.Profile, error
 }
 
 // GetProfileByID feteches a profile by ID.
-func GetProfileByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.Profile, error) {
+func GetProfileByID(apiClient *http.Client, id uint, apiAddr string) (*v0.Profile, error) {
 	var profile v0.Profile
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -72,11 +72,11 @@ func GetProfileByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.Prof
 }
 
 // GetProfileByName feteches a profile by name.
-func GetProfileByName(httpsClient *http.Client, name, apiAddr string) (*v0.Profile, error) {
+func GetProfileByName(apiClient *http.Client, name, apiAddr string) (*v0.Profile, error) {
 	var profiles []v0.Profile
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/profiles?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -108,14 +108,14 @@ func GetProfileByName(httpsClient *http.Client, name, apiAddr string) (*v0.Profi
 }
 
 // CreateProfile creates a new profile.
-func CreateProfile(httpsClient *http.Client, profile *v0.Profile, apiAddr string) (*v0.Profile, error) {
+func CreateProfile(apiClient *http.Client, profile *v0.Profile, apiAddr string) (*v0.Profile, error) {
 	jsonProfile, err := client.MarshalObject(profile)
 	if err != nil {
 		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/profiles", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonProfile),
@@ -140,7 +140,7 @@ func CreateProfile(httpsClient *http.Client, profile *v0.Profile, apiAddr string
 }
 
 // UpdateProfile updates a profile.
-func UpdateProfile(httpsClient *http.Client, profile *v0.Profile, apiAddr string) (*v0.Profile, error) {
+func UpdateProfile(apiClient *http.Client, profile *v0.Profile, apiAddr string) (*v0.Profile, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	profileID := *profile.ID
@@ -152,7 +152,7 @@ func UpdateProfile(httpsClient *http.Client, profile *v0.Profile, apiAddr string
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, profileID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonProfile),
@@ -177,11 +177,11 @@ func UpdateProfile(httpsClient *http.Client, profile *v0.Profile, apiAddr string
 }
 
 // DeleteProfile deletes a profile by ID.
-func DeleteProfile(httpsClient *http.Client, id uint, apiAddr string) (*v0.Profile, error) {
+func DeleteProfile(apiClient *http.Client, id uint, apiAddr string) (*v0.Profile, error) {
 	var profile v0.Profile
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
@@ -207,11 +207,11 @@ func DeleteProfile(httpsClient *http.Client, id uint, apiAddr string) (*v0.Profi
 
 // GetTiers feteches all tiers.
 // TODO: implement pagination
-func GetTiers(httpsClient *http.Client, apiAddr string) (*[]v0.Tier, error) {
+func GetTiers(apiClient *http.Client, apiAddr string) (*[]v0.Tier, error) {
 	var tiers []v0.Tier
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/tiers", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -236,11 +236,11 @@ func GetTiers(httpsClient *http.Client, apiAddr string) (*[]v0.Tier, error) {
 }
 
 // GetTierByID feteches a tier by ID.
-func GetTierByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.Tier, error) {
+func GetTierByID(apiClient *http.Client, id uint, apiAddr string) (*v0.Tier, error) {
 	var tier v0.Tier
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -265,11 +265,11 @@ func GetTierByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.Tier, e
 }
 
 // GetTierByName feteches a tier by name.
-func GetTierByName(httpsClient *http.Client, name, apiAddr string) (*v0.Tier, error) {
+func GetTierByName(apiClient *http.Client, name, apiAddr string) (*v0.Tier, error) {
 	var tiers []v0.Tier
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/tiers?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -301,14 +301,14 @@ func GetTierByName(httpsClient *http.Client, name, apiAddr string) (*v0.Tier, er
 }
 
 // CreateTier creates a new tier.
-func CreateTier(httpsClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Tier, error) {
+func CreateTier(apiClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Tier, error) {
 	jsonTier, err := client.MarshalObject(tier)
 	if err != nil {
 		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/tiers", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonTier),
@@ -333,7 +333,7 @@ func CreateTier(httpsClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Ti
 }
 
 // UpdateTier updates a tier.
-func UpdateTier(httpsClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Tier, error) {
+func UpdateTier(apiClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Tier, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	tierID := *tier.ID
@@ -345,7 +345,7 @@ func UpdateTier(httpsClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Ti
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, tierID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonTier),
@@ -370,11 +370,11 @@ func UpdateTier(httpsClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Ti
 }
 
 // DeleteTier deletes a tier by ID.
-func DeleteTier(httpsClient *http.Client, id uint, apiAddr string) (*v0.Tier, error) {
+func DeleteTier(apiClient *http.Client, id uint, apiAddr string) (*v0.Tier, error) {
 	var tier v0.Tier
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),

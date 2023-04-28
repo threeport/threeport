@@ -14,11 +14,11 @@ import (
 
 // GetNetworkIngressDefinitions feteches all network ingress definitions.
 // TODO: implement pagination
-func GetNetworkIngressDefinitions(httpsClient *http.Client, apiAddr string) (*[]v0.NetworkIngressDefinition, error) {
+func GetNetworkIngressDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinitions []v0.NetworkIngressDefinition
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -43,11 +43,11 @@ func GetNetworkIngressDefinitions(httpsClient *http.Client, apiAddr string) (*[]
 }
 
 // GetNetworkIngressDefinitionByID feteches a network ingress definition by ID.
-func GetNetworkIngressDefinitionByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.NetworkIngressDefinition, error) {
+func GetNetworkIngressDefinitionByID(apiClient *http.Client, id uint, apiAddr string) (*v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinition v0.NetworkIngressDefinition
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -72,11 +72,11 @@ func GetNetworkIngressDefinitionByID(httpsClient *http.Client, id uint, apiAddr 
 }
 
 // GetNetworkIngressDefinitionByName feteches a network ingress definition by name.
-func GetNetworkIngressDefinitionByName(httpsClient *http.Client, name, apiAddr string) (*v0.NetworkIngressDefinition, error) {
+func GetNetworkIngressDefinitionByName(apiClient *http.Client, name, apiAddr string) (*v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinitions []v0.NetworkIngressDefinition
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -108,14 +108,14 @@ func GetNetworkIngressDefinitionByName(httpsClient *http.Client, name, apiAddr s
 }
 
 // CreateNetworkIngressDefinition creates a new network ingress definition.
-func CreateNetworkIngressDefinition(httpsClient *http.Client, networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr string) (*v0.NetworkIngressDefinition, error) {
+func CreateNetworkIngressDefinition(apiClient *http.Client, networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr string) (*v0.NetworkIngressDefinition, error) {
 	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
 	if err != nil {
 		return networkIngressDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonNetworkIngressDefinition),
@@ -140,7 +140,7 @@ func CreateNetworkIngressDefinition(httpsClient *http.Client, networkIngressDefi
 }
 
 // UpdateNetworkIngressDefinition updates a network ingress definition.
-func UpdateNetworkIngressDefinition(httpsClient *http.Client, networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr string) (*v0.NetworkIngressDefinition, error) {
+func UpdateNetworkIngressDefinition(apiClient *http.Client, networkIngressDefinition *v0.NetworkIngressDefinition, apiAddr string) (*v0.NetworkIngressDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	networkIngressDefinitionID := *networkIngressDefinition.ID
@@ -152,7 +152,7 @@ func UpdateNetworkIngressDefinition(httpsClient *http.Client, networkIngressDefi
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, networkIngressDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonNetworkIngressDefinition),
@@ -177,11 +177,11 @@ func UpdateNetworkIngressDefinition(httpsClient *http.Client, networkIngressDefi
 }
 
 // DeleteNetworkIngressDefinition deletes a network ingress definition by ID.
-func DeleteNetworkIngressDefinition(httpsClient *http.Client, id uint, apiAddr string) (*v0.NetworkIngressDefinition, error) {
+func DeleteNetworkIngressDefinition(apiClient *http.Client, id uint, apiAddr string) (*v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinition v0.NetworkIngressDefinition
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
@@ -207,11 +207,11 @@ func DeleteNetworkIngressDefinition(httpsClient *http.Client, id uint, apiAddr s
 
 // GetNetworkIngressInstances feteches all network ingress instances.
 // TODO: implement pagination
-func GetNetworkIngressInstances(httpsClient *http.Client, apiAddr string) (*[]v0.NetworkIngressInstance, error) {
+func GetNetworkIngressInstances(apiClient *http.Client, apiAddr string) (*[]v0.NetworkIngressInstance, error) {
 	var networkIngressInstances []v0.NetworkIngressInstance
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -236,11 +236,11 @@ func GetNetworkIngressInstances(httpsClient *http.Client, apiAddr string) (*[]v0
 }
 
 // GetNetworkIngressInstanceByID feteches a network ingress instance by ID.
-func GetNetworkIngressInstanceByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.NetworkIngressInstance, error) {
+func GetNetworkIngressInstanceByID(apiClient *http.Client, id uint, apiAddr string) (*v0.NetworkIngressInstance, error) {
 	var networkIngressInstance v0.NetworkIngressInstance
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -265,11 +265,11 @@ func GetNetworkIngressInstanceByID(httpsClient *http.Client, id uint, apiAddr st
 }
 
 // GetNetworkIngressInstanceByName feteches a network ingress instance by name.
-func GetNetworkIngressInstanceByName(httpsClient *http.Client, name, apiAddr string) (*v0.NetworkIngressInstance, error) {
+func GetNetworkIngressInstanceByName(apiClient *http.Client, name, apiAddr string) (*v0.NetworkIngressInstance, error) {
 	var networkIngressInstances []v0.NetworkIngressInstance
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -301,14 +301,14 @@ func GetNetworkIngressInstanceByName(httpsClient *http.Client, name, apiAddr str
 }
 
 // CreateNetworkIngressInstance creates a new network ingress instance.
-func CreateNetworkIngressInstance(httpsClient *http.Client, networkIngressInstance *v0.NetworkIngressInstance, apiAddr string) (*v0.NetworkIngressInstance, error) {
+func CreateNetworkIngressInstance(apiClient *http.Client, networkIngressInstance *v0.NetworkIngressInstance, apiAddr string) (*v0.NetworkIngressInstance, error) {
 	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
 	if err != nil {
 		return networkIngressInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonNetworkIngressInstance),
@@ -333,7 +333,7 @@ func CreateNetworkIngressInstance(httpsClient *http.Client, networkIngressInstan
 }
 
 // UpdateNetworkIngressInstance updates a network ingress instance.
-func UpdateNetworkIngressInstance(httpsClient *http.Client, networkIngressInstance *v0.NetworkIngressInstance, apiAddr string) (*v0.NetworkIngressInstance, error) {
+func UpdateNetworkIngressInstance(apiClient *http.Client, networkIngressInstance *v0.NetworkIngressInstance, apiAddr string) (*v0.NetworkIngressInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	networkIngressInstanceID := *networkIngressInstance.ID
@@ -345,7 +345,7 @@ func UpdateNetworkIngressInstance(httpsClient *http.Client, networkIngressInstan
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, networkIngressInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonNetworkIngressInstance),
@@ -370,11 +370,11 @@ func UpdateNetworkIngressInstance(httpsClient *http.Client, networkIngressInstan
 }
 
 // DeleteNetworkIngressInstance deletes a network ingress instance by ID.
-func DeleteNetworkIngressInstance(httpsClient *http.Client, id uint, apiAddr string) (*v0.NetworkIngressInstance, error) {
+func DeleteNetworkIngressInstance(apiClient *http.Client, id uint, apiAddr string) (*v0.NetworkIngressInstance, error) {
 	var networkIngressInstance v0.NetworkIngressInstance
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/network-ingress-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),

@@ -31,6 +31,7 @@ var (
 	createProviderAccountID     string
 	createAdminEmail            string
 	forceOverwriteConfig        bool
+	authEnabled                 bool
 	infraProvider               string
 	kubeconfigPath              string
 	controlPlaneImageRepo       string
@@ -87,11 +88,9 @@ var CreateControlPlaneCmd = &cobra.Command{
 		// configure the infra provider
 		var controlPlaneInfra provider.ControlPlaneInfra
 		var threeportAPIEndpoint string
-		var threeportAPIProtocol string
 		switch controlPlane.InfraProvider {
 		case threeport.ControlPlaneInfraProviderKind:
 			threeportAPIEndpoint = threeport.ThreeportLocalAPIEndpoint
-			threeportAPIProtocol = threeport.ThreeportLocalAPIProtocol
 			// get kubeconfig to use for kind cluster
 			if kubeconfigPath == "" {
 				k, err := kube.DefaultKubeconfig()
@@ -202,7 +201,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		httpsClient, err := client.GetHTTPSClient()
+		apiClient, err := client.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)
@@ -211,8 +210,8 @@ var CreateControlPlaneCmd = &cobra.Command{
 		// wait for API server to start running
 		cli.Info("waiting for threeport API to start running")
 		if err := threeport.WaitForThreeportAPI(
-			httpsClient,
-			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
+			apiClient,
+			fmt.Sprintf("%s", threeportAPIEndpoint),
 		); err != nil {
 			// delete control plane cluster
 			if err := controlPlaneInfra.Delete(); err != nil {
@@ -231,9 +230,9 @@ var CreateControlPlaneCmd = &cobra.Command{
 			},
 		}
 		clusterDefResult, err := client.CreateClusterDefinition(
-			httpsClient,
+			apiClient,
 			&clusterDefinition,
-			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
+			fmt.Sprintf("%s", threeportAPIEndpoint),
 		)
 		if err != nil {
 			// delete control plane cluster
@@ -248,9 +247,9 @@ var CreateControlPlaneCmd = &cobra.Command{
 		// create default compute space cluster instance in threeport API
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
 		_, err = client.CreateClusterInstance(
-			httpsClient,
+			apiClient,
 			&clusterInstance,
-			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
+			fmt.Sprintf("%s", threeportAPIEndpoint),
 		)
 		if err != nil {
 			// delete control plane cluster
@@ -266,7 +265,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		newThreeportInstance := &config.Instance{
 			Name:       createThreeportInstanceName,
 			Provider:   infraProvider,
-			APIServer:  fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
+			APIServer:  fmt.Sprintf("%s", threeportAPIEndpoint),
 			Kubeconfig: kubeconfigPath,
 		}
 
@@ -313,6 +312,10 @@ func init() {
 	CreateControlPlaneCmd.Flags().BoolVar(
 		&forceOverwriteConfig,
 		"force-overwrite-config", false, "Force the overwrite of an existing Threeport instance config.  Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.",
+	)
+	CreateControlPlaneCmd.Flags().BoolVar(
+		&authEnabled,
+		"auth-enabled", true, "Enable client certificate authentication (default is true)",
 	)
 	CreateControlPlaneCmd.Flags().StringVarP(
 		&createProviderAccountID,

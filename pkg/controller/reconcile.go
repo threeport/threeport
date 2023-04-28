@@ -36,8 +36,8 @@ type Reconciler struct {
 	// format: [protocol]://[hostname]:[port]
 	APIServer string
 
-	// httpsClient is the HTTP client used to make requests to the Threeport API
-	HTTPSClient *http.Client
+	// apiClient is the HTTP client used to make requests to the Threeport API
+	APIClient *http.Client
 
 	// JetStreamContext is the context for the NATS persistence layer.
 	JetStreamContext nats.JetStreamContext

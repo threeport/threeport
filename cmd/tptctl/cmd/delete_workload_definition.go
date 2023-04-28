@@ -72,7 +72,7 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 			}
 		}
 
-		httpsClient, err := client.GetHTTPSClient()
+		apiClient, err := client.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)
@@ -80,7 +80,7 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 
 		// delete workload definition
 		workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-		wd, err := workloadDefinition.Delete(httpsClient, apiEndpoint)
+		wd, err := workloadDefinition.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload definition", err)
 			os.Exit(1)

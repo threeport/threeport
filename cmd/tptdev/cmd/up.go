@@ -25,6 +25,7 @@ var (
 	createThreeportDevName string
 	createKubeconfig       string
 	threeportPath          string
+	authEnabled            bool
 )
 
 // upCmd represents the up command
@@ -201,8 +202,8 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load certificates to authenticate via TLS conneection
-		httpsClient, err := client.GetHTTPSClient()
+		// configure http client for calls to threeport API
+		apiClient, err := client.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)
@@ -211,7 +212,7 @@ var upCmd = &cobra.Command{
 		// wait for API server to start running
 		cli.Info("waiting for threeport API to start running")
 		if err := threeport.WaitForThreeportAPI(
-			httpsClient, fmt.Sprintf("https://%s:1323", threeport.ThreeportLocalAPIEndpoint),
+			apiClient, fmt.Sprintf("%s:1323", threeport.ThreeportLocalAPIEndpoint),
 		); err != nil {
 			cli.Error("threeport API did not come up", err)
 			os.Exit(1)
@@ -253,9 +254,9 @@ var upCmd = &cobra.Command{
 			},
 		}
 		clusterDefResult, err := client.CreateClusterDefinition(
-			httpsClient,
+			apiClient,
 			&clusterDefinition,
-			fmt.Sprintf("%s://%s:%s", threeport.ThreeportLocalAPIProtocol, threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
+			fmt.Sprintf("%s:%s", threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
 		)
 		if err != nil {
 			cli.Error("failed to create new cluster definition for default compute space", err)
@@ -265,9 +266,9 @@ var upCmd = &cobra.Command{
 		// create default compute space cluster instance in threeport API
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
 		_, err = client.CreateClusterInstance(
-			httpsClient,
+			apiClient,
 			&clusterInstance,
-			fmt.Sprintf("%s://%s:%s", threeport.ThreeportLocalAPIProtocol, threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
+			fmt.Sprintf("%s:%s", threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
 		)
 		if err != nil {
 			cli.Error("failed to create new cluster instance for default compute space", err)
@@ -291,4 +292,8 @@ func init() {
 		"kubeconfig", "k", "", "path to kubeconfig - default is ~/.kube/config")
 	upCmd.Flags().StringVarP(&threeportPath,
 		"threeport-path", "t", "", "path to threeport repository root - default is ./")
+	upCmd.Flags().BoolVar(
+		&authEnabled,
+		"auth-enabled", false, "Enable client certificate authentication (default is false)",
+	)
 }

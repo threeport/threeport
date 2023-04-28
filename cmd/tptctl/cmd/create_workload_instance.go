@@ -51,7 +51,7 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		httpsClient, err := client.GetHTTPSClient()
+		apiClient, err := client.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)
@@ -59,7 +59,7 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 
 		// create workload instance
 		workloadInstance := workloadInstanceConfig.WorkloadInstance
-		wi, err := workloadInstance.Create(httpsClient, apiEndpoint)
+		wi, err := workloadInstance.Create(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to create workload", err)
 			os.Exit(1)

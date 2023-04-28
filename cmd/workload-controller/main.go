@@ -46,6 +46,7 @@ func main() {
 	var shutdownPort = flag.String("shutdown-port", "8181", "Port to listen for shutdown calls")
 	var verbose = flag.Bool("verbose", false, "Write logs with v(1).InfoLevel and above")
 	var help = flag.Bool("help", false, "Show help info")
+	var authEnabled = flag.Bool("auth-enabled", true, "Enable client certificate authentication (default is true)")
 	flag.Parse()
 
 	if *help {
@@ -130,10 +131,10 @@ func main() {
 	var shutdownChans []chan bool
 	var shutdownWait sync.WaitGroup
 
-	// load certificates to authenticate via TLS conneection
-	httpsClient, err := client.GetHTTPSClient()
+	// configure http client for calls to threeport API
+	apiClient, err := client.GetHTTPClient(*authEnabled)
 	if err != nil {
-		fmt.Errorf("failed to create https client: %w", err)
+		fmt.Errorf("failed to create http client: %w", err)
 		os.Exit(1)
 	}
 
@@ -189,7 +190,7 @@ func main() {
 			Name:             r.Name,
 			ObjectType:       r.ObjectType,
 			APIServer:        *apiServer,
-			HTTPSClient:      httpsClient,
+			APIClient:        apiClient,
 			JetStreamContext: js,
 			Sub:              sub,
 			KeyValue:         kv,

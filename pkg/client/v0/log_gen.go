@@ -14,11 +14,11 @@ import (
 
 // GetLogBackends feteches all log backends.
 // TODO: implement pagination
-func GetLogBackends(httpsClient *http.Client, apiAddr string) (*[]v0.LogBackend, error) {
+func GetLogBackends(apiClient *http.Client, apiAddr string) (*[]v0.LogBackend, error) {
 	var logBackends []v0.LogBackend
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-backends", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -43,11 +43,11 @@ func GetLogBackends(httpsClient *http.Client, apiAddr string) (*[]v0.LogBackend,
 }
 
 // GetLogBackendByID feteches a log backend by ID.
-func GetLogBackendByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.LogBackend, error) {
+func GetLogBackendByID(apiClient *http.Client, id uint, apiAddr string) (*v0.LogBackend, error) {
 	var logBackend v0.LogBackend
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -72,11 +72,11 @@ func GetLogBackendByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.L
 }
 
 // GetLogBackendByName feteches a log backend by name.
-func GetLogBackendByName(httpsClient *http.Client, name, apiAddr string) (*v0.LogBackend, error) {
+func GetLogBackendByName(apiClient *http.Client, name, apiAddr string) (*v0.LogBackend, error) {
 	var logBackends []v0.LogBackend
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-backends?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -108,14 +108,14 @@ func GetLogBackendByName(httpsClient *http.Client, name, apiAddr string) (*v0.Lo
 }
 
 // CreateLogBackend creates a new log backend.
-func CreateLogBackend(httpsClient *http.Client, logBackend *v0.LogBackend, apiAddr string) (*v0.LogBackend, error) {
+func CreateLogBackend(apiClient *http.Client, logBackend *v0.LogBackend, apiAddr string) (*v0.LogBackend, error) {
 	jsonLogBackend, err := client.MarshalObject(logBackend)
 	if err != nil {
 		return logBackend, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-backends", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonLogBackend),
@@ -140,7 +140,7 @@ func CreateLogBackend(httpsClient *http.Client, logBackend *v0.LogBackend, apiAd
 }
 
 // UpdateLogBackend updates a log backend.
-func UpdateLogBackend(httpsClient *http.Client, logBackend *v0.LogBackend, apiAddr string) (*v0.LogBackend, error) {
+func UpdateLogBackend(apiClient *http.Client, logBackend *v0.LogBackend, apiAddr string) (*v0.LogBackend, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	logBackendID := *logBackend.ID
@@ -152,7 +152,7 @@ func UpdateLogBackend(httpsClient *http.Client, logBackend *v0.LogBackend, apiAd
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, logBackendID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogBackend),
@@ -177,11 +177,11 @@ func UpdateLogBackend(httpsClient *http.Client, logBackend *v0.LogBackend, apiAd
 }
 
 // DeleteLogBackend deletes a log backend by ID.
-func DeleteLogBackend(httpsClient *http.Client, id uint, apiAddr string) (*v0.LogBackend, error) {
+func DeleteLogBackend(apiClient *http.Client, id uint, apiAddr string) (*v0.LogBackend, error) {
 	var logBackend v0.LogBackend
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
@@ -207,11 +207,11 @@ func DeleteLogBackend(httpsClient *http.Client, id uint, apiAddr string) (*v0.Lo
 
 // GetLogStorageDefinitions feteches all log storage definitions.
 // TODO: implement pagination
-func GetLogStorageDefinitions(httpsClient *http.Client, apiAddr string) (*[]v0.LogStorageDefinition, error) {
+func GetLogStorageDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.LogStorageDefinition, error) {
 	var logStorageDefinitions []v0.LogStorageDefinition
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -236,11 +236,11 @@ func GetLogStorageDefinitions(httpsClient *http.Client, apiAddr string) (*[]v0.L
 }
 
 // GetLogStorageDefinitionByID feteches a log storage definition by ID.
-func GetLogStorageDefinitionByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.LogStorageDefinition, error) {
+func GetLogStorageDefinitionByID(apiClient *http.Client, id uint, apiAddr string) (*v0.LogStorageDefinition, error) {
 	var logStorageDefinition v0.LogStorageDefinition
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -265,11 +265,11 @@ func GetLogStorageDefinitionByID(httpsClient *http.Client, id uint, apiAddr stri
 }
 
 // GetLogStorageDefinitionByName feteches a log storage definition by name.
-func GetLogStorageDefinitionByName(httpsClient *http.Client, name, apiAddr string) (*v0.LogStorageDefinition, error) {
+func GetLogStorageDefinitionByName(apiClient *http.Client, name, apiAddr string) (*v0.LogStorageDefinition, error) {
 	var logStorageDefinitions []v0.LogStorageDefinition
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -301,14 +301,14 @@ func GetLogStorageDefinitionByName(httpsClient *http.Client, name, apiAddr strin
 }
 
 // CreateLogStorageDefinition creates a new log storage definition.
-func CreateLogStorageDefinition(httpsClient *http.Client, logStorageDefinition *v0.LogStorageDefinition, apiAddr string) (*v0.LogStorageDefinition, error) {
+func CreateLogStorageDefinition(apiClient *http.Client, logStorageDefinition *v0.LogStorageDefinition, apiAddr string) (*v0.LogStorageDefinition, error) {
 	jsonLogStorageDefinition, err := client.MarshalObject(logStorageDefinition)
 	if err != nil {
 		return logStorageDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonLogStorageDefinition),
@@ -333,7 +333,7 @@ func CreateLogStorageDefinition(httpsClient *http.Client, logStorageDefinition *
 }
 
 // UpdateLogStorageDefinition updates a log storage definition.
-func UpdateLogStorageDefinition(httpsClient *http.Client, logStorageDefinition *v0.LogStorageDefinition, apiAddr string) (*v0.LogStorageDefinition, error) {
+func UpdateLogStorageDefinition(apiClient *http.Client, logStorageDefinition *v0.LogStorageDefinition, apiAddr string) (*v0.LogStorageDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	logStorageDefinitionID := *logStorageDefinition.ID
@@ -345,7 +345,7 @@ func UpdateLogStorageDefinition(httpsClient *http.Client, logStorageDefinition *
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, logStorageDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogStorageDefinition),
@@ -370,11 +370,11 @@ func UpdateLogStorageDefinition(httpsClient *http.Client, logStorageDefinition *
 }
 
 // DeleteLogStorageDefinition deletes a log storage definition by ID.
-func DeleteLogStorageDefinition(httpsClient *http.Client, id uint, apiAddr string) (*v0.LogStorageDefinition, error) {
+func DeleteLogStorageDefinition(apiClient *http.Client, id uint, apiAddr string) (*v0.LogStorageDefinition, error) {
 	var logStorageDefinition v0.LogStorageDefinition
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
@@ -400,11 +400,11 @@ func DeleteLogStorageDefinition(httpsClient *http.Client, id uint, apiAddr strin
 
 // GetLogStorageInstances feteches all log storage instances.
 // TODO: implement pagination
-func GetLogStorageInstances(httpsClient *http.Client, apiAddr string) (*[]v0.LogStorageInstance, error) {
+func GetLogStorageInstances(apiClient *http.Client, apiAddr string) (*[]v0.LogStorageInstance, error) {
 	var logStorageInstances []v0.LogStorageInstance
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -429,11 +429,11 @@ func GetLogStorageInstances(httpsClient *http.Client, apiAddr string) (*[]v0.Log
 }
 
 // GetLogStorageInstanceByID feteches a log storage instance by ID.
-func GetLogStorageInstanceByID(httpsClient *http.Client, id uint, apiAddr string) (*v0.LogStorageInstance, error) {
+func GetLogStorageInstanceByID(apiClient *http.Client, id uint, apiAddr string) (*v0.LogStorageInstance, error) {
 	var logStorageInstance v0.LogStorageInstance
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -458,11 +458,11 @@ func GetLogStorageInstanceByID(httpsClient *http.Client, id uint, apiAddr string
 }
 
 // GetLogStorageInstanceByName feteches a log storage instance by name.
-func GetLogStorageInstanceByName(httpsClient *http.Client, name, apiAddr string) (*v0.LogStorageInstance, error) {
+func GetLogStorageInstanceByName(apiClient *http.Client, name, apiAddr string) (*v0.LogStorageInstance, error) {
 	var logStorageInstances []v0.LogStorageInstance
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -494,14 +494,14 @@ func GetLogStorageInstanceByName(httpsClient *http.Client, name, apiAddr string)
 }
 
 // CreateLogStorageInstance creates a new log storage instance.
-func CreateLogStorageInstance(httpsClient *http.Client, logStorageInstance *v0.LogStorageInstance, apiAddr string) (*v0.LogStorageInstance, error) {
+func CreateLogStorageInstance(apiClient *http.Client, logStorageInstance *v0.LogStorageInstance, apiAddr string) (*v0.LogStorageInstance, error) {
 	jsonLogStorageInstance, err := client.MarshalObject(logStorageInstance)
 	if err != nil {
 		return logStorageInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonLogStorageInstance),
@@ -526,7 +526,7 @@ func CreateLogStorageInstance(httpsClient *http.Client, logStorageInstance *v0.L
 }
 
 // UpdateLogStorageInstance updates a log storage instance.
-func UpdateLogStorageInstance(httpsClient *http.Client, logStorageInstance *v0.LogStorageInstance, apiAddr string) (*v0.LogStorageInstance, error) {
+func UpdateLogStorageInstance(apiClient *http.Client, logStorageInstance *v0.LogStorageInstance, apiAddr string) (*v0.LogStorageInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	logStorageInstanceID := *logStorageInstance.ID
@@ -538,7 +538,7 @@ func UpdateLogStorageInstance(httpsClient *http.Client, logStorageInstance *v0.L
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, logStorageInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogStorageInstance),
@@ -563,11 +563,11 @@ func UpdateLogStorageInstance(httpsClient *http.Client, logStorageInstance *v0.L
 }
 
 // DeleteLogStorageInstance deletes a log storage instance by ID.
-func DeleteLogStorageInstance(httpsClient *http.Client, id uint, apiAddr string) (*v0.LogStorageInstance, error) {
+func DeleteLogStorageInstance(apiClient *http.Client, id uint, apiAddr string) (*v0.LogStorageInstance, error) {
 	var logStorageInstance v0.LogStorageInstance
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),

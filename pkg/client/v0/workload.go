@@ -13,7 +13,7 @@ import (
 // CreateWorkloadResourceDefinitions creates a new set of workload resource
 // definitions.
 func CreateWorkloadResourceDefinitions(
-	httpsClient *http.Client,
+	apiClient *http.Client,
 	workloadResourceDefinitions *[]v0.WorkloadResourceDefinition,
 	apiAddr string,
 ) (*[]v0.WorkloadResourceDefinition, error) {
@@ -23,7 +23,7 @@ func CreateWorkloadResourceDefinitions(
 	}
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceDefinitionSets),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadResourceDefinitions),
@@ -49,11 +49,11 @@ func CreateWorkloadResourceDefinitions(
 
 // GetWorkloadResourceDefinitionsById fetches workload resource definitions
 // by workload definition ID
-func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(httpsClient *http.Client, id uint, apiAddr string) (*[]v0.WorkloadResourceDefinition, error) {
+func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(apiClient *http.Client, id uint, apiAddr string) (*[]v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s%s?workloaddefinitionid=%d", apiAddr, v0.PathWorkloadResourceDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -79,11 +79,11 @@ func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(httpsClient *http.Clie
 
 // GetWorkloadInstancesByWorkloadDefinitionID fetches a workload resource definition
 // by workload definition ID
-func GetWorkloadInstancesByWorkloadDefinitionID(httpsClient *http.Client, id uint, apiAddr string) (*[]v0.WorkloadInstance, error) {
+func GetWorkloadInstancesByWorkloadDefinitionID(apiClient *http.Client, id uint, apiAddr string) (*[]v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s%s?workloaddefinitionid=%d", apiAddr, v0.PathWorkloadInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
@@ -109,11 +109,11 @@ func GetWorkloadInstancesByWorkloadDefinitionID(httpsClient *http.Client, id uin
 
 // GetWorkloadResourceInstancesByWorkloadInstanceID fetches a workload resource definition
 // by workload definition ID
-func GetWorkloadResourceInstancesByWorkloadInstanceID(httpsClient *http.Client, id uint, apiAddr string) (*[]v0.WorkloadResourceInstance, error) {
+func GetWorkloadResourceInstancesByWorkloadInstanceID(apiClient *http.Client, id uint, apiAddr string) (*[]v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 
 	response, err := GetResponse(
-		httpsClient,
+		apiClient,
 		fmt.Sprintf("%s%s?workloadinstanceid=%d", apiAddr, v0.PathWorkloadResourceInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),

@@ -29,7 +29,6 @@ const (
 	ThreeportWorkloadControllerImage = "threeport-workload-controller"
 	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
 	ThreeportLocalAPIEndpoint        = "localhost"
-	ThreeportLocalAPIProtocol        = "https"
 	ThreeportLocalAPIPort            = "1323"
 )
 
@@ -242,7 +241,7 @@ NATS_PORT=4222
 								"ports": []interface{}{
 									map[string]interface{}{
 										"containerPort": 1323,
-										"name":          "https",
+										"name":          "api",
 										"protocol":      "TCP",
 									},
 								},
@@ -315,7 +314,7 @@ func InstallThreeportControllers(
 			},
 			"type": "Opaque",
 			"stringData": map[string]interface{}{
-				"API_SERVER":      "https://threeport-api-server:1323",
+				"API_SERVER":      "threeport-api-server:1323",
 				"MSG_BROKER_HOST": "nats-js",
 				"MSG_BROKER_PORT": "4222",
 			},
@@ -414,20 +413,21 @@ func InstallThreeportControllers(
 }
 
 // WaitForThreeportAPI waits for the threeport API to respond to a request.
-func WaitForThreeportAPI(httpsClient *http.Client, apiEndpoint string) error {
+func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
 	attempts := 0
 	maxAttempts := 30
 	waitSeconds := 10
 	apiReady := false
 	for attempts < maxAttempts {
 		_, err := v0.GetResponse(
-			httpsClient,
+			apiClient,
 			fmt.Sprintf("%s/version", apiEndpoint),
 			http.MethodGet,
 			new(bytes.Buffer),
 			http.StatusOK,
 		)
 		if err != nil {
+			fmt.Println(err)
 			time.Sleep(time.Second * time.Duration(waitSeconds))
 			attempts += 1
 			continue

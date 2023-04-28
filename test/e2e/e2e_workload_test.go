@@ -53,15 +53,15 @@ func TestWorkloadE2E(t *testing.T) {
 			YAMLDocument: &workloadDefYAML,
 		}
 
-		// load certificates to authenticate via TLS conneection
-		httpsClient, err := client.GetHTTPSClient()
+		// configure http client for calls to threeport API
+		apiClient, err := client.GetHTTPClient(false)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)
 		}
 
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
-			httpsClient,
+			apiClient,
 			&workloadDef,
 			apiAddr(),
 		)
@@ -85,7 +85,7 @@ func TestWorkloadE2E(t *testing.T) {
 		var existingWorkloadDef *v0.WorkloadDefinition
 		for workloadDefChecks < workloadDefMaxChecks && !reconciled {
 			existingWorkloadDef, err = client.GetWorkloadDefinitionByID(
-				httpsClient,
+				apiClient,
 				*createdWorkloadDef.ID,
 				apiAddr(),
 			)
@@ -101,7 +101,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// check workload resource definitions
 		workloadResourceDefs, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
-			httpsClient,
+			apiClient,
 			*createdWorkloadDef.ID,
 			apiAddr(),
 		)
@@ -125,7 +125,7 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 
 		// check cluster instance
-		clusterInsts, err := client.GetClusterInstances(httpsClient, apiAddr())
+		clusterInsts, err := client.GetClusterInstances(apiClient, apiAddr())
 		assert.Nil(err, "should have no error getting workload resource definitions")
 		var testClusterInst v0.ClusterInstance
 		if assert.NotNil(clusterInsts, "should have an array of cluster instances returned") {
@@ -148,7 +148,7 @@ func TestWorkloadE2E(t *testing.T) {
 			WorkloadDefinitionID: createdWorkloadDef.ID,
 		}
 		createdWorkloadInst, err := client.CreateWorkloadInstance(
-			httpsClient,
+			apiClient,
 			&workloadInst,
 			apiAddr(),
 		)
@@ -157,7 +157,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// get the cluster instance from the threeport API so we can connect to it
 		clusterInstance, err := client.GetClusterInstanceByID(
-			httpsClient,
+			apiClient,
 			*testClusterInst.ID,
 			apiAddr(),
 		)
@@ -226,7 +226,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// attempt deleting workload definition - should fail with instance still in
 		// place
 		_, err = client.DeleteWorkloadDefinition(
-			httpsClient,
+			apiClient,
 			*createdWorkloadDef.ID,
 			apiAddr(),
 		)
@@ -234,7 +234,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// delete workload instance
 		deletedWorkloadInst, err := client.DeleteWorkloadInstance(
-			httpsClient,
+			apiClient,
 			*createdWorkloadInst.ID,
 			apiAddr(),
 		)
@@ -242,7 +242,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// make sure there are zero workload instances in system
 		workloadInsts, err := client.GetWorkloadInstances(
-			httpsClient,
+			apiClient,
 			apiAddr(),
 		)
 		assert.Nil(err, "should have no errors geting all workload instances")
@@ -292,7 +292,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// delete workload definition
 		deletedWorkloadDef, err := client.DeleteWorkloadDefinition(
-			httpsClient,
+			apiClient,
 			*createdWorkloadDef.ID,
 			apiAddr(),
 		)
@@ -300,7 +300,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// make sure the workload definition is gone
 		workloadDefs, err := client.GetWorkloadDefinitions(
-			httpsClient,
+			apiClient,
 			apiAddr(),
 		)
 		assert.Nil(err, "should have no errors geting all workload definitions")
@@ -315,8 +315,7 @@ func TestWorkloadE2E(t *testing.T) {
 // apiAddr returns the address of a local instance of threeport API.
 func apiAddr() string {
 	return fmt.Sprintf(
-		"%s://%s:%s",
-		threeport.ThreeportLocalAPIProtocol,
+		"%s:%s",
 		threeport.ThreeportLocalAPIEndpoint,
 		threeport.ThreeportLocalAPIPort,
 	)

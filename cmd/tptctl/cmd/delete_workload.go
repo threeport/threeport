@@ -73,7 +73,7 @@ and workload instance based on the workload config or name.`,
 			}
 		}
 
-		httpsClient, err := client.GetHTTPSClient()
+		apiClient, err := client.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)
@@ -81,7 +81,7 @@ and workload instance based on the workload config or name.`,
 
 		// delete workload
 		workload := workloadConfig.Workload
-		wd, wi, err := workload.Delete(httpsClient, apiEndpoint)
+		wd, wi, err := workload.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload", err)
 			os.Exit(1)

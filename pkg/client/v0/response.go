@@ -26,6 +26,22 @@ func GetResponse(
 	expectedStatusCode int,
 ) (*v0.Response, error) {
 
+	urlScheme := "http://"
+
+	// check if TLS is configured
+	tlsConfigured := false
+	if transport, ok := client.Transport.(*http.Transport); ok {
+		if transport.TLSClientConfig != nil {
+			tlsConfigured = true
+		}
+	}
+
+	// update url if TLS is configured
+	if tlsConfigured {
+		urlScheme = "https://"
+	}
+	url = urlScheme + url
+
 	req, err := http.NewRequest(httpMethod, url, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request to threeport API: %w", err)
@@ -78,7 +94,12 @@ func GetResponse(
 }
 
 // loads certificates from ~/.threeport or /etc/threeport
-func GetHTTPSClient() (*http.Client, error) {
+func GetHTTPClient(authEnabled bool) (*http.Client, error) {
+
+	if !authEnabled {
+		return &http.Client{}, nil
+	}
+
 	homeDir, _ := os.UserHomeDir()
 	var certFile, keyFile, caFile string
 
@@ -122,11 +143,11 @@ func GetHTTPSClient() (*http.Client, error) {
 		RootCAs:      caCertPool,
 	}
 
-	httpsClient := &http.Client{
+	apiClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: tlsConfig,
 		},
 	}
 
-	return httpsClient, nil
+	return apiClient, nil
 }

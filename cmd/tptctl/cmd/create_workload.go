@@ -52,7 +52,7 @@ and workload instance based on the workload config.`,
 			os.Exit(1)
 		}
 
-		httpsClient, err := client.GetHTTPSClient()
+		apiClient, err := client.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)
@@ -60,7 +60,7 @@ and workload instance based on the workload config.`,
 
 		// create workload
 		workload := workloadConfig.Workload
-		wd, wi, err := workload.Create(httpsClient, apiEndpoint)
+		wd, wi, err := workload.Create(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to create workload", err)
 			os.Exit(1)

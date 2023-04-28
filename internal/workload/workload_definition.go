@@ -101,7 +101,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			// retrieve latest version of object if requeued
 			if notif.Requeue {
 				latestWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
-					r.HTTPSClient,
+					r.APIClient,
 					*workloadDefinition.ID,
 					r.APIServer,
 				)
@@ -158,7 +158,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				Reconciled: &wdReconciled,
 			}
 			updatedWD, err := client.UpdateWorkloadDefinition(
-				r.HTTPSClient,
+				r.APIClient,
 				&reconciledWD,
 				r.APIServer,
 			)
@@ -247,7 +247,7 @@ func workloadDefinitionCreated(
 
 	// create workload resource definitions in API
 	wrds, err := client.CreateWorkloadResourceDefinitions(
-		r.HTTPSClient,
+		r.APIClient,
 		&workloadResourceDefinitions,
 		r.APIServer,
 	)
@@ -266,7 +266,7 @@ func workloadDefinitionDeleted(
 ) error {
 	// get related workload resource definitions
 	workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
-		r.HTTPSClient,
+		r.APIClient,
 		*workloadDefinition.ID,
 		r.APIServer,
 	)
@@ -276,7 +276,7 @@ func workloadDefinitionDeleted(
 
 	// delete each related workload resource definition
 	for _, wrd := range *workloadResourceDefinitions {
-		_, err := client.DeleteWorkloadResourceDefinition(r.HTTPSClient, *wrd.ID, r.APIServer)
+		_, err := client.DeleteWorkloadResourceDefinition(r.APIClient, *wrd.ID, r.APIServer)
 		if err != nil {
 			return fmt.Errorf("failed to delete workload resource definition with ID %d: %w", wrd.ID, err)
 		}
