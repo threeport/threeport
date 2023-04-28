@@ -16,7 +16,6 @@ import (
 	uuid "github.com/google/uuid"
 	flag "github.com/namsral/flag"
 	natsgo "github.com/nats-io/nats.go"
-	clientInternal "github.com/threeport/threeport/internal/client"
 	version "github.com/threeport/threeport/internal/version"
 	workload "github.com/threeport/threeport/internal/workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
