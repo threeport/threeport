@@ -516,10 +516,21 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - ClusterDefinition
+    - ClusterInstance
     - NetworkIngressDefinition
     - NetworkIngressInstance
     - User
     - Company
+    - DomainNameDefinition
+    - DomainNameInstance
+    - AwsAccount
+    - AwsEksClusterDefinition
+    - AwsEksClusterInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
@@ -527,25 +538,25 @@ definitions:
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - ClusterDefinition
-    - ClusterInstance
     - Profile
     - Tier
-    - AwsAccount
-    - AwsEksClusterDefinition
-    - AwsEksClusterInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - DomainNameDefinition
-    - DomainNameInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeNetworkIngressDefinition
     - ObjectTypeNetworkIngressInstance
     - ObjectTypeUser
     - ObjectTypeCompany
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksClusterDefinition
+    - ObjectTypeAwsEksClusterInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
@@ -553,19 +564,8 @@ definitions:
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksClusterDefinition
-    - ObjectTypeAwsEksClusterInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       CompanyID:
