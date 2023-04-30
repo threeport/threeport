@@ -76,11 +76,14 @@ controllers each time 'make generate' is called.`,
 
 		// generate the controller's main package
 		if err := controllerConfig.MainPackage(); err != nil {
-			fmt.Errorf("failed to generate code for controller's main package: %w", err)
+			return fmt.Errorf("failed to generate code for controller's main package: %w", err)
 		}
 
-		//fmt.Println("#########################################")
-		//fmt.Printf("%+v\n", controllerConfig)
+		// generate the controller's reconcile functions
+		if err := controllerConfig.Reconcilers(); err != nil {
+			return fmt.Errorf("failed to generate code for controller's reconcilers: %w", err)
+		}
+
 		return nil
 
 	},

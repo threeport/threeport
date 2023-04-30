@@ -395,7 +395,7 @@ func (cc *ControllerConfig) MainPackage() error {
 	)
 
 	// write code to file
-	genFilename := fmt.Sprintf("main_gen.go")
+	genFilename := "main_gen.go"
 	genFilepath := filepath.Join(controllerMainPackagePath(cc.Name), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {

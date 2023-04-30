@@ -66,6 +66,9 @@ type WorkloadInstance struct {
 
 	// The associated workload resource definitions that are derived.
 	WorkloadResourceInstances []*WorkloadResourceInstance `json:"WorkloadResourceInstances,omitempty" validate:"optional,association"`
+
+	// Indicates if object is considered to be reconciled by workload controller.
+	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
 // WorkloadResourceInstance is a Kubernetes resource instance.
