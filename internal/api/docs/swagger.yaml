@@ -526,56 +526,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - DomainNameDefinition
-    - DomainNameInstance
-    - User
-    - Company
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - Profile
-    - Tier
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - Profile
+    - Tier
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
+    - User
+    - Company
+    - ClusterDefinition
+    - ClusterInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
   v0.Profile:
     properties:
       CompanyID:
