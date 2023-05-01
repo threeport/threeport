@@ -56,17 +56,12 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// determine if the API is serving HTTPS or HTTP
 		var authEnabled bool
-		resp, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
+		_, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
 		if err != nil {
-			fmt.Println("Error:", err)
-			return
-		}
-
-		// Check if the scheme is HTTPS
-		if resp.Request.URL.Scheme == "https" {
-			authEnabled = true
-		} else {
+			assert.ErrorContains(err, "server gave HTTP response to HTTPS client")
 			authEnabled = false
+		} else {
+			authEnabled = true
 		}
 
 		// configure http client for calls to threeport API
@@ -78,8 +73,8 @@ func TestWorkloadE2E(t *testing.T) {
 
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			apiClient,
-			&workloadDef,
 			apiAddr(),
+			&workloadDef,
 		)
 		assert.Nil(err, "should have no error creating workload definition")
 
@@ -102,8 +97,8 @@ func TestWorkloadE2E(t *testing.T) {
 		for workloadDefChecks < workloadDefMaxChecks && !reconciled {
 			existingWorkloadDef, err = client.GetWorkloadDefinitionByID(
 				apiClient,
-				*createdWorkloadDef.ID,
 				apiAddr(),
+				*createdWorkloadDef.ID,
 			)
 			assert.Nil(err, "should have no error getting workload definition by ID")
 			if *existingWorkloadDef.Reconciled {
@@ -165,8 +160,8 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 		createdWorkloadInst, err := client.CreateWorkloadInstance(
 			apiClient,
-			&workloadInst,
 			apiAddr(),
+			&workloadInst,
 		)
 		assert.Nil(err, "should have no error creating workload instance")
 		assert.NotNil(createdWorkloadInst, "should have a workload instance returned")
@@ -174,8 +169,8 @@ func TestWorkloadE2E(t *testing.T) {
 		// get the cluster instance from the threeport API so we can connect to it
 		clusterInstance, err := client.GetClusterInstanceByID(
 			apiClient,
-			*testClusterInst.ID,
 			apiAddr(),
+			*testClusterInst.ID,
 		)
 		assert.Nil(err, "should have no error getting cluster instance")
 		assert.NotNil(clusterInstance, "should have a cluster instance returned")
@@ -243,16 +238,16 @@ func TestWorkloadE2E(t *testing.T) {
 		// place
 		_, err = client.DeleteWorkloadDefinition(
 			apiClient,
-			*createdWorkloadDef.ID,
 			apiAddr(),
+			*createdWorkloadDef.ID,
 		)
 		assert.NotNil(err, "should have an error returned when trying to delete workload definition with workload instance still in place")
 
 		// delete workload instance
 		deletedWorkloadInst, err := client.DeleteWorkloadInstance(
 			apiClient,
-			*createdWorkloadInst.ID,
 			apiAddr(),
+			*createdWorkloadInst.ID,
 		)
 		assert.Nil(err, "should have no error deleting workload instance")
 
@@ -309,8 +304,8 @@ func TestWorkloadE2E(t *testing.T) {
 		// delete workload definition
 		deletedWorkloadDef, err := client.DeleteWorkloadDefinition(
 			apiClient,
-			*createdWorkloadDef.ID,
 			apiAddr(),
+			*createdWorkloadDef.ID,
 		)
 		assert.Nil(err, "should have no error deleting workload definition")
 
