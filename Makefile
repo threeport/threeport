@@ -26,11 +26,11 @@ test-commit:
 
 #build-tptdev: @ Build tptdev binary
 build-tptdev:
-	go build -a -o bin/tptdev cmd/tptdev/main.go
+	go build -o bin/tptdev cmd/tptdev/main.go
 
 #build-tptctl: @ Build tptctl binary
 build-tptctl:
-	go build -a -o bin/tptctl cmd/tptctl/main.go
+	go build -o bin/tptctl cmd/tptctl/main.go
 
 release:
 ifndef RELEASE_VERSION

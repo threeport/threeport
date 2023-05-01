@@ -1,16 +1,14 @@
 FROM golang:1.19-alpine
 
+RUN go install github.com/cosmtrek/air@latest
+
 RUN mkdir /threeport
-ADD . /threeport
 WORKDIR /threeport
 
-RUN apk add --no-cache --update \
-    build-base
-RUN go install github.com/cosmtrek/air@latest
-RUN go mod download
+# "go install" is not needed here because we mount source code from host
 
 CMD ["air", \
     "-c", "/threeport/cmd/rest-api/image/air.toml", \
-    "-build.cmd", "go build -a -o bin/threeport-rest-api cmd/rest-api/main.go", \
+    "-build.cmd", "go build -o bin/threeport-rest-api cmd/rest-api/main.go", \
     "-build.bin", "./bin/threeport-rest-api"]
 
