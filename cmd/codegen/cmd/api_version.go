@@ -40,7 +40,6 @@ for all the models in the supplied version/s.  The generated code includes:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var globalVersionConf versions.GlobalVersionConfig
 		// assemble all route mapping and DB init function names
-		//var allRouteFuncs []string
 		for _, version := range args {
 			versionConf := versions.VersionConfig{VersionName: version}
 			var routeNames []string

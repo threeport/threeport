@@ -13,8 +13,8 @@ import (
 	"github.com/iancoleman/strcase"
 	"github.com/spf13/cobra"
 
+	"github.com/threeport/threeport/internal/codegen"
 	"github.com/threeport/threeport/internal/codegen/models"
-	"github.com/threeport/threeport/internal/codegen/name"
 )
 
 var (
@@ -94,8 +94,8 @@ When 'make generate' is run, the following code is generated for API:
 			ModelFilename:         filename,
 			PackageName:           packageName,
 			ParsedModelFile:       *pf,
-			ControllerDomain:      strcase.ToCamel(name.FilenameSansExt(filename)),
-			ControllerDomainLower: strcase.ToLowerCamel(name.FilenameSansExt(filename)),
+			ControllerDomain:      strcase.ToCamel(codegen.FilenameSansExt(filename)),
+			ControllerDomainLower: strcase.ToLowerCamel(codegen.FilenameSansExt(filename)),
 			ModelConfigs:          modelConfigs,
 		}
 

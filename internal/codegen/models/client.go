@@ -9,7 +9,7 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
-	"github.com/threeport/threeport/internal/codegen/name"
+	"github.com/threeport/threeport/internal/codegen"
 )
 
 const (
@@ -494,7 +494,7 @@ func (cc *ControllerConfig) ClientLib() error {
 	}
 
 	// write code to file
-	genFilename := fmt.Sprintf("%s_gen.go", name.FilenameSansExt(cc.ModelFilename))
+	genFilename := fmt.Sprintf("%s_gen.go", codegen.FilenameSansExt(cc.ModelFilename))
 	genFilepath := filepath.Join(clientLibPath(cc.PackageName), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
