@@ -35,6 +35,7 @@ var (
 	infraProvider               string
 	kubeconfigPath              string
 	controlPlaneImageRepo       string
+	threeportLocalAPIPort       int
 )
 
 // CreateControlPlaneCmd represents the create threeport command
@@ -105,7 +106,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 				KubeconfigPath:        kubeconfigPath,
 			}
 			devEnvironment := false
-			kindConfig := controlPlaneInfraKind.GetKindConfig(devEnvironment)
+			kindConfig := controlPlaneInfraKind.GetKindConfig(devEnvironment, threeportLocalAPIPort)
 			controlPlaneInfraKind.KindConfig = kindConfig
 			controlPlaneInfra = &controlPlaneInfraKind
 		}
@@ -333,6 +334,8 @@ func init() {
 		&controlPlaneImageRepo,
 		"control-plane-image-repo", "i", "", "Alternate image repo to pull threeport control plane images from.",
 	)
+	CreateControlPlaneCmd.Flags().IntVar(&threeportLocalAPIPort,
+		"threeport-api-port", 1323, "Local port to bind threeport APIServer to. Only applies to kind provider. (default is 1323)")
 }
 
 // validateCreateControlPlaneFlags validates flag inputs as needed

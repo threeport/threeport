@@ -26,6 +26,7 @@ var (
 	createKubeconfig       string
 	threeportPath          string
 	authEnabled            bool
+	threeportLocalAPIPort  int
 )
 
 // upCmd represents the up command
@@ -63,7 +64,7 @@ var upCmd = &cobra.Command{
 			ThreeportPath:         threeportPath,
 		}
 		devEnvironment := true
-		kindConfig := controlPlaneInfra.GetKindConfig(devEnvironment)
+		kindConfig := controlPlaneInfra.GetKindConfig(devEnvironment, threeportLocalAPIPort)
 		controlPlaneInfra.KindConfig = kindConfig
 		kubeConnectionInfo, err := controlPlaneInfra.Create()
 		if err != nil {
@@ -296,4 +297,6 @@ func init() {
 		&authEnabled,
 		"auth-enabled", false, "Enable client certificate authentication (default is false)",
 	)
+	upCmd.Flags().IntVar(&threeportLocalAPIPort,
+		"threeport-api-port", 1323, "local port to bind threeport APIServer to - default is 1323")
 }

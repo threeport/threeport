@@ -60,7 +60,7 @@ func (i *ControlPlaneInfraKind) Delete() error {
 }
 
 // GetKindConfig returns a kind config for users of threeport.
-func (i *ControlPlaneInfraKind) GetKindConfig(devEnvironment bool) *v1alpha4.Cluster {
+func (i *ControlPlaneInfraKind) GetKindConfig(devEnvironment bool, threeportLocalAPIPort int) *v1alpha4.Cluster {
 	clusterConfig := v1alpha4.Cluster{
 		Nodes: []v1alpha4.Node{
 			{
@@ -75,7 +75,7 @@ nodeRegistration:
 				ExtraPortMappings: []v1alpha4.PortMapping{
 					{
 						ContainerPort: int32(30000),
-						HostPort:      int32(1323),
+						HostPort:      int32(threeportLocalAPIPort),
 						Protocol:      v1alpha4.PortMappingProtocolTCP,
 					},
 				},
