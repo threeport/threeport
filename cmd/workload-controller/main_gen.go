@@ -19,7 +19,7 @@ import (
 	version "github.com/threeport/threeport/internal/version"
 	workload "github.com/threeport/threeport/internal/workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client/v0"
+	v01 "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller"
 	zap "go.uber.org/zap"
 )
@@ -121,7 +121,7 @@ func main() {
 	var shutdownChans []chan bool
 	var shutdownWait sync.WaitGroup
 	// configure http client for calls to threeport API
-	apiClient, err := client.GetHTTPClient(*authEnabled)
+	apiClient, err := v01.GetHTTPClient(*authEnabled)
 	if err != nil {
 		log.Error(err, "failed to create http client")
 		os.Exit(1)

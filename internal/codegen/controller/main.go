@@ -267,7 +267,7 @@ func (cc *ControllerConfig) MainPackage() error {
 		Comment("configure http client for calls to threeport API"),
 		List(
 			Id("apiClient"), Id("err"),
-		).Op(":=").Id("client").Dot("GetHTTPClient").Call(Op("*").Id("authEnabled")),
+		).Op(":=").Qual("github.com/threeport/threeport/pkg/client/v0", "GetHTTPClient").Call(Op("*").Id("authEnabled")),
 		If(Err().Op("!=").Nil()).Block(
 			Id("log").Dot("Error").Call(
 				Err(),
