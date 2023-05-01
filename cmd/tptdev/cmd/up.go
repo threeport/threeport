@@ -23,6 +23,7 @@ var (
 	createThreeportDevName string
 	createKubeconfig       string
 	threeportPath          string
+	numWorkerNodes         int
 )
 
 // upCmd represents the up command
@@ -60,7 +61,7 @@ var upCmd = &cobra.Command{
 			ThreeportPath:         threeportPath,
 		}
 		devEnvironment := true
-		kindConfig := controlPlaneInfra.GetKindConfig(devEnvironment)
+		kindConfig := controlPlaneInfra.GetKindConfig(devEnvironment, numWorkerNodes)
 		controlPlaneInfra.KindConfig = kindConfig
 		kubeConnectionInfo, err := controlPlaneInfra.Create()
 		if err != nil {
@@ -164,6 +165,7 @@ var upCmd = &cobra.Command{
 
 		// create default compute space cluster instance in threeport API
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
+
 		_, err = client.CreateClusterInstance(
 			&clusterInstance,
 			fmt.Sprintf("http://%s", threeport.ThreeportLocalAPIEndpoint),
@@ -191,4 +193,6 @@ func init() {
 		"kubeconfig", "k", "", "path to kubeconfig - default is ~/.kube/config")
 	upCmd.Flags().StringVarP(&threeportPath,
 		"threeport-path", "t", "", "path to threeport repository root - default is ./")
+	upCmd.Flags().IntVar(&numWorkerNodes,
+		"num-worker-nodes", 0, "number of additional worker nodes to deploy - default is 0")
 }
