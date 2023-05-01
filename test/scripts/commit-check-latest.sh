@@ -2,7 +2,7 @@
 
 COMMIT_MSG=`git log -n 1 --pretty=format:"%s"`
 
-if [[ ! "$COMMIT_MSG" =~ ^((build|chore|ci|dev|docs|feat|fix|perf|refactor|release|revert|style|test|¯\\_\(ツ\)_\/¯)(\(\w+\))?(!)?(: (.*\s*)*))|(Merge (.*\s*)*)|(Initial commit$) ]]; then
+if [[ ! "$COMMIT_MSG" =~ ^((build|chore|chore\(deps\)|ci|dev|docs|feat|fix|perf|refactor|release|revert|style|test|¯\\_\(ツ\)_\/¯)(\(\w+\))?(!)?(: (.*\s*)*))|(Merge (.*\s*)*)|(Initial commit$) ]]; then
     echo "commit message check failed:"
     echo
     echo "${COMMIT_MSG}"

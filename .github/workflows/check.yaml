@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Check Latest Commit Message
         run: make test-commit
@@ -27,7 +27,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Get PR Commits
         id: get-pr-commits
@@ -51,7 +51,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Check Pull Request Title
         uses: deepakputhraya/action-pr-title@master
