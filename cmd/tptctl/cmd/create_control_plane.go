@@ -33,6 +33,7 @@ var (
 	infraProvider               string
 	kubeconfigPath              string
 	controlPlaneImageRepo       string
+	numWorkerNodes              int
 )
 
 // CreateControlPlaneCmd represents the create threeport command
@@ -105,7 +106,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 				KubeconfigPath:        kubeconfigPath,
 			}
 			devEnvironment := false
-			kindConfig := controlPlaneInfraKind.GetKindConfig(devEnvironment)
+			kindConfig := controlPlaneInfraKind.GetKindConfig(devEnvironment, numWorkerNodes)
 			controlPlaneInfraKind.KindConfig = kindConfig
 			controlPlaneInfra = &controlPlaneInfraKind
 		}
@@ -304,6 +305,8 @@ func init() {
 		&controlPlaneImageRepo,
 		"control-plane-image-repo", "i", "", "Alternate image repo to pull threeport control plane images from.",
 	)
+	CreateControlPlaneCmd.Flags().IntVar(&numWorkerNodes,
+		"num-worker-nodes", 0, "Number of additional worker nodes to deploy. Only applies to kind provider. (default is 0)")
 }
 
 // validateCreateControlPlaneFlags validates flag inputs as needed
