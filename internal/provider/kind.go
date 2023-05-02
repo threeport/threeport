@@ -75,7 +75,7 @@ nodeRegistration:
 				ExtraPortMappings: []v1alpha4.PortMapping{
 					{
 						ContainerPort: int32(30000),
-						HostPort:      int32(threeportLocalAPIPort),
+						HostPort:      int32(1323),
 						Protocol:      v1alpha4.PortMappingProtocolTCP,
 					},
 				},
