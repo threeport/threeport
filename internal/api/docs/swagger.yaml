@@ -516,56 +516,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - DomainNameDefinition
+    - DomainNameInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - ClusterDefinition
+    - ClusterInstance
+    - User
+    - Company
+    - Profile
+    - Tier
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
     - NetworkIngressDefinition
     - NetworkIngressInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - User
-    - Company
-    - Profile
-    - Tier
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
     - ObjectTypeNetworkIngressDefinition
     - ObjectTypeNetworkIngressInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
   v0.Profile:
     properties:
       CompanyID:

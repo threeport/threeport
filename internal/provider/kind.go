@@ -85,6 +85,12 @@ nodeRegistration:
 						HostPath:      i.ThreeportPath,
 					},
 				},
+				ExtraMounts: []v1alpha4.Mount{
+					{
+						ContainerPath: "/threeport",
+						HostPath:      i.ThreeportPath,
+					},
+				},
 			},
 		},
 	}
