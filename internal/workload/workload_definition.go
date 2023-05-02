@@ -76,6 +76,7 @@ func workloadDefinitionCreated(
 
 	// create workload resource definitions in API
 	createdWRDs, err := client.CreateWorkloadResourceDefinitions(
+		r.APIClient,
 		&workloadResourceDefinitions,
 		r.APIServer,
 	)
