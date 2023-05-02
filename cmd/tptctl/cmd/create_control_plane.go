@@ -71,9 +71,11 @@ var CreateControlPlaneCmd = &cobra.Command{
 		// configure the infra provider
 		var controlPlaneInfra provider.ControlPlaneInfra
 		var threeportAPIEndpoint string
+		var threeportAPIPort string
 		switch controlPlane.InfraProvider {
 		case threeport.ControlPlaneInfraProviderKind:
 			threeportAPIEndpoint = threeport.ThreeportLocalAPIEndpoint
+			threeportAPIPort = threeport.ThreeportLocalAPIPort
 			// get kubeconfig to use for kind cluster
 			if kubeconfigPath == "" {
 				k, err := kube.DefaultKubeconfig()
@@ -98,7 +100,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		newThreeportInstance := &config.Instance{
 			Name:       createThreeportInstanceName,
 			Provider:   infraProvider,
-			APIServer:  fmt.Sprintf("%s", threeportAPIEndpoint),
+			APIServer:  fmt.Sprintf("%s:%s", threeportAPIEndpoint, threeportAPIPort),
 			Kubeconfig: kubeconfigPath,
 		}
 
@@ -223,7 +225,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		}
 		clusterDefResult, err := client.CreateClusterDefinition(
 			apiClient,
-			fmt.Sprintf("%s", threeportAPIEndpoint),
+			fmt.Sprintf("%s:%s", threeportAPIEndpoint, threeportAPIPort),
 			&clusterDefinition,
 		)
 		if err != nil {
@@ -240,7 +242,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
 		_, err = client.CreateClusterInstance(
 			apiClient,
-			fmt.Sprintf("%s", threeportAPIEndpoint),
+			fmt.Sprintf("%s:%s", threeportAPIEndpoint, threeportAPIPort),
 			&clusterInstance,
 		)
 		if err != nil {
