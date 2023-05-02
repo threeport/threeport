@@ -249,49 +249,36 @@ func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 	_, errConfigDirectory := os.Stat(filepath.Join(homeDir, ".config/threeport"))
 	_, errThreeportCert := os.Stat("/etc/threeport/cert")
 	_, errThreeportCA := os.Stat("/etc/threeport/ca")
-	// var caFile []byte
-	var caCert string
+
+	var rootCA string
 	var cert tls.Certificate
 
 	if errConfigDirectory == nil {
 
+		// load certificates from ~/.threeport
 		threeportConfig := GetThreeportConfig()
-		// config.InitConfig("", "")
-		var err error
-		var clientCertificate string
-		var clientPrivateKey string
-		caCert, clientCertificate, clientPrivateKey, err = threeportConfig.GetThreeportCertificates()
-		certFile := []byte(clientCertificate)
-		keyFile := []byte(clientPrivateKey)
+		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)
 			os.Exit(1)
 		}
 
 		// load client certificate and private key
-		cert, err = tls.X509KeyPair(certFile, keyFile)
+		cert, err = tls.X509KeyPair([]byte(clientCertificate), []byte(clientPrivateKey))
 		if err != nil {
 			return nil, err
 		}
 
 		// load root certificate authority
-		// caCert, err = ioutil.ReadFile(caFile)
 		if err != nil {
 			return nil, err
 		}
 
-		// // create certificate pool and add certificate authority
-		// caCertPool := x509.NewCertPool()
-		// caCertPool.AppendCertsFromPEM(caFile)
-
-		// // create tls config required by http client
-		// tlsConfig = &tls.Config{
-		// 	Certificates: []tls.Certificate{cert},
-		// 	RootCAs:      caCertPool,
-		// }
+		rootCA = ca
 
 	} else if errThreeportCert == nil && errThreeportCA == nil {
-		// Use certificates from /etc/threeport directory
+
+		// Load cfrom /etc/threeport directory
 		certFile := "/etc/threeport/cert/tls.crt"
 		keyFile := "/etc/threeport/cert/tls.key"
 		caFilePath := "/etc/threeport/ca/tls.crt"
@@ -309,14 +296,14 @@ func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 			return nil, err
 		}
 
-		caCert = string(caCertBytes)
+		rootCA = string(caCertBytes)
 	} else {
 		return nil, errors.New("could not find certificate files")
 	}
 
 	// create certificate pool and add certificate authority
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(caCert))
+	caCertPool.AppendCertsFromPEM([]byte(rootCA))
 
 	// create tls config required by http client
 	tlsConfig = &tls.Config{
