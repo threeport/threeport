@@ -33,8 +33,8 @@ func workloadInstanceCreated(
 	// use workload definition ID to get workload resource definitions
 	workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
 		r.APIClient,
-		*workloadInstance.WorkloadDefinitionID,
 		r.APIServer,
+		*workloadInstance.WorkloadDefinitionID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource definitions by workload definition ID: %w", err)
@@ -161,8 +161,8 @@ func workloadInstanceDeleted(
 	// get workload resource instances
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
 		r.APIClient,
-		*workloadInstance.ID,
 		r.APIServer,
+		*workloadInstance.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)

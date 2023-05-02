@@ -114,8 +114,8 @@ func TestWorkloadE2E(t *testing.T) {
 		// check workload resource definitions
 		workloadResourceDefs, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
 			apiClient,
-			*createdWorkloadDef.ID,
 			apiAddr(),
+			*createdWorkloadDef.ID,
 		)
 		assert.Nil(err, "should have no error getting workload resource definitions")
 

@@ -49,7 +49,7 @@ func CreateWorkloadResourceDefinitions(
 
 // GetWorkloadResourceDefinitionsById fetches workload resource definitions
 // by workload definition ID
-func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(apiClient *http.Client, id uint, apiAddr string) (*[]v0.WorkloadResourceDefinition, error) {
+func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 	response, err := GetResponse(
@@ -79,7 +79,7 @@ func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(apiClient *http.Client
 
 // GetWorkloadInstancesByWorkloadDefinitionID fetches a workload resource definition
 // by workload definition ID
-func GetWorkloadInstancesByWorkloadDefinitionID(apiClient *http.Client, id uint, apiAddr string) (*[]v0.WorkloadInstance, error) {
+func GetWorkloadInstancesByWorkloadDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
 
 	response, err := GetResponse(
@@ -109,7 +109,7 @@ func GetWorkloadInstancesByWorkloadDefinitionID(apiClient *http.Client, id uint,
 
 // GetWorkloadResourceInstancesByWorkloadInstanceID fetches a workload resource definition
 // by workload definition ID
-func GetWorkloadResourceInstancesByWorkloadInstanceID(apiClient *http.Client, id uint, apiAddr string) (*[]v0.WorkloadResourceInstance, error) {
+func GetWorkloadResourceInstancesByWorkloadInstanceID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 
 	response, err := GetResponse(

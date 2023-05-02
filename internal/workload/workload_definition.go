@@ -104,8 +104,8 @@ func workloadDefinitionDeleted(
 	// get related workload resource definitions
 	workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
 		r.APIClient,
-		*workloadDefinition.ID,
 		r.APIServer,
+		*workloadDefinition.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource definitions by workload definition ID: %w", err)
