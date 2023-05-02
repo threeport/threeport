@@ -218,6 +218,24 @@ func UpdateThreeportConfig(threeportInstanceConfigExists bool, threeportConfig *
 	viper.WriteConfig()
 }
 
+func DeleteThreeportConfigInstance(threeportConfig *ThreeportConfig, deleteThreeportInstanceName string) {
+
+	// update threeport config to remove the deleted threeport instance and
+	// current instance
+	updatedInstances := []Instance{}
+	for _, instance := range threeportConfig.Instances {
+		if instance.Name == deleteThreeportInstanceName {
+			continue
+		} else {
+			updatedInstances = append(updatedInstances, instance)
+		}
+	}
+
+	viper.Set("Instances", updatedInstances)
+	viper.Set("CurrentInstance", "")
+	viper.WriteConfig()
+}
+
 // loads certificates from ~/.threeport or /etc/threeport
 func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 

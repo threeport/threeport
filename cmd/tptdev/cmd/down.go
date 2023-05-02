@@ -13,6 +13,7 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/tptdev"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 var (
@@ -45,6 +46,8 @@ var downCmd = &cobra.Command{
 			cli.Error("failed to delete control plane infra", err)
 		}
 
+		threeportConfig := config.GetThreeportConfig()
+		config.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportDevName)
 		cli.Complete(fmt.Sprintf("threeport dev instance %s deleted", deleteThreeportDevName))
 	},
 }
