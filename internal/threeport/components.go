@@ -2,22 +2,17 @@ package threeport
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"errors"
 	"fmt"
-	"math/big"
-	"net"
 	"net/http"
-	"net/url"
+	"os"
 	"time"
 
+	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/client/v0"
+	config "github.com/threeport/threeport/pkg/config/v0"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -48,10 +43,7 @@ func InstallThreeportControlPlaneComponents(
 	devEnvironment bool,
 	apiHostname string,
 	customThreeportImageRepo string,
-	caCert string,
-	caPrivateKey string,
-	serverCert string,
-	serverPrivateKey string,
+	authConfig *config.AuthConfig,
 ) error {
 	// install the API
 	if err := InstallThreeportAPI(
@@ -60,10 +52,7 @@ func InstallThreeportControlPlaneComponents(
 		devEnvironment,
 		apiHostname,
 		customThreeportImageRepo,
-		caCert,
-		caPrivateKey,
-		serverCert,
-		serverPrivateKey,
+		authConfig,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport API server: %w", err)
 	}
@@ -74,9 +63,7 @@ func InstallThreeportControlPlaneComponents(
 		mapper,
 		devEnvironment,
 		customThreeportImageRepo,
-		caCert,
-		serverCert,
-		serverPrivateKey,
+		authConfig,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport controllers: %w", err)
 	}
@@ -92,15 +79,60 @@ func InstallThreeportAPI(
 	devEnvironment bool,
 	apiHostname string,
 	customThreeportImageRepo string,
-	caCert string,
-	caPrivateKey string,
-	serverCert string,
-	serverPrivateKey string,
+	authConfig *config.AuthConfig,
 ) error {
 	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo)
 	apiArgs := getAPIArgs(devEnvironment)
 	apiVols, apiVolMounts := getAPIVolumes(devEnvironment)
 	// apiPort := getAPIPort(devEnvironment)
+
+	if authConfig != nil {
+		// generate server certificate
+		serverCertificate, serverPrivateKey, err := config.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		if err != nil {
+			cli.Error("failed to generate server certificate and private key", err)
+			fmt.Errorf("failed to generate random serial number: %w", err)
+			os.Exit(1)
+		}
+
+		var tlsApiCA = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Secret",
+				"type":       "kubernetes.io/tls",
+				"metadata": map[string]interface{}{
+					"name":      "tls-api-ca",
+					"namespace": ControlPlaneNamespace,
+				},
+				"stringData": map[string]interface{}{
+					"tls.crt": authConfig.CAPemEncoded,
+					"tls.key": authConfig.CAPrivateKeyPemEncoded,
+				},
+			},
+		}
+		if _, err := kube.CreateResource(tlsApiCA, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
+
+		var tlsApiCert = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Secret",
+				"type":       "kubernetes.io/tls",
+				"metadata": map[string]interface{}{
+					"name":      "tls-api-cert",
+					"namespace": ControlPlaneNamespace,
+				},
+				"stringData": map[string]interface{}{
+					"tls.crt": serverCertificate,
+					"tls.key": serverPrivateKey,
+				},
+			},
+		}
+		if _, err := kube.CreateResource(tlsApiCert, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
+	}
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -148,44 +180,6 @@ NATS_PORT=4222
 		},
 	}
 	if _, err := kube.CreateResource(apiSecret, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create API server secret: %w", err)
-	}
-
-	var tlsApiCA = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"type":       "kubernetes.io/tls",
-			"metadata": map[string]interface{}{
-				"name":      "tls-api-ca",
-				"namespace": ControlPlaneNamespace,
-			},
-			"stringData": map[string]interface{}{
-				"tls.crt": caCert,
-				"tls.key": caPrivateKey,
-			},
-		},
-	}
-	if _, err := kube.CreateResource(tlsApiCA, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create API server secret: %w", err)
-	}
-
-	var tlsApiCert = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"type":       "kubernetes.io/tls",
-			"metadata": map[string]interface{}{
-				"name":      "tls-api-cert",
-				"namespace": ControlPlaneNamespace,
-			},
-			"stringData": map[string]interface{}{
-				"tls.crt": serverCert,
-				"tls.key": serverPrivateKey,
-			},
-		},
-	}
-	if _, err := kube.CreateResource(tlsApiCert, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
 
@@ -297,13 +291,59 @@ func InstallThreeportControllers(
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
 	customThreeportImageRepo string,
-	caCert string,
-	clientCert string,
-	clientPrivateKey string,
+	authConfig *config.AuthConfig,
 ) error {
 	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo)
 	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment)
 	workloadArgs := getWorkloadArgs(devEnvironment)
+
+	if authConfig != nil {
+
+		// generate workload certificate
+		workloadCertificate, workloadPrivateKey, err := config.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		if err != nil {
+			cli.Error("failed to generate client certificate and private key", err)
+			os.Exit(1)
+		}
+
+		var tlsApiCA = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Secret",
+				"type":       "kubernetes.io/tls",
+				"metadata": map[string]interface{}{
+					"name":      "tls-api-ca",
+					"namespace": ControlPlaneNamespace,
+				},
+				"stringData": map[string]interface{}{
+					"tls.crt": authConfig.CAPemEncoded,
+					"tls.key": "",
+				},
+			},
+		}
+		if _, err := kube.CreateResource(tlsApiCA, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
+
+		var tlsApiCert = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Secret",
+				"type":       "kubernetes.io/tls",
+				"metadata": map[string]interface{}{
+					"name":      "tls-api-cert",
+					"namespace": ControlPlaneNamespace,
+				},
+				"stringData": map[string]interface{}{
+					"tls.crt": workloadCertificate,
+					"tls.key": workloadPrivateKey,
+				},
+			},
+		}
+		if _, err := kube.CreateResource(tlsApiCert, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
+	}
 
 	var workloadControllerSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -323,44 +363,6 @@ func InstallThreeportControllers(
 	}
 	if _, err := kube.CreateResource(workloadControllerSecret, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller secret: %w", err)
-	}
-
-	var tlsApiCA = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"type":       "kubernetes.io/tls",
-			"metadata": map[string]interface{}{
-				"name":      "tls-api-ca",
-				"namespace": ControlPlaneNamespace,
-			},
-			"stringData": map[string]interface{}{
-				"tls.crt": caCert,
-				"tls.key": "",
-			},
-		},
-	}
-	if _, err := kube.CreateResource(tlsApiCA, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create API server secret: %w", err)
-	}
-
-	var tlsApiCert = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"type":       "kubernetes.io/tls",
-			"metadata": map[string]interface{}{
-				"name":      "tls-api-cert",
-				"namespace": ControlPlaneNamespace,
-			},
-			"stringData": map[string]interface{}{
-				"tls.crt": clientCert,
-				"tls.key": clientPrivateKey,
-			},
-		},
-	}
-	if _, err := kube.CreateResource(tlsApiCert, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
 
 	var workloadControllerDeployment = &unstructured.Unstructured{
@@ -640,127 +642,6 @@ func getWorkloadControllerVolumes(devEnvironment bool) ([]interface{}, []interfa
 	}
 
 	return vols, volMounts
-}
-
-func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKey *rsa.PrivateKey, err error) {
-
-	// generate a random identifier for use as a serial number
-	max := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
-	randomNumber, err := rand.Int(rand.Reader, max)
-	if err != nil {
-		fmt.Errorf("failed to generate random serial number: %w", err)
-		return nil, nil, nil, err
-	}
-
-	// set config options for a new CA certificate
-	caConfig = &x509.Certificate{
-		SerialNumber: randomNumber,
-		URIs:         []*url.URL{{Scheme: "https", Host: "localhost"}},
-		DNSNames: []string{
-			"localhost",
-			"threeport-api-server",
-			"threeport-api-server.threeport-control-plane",
-			"threeport-api-server.threeport-control-plane.svc",
-			"threeport-api-server.threeport-control-plane.svc.cluster",
-			"threeport-api-server.threeport-control-plane.svc.cluster.local",
-		},
-		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
-		Subject: pkix.Name{
-			CommonName:   "localhost",
-			Organization: []string{"Threeport"},
-			Country:      []string{"US"},
-			Locality:     []string{"Tampa"},
-		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(10, 0, 0),
-		IsCA:                  true,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-	}
-
-	// generate private and public keys for the CA
-	caPrivateKey, err = rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		fmt.Errorf("failed to generate CA private key: %w", err)
-		return nil, nil, nil, err
-	}
-
-	// generate a certificate authority
-	ca, err = x509.CreateCertificate(rand.Reader, caConfig, caConfig, &caPrivateKey.PublicKey, caPrivateKey)
-	if err != nil {
-		fmt.Errorf("failed to create CA certificate: %w", err)
-		return nil, nil, nil, err
-	}
-
-	return caConfig, ca, caPrivateKey, nil
-
-}
-
-func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKey) (certificate string, privateKey string, err error) {
-
-	// generate a random identifier for use as a serial number
-	max := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
-	randomNumber, err := rand.Int(rand.Reader, max)
-	if err != nil {
-		fmt.Errorf("failed to generate random serial number: %w", err)
-		return "", "", err
-	}
-
-	// set config options for a new CA certificate
-	cert := &x509.Certificate{
-		SerialNumber: randomNumber,
-		URIs:         []*url.URL{{Scheme: "https", Host: "localhost"}},
-		DNSNames: []string{
-			"localhost",
-			"threeport-api-server",
-			"threeport-api-server.threeport-control-plane",
-			"threeport-api-server.threeport-control-plane.svc",
-			"threeport-api-server.threeport-control-plane.svc.cluster",
-			"threeport-api-server.threeport-control-plane.svc.cluster.local",
-		},
-		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
-		Subject: pkix.Name{
-			CommonName:   "localhost",
-			Organization: []string{"Threeport"},
-			Country:      []string{"US"},
-			Locality:     []string{"Tampa"},
-		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(10, 0, 0),
-		IsCA:                  false,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-	}
-
-	// generate private and public keys for the CA
-	serverPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		fmt.Errorf("failed to generate CA private key: %w", err)
-		return "", "", err
-	}
-
-	// generate a certificate authority
-	serverCert, err := x509.CreateCertificate(rand.Reader, cert, caConfig, &serverPrivateKey.PublicKey, caPrivateKey)
-	if err != nil {
-		fmt.Errorf("failed to create CA certificate: %w", err)
-		return "", "", err
-	}
-
-	serverCertificateEncoded := GetPEMEncoding(serverCert, "CERTIFICATE")
-	serverPrivateKeyEncoded := GetPEMEncoding(x509.MarshalPKCS1PrivateKey(serverPrivateKey), "RSA PRIVATE KEY")
-	return serverCertificateEncoded, serverPrivateKeyEncoded, nil
-}
-
-func GetPEMEncoding(cert []byte, encodingType string) (pemEncodingString string) {
-	pemEncoding := new(bytes.Buffer)
-	pem.Encode(pemEncoding, &pem.Block{
-		Type:  encodingType,
-		Bytes: cert,
-	})
-
-	return pemEncoding.String()
 }
 
 // getCodePathVols returns the volume and volume mount for dev environments to

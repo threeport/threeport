@@ -4,7 +4,6 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"crypto/x509"
 	"fmt"
 	"os"
 	"time"
@@ -107,53 +106,36 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// generate certificate authority for the threeport API
-		caConfig, ca, caPrivateKey, err := threeport.GenerateCACertificate()
-		if err != nil {
-			cli.Error("failed to generate certificate authority and private key", err)
-			os.Exit(1)
-		}
-
-		// get PEM-encoded keypairs as strings to pass into deployment manifests
-		caEncoded := threeport.GetPEMEncoding(ca, "CERTIFICATE")
-		caPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(caPrivateKey), "RSA PRIVATE KEY")
-
-		// generate server certificate
-		serverCertificate, serverPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
-		if err != nil {
-			cli.Error("failed to generate server certificate and private key", err)
-			os.Exit(1)
-		}
-
-		// generate client certificate
-		clientCertificate, clientPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
-		if err != nil {
-			cli.Error("failed to generate client certificate and private key", err)
-			os.Exit(1)
-		}
-
-		// generate workload certificate
-		workloadCertificate, workloadPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
-		if err != nil {
-			cli.Error("failed to generate client certificate and private key", err)
-			os.Exit(1)
-		}
-
 		// create threeport config for new instance
 		newThreeportInstance := &config.Instance{
 			Name:       createThreeportDevName,
 			Provider:   "kind",
 			APIServer:  fmt.Sprintf("https://%s:1323", threeport.ThreeportLocalAPIEndpoint),
 			Kubeconfig: createKubeconfig,
-			CACert:     util.Base64Encode(caEncoded),
-			Credentials: []config.Credential{
-				{
-					Name:       createThreeportDevName,
-					ClientCert: util.Base64Encode(clientCertificate),
-					ClientKey:  util.Base64Encode(clientPrivateKey),
-				},
-			},
 		}
+
+		var authConfig *config.AuthConfig
+		var clientCredentials *config.Credential
+		if authEnabled {
+			authConfig = config.GetAuthConfig()
+
+			// generate client certificate
+			clientCertificate, clientPrivateKey, err := config.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+			if err != nil {
+				cli.Error("failed to generate client certificate and private key", err)
+				os.Exit(1)
+			}
+
+			clientCredentials = &config.Credential{
+				Name:       createThreeportDevName,
+				ClientCert: util.Base64Encode(clientCertificate),
+				ClientKey:  util.Base64Encode(clientPrivateKey),
+			}
+
+			newThreeportInstance.Credentials = append(newThreeportInstance.Credentials, *clientCredentials)
+			newThreeportInstance.CACert = authConfig.CABase64Encoded
+		}
+
 		config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportDevName, newThreeportInstance)
 
 		// install the threeport control plane dependencies
@@ -175,10 +157,7 @@ var upCmd = &cobra.Command{
 			true,
 			threeport.ThreeportLocalAPIEndpoint,
 			"",
-			caEncoded,
-			caPrivateKeyEncoded,
-			serverCertificate,
-			serverPrivateKey,
+			authConfig,
 		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)
@@ -209,9 +188,7 @@ var upCmd = &cobra.Command{
 			mapper,
 			true,
 			"",
-			caEncoded,
-			workloadCertificate,
-			workloadPrivateKey,
+			authConfig,
 		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)
