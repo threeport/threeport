@@ -114,6 +114,10 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// get PEM-encoded keypairs as strings to pass into deployment manifests
+		caEncoded := threeport.GetPEMEncoding(ca, "CERTIFICATE")
+		caPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(caPrivateKey), "RSA PRIVATE KEY")
+
 		// generate server certificate
 		serverCertificate, serverPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
 		if err != nil {
@@ -135,21 +139,6 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// get PEM-encoded keypairs as strings to pass into deployment manifests
-		caEncoded := threeport.GetPEMEncoding(ca, "CERTIFICATE")
-		caPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(caPrivateKey), "RSA PRIVATE KEY")
-
-		serverCertificateEncoded := threeport.GetPEMEncoding(serverCertificate, "CERTIFICATE")
-		serverPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(serverPrivateKey), "RSA PRIVATE KEY")
-
-		// write client certificate and private key to config directory
-		clientCertificateEncoded := threeport.GetPEMEncoding(clientCertificate, "CERTIFICATE")
-		clientPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(clientPrivateKey), "RSA PRIVATE KEY")
-
-		// get PEM-encoded keypairs as strings to pass into workload controller manfiests
-		workloadCertificateEncoded := threeport.GetPEMEncoding(workloadCertificate, "CERTIFICATE")
-		workloadPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(workloadPrivateKey), "RSA PRIVATE KEY")
-
 		// create threeport config for new instance
 		newThreeportInstance := &config.Instance{
 			Name:       createThreeportDevName,
@@ -160,8 +149,8 @@ var upCmd = &cobra.Command{
 			Credentials: []config.Credential{
 				{
 					Name:       createThreeportDevName,
-					ClientCert: util.Base64Encode(clientCertificateEncoded),
-					ClientKey:  util.Base64Encode(clientPrivateKeyEncoded),
+					ClientCert: util.Base64Encode(clientCertificate),
+					ClientKey:  util.Base64Encode(clientPrivateKey),
 				},
 			},
 		}
@@ -188,8 +177,8 @@ var upCmd = &cobra.Command{
 			"",
 			caEncoded,
 			caPrivateKeyEncoded,
-			serverCertificateEncoded,
-			serverPrivateKeyEncoded,
+			serverCertificate,
+			serverPrivateKey,
 		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)
@@ -221,8 +210,8 @@ var upCmd = &cobra.Command{
 			true,
 			"",
 			caEncoded,
-			workloadCertificateEncoded,
-			workloadPrivateKeyEncoded,
+			workloadCertificate,
+			workloadPrivateKey,
 		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)

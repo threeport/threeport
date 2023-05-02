@@ -524,7 +524,6 @@ func getWorkloadArgs(devEnvironment bool) []interface{} {
 	}
 }
 
-
 // getAPIVolumes returns volumes and volume mounts for the API server.
 func getAPIVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
 	vols := []interface{}{
@@ -698,14 +697,14 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 
 }
 
-func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKey) (certificate []byte, privateKey *rsa.PrivateKey, err error) {
+func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKey) (certificate string, privateKey string, err error) {
 
 	// generate a random identifier for use as a serial number
 	max := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
 	randomNumber, err := rand.Int(rand.Reader, max)
 	if err != nil {
 		fmt.Errorf("failed to generate random serial number: %w", err)
-		return nil, nil, err
+		return "", "", err
 	}
 
 	// set config options for a new CA certificate
@@ -739,17 +738,20 @@ func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKe
 	serverPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		fmt.Errorf("failed to generate CA private key: %w", err)
-		return nil, nil, err
+		return "", "", err
 	}
 
 	// generate a certificate authority
 	serverCert, err := x509.CreateCertificate(rand.Reader, cert, caConfig, &serverPrivateKey.PublicKey, caPrivateKey)
 	if err != nil {
 		fmt.Errorf("failed to create CA certificate: %w", err)
-		return nil, nil, err
+		return "", "", err
 	}
 
-	return serverCert, serverPrivateKey, nil
+	serverCertificateEncoded := GetPEMEncoding(serverCert, "CERTIFICATE")
+	serverPrivateKeyEncoded := GetPEMEncoding(x509.MarshalPKCS1PrivateKey(serverPrivateKey), "RSA PRIVATE KEY")
+	return serverCertificateEncoded, serverPrivateKeyEncoded, nil
+}
 
 func GetPEMEncoding(cert []byte, encodingType string) (pemEncodingString string) {
 	pemEncoding := new(bytes.Buffer)
