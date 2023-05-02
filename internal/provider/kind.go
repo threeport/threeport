@@ -60,7 +60,7 @@ func (i *ControlPlaneInfraKind) Delete() error {
 }
 
 // GetKindConfig returns a kind config for users of threeport.
-func (i *ControlPlaneInfraKind) GetKindConfig(devEnvironment bool, threeportLocalAPIPort int) *v1alpha4.Cluster {
+func (i *ControlPlaneInfraKind) GetKindConfig(devEnvironment bool, numWorkerNodes int) *v1alpha4.Cluster {
 	clusterConfig := v1alpha4.Cluster{
 		Nodes: []v1alpha4.Node{
 			{
@@ -79,15 +79,21 @@ nodeRegistration:
 						Protocol:      v1alpha4.PortMappingProtocolTCP,
 					},
 				},
+				ExtraMounts: []v1alpha4.Mount{
+					{
+						ContainerPath: "/threeport",
+						HostPath:      i.ThreeportPath,
+					},
+				},
 			},
 		},
 	}
 
 	var workerNodes *[]v1alpha4.Node
 	if devEnvironment {
-		workerNodes = devEnvKindWorkers(i.ThreeportPath)
+		workerNodes = devEnvKindWorkers(i.ThreeportPath, numWorkerNodes)
 	} else {
-		workerNodes = kindWorkers()
+		workerNodes = kindWorkers(numWorkerNodes)
 	}
 	for _, n := range *workerNodes {
 		clusterConfig.Nodes = append(clusterConfig.Nodes, n)
@@ -98,9 +104,10 @@ nodeRegistration:
 
 // devEnvKindWorkers returns worker nodes with host path mount for live code
 // reloads.
-func devEnvKindWorkers(threeportPath string) *[]v1alpha4.Node {
-	return &[]v1alpha4.Node{
-		{
+func devEnvKindWorkers(threeportPath string, numWorkerNodes int) *[]v1alpha4.Node {
+	nodes := make([]v1alpha4.Node, numWorkerNodes)
+	for i := range nodes {
+		nodes[i] = v1alpha4.Node{
 			Role: v1alpha4.WorkerRole,
 			ExtraMounts: []v1alpha4.Mount{
 				{
@@ -108,39 +115,20 @@ func devEnvKindWorkers(threeportPath string) *[]v1alpha4.Node {
 					HostPath:      threeportPath,
 				},
 			},
-		},
-		{
-			Role: v1alpha4.WorkerRole,
-			ExtraMounts: []v1alpha4.Mount{
-				{
-					ContainerPath: "/threeport",
-					HostPath:      threeportPath,
-				},
-			},
-		},
-		{
-			Role: v1alpha4.WorkerRole,
-			ExtraMounts: []v1alpha4.Mount{
-				{
-					ContainerPath: "/threeport",
-					HostPath:      threeportPath,
-				},
-			},
-		},
+		}
 	}
+	return &nodes
 }
 
 // kindWorkers returns regular worker nodes
-func kindWorkers() *[]v1alpha4.Node {
-	return &[]v1alpha4.Node{
-		{
+func kindWorkers(numWorkerNodes int) *[]v1alpha4.Node {
+	nodes := make([]v1alpha4.Node, numWorkerNodes)
+	for i := range nodes {
+
+		nodes[i] = v1alpha4.Node{
 			Role: v1alpha4.WorkerRole,
-		},
-		{
-			Role: v1alpha4.WorkerRole,
-		},
-		{
-			Role: v1alpha4.WorkerRole,
-		},
+		}
+
 	}
+	return &nodes
 }

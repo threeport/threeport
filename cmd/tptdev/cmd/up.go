@@ -27,6 +27,7 @@ var (
 	threeportPath          string
 	authEnabled            bool
 	threeportLocalAPIPort  int
+	numWorkerNodes         int
 )
 
 // upCmd represents the up command
@@ -64,7 +65,7 @@ var upCmd = &cobra.Command{
 			ThreeportPath:         threeportPath,
 		}
 		devEnvironment := true
-		kindConfig := controlPlaneInfra.GetKindConfig(devEnvironment, threeportLocalAPIPort)
+		kindConfig := controlPlaneInfra.GetKindConfig(devEnvironment, numWorkerNodes)
 		controlPlaneInfra.KindConfig = kindConfig
 		kubeConnectionInfo, err := controlPlaneInfra.Create()
 		if err != nil {
@@ -266,6 +267,7 @@ var upCmd = &cobra.Command{
 
 		// create default compute space cluster instance in threeport API
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
+
 		_, err = client.CreateClusterInstance(
 			apiClient,
 			&clusterInstance,
@@ -299,4 +301,6 @@ func init() {
 	)
 	upCmd.Flags().IntVar(&threeportLocalAPIPort,
 		"threeport-api-port", 1323, "local port to bind threeport APIServer to - default is 1323")
+	upCmd.Flags().IntVar(&numWorkerNodes,
+		"num-worker-nodes", 0, "number of additional worker nodes to deploy - default is 0")
 }
