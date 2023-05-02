@@ -82,7 +82,7 @@ func InstallThreeportAPI(
 	authConfig *config.AuthConfig,
 ) error {
 	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo)
-	apiArgs := getAPIArgs(devEnvironment)
+	apiArgs := getAPIArgs(devEnvironment, authConfig)
 	apiVols, apiVolMounts := getAPIVolumes(devEnvironment)
 	// apiPort := getAPIPort(devEnvironment)
 
@@ -295,7 +295,7 @@ func InstallThreeportControllers(
 ) error {
 	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo)
 	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment)
-	workloadArgs := getWorkloadArgs(devEnvironment)
+	workloadArgs := getWorkloadArgs(devEnvironment, authConfig)
 
 	if authConfig != nil {
 
@@ -497,33 +497,59 @@ func getAPIIngressTLS(devEnvironment bool, apiHostname string) []interface{} {
 }
 
 // getAPIArgs returns the args that are passed to the API server.
-func getAPIArgs(devEnvironment bool) []interface{} {
+func getAPIArgs(devEnvironment bool, authConfig *config.AuthConfig) []interface{} {
+
+	// in devEnvironment, auth is disabled by default
+	// in tptctl, auth is enabled by default
+
+	// enable auth if authConfig is set in dev environment
 	if devEnvironment {
+		args := "-auto-migrate=true -verbose=true"
+
+		if authConfig != nil {
+			args += " -auth-enabled=true"
+		}
+
 		return []interface{}{
 			"-build.args_bin",
-			"-auto-migrate=true -verbose=true -auth-enabled=true",
+			args,
 		}
 	}
 
-	return []interface{}{
-		"-auto-migrate",
-		"true",
+	// disable auth if authConfig is not set in tptctl
+	args := []interface{}{
+		"-auto-migrate=true",
 	}
+
+	if authConfig == nil {
+		args = append(args, "-auth-enabled=false")
+	}
+
+	return args
 }
 
 // getWorkloadArgs returns the args that are passed to the workload controller.
-func getWorkloadArgs(devEnvironment bool) []interface{} {
-	if devEnvironment {
+func getWorkloadArgs(devEnvironment bool, authConfig *config.AuthConfig) []interface{} {
+
+	// in devEnvironment, auth is disabled by default
+	// in tptctl, auth is enabled by default
+
+	// enable auth if authConfig is set in dev environment
+	if devEnvironment && authConfig != nil {
 		return []interface{}{
 			"-build.args_bin",
 			"-auth-enabled=true",
 		}
 	}
 
-	return []interface{}{
-		"-build.args_bin",
-		"-auth-enabled=false",
+	// disable auth if authConfig is not set in tptctl
+	if authConfig == nil {
+		return []interface{}{
+			"-auth-enabled=false",
+		}
 	}
+
+	return []interface{}{}
 }
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
