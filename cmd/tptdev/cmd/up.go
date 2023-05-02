@@ -156,6 +156,7 @@ var upCmd = &cobra.Command{
 			true,
 			threeport.ThreeportLocalAPIEndpoint,
 			"",
+			"",
 			authConfig,
 		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
@@ -186,6 +187,7 @@ var upCmd = &cobra.Command{
 			dynamicKubeClient,
 			mapper,
 			true,
+			"",
 			"",
 			authConfig,
 		); err != nil {

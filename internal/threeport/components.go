@@ -138,34 +138,6 @@ func InstallThreeportAPI(
 		}
 	}
 
-	// install the controllers
-	if err := InstallThreeportControllers(
-		kubeClient,
-		mapper,
-		devEnvironment,
-		customThreeportImageRepo,
-	); err != nil {
-		return fmt.Errorf("failed to install threeport controllers: %w", err)
-	}
-
-	return nil
-}
-
-// InstallThreeportControlPlaneAPI installs the threeport API in a Kubernetes
-// cluster.
-func InstallThreeportAPI(
-	kubeClient dynamic.Interface,
-	mapper *meta.RESTMapper,
-	devEnvironment bool,
-	apiHostname string,
-	customThreeportImageRepo string,
-) error {
-	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo)
-	apiIngressAnnotations := getAPIIngressAnnotations(devEnvironment)
-	apiIngressTLS := getAPIIngressTLS(devEnvironment, apiHostname)
-	apiArgs := getAPIArgs(devEnvironment)
-	apiVols, apiVolMounts := getAPIVolumes(devEnvironment)
-
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
