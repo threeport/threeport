@@ -71,8 +71,8 @@ func GetAuthConfig() *AuthConfig {
 	}
 
 	// get PEM-encoded keypairs as strings to pass into deployment manifests
-	caEncoded := GetPEMEncoding(ca, "CERTIFICATE")
-	caPrivateKeyEncoded := GetPEMEncoding(x509.MarshalPKCS1PrivateKey(caPrivateKey), "RSA PRIVATE KEY")
+	caEncoded := GetCertificatePEMEncoding(ca)
+	caPrivateKeyEncoded := GetPrivateKeyPEMEncoding(caPrivateKey)
 
 	return &AuthConfig{
 		CAConfig:                  caConfig,
@@ -421,9 +421,17 @@ func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKe
 		return "", "", err
 	}
 
-	serverCertificateEncoded := GetPEMEncoding(serverCert, "CERTIFICATE")
-	serverPrivateKeyEncoded := GetPEMEncoding(x509.MarshalPKCS1PrivateKey(serverPrivateKey), "RSA PRIVATE KEY")
+	serverCertificateEncoded := GetCertificatePEMEncoding(serverCert)
+	serverPrivateKeyEncoded := GetPrivateKeyPEMEncoding(serverPrivateKey)
 	return serverCertificateEncoded, serverPrivateKeyEncoded, nil
+}
+
+func GetCertificatePEMEncoding(cert []byte) string {
+	return GetPEMEncoding(cert, "CERTIFICATE")
+}
+
+func GetPrivateKeyPEMEncoding(privateKey *rsa.PrivateKey) string {
+	return GetPEMEncoding(x509.MarshalPKCS1PrivateKey(privateKey), "RSA PRIVATE KEY")
 }
 
 func GetPEMEncoding(cert []byte, encodingType string) (pemEncodingString string) {
