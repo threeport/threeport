@@ -43,7 +43,7 @@ func GetWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Workl
 }
 
 // GetWorkloadDefinitionByID feteches a workload definition by ID.
-func GetWorkloadDefinitionByID(apiClient *http.Client, id uint, apiAddr string) (*v0.WorkloadDefinition, error) {
+func GetWorkloadDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadDefinition, error) {
 	var workloadDefinition v0.WorkloadDefinition
 
 	response, err := GetResponse(
@@ -72,7 +72,7 @@ func GetWorkloadDefinitionByID(apiClient *http.Client, id uint, apiAddr string) 
 }
 
 // GetWorkloadDefinitionByName feteches a workload definition by name.
-func GetWorkloadDefinitionByName(apiClient *http.Client, name, apiAddr string) (*v0.WorkloadDefinition, error) {
+func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadDefinition, error) {
 	var workloadDefinitions []v0.WorkloadDefinition
 
 	response, err := GetResponse(
@@ -108,7 +108,7 @@ func GetWorkloadDefinitionByName(apiClient *http.Client, name, apiAddr string) (
 }
 
 // CreateWorkloadDefinition creates a new workload definition.
-func CreateWorkloadDefinition(apiClient *http.Client, workloadDefinition *v0.WorkloadDefinition, apiAddr string) (*v0.WorkloadDefinition, error) {
+func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
 	jsonWorkloadDefinition, err := client.MarshalObject(workloadDefinition)
 	if err != nil {
 		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -140,7 +140,7 @@ func CreateWorkloadDefinition(apiClient *http.Client, workloadDefinition *v0.Wor
 }
 
 // UpdateWorkloadDefinition updates a workload definition.
-func UpdateWorkloadDefinition(apiClient *http.Client, workloadDefinition *v0.WorkloadDefinition, apiAddr string) (*v0.WorkloadDefinition, error) {
+func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	workloadDefinitionID := *workloadDefinition.ID
@@ -177,7 +177,7 @@ func UpdateWorkloadDefinition(apiClient *http.Client, workloadDefinition *v0.Wor
 }
 
 // DeleteWorkloadDefinition deletes a workload definition by ID.
-func DeleteWorkloadDefinition(apiClient *http.Client, id uint, apiAddr string) (*v0.WorkloadDefinition, error) {
+func DeleteWorkloadDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadDefinition, error) {
 	var workloadDefinition v0.WorkloadDefinition
 
 	response, err := GetResponse(
@@ -236,7 +236,7 @@ func GetWorkloadResourceDefinitions(apiClient *http.Client, apiAddr string) (*[]
 }
 
 // GetWorkloadResourceDefinitionByID feteches a workload resource definition by ID.
-func GetWorkloadResourceDefinitionByID(apiClient *http.Client, id uint, apiAddr string) (*v0.WorkloadResourceDefinition, error) {
+func GetWorkloadResourceDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinition v0.WorkloadResourceDefinition
 
 	response, err := GetResponse(
@@ -265,7 +265,7 @@ func GetWorkloadResourceDefinitionByID(apiClient *http.Client, id uint, apiAddr 
 }
 
 // GetWorkloadResourceDefinitionByName feteches a workload resource definition by name.
-func GetWorkloadResourceDefinitionByName(apiClient *http.Client, name, apiAddr string) (*v0.WorkloadResourceDefinition, error) {
+func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 	response, err := GetResponse(
@@ -301,7 +301,7 @@ func GetWorkloadResourceDefinitionByName(apiClient *http.Client, name, apiAddr s
 }
 
 // CreateWorkloadResourceDefinition creates a new workload resource definition.
-func CreateWorkloadResourceDefinition(apiClient *http.Client, workloadResourceDefinition *v0.WorkloadResourceDefinition, apiAddr string) (*v0.WorkloadResourceDefinition, error) {
+func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
 	jsonWorkloadResourceDefinition, err := client.MarshalObject(workloadResourceDefinition)
 	if err != nil {
 		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -333,7 +333,7 @@ func CreateWorkloadResourceDefinition(apiClient *http.Client, workloadResourceDe
 }
 
 // UpdateWorkloadResourceDefinition updates a workload resource definition.
-func UpdateWorkloadResourceDefinition(apiClient *http.Client, workloadResourceDefinition *v0.WorkloadResourceDefinition, apiAddr string) (*v0.WorkloadResourceDefinition, error) {
+func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	workloadResourceDefinitionID := *workloadResourceDefinition.ID
@@ -370,7 +370,7 @@ func UpdateWorkloadResourceDefinition(apiClient *http.Client, workloadResourceDe
 }
 
 // DeleteWorkloadResourceDefinition deletes a workload resource definition by ID.
-func DeleteWorkloadResourceDefinition(apiClient *http.Client, id uint, apiAddr string) (*v0.WorkloadResourceDefinition, error) {
+func DeleteWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinition v0.WorkloadResourceDefinition
 
 	response, err := GetResponse(
@@ -429,7 +429,7 @@ func GetWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]v0.Workloa
 }
 
 // GetWorkloadInstanceByID feteches a workload instance by ID.
-func GetWorkloadInstanceByID(apiClient *http.Client, id uint, apiAddr string) (*v0.WorkloadInstance, error) {
+func GetWorkloadInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadInstance, error) {
 	var workloadInstance v0.WorkloadInstance
 
 	response, err := GetResponse(
@@ -458,7 +458,7 @@ func GetWorkloadInstanceByID(apiClient *http.Client, id uint, apiAddr string) (*
 }
 
 // GetWorkloadInstanceByName feteches a workload instance by name.
-func GetWorkloadInstanceByName(apiClient *http.Client, name, apiAddr string) (*v0.WorkloadInstance, error) {
+func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
 
 	response, err := GetResponse(
@@ -494,7 +494,7 @@ func GetWorkloadInstanceByName(apiClient *http.Client, name, apiAddr string) (*v
 }
 
 // CreateWorkloadInstance creates a new workload instance.
-func CreateWorkloadInstance(apiClient *http.Client, workloadInstance *v0.WorkloadInstance, apiAddr string) (*v0.WorkloadInstance, error) {
+func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
 	jsonWorkloadInstance, err := client.MarshalObject(workloadInstance)
 	if err != nil {
 		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -526,7 +526,7 @@ func CreateWorkloadInstance(apiClient *http.Client, workloadInstance *v0.Workloa
 }
 
 // UpdateWorkloadInstance updates a workload instance.
-func UpdateWorkloadInstance(apiClient *http.Client, workloadInstance *v0.WorkloadInstance, apiAddr string) (*v0.WorkloadInstance, error) {
+func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	workloadInstanceID := *workloadInstance.ID
@@ -563,7 +563,7 @@ func UpdateWorkloadInstance(apiClient *http.Client, workloadInstance *v0.Workloa
 }
 
 // DeleteWorkloadInstance deletes a workload instance by ID.
-func DeleteWorkloadInstance(apiClient *http.Client, id uint, apiAddr string) (*v0.WorkloadInstance, error) {
+func DeleteWorkloadInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadInstance, error) {
 	var workloadInstance v0.WorkloadInstance
 
 	response, err := GetResponse(
@@ -622,7 +622,7 @@ func GetWorkloadResourceInstances(apiClient *http.Client, apiAddr string) (*[]v0
 }
 
 // GetWorkloadResourceInstanceByID feteches a workload resource instance by ID.
-func GetWorkloadResourceInstanceByID(apiClient *http.Client, id uint, apiAddr string) (*v0.WorkloadResourceInstance, error) {
+func GetWorkloadResourceInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstance v0.WorkloadResourceInstance
 
 	response, err := GetResponse(
@@ -651,7 +651,7 @@ func GetWorkloadResourceInstanceByID(apiClient *http.Client, id uint, apiAddr st
 }
 
 // GetWorkloadResourceInstanceByName feteches a workload resource instance by name.
-func GetWorkloadResourceInstanceByName(apiClient *http.Client, name, apiAddr string) (*v0.WorkloadResourceInstance, error) {
+func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 
 	response, err := GetResponse(
@@ -687,7 +687,7 @@ func GetWorkloadResourceInstanceByName(apiClient *http.Client, name, apiAddr str
 }
 
 // CreateWorkloadResourceInstance creates a new workload resource instance.
-func CreateWorkloadResourceInstance(apiClient *http.Client, workloadResourceInstance *v0.WorkloadResourceInstance, apiAddr string) (*v0.WorkloadResourceInstance, error) {
+func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
 	jsonWorkloadResourceInstance, err := client.MarshalObject(workloadResourceInstance)
 	if err != nil {
 		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -719,7 +719,7 @@ func CreateWorkloadResourceInstance(apiClient *http.Client, workloadResourceInst
 }
 
 // UpdateWorkloadResourceInstance updates a workload resource instance.
-func UpdateWorkloadResourceInstance(apiClient *http.Client, workloadResourceInstance *v0.WorkloadResourceInstance, apiAddr string) (*v0.WorkloadResourceInstance, error) {
+func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	workloadResourceInstanceID := *workloadResourceInstance.ID
@@ -756,7 +756,7 @@ func UpdateWorkloadResourceInstance(apiClient *http.Client, workloadResourceInst
 }
 
 // DeleteWorkloadResourceInstance deletes a workload resource instance by ID.
-func DeleteWorkloadResourceInstance(apiClient *http.Client, id uint, apiAddr string) (*v0.WorkloadResourceInstance, error) {
+func DeleteWorkloadResourceInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstance v0.WorkloadResourceInstance
 
 	response, err := GetResponse(

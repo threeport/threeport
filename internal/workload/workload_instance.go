@@ -205,8 +205,8 @@ func workloadInstanceCreated(
 	// get workload definition for this instance
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
 		r.APIClient,
-		*workloadInstance.WorkloadDefinitionID,
 		r.APIServer,
+		*workloadInstance.WorkloadDefinitionID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload definition for the instance being deployed: %w", err)
@@ -225,8 +225,8 @@ func workloadInstanceCreated(
 	// get cluster instance info
 	clusterInstance, err := client.GetClusterInstanceByID(
 		r.APIClient,
-		*workloadInstance.ClusterInstanceID,
 		r.APIServer,
+		*workloadInstance.ClusterInstanceID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
@@ -284,8 +284,8 @@ func workloadInstanceCreated(
 		// create object in threeport API
 		_, err = client.CreateWorkloadResourceInstance(
 			r.APIClient,
-			&wri,
 			r.APIServer,
+			&wri,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create workload resource instance in threeport: %w", err)
@@ -333,8 +333,8 @@ func workloadInstanceDeleted(
 	// get cluster instance info
 	clusterInstance, err := client.GetClusterInstanceByID(
 		r.APIClient,
-		*workloadInstance.ClusterInstanceID,
 		r.APIServer,
+		*workloadInstance.ClusterInstanceID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
@@ -366,7 +366,7 @@ func workloadInstanceDeleted(
 		}
 
 		// delete each workload resource instance in threeport API
-		_, err = client.DeleteWorkloadResourceInstance(*wri.ID, r.APIServer, "")
+		_, err = client.DeleteWorkloadResourceInstance(r.APIClient, r.APIServer, *wri.ID)
 		if err != nil {
 			return fmt.Errorf("failed to delete workload resource instance with ID %d: %w", wri.ID, err)
 		}
@@ -387,8 +387,8 @@ func confirmWorkloadDefReconciled(
 ) (bool, error) {
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
 		r.APIClient,
-		*workloadInstance.WorkloadDefinitionID,
 		r.APIServer,
+		*workloadInstance.WorkloadDefinitionID,
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)

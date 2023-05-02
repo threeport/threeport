@@ -43,7 +43,7 @@ func GetUsers(apiClient *http.Client, apiAddr string) (*[]v0.User, error) {
 }
 
 // GetUserByID feteches a user by ID.
-func GetUserByID(apiClient *http.Client, id uint, apiAddr string) (*v0.User, error) {
+func GetUserByID(apiClient *http.Client, apiAddr string, id uint) (*v0.User, error) {
 	var user v0.User
 
 	response, err := GetResponse(
@@ -72,7 +72,7 @@ func GetUserByID(apiClient *http.Client, id uint, apiAddr string) (*v0.User, err
 }
 
 // GetUserByName feteches a user by name.
-func GetUserByName(apiClient *http.Client, name, apiAddr string) (*v0.User, error) {
+func GetUserByName(apiClient *http.Client, apiAddr, name string) (*v0.User, error) {
 	var users []v0.User
 
 	response, err := GetResponse(
@@ -108,7 +108,7 @@ func GetUserByName(apiClient *http.Client, name, apiAddr string) (*v0.User, erro
 }
 
 // CreateUser creates a new user.
-func CreateUser(apiClient *http.Client, user *v0.User, apiAddr string) (*v0.User, error) {
+func CreateUser(apiClient *http.Client, apiAddr string, user *v0.User) (*v0.User, error) {
 	jsonUser, err := client.MarshalObject(user)
 	if err != nil {
 		return user, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -140,7 +140,7 @@ func CreateUser(apiClient *http.Client, user *v0.User, apiAddr string) (*v0.User
 }
 
 // UpdateUser updates a user.
-func UpdateUser(apiClient *http.Client, user *v0.User, apiAddr string) (*v0.User, error) {
+func UpdateUser(apiClient *http.Client, apiAddr string, user *v0.User) (*v0.User, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	userID := *user.ID
@@ -177,7 +177,7 @@ func UpdateUser(apiClient *http.Client, user *v0.User, apiAddr string) (*v0.User
 }
 
 // DeleteUser deletes a user by ID.
-func DeleteUser(apiClient *http.Client, id uint, apiAddr string) (*v0.User, error) {
+func DeleteUser(apiClient *http.Client, apiAddr string, id uint) (*v0.User, error) {
 	var user v0.User
 
 	response, err := GetResponse(
@@ -236,7 +236,7 @@ func GetCompanies(apiClient *http.Client, apiAddr string) (*[]v0.Company, error)
 }
 
 // GetCompanyByID feteches a company by ID.
-func GetCompanyByID(apiClient *http.Client, id uint, apiAddr string) (*v0.Company, error) {
+func GetCompanyByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Company, error) {
 	var company v0.Company
 
 	response, err := GetResponse(
@@ -265,7 +265,7 @@ func GetCompanyByID(apiClient *http.Client, id uint, apiAddr string) (*v0.Compan
 }
 
 // GetCompanyByName feteches a company by name.
-func GetCompanyByName(apiClient *http.Client, name, apiAddr string) (*v0.Company, error) {
+func GetCompanyByName(apiClient *http.Client, apiAddr, name string) (*v0.Company, error) {
 	var companies []v0.Company
 
 	response, err := GetResponse(
@@ -301,7 +301,7 @@ func GetCompanyByName(apiClient *http.Client, name, apiAddr string) (*v0.Company
 }
 
 // CreateCompany creates a new company.
-func CreateCompany(apiClient *http.Client, company *v0.Company, apiAddr string) (*v0.Company, error) {
+func CreateCompany(apiClient *http.Client, apiAddr string, company *v0.Company) (*v0.Company, error) {
 	jsonCompany, err := client.MarshalObject(company)
 	if err != nil {
 		return company, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -333,7 +333,7 @@ func CreateCompany(apiClient *http.Client, company *v0.Company, apiAddr string) 
 }
 
 // UpdateCompany updates a company.
-func UpdateCompany(apiClient *http.Client, company *v0.Company, apiAddr string) (*v0.Company, error) {
+func UpdateCompany(apiClient *http.Client, apiAddr string, company *v0.Company) (*v0.Company, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	companyID := *company.ID
@@ -370,7 +370,7 @@ func UpdateCompany(apiClient *http.Client, company *v0.Company, apiAddr string) 
 }
 
 // DeleteCompany deletes a company by ID.
-func DeleteCompany(apiClient *http.Client, id uint, apiAddr string) (*v0.Company, error) {
+func DeleteCompany(apiClient *http.Client, apiAddr string, id uint) (*v0.Company, error) {
 	var company v0.Company
 
 	response, err := GetResponse(

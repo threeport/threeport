@@ -43,7 +43,7 @@ func GetProfiles(apiClient *http.Client, apiAddr string) (*[]v0.Profile, error) 
 }
 
 // GetProfileByID feteches a profile by ID.
-func GetProfileByID(apiClient *http.Client, id uint, apiAddr string) (*v0.Profile, error) {
+func GetProfileByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Profile, error) {
 	var profile v0.Profile
 
 	response, err := GetResponse(
@@ -72,7 +72,7 @@ func GetProfileByID(apiClient *http.Client, id uint, apiAddr string) (*v0.Profil
 }
 
 // GetProfileByName feteches a profile by name.
-func GetProfileByName(apiClient *http.Client, name, apiAddr string) (*v0.Profile, error) {
+func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile, error) {
 	var profiles []v0.Profile
 
 	response, err := GetResponse(
@@ -108,7 +108,7 @@ func GetProfileByName(apiClient *http.Client, name, apiAddr string) (*v0.Profile
 }
 
 // CreateProfile creates a new profile.
-func CreateProfile(apiClient *http.Client, profile *v0.Profile, apiAddr string) (*v0.Profile, error) {
+func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) (*v0.Profile, error) {
 	jsonProfile, err := client.MarshalObject(profile)
 	if err != nil {
 		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -140,7 +140,7 @@ func CreateProfile(apiClient *http.Client, profile *v0.Profile, apiAddr string) 
 }
 
 // UpdateProfile updates a profile.
-func UpdateProfile(apiClient *http.Client, profile *v0.Profile, apiAddr string) (*v0.Profile, error) {
+func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) (*v0.Profile, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	profileID := *profile.ID
@@ -177,7 +177,7 @@ func UpdateProfile(apiClient *http.Client, profile *v0.Profile, apiAddr string) 
 }
 
 // DeleteProfile deletes a profile by ID.
-func DeleteProfile(apiClient *http.Client, id uint, apiAddr string) (*v0.Profile, error) {
+func DeleteProfile(apiClient *http.Client, apiAddr string, id uint) (*v0.Profile, error) {
 	var profile v0.Profile
 
 	response, err := GetResponse(
@@ -236,7 +236,7 @@ func GetTiers(apiClient *http.Client, apiAddr string) (*[]v0.Tier, error) {
 }
 
 // GetTierByID feteches a tier by ID.
-func GetTierByID(apiClient *http.Client, id uint, apiAddr string) (*v0.Tier, error) {
+func GetTierByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, error) {
 	var tier v0.Tier
 
 	response, err := GetResponse(
@@ -265,7 +265,7 @@ func GetTierByID(apiClient *http.Client, id uint, apiAddr string) (*v0.Tier, err
 }
 
 // GetTierByName feteches a tier by name.
-func GetTierByName(apiClient *http.Client, name, apiAddr string) (*v0.Tier, error) {
+func GetTierByName(apiClient *http.Client, apiAddr, name string) (*v0.Tier, error) {
 	var tiers []v0.Tier
 
 	response, err := GetResponse(
@@ -301,7 +301,7 @@ func GetTierByName(apiClient *http.Client, name, apiAddr string) (*v0.Tier, erro
 }
 
 // CreateTier creates a new tier.
-func CreateTier(apiClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Tier, error) {
+func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier, error) {
 	jsonTier, err := client.MarshalObject(tier)
 	if err != nil {
 		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -333,7 +333,7 @@ func CreateTier(apiClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Tier
 }
 
 // UpdateTier updates a tier.
-func UpdateTier(apiClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Tier, error) {
+func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	tierID := *tier.ID
@@ -370,7 +370,7 @@ func UpdateTier(apiClient *http.Client, tier *v0.Tier, apiAddr string) (*v0.Tier
 }
 
 // DeleteTier deletes a tier by ID.
-func DeleteTier(apiClient *http.Client, id uint, apiAddr string) (*v0.Tier, error) {
+func DeleteTier(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, error) {
 	var tier v0.Tier
 
 	response, err := GetResponse(

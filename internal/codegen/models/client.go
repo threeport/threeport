@@ -110,8 +110,8 @@ func (cc *ControllerConfig) ClientLib() error {
 		))
 		f.Func().Id(getByIDFuncName).Params(
 			Id("apiClient").Op("*").Qual("net/http", "Client"),
-			Id("id").Uint(),
 			Id("apiAddr").String(),
+			Id("id").Uint(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -178,7 +178,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		))
 		f.Func().Id(getByNameFuncName).Params(
 			Id("apiClient").Op("*").Qual("net/http", "Client"),
-			Id("name").Op(",").Id("apiAddr").String(),
+			Id("apiAddr").Op(",").Id("name").String(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -274,10 +274,11 @@ func (cc *ControllerConfig) ClientLib() error {
 		))
 		f.Func().Id(createFuncName).Params(
 			Id("apiClient").Op("*").Qual("net/http", "Client"),
+			Id("apiAddr").String(),
 			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
-			).Op(",").Id("apiAddr").String(),
+			),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -351,10 +352,11 @@ func (cc *ControllerConfig) ClientLib() error {
 		))
 		f.Func().Id(updateFuncName).Params(
 			Id("apiClient").Op("*").Qual("net/http", "Client"),
+			Id("apiAddr").String(),
 			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
-			).Op(",").Id("apiAddr").String(),
+			),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -437,8 +439,8 @@ func (cc *ControllerConfig) ClientLib() error {
 		))
 		f.Func().Id(deleteFuncName).Params(
 			Id("apiClient").Op("*").Qual("net/http", "Client"),
-			Id("id").Uint(),
 			Id("apiAddr").String(),
+			Id("id").Uint(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),

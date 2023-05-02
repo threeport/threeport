@@ -112,7 +112,7 @@ func workloadDefinitionDeleted(
 
 	// delete each related workload resource definition
 	for _, wrd := range *workloadResourceDefinitions {
-		_, err := client.DeleteWorkloadResourceDefinition(r.APIClient, *wrd.ID, r.APIServer)
+		_, err := client.DeleteWorkloadResourceDefinition(r.APIClient, r.APIServer, *wrd.ID)
 		if err != nil {
 			return fmt.Errorf("failed to delete workload resource definition with ID %d: %w", wrd.ID, err)
 		}

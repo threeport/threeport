@@ -43,7 +43,7 @@ func GetAwsAccounts(apiClient *http.Client, apiAddr string) (*[]v0.AwsAccount, e
 }
 
 // GetAwsAccountByID feteches a aws account by ID.
-func GetAwsAccountByID(apiClient *http.Client, id uint, apiAddr string) (*v0.AwsAccount, error) {
+func GetAwsAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsAccount, error) {
 	var awsAccount v0.AwsAccount
 
 	response, err := GetResponse(
@@ -72,7 +72,7 @@ func GetAwsAccountByID(apiClient *http.Client, id uint, apiAddr string) (*v0.Aws
 }
 
 // GetAwsAccountByName feteches a aws account by name.
-func GetAwsAccountByName(apiClient *http.Client, name, apiAddr string) (*v0.AwsAccount, error) {
+func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsAccount, error) {
 	var awsAccounts []v0.AwsAccount
 
 	response, err := GetResponse(
@@ -108,7 +108,7 @@ func GetAwsAccountByName(apiClient *http.Client, name, apiAddr string) (*v0.AwsA
 }
 
 // CreateAwsAccount creates a new aws account.
-func CreateAwsAccount(apiClient *http.Client, awsAccount *v0.AwsAccount, apiAddr string) (*v0.AwsAccount, error) {
+func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
 	jsonAwsAccount, err := client.MarshalObject(awsAccount)
 	if err != nil {
 		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -140,7 +140,7 @@ func CreateAwsAccount(apiClient *http.Client, awsAccount *v0.AwsAccount, apiAddr
 }
 
 // UpdateAwsAccount updates a aws account.
-func UpdateAwsAccount(apiClient *http.Client, awsAccount *v0.AwsAccount, apiAddr string) (*v0.AwsAccount, error) {
+func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	awsAccountID := *awsAccount.ID
@@ -177,7 +177,7 @@ func UpdateAwsAccount(apiClient *http.Client, awsAccount *v0.AwsAccount, apiAddr
 }
 
 // DeleteAwsAccount deletes a aws account by ID.
-func DeleteAwsAccount(apiClient *http.Client, id uint, apiAddr string) (*v0.AwsAccount, error) {
+func DeleteAwsAccount(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsAccount, error) {
 	var awsAccount v0.AwsAccount
 
 	response, err := GetResponse(
@@ -236,7 +236,7 @@ func GetAwsEksClusterDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.
 }
 
 // GetAwsEksClusterDefinitionByID feteches a aws eks cluster definition by ID.
-func GetAwsEksClusterDefinitionByID(apiClient *http.Client, id uint, apiAddr string) (*v0.AwsEksClusterDefinition, error) {
+func GetAwsEksClusterDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksClusterDefinition, error) {
 	var awsEksClusterDefinition v0.AwsEksClusterDefinition
 
 	response, err := GetResponse(
@@ -265,7 +265,7 @@ func GetAwsEksClusterDefinitionByID(apiClient *http.Client, id uint, apiAddr str
 }
 
 // GetAwsEksClusterDefinitionByName feteches a aws eks cluster definition by name.
-func GetAwsEksClusterDefinitionByName(apiClient *http.Client, name, apiAddr string) (*v0.AwsEksClusterDefinition, error) {
+func GetAwsEksClusterDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksClusterDefinition, error) {
 	var awsEksClusterDefinitions []v0.AwsEksClusterDefinition
 
 	response, err := GetResponse(
@@ -301,7 +301,7 @@ func GetAwsEksClusterDefinitionByName(apiClient *http.Client, name, apiAddr stri
 }
 
 // CreateAwsEksClusterDefinition creates a new aws eks cluster definition.
-func CreateAwsEksClusterDefinition(apiClient *http.Client, awsEksClusterDefinition *v0.AwsEksClusterDefinition, apiAddr string) (*v0.AwsEksClusterDefinition, error) {
+func CreateAwsEksClusterDefinition(apiClient *http.Client, apiAddr string, awsEksClusterDefinition *v0.AwsEksClusterDefinition) (*v0.AwsEksClusterDefinition, error) {
 	jsonAwsEksClusterDefinition, err := client.MarshalObject(awsEksClusterDefinition)
 	if err != nil {
 		return awsEksClusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -333,7 +333,7 @@ func CreateAwsEksClusterDefinition(apiClient *http.Client, awsEksClusterDefiniti
 }
 
 // UpdateAwsEksClusterDefinition updates a aws eks cluster definition.
-func UpdateAwsEksClusterDefinition(apiClient *http.Client, awsEksClusterDefinition *v0.AwsEksClusterDefinition, apiAddr string) (*v0.AwsEksClusterDefinition, error) {
+func UpdateAwsEksClusterDefinition(apiClient *http.Client, apiAddr string, awsEksClusterDefinition *v0.AwsEksClusterDefinition) (*v0.AwsEksClusterDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	awsEksClusterDefinitionID := *awsEksClusterDefinition.ID
@@ -370,7 +370,7 @@ func UpdateAwsEksClusterDefinition(apiClient *http.Client, awsEksClusterDefiniti
 }
 
 // DeleteAwsEksClusterDefinition deletes a aws eks cluster definition by ID.
-func DeleteAwsEksClusterDefinition(apiClient *http.Client, id uint, apiAddr string) (*v0.AwsEksClusterDefinition, error) {
+func DeleteAwsEksClusterDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksClusterDefinition, error) {
 	var awsEksClusterDefinition v0.AwsEksClusterDefinition
 
 	response, err := GetResponse(
@@ -429,7 +429,7 @@ func GetAwsEksClusterInstances(apiClient *http.Client, apiAddr string) (*[]v0.Aw
 }
 
 // GetAwsEksClusterInstanceByID feteches a aws eks cluster instance by ID.
-func GetAwsEksClusterInstanceByID(apiClient *http.Client, id uint, apiAddr string) (*v0.AwsEksClusterInstance, error) {
+func GetAwsEksClusterInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksClusterInstance, error) {
 	var awsEksClusterInstance v0.AwsEksClusterInstance
 
 	response, err := GetResponse(
@@ -458,7 +458,7 @@ func GetAwsEksClusterInstanceByID(apiClient *http.Client, id uint, apiAddr strin
 }
 
 // GetAwsEksClusterInstanceByName feteches a aws eks cluster instance by name.
-func GetAwsEksClusterInstanceByName(apiClient *http.Client, name, apiAddr string) (*v0.AwsEksClusterInstance, error) {
+func GetAwsEksClusterInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksClusterInstance, error) {
 	var awsEksClusterInstances []v0.AwsEksClusterInstance
 
 	response, err := GetResponse(
@@ -494,7 +494,7 @@ func GetAwsEksClusterInstanceByName(apiClient *http.Client, name, apiAddr string
 }
 
 // CreateAwsEksClusterInstance creates a new aws eks cluster instance.
-func CreateAwsEksClusterInstance(apiClient *http.Client, awsEksClusterInstance *v0.AwsEksClusterInstance, apiAddr string) (*v0.AwsEksClusterInstance, error) {
+func CreateAwsEksClusterInstance(apiClient *http.Client, apiAddr string, awsEksClusterInstance *v0.AwsEksClusterInstance) (*v0.AwsEksClusterInstance, error) {
 	jsonAwsEksClusterInstance, err := client.MarshalObject(awsEksClusterInstance)
 	if err != nil {
 		return awsEksClusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -526,7 +526,7 @@ func CreateAwsEksClusterInstance(apiClient *http.Client, awsEksClusterInstance *
 }
 
 // UpdateAwsEksClusterInstance updates a aws eks cluster instance.
-func UpdateAwsEksClusterInstance(apiClient *http.Client, awsEksClusterInstance *v0.AwsEksClusterInstance, apiAddr string) (*v0.AwsEksClusterInstance, error) {
+func UpdateAwsEksClusterInstance(apiClient *http.Client, apiAddr string, awsEksClusterInstance *v0.AwsEksClusterInstance) (*v0.AwsEksClusterInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	awsEksClusterInstanceID := *awsEksClusterInstance.ID
@@ -563,7 +563,7 @@ func UpdateAwsEksClusterInstance(apiClient *http.Client, awsEksClusterInstance *
 }
 
 // DeleteAwsEksClusterInstance deletes a aws eks cluster instance by ID.
-func DeleteAwsEksClusterInstance(apiClient *http.Client, id uint, apiAddr string) (*v0.AwsEksClusterInstance, error) {
+func DeleteAwsEksClusterInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksClusterInstance, error) {
 	var awsEksClusterInstance v0.AwsEksClusterInstance
 
 	response, err := GetResponse(
@@ -622,7 +622,7 @@ func GetAwsRelationalDatabaseDefinitions(apiClient *http.Client, apiAddr string)
 }
 
 // GetAwsRelationalDatabaseDefinitionByID feteches a aws relational database definition by ID.
-func GetAwsRelationalDatabaseDefinitionByID(apiClient *http.Client, id uint, apiAddr string) (*v0.AwsRelationalDatabaseDefinition, error) {
+func GetAwsRelationalDatabaseDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
 
 	response, err := GetResponse(
@@ -651,7 +651,7 @@ func GetAwsRelationalDatabaseDefinitionByID(apiClient *http.Client, id uint, api
 }
 
 // GetAwsRelationalDatabaseDefinitionByName feteches a aws relational database definition by name.
-func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, name, apiAddr string) (*v0.AwsRelationalDatabaseDefinition, error) {
+func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
 
 	response, err := GetResponse(
@@ -687,7 +687,7 @@ func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, name, apiA
 }
 
 // CreateAwsRelationalDatabaseDefinition creates a new aws relational database definition.
-func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition, apiAddr string) (*v0.AwsRelationalDatabaseDefinition, error) {
+func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition) (*v0.AwsRelationalDatabaseDefinition, error) {
 	jsonAwsRelationalDatabaseDefinition, err := client.MarshalObject(awsRelationalDatabaseDefinition)
 	if err != nil {
 		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -719,7 +719,7 @@ func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, awsRelational
 }
 
 // UpdateAwsRelationalDatabaseDefinition updates a aws relational database definition.
-func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition, apiAddr string) (*v0.AwsRelationalDatabaseDefinition, error) {
+func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition) (*v0.AwsRelationalDatabaseDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	awsRelationalDatabaseDefinitionID := *awsRelationalDatabaseDefinition.ID
@@ -756,7 +756,7 @@ func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, awsRelational
 }
 
 // DeleteAwsRelationalDatabaseDefinition deletes a aws relational database definition by ID.
-func DeleteAwsRelationalDatabaseDefinition(apiClient *http.Client, id uint, apiAddr string) (*v0.AwsRelationalDatabaseDefinition, error) {
+func DeleteAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
 
 	response, err := GetResponse(
@@ -815,7 +815,7 @@ func GetAwsRelationalDatabaseInstances(apiClient *http.Client, apiAddr string) (
 }
 
 // GetAwsRelationalDatabaseInstanceByID feteches a aws relational database instance by ID.
-func GetAwsRelationalDatabaseInstanceByID(apiClient *http.Client, id uint, apiAddr string) (*v0.AwsRelationalDatabaseInstance, error) {
+func GetAwsRelationalDatabaseInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
 
 	response, err := GetResponse(
@@ -844,7 +844,7 @@ func GetAwsRelationalDatabaseInstanceByID(apiClient *http.Client, id uint, apiAd
 }
 
 // GetAwsRelationalDatabaseInstanceByName feteches a aws relational database instance by name.
-func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, name, apiAddr string) (*v0.AwsRelationalDatabaseInstance, error) {
+func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
 
 	response, err := GetResponse(
@@ -880,7 +880,7 @@ func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, name, apiAdd
 }
 
 // CreateAwsRelationalDatabaseInstance creates a new aws relational database instance.
-func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance, apiAddr string) (*v0.AwsRelationalDatabaseInstance, error) {
+func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance) (*v0.AwsRelationalDatabaseInstance, error) {
 	jsonAwsRelationalDatabaseInstance, err := client.MarshalObject(awsRelationalDatabaseInstance)
 	if err != nil {
 		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -912,7 +912,7 @@ func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, awsRelationalDa
 }
 
 // UpdateAwsRelationalDatabaseInstance updates a aws relational database instance.
-func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance, apiAddr string) (*v0.AwsRelationalDatabaseInstance, error) {
+func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance) (*v0.AwsRelationalDatabaseInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	awsRelationalDatabaseInstanceID := *awsRelationalDatabaseInstance.ID
@@ -949,7 +949,7 @@ func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, awsRelationalDa
 }
 
 // DeleteAwsRelationalDatabaseInstance deletes a aws relational database instance by ID.
-func DeleteAwsRelationalDatabaseInstance(apiClient *http.Client, id uint, apiAddr string) (*v0.AwsRelationalDatabaseInstance, error) {
+func DeleteAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
 
 	response, err := GetResponse(

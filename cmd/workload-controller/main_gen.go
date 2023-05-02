@@ -19,20 +19,9 @@ import (
 	version "github.com/threeport/threeport/internal/version"
 	workload "github.com/threeport/threeport/internal/workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller"
 	zap "go.uber.org/zap"
-
-	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
-	"github.com/google/uuid"
-	"github.com/namsral/flag"
-	"go.uber.org/zap"
-
-	"github.com/threeport/threeport/internal/version"
-	"github.com/threeport/threeport/internal/workload"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client/v0"
-	"github.com/threeport/threeport/pkg/controller"
 )
 
 func main() {

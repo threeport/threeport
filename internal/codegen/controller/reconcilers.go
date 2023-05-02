@@ -185,9 +185,9 @@ func (cc *ControllerConfig) Reconcilers() error {
 								"github.com/threeport/threeport/pkg/client/v0",
 								fmt.Sprintf("Get%sByID", obj),
 							).Call(
-								Line().Op("*").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+								Line().Id("r").Dot("APIClient"),
 								Line().Id("r").Dot("APIServer"),
-								Line().Lit(""),
+								Line().Op("*").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
 								Line(),
 							),
 							Comment("check if error is 404 - if object no longer exists, no need to requeue"),
@@ -324,12 +324,12 @@ func (cc *ControllerConfig) Reconcilers() error {
 							"github.com/threeport/threeport/pkg/client/v0",
 							fmt.Sprintf("Update%s", obj),
 						).Call(
+							Line().Id("r").Dot("APIClient"),
+							Line().Id("r").Dot("APIServer"),
 							Line().Op("&").Id(fmt.Sprintf(
 								"reconciled%s",
 								obj,
 							)),
-							Line().Id("r").Dot("APIServer"),
-							Line().Lit(""),
 							Line(),
 						),
 						If(Id("err").Op("!=").Nil()).Block(

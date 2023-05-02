@@ -43,7 +43,7 @@ func GetDomainNameDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Dom
 }
 
 // GetDomainNameDefinitionByID feteches a domain name definition by ID.
-func GetDomainNameDefinitionByID(apiClient *http.Client, id uint, apiAddr string) (*v0.DomainNameDefinition, error) {
+func GetDomainNameDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinition v0.DomainNameDefinition
 
 	response, err := GetResponse(
@@ -72,7 +72,7 @@ func GetDomainNameDefinitionByID(apiClient *http.Client, id uint, apiAddr string
 }
 
 // GetDomainNameDefinitionByName feteches a domain name definition by name.
-func GetDomainNameDefinitionByName(apiClient *http.Client, name, apiAddr string) (*v0.DomainNameDefinition, error) {
+func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinitions []v0.DomainNameDefinition
 
 	response, err := GetResponse(
@@ -108,7 +108,7 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, name, apiAddr string)
 }
 
 // CreateDomainNameDefinition creates a new domain name definition.
-func CreateDomainNameDefinition(apiClient *http.Client, domainNameDefinition *v0.DomainNameDefinition, apiAddr string) (*v0.DomainNameDefinition, error) {
+func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
 	jsonDomainNameDefinition, err := client.MarshalObject(domainNameDefinition)
 	if err != nil {
 		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -140,7 +140,7 @@ func CreateDomainNameDefinition(apiClient *http.Client, domainNameDefinition *v0
 }
 
 // UpdateDomainNameDefinition updates a domain name definition.
-func UpdateDomainNameDefinition(apiClient *http.Client, domainNameDefinition *v0.DomainNameDefinition, apiAddr string) (*v0.DomainNameDefinition, error) {
+func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	domainNameDefinitionID := *domainNameDefinition.ID
@@ -177,7 +177,7 @@ func UpdateDomainNameDefinition(apiClient *http.Client, domainNameDefinition *v0
 }
 
 // DeleteDomainNameDefinition deletes a domain name definition by ID.
-func DeleteDomainNameDefinition(apiClient *http.Client, id uint, apiAddr string) (*v0.DomainNameDefinition, error) {
+func DeleteDomainNameDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinition v0.DomainNameDefinition
 
 	response, err := GetResponse(
@@ -236,7 +236,7 @@ func GetDomainNameInstances(apiClient *http.Client, apiAddr string) (*[]v0.Domai
 }
 
 // GetDomainNameInstanceByID feteches a domain name instance by ID.
-func GetDomainNameInstanceByID(apiClient *http.Client, id uint, apiAddr string) (*v0.DomainNameInstance, error) {
+func GetDomainNameInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.DomainNameInstance, error) {
 	var domainNameInstance v0.DomainNameInstance
 
 	response, err := GetResponse(
@@ -265,7 +265,7 @@ func GetDomainNameInstanceByID(apiClient *http.Client, id uint, apiAddr string) 
 }
 
 // GetDomainNameInstanceByName feteches a domain name instance by name.
-func GetDomainNameInstanceByName(apiClient *http.Client, name, apiAddr string) (*v0.DomainNameInstance, error) {
+func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.DomainNameInstance, error) {
 	var domainNameInstances []v0.DomainNameInstance
 
 	response, err := GetResponse(
@@ -301,7 +301,7 @@ func GetDomainNameInstanceByName(apiClient *http.Client, name, apiAddr string) (
 }
 
 // CreateDomainNameInstance creates a new domain name instance.
-func CreateDomainNameInstance(apiClient *http.Client, domainNameInstance *v0.DomainNameInstance, apiAddr string) (*v0.DomainNameInstance, error) {
+func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
 	jsonDomainNameInstance, err := client.MarshalObject(domainNameInstance)
 	if err != nil {
 		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -333,7 +333,7 @@ func CreateDomainNameInstance(apiClient *http.Client, domainNameInstance *v0.Dom
 }
 
 // UpdateDomainNameInstance updates a domain name instance.
-func UpdateDomainNameInstance(apiClient *http.Client, domainNameInstance *v0.DomainNameInstance, apiAddr string) (*v0.DomainNameInstance, error) {
+func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	domainNameInstanceID := *domainNameInstance.ID
@@ -370,7 +370,7 @@ func UpdateDomainNameInstance(apiClient *http.Client, domainNameInstance *v0.Dom
 }
 
 // DeleteDomainNameInstance deletes a domain name instance by ID.
-func DeleteDomainNameInstance(apiClient *http.Client, id uint, apiAddr string) (*v0.DomainNameInstance, error) {
+func DeleteDomainNameInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.DomainNameInstance, error) {
 	var domainNameInstance v0.DomainNameInstance
 
 	response, err := GetResponse(

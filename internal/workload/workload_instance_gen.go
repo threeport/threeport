@@ -96,9 +96,9 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			// retrieve latest version of object if requeued
 			if notif.Requeue {
 				latestWorkloadInstance, err := client.GetWorkloadInstanceByID(
-					*workloadInstance.ID,
+					r.APIClient,
 					r.APIServer,
-					"",
+					*workloadInstance.ID,
 				)
 				// check if error is 404 - if object no longer exists, no need to requeue
 				if errors.Is(err, client.ErrorObjectNotFound) {
@@ -163,9 +163,9 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				Reconciled: &objectReconciled,
 			}
 			updatedWorkloadInstance, err := client.UpdateWorkloadInstance(
-				&reconciledWorkloadInstance,
+				r.APIClient,
 				r.APIServer,
-				"",
+				&reconciledWorkloadInstance,
 			)
 			if err != nil {
 				log.Error(err, "failed to update workload instance to mark as reconciled")

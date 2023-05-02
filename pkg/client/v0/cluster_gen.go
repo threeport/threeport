@@ -43,7 +43,7 @@ func GetClusterDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Cluste
 }
 
 // GetClusterDefinitionByID feteches a cluster definition by ID.
-func GetClusterDefinitionByID(apiClient *http.Client, id uint, apiAddr string) (*v0.ClusterDefinition, error) {
+func GetClusterDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.ClusterDefinition, error) {
 	var clusterDefinition v0.ClusterDefinition
 
 	response, err := GetResponse(
@@ -72,7 +72,7 @@ func GetClusterDefinitionByID(apiClient *http.Client, id uint, apiAddr string) (
 }
 
 // GetClusterDefinitionByName feteches a cluster definition by name.
-func GetClusterDefinitionByName(apiClient *http.Client, name, apiAddr string) (*v0.ClusterDefinition, error) {
+func GetClusterDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.ClusterDefinition, error) {
 	var clusterDefinitions []v0.ClusterDefinition
 
 	response, err := GetResponse(
@@ -108,7 +108,7 @@ func GetClusterDefinitionByName(apiClient *http.Client, name, apiAddr string) (*
 }
 
 // CreateClusterDefinition creates a new cluster definition.
-func CreateClusterDefinition(apiClient *http.Client, clusterDefinition *v0.ClusterDefinition, apiAddr string) (*v0.ClusterDefinition, error) {
+func CreateClusterDefinition(apiClient *http.Client, apiAddr string, clusterDefinition *v0.ClusterDefinition) (*v0.ClusterDefinition, error) {
 	jsonClusterDefinition, err := client.MarshalObject(clusterDefinition)
 	if err != nil {
 		return clusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -140,7 +140,7 @@ func CreateClusterDefinition(apiClient *http.Client, clusterDefinition *v0.Clust
 }
 
 // UpdateClusterDefinition updates a cluster definition.
-func UpdateClusterDefinition(apiClient *http.Client, clusterDefinition *v0.ClusterDefinition, apiAddr string) (*v0.ClusterDefinition, error) {
+func UpdateClusterDefinition(apiClient *http.Client, apiAddr string, clusterDefinition *v0.ClusterDefinition) (*v0.ClusterDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	clusterDefinitionID := *clusterDefinition.ID
@@ -177,7 +177,7 @@ func UpdateClusterDefinition(apiClient *http.Client, clusterDefinition *v0.Clust
 }
 
 // DeleteClusterDefinition deletes a cluster definition by ID.
-func DeleteClusterDefinition(apiClient *http.Client, id uint, apiAddr string) (*v0.ClusterDefinition, error) {
+func DeleteClusterDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.ClusterDefinition, error) {
 	var clusterDefinition v0.ClusterDefinition
 
 	response, err := GetResponse(
@@ -236,7 +236,7 @@ func GetClusterInstances(apiClient *http.Client, apiAddr string) (*[]v0.ClusterI
 }
 
 // GetClusterInstanceByID feteches a cluster instance by ID.
-func GetClusterInstanceByID(apiClient *http.Client, id uint, apiAddr string) (*v0.ClusterInstance, error) {
+func GetClusterInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.ClusterInstance, error) {
 	var clusterInstance v0.ClusterInstance
 
 	response, err := GetResponse(
@@ -265,7 +265,7 @@ func GetClusterInstanceByID(apiClient *http.Client, id uint, apiAddr string) (*v
 }
 
 // GetClusterInstanceByName feteches a cluster instance by name.
-func GetClusterInstanceByName(apiClient *http.Client, name, apiAddr string) (*v0.ClusterInstance, error) {
+func GetClusterInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.ClusterInstance, error) {
 	var clusterInstances []v0.ClusterInstance
 
 	response, err := GetResponse(
@@ -301,7 +301,7 @@ func GetClusterInstanceByName(apiClient *http.Client, name, apiAddr string) (*v0
 }
 
 // CreateClusterInstance creates a new cluster instance.
-func CreateClusterInstance(apiClient *http.Client, clusterInstance *v0.ClusterInstance, apiAddr string) (*v0.ClusterInstance, error) {
+func CreateClusterInstance(apiClient *http.Client, apiAddr string, clusterInstance *v0.ClusterInstance) (*v0.ClusterInstance, error) {
 	jsonClusterInstance, err := client.MarshalObject(clusterInstance)
 	if err != nil {
 		return clusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -333,7 +333,7 @@ func CreateClusterInstance(apiClient *http.Client, clusterInstance *v0.ClusterIn
 }
 
 // UpdateClusterInstance updates a cluster instance.
-func UpdateClusterInstance(apiClient *http.Client, clusterInstance *v0.ClusterInstance, apiAddr string) (*v0.ClusterInstance, error) {
+func UpdateClusterInstance(apiClient *http.Client, apiAddr string, clusterInstance *v0.ClusterInstance) (*v0.ClusterInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	clusterInstanceID := *clusterInstance.ID
@@ -370,7 +370,7 @@ func UpdateClusterInstance(apiClient *http.Client, clusterInstance *v0.ClusterIn
 }
 
 // DeleteClusterInstance deletes a cluster instance by ID.
-func DeleteClusterInstance(apiClient *http.Client, id uint, apiAddr string) (*v0.ClusterInstance, error) {
+func DeleteClusterInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.ClusterInstance, error) {
 	var clusterInstance v0.ClusterInstance
 
 	response, err := GetResponse(
