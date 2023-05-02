@@ -506,8 +506,8 @@ func getAPIArgs(devEnvironment bool, authConfig *config.AuthConfig) []interface{
 	if devEnvironment {
 		args := "-auto-migrate=true -verbose=true"
 
-		if authConfig != nil {
-			args += " -auth-enabled=true"
+		if authConfig == nil {
+			args += " -auth-enabled=false"
 		}
 
 		return []interface{}{
@@ -516,11 +516,11 @@ func getAPIArgs(devEnvironment bool, authConfig *config.AuthConfig) []interface{
 		}
 	}
 
-	// disable auth if authConfig is not set in tptctl
 	args := []interface{}{
 		"-auto-migrate=true",
 	}
 
+	// disable auth if authConfig is not set in tptctl
 	if authConfig == nil {
 		args = append(args, "-auth-enabled=false")
 	}
@@ -535,10 +535,11 @@ func getWorkloadArgs(devEnvironment bool, authConfig *config.AuthConfig) []inter
 	// in tptctl, auth is enabled by default
 
 	// enable auth if authConfig is set in dev environment
-	if devEnvironment && authConfig != nil {
+	// if devEnvironment && authConfig != nil {
+	if devEnvironment && authConfig == nil {
 		return []interface{}{
 			"-build.args_bin",
-			"-auth-enabled=true",
+			"-auth-enabled=false",
 		}
 	}
 
