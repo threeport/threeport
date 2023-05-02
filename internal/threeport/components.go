@@ -303,6 +303,7 @@ func InstallThreeportControllers(
 ) error {
 	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo)
 	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment)
+	workloadArgs := getWorkloadArgs(devEnvironment)
 
 	var workloadControllerSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -389,6 +390,7 @@ func InstallThreeportControllers(
 								"name":            "workload-controller",
 								"image":           workloadControllerImage,
 								"imagePullPolicy": "IfNotPresent",
+								"args":            workloadArgs,
 								"envFrom": []interface{}{
 									map[string]interface{}{
 										"secretRef": map[string]interface{}{
@@ -495,7 +497,10 @@ func getAPIIngressTLS(devEnvironment bool, apiHostname string) []interface{} {
 // getAPIArgs returns the args that are passed to the API server.
 func getAPIArgs(devEnvironment bool) []interface{} {
 	if devEnvironment {
-		return []interface{}{}
+		return []interface{}{
+			"-build.args_bin",
+			"-auto-migrate=true -verbose=true -auth-enabled=true",
+		}
 	}
 
 	return []interface{}{
@@ -503,6 +508,22 @@ func getAPIArgs(devEnvironment bool) []interface{} {
 		"true",
 	}
 }
+
+// getWorkloadArgs returns the args that are passed to the workload controller.
+func getWorkloadArgs(devEnvironment bool) []interface{} {
+	if devEnvironment {
+		return []interface{}{
+			"-build.args_bin",
+			"-auth-enabled=true",
+		}
+	}
+
+	return []interface{}{
+		"-build.args_bin",
+		"-auth-enabled=false",
+	}
+}
+
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
 func getAPIVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
