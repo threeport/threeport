@@ -115,7 +115,6 @@ var upCmd = &cobra.Command{
 		}
 
 		var authConfig *config.AuthConfig
-		var clientCredentials *config.Credential
 		if authEnabled {
 			authConfig = config.GetAuthConfig()
 
@@ -126,7 +125,7 @@ var upCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			clientCredentials = &config.Credential{
+			clientCredentials := &config.Credential{
 				Name:       createThreeportDevName,
 				ClientCert: util.Base64Encode(clientCertificate),
 				ClientKey:  util.Base64Encode(clientPrivateKey),

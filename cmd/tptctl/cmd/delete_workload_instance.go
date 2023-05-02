@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 
 	"github.com/threeport/threeport/internal/cli"

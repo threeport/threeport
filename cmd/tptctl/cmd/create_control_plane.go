@@ -4,7 +4,6 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
+	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
@@ -94,6 +94,37 @@ var CreateControlPlaneCmd = &cobra.Command{
 			controlPlaneInfra = &controlPlaneInfraKind
 		}
 
+		// create threeport config for new instance
+		newThreeportInstance := &config.Instance{
+			Name:       createThreeportInstanceName,
+			Provider:   infraProvider,
+			APIServer:  fmt.Sprintf("%s", threeportAPIEndpoint),
+			Kubeconfig: kubeconfigPath,
+		}
+
+		var authConfig *config.AuthConfig
+		if authEnabled {
+			authConfig = config.GetAuthConfig()
+
+			// generate client certificate
+			clientCertificate, clientPrivateKey, err := config.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+			if err != nil {
+				cli.Error("failed to generate client certificate and private key", err)
+				os.Exit(1)
+			}
+
+			clientCredentials := &config.Credential{
+				Name:       createThreeportInstanceName,
+				ClientCert: util.Base64Encode(clientCertificate),
+				ClientKey:  util.Base64Encode(clientPrivateKey),
+			}
+
+			newThreeportInstance.Credentials = append(newThreeportInstance.Credentials, *clientCredentials)
+			newThreeportInstance.CACert = authConfig.CABase64Encoded
+		}
+
+		config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
+
 		// create control plane
 		kubeConnectionInfo, err := controlPlaneInfra.Create()
 		if err != nil {
@@ -144,26 +175,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// generate certificate authority for the threeport API
-		caConfig, ca, caPrivateKey, err := threeport.GenerateCACertificate()
-		if err != nil {
-			cli.Error("failed to generate certificate authority and private key", err)
-			os.Exit(1)
-		}
-
-		// generate server certificate
-		serverCertificate, serverPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
-		if err != nil {
-			cli.Error("failed to generate server certificate and private key", err)
-			os.Exit(1)
-		}
-
-		// get PEM-encoded keypairs as strings to pass into deployment manifests
-		caEncoded := threeport.GetPEMEncoding(ca, "CERTIFICATE")
-		caPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(caPrivateKey), "RSA PRIVATE KEY")
-		serverCertificateEncoded := threeport.GetPEMEncoding(serverCertificate, "CERTIFICATE")
-		serverPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(serverPrivateKey), "RSA PRIVATE KEY")
-
 		// install the threeport control plane API and controllers
 		if err := threeport.InstallThreeportControlPlaneComponents(
 			dynamicKubeClient,
@@ -171,10 +182,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			false,
 			threeportAPIEndpoint,
 			controlPlaneImageRepo,
-			caEncoded,
-			caPrivateKeyEncoded,
-			serverCertificateEncoded,
-			serverPrivateKeyEncoded,
+			authConfig,
 		); err != nil {
 			// delete control plane cluster
 			if err := controlPlaneInfra.Delete(); err != nil {
@@ -244,15 +252,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 			cli.Error("failed to create new cluster instance for default compute space", err)
 			os.Exit(1)
 		}
-
-		// create threeport config for new instance
-		newThreeportInstance := &config.Instance{
-			Name:       createThreeportInstanceName,
-			Provider:   infraProvider,
-			APIServer:  fmt.Sprintf("%s", threeportAPIEndpoint),
-			Kubeconfig: kubeconfigPath,
-		}
-		config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
 
 		cli.Info("threeport config updated")
 

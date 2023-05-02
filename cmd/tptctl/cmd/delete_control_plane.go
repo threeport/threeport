@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/provider"
