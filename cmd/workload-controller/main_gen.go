@@ -6,6 +6,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"sync"
+	"time"
+
 	logr "github.com/go-logr/logr"
 	zapr "github.com/go-logr/zapr"
 	uuid "github.com/google/uuid"
@@ -16,16 +21,11 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller"
 	zap "go.uber.org/zap"
-	"net/http"
-	"os"
-	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"github.com/google/uuid"
 	"github.com/namsral/flag"
-	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
 	"github.com/threeport/threeport/internal/version"
@@ -131,11 +131,10 @@ func main() {
 	// create a channel and wait group used for graceful shut downs
 	var shutdownChans []chan bool
 	var shutdownWait sync.WaitGroup
-
 	// configure http client for calls to threeport API
 	apiClient, err := client.GetHTTPClient(*authEnabled)
 	if err != nil {
-		fmt.Errorf("failed to create http client: %w", err)
+		log.Error(err, "failed to create http client")
 		os.Exit(1)
 	}
 
@@ -178,17 +177,17 @@ func main() {
 
 		// create reconciler
 		reconciler := controller.Reconciler{
-			APIServer:        *apiServer,
 			APIClient:        apiClient,
+			APIServer:        *apiServer,
 			ControllerID:     controllerID,
 			JetStreamContext: js,
 			KeyValue:         kv,
 			Log:              &log,
 			Name:             r.Name,
 			ObjectType:       r.ObjectType,
-			Sub:              sub,
 			Shutdown:         shutdownChan,
 			ShutdownWait:     &shutdownWait,
+			Sub:              sub,
 		}
 
 		// start reconciler

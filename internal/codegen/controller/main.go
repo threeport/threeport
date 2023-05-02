@@ -123,6 +123,12 @@ func (cc *ControllerConfig) MainPackage() error {
 		).Call(
 			Lit("help").Op(",").Lit(false).Op(",").Lit("Show help info"),
 		),
+		Var().Id("authEnabled").Op("=").Qual(
+			"github.com/namsral/flag",
+			"Bool",
+		).Call(
+			Lit("auth-enabled").Op(",").Lit(true).Op(",").Lit("Enable client certificate authentication (default is true)"),
+		),
 		Qual(
 			"github.com/namsral/flag",
 			"Parse",
@@ -258,6 +264,17 @@ func (cc *ControllerConfig) MainPackage() error {
 		Line().Comment("create a channel and wait group used for graceful shut downs"),
 		Var().Id("shutdownChans").Index().Chan().Bool(),
 		Var().Id("shutdownWait").Qual("sync", "WaitGroup"),
+		Comment("configure http client for calls to threeport API"),
+		List(
+			Id("apiClient"), Id("err"),
+		).Op(":=").Id("client").Dot("GetHTTPClient").Call(Op("*").Id("authEnabled")),
+		If(Err().Op("!=").Nil()).Block(
+			Id("log").Dot("Error").Call(
+				Err(),
+				Lit("failed to create http client"),
+			),
+			Qual("os", "Exit").Call(Lit(1)),
+		),
 
 		Line().Comment("configure and start reconcilers"),
 		Var().Id("reconcilerConfigs").Index().Qual(
@@ -322,6 +339,7 @@ func (cc *ControllerConfig) MainPackage() error {
 				Id("Name"):             Id("r").Dot("Name"),
 				Id("ObjectType"):       Id("r").Dot("ObjectType"),
 				Id("APIServer"):        Op("*").Id("apiServer"),
+				Id("APIClient"):        Id("apiClient"),
 				Id("JetStreamContext"): Id("js"),
 				Id("Sub"):              Id("sub"),
 				Id("KeyValue"):         Id("kv"),
