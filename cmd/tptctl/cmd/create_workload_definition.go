@@ -27,11 +27,7 @@ var CreateWorkloadDefinitionCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config and extract threeport API endpoint
-		threeportConfig := &config.ThreeportConfig{}
-		if err := viper.Unmarshal(threeportConfig); err != nil {
-			cli.Error("Failed to get threeport config", err)
-			os.Exit(1)
-		}
+		threeportConfig := config.GetThreeportConfig()
 		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)

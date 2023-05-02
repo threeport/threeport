@@ -28,11 +28,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig := &config.ThreeportConfig{}
-		if err := viper.Unmarshal(threeportConfig); err != nil {
-			cli.Error("failed to get Threeport config", err)
-			os.Exit(1)
-		}
+		threeportConfig := config.GetThreeportConfig()
 
 		// check threeport config for exisiting instance
 		// find the threeport instance by name
@@ -65,20 +61,8 @@ var DeleteControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// update threeport config to remove the deleted threeport instance and
-		// current instance
-		updatedInstances := []config.Instance{}
-		for _, instance := range threeportConfig.Instances {
-			if instance.Name == deleteThreeportInstanceName {
-				continue
-			} else {
-				updatedInstances = append(updatedInstances, instance)
-			}
-		}
+		config.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportInstanceName)
 
-		viper.Set("Instances", updatedInstances)
-		viper.Set("CurrentInstance", "")
-		viper.WriteConfig()
 		cli.Info("threeport config updated")
 
 		cli.Complete(fmt.Sprintf("threeport instance %s deleted", deleteThreeportInstanceName))
