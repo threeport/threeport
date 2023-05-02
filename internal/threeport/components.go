@@ -43,6 +43,7 @@ func InstallThreeportControlPlaneComponents(
 	devEnvironment bool,
 	apiHostname string,
 	customThreeportImageRepo string,
+	customThreeportImageTag string,
 	authConfig *config.AuthConfig,
 ) error {
 	// install the API
@@ -52,6 +53,7 @@ func InstallThreeportControlPlaneComponents(
 		devEnvironment,
 		apiHostname,
 		customThreeportImageRepo,
+		customThreeportImageTag,
 		authConfig,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport API server: %w", err)
@@ -63,6 +65,7 @@ func InstallThreeportControlPlaneComponents(
 		mapper,
 		devEnvironment,
 		customThreeportImageRepo,
+		customThreeportImageTag,
 		authConfig,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport controllers: %w", err)
@@ -79,9 +82,10 @@ func InstallThreeportAPI(
 	devEnvironment bool,
 	apiHostname string,
 	customThreeportImageRepo string,
+	customThreeportImageTag string,
 	authConfig *config.AuthConfig,
 ) error {
-	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo)
+	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
 	apiArgs := getAPIArgs(devEnvironment, authConfig)
 	apiVols, apiVolMounts := getAPIVolumes(devEnvironment, authConfig)
 	// apiPort := getAPIPort(devEnvironment)
@@ -291,9 +295,10 @@ func InstallThreeportControllers(
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
 	customThreeportImageRepo string,
+	customThreeportImageTag string,
 	authConfig *config.AuthConfig,
 ) error {
-	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo)
+	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
 	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment, authConfig)
 	workloadArgs := getWorkloadArgs(devEnvironment, authConfig)
 
@@ -431,7 +436,6 @@ func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
 			http.StatusOK,
 		)
 		if err != nil {
-			fmt.Println(err)
 			time.Sleep(time.Second * time.Duration(waitSeconds))
 			attempts += 1
 			continue
@@ -450,7 +454,7 @@ func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
 }
 
 // getAPIImage returns the proper container image to use for the API.
-func getAPIImage(devEnvironment bool, customThreeportImageRepo string) string {
+func getAPIImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
 	if devEnvironment {
 		devImages := ThreeportDevImages()
 		return devImages["rest-api"]
@@ -460,11 +464,17 @@ func getAPIImage(devEnvironment bool, customThreeportImageRepo string) string {
 	if customThreeportImageRepo != "" {
 		imageRepo = customThreeportImageRepo
 	}
+
+	imageTag := version.GetVersion()
+	if customThreeportImageTag != "" {
+		imageTag = customThreeportImageTag
+	}
+
 	apiImage := fmt.Sprintf(
 		"%s/%s:%s",
 		imageRepo,
 		ThreeportAPIImage,
-		version.GetVersion(),
+		imageTag,
 	)
 
 	return apiImage
@@ -600,7 +610,7 @@ func getAPIVolumes(devEnvironment bool, authConfig *config.AuthConfig) ([]interf
 
 // getWorkloadControllerImage returns the proper container image to use for the
 // workload controller.
-func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo string) string {
+func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
 	if devEnvironment {
 		devImages := ThreeportDevImages()
 		return devImages["workload-controller"]
@@ -610,11 +620,17 @@ func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo st
 	if customThreeportImageRepo != "" {
 		imageRepo = customThreeportImageRepo
 	}
+
+	imageTag := version.GetVersion()
+	if customThreeportImageTag != "" {
+		imageTag = customThreeportImageTag
+	}
+
 	workloadControllerImage := fmt.Sprintf(
 		"%s/%s:%s",
 		imageRepo,
 		ThreeportWorkloadControllerImage,
-		version.GetVersion(),
+		imageTag,
 	)
 
 	return workloadControllerImage

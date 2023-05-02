@@ -34,6 +34,7 @@ var (
 	infraProvider               string
 	kubeconfigPath              string
 	controlPlaneImageRepo       string
+	controlPlaneImageTag        string
 	threeportLocalAPIPort       int
 	numWorkerNodes              int
 )
@@ -90,7 +91,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 				KubeconfigPath:        kubeconfigPath,
 			}
 			devEnvironment := false
-			kindConfig := controlPlaneInfraKind.GetKindConfig(devEnvironment, threeportLocalAPIPort)
 			kindConfig := controlPlaneInfraKind.GetKindConfig(devEnvironment, numWorkerNodes)
 			controlPlaneInfraKind.KindConfig = kindConfig
 			controlPlaneInfra = &controlPlaneInfraKind
@@ -184,6 +184,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			false,
 			threeportAPIEndpoint,
 			controlPlaneImageRepo,
+			controlPlaneImageTag,
 			authConfig,
 		); err != nil {
 			// delete control plane cluster
@@ -197,7 +198,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 
 		apiClient, err := config.GetHTTPClient(authEnabled)
 		if err != nil {
-			fmt.Errorf("failed to create https client: %w", err)
+			fmt.Errorf("failed to create http client: %w", err)
 			os.Exit(1)
 		}
 
@@ -305,6 +306,10 @@ func init() {
 	CreateControlPlaneCmd.Flags().StringVarP(
 		&controlPlaneImageRepo,
 		"control-plane-image-repo", "i", "", "Alternate image repo to pull threeport control plane images from.",
+	)
+	CreateControlPlaneCmd.Flags().StringVarP(
+		&controlPlaneImageTag,
+		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
 	)
 	CreateControlPlaneCmd.Flags().IntVar(&threeportLocalAPIPort,
 		"threeport-api-port", 1323, "Local port to bind threeport APIServer to. Only applies to kind provider. (default is 1323)")
