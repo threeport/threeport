@@ -7,7 +7,7 @@ import (
 
 	. "github.com/dave/jennifer/jen"
 
-	"github.com/threeport/threeport/internal/codegen/name"
+	"github.com/threeport/threeport/internal/codegen"
 )
 
 // apiVersionsPath returns the path from the models to the API's internal
@@ -112,7 +112,7 @@ func (cc *ControllerConfig) ModelVersions() error {
 	}
 
 	// write code to file
-	genFilename := fmt.Sprintf("%s_gen.go", name.FilenameSansExt(cc.ModelFilename))
+	genFilename := fmt.Sprintf("%s_gen.go", codegen.FilenameSansExt(cc.ModelFilename))
 	genFilepath := filepath.Join(apiVersionsPath(), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {

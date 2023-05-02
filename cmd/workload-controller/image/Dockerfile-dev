@@ -11,6 +11,6 @@ RUN go mod download
 
 CMD ["air", \
     "-c", "/threeport/cmd/workload-controller/image/air.toml", \
-    "-build.cmd", "go build -a -o bin/threeport-workload-controller cmd/workload-controller/main.go", \
+    "-build.cmd", "go build -a -o bin/threeport-workload-controller cmd/workload-controller/main_gen.go", \
     "-build.bin", "./bin/threeport-workload-controller"]
 

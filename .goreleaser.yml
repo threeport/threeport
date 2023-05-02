@@ -22,7 +22,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-    main: cmd/workload-controller/main.go
+    main: cmd/workload-controller/main_gen.go
     binary: threeport-workload-controller
 archives:
   - replacements:

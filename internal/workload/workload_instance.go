@@ -4,14 +4,15 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-logr/logr"
+	mapstructure "github.com/mitchellh/mapstructure"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/threeport/threeport/internal/kube"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/controller"
-	"github.com/threeport/threeport/pkg/notifications"
+	notifications "github.com/threeport/threeport/pkg/notifications"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -176,6 +177,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 func workloadInstanceCreated(
 	r *controller.Reconciler,
 	workloadInstance *v0.WorkloadInstance,
+	log *logr.Logger,
 ) error {
 	// ensure workload definition is reconciled before working on an instance
 	// for it
@@ -288,6 +290,11 @@ func workloadInstanceCreated(
 		if err != nil {
 			return fmt.Errorf("failed to create workload resource instance in threeport: %w", err)
 		}
+
+		log.V(1).Info(
+			"workload resource instance created",
+			"workloadResourceInstanceID", wri.ID,
+		)
 	}
 
 	return nil
@@ -298,6 +305,7 @@ func workloadInstanceCreated(
 func workloadInstanceDeleted(
 	r *controller.Reconciler,
 	workloadInstance *v0.WorkloadInstance,
+	log *logr.Logger,
 ) error {
 	// ensure workload definition is reconciled before working on an instance
 	// for it
@@ -338,7 +346,7 @@ func workloadInstanceDeleted(
 		fmt.Errorf("failed to create kube API client object: %w", err)
 	}
 
-	// delete each resource instance in the target kube cluster
+	// delete each workload resource instance and resource in the target kube cluster
 	for _, wri := range *workloadResourceInstances {
 		// marshal the resource instance json
 		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
@@ -356,6 +364,16 @@ func workloadInstanceDeleted(
 		if err := kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to delete Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
 		}
+
+		// delete each workload resource instance in threeport API
+		_, err = client.DeleteWorkloadResourceInstance(*wri.ID, r.APIServer, "")
+		if err != nil {
+			return fmt.Errorf("failed to delete workload resource instance with ID %d: %w", wri.ID, err)
+		}
+		log.V(1).Info(
+			"workload resource instance deleted",
+			"workloadResourceInstanceID", wri.ID,
+		)
 	}
 
 	return nil
