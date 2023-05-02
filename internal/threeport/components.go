@@ -83,7 +83,7 @@ func InstallThreeportAPI(
 ) error {
 	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo)
 	apiArgs := getAPIArgs(devEnvironment, authConfig)
-	apiVols, apiVolMounts := getAPIVolumes(devEnvironment)
+	apiVols, apiVolMounts := getAPIVolumes(devEnvironment, authConfig)
 	// apiPort := getAPIPort(devEnvironment)
 
 	if authConfig != nil {
@@ -294,7 +294,7 @@ func InstallThreeportControllers(
 	authConfig *config.AuthConfig,
 ) error {
 	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo)
-	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment)
+	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment, authConfig)
 	workloadArgs := getWorkloadArgs(devEnvironment, authConfig)
 
 	if authConfig != nil {
@@ -553,7 +553,7 @@ func getWorkloadArgs(devEnvironment bool, authConfig *config.AuthConfig) []inter
 }
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
-func getAPIVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
+func getAPIVolumes(devEnvironment bool, authConfig *config.AuthConfig) ([]interface{}, []interface{}) {
 	vols := []interface{}{
 		map[string]interface{}{
 			"name": "db-config",
@@ -573,18 +573,6 @@ func getAPIVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
 				"name": "db-load",
 			},
 		},
-		map[string]interface{}{
-			"name": "tls-api-ca",
-			"secret": map[string]interface{}{
-				"secretName": "tls-api-ca",
-			},
-		},
-		map[string]interface{}{
-			"name": "tls-api-cert",
-			"secret": map[string]interface{}{
-				"secretName": "tls-api-cert",
-			},
-		},
 	}
 
 	volMounts := []interface{}{
@@ -592,14 +580,12 @@ func getAPIVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
 			"name":      "db-config",
 			"mountPath": "/etc/threeport/",
 		},
-		map[string]interface{}{
-			"name":      "tls-api-ca",
-			"mountPath": "/etc/threeport/ca",
-		},
-		map[string]interface{}{
-			"name":      "tls-api-cert",
-			"mountPath": "/etc/threeport/cert",
-		},
+	}
+
+	if authConfig != nil {
+		certVols, certVolMounts := getCertVols()
+		vols = append(vols, certVols...)
+		volMounts = append(volMounts, certVolMounts...)
 	}
 
 	if devEnvironment {
@@ -635,30 +621,14 @@ func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo st
 
 // getWorkloadControllerVolumes returns the volumes and volume mounts for the workload
 // controller.
-func getWorkloadControllerVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
-	vols := []interface{}{
-		map[string]interface{}{
-			"name": "tls-api-ca",
-			"secret": map[string]interface{}{
-				"secretName": "tls-api-ca",
-			},
-		},
-		map[string]interface{}{
-			"name": "tls-api-cert",
-			"secret": map[string]interface{}{
-				"secretName": "tls-api-cert",
-			},
-		},
-	}
-	volMounts := []interface{}{
-		map[string]interface{}{
-			"name":      "tls-api-ca",
-			"mountPath": "/etc/threeport/ca",
-		},
-		map[string]interface{}{
-			"name":      "tls-api-cert",
-			"mountPath": "/etc/threeport/cert",
-		},
+func getWorkloadControllerVolumes(devEnvironment bool, authConfig *config.AuthConfig) ([]interface{}, []interface{}) {
+	vols := []interface{}{}
+	volMounts := []interface{}{}
+
+	if authConfig != nil {
+		certVols, certVolMounts := getCertVols()
+		vols = append(vols, certVols...)
+		volMounts = append(volMounts, certVolMounts...)
 	}
 
 	if devEnvironment {
@@ -686,4 +656,36 @@ func getCodePathVols() (map[string]interface{}, map[string]interface{}) {
 	}
 
 	return codePathVol, codePathVolMount
+}
+
+func getCertVols() ([]interface{}, []interface{}) {
+
+	certVols := []interface{}{
+		map[string]interface{}{
+			"name": "tls-api-ca",
+			"secret": map[string]interface{}{
+				"secretName": "tls-api-ca",
+			},
+		},
+		map[string]interface{}{
+			"name": "tls-api-cert",
+			"secret": map[string]interface{}{
+				"secretName": "tls-api-cert",
+			},
+		},
+	}
+
+	certVolMounts := []interface{}{
+		map[string]interface{}{
+			"name":      "tls-api-ca",
+			"mountPath": "/etc/threeport/ca",
+		},
+		map[string]interface{}{
+			"name":      "tls-api-cert",
+			"mountPath": "/etc/threeport/cert",
+		},
+	}
+
+	return certVols, certVolMounts
+
 }
