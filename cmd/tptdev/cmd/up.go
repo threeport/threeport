@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -17,8 +16,11 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
 	"github.com/threeport/threeport/internal/tptdev"
+	"github.com/threeport/threeport/internal/util"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 var (
@@ -28,6 +30,9 @@ var (
 	authEnabled            bool
 	threeportLocalAPIPort  int
 	numWorkerNodes         int
+	forceOverwriteConfig   bool
+	cfgFile                string
+	providerConfigDir      string
 )
 
 // upCmd represents the up command
@@ -36,6 +41,12 @@ var upCmd = &cobra.Command{
 	Short: "Spin up a new threeport development environment",
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
+
+		threeportConfig := config.GetThreeportConfig()
+
+		// check threeport config for exisiting instance
+		threeportInstanceConfigExists := config.CheckThreeportConfigExists(threeportConfig, createThreeportDevName, forceOverwriteConfig)
+
 		// get default kubeconfig if not provided
 		if createKubeconfig == "" {
 			ck, err := kube.DefaultKubeconfig()
@@ -117,58 +128,44 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// generate workload certificate
+		workloadCertificate, workloadPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
+		if err != nil {
+			cli.Error("failed to generate client certificate and private key", err)
+			os.Exit(1)
+		}
+
+		// get PEM-encoded keypairs as strings to pass into deployment manifests
+		caEncoded := threeport.GetPEMEncoding(ca, "CERTIFICATE")
+		caPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(caPrivateKey), "RSA PRIVATE KEY")
+
+		serverCertificateEncoded := threeport.GetPEMEncoding(serverCertificate, "CERTIFICATE")
+		serverPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(serverPrivateKey), "RSA PRIVATE KEY")
+
 		// write client certificate and private key to config directory
 		clientCertificateEncoded := threeport.GetPEMEncoding(clientCertificate, "CERTIFICATE")
 		clientPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(clientPrivateKey), "RSA PRIVATE KEY")
-		caEncoded := threeport.GetPEMEncoding(ca, "CERTIFICATE")
 
-		// Set the path to the directory and files
-		dirPath := filepath.Join(os.Getenv("HOME"), ".threeport")
-		certPath := filepath.Join(dirPath, "tls.crt")
-		keyPath := filepath.Join(dirPath, "tls.key")
-		caCertPath := filepath.Join(dirPath, "ca.crt")
+		// get PEM-encoded keypairs as strings to pass into workload controller manfiests
+		workloadCertificateEncoded := threeport.GetPEMEncoding(workloadCertificate, "CERTIFICATE")
+		workloadPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(workloadPrivateKey), "RSA PRIVATE KEY")
 
-		// Ensure that the directory exists
-		if err := os.MkdirAll(dirPath, 0700); err != nil {
-			fmt.Printf("Error creating directory: %v\n", err)
-			return
+		// create threeport config for new instance
+		newThreeportInstance := &config.Instance{
+			Name:       createThreeportDevName,
+			Provider:   "kind",
+			APIServer:  fmt.Sprintf("https://%s:1323", threeport.ThreeportLocalAPIEndpoint),
+			Kubeconfig: createKubeconfig,
+			CACert:     util.Base64Encode(caEncoded),
+			Credentials: []config.Credential{
+				{
+					Name:       createThreeportDevName,
+					ClientCert: util.Base64Encode(clientCertificateEncoded),
+					ClientKey:  util.Base64Encode(clientPrivateKeyEncoded),
+				},
+			},
 		}
-
-		// Create or overwrite the certificate file and write the client certificate to it
-		certFile, err := os.OpenFile(certPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-		if err != nil {
-			fmt.Printf("Error opening certificate file: %v\n", err)
-			return
-		}
-		defer certFile.Close()
-		if _, err := certFile.WriteString(clientCertificateEncoded); err != nil {
-			fmt.Printf("Error writing to certificate file: %v\n", err)
-			return
-		}
-
-		// Create or overwrite the key file and write the client private key to it
-		keyFile, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-		if err != nil {
-			fmt.Printf("Error opening key file: %v\n", err)
-			return
-		}
-		defer keyFile.Close()
-		if _, err := keyFile.WriteString(clientPrivateKeyEncoded); err != nil {
-			fmt.Printf("Error writing to key file: %v\n", err)
-			return
-		}
-
-		// Create or overwrite the ca certificate file and write the ca certificate to it
-		caCertFile, err := os.OpenFile(caCertPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-		if err != nil {
-			fmt.Printf("Error opening ca cert file: %v\n", err)
-			return
-		}
-		defer caCertFile.Close()
-		if _, err := caCertFile.WriteString(caEncoded); err != nil {
-			fmt.Printf("Error writing to key file: %v\n", err)
-			return
-		}
+		config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportDevName, newThreeportInstance)
 
 		// install the threeport control plane dependencies
 		if err := threeport.InstallThreeportControlPlaneDependencies(dynamicKubeClient, mapper); err != nil {
@@ -181,12 +178,6 @@ var upCmd = &cobra.Command{
 			cli.Error("failed to build and load dev control plane images", err)
 			os.Exit(1)
 		}
-
-		// get PEM-encoded keypairs as strings to pass into deployment manifests
-		caPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(caPrivateKey), "RSA PRIVATE KEY")
-		serverCertificateEncoded := threeport.GetPEMEncoding(serverCertificate, "CERTIFICATE")
-		serverPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(serverPrivateKey), "RSA PRIVATE KEY")
-
 		// install the threeport control plane API and controllers
 		//if err := threeport.InstallThreeportControlPlaneComponents(
 		if err := threeport.InstallThreeportAPI(
@@ -205,7 +196,7 @@ var upCmd = &cobra.Command{
 		}
 
 		// configure http client for calls to threeport API
-		apiClient, err := client.GetHTTPClient(authEnabled)
+		apiClient, err := config.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)
@@ -219,17 +210,6 @@ var upCmd = &cobra.Command{
 			cli.Error("threeport API did not come up", err)
 			os.Exit(1)
 		}
-
-		// generate workload certificate
-		workloadCertificate, workloadPrivateKey, err := threeport.GenerateCertificate(caConfig, caPrivateKey)
-		if err != nil {
-			cli.Error("failed to generate client certificate and private key", err)
-			os.Exit(1)
-		}
-
-		// get PEM-encoded keypairs as strings to pass into workload controller manfiests
-		workloadCertificateEncoded := threeport.GetPEMEncoding(workloadCertificate, "CERTIFICATE")
-		workloadPrivateKeyEncoded := threeport.GetPEMEncoding(x509.MarshalPKCS1PrivateKey(workloadPrivateKey), "RSA PRIVATE KEY")
 
 		// install the threeport controllers - these need to be installed once
 		// API server is running in dev environment because the air entrypoint
@@ -257,8 +237,8 @@ var upCmd = &cobra.Command{
 		}
 		clusterDefResult, err := client.CreateClusterDefinition(
 			apiClient,
-			&clusterDefinition,
 			fmt.Sprintf("%s:%s", threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
+			&clusterDefinition,
 		)
 		if err != nil {
 			cli.Error("failed to create new cluster definition for default compute space", err)
@@ -270,8 +250,8 @@ var upCmd = &cobra.Command{
 
 		_, err = client.CreateClusterInstance(
 			apiClient,
-			&clusterInstance,
 			fmt.Sprintf("%s:%s", threeport.ThreeportLocalAPIEndpoint, threeport.ThreeportLocalAPIPort),
+			&clusterInstance,
 		)
 		if err != nil {
 			cli.Error("failed to create new cluster instance for default compute space", err)
@@ -303,4 +283,17 @@ func init() {
 		"threeport-api-port", 1323, "local port to bind threeport APIServer to - default is 1323")
 	upCmd.Flags().IntVar(&numWorkerNodes,
 		"num-worker-nodes", 0, "number of additional worker nodes to deploy - default is 0")
+	upCmd.Flags().BoolVar(
+		&forceOverwriteConfig,
+		"force-overwrite-config", false, "Force the overwrite of an existing Threeport instance config.  Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.",
+	)
+	rootCmd.PersistentFlags().StringVar(
+		&cfgFile, "threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml).",
+	)
+	rootCmd.PersistentFlags().StringVar(
+		&providerConfigDir, "provider-config", "", "Path to infra provider config directory (default is $HOME/.config/threeport/).",
+	)
+	cobra.OnInitialize(func() {
+		config.InitConfig(cfgFile, providerConfigDir)
+	})
 }

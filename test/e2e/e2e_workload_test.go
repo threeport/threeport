@@ -15,6 +15,7 @@ import (
 	"github.com/threeport/threeport/internal/threeport"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 // testWorkload represents a test case for this e2e test.
@@ -54,18 +55,18 @@ func TestWorkloadE2E(t *testing.T) {
 			YAMLDocument: &workloadDefYAML,
 		}
 
+		config.InitConfig("","")
 		// determine if the API is serving HTTPS or HTTP
 		var authEnabled bool
 		_, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
-		if err != nil {
-			assert.ErrorContains(err, "server gave HTTP response to HTTPS client")
-			authEnabled = false
-		} else {
+		if strings.Contains(err.Error(), "signed by unknown authority") {
 			authEnabled = true
+		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
+			authEnabled = false
 		}
 
 		// configure http client for calls to threeport API
-		apiClient, err := client.GetHTTPClient(authEnabled)
+		apiClient, err := config.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)

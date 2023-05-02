@@ -2,15 +2,11 @@ package v0
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -91,63 +87,4 @@ func GetResponse(
 	}
 
 	return &response, nil
-}
-
-// loads certificates from ~/.threeport or /etc/threeport
-func GetHTTPClient(authEnabled bool) (*http.Client, error) {
-
-	if !authEnabled {
-		return &http.Client{}, nil
-	}
-
-	homeDir, _ := os.UserHomeDir()
-	var certFile, keyFile, caFile string
-
-	_, errHomeDirectory := os.Stat(filepath.Join(homeDir, ".threeport"))
-	_, errThreeportCert := os.Stat("/etc/threeport/cert")
-	_, errThreeportCA := os.Stat("/etc/threeport/ca")
-
-	if errHomeDirectory == nil {
-		// Use certificates from ~/.threeport directory
-		certFile = filepath.Join(homeDir, ".threeport", "tls.crt")
-		keyFile = filepath.Join(homeDir, ".threeport", "tls.key")
-		caFile = filepath.Join(homeDir, ".threeport", "ca.crt")
-	} else if errThreeportCert == nil && errThreeportCA == nil {
-		// Use certificates from /etc/threeport directory
-		certFile = "/etc/threeport/cert/tls.crt"
-		keyFile = "/etc/threeport/cert/tls.key"
-		caFile = "/etc/threeport/ca/tls.crt"
-	} else {
-		return nil, errors.New("could not find certificate files")
-	}
-
-	// load client certificate and private key
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		return nil, err
-	}
-
-	// load root certificate authority
-	caCert, err := ioutil.ReadFile(caFile)
-	if err != nil {
-		return nil, err
-	}
-
-	// create certificate pool and add certificate authority
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-
-	// create tls config required by http client
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caCertPool,
-	}
-
-	apiClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
-	}
-
-	return apiClient, nil
 }

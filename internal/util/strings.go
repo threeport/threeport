@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/base64"
 	"math/rand"
 	"strings"
 	"time"
@@ -35,4 +36,16 @@ func RandomString(length int) string {
 	}
 
 	return string(bytes)
+}
+
+func Base64Encode(str string) string {
+	return base64.StdEncoding.EncodeToString([]byte(str))
+}
+
+func Base64Decode(str string) string {
+	decoded, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		return ""
+	}
+	return string(decoded)
 }

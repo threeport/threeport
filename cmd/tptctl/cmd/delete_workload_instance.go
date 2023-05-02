@@ -14,7 +14,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/threeport/threeport/internal/cli"
-	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
@@ -72,7 +71,7 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 			}
 		}
 
-		apiClient, err := client.GetHTTPClient(authEnabled)
+		apiClient, err := config.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)
