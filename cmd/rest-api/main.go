@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"net/http"
 
@@ -163,15 +164,16 @@ func main() {
 	versions.AddVersions()
 
 	if authEnabled {
+		configDir := "/etc/threeport"
 
 		// load server certificate and private key
-		cert, err := tls.LoadX509KeyPair("/etc/threeport/cert/tls.crt", "/etc/threeport/cert/tls.key")
+		cert, err := tls.LoadX509KeyPair(filepath.Join(configDir, "cert/tls.crt"), filepath.Join(configDir, "cert/tls.key"))
 		if err != nil {
 			e.Logger.Fatal(err)
 		}
 
 		// load server root certificate authority
-		caCert, err := ioutil.ReadFile("/etc/threeport/ca/tls.crt")
+		caCert, err := ioutil.ReadFile(filepath.Join(configDir, "ca/tls.crt"))
 		if err != nil {
 			e.Logger.Fatal(err)
 		}

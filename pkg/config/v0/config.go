@@ -244,11 +244,12 @@ func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 	}
 
 	homeDir, _ := os.UserHomeDir()
+	configDir := "/etc/threeport"
 	var tlsConfig *tls.Config
 
 	_, errConfigDirectory := os.Stat(filepath.Join(homeDir, ".config/threeport"))
-	_, errThreeportCert := os.Stat("/etc/threeport/cert")
-	_, errThreeportCA := os.Stat("/etc/threeport/ca")
+	_, errThreeportCert := os.Stat(filepath.Join(configDir, "cert"))
+	_, errThreeportCA := os.Stat(filepath.Join(configDir, "ca"))
 
 	var rootCA string
 	var cert tls.Certificate
@@ -279,9 +280,9 @@ func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 	} else if errThreeportCert == nil && errThreeportCA == nil {
 
 		// Load cfrom /etc/threeport directory
-		certFile := "/etc/threeport/cert/tls.crt"
-		keyFile := "/etc/threeport/cert/tls.key"
-		caFilePath := "/etc/threeport/ca/tls.crt"
+		certFile := filepath.Join(configDir, "cert/tls.crt")
+		keyFile := filepath.Join(configDir, "cert/tls.key")
+		caFilePath := filepath.Join(configDir, "ca/tls.crt")
 
 		// load client certificate and private key
 		var err error
