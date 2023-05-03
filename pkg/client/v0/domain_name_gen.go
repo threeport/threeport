@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetDomainNameDefinitions feteches all domain name definitions.
+// GetDomainNameDefinitions fetches all domain name definitions.
 // TODO: implement pagination
 func GetDomainNameDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.DomainNameDefinition, error) {
 	var domainNameDefinitions []v0.DomainNameDefinition
@@ -42,7 +42,7 @@ func GetDomainNameDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Dom
 	return &domainNameDefinitions, nil
 }
 
-// GetDomainNameDefinitionByID feteches a domain name definition by ID.
+// GetDomainNameDefinitionByID fetches a domain name definition by ID.
 func GetDomainNameDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinition v0.DomainNameDefinition
 
@@ -71,7 +71,7 @@ func GetDomainNameDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 	return &domainNameDefinition, nil
 }
 
-// GetDomainNameDefinitionByName feteches a domain name definition by name.
+// GetDomainNameDefinitionByName fetches a domain name definition by name.
 func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinitions []v0.DomainNameDefinition
 
@@ -205,7 +205,7 @@ func DeleteDomainNameDefinition(apiClient *http.Client, apiAddr string, id uint)
 	return &domainNameDefinition, nil
 }
 
-// GetDomainNameInstances feteches all domain name instances.
+// GetDomainNameInstances fetches all domain name instances.
 // TODO: implement pagination
 func GetDomainNameInstances(apiClient *http.Client, apiAddr string) (*[]v0.DomainNameInstance, error) {
 	var domainNameInstances []v0.DomainNameInstance
@@ -235,7 +235,7 @@ func GetDomainNameInstances(apiClient *http.Client, apiAddr string) (*[]v0.Domai
 	return &domainNameInstances, nil
 }
 
-// GetDomainNameInstanceByID feteches a domain name instance by ID.
+// GetDomainNameInstanceByID fetches a domain name instance by ID.
 func GetDomainNameInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.DomainNameInstance, error) {
 	var domainNameInstance v0.DomainNameInstance
 
@@ -264,7 +264,7 @@ func GetDomainNameInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 	return &domainNameInstance, nil
 }
 
-// GetDomainNameInstanceByName feteches a domain name instance by name.
+// GetDomainNameInstanceByName fetches a domain name instance by name.
 func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.DomainNameInstance, error) {
 	var domainNameInstances []v0.DomainNameInstance
 

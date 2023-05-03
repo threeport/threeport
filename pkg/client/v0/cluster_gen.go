@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetClusterDefinitions feteches all cluster definitions.
+// GetClusterDefinitions fetches all cluster definitions.
 // TODO: implement pagination
 func GetClusterDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.ClusterDefinition, error) {
 	var clusterDefinitions []v0.ClusterDefinition
@@ -42,7 +42,7 @@ func GetClusterDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Cluste
 	return &clusterDefinitions, nil
 }
 
-// GetClusterDefinitionByID feteches a cluster definition by ID.
+// GetClusterDefinitionByID fetches a cluster definition by ID.
 func GetClusterDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.ClusterDefinition, error) {
 	var clusterDefinition v0.ClusterDefinition
 
@@ -71,7 +71,7 @@ func GetClusterDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 	return &clusterDefinition, nil
 }
 
-// GetClusterDefinitionByName feteches a cluster definition by name.
+// GetClusterDefinitionByName fetches a cluster definition by name.
 func GetClusterDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.ClusterDefinition, error) {
 	var clusterDefinitions []v0.ClusterDefinition
 
@@ -205,7 +205,7 @@ func DeleteClusterDefinition(apiClient *http.Client, apiAddr string, id uint) (*
 	return &clusterDefinition, nil
 }
 
-// GetClusterInstances feteches all cluster instances.
+// GetClusterInstances fetches all cluster instances.
 // TODO: implement pagination
 func GetClusterInstances(apiClient *http.Client, apiAddr string) (*[]v0.ClusterInstance, error) {
 	var clusterInstances []v0.ClusterInstance
@@ -235,7 +235,7 @@ func GetClusterInstances(apiClient *http.Client, apiAddr string) (*[]v0.ClusterI
 	return &clusterInstances, nil
 }
 
-// GetClusterInstanceByID feteches a cluster instance by ID.
+// GetClusterInstanceByID fetches a cluster instance by ID.
 func GetClusterInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.ClusterInstance, error) {
 	var clusterInstance v0.ClusterInstance
 
@@ -264,7 +264,7 @@ func GetClusterInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 	return &clusterInstance, nil
 }
 
-// GetClusterInstanceByName feteches a cluster instance by name.
+// GetClusterInstanceByName fetches a cluster instance by name.
 func GetClusterInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.ClusterInstance, error) {
 	var clusterInstances []v0.ClusterInstance
 

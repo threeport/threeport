@@ -102,6 +102,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			Kubeconfig: kubeconfigPath,
 		}
 
+		// if auth is enabled, generate client certificate and add to local config
 		var authConfig *config.AuthConfig
 		if authEnabled {
 			authConfig = config.GetAuthConfig()

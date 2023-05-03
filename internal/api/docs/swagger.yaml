@@ -516,56 +516,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - DomainNameDefinition
-    - DomainNameInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - User
-    - Company
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - Profile
     - Tier
+    - ClusterDefinition
+    - ClusterInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - NetworkIngressDefinition
     - NetworkIngressInstance
+    - User
+    - Company
     type: string
     x-enum-varnames:
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeProfile
     - ObjectTypeTier
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeNetworkIngressDefinition
     - ObjectTypeNetworkIngressInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
   v0.Profile:
     properties:
       CompanyID:

@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetNetworkIngressDefinitions feteches all network ingress definitions.
+// GetNetworkIngressDefinitions fetches all network ingress definitions.
 // TODO: implement pagination
 func GetNetworkIngressDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinitions []v0.NetworkIngressDefinition
@@ -42,7 +42,7 @@ func GetNetworkIngressDefinitions(apiClient *http.Client, apiAddr string) (*[]v0
 	return &networkIngressDefinitions, nil
 }
 
-// GetNetworkIngressDefinitionByID feteches a network ingress definition by ID.
+// GetNetworkIngressDefinitionByID fetches a network ingress definition by ID.
 func GetNetworkIngressDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinition v0.NetworkIngressDefinition
 
@@ -71,7 +71,7 @@ func GetNetworkIngressDefinitionByID(apiClient *http.Client, apiAddr string, id 
 	return &networkIngressDefinition, nil
 }
 
-// GetNetworkIngressDefinitionByName feteches a network ingress definition by name.
+// GetNetworkIngressDefinitionByName fetches a network ingress definition by name.
 func GetNetworkIngressDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.NetworkIngressDefinition, error) {
 	var networkIngressDefinitions []v0.NetworkIngressDefinition
 
@@ -205,7 +205,7 @@ func DeleteNetworkIngressDefinition(apiClient *http.Client, apiAddr string, id u
 	return &networkIngressDefinition, nil
 }
 
-// GetNetworkIngressInstances feteches all network ingress instances.
+// GetNetworkIngressInstances fetches all network ingress instances.
 // TODO: implement pagination
 func GetNetworkIngressInstances(apiClient *http.Client, apiAddr string) (*[]v0.NetworkIngressInstance, error) {
 	var networkIngressInstances []v0.NetworkIngressInstance
@@ -235,7 +235,7 @@ func GetNetworkIngressInstances(apiClient *http.Client, apiAddr string) (*[]v0.N
 	return &networkIngressInstances, nil
 }
 
-// GetNetworkIngressInstanceByID feteches a network ingress instance by ID.
+// GetNetworkIngressInstanceByID fetches a network ingress instance by ID.
 func GetNetworkIngressInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.NetworkIngressInstance, error) {
 	var networkIngressInstance v0.NetworkIngressInstance
 
@@ -264,7 +264,7 @@ func GetNetworkIngressInstanceByID(apiClient *http.Client, apiAddr string, id ui
 	return &networkIngressInstance, nil
 }
 
-// GetNetworkIngressInstanceByName feteches a network ingress instance by name.
+// GetNetworkIngressInstanceByName fetches a network ingress instance by name.
 func GetNetworkIngressInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.NetworkIngressInstance, error) {
 	var networkIngressInstances []v0.NetworkIngressInstance
 

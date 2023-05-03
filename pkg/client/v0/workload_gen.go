@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetWorkloadDefinitions feteches all workload definitions.
+// GetWorkloadDefinitions fetches all workload definitions.
 // TODO: implement pagination
 func GetWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadDefinition, error) {
 	var workloadDefinitions []v0.WorkloadDefinition
@@ -42,7 +42,7 @@ func GetWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Workl
 	return &workloadDefinitions, nil
 }
 
-// GetWorkloadDefinitionByID feteches a workload definition by ID.
+// GetWorkloadDefinitionByID fetches a workload definition by ID.
 func GetWorkloadDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadDefinition, error) {
 	var workloadDefinition v0.WorkloadDefinition
 
@@ -71,7 +71,7 @@ func GetWorkloadDefinitionByID(apiClient *http.Client, apiAddr string, id uint) 
 	return &workloadDefinition, nil
 }
 
-// GetWorkloadDefinitionByName feteches a workload definition by name.
+// GetWorkloadDefinitionByName fetches a workload definition by name.
 func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadDefinition, error) {
 	var workloadDefinitions []v0.WorkloadDefinition
 
@@ -205,7 +205,7 @@ func DeleteWorkloadDefinition(apiClient *http.Client, apiAddr string, id uint) (
 	return &workloadDefinition, nil
 }
 
-// GetWorkloadResourceDefinitions feteches all workload resource definitions.
+// GetWorkloadResourceDefinitions fetches all workload resource definitions.
 // TODO: implement pagination
 func GetWorkloadResourceDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
@@ -235,7 +235,7 @@ func GetWorkloadResourceDefinitions(apiClient *http.Client, apiAddr string) (*[]
 	return &workloadResourceDefinitions, nil
 }
 
-// GetWorkloadResourceDefinitionByID feteches a workload resource definition by ID.
+// GetWorkloadResourceDefinitionByID fetches a workload resource definition by ID.
 func GetWorkloadResourceDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinition v0.WorkloadResourceDefinition
 
@@ -264,7 +264,7 @@ func GetWorkloadResourceDefinitionByID(apiClient *http.Client, apiAddr string, i
 	return &workloadResourceDefinition, nil
 }
 
-// GetWorkloadResourceDefinitionByName feteches a workload resource definition by name.
+// GetWorkloadResourceDefinitionByName fetches a workload resource definition by name.
 func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
@@ -398,7 +398,7 @@ func DeleteWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, id
 	return &workloadResourceDefinition, nil
 }
 
-// GetWorkloadInstances feteches all workload instances.
+// GetWorkloadInstances fetches all workload instances.
 // TODO: implement pagination
 func GetWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
@@ -428,7 +428,7 @@ func GetWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]v0.Workloa
 	return &workloadInstances, nil
 }
 
-// GetWorkloadInstanceByID feteches a workload instance by ID.
+// GetWorkloadInstanceByID fetches a workload instance by ID.
 func GetWorkloadInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadInstance, error) {
 	var workloadInstance v0.WorkloadInstance
 
@@ -457,7 +457,7 @@ func GetWorkloadInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*
 	return &workloadInstance, nil
 }
 
-// GetWorkloadInstanceByName feteches a workload instance by name.
+// GetWorkloadInstanceByName fetches a workload instance by name.
 func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
 
@@ -591,7 +591,7 @@ func DeleteWorkloadInstance(apiClient *http.Client, apiAddr string, id uint) (*v
 	return &workloadInstance, nil
 }
 
-// GetWorkloadResourceInstances feteches all workload resource instances.
+// GetWorkloadResourceInstances fetches all workload resource instances.
 // TODO: implement pagination
 func GetWorkloadResourceInstances(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
@@ -621,7 +621,7 @@ func GetWorkloadResourceInstances(apiClient *http.Client, apiAddr string) (*[]v0
 	return &workloadResourceInstances, nil
 }
 
-// GetWorkloadResourceInstanceByID feteches a workload resource instance by ID.
+// GetWorkloadResourceInstanceByID fetches a workload resource instance by ID.
 func GetWorkloadResourceInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstance v0.WorkloadResourceInstance
 
@@ -650,7 +650,7 @@ func GetWorkloadResourceInstanceByID(apiClient *http.Client, apiAddr string, id 
 	return &workloadResourceInstance, nil
 }
 
-// GetWorkloadResourceInstanceByName feteches a workload resource instance by name.
+// GetWorkloadResourceInstanceByName fetches a workload resource instance by name.
 func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 

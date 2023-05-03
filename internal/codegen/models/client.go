@@ -36,7 +36,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		// get all objects
 		getAllFuncName := fmt.Sprintf("Get%s", pluralize.Pluralize(mc.TypeName, 2, false))
 		f.Comment(fmt.Sprintf(
-			"%s feteches all %s.",
+			"%s fetches all %s.",
 			getAllFuncName,
 			pluralize.Pluralize(strcase.ToDelimited(mc.TypeName, ' '), 2, false),
 		))
@@ -104,7 +104,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		// get object by ID
 		getByIDFuncName := fmt.Sprintf("Get%sByID", mc.TypeName)
 		f.Comment(fmt.Sprintf(
-			"%s feteches a %s by ID.",
+			"%s fetches a %s by ID.",
 			getByIDFuncName,
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
@@ -172,7 +172,7 @@ func (cc *ControllerConfig) ClientLib() error {
 		// get object by name
 		getByNameFuncName := fmt.Sprintf("Get%sByName", mc.TypeName)
 		f.Comment(fmt.Sprintf(
-			"%s feteches a %s by name.",
+			"%s fetches a %s by name.",
 			getByNameFuncName,
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))

@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetProfiles feteches all profiles.
+// GetProfiles fetches all profiles.
 // TODO: implement pagination
 func GetProfiles(apiClient *http.Client, apiAddr string) (*[]v0.Profile, error) {
 	var profiles []v0.Profile
@@ -42,7 +42,7 @@ func GetProfiles(apiClient *http.Client, apiAddr string) (*[]v0.Profile, error) 
 	return &profiles, nil
 }
 
-// GetProfileByID feteches a profile by ID.
+// GetProfileByID fetches a profile by ID.
 func GetProfileByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Profile, error) {
 	var profile v0.Profile
 
@@ -71,7 +71,7 @@ func GetProfileByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Profil
 	return &profile, nil
 }
 
-// GetProfileByName feteches a profile by name.
+// GetProfileByName fetches a profile by name.
 func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile, error) {
 	var profiles []v0.Profile
 
@@ -205,7 +205,7 @@ func DeleteProfile(apiClient *http.Client, apiAddr string, id uint) (*v0.Profile
 	return &profile, nil
 }
 
-// GetTiers feteches all tiers.
+// GetTiers fetches all tiers.
 // TODO: implement pagination
 func GetTiers(apiClient *http.Client, apiAddr string) (*[]v0.Tier, error) {
 	var tiers []v0.Tier
@@ -235,7 +235,7 @@ func GetTiers(apiClient *http.Client, apiAddr string) (*[]v0.Tier, error) {
 	return &tiers, nil
 }
 
-// GetTierByID feteches a tier by ID.
+// GetTierByID fetches a tier by ID.
 func GetTierByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, error) {
 	var tier v0.Tier
 
@@ -264,7 +264,7 @@ func GetTierByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, err
 	return &tier, nil
 }
 
-// GetTierByName feteches a tier by name.
+// GetTierByName fetches a tier by name.
 func GetTierByName(apiClient *http.Client, apiAddr, name string) (*v0.Tier, error) {
 	var tiers []v0.Tier
 

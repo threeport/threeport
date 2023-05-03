@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetForwardProxyDefinitions feteches all forward proxy definitions.
+// GetForwardProxyDefinitions fetches all forward proxy definitions.
 // TODO: implement pagination
 func GetForwardProxyDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinitions []v0.ForwardProxyDefinition
@@ -42,7 +42,7 @@ func GetForwardProxyDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.F
 	return &forwardProxyDefinitions, nil
 }
 
-// GetForwardProxyDefinitionByID feteches a forward proxy definition by ID.
+// GetForwardProxyDefinitionByID fetches a forward proxy definition by ID.
 func GetForwardProxyDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinition v0.ForwardProxyDefinition
 
@@ -71,7 +71,7 @@ func GetForwardProxyDefinitionByID(apiClient *http.Client, apiAddr string, id ui
 	return &forwardProxyDefinition, nil
 }
 
-// GetForwardProxyDefinitionByName feteches a forward proxy definition by name.
+// GetForwardProxyDefinitionByName fetches a forward proxy definition by name.
 func GetForwardProxyDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinitions []v0.ForwardProxyDefinition
 
@@ -205,7 +205,7 @@ func DeleteForwardProxyDefinition(apiClient *http.Client, apiAddr string, id uin
 	return &forwardProxyDefinition, nil
 }
 
-// GetForwardProxyInstances feteches all forward proxy instances.
+// GetForwardProxyInstances fetches all forward proxy instances.
 // TODO: implement pagination
 func GetForwardProxyInstances(apiClient *http.Client, apiAddr string) (*[]v0.ForwardProxyInstance, error) {
 	var forwardProxyInstances []v0.ForwardProxyInstance
@@ -235,7 +235,7 @@ func GetForwardProxyInstances(apiClient *http.Client, apiAddr string) (*[]v0.For
 	return &forwardProxyInstances, nil
 }
 
-// GetForwardProxyInstanceByID feteches a forward proxy instance by ID.
+// GetForwardProxyInstanceByID fetches a forward proxy instance by ID.
 func GetForwardProxyInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.ForwardProxyInstance, error) {
 	var forwardProxyInstance v0.ForwardProxyInstance
 
@@ -264,7 +264,7 @@ func GetForwardProxyInstanceByID(apiClient *http.Client, apiAddr string, id uint
 	return &forwardProxyInstance, nil
 }
 
-// GetForwardProxyInstanceByName feteches a forward proxy instance by name.
+// GetForwardProxyInstanceByName fetches a forward proxy instance by name.
 func GetForwardProxyInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.ForwardProxyInstance, error) {
 	var forwardProxyInstances []v0.ForwardProxyInstance
 

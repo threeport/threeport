@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetUsers feteches all users.
+// GetUsers fetches all users.
 // TODO: implement pagination
 func GetUsers(apiClient *http.Client, apiAddr string) (*[]v0.User, error) {
 	var users []v0.User
@@ -42,7 +42,7 @@ func GetUsers(apiClient *http.Client, apiAddr string) (*[]v0.User, error) {
 	return &users, nil
 }
 
-// GetUserByID feteches a user by ID.
+// GetUserByID fetches a user by ID.
 func GetUserByID(apiClient *http.Client, apiAddr string, id uint) (*v0.User, error) {
 	var user v0.User
 
@@ -71,7 +71,7 @@ func GetUserByID(apiClient *http.Client, apiAddr string, id uint) (*v0.User, err
 	return &user, nil
 }
 
-// GetUserByName feteches a user by name.
+// GetUserByName fetches a user by name.
 func GetUserByName(apiClient *http.Client, apiAddr, name string) (*v0.User, error) {
 	var users []v0.User
 
@@ -205,7 +205,7 @@ func DeleteUser(apiClient *http.Client, apiAddr string, id uint) (*v0.User, erro
 	return &user, nil
 }
 
-// GetCompanies feteches all companies.
+// GetCompanies fetches all companies.
 // TODO: implement pagination
 func GetCompanies(apiClient *http.Client, apiAddr string) (*[]v0.Company, error) {
 	var companies []v0.Company
@@ -235,7 +235,7 @@ func GetCompanies(apiClient *http.Client, apiAddr string) (*[]v0.Company, error)
 	return &companies, nil
 }
 
-// GetCompanyByID feteches a company by ID.
+// GetCompanyByID fetches a company by ID.
 func GetCompanyByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Company, error) {
 	var company v0.Company
 
@@ -264,7 +264,7 @@ func GetCompanyByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Compan
 	return &company, nil
 }
 
-// GetCompanyByName feteches a company by name.
+// GetCompanyByName fetches a company by name.
 func GetCompanyByName(apiClient *http.Client, apiAddr, name string) (*v0.Company, error) {
 	var companies []v0.Company
 

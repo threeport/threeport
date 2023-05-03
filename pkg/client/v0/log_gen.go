@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetLogBackends feteches all log backends.
+// GetLogBackends fetches all log backends.
 // TODO: implement pagination
 func GetLogBackends(apiClient *http.Client, apiAddr string) (*[]v0.LogBackend, error) {
 	var logBackends []v0.LogBackend
@@ -42,7 +42,7 @@ func GetLogBackends(apiClient *http.Client, apiAddr string) (*[]v0.LogBackend, e
 	return &logBackends, nil
 }
 
-// GetLogBackendByID feteches a log backend by ID.
+// GetLogBackendByID fetches a log backend by ID.
 func GetLogBackendByID(apiClient *http.Client, apiAddr string, id uint) (*v0.LogBackend, error) {
 	var logBackend v0.LogBackend
 
@@ -71,7 +71,7 @@ func GetLogBackendByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Log
 	return &logBackend, nil
 }
 
-// GetLogBackendByName feteches a log backend by name.
+// GetLogBackendByName fetches a log backend by name.
 func GetLogBackendByName(apiClient *http.Client, apiAddr, name string) (*v0.LogBackend, error) {
 	var logBackends []v0.LogBackend
 
@@ -205,7 +205,7 @@ func DeleteLogBackend(apiClient *http.Client, apiAddr string, id uint) (*v0.LogB
 	return &logBackend, nil
 }
 
-// GetLogStorageDefinitions feteches all log storage definitions.
+// GetLogStorageDefinitions fetches all log storage definitions.
 // TODO: implement pagination
 func GetLogStorageDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.LogStorageDefinition, error) {
 	var logStorageDefinitions []v0.LogStorageDefinition
@@ -235,7 +235,7 @@ func GetLogStorageDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Log
 	return &logStorageDefinitions, nil
 }
 
-// GetLogStorageDefinitionByID feteches a log storage definition by ID.
+// GetLogStorageDefinitionByID fetches a log storage definition by ID.
 func GetLogStorageDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.LogStorageDefinition, error) {
 	var logStorageDefinition v0.LogStorageDefinition
 
@@ -264,7 +264,7 @@ func GetLogStorageDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 	return &logStorageDefinition, nil
 }
 
-// GetLogStorageDefinitionByName feteches a log storage definition by name.
+// GetLogStorageDefinitionByName fetches a log storage definition by name.
 func GetLogStorageDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.LogStorageDefinition, error) {
 	var logStorageDefinitions []v0.LogStorageDefinition
 
@@ -398,7 +398,7 @@ func DeleteLogStorageDefinition(apiClient *http.Client, apiAddr string, id uint)
 	return &logStorageDefinition, nil
 }
 
-// GetLogStorageInstances feteches all log storage instances.
+// GetLogStorageInstances fetches all log storage instances.
 // TODO: implement pagination
 func GetLogStorageInstances(apiClient *http.Client, apiAddr string) (*[]v0.LogStorageInstance, error) {
 	var logStorageInstances []v0.LogStorageInstance
@@ -428,7 +428,7 @@ func GetLogStorageInstances(apiClient *http.Client, apiAddr string) (*[]v0.LogSt
 	return &logStorageInstances, nil
 }
 
-// GetLogStorageInstanceByID feteches a log storage instance by ID.
+// GetLogStorageInstanceByID fetches a log storage instance by ID.
 func GetLogStorageInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.LogStorageInstance, error) {
 	var logStorageInstance v0.LogStorageInstance
 
@@ -457,7 +457,7 @@ func GetLogStorageInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 	return &logStorageInstance, nil
 }
 
-// GetLogStorageInstanceByName feteches a log storage instance by name.
+// GetLogStorageInstanceByName fetches a log storage instance by name.
 func GetLogStorageInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.LogStorageInstance, error) {
 	var logStorageInstances []v0.LogStorageInstance
 

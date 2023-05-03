@@ -88,7 +88,6 @@ func InstallThreeportAPI(
 	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
 	apiArgs := getAPIArgs(devEnvironment, authConfig)
 	apiVols, apiVolMounts := getAPIVolumes(devEnvironment, authConfig)
-	// apiPort := getAPIPort(devEnvironment)
 
 	if authConfig != nil {
 		// generate server certificate

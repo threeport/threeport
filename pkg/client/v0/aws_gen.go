@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// GetAwsAccounts feteches all aws accounts.
+// GetAwsAccounts fetches all aws accounts.
 // TODO: implement pagination
 func GetAwsAccounts(apiClient *http.Client, apiAddr string) (*[]v0.AwsAccount, error) {
 	var awsAccounts []v0.AwsAccount
@@ -42,7 +42,7 @@ func GetAwsAccounts(apiClient *http.Client, apiAddr string) (*[]v0.AwsAccount, e
 	return &awsAccounts, nil
 }
 
-// GetAwsAccountByID feteches a aws account by ID.
+// GetAwsAccountByID fetches a aws account by ID.
 func GetAwsAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsAccount, error) {
 	var awsAccount v0.AwsAccount
 
@@ -71,7 +71,7 @@ func GetAwsAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Aws
 	return &awsAccount, nil
 }
 
-// GetAwsAccountByName feteches a aws account by name.
+// GetAwsAccountByName fetches a aws account by name.
 func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsAccount, error) {
 	var awsAccounts []v0.AwsAccount
 
@@ -205,7 +205,7 @@ func DeleteAwsAccount(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsA
 	return &awsAccount, nil
 }
 
-// GetAwsEksClusterDefinitions feteches all aws eks cluster definitions.
+// GetAwsEksClusterDefinitions fetches all aws eks cluster definitions.
 // TODO: implement pagination
 func GetAwsEksClusterDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.AwsEksClusterDefinition, error) {
 	var awsEksClusterDefinitions []v0.AwsEksClusterDefinition
@@ -235,7 +235,7 @@ func GetAwsEksClusterDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.
 	return &awsEksClusterDefinitions, nil
 }
 
-// GetAwsEksClusterDefinitionByID feteches a aws eks cluster definition by ID.
+// GetAwsEksClusterDefinitionByID fetches a aws eks cluster definition by ID.
 func GetAwsEksClusterDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksClusterDefinition, error) {
 	var awsEksClusterDefinition v0.AwsEksClusterDefinition
 
@@ -264,7 +264,7 @@ func GetAwsEksClusterDefinitionByID(apiClient *http.Client, apiAddr string, id u
 	return &awsEksClusterDefinition, nil
 }
 
-// GetAwsEksClusterDefinitionByName feteches a aws eks cluster definition by name.
+// GetAwsEksClusterDefinitionByName fetches a aws eks cluster definition by name.
 func GetAwsEksClusterDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksClusterDefinition, error) {
 	var awsEksClusterDefinitions []v0.AwsEksClusterDefinition
 
@@ -398,7 +398,7 @@ func DeleteAwsEksClusterDefinition(apiClient *http.Client, apiAddr string, id ui
 	return &awsEksClusterDefinition, nil
 }
 
-// GetAwsEksClusterInstances feteches all aws eks cluster instances.
+// GetAwsEksClusterInstances fetches all aws eks cluster instances.
 // TODO: implement pagination
 func GetAwsEksClusterInstances(apiClient *http.Client, apiAddr string) (*[]v0.AwsEksClusterInstance, error) {
 	var awsEksClusterInstances []v0.AwsEksClusterInstance
@@ -428,7 +428,7 @@ func GetAwsEksClusterInstances(apiClient *http.Client, apiAddr string) (*[]v0.Aw
 	return &awsEksClusterInstances, nil
 }
 
-// GetAwsEksClusterInstanceByID feteches a aws eks cluster instance by ID.
+// GetAwsEksClusterInstanceByID fetches a aws eks cluster instance by ID.
 func GetAwsEksClusterInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksClusterInstance, error) {
 	var awsEksClusterInstance v0.AwsEksClusterInstance
 
@@ -457,7 +457,7 @@ func GetAwsEksClusterInstanceByID(apiClient *http.Client, apiAddr string, id uin
 	return &awsEksClusterInstance, nil
 }
 
-// GetAwsEksClusterInstanceByName feteches a aws eks cluster instance by name.
+// GetAwsEksClusterInstanceByName fetches a aws eks cluster instance by name.
 func GetAwsEksClusterInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksClusterInstance, error) {
 	var awsEksClusterInstances []v0.AwsEksClusterInstance
 
@@ -591,7 +591,7 @@ func DeleteAwsEksClusterInstance(apiClient *http.Client, apiAddr string, id uint
 	return &awsEksClusterInstance, nil
 }
 
-// GetAwsRelationalDatabaseDefinitions feteches all aws relational database definitions.
+// GetAwsRelationalDatabaseDefinitions fetches all aws relational database definitions.
 // TODO: implement pagination
 func GetAwsRelationalDatabaseDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
@@ -621,7 +621,7 @@ func GetAwsRelationalDatabaseDefinitions(apiClient *http.Client, apiAddr string)
 	return &awsRelationalDatabaseDefinitions, nil
 }
 
-// GetAwsRelationalDatabaseDefinitionByID feteches a aws relational database definition by ID.
+// GetAwsRelationalDatabaseDefinitionByID fetches a aws relational database definition by ID.
 func GetAwsRelationalDatabaseDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
 
@@ -650,7 +650,7 @@ func GetAwsRelationalDatabaseDefinitionByID(apiClient *http.Client, apiAddr stri
 	return &awsRelationalDatabaseDefinition, nil
 }
 
-// GetAwsRelationalDatabaseDefinitionByName feteches a aws relational database definition by name.
+// GetAwsRelationalDatabaseDefinitionByName fetches a aws relational database definition by name.
 func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
 
@@ -784,7 +784,7 @@ func DeleteAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 	return &awsRelationalDatabaseDefinition, nil
 }
 
-// GetAwsRelationalDatabaseInstances feteches all aws relational database instances.
+// GetAwsRelationalDatabaseInstances fetches all aws relational database instances.
 // TODO: implement pagination
 func GetAwsRelationalDatabaseInstances(apiClient *http.Client, apiAddr string) (*[]v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
@@ -814,7 +814,7 @@ func GetAwsRelationalDatabaseInstances(apiClient *http.Client, apiAddr string) (
 	return &awsRelationalDatabaseInstances, nil
 }
 
-// GetAwsRelationalDatabaseInstanceByID feteches a aws relational database instance by ID.
+// GetAwsRelationalDatabaseInstanceByID fetches a aws relational database instance by ID.
 func GetAwsRelationalDatabaseInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
 
@@ -843,7 +843,7 @@ func GetAwsRelationalDatabaseInstanceByID(apiClient *http.Client, apiAddr string
 	return &awsRelationalDatabaseInstance, nil
 }
 
-// GetAwsRelationalDatabaseInstanceByName feteches a aws relational database instance by name.
+// GetAwsRelationalDatabaseInstanceByName fetches a aws relational database instance by name.
 func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
 
