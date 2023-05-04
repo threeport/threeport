@@ -279,7 +279,7 @@ func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 
 	} else if errThreeportCert == nil && errThreeportCA == nil {
 
-		// Load cfrom /etc/threeport directory
+		// Load from /etc/threeport directory
 		certFile := filepath.Join(configDir, "cert/tls.crt")
 		keyFile := filepath.Join(configDir, "cert/tls.key")
 		caFilePath := filepath.Join(configDir, "ca/tls.crt")

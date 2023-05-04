@@ -148,8 +148,8 @@ var upCmd = &cobra.Command{
 			cli.Error("failed to build and load dev control plane images", err)
 			os.Exit(1)
 		}
+
 		// install the threeport control plane API and controllers
-		//if err := threeport.InstallThreeportControlPlaneComponents(
 		if err := threeport.InstallThreeportAPI(
 			dynamicKubeClient,
 			mapper,
@@ -166,7 +166,7 @@ var upCmd = &cobra.Command{
 		// configure http client for calls to threeport API
 		apiClient, err := config.GetHTTPClient(authEnabled)
 		if err != nil {
-			fmt.Errorf("failed to create https client: %w", err)
+			fmt.Errorf("failed to create http client: %w", err)
 			os.Exit(1)
 		}
 
