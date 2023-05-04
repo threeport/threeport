@@ -123,19 +123,14 @@ func InitConfig(cfgFile, providerConfigDir string) {
 	viper.AddConfigPath(configPath(home))
 	viper.SetConfigName(configName)
 	viper.SetConfigType(configType)
-	//configFilePath := fmt.Sprintf("%s/%s.%s", configPath(home), configName, configType)
 	configFilePath := filepath.Join(configPath(home), fmt.Sprintf("%s.%s", configName, configType))
 
 	// read config file if provided, else go to default
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		//viper.AddConfigPath(configPath(home))
-		//viper.SetConfigName(configName)
-		//viper.SetConfigType(configType)
 
 		// create config if not present
-		//configFilePath := fmt.Sprintf("%s/%s.%s", configPath(home), configName, configType)
 		if err := viper.SafeWriteConfigAs(configFilePath); err != nil {
 			if os.IsNotExist(err) {
 				if err := os.MkdirAll(configPath(home), os.ModePerm); err != nil {
