@@ -14,8 +14,8 @@ import (
 // definitions.
 func CreateWorkloadResourceDefinitions(
 	apiClient *http.Client,
-	workloadResourceDefinitions *[]v0.WorkloadResourceDefinition,
 	apiAddr string,
+	workloadResourceDefinitions *[]v0.WorkloadResourceDefinition,
 ) (*[]v0.WorkloadResourceDefinition, error) {
 	jsonWorkloadResourceDefinitions, err := client_v0.MarshalObject(workloadResourceDefinitions)
 	if err != nil {
