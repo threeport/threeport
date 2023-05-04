@@ -98,41 +98,13 @@ func InstallThreeportAPI(
 			os.Exit(1)
 		}
 
-		var tlsApiCA = &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Secret",
-				"type":       "kubernetes.io/tls",
-				"metadata": map[string]interface{}{
-					"name":      "tls-api-ca",
-					"namespace": ControlPlaneNamespace,
-				},
-				"stringData": map[string]interface{}{
-					"tls.crt": authConfig.CAPemEncoded,
-					"tls.key": authConfig.CAPrivateKeyPemEncoded,
-				},
-			},
-		}
-		if _, err := kube.CreateResource(tlsApiCA, kubeClient, *mapper); err != nil {
+		var apiCa = getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
+		if _, err := kube.CreateResource(apiCa, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create API server secret: %w", err)
 		}
 
-		var tlsApiCert = &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Secret",
-				"type":       "kubernetes.io/tls",
-				"metadata": map[string]interface{}{
-					"name":      "tls-api-cert",
-					"namespace": ControlPlaneNamespace,
-				},
-				"stringData": map[string]interface{}{
-					"tls.crt": serverCertificate,
-					"tls.key": serverPrivateKey,
-				},
-			},
-		}
-		if _, err := kube.CreateResource(tlsApiCert, kubeClient, *mapper); err != nil {
+		var apiCert = getTLSSecret("api-cert", serverCertificate, serverPrivateKey)
+		if _, err := kube.CreateResource(apiCert, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create API server secret: %w", err)
 		}
 	}
@@ -310,41 +282,13 @@ func InstallThreeportControllers(
 			os.Exit(1)
 		}
 
-		var tlsApiCA = &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Secret",
-				"type":       "kubernetes.io/tls",
-				"metadata": map[string]interface{}{
-					"name":      "tls-api-ca",
-					"namespace": ControlPlaneNamespace,
-				},
-				"stringData": map[string]interface{}{
-					"tls.crt": authConfig.CAPemEncoded,
-					"tls.key": "",
-				},
-			},
-		}
-		if _, err := kube.CreateResource(tlsApiCA, kubeClient, *mapper); err != nil {
+		var workloadCa = getTLSSecret("workload-ca", authConfig.CAPemEncoded, "")
+		if _, err := kube.CreateResource(workloadCa, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create API server secret: %w", err)
 		}
 
-		var tlsApiCert = &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Secret",
-				"type":       "kubernetes.io/tls",
-				"metadata": map[string]interface{}{
-					"name":      "tls-api-cert",
-					"namespace": ControlPlaneNamespace,
-				},
-				"stringData": map[string]interface{}{
-					"tls.crt": workloadCertificate,
-					"tls.key": workloadPrivateKey,
-				},
-			},
-		}
-		if _, err := kube.CreateResource(tlsApiCert, kubeClient, *mapper); err != nil {
+		var workloadCert = getTLSSecret("workload-cert", workloadCertificate, workloadPrivateKey)
+		if _, err := kube.CreateResource(workloadCert, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create API server secret: %w", err)
 		}
 	}
@@ -593,9 +537,13 @@ func getAPIVolumes(devEnvironment bool, authConfig *config.AuthConfig) ([]interf
 	}
 
 	if authConfig != nil {
-		certVols, certVolMounts := getCertVols()
-		vols = append(vols, certVols...)
-		volMounts = append(volMounts, certVolMounts...)
+		caVol, caVolMount := getSecretVols("api-ca", "/etc/threeport/ca")
+		certVol, certVolMount := getSecretVols("api-cert", "/etc/threeport/cert")
+
+		vols = append(vols, caVol)
+		vols = append(vols, caVolMount)
+		volMounts = append(volMounts, certVol)
+		volMounts = append(volMounts, certVolMount)
 	}
 
 	if devEnvironment {
@@ -642,9 +590,13 @@ func getWorkloadControllerVolumes(devEnvironment bool, authConfig *config.AuthCo
 	volMounts := []interface{}{}
 
 	if authConfig != nil {
-		certVols, certVolMounts := getCertVols()
-		vols = append(vols, certVols...)
-		volMounts = append(volMounts, certVolMounts...)
+		caVol, caVolMount := getSecretVols("workload-ca", "/etc/threeport/ca")
+		certVol, certVolMount := getSecretVols("workload-cert", "/etc/threeport/cert")
+
+		vols = append(vols, caVol)
+		vols = append(vols, certVol)
+		volMounts = append(volMounts, caVolMount)
+		volMounts = append(volMounts, certVolMount)
 	}
 
 	if devEnvironment {
@@ -674,34 +626,43 @@ func getCodePathVols() (map[string]interface{}, map[string]interface{}) {
 	return codePathVol, codePathVolMount
 }
 
-func getCertVols() ([]interface{}, []interface{}) {
+// getSecretVols returns volumes and volume mounts for secrets.
+func getSecretVols(name string, mountPath string) (map[string]interface{}, map[string]interface{}) {
 
-	certVols := []interface{}{
-		map[string]interface{}{
-			"name": "tls-api-ca",
-			"secret": map[string]interface{}{
-				"secretName": "tls-api-ca",
-			},
+	vol := map[string]interface{}{
+		"name": name,
+		"secret": map[string]interface{}{
+			"secretName": name,
 		},
-		map[string]interface{}{
-			"name": "tls-api-cert",
-			"secret": map[string]interface{}{
-				"secretName": "tls-api-cert",
+	}
+
+	volMount := map[string]interface{}{
+		"name":      name,
+		"mountPath": mountPath,
+	}
+
+	return vol, volMount
+
+}
+
+// getTLSSecret returns a Kubernetes secret for the given certificate and private key.
+func getTLSSecret(name string, certificate string, privateKey string) *unstructured.Unstructured {
+
+	secret := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"type":       "kubernetes.io/tls",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": ControlPlaneNamespace,
+			},
+			"stringData": map[string]interface{}{
+				"tls.crt": certificate,
+				"tls.key": privateKey,
 			},
 		},
 	}
 
-	certVolMounts := []interface{}{
-		map[string]interface{}{
-			"name":      "tls-api-ca",
-			"mountPath": "/etc/threeport/ca",
-		},
-		map[string]interface{}{
-			"name":      "tls-api-cert",
-			"mountPath": "/etc/threeport/cert",
-		},
-	}
-
-	return certVols, certVolMounts
-
+	return secret
 }
