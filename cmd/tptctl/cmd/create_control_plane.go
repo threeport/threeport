@@ -310,9 +310,11 @@ func init() {
 		&controlPlaneImageTag,
 		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
 	)
-	CreateControlPlaneCmd.Flags().IntVar(&threeportLocalAPIPort,
+	CreateControlPlaneCmd.Flags().IntVar(
+		&threeportLocalAPIPort,
 		"threeport-api-port", 1323, "Local port to bind threeport APIServer to. Only applies to kind provider. (default is 1323)")
-	CreateControlPlaneCmd.Flags().IntVar(&numWorkerNodes,
+	CreateControlPlaneCmd.Flags().IntVar(
+		&numWorkerNodes,
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy. Only applies to kind provider. (default is 0)")
 }
 

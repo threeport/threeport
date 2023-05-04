@@ -24,7 +24,7 @@ import (
 
 var (
 	createThreeportDevName string
-	createKubeconfig       string
+	kubeconfigPath         string
 	threeportPath          string
 	authEnabled            bool
 	threeportLocalAPIPort  int
@@ -47,13 +47,13 @@ var upCmd = &cobra.Command{
 		threeportInstanceConfigExists := config.CheckThreeportConfigExists(threeportConfig, createThreeportDevName, forceOverwriteConfig)
 
 		// get default kubeconfig if not provided
-		if createKubeconfig == "" {
+		if kubeconfigPath == "" {
 			ck, err := kube.DefaultKubeconfig()
 			if err != nil {
 				cli.Error("failed to get path to default kubeconfig", err)
 				os.Exit(1)
 			}
-			createKubeconfig = ck
+			kubeconfigPath = ck
 		}
 
 		// set default threeport repo path if not provided
@@ -71,7 +71,7 @@ var upCmd = &cobra.Command{
 		// create kind cluster
 		controlPlaneInfra := provider.ControlPlaneInfraKind{
 			ThreeportInstanceName: createThreeportDevName,
-			KubeconfigPath:        createKubeconfig,
+			KubeconfigPath:        kubeconfigPath,
 			ThreeportPath:         threeportPath,
 		}
 		devEnvironment := true
@@ -111,7 +111,7 @@ var upCmd = &cobra.Command{
 			Name:       createThreeportDevName,
 			Provider:   "kind",
 			APIServer:  fmt.Sprintf("https://%s:%d", threeport.ThreeportLocalAPIEndpoint, threeportLocalAPIPort),
-			Kubeconfig: createKubeconfig,
+			Kubeconfig: kubeconfigPath,
 		}
 
 		var authConfig *config.AuthConfig
@@ -236,29 +236,41 @@ var upCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(upCmd)
 
-	upCmd.Flags().StringVarP(&createThreeportDevName,
-		"name", "n", tptdev.DefaultInstanceName, "name of dev control plane instance")
-	upCmd.Flags().StringVarP(&createKubeconfig,
-		"kubeconfig", "k", "", "path to kubeconfig - default is ~/.kube/config")
-	upCmd.Flags().StringVarP(&threeportPath,
-		"threeport-path", "t", "", "path to threeport repository root - default is ./")
-	upCmd.Flags().BoolVar(
-		&authEnabled,
-		"auth-enabled", false, "Enable client certificate authentication (default is false)",
+	upCmd.Flags().StringVarP(
+		&kubeconfigPath,
+		"kubeconfig", "k", "", "Path to kubeconfig (default is ~/.kube/config).",
 	)
-	upCmd.Flags().IntVar(&threeportLocalAPIPort,
-		"threeport-api-port", 1323, "local port to bind threeport APIServer to - default is 1323")
-	upCmd.Flags().IntVar(&numWorkerNodes,
-		"num-worker-nodes", 0, "number of additional worker nodes to deploy - default is 0")
 	upCmd.Flags().BoolVar(
 		&forceOverwriteConfig,
-		"force-overwrite-config", false, "Force the overwrite of an existing Threeport instance config.  Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.",
+		"force-overwrite-config", false, "Force the overwrite of an existing Threeport instance config. Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.",
+	)
+	upCmd.Flags().BoolVar(
+		&authEnabled,
+		"auth-enabled", false, "Enable client certificate authentication (default is false).",
+	)
+	upCmd.Flags().StringVarP(
+		&createThreeportDevName,
+		"name", "n", tptdev.DefaultInstanceName, "Name of dev control plane instance.",
+	)
+	upCmd.Flags().StringVarP(
+		&threeportPath,
+		"threeport-path", "t", "", "Path to threeport repository root (default is './').",
 	)
 	rootCmd.PersistentFlags().StringVar(
-		&cfgFile, "threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml).",
+		&cfgFile,
+		"threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml).",
 	)
 	rootCmd.PersistentFlags().StringVar(
-		&providerConfigDir, "provider-config", "", "Path to infra provider config directory (default is $HOME/.config/threeport/).",
+		&providerConfigDir,
+		"provider-config", "", "Path to infra provider config directory (default is $HOME/.config/threeport/).",
+	)
+	upCmd.Flags().IntVar(
+		&threeportLocalAPIPort,
+		"threeport-api-port", 1323, "Local port to bind threeport APIServer to (default is 1323.",
+	)
+	upCmd.Flags().IntVar(
+		&numWorkerNodes,
+		"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
 	)
 	cobra.OnInitialize(func() {
 		config.InitConfig(cfgFile, providerConfigDir)
