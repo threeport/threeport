@@ -337,6 +337,21 @@ var CreateControlPlaneCmd = &cobra.Command{
 		if err != nil {
 			cli.Error("failed to create http client", err)
 			os.Exit(1)
+
+		// get the threeport API's endpoint
+		if infraProvider == "eks" {
+			tpapiEndpoint, err := threeport.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+			if err != nil {
+				// print the error when it happens and then again post-deletion
+				cli.Error("failed to get threeport API's public endpoint: %w", err)
+				if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
+					cli.Error("failed to delete control plane infra", err)
+					cli.Warning("you may have dangling cluster infra resources still running")
+				}
+				cli.Error("failed to get threeport API's public endpoint: %w", err)
+				os.Exit(1)
+			}
+			threeportAPIEndpoint = tpapiEndpoint
 		}
 
 		// wait for API server to start running

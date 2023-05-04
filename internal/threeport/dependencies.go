@@ -10,6 +10,18 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 )
 
+const (
+	// links the service account delcared in the IngressComponent resource to the
+	// resource config for eks-cluster to create the attached IAM role.
+	DNSManagerServiceAccountName     = "external-dns"
+	DNSManagerServiceAccountNamepace = "nukleros-ingress-system"
+
+	// links the service account used by the EBS CSI driver to the resource
+	// config for eks-cluster to create the attached IAM role.
+	StorageManagerServiceAccountName      = "ebs-csi-controller-sa"
+	StorageManagerServiceAccountNamespace = "kube-system"
+)
+
 // InstallThreeportControlPlaneDependencies installs the necessary components
 // for the threeport REST API and controllers to operate.  It includes the
 // database and message broker.
