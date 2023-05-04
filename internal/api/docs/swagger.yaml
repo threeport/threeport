@@ -516,56 +516,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - Profile
     - Tier
-    - ClusterDefinition
-    - ClusterInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
     - DomainNameDefinition
     - DomainNameInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
     - User
     - Company
+    - ClusterDefinition
+    - ClusterInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
     - ObjectTypeUser
     - ObjectTypeCompany
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       CompanyID:

@@ -119,6 +119,7 @@ func main() {
 	// create a channel and wait group used for graceful shut downs
 	var shutdownChans []chan bool
 	var shutdownWait sync.WaitGroup
+
 	// configure http client for calls to threeport API
 	apiClient, err := v01.GetHTTPClient(*authEnabled)
 	if err != nil {

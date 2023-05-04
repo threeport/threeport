@@ -264,6 +264,7 @@ func (cc *ControllerConfig) MainPackage() error {
 		Line().Comment("create a channel and wait group used for graceful shut downs"),
 		Var().Id("shutdownChans").Index().Chan().Bool(),
 		Var().Id("shutdownWait").Qual("sync", "WaitGroup"),
+		Line(),
 		Comment("configure http client for calls to threeport API"),
 		List(
 			Id("apiClient"), Id("err"),
