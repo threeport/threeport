@@ -1,5 +1,7 @@
 package threeport
 
+import "fmt"
+
 const (
 	// The Kubernetes namespace in which the threeport control plane is
 	// installed
@@ -37,4 +39,8 @@ const (
 type ControlPlane struct {
 	InfraProvider ControlPlaneInfraProvider
 	Tier          ControlPlaneTier
+}
+
+func BootstrapClusterName(threeportInstanceName string) string {
+	return fmt.Sprintf("compute-space-%s-0", threeportInstanceName)
 }

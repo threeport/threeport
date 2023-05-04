@@ -17,6 +17,7 @@ type KubeConnectionInfo struct {
 	CACertificate string
 	Certificate   string
 	Key           string
+	EKSToken      string
 }
 
 // DefaultKubeconfig returns the path to the user's default kubeconfig.
@@ -51,7 +52,6 @@ func GetConnectionInfoFromKubeconfig(kubeconfig string) (*KubeConnectionInfo, er
 	clusterFound := false
 	for clusterName, cluster := range kubeConfig.Clusters {
 		if clusterName == kubeConfig.CurrentContext {
-			//caCert = string(cluster.CertificateAuthorityData)
 			kubeConnInfo.CACertificate = string(cluster.CertificateAuthorityData)
 			kubeConnInfo.APIEndpoint = string(cluster.Server)
 			clusterFound = true
@@ -68,8 +68,6 @@ func GetConnectionInfoFromKubeconfig(kubeconfig string) (*KubeConnectionInfo, er
 	userFound := false
 	for userName, user := range kubeConfig.AuthInfos {
 		if userName == kubeConfig.CurrentContext {
-			//cert = string(user.ClientCertificateData)
-			//key = string(user.ClientKeyData)
 			kubeConnInfo.Certificate = string(user.ClientCertificateData)
 			kubeConnInfo.Key = string(user.ClientKeyData)
 			userFound = true

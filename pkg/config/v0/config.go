@@ -4,22 +4,41 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/threeport/threeport/internal/kube"
+	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/util"
 )
 
 // ThreeportConfig is the client's configuration for connecting to Threeport instances
 type ThreeportConfig struct {
-	Instances       []Instance `yaml:"Instances"`
-	CurrentInstance string     `yaml:"CurrentInstance"`
+	// All the threeport instances a user has available to use.
+	Instances []Instance `yaml:"Instances"`
+
+	// The name of the threeport instance currently in use.
+	CurrentInstance string `yaml:"CurrentInstance"`
 }
 
 // ThreeportInstance is an instance of Threeport the client can use.
 type Instance struct {
-	Name        string       `yaml:"Name"`
-	Provider    string       `yaml:"Provider"`
-	APIServer   string       `yaml:"APIServer"`
-	CACert      string       `yaml:"CACert"`
-	Kubeconfig  string       `yaml: "Kubeconfig"`
+	// The unique name of the threeport instance.
+	Name string `yaml:"Name"`
+
+	// The address for the threeport API.
+	APIServer string `yaml:"APIServer"`
+
+	// The threeport API's CA certificate.
+	CACert string `yaml:"CACert"`
+
+	// Kubernetes API and connection info.
+	KubeAPI kube.KubeConnectionInfo `yaml:"KubeAPI"`
+
+	// The infra provider hosting the threeport instance.
+	Provider string `yaml:"Provider"`
+
+	// Provider configuration for EKS-hosted threeport instances.
+	EKSProviderConfig provider.ControlPlaneInfraEKS `yaml:"EKSProviderConfig"`
+
+	// Client authentication credentials to threeport API.
 	Credentials []Credential `yaml:"Credentials"`
 }
 
@@ -46,7 +65,8 @@ func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceNa
 	return threeportInstanceConfigExists, nil
 }
 
-// GetThreeportAPIEndpoint returns the API endpoint for the current instance.
+// GetThreeportAPIEndpoint returns the threeport API endpoint from threeport
+// config.
 func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
 	for i, instance := range cfg.Instances {
 		if instance.Name == cfg.CurrentInstance {

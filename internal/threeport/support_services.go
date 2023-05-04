@@ -11,18 +11,13 @@ import (
 )
 
 const (
-	SupportServicesNamespace                   = "support-services-system"
-	SupportServicesOperatorImage               = "ghcr.io/nukleros/support-services-operator:v0.1.12"
-	RBACProxyImage                             = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
-	ExternalDNSImage                           = "k8s.gcr.io/external-dns/external-dns"
-	ExternalDNSVersion                         = "v0.12.2"
-	SupportServicesDNSManagementServiceAccount = "external-dns"
-	SupportServicesIngressComponentName        = "threeport-control-plane-ingress"
-	SupportServicesIngressNamespace            = "threeport-ingress"
-	SupportServicesIngressServiceName          = "threeport-ingress-service"
-	LocalIngressNamespace                      = "ingress-system"
+	SupportServicesNamespace     = "support-services-system"
+	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.1.12"
+	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
 )
 
+// InstallThreeportCRDs installs all CRDs needed by threeport in the target
+// cluster.
 func InstallThreeportCRDs(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -1079,13 +1074,11 @@ func InstallThreeportCRDs(
 }
 
 // InstallThreeportSupportServices installs the threeport control plane's support
-// services, e.g. ingress and TLS assets.
+// services, e.g. TLS assets.
 func InstallThreeportSupportServices(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
-	iamDNSRoleARN string,
-	rootDomain string,
 	adminEmail string,
 ) error {
 	var namespace = &unstructured.Unstructured{
@@ -3398,8 +3391,7 @@ func InstallThreeportSupportServices(
 				"name": "threeport-support-services",
 			},
 			"spec": map[string]interface{}{
-				"tier":                     "development",
-				"defaultIngressController": "kong",
+				"tier": "development",
 			},
 		},
 	}

@@ -12,15 +12,23 @@ import (
 )
 
 type ControlPlaneInfraKind struct {
+	// The unique name of the threeport instance.
 	ThreeportInstanceName string
-	KubeconfigPath        string
-	KindConfig            *v1alpha4.Cluster
-	ThreeportPath         string
+
+	// Path to user's kubeconfig file for connecting to Kubernetes API.
+	KubeconfigPath string
+
+	// The kind configuration that informs how the cluster will be configured.
+	KindConfig *v1alpha4.Cluster
+
+	// Used only for development environments.  The path to the threeport repo
+	// on the developer's file system.
+	ThreeportPath string
 }
 
 // Create installs a Kubernetes cluster using kind for the threeport control
 // plane.
-func (i *ControlPlaneInfraKind) Create() (*kube.KubeConnectionInfo, error) {
+func (i *ControlPlaneInfraKind) Create(providerConfigDir string) (*kube.KubeConnectionInfo, error) {
 	logger := cmd.NewLogger()
 	prov := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
@@ -46,7 +54,7 @@ func (i *ControlPlaneInfraKind) Create() (*kube.KubeConnectionInfo, error) {
 }
 
 // Delete deletes a kind cluster and the threeport control plane with it.
-func (i *ControlPlaneInfraKind) Delete() error {
+func (i *ControlPlaneInfraKind) Delete(providerConfigDir string) error {
 	logger := cmd.NewLogger()
 	prov := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),

@@ -47,13 +47,16 @@ type ClusterInstance struct {
 
 	// The CA certificate used to generate the cert and key if
 	// self-signed.
-	CACertificate *string `json:"CACertificate,omitempty" validate:"optional"`
+	CACertificate *string `json:"CACertificate,omitempty" gorm:"not null" validate:"required"`
 
 	// The client certificate to use for auth to the kube-api.
-	Certificate *string `json:"Certificate,omitempty" gorm:"not null" validate:"required"`
+	Certificate *string `json:"Certificate,omitempty" validate:"optional"`
 
 	// The client key to use for auth to the kube-api.
-	Key *string `json:"Key,omitempty" gorm:"not null" validate:"required"`
+	Key *string `json:"Key,omitempty" validate:"optional"`
+
+	// EKSToken is the token used for authentication by AWS EKS clusters.
+	EKSToken *string `json:"EKSToken,omitempty" validate:"optional"`
 
 	// If true the cluster instance to use for deployments if not otherwise
 	// specified.  Can only have one per account.

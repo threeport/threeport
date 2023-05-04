@@ -55,14 +55,30 @@ func GetRESTConfig(cluster *v0.ClusterInstance, threeportControlPlane bool) *res
 	if *cluster.ThreeportControlPlaneCluster && threeportControlPlane {
 		kubeAPIEndpoint = "kubernetes.default.svc.cluster.local"
 	}
-	tlsConfig := rest.TLSClientConfig{
-		CertData: []byte(*cluster.Certificate),
-		KeyData:  []byte(*cluster.Key),
-		CAData:   []byte(*cluster.CACertificate),
+
+	// set tlsConfig according to authN type
+	var restConfig rest.Config
+	switch {
+	case cluster.Certificate != nil && cluster.Key != nil:
+		tlsConfig := rest.TLSClientConfig{
+			CertData: []byte(*cluster.Certificate),
+			KeyData:  []byte(*cluster.Key),
+			CAData:   []byte(*cluster.CACertificate),
+		}
+		restConfig = rest.Config{
+			Host:            kubeAPIEndpoint,
+			TLSClientConfig: tlsConfig,
+		}
+	case cluster.EKSToken != nil:
+		tlsConfig := rest.TLSClientConfig{
+			CAData: []byte(*cluster.CACertificate),
+		}
+		restConfig = rest.Config{
+			Host:            kubeAPIEndpoint,
+			BearerToken:     *cluster.EKSToken,
+			TLSClientConfig: tlsConfig,
+		}
 	}
 
-	return &rest.Config{
-		Host:            kubeAPIEndpoint,
-		TLSClientConfig: tlsConfig,
-	}
+	return &restConfig
 }

@@ -10,13 +10,27 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 )
 
+const (
+	// links the service account delcared in the IngressComponent resource to the
+	// resource config for eks-cluster to create the attached IAM role.
+	DNSManagerServiceAccountName     = "external-dns"
+	DNSManagerServiceAccountNamepace = "nukleros-ingress-system"
+
+	// links the service account used by the EBS CSI driver to the resource
+	// config for eks-cluster to create the attached IAM role.
+	StorageManagerServiceAccountName      = "ebs-csi-controller-sa"
+	StorageManagerServiceAccountNamespace = "kube-system"
+)
+
 // InstallThreeportControlPlaneDependencies installs the necessary components
 // for the threeport REST API and controllers to operate.  It includes the
 // database and message broker.
 func InstallThreeportControlPlaneDependencies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	infraProvider string,
 ) error {
+	crdbVolClaimTemplateSpec := getCRDBVolClaimTemplateSpec(infraProvider)
 
 	var namespace = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -750,16 +764,7 @@ lame_duck_duration: 30s
 								"app.kubernetes.io/instance": "crdb",
 							},
 						},
-						"spec": map[string]interface{}{
-							"accessModes": []interface{}{
-								"ReadWriteOnce",
-							},
-							"resources": map[string]interface{}{
-								"requests": map[string]interface{}{
-									"storage": "1Gi",
-								},
-							},
-						},
+						"spec": crdbVolClaimTemplateSpec,
 					},
 				},
 			},
@@ -770,4 +775,25 @@ lame_duck_duration: 30s
 	}
 
 	return nil
+}
+
+// getCRDBVolClaimTemplateSpec returns the spec for the cockroach DB volume
+// claim template based on the infra provider.
+func getCRDBVolClaimTemplateSpec(infraProvider string) map[string]interface{} {
+	volClaimTemplateSpec := map[string]interface{}{
+		"accessModes": []interface{}{
+			"ReadWriteOnce",
+		},
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"storage": "1Gi",
+			},
+		},
+	}
+
+	if infraProvider == "eks" {
+		volClaimTemplateSpec["storageClassName"] = "gp2"
+	}
+
+	return volClaimTemplateSpec
 }
