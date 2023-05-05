@@ -12,10 +12,8 @@ import (
 	"math/big"
 	"net"
 	"net/url"
-	"os"
 	"time"
 
-	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/util"
 )
 
@@ -54,12 +52,11 @@ type AuthConfig struct {
 }
 
 // GetAuthConfig populates an AuthConfig object and returns a pointer to it.
-func GetAuthConfig() *AuthConfig {
+func GetAuthConfig() (*AuthConfig, error) {
 	// generate certificate authority for the threeport API
 	caConfig, ca, caPrivateKey, err := GenerateCACertificate()
 	if err != nil {
-		cli.Error("failed to generate certificate authority and private key", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to generate certificate authority and private key: %w", err)
 	}
 
 	// get PEM-encoded keypairs as strings to pass into deployment manifests
@@ -74,7 +71,7 @@ func GetAuthConfig() *AuthConfig {
 		CABase64Encoded:           util.Base64Encode(caEncoded),
 		CAPrivateKeyPemEncoded:    caPrivateKeyEncoded,
 		CAPrivateKeyBase64Encoded: util.Base64Encode(caPrivateKeyEncoded),
-	}
+	}, nil
 
 }
 

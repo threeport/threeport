@@ -127,7 +127,11 @@ var upCmd = &cobra.Command{
 
 		var authConfig *config.AuthConfig
 		if authEnabled {
-			authConfig = config.GetAuthConfig()
+			authConfig, err = config.GetAuthConfig()
+			if err != nil {
+				cli.Error("failed to get auth config", err)
+				os.Exit(1)
+			}
 
 			// generate client certificate
 			clientCertificate, clientPrivateKey, err := config.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
