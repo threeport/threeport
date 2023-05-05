@@ -105,9 +105,9 @@ func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clie
 			if credential.Name == cfg.CurrentInstance {
 				clientCert = cfg.Instances[i].Credentials[j].ClientCert
 				clientPrivateKey = cfg.Instances[i].Credentials[j].ClientKey
+				return util.Base64Decode(caCert), util.Base64Decode(clientCert), util.Base64Decode(clientPrivateKey), nil
 			}
 		}
-		return util.Base64Decode(caCert), util.Base64Decode(clientCert), util.Base64Decode(clientPrivateKey), nil
 	}
 
 	return "", "", "", errors.New("could not load credentials")
@@ -250,24 +250,22 @@ func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 	var cert tls.Certificate
 
 	if errConfigDirectory == nil {
-
 		// load certificates from ~/.threeport
 		threeportConfig := GetThreeportConfig()
 		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
 		if err != nil {
-			cli.Error("failed to get threeport API endpoint from config", err)
-			os.Exit(1)
+			return nil, fmt.Errorf("failed to get threeport API endpoint from config: %w", err)
 		}
 
 		// load client certificate and private key
 		cert, err = tls.X509KeyPair([]byte(clientCertificate), []byte(clientPrivateKey))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load client certificate and private key: %w", err)
 		}
 
 		// load root certificate authority
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load root certificate authority: %w", err)
 		}
 
 		rootCA = ca
@@ -283,13 +281,13 @@ func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 		var err error
 		cert, err = tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load client certificate and private key: %w", err)
 		}
 
-		// load root certificate authority
+		// load root certificate authiiiiority
 		caCertBytes, err := ioutil.ReadFile(caFilePath)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load root certificate authority: %w", err)
 		}
 
 		rootCA = string(caCertBytes)

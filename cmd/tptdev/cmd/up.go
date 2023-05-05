@@ -166,7 +166,7 @@ var upCmd = &cobra.Command{
 		// configure http client for calls to threeport API
 		apiClient, err := config.GetHTTPClient(authEnabled)
 		if err != nil {
-			fmt.Errorf("failed to create http client: %w", err)
+			cli.Error("failed to create http client: ", err)
 			os.Exit(1)
 		}
 

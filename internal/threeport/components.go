@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/client/v0"
@@ -93,9 +91,7 @@ func InstallThreeportAPI(
 		// generate server certificate
 		serverCertificate, serverPrivateKey, err := config.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
 		if err != nil {
-			cli.Error("failed to generate server certificate and private key", err)
-			fmt.Errorf("failed to generate random serial number: %w", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to generate server certificate and private key: %w", err)
 		}
 
 		var apiCa = getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
@@ -278,8 +274,7 @@ func InstallThreeportControllers(
 		// generate workload certificate
 		workloadCertificate, workloadPrivateKey, err := config.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
 		if err != nil {
-			cli.Error("failed to generate client certificate and private key", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to generate client certificate and private key: %w", err)
 		}
 
 		var workloadCa = getTLSSecret("workload-ca", authConfig.CAPemEncoded, "")
@@ -541,8 +536,8 @@ func getAPIVolumes(devEnvironment bool, authConfig *config.AuthConfig) ([]interf
 		certVol, certVolMount := getSecretVols("api-cert", "/etc/threeport/cert")
 
 		vols = append(vols, caVol)
-		vols = append(vols, caVolMount)
-		volMounts = append(volMounts, certVol)
+		vols = append(vols, certVol)
+		volMounts = append(volMounts, caVolMount)
 		volMounts = append(volMounts, certVolMount)
 	}
 
