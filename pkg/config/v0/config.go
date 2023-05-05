@@ -30,13 +30,13 @@ const (
 	configType = "yaml"
 )
 
-// ThreeportConfig is the client's configuration for connecting to Threeport instances
+// ThreeportConfig is the client's configuration for connecting to Threeport instances.
 type ThreeportConfig struct {
 	Instances       []Instance `yaml:"Instances"`
 	CurrentInstance string     `yaml:"CurrentInstance"`
 }
 
-// ThreeportInstance is an instance of Threeport the client can use
+// ThreeportInstance is an instance of Threeport the client can use.
 type Instance struct {
 	Name        string       `yaml:"Name"`
 	Provider    string       `yaml:"Provider"`
@@ -46,12 +46,14 @@ type Instance struct {
 	Credentials []Credential `yaml:"Credentials"`
 }
 
+// Credential is a client certificate and key pair for authenticating to a Threeport instance.
 type Credential struct {
 	Name       string `yaml:"Name"`
 	ClientCert string `yaml:"ClientCert"`
 	ClientKey  string `yaml:"ClientKey"`
 }
 
+// AuthConfig contains root CA and private key for generating client certificates.
 type AuthConfig struct {
 	CAConfig                  *x509.Certificate
 	CAPrivateKey              rsa.PrivateKey
@@ -62,6 +64,7 @@ type AuthConfig struct {
 	CAPrivateKeyBase64Encoded string
 }
 
+// GetAuthConfig populates an AuthConfig object and returns a pointer to it.
 func GetAuthConfig() *AuthConfig {
 	// generate certificate authority for the threeport API
 	caConfig, ca, caPrivateKey, err := GenerateCACertificate()
@@ -86,6 +89,7 @@ func GetAuthConfig() *AuthConfig {
 
 }
 
+// GetThreeportAPIEndpoint returns the API endpoint for the current instance.
 func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
 	for i, instance := range cfg.Instances {
 		if instance.Name == cfg.CurrentInstance {
@@ -96,6 +100,7 @@ func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
 	return "", errors.New("current instance not found when retrieving threeport API endpoint")
 }
 
+// GetThreeportCertificates returns the CA certificate, client certificate, and client private key for the current instance.
 func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clientPrivateKey string, err error) {
 	for i, instance := range cfg.Instances {
 		if instance.Name == cfg.CurrentInstance {
@@ -113,6 +118,7 @@ func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clie
 	return "", "", "", errors.New("could not load credentials")
 }
 
+// InitConfig initializes the configuration file for the client.
 func InitConfig(cfgFile, providerConfigDir string) {
 	// determine user home dir
 	home, err := homedir.Dir()
@@ -159,11 +165,12 @@ func InitConfig(cfgFile, providerConfigDir string) {
 	}
 }
 
+// configPath returns the path to the Threeport config directory.
 func configPath(homedir string) string {
-	//return fmt.Sprintf("%s/.config/threeport", homedir)
 	return filepath.Join(homedir, ".config", "threeport")
 }
 
+// GetThreeportConfig returns a pointer to the Threeport config.
 func GetThreeportConfig() *ThreeportConfig {
 	// get threeport config
 	threeportConfig := &ThreeportConfig{}
@@ -175,6 +182,7 @@ func GetThreeportConfig() *ThreeportConfig {
 	return threeportConfig
 }
 
+// CheckThreeportConfigExists checks if a threeport instance with the given name already exists.
 func CheckThreeportConfigExists(threeportConfig *ThreeportConfig, createThreeportInstanceName string, forceOverwriteConfig bool) bool {
 	// check threeport config for exisiting instance
 	threeportInstanceConfigExists := false
@@ -196,6 +204,7 @@ func CheckThreeportConfigExists(threeportConfig *ThreeportConfig, createThreepor
 	return threeportInstanceConfigExists
 }
 
+// UpdateThreeportConfig updates the threeport config with the new instance and sets it as the current instance.
 func UpdateThreeportConfig(threeportInstanceConfigExists bool, threeportConfig *ThreeportConfig, createThreeportInstanceName string, newThreeportInstance *Instance) {
 
 	// update threeport config to add the new instance and set as current instance
@@ -213,6 +222,7 @@ func UpdateThreeportConfig(threeportInstanceConfigExists bool, threeportConfig *
 	viper.WriteConfig()
 }
 
+// DeleteThreeportConfigInstance deletes the threeport instance with the given name from the Threeport config.
 func DeleteThreeportConfigInstance(threeportConfig *ThreeportConfig, deleteThreeportInstanceName string) {
 
 	// update threeport config to remove the deleted threeport instance and
@@ -231,7 +241,7 @@ func DeleteThreeportConfigInstance(threeportConfig *ThreeportConfig, deleteThree
 	viper.WriteConfig()
 }
 
-// loads certificates from ~/.threeport or /etc/threeport
+// GetHTTPClient returns an HTTP client with the appropriate TLS configuration.
 func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 
 	if !authEnabled {
@@ -314,6 +324,7 @@ func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 	return apiClient, nil
 }
 
+// GetThreeportCertificates generates a root CA, CA certificate and CA private key for the current Threeport instance.
 func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKey *rsa.PrivateKey, err error) {
 
 	// generate a random identifier for use as a serial number
@@ -369,6 +380,7 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 
 }
 
+// GenerateCertificate generates a certificate and private key for the current Threeport instance.
 func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKey) (certificate string, privateKey string, err error) {
 
 	// generate a random identifier for use as a serial number
@@ -425,14 +437,17 @@ func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKe
 	return serverCertificateEncoded, serverPrivateKeyEncoded, nil
 }
 
+// GetCertificatePEMEncoding returns a PEM encoded string for a given certificate.
 func GetCertificatePEMEncoding(cert []byte) string {
 	return GetPEMEncoding(cert, "CERTIFICATE")
 }
 
+// GetPrivateKeyPEMEncoding returns a PEM encoded string for a given private key.
 func GetPrivateKeyPEMEncoding(privateKey *rsa.PrivateKey) string {
 	return GetPEMEncoding(x509.MarshalPKCS1PrivateKey(privateKey), "RSA PRIVATE KEY")
 }
 
+// GetPEMEncoding returns a PEM encoded string for a given certificate or private key.
 func GetPEMEncoding(cert []byte, encodingType string) (pemEncodingString string) {
 	pemEncoding := new(bytes.Buffer)
 	pem.Encode(pemEncoding, &pem.Block{
