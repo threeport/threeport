@@ -22,7 +22,7 @@ const (
 	ThreeportWorkloadControllerImage = "threeport-workload-controller"
 	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
 	ThreeportLocalAPIEndpoint        = "localhost"
-	ThreeportLocalAPIPort            = "1323"
+	ThreeportLocalAPIPort            = "443"
 )
 
 // ThreeportDevImages returns a map of main package dirs to image names

@@ -266,7 +266,7 @@ func init() {
 	)
 	upCmd.Flags().IntVar(
 		&threeportLocalAPIPort,
-		"threeport-api-port", 1323, "Local port to bind threeport APIServer to (default is 1323.",
+		"threeport-api-port", 443, "Local port to bind threeport APIServer to (default is 443).",
 	)
 	upCmd.Flags().IntVar(
 		&numWorkerNodes,
