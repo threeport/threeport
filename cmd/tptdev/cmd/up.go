@@ -11,12 +11,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/cli"
+	clientInternal "github.com/threeport/threeport/internal/client"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
 	"github.com/threeport/threeport/internal/tptdev"
 	"github.com/threeport/threeport/internal/util"
 
+	configInternal "github.com/threeport/threeport/internal/config"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
@@ -41,7 +43,7 @@ var upCmd = &cobra.Command{
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		threeportConfig := config.GetThreeportConfig()
+		threeportConfig := configInternal.GetThreeportConfig()
 
 		// check threeport config for exisiting instance
 		threeportInstanceConfigExists := threeportConfig.CheckThreeportConfigExists(createThreeportDevName, forceOverwriteConfig)
@@ -135,7 +137,7 @@ var upCmd = &cobra.Command{
 			newThreeportInstance.CACert = authConfig.CABase64Encoded
 		}
 
-		config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportDevName, newThreeportInstance)
+		configInternal.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportDevName, newThreeportInstance)
 
 		// install the threeport control plane dependencies
 		if err := threeport.InstallThreeportControlPlaneDependencies(dynamicKubeClient, mapper); err != nil {
@@ -164,7 +166,7 @@ var upCmd = &cobra.Command{
 		}
 
 		// configure http client for calls to threeport API
-		apiClient, err := config.GetHTTPClient(authEnabled)
+		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
 		if err != nil {
 			cli.Error("failed to create http client: ", err)
 			os.Exit(1)
@@ -273,6 +275,6 @@ func init() {
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
 	)
 	cobra.OnInitialize(func() {
-		config.InitConfig(cfgFile, providerConfigDir)
+		configInternal.InitConfig(cfgFile, providerConfigDir)
 	})
 }

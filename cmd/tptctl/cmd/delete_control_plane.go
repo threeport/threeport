@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/cli"
+	configInternal "github.com/threeport/threeport/internal/config"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
 	config "github.com/threeport/threeport/pkg/config/v0"
@@ -27,7 +28,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig := config.GetThreeportConfig()
+		threeportConfig := configInternal.GetThreeportConfig()
 
 		// check threeport config for exisiting instance
 		// find the threeport instance by name
@@ -60,7 +61,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		config.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportInstanceName)
+		configInternal.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportInstanceName)
 
 		cli.Info("threeport config updated")
 

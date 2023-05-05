@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/cli"
+	clientInternal "github.com/threeport/threeport/internal/client"
+	configInternal "github.com/threeport/threeport/internal/config"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
@@ -48,7 +50,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		threeportConfig := config.GetThreeportConfig()
+		threeportConfig := configInternal.GetThreeportConfig()
 
 		// check threeport config for exisiting instance
 		threeportInstanceConfigExists := threeportConfig.CheckThreeportConfigExists(createThreeportInstanceName, forceOverwriteConfig)
@@ -124,7 +126,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			newThreeportInstance.CACert = authConfig.CABase64Encoded
 		}
 
-		config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
+		configInternal.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
 
 		// create control plane
 		kubeConnectionInfo, err := controlPlaneInfra.Create()
@@ -195,7 +197,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		apiClient, err := config.GetHTTPClient(authEnabled)
+		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create http client: %w", err)
 			os.Exit(1)

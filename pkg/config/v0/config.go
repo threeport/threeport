@@ -4,33 +4,22 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/mitchellh/go-homedir"
-	"github.com/spf13/viper"
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/util"
 )
 
-const (
-	configName = "config"
-	configType = "yaml"
-)
-
-// ThreeportConfig is the client's configuration for connecting to Threeport instances.
+// ThreeportConfig is the client's configuration for connecting to Threeport instances
 type ThreeportConfig struct {
 	Instances       []Instance `yaml:"Instances"`
 	CurrentInstance string     `yaml:"CurrentInstance"`
@@ -134,71 +123,6 @@ func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clie
 	return "", "", "", errors.New("could not load credentials")
 }
 
-// InitConfig initializes the configuration file for the client.
-func InitConfig(cfgFile, providerConfigDir string) {
-	// determine user home dir
-	home, err := homedir.Dir()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	viper.AddConfigPath(configPath(home))
-	viper.SetConfigName(configName)
-	viper.SetConfigType(configType)
-	configFilePath := filepath.Join(configPath(home), fmt.Sprintf("%s.%s", configName, configType))
-
-	// read config file if provided, else go to default
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-
-		// create config if not present
-		if err := viper.SafeWriteConfigAs(configFilePath); err != nil {
-			if os.IsNotExist(err) {
-				if err := os.MkdirAll(configPath(home), os.ModePerm); err != nil {
-					fmt.Println(err)
-					os.Exit(1)
-				}
-				if err := viper.WriteConfigAs(configFilePath); err != nil {
-					fmt.Println(err)
-					os.Exit(1)
-				}
-			}
-		}
-	}
-
-	if providerConfigDir == "" {
-		if err := os.MkdirAll(configPath(home), os.ModePerm); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		providerConfigDir = configPath(home)
-	}
-
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("Can't read config:", err)
-		os.Exit(1)
-	}
-}
-
-// configPath returns the path to the Threeport config directory.
-func configPath(homedir string) string {
-	return filepath.Join(homedir, ".config", "threeport")
-}
-
-// GetThreeportConfig returns a pointer to the Threeport config.
-func GetThreeportConfig() *ThreeportConfig {
-	// get threeport config
-	threeportConfig := &ThreeportConfig{}
-	if err := viper.Unmarshal(threeportConfig); err != nil {
-		cli.Error("failed to get threeport config", err)
-		os.Exit(1)
-	}
-
-	return threeportConfig
-}
-
-// CheckThreeportConfigExists checks if a threeport instance with the given name already exists.
 func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceName string, forceOverwriteConfig bool) bool {
 	// check threeport config for exisiting instance
 	threeportInstanceConfigExists := false
@@ -220,127 +144,6 @@ func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceNa
 	return threeportInstanceConfigExists
 }
 
-// UpdateThreeportConfig updates the threeport config with the new instance and sets it as the current instance.
-func UpdateThreeportConfig(threeportInstanceConfigExists bool, threeportConfig *ThreeportConfig, createThreeportInstanceName string, newThreeportInstance *Instance) {
-
-	// update threeport config to add the new instance and set as current instance
-	if threeportInstanceConfigExists {
-		for n, instance := range threeportConfig.Instances {
-			if instance.Name == createThreeportInstanceName {
-				threeportConfig.Instances[n] = *newThreeportInstance
-			}
-		}
-	} else {
-		threeportConfig.Instances = append(threeportConfig.Instances, *newThreeportInstance)
-	}
-	viper.Set("Instances", threeportConfig.Instances)
-	viper.Set("CurrentInstance", createThreeportInstanceName)
-	viper.WriteConfig()
-}
-
-// DeleteThreeportConfigInstance deletes the threeport instance with the given name from the Threeport config.
-func DeleteThreeportConfigInstance(threeportConfig *ThreeportConfig, deleteThreeportInstanceName string) {
-
-	// update threeport config to remove the deleted threeport instance and
-	// current instance
-	updatedInstances := []Instance{}
-	for _, instance := range threeportConfig.Instances {
-		if instance.Name == deleteThreeportInstanceName {
-			continue
-		} else {
-			updatedInstances = append(updatedInstances, instance)
-		}
-	}
-
-	viper.Set("Instances", updatedInstances)
-	viper.Set("CurrentInstance", "")
-	viper.WriteConfig()
-}
-
-// GetHTTPClient returns an HTTP client with the appropriate TLS configuration.
-func GetHTTPClient(authEnabled bool) (*http.Client, error) {
-
-	if !authEnabled {
-		return &http.Client{}, nil
-	}
-
-	homeDir, _ := os.UserHomeDir()
-	configDir := "/etc/threeport"
-	var tlsConfig *tls.Config
-
-	_, errConfigDirectory := os.Stat(filepath.Join(homeDir, ".config/threeport"))
-	_, errThreeportCert := os.Stat(filepath.Join(configDir, "cert"))
-	_, errThreeportCA := os.Stat(filepath.Join(configDir, "ca"))
-
-	var rootCA string
-	var cert tls.Certificate
-
-	if errConfigDirectory == nil {
-		// load certificates from ~/.threeport
-		threeportConfig := GetThreeportConfig()
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get threeport API endpoint from config: %w", err)
-		}
-
-		// load client certificate and private key
-		cert, err = tls.X509KeyPair([]byte(clientCertificate), []byte(clientPrivateKey))
-		if err != nil {
-			return nil, fmt.Errorf("failed to load client certificate and private key: %w", err)
-		}
-
-		// load root certificate authority
-		if err != nil {
-			return nil, fmt.Errorf("failed to load root certificate authority: %w", err)
-		}
-
-		rootCA = ca
-
-	} else if errThreeportCert == nil && errThreeportCA == nil {
-
-		// Load from /etc/threeport directory
-		certFile := filepath.Join(configDir, "cert/tls.crt")
-		keyFile := filepath.Join(configDir, "cert/tls.key")
-		caFilePath := filepath.Join(configDir, "ca/tls.crt")
-
-		// load client certificate and private key
-		var err error
-		cert, err = tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load client certificate and private key: %w", err)
-		}
-
-		// load root certificate authiiiiority
-		caCertBytes, err := ioutil.ReadFile(caFilePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load root certificate authority: %w", err)
-		}
-
-		rootCA = string(caCertBytes)
-	} else {
-		return nil, errors.New("could not find certificate files")
-	}
-
-	// create certificate pool and add certificate authority
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(rootCA))
-
-	// create tls config required by http client
-	tlsConfig = &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caCertPool,
-	}
-
-	apiClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
-	}
-
-	return apiClient, nil
-}
-
-// GetThreeportCertificates generates a root CA, CA certificate and CA private key for the current Threeport instance.
 func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKey *rsa.PrivateKey, err error) {
 
 	// generate a random identifier for use as a serial number

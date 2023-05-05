@@ -13,6 +13,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/threeport/threeport/internal/cli"
+	clientInternal "github.com/threeport/threeport/internal/client"
+	configInternal "github.com/threeport/threeport/internal/config"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
@@ -31,7 +33,7 @@ and workload instance based on the workload config or name.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config and extract threeport API endpoint
-		threeportConfig := config.GetThreeportConfig()
+		threeportConfig := configInternal.GetThreeportConfig()
 
 		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
 		if err != nil {
@@ -68,7 +70,7 @@ and workload instance based on the workload config or name.`,
 			}
 		}
 
-		apiClient, err := config.GetHTTPClient(authEnabled)
+		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
 		if err != nil {
 			fmt.Errorf("failed to create https client: %w", err)
 			os.Exit(1)

@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	configInternal "github.com/threeport/threeport/internal/config"
 )
 
 var (
@@ -42,6 +42,6 @@ func init() {
 	)
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	cobra.OnInitialize(func() {
-		config.InitConfig(cfgFile, providerConfigDir)
+		configInternal.InitConfig(cfgFile, providerConfigDir)
 	})
 }
