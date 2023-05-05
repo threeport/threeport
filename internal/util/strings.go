@@ -5,8 +5,6 @@ import (
 	"math/rand"
 	"strings"
 	"time"
-
-	"github.com/labstack/gommon/log"
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -44,11 +42,11 @@ func Base64Encode(str string) string {
 	return base64.StdEncoding.EncodeToString([]byte(str))
 }
 
-func Base64Decode(str string) string {
+func Base64Decode(str string) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
-		log.Error(err, "failed to decode base64 string")
-		return ""
+		return "", err
+
 	}
-	return string(decoded)
+	return string(decoded), nil
 }

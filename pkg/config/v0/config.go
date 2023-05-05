@@ -110,7 +110,23 @@ func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clie
 			if credential.Name == cfg.CurrentInstance {
 				clientCert = cfg.Instances[i].Credentials[j].ClientCert
 				clientPrivateKey = cfg.Instances[i].Credentials[j].ClientKey
-				return util.Base64Decode(caCert), util.Base64Decode(clientCert), util.Base64Decode(clientPrivateKey), nil
+
+				caCert, err := util.Base64Decode(caCert)
+				if err != nil {
+					return "", "", "", fmt.Errorf("failed to decode CA certificate: %w", err)
+				}
+
+				clientCert, err := util.Base64Decode(clientCert)
+				if err != nil {
+					return "", "", "", fmt.Errorf("failed to decode client certificate: %w", err)
+				}
+
+				clientPrivateKey, err := util.Base64Decode(clientPrivateKey)
+				if err != nil {
+					return "", "", "", fmt.Errorf("failed to decode client private key: %w", err)
+				}
+
+				return caCert, clientCert, clientPrivateKey, nil
 			}
 		}
 	}
