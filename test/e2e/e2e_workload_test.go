@@ -69,10 +69,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// configure http client for calls to threeport API
 		apiClient, err := config.GetHTTPClient(authEnabled)
-		if err != nil {
-			fmt.Errorf("failed to create https client: %w", err)
-			os.Exit(1)
-		}
+		assert.NotNil(err, "should have no error creating http client")
 
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			apiClient,
