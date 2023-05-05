@@ -56,6 +56,12 @@ func InitConfig(cfgFile, providerConfigDir string) {
 		providerConfigDir = configPath(home)
 	}
 
+	// ensure config permissions are read/write for user only
+	if err := os.Chmod(configFilePath, 0600); err != nil {
+		cli.Error("failed to set permissions to read/write only", err)
+		os.Exit(1)
+	}
+
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Println("Can't read config:", err)
 		os.Exit(1)
