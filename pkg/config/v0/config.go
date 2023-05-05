@@ -150,8 +150,7 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 	max := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
 	randomNumber, err := rand.Int(rand.Reader, max)
 	if err != nil {
-		fmt.Errorf("failed to generate random serial number: %w", err)
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("failed to generate random serial number: %w", err)
 	}
 
 	// set config options for a new CA certificate
@@ -184,15 +183,13 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 	// generate private and public keys for the CA
 	caPrivateKey, err = rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		fmt.Errorf("failed to generate CA private key: %w", err)
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("failed to generate CA private key: %w", err)
 	}
 
 	// generate a certificate authority
 	ca, err = x509.CreateCertificate(rand.Reader, caConfig, caConfig, &caPrivateKey.PublicKey, caPrivateKey)
 	if err != nil {
-		fmt.Errorf("failed to create CA certificate: %w", err)
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("failed to create CA certificate: %w", err)
 	}
 
 	return caConfig, ca, caPrivateKey, nil
@@ -206,8 +203,7 @@ func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKe
 	max := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
 	randomNumber, err := rand.Int(rand.Reader, max)
 	if err != nil {
-		fmt.Errorf("failed to generate random serial number: %w", err)
-		return "", "", err
+		return "", "", fmt.Errorf("failed to generate random serial number: %w", err)
 	}
 
 	// set config options for a new CA certificate
@@ -240,15 +236,13 @@ func GenerateCertificate(caConfig *x509.Certificate, caPrivateKey *rsa.PrivateKe
 	// generate private and public keys for the CA
 	serverPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		fmt.Errorf("failed to generate CA private key: %w", err)
-		return "", "", err
+		return "", "", fmt.Errorf("failed to generate CA private key: %w", err)
 	}
 
 	// generate a certificate authority
 	serverCert, err := x509.CreateCertificate(rand.Reader, cert, caConfig, &serverPrivateKey.PublicKey, caPrivateKey)
 	if err != nil {
-		fmt.Errorf("failed to create CA certificate: %w", err)
-		return "", "", err
+		return "", "", fmt.Errorf("failed to create CA certificate: %w", err)
 	}
 
 	serverCertificateEncoded := GetCertificatePEMEncoding(serverCert)
