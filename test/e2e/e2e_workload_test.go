@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -62,14 +61,14 @@ func TestWorkloadE2E(t *testing.T) {
 			authEnabled = true
 
 			// initialize config so we can pull credentials from it
-			config.InitConfig("","")
+			config.InitConfig("", "")
 		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
 			authEnabled = false
 		}
 
 		// configure http client for calls to threeport API
 		apiClient, err := config.GetHTTPClient(authEnabled)
-		assert.NotNil(err, "should have no error creating http client")
+		assert.Nil(err, "should have no error creating http client")
 
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			apiClient,
