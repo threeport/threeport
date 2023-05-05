@@ -9,8 +9,8 @@ import (
 
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/version"
+	"github.com/threeport/threeport/pkg/auth/v0"
 	v0 "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -42,7 +42,7 @@ func InstallThreeportControlPlaneComponents(
 	apiHostname string,
 	customThreeportImageRepo string,
 	customThreeportImageTag string,
-	authConfig *config.AuthConfig,
+	authConfig *auth.AuthConfig,
 ) error {
 	// install the API
 	if err := InstallThreeportAPI(
@@ -81,7 +81,7 @@ func InstallThreeportAPI(
 	apiHostname string,
 	customThreeportImageRepo string,
 	customThreeportImageTag string,
-	authConfig *config.AuthConfig,
+	authConfig *auth.AuthConfig,
 ) error {
 	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
 	apiArgs := getAPIArgs(devEnvironment, authConfig)
@@ -89,7 +89,7 @@ func InstallThreeportAPI(
 
 	if authConfig != nil {
 		// generate server certificate
-		serverCertificate, serverPrivateKey, err := config.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		serverCertificate, serverPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
 		if err != nil {
 			return fmt.Errorf("failed to generate server certificate and private key: %w", err)
 		}
@@ -263,7 +263,7 @@ func InstallThreeportControllers(
 	devEnvironment bool,
 	customThreeportImageRepo string,
 	customThreeportImageTag string,
-	authConfig *config.AuthConfig,
+	authConfig *auth.AuthConfig,
 ) error {
 	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
 	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment, authConfig)
@@ -272,7 +272,7 @@ func InstallThreeportControllers(
 	if authConfig != nil {
 
 		// generate workload certificate
-		workloadCertificate, workloadPrivateKey, err := config.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		workloadCertificate, workloadPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
 		if err != nil {
 			return fmt.Errorf("failed to generate client certificate and private key: %w", err)
 		}
@@ -445,7 +445,7 @@ func getAPIIngressTLS(devEnvironment bool, apiHostname string) []interface{} {
 }
 
 // getAPIArgs returns the args that are passed to the API server.
-func getAPIArgs(devEnvironment bool, authConfig *config.AuthConfig) []interface{} {
+func getAPIArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
 
 	// in devEnvironment, auth is disabled by default
 	// in tptctl, auth is enabled by default
@@ -478,7 +478,7 @@ func getAPIArgs(devEnvironment bool, authConfig *config.AuthConfig) []interface{
 }
 
 // getWorkloadArgs returns the args that are passed to the workload controller.
-func getWorkloadArgs(devEnvironment bool, authConfig *config.AuthConfig) []interface{} {
+func getWorkloadArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
 
 	// in devEnvironment, auth is disabled by default
 	// in tptctl, auth is enabled by default
@@ -503,7 +503,7 @@ func getWorkloadArgs(devEnvironment bool, authConfig *config.AuthConfig) []inter
 }
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
-func getAPIVolumes(devEnvironment bool, authConfig *config.AuthConfig) ([]interface{}, []interface{}) {
+func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
 	vols := []interface{}{
 		map[string]interface{}{
 			"name": "db-config",
@@ -581,7 +581,7 @@ func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo, c
 
 // getWorkloadControllerVolumes returns the volumes and volume mounts for the workload
 // controller.
-func getWorkloadControllerVolumes(devEnvironment bool, authConfig *config.AuthConfig) ([]interface{}, []interface{}) {
+func getWorkloadControllerVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
 	vols := []interface{}{}
 	volMounts := []interface{}{}
 

@@ -20,6 +20,7 @@ import (
 
 	configInternal "github.com/threeport/threeport/internal/config"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
@@ -125,16 +126,16 @@ var upCmd = &cobra.Command{
 			Kubeconfig: kubeconfigPath,
 		}
 
-		var authConfig *config.AuthConfig
+		var authConfig *auth.AuthConfig
 		if authEnabled {
-			authConfig, err = config.GetAuthConfig()
+			authConfig, err = auth.GetAuthConfig()
 			if err != nil {
 				cli.Error("failed to get auth config", err)
 				os.Exit(1)
 			}
 
 			// generate client certificate
-			clientCertificate, clientPrivateKey, err := config.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+			clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
 			if err != nil {
 				cli.Error("failed to generate client certificate and private key", err)
 				os.Exit(1)
