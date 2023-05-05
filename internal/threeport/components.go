@@ -458,6 +458,7 @@ func getAPIArgs(devEnvironment bool, authConfig *config.AuthConfig) []interface{
 			args += " -auth-enabled=false"
 		}
 
+		// -build.args_bin is an air flag, not a part of the API server
 		return []interface{}{
 			"-build.args_bin",
 			args,
