@@ -86,9 +86,7 @@ func main() {
 			return nil
 		},
 	}))
-	//e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	//e.Use(iapi.AuthorizationTokenCheck)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
 		// Take required information from error and context and send it to a service like New Relic etc.
@@ -108,21 +106,6 @@ func main() {
 	if err != nil {
 		e.Logger.Fatalf("failed to initialize database: %v", err)
 	}
-
-	//// authority
-	//authority.Auth = authority.New(autoMigrate, authority.Options{
-	//	TablesPrefix: "rbac_",
-	//	DB:           db,
-	//})
-	//if authority.Auth == nil {
-	//	e.Logger.Fatalf("failed to initialize RBAC DB: %v", err)
-	//}
-
-	// enable temporarily only to populate DB with initial authorization mapping
-	//err = initRbac(authority.Auth)
-	//if err != nil {
-	//	e.Logger.Fatalf("failed to initialize RBAC: %v", err)
-	//}
 
 	// nats connection
 	natsConn := fmt.Sprintf(
