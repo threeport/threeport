@@ -51,6 +51,33 @@ type AuthConfig struct {
 	CAPrivateKeyBase64Encoded string
 }
 
+// CheckThreeportConfigExists checks if a Threeport instance config exists.
+func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceName string, forceOverwriteConfig bool) (bool, error) {
+	// check threeport config for exisiting instance
+	threeportInstanceConfigExists := false
+	for _, instance := range cfg.Instances {
+		if instance.Name == createThreeportInstanceName {
+			threeportInstanceConfigExists = true
+			if !forceOverwriteConfig {
+				return threeportInstanceConfigExists, errors.New(fmt.Sprintf("instance of threeport with name %s already exists", instance.Name))
+			}
+		}
+	}
+
+	return threeportInstanceConfigExists, nil
+}
+
+// GetThreeportAPIEndpoint returns the API endpoint for the current instance.
+func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
+	for i, instance := range cfg.Instances {
+		if instance.Name == cfg.CurrentInstance {
+			return cfg.Instances[i].APIServer, nil
+		}
+	}
+
+	return "", errors.New("current instance not found when retrieving threeport API endpoint")
+}
+
 // GetAuthConfig populates an AuthConfig object and returns a pointer to it.
 func GetAuthConfig() (*AuthConfig, error) {
 	// generate certificate authority for the threeport API
@@ -73,17 +100,6 @@ func GetAuthConfig() (*AuthConfig, error) {
 		CAPrivateKeyBase64Encoded: util.Base64Encode(caPrivateKeyEncoded),
 	}, nil
 
-}
-
-// GetThreeportAPIEndpoint returns the API endpoint for the current instance.
-func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
-	for i, instance := range cfg.Instances {
-		if instance.Name == cfg.CurrentInstance {
-			return cfg.Instances[i].APIServer, nil
-		}
-	}
-
-	return "", errors.New("current instance not found when retrieving threeport API endpoint")
 }
 
 // GetThreeportCertificates returns the CA certificate, client certificate, and client private key for the current instance.
@@ -120,21 +136,7 @@ func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clie
 	return "", "", "", errors.New("could not load credentials")
 }
 
-func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceName string, forceOverwriteConfig bool) (bool, error) {
-	// check threeport config for exisiting instance
-	threeportInstanceConfigExists := false
-	for _, instance := range cfg.Instances {
-		if instance.Name == createThreeportInstanceName {
-			threeportInstanceConfigExists = true
-			if !forceOverwriteConfig {
-				return threeportInstanceConfigExists, errors.New(fmt.Sprintf("instance of threeport with name %s already exists", instance.Name))
-			}
-		}
-	}
-
-	return threeportInstanceConfigExists, nil
-}
-
+// GenerateCACertificate generates a certificate authority and private key for the Threeport API.
 func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKey *rsa.PrivateKey, err error) {
 
 	// generate a random identifier for use as a serial number
