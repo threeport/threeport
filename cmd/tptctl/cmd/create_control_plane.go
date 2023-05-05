@@ -216,7 +216,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 
 		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
 		if err != nil {
-			fmt.Errorf("failed to create http client: %w", err)
+			cli.Error("failed to create http client", err)
 			os.Exit(1)
 		}
 

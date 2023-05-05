@@ -55,7 +55,7 @@ and workload instance based on the workload config.`,
 
 		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
 		if err != nil {
-			fmt.Errorf("failed to create https client: %w", err)
+			cli.Error("failed to create https client", err)
 			os.Exit(1)
 		}
 
