@@ -53,7 +53,16 @@ var CreateControlPlaneCmd = &cobra.Command{
 		threeportConfig := configInternal.GetThreeportConfig()
 
 		// check threeport config for exisiting instance
-		threeportInstanceConfigExists := threeportConfig.CheckThreeportConfigExists(createThreeportInstanceName, forceOverwriteConfig)
+		threeportInstanceConfigExists, err := threeportConfig.CheckThreeportConfigExists(createThreeportInstanceName, forceOverwriteConfig)
+		if err != nil {
+			cli.Error(
+				"interupted creation of threeport instance",
+				err,
+			)
+			cli.Info("if you wish to overwrite the existing config use --force-overwrite-config flag")
+			cli.Warning("you will lose the ability to connect to the existing threeport instance if it still exists")
+			os.Exit(1)
+		}
 
 		// flag validation
 		if err := validateCreateControlPlaneFlags(

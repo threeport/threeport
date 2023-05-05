@@ -123,25 +123,19 @@ func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clie
 	return "", "", "", errors.New("could not load credentials")
 }
 
-func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceName string, forceOverwriteConfig bool) bool {
+func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceName string, forceOverwriteConfig bool) (bool, error) {
 	// check threeport config for exisiting instance
 	threeportInstanceConfigExists := false
 	for _, instance := range cfg.Instances {
 		if instance.Name == createThreeportInstanceName {
 			threeportInstanceConfigExists = true
 			if !forceOverwriteConfig {
-				cli.Error(
-					"interupted creation of threeport instance",
-					errors.New(fmt.Sprintf("instance of threeport with name %s already exists", instance.Name)),
-				)
-				cli.Info("if you wish to overwrite the existing config use --force-overwrite-config flag")
-				cli.Warning("you will lose the ability to connect to the existing threeport instance if it still exists")
-				os.Exit(1)
+				return threeportInstanceConfigExists, errors.New(fmt.Sprintf("instance of threeport with name %s already exists", instance.Name))
 			}
 		}
 	}
 
-	return threeportInstanceConfigExists
+	return threeportInstanceConfigExists, nil
 }
 
 func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKey *rsa.PrivateKey, err error) {
