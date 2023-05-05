@@ -46,7 +46,11 @@ var downCmd = &cobra.Command{
 			cli.Error("failed to delete control plane infra", err)
 		}
 
-		threeportConfig := configInternal.GetThreeportConfig()
+		threeportConfig, err := configInternal.GetThreeportConfig()
+		if err != nil {
+			cli.Error("failed to get threeport config", err)
+		}
+
 		configInternal.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportDevName)
 		cli.Complete(fmt.Sprintf("threeport dev instance %s deleted", deleteThreeportDevName))
 	},

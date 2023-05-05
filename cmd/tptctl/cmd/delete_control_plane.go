@@ -28,7 +28,10 @@ var DeleteControlPlaneCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig := configInternal.GetThreeportConfig()
+		threeportConfig, err := configInternal.GetThreeportConfig()
+		if err != nil {
+			cli.Error("failed to get threeport config", err)
+		}
 
 		// check threeport config for exisiting instance
 		// find the threeport instance by name

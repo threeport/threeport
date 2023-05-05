@@ -32,8 +32,12 @@ var DeleteWorkloadCmd = &cobra.Command{
 and workload instance based on the workload config or name.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
+
 		// get threeport config and extract threeport API endpoint
-		threeportConfig := configInternal.GetThreeportConfig()
+		threeportConfig, err := configInternal.GetThreeportConfig()
+		if err != nil {
+			cli.Error("failed to get threeport config", err)
+		}
 
 		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
 		if err != nil {

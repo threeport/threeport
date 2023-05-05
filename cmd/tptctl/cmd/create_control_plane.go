@@ -51,7 +51,10 @@ var CreateControlPlaneCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		threeportConfig := configInternal.GetThreeportConfig()
+		threeportConfig, err := configInternal.GetThreeportConfig()
+		if err != nil {
+			cli.Error("failed to get threeport config", err)
+		}
 
 		// check threeport config for exisiting instance
 		threeportInstanceConfigExists, err := threeportConfig.CheckThreeportConfigExists(createThreeportInstanceName, forceOverwriteConfig)

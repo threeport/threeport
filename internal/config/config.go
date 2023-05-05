@@ -16,12 +16,11 @@ const (
 	configType = "yaml"
 )
 
-func InitConfig(cfgFile, providerConfigDir string) {
+func InitConfig(cfgFile, providerConfigDir string) error {
 	// determine user home dir
 	home, err := homedir.Dir()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("failed to determine user home directory: %w", err)
 	}
 	viper.AddConfigPath(configPath(home))
 	viper.SetConfigName(configName)
@@ -37,12 +36,10 @@ func InitConfig(cfgFile, providerConfigDir string) {
 		if err := viper.SafeWriteConfigAs(configFilePath); err != nil {
 			if os.IsNotExist(err) {
 				if err := os.MkdirAll(configPath(home), os.ModePerm); err != nil {
-					fmt.Println(err)
-					os.Exit(1)
+					return fmt.Errorf("failed to create config directory: %w", err)
 				}
 				if err := viper.WriteConfigAs(configFilePath); err != nil {
-					fmt.Println(err)
-					os.Exit(1)
+					return fmt.Errorf("failed to write config to disk: %w", err)
 				}
 			}
 		}
@@ -50,8 +47,7 @@ func InitConfig(cfgFile, providerConfigDir string) {
 
 	if providerConfigDir == "" {
 		if err := os.MkdirAll(configPath(home), os.ModePerm); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return fmt.Errorf("failed to write create config directory: %w", err)
 		}
 		providerConfigDir = configPath(home)
 	}
@@ -63,20 +59,19 @@ func InitConfig(cfgFile, providerConfigDir string) {
 	}
 
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("Can't read config:", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to read config: %w", err)
 	}
+	return nil
 }
 
-func GetThreeportConfig() *config.ThreeportConfig {
+func GetThreeportConfig() (*config.ThreeportConfig, error) {
 	// get threeport config
 	threeportConfig := &config.ThreeportConfig{}
 	if err := viper.Unmarshal(threeportConfig); err != nil {
-		cli.Error("failed to get threeport config", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	return threeportConfig
+	return threeportConfig, nil
 }
 
 func UpdateThreeportConfig(threeportInstanceConfigExists bool, threeportConfig *config.ThreeportConfig, createThreeportInstanceName string, newThreeportInstance *config.Instance) {

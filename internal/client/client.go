@@ -36,8 +36,12 @@ func GetHTTPClient(authEnabled bool) (*http.Client, error) {
 	// load certificates from ~/.threeport or /etc/threeport
 	if errConfigDirectory == nil {
 
+		threeportConfig, err := configInternal.GetThreeportConfig()
+		if err != nil {
+			cli.Error("failed to get threeport config", err)
+		}
+
 		// load certificates from ~/.threeport
-		threeportConfig := configInternal.GetThreeportConfig()
 		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)
