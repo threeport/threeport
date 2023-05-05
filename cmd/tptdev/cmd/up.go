@@ -44,7 +44,7 @@ var upCmd = &cobra.Command{
 		threeportConfig := config.GetThreeportConfig()
 
 		// check threeport config for exisiting instance
-		threeportInstanceConfigExists := config.CheckThreeportConfigExists(threeportConfig, createThreeportDevName, forceOverwriteConfig)
+		threeportInstanceConfigExists := threeportConfig.CheckThreeportConfigExists(createThreeportDevName, forceOverwriteConfig)
 
 		// get default kubeconfig if not provided
 		if kubeconfigPath == "" {

@@ -51,7 +51,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		threeportConfig := config.GetThreeportConfig()
 
 		// check threeport config for exisiting instance
-		threeportInstanceConfigExists := config.CheckThreeportConfigExists(threeportConfig, createThreeportInstanceName, forceOverwriteConfig)
+		threeportInstanceConfigExists := threeportConfig.CheckThreeportConfigExists(createThreeportInstanceName, forceOverwriteConfig)
 
 		// flag validation
 		if err := validateCreateControlPlaneFlags(

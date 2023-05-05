@@ -199,10 +199,10 @@ func GetThreeportConfig() *ThreeportConfig {
 }
 
 // CheckThreeportConfigExists checks if a threeport instance with the given name already exists.
-func CheckThreeportConfigExists(threeportConfig *ThreeportConfig, createThreeportInstanceName string, forceOverwriteConfig bool) bool {
+func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceName string, forceOverwriteConfig bool) bool {
 	// check threeport config for exisiting instance
 	threeportInstanceConfigExists := false
-	for _, instance := range threeportConfig.Instances {
+	for _, instance := range cfg.Instances {
 		if instance.Name == createThreeportInstanceName {
 			threeportInstanceConfigExists = true
 			if !forceOverwriteConfig {
