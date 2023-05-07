@@ -2,9 +2,13 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	clientInternal "github.com/threeport/threeport/internal/client"
+	configInternal "github.com/threeport/threeport/internal/config"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -13,10 +17,6 @@ import (
 	"github.com/threeport/threeport/internal/threeport"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-)
-
-const (
-	apiToken = ""
 )
 
 // testWorkload represents a test case for this e2e test.
@@ -55,10 +55,27 @@ func TestWorkloadE2E(t *testing.T) {
 			},
 			YAMLDocument: &workloadDefYAML,
 		}
+
+		// determine if the API is serving HTTPS or HTTP
+		var authEnabled bool
+		_, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
+		if strings.Contains(err.Error(), "signed by unknown authority") {
+			authEnabled = true
+
+			// initialize config so we can pull credentials from it
+			configInternal.InitConfig("", "")
+		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
+			authEnabled = false
+		}
+
+		// configure http client for calls to threeport API
+		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
+		assert.Nil(err, "should have no error creating http client")
+
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
-			&workloadDef,
+			apiClient,
 			apiAddr(),
-			apiToken,
+			&workloadDef,
 		)
 		assert.Nil(err, "should have no error creating workload definition")
 
@@ -80,9 +97,9 @@ func TestWorkloadE2E(t *testing.T) {
 		var existingWorkloadDef *v0.WorkloadDefinition
 		for workloadDefChecks < workloadDefMaxChecks && !reconciled {
 			existingWorkloadDef, err = client.GetWorkloadDefinitionByID(
-				*createdWorkloadDef.ID,
+				apiClient,
 				apiAddr(),
-				apiToken,
+				*createdWorkloadDef.ID,
 			)
 			assert.Nil(err, "should have no error getting workload definition by ID")
 			if *existingWorkloadDef.Reconciled {
@@ -96,9 +113,9 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// check workload resource definitions
 		workloadResourceDefs, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
-			*createdWorkloadDef.ID,
+			apiClient,
 			apiAddr(),
-			apiToken,
+			*createdWorkloadDef.ID,
 		)
 		assert.Nil(err, "should have no error getting workload resource definitions")
 
@@ -120,7 +137,7 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 
 		// check cluster instance
-		clusterInsts, err := client.GetClusterInstances(apiAddr(), apiToken)
+		clusterInsts, err := client.GetClusterInstances(apiClient, apiAddr())
 		assert.Nil(err, "should have no error getting workload resource definitions")
 		var testClusterInst v0.ClusterInstance
 		if assert.NotNil(clusterInsts, "should have an array of cluster instances returned") {
@@ -143,18 +160,18 @@ func TestWorkloadE2E(t *testing.T) {
 			WorkloadDefinitionID: createdWorkloadDef.ID,
 		}
 		createdWorkloadInst, err := client.CreateWorkloadInstance(
-			&workloadInst,
+			apiClient,
 			apiAddr(),
-			apiToken,
+			&workloadInst,
 		)
 		assert.Nil(err, "should have no error creating workload instance")
 		assert.NotNil(createdWorkloadInst, "should have a workload instance returned")
 
 		// get the cluster instance from the threeport API so we can connect to it
 		clusterInstance, err := client.GetClusterInstanceByID(
-			*testClusterInst.ID,
+			apiClient,
 			apiAddr(),
-			apiToken,
+			*testClusterInst.ID,
 		)
 		assert.Nil(err, "should have no error getting cluster instance")
 		assert.NotNil(clusterInstance, "should have a cluster instance returned")
@@ -221,24 +238,24 @@ func TestWorkloadE2E(t *testing.T) {
 		// attempt deleting workload definition - should fail with instance still in
 		// place
 		_, err = client.DeleteWorkloadDefinition(
-			*createdWorkloadDef.ID,
+			apiClient,
 			apiAddr(),
-			apiToken,
+			*createdWorkloadDef.ID,
 		)
 		assert.NotNil(err, "should have an error returned when trying to delete workload definition with workload instance still in place")
 
 		// delete workload instance
 		deletedWorkloadInst, err := client.DeleteWorkloadInstance(
-			*createdWorkloadInst.ID,
+			apiClient,
 			apiAddr(),
-			apiToken,
+			*createdWorkloadInst.ID,
 		)
 		assert.Nil(err, "should have no error deleting workload instance")
 
 		// make sure there are zero workload instances in system
 		workloadInsts, err := client.GetWorkloadInstances(
+			apiClient,
 			apiAddr(),
-			apiToken,
 		)
 		assert.Nil(err, "should have no errors geting all workload instances")
 		if assert.NotNil(workloadInsts, "should have an array of workload instances returned") {
@@ -287,16 +304,16 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// delete workload definition
 		deletedWorkloadDef, err := client.DeleteWorkloadDefinition(
-			*createdWorkloadDef.ID,
+			apiClient,
 			apiAddr(),
-			apiToken,
+			*createdWorkloadDef.ID,
 		)
 		assert.Nil(err, "should have no error deleting workload definition")
 
 		// make sure the workload definition is gone
 		workloadDefs, err := client.GetWorkloadDefinitions(
+			apiClient,
 			apiAddr(),
-			apiToken,
 		)
 		assert.Nil(err, "should have no errors geting all workload definitions")
 		if assert.NotNil(workloadDefs, "should have an array of workload definitions returned") {
@@ -310,9 +327,9 @@ func TestWorkloadE2E(t *testing.T) {
 // apiAddr returns the address of a local instance of threeport API.
 func apiAddr() string {
 	return fmt.Sprintf(
-		"%s://%s",
-		threeport.ThreeportLocalAPIProtocol,
+		"%s:%s",
 		threeport.ThreeportLocalAPIEndpoint,
+		threeport.ThreeportLocalAPIPort,
 	)
 }
 

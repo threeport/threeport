@@ -12,14 +12,14 @@ import (
 	"net/http"
 )
 
-// GetForwardProxyDefinitions feteches all forward proxy definitions.
+// GetForwardProxyDefinitions fetches all forward proxy definitions.
 // TODO: implement pagination
-func GetForwardProxyDefinitions(apiAddr, apiToken string) (*[]v0.ForwardProxyDefinition, error) {
+func GetForwardProxyDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinitions []v0.ForwardProxyDefinition
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-definitions", apiAddr, ApiVersion),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -42,13 +42,13 @@ func GetForwardProxyDefinitions(apiAddr, apiToken string) (*[]v0.ForwardProxyDef
 	return &forwardProxyDefinitions, nil
 }
 
-// GetForwardProxyDefinitionByID feteches a forward proxy definition by ID.
-func GetForwardProxyDefinitionByID(id uint, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
+// GetForwardProxyDefinitionByID fetches a forward proxy definition by ID.
+func GetForwardProxyDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinition v0.ForwardProxyDefinition
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, id),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -71,13 +71,13 @@ func GetForwardProxyDefinitionByID(id uint, apiAddr, apiToken string) (*v0.Forwa
 	return &forwardProxyDefinition, nil
 }
 
-// GetForwardProxyDefinitionByName feteches a forward proxy definition by name.
-func GetForwardProxyDefinitionByName(name, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
+// GetForwardProxyDefinitionByName fetches a forward proxy definition by name.
+func GetForwardProxyDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinitions []v0.ForwardProxyDefinition
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-definitions?name=%s", apiAddr, ApiVersion, name),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -108,15 +108,15 @@ func GetForwardProxyDefinitionByName(name, apiAddr, apiToken string) (*v0.Forwar
 }
 
 // CreateForwardProxyDefinition creates a new forward proxy definition.
-func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinition, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
+func CreateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwardProxyDefinition *v0.ForwardProxyDefinition) (*v0.ForwardProxyDefinition, error) {
 	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
 	if err != nil {
 		return forwardProxyDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-definitions", apiAddr, ApiVersion),
-		apiToken,
 		http.MethodPost,
 		bytes.NewBuffer(jsonForwardProxyDefinition),
 		http.StatusCreated,
@@ -140,7 +140,7 @@ func CreateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 }
 
 // UpdateForwardProxyDefinition updates a forward proxy definition.
-func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinition, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
+func UpdateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwardProxyDefinition *v0.ForwardProxyDefinition) (*v0.ForwardProxyDefinition, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	forwardProxyDefinitionID := *forwardProxyDefinition.ID
@@ -152,8 +152,8 @@ func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 	}
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, forwardProxyDefinitionID),
-		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonForwardProxyDefinition),
 		http.StatusOK,
@@ -177,12 +177,12 @@ func UpdateForwardProxyDefinition(forwardProxyDefinition *v0.ForwardProxyDefinit
 }
 
 // DeleteForwardProxyDefinition deletes a forward proxy definition by ID.
-func DeleteForwardProxyDefinition(id uint, apiAddr, apiToken string) (*v0.ForwardProxyDefinition, error) {
+func DeleteForwardProxyDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.ForwardProxyDefinition, error) {
 	var forwardProxyDefinition v0.ForwardProxyDefinition
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, id),
-		apiToken,
 		http.MethodDelete,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -205,14 +205,14 @@ func DeleteForwardProxyDefinition(id uint, apiAddr, apiToken string) (*v0.Forwar
 	return &forwardProxyDefinition, nil
 }
 
-// GetForwardProxyInstances feteches all forward proxy instances.
+// GetForwardProxyInstances fetches all forward proxy instances.
 // TODO: implement pagination
-func GetForwardProxyInstances(apiAddr, apiToken string) (*[]v0.ForwardProxyInstance, error) {
+func GetForwardProxyInstances(apiClient *http.Client, apiAddr string) (*[]v0.ForwardProxyInstance, error) {
 	var forwardProxyInstances []v0.ForwardProxyInstance
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-instances", apiAddr, ApiVersion),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -235,13 +235,13 @@ func GetForwardProxyInstances(apiAddr, apiToken string) (*[]v0.ForwardProxyInsta
 	return &forwardProxyInstances, nil
 }
 
-// GetForwardProxyInstanceByID feteches a forward proxy instance by ID.
-func GetForwardProxyInstanceByID(id uint, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
+// GetForwardProxyInstanceByID fetches a forward proxy instance by ID.
+func GetForwardProxyInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.ForwardProxyInstance, error) {
 	var forwardProxyInstance v0.ForwardProxyInstance
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, id),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -264,13 +264,13 @@ func GetForwardProxyInstanceByID(id uint, apiAddr, apiToken string) (*v0.Forward
 	return &forwardProxyInstance, nil
 }
 
-// GetForwardProxyInstanceByName feteches a forward proxy instance by name.
-func GetForwardProxyInstanceByName(name, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
+// GetForwardProxyInstanceByName fetches a forward proxy instance by name.
+func GetForwardProxyInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.ForwardProxyInstance, error) {
 	var forwardProxyInstances []v0.ForwardProxyInstance
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-instances?name=%s", apiAddr, ApiVersion, name),
-		apiToken,
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -301,15 +301,15 @@ func GetForwardProxyInstanceByName(name, apiAddr, apiToken string) (*v0.ForwardP
 }
 
 // CreateForwardProxyInstance creates a new forward proxy instance.
-func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
+func CreateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardProxyInstance *v0.ForwardProxyInstance) (*v0.ForwardProxyInstance, error) {
 	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
 	if err != nil {
 		return forwardProxyInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-instances", apiAddr, ApiVersion),
-		apiToken,
 		http.MethodPost,
 		bytes.NewBuffer(jsonForwardProxyInstance),
 		http.StatusCreated,
@@ -333,7 +333,7 @@ func CreateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 }
 
 // UpdateForwardProxyInstance updates a forward proxy instance.
-func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
+func UpdateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardProxyInstance *v0.ForwardProxyInstance) (*v0.ForwardProxyInstance, error) {
 	// capture the object ID then remove it from the object since the API will not
 	// allow an update the ID field
 	forwardProxyInstanceID := *forwardProxyInstance.ID
@@ -345,8 +345,8 @@ func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 	}
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, forwardProxyInstanceID),
-		apiToken,
 		http.MethodPatch,
 		bytes.NewBuffer(jsonForwardProxyInstance),
 		http.StatusOK,
@@ -370,12 +370,12 @@ func UpdateForwardProxyInstance(forwardProxyInstance *v0.ForwardProxyInstance, a
 }
 
 // DeleteForwardProxyInstance deletes a forward proxy instance by ID.
-func DeleteForwardProxyInstance(id uint, apiAddr, apiToken string) (*v0.ForwardProxyInstance, error) {
+func DeleteForwardProxyInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.ForwardProxyInstance, error) {
 	var forwardProxyInstance v0.ForwardProxyInstance
 
 	response, err := GetResponse(
+		apiClient,
 		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, id),
-		apiToken,
 		http.MethodDelete,
 		new(bytes.Buffer),
 		http.StatusOK,

@@ -76,9 +76,9 @@ func workloadDefinitionCreated(
 
 	// create workload resource definitions in API
 	createdWRDs, err := client.CreateWorkloadResourceDefinitions(
-		&workloadResourceDefinitions,
+		r.APIClient,
 		r.APIServer,
-		"",
+		&workloadResourceDefinitions,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create workload resource definitions in API: %w", err)
@@ -103,9 +103,9 @@ func workloadDefinitionDeleted(
 ) error {
 	// get related workload resource definitions
 	workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
-		*workloadDefinition.ID,
+		r.APIClient,
 		r.APIServer,
-		"",
+		*workloadDefinition.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource definitions by workload definition ID: %w", err)
@@ -113,7 +113,7 @@ func workloadDefinitionDeleted(
 
 	// delete each related workload resource definition
 	for _, wrd := range *workloadResourceDefinitions {
-		_, err := client.DeleteWorkloadResourceDefinition(*wrd.ID, r.APIServer, "")
+		_, err := client.DeleteWorkloadResourceDefinition(r.APIClient, r.APIServer, *wrd.ID)
 		if err != nil {
 			return fmt.Errorf("failed to delete workload resource definition with ID %d: %w", wrd.ID, err)
 		}

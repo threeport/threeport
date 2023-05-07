@@ -6,20 +6,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"sync"
+	"time"
+
 	logr "github.com/go-logr/logr"
 	zapr "github.com/go-logr/zapr"
 	uuid "github.com/google/uuid"
 	flag "github.com/namsral/flag"
 	natsgo "github.com/nats-io/nats.go"
+	clientInternal "github.com/threeport/threeport/internal/client"
 	version "github.com/threeport/threeport/internal/version"
 	workload "github.com/threeport/threeport/internal/workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller"
 	zap "go.uber.org/zap"
-	"net/http"
-	"os"
-	"sync"
-	"time"
 )
 
 func main() {
@@ -43,6 +45,7 @@ func main() {
 	var shutdownPort = flag.String("shutdown-port", "8181", "Port to listen for shutdown calls")
 	var verbose = flag.Bool("verbose", false, "Write logs with v(1).InfoLevel and above")
 	var help = flag.Bool("help", false, "Show help info")
+	var authEnabled = flag.Bool("auth-enabled", true, "Enable client certificate authentication (default is true)")
 	flag.Parse()
 
 	if *help {
@@ -118,6 +121,13 @@ func main() {
 	var shutdownChans []chan bool
 	var shutdownWait sync.WaitGroup
 
+	// configure http client for calls to threeport API
+	apiClient, err := clientInternal.GetHTTPClient(*authEnabled)
+	if err != nil {
+		log.Error(err, "failed to create http client")
+		os.Exit(1)
+	}
+
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -157,6 +167,7 @@ func main() {
 
 		// create reconciler
 		reconciler := controller.Reconciler{
+			APIClient:        apiClient,
 			APIServer:        *apiServer,
 			ControllerID:     controllerID,
 			JetStreamContext: js,

@@ -10,10 +10,11 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 
 	"github.com/threeport/threeport/internal/cli"
+	clientInternal "github.com/threeport/threeport/internal/client"
+	configInternal "github.com/threeport/threeport/internal/config"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
@@ -30,12 +31,13 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 	Long:         `Delete as existing workload definition.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
+
 		// get threeport config and extract threeport API endpoint
-		threeportConfig := &config.ThreeportConfig{}
-		if err := viper.Unmarshal(threeportConfig); err != nil {
-			cli.Error("Failed to get threeport config", err)
-			os.Exit(1)
+		threeportConfig, err := configInternal.GetThreeportConfig()
+		if err != nil {
+			cli.Error("failed to get threeport config", err)
 		}
+
 		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)
@@ -71,9 +73,15 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
+		if err != nil {
+			cli.Error("failed to create https client", err)
+			os.Exit(1)
+		}
+
 		// delete workload definition
 		workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-		wd, err := workloadDefinition.Delete(apiEndpoint)
+		wd, err := workloadDefinition.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload definition", err)
 			os.Exit(1)

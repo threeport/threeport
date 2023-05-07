@@ -9,13 +9,16 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/threeport/threeport/internal/cli"
+	clientInternal "github.com/threeport/threeport/internal/client"
+	configInternal "github.com/threeport/threeport/internal/config"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
+	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
@@ -30,9 +33,12 @@ var (
 	createProviderAccountID     string
 	createAdminEmail            string
 	forceOverwriteConfig        bool
+	authEnabled                 bool
 	infraProvider               string
 	kubeconfigPath              string
 	controlPlaneImageRepo       string
+	controlPlaneImageTag        string
+	threeportLocalAPIPort       int
 	numWorkerNodes              int
 )
 
@@ -44,28 +50,22 @@ var CreateControlPlaneCmd = &cobra.Command{
 	Long:         `Create a new instance of the Threeport control plane.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		// get threeport config
-		threeportConfig := &config.ThreeportConfig{}
-		if err := viper.Unmarshal(threeportConfig); err != nil {
+
+		threeportConfig, err := configInternal.GetThreeportConfig()
+		if err != nil {
 			cli.Error("failed to get threeport config", err)
-			os.Exit(1)
 		}
 
 		// check threeport config for exisiting instance
-		threeportInstanceConfigExists := false
-		for _, instance := range threeportConfig.Instances {
-			if instance.Name == createThreeportInstanceName {
-				threeportInstanceConfigExists = true
-				if !forceOverwriteConfig {
-					cli.Error(
-						"interupted creation of threeport instance",
-						errors.New(fmt.Sprintf("instance of threeport with name %s already exists", instance.Name)),
-					)
-					cli.Info("if you wish to overwrite the existing config use --force-overwrite-config flag")
-					cli.Warning("you will lose the ability to connect to the existing threeport instance if it still exists")
-					os.Exit(1)
-				}
-			}
+		threeportInstanceConfigExists, err := threeportConfig.CheckThreeportConfigExists(createThreeportInstanceName, forceOverwriteConfig)
+		if err != nil {
+			cli.Error(
+				"interupted creation of threeport instance",
+				err,
+			)
+			cli.Info("if you wish to overwrite the existing config use --force-overwrite-config flag")
+			cli.Warning("you will lose the ability to connect to the existing threeport instance if it still exists")
+			os.Exit(1)
 		}
 
 		// flag validation
@@ -87,11 +87,9 @@ var CreateControlPlaneCmd = &cobra.Command{
 		// configure the infra provider
 		var controlPlaneInfra provider.ControlPlaneInfra
 		var threeportAPIEndpoint string
-		var threeportAPIProtocol string
 		switch controlPlane.InfraProvider {
 		case threeport.ControlPlaneInfraProviderKind:
 			threeportAPIEndpoint = threeport.ThreeportLocalAPIEndpoint
-			threeportAPIProtocol = threeport.ThreeportLocalAPIProtocol
 			// get kubeconfig to use for kind cluster
 			if kubeconfigPath == "" {
 				k, err := kube.DefaultKubeconfig()
@@ -110,6 +108,42 @@ var CreateControlPlaneCmd = &cobra.Command{
 			controlPlaneInfraKind.KindConfig = kindConfig
 			controlPlaneInfra = &controlPlaneInfraKind
 		}
+
+		// create threeport config for new instance
+		newThreeportInstance := &config.Instance{
+			Name:       createThreeportInstanceName,
+			Provider:   infraProvider,
+			APIServer:  fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeportLocalAPIPort),
+			Kubeconfig: kubeconfigPath,
+		}
+
+		// if auth is enabled, generate client certificate and add to local config
+		var authConfig *auth.AuthConfig
+		if authEnabled {
+			authConfig, err = auth.GetAuthConfig()
+			if err != nil {
+				cli.Error("failed to get auth config", err)
+				os.Exit(1)
+			}
+
+			// generate client certificate
+			clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+			if err != nil {
+				cli.Error("failed to generate client certificate and private key", err)
+				os.Exit(1)
+			}
+
+			clientCredentials := &config.Credential{
+				Name:       createThreeportInstanceName,
+				ClientCert: util.Base64Encode(clientCertificate),
+				ClientKey:  util.Base64Encode(clientPrivateKey),
+			}
+
+			newThreeportInstance.Credentials = append(newThreeportInstance.Credentials, *clientCredentials)
+			newThreeportInstance.CACert = authConfig.CABase64Encoded
+		}
+
+		configInternal.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
 
 		// create control plane
 		kubeConnectionInfo, err := controlPlaneInfra.Create()
@@ -150,12 +184,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// install the threeport control plane support services
-		if err := threeport.InstallLocalSupportServices(dynamicKubeClient, mapper); err != nil {
-			cli.Error("failed to install threeport control plane support services", err)
-			os.Exit(1)
-		}
-
 		// install the threeport control plane dependencies
 		if err := threeport.InstallThreeportControlPlaneDependencies(dynamicKubeClient, mapper); err != nil {
 			// delete control plane cluster
@@ -174,6 +202,8 @@ var CreateControlPlaneCmd = &cobra.Command{
 			false,
 			threeportAPIEndpoint,
 			controlPlaneImageRepo,
+			controlPlaneImageTag,
+			authConfig,
 		); err != nil {
 			// delete control plane cluster
 			if err := controlPlaneInfra.Delete(); err != nil {
@@ -184,10 +214,17 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
+		if err != nil {
+			cli.Error("failed to create http client", err)
+			os.Exit(1)
+		}
+
 		// wait for API server to start running
 		cli.Info("waiting for threeport API to start running")
 		if err := threeport.WaitForThreeportAPI(
-			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
+			apiClient,
+			fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeportLocalAPIPort),
 		); err != nil {
 			// delete control plane cluster
 			if err := controlPlaneInfra.Delete(); err != nil {
@@ -206,9 +243,9 @@ var CreateControlPlaneCmd = &cobra.Command{
 			},
 		}
 		clusterDefResult, err := client.CreateClusterDefinition(
+			apiClient,
+			fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeportLocalAPIPort),
 			&clusterDefinition,
-			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
-			"",
 		)
 		if err != nil {
 			// delete control plane cluster
@@ -223,9 +260,9 @@ var CreateControlPlaneCmd = &cobra.Command{
 		// create default compute space cluster instance in threeport API
 		clusterInstance.ClusterDefinitionID = clusterDefResult.ID
 		_, err = client.CreateClusterInstance(
+			apiClient,
+			fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeportLocalAPIPort),
 			&clusterInstance,
-			fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
-			"",
 		)
 		if err != nil {
 			// delete control plane cluster
@@ -237,27 +274,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// create threeport config for new instance
-		newThreeportInstance := &config.Instance{
-			Name:       createThreeportInstanceName,
-			Provider:   infraProvider,
-			APIServer:  fmt.Sprintf("%s://%s", threeportAPIProtocol, threeportAPIEndpoint),
-			Kubeconfig: kubeconfigPath,
-		}
-
-		// update threeport config to add the new instance and set as current instance
-		if threeportInstanceConfigExists {
-			for n, instance := range threeportConfig.Instances {
-				if instance.Name == createThreeportInstanceName {
-					threeportConfig.Instances[n] = *newThreeportInstance
-				}
-			}
-		} else {
-			threeportConfig.Instances = append(threeportConfig.Instances, *newThreeportInstance)
-		}
-		viper.Set("Instances", threeportConfig.Instances)
-		viper.Set("CurrentInstance", createThreeportInstanceName)
-		viper.WriteConfig()
 		cli.Info("threeport config updated")
 
 		cli.Complete(fmt.Sprintf("threeport instance %s created", createThreeportInstanceName))
@@ -289,6 +305,10 @@ func init() {
 		&forceOverwriteConfig,
 		"force-overwrite-config", false, "Force the overwrite of an existing Threeport instance config.  Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.",
 	)
+	CreateControlPlaneCmd.Flags().BoolVar(
+		&authEnabled,
+		"auth-enabled", true, "Enable client certificate authentication (default is true)",
+	)
 	CreateControlPlaneCmd.Flags().StringVarP(
 		&createProviderAccountID,
 		"provider-account-id", "a", "", "The provider account ID.  Required if providing a root domain for automated DNS management.",
@@ -305,7 +325,15 @@ func init() {
 		&controlPlaneImageRepo,
 		"control-plane-image-repo", "i", "", "Alternate image repo to pull threeport control plane images from.",
 	)
-	CreateControlPlaneCmd.Flags().IntVar(&numWorkerNodes,
+	CreateControlPlaneCmd.Flags().StringVarP(
+		&controlPlaneImageTag,
+		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
+	)
+	CreateControlPlaneCmd.Flags().IntVar(
+		&threeportLocalAPIPort,
+		"threeport-api-port", 443, "Local port to bind threeport APIServer to. Only applies to kind provider. (default is 443)")
+	CreateControlPlaneCmd.Flags().IntVar(
+		&numWorkerNodes,
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy. Only applies to kind provider. (default is 0)")
 }
 

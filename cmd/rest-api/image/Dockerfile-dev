@@ -7,7 +7,7 @@ WORKDIR /threeport
 
 # "go install" is not needed here because we mount source code from host
 
-CMD ["air", \
+ENTRYPOINT ["air", \
     "-c", "/threeport/cmd/rest-api/image/air.toml", \
     "-build.cmd", "go build -o bin/threeport-rest-api cmd/rest-api/main.go", \
     "-build.bin", "./bin/threeport-rest-api"]

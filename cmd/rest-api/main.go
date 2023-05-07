@@ -1,9 +1,15 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+
+	"net/http"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
@@ -41,9 +47,11 @@ func main() {
 	var envFile string
 	var autoMigrate bool
 	var verbose bool
+	var authEnabled bool
 	flag.StringVar(&envFile, "env-file", "/etc/threeport/env", "File from which to load environment")
 	flag.BoolVar(&autoMigrate, "auto-migrate", false, "If true API server will auto migrate DB schema")
 	flag.BoolVar(&verbose, "verbose", false, "Write logs with v(1).InfoLevel and above")
+	flag.BoolVar(&authEnabled, "auth-enabled", true, "Enable client certificate authentication")
 	flag.Parse()
 
 	e := echo.New()
@@ -78,9 +86,7 @@ func main() {
 			return nil
 		},
 	}))
-	//e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	//e.Use(iapi.AuthorizationTokenCheck)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
 		// Take required information from error and context and send it to a service like New Relic etc.
@@ -100,21 +106,6 @@ func main() {
 	if err != nil {
 		e.Logger.Fatalf("failed to initialize database: %v", err)
 	}
-
-	//// authority
-	//authority.Auth = authority.New(autoMigrate, authority.Options{
-	//	TablesPrefix: "rbac_",
-	//	DB:           db,
-	//})
-	//if authority.Auth == nil {
-	//	e.Logger.Fatalf("failed to initialize RBAC DB: %v", err)
-	//}
-
-	// enable temporarily only to populate DB with initial authorization mapping
-	//err = initRbac(authority.Auth)
-	//if err != nil {
-	//	e.Logger.Fatalf("failed to initialize RBAC: %v", err)
-	//}
 
 	// nats connection
 	natsConn := fmt.Sprintf(
@@ -155,6 +146,53 @@ func main() {
 	iapi.Versions[0] = iapi.V0
 	versions.AddVersions()
 
-	fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
-	e.Logger.Fatal(e.Start(":1323"))
+	if authEnabled {
+		configDir := "/etc/threeport"
+
+		// load server certificate and private key
+		cert, err := tls.LoadX509KeyPair(filepath.Join(configDir, "cert/tls.crt"), filepath.Join(configDir, "cert/tls.key"))
+		if err != nil {
+			e.Logger.Fatal(err)
+		}
+
+		// load server root certificate authority
+		caCert, err := ioutil.ReadFile(filepath.Join(configDir, "ca/tls.crt"))
+		if err != nil {
+			e.Logger.Fatal(err)
+		}
+
+		// create certificate pool and add server root certificate authority
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		// configure https server
+		server := http.Server{
+			Addr:    ":1323",
+			Handler: e,
+			TLSConfig: &tls.Config{
+				Certificates: []tls.Certificate{cert},
+				RootCAs:      caCertPool,
+				ClientCAs:    caCertPool,
+				ClientAuth:   tls.RequireAndVerifyClientCert,
+			},
+		}
+
+		fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
+		if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+			e.Logger.Fatal(err)
+		}
+	} else {
+
+		// configure http server
+		server := http.Server{
+			Addr:    ":1323",
+			Handler: e,
+		}
+
+		fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			e.Logger.Fatal(err)
+		}
+	}
+
 }

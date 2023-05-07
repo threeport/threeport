@@ -516,56 +516,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - User
+    - Company
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
-    - DomainNameDefinition
-    - DomainNameInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - Profile
-    - Tier
-    - User
-    - Company
     - ClusterDefinition
     - ClusterInstance
+    - Profile
+    - Tier
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeUser
-    - ObjectTypeCompany
     - ObjectTypeClusterDefinition
     - ObjectTypeClusterInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       CompanyID:

@@ -9,9 +9,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/threeport/threeport/internal/cli"
+	configInternal "github.com/threeport/threeport/internal/config"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
 	config "github.com/threeport/threeport/pkg/config/v0"
@@ -28,10 +28,9 @@ var DeleteControlPlaneCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig := &config.ThreeportConfig{}
-		if err := viper.Unmarshal(threeportConfig); err != nil {
-			cli.Error("failed to get Threeport config", err)
-			os.Exit(1)
+		threeportConfig, err := configInternal.GetThreeportConfig()
+		if err != nil {
+			cli.Error("failed to get threeport config", err)
 		}
 
 		// check threeport config for exisiting instance
@@ -65,20 +64,8 @@ var DeleteControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// update threeport config to remove the deleted threeport instance and
-		// current instance
-		updatedInstances := []config.Instance{}
-		for _, instance := range threeportConfig.Instances {
-			if instance.Name == deleteThreeportInstanceName {
-				continue
-			} else {
-				updatedInstances = append(updatedInstances, instance)
-			}
-		}
+		configInternal.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportInstanceName)
 
-		viper.Set("Instances", updatedInstances)
-		viper.Set("CurrentInstance", "")
-		viper.WriteConfig()
 		cli.Info("threeport config updated")
 
 		cli.Complete(fmt.Sprintf("threeport instance %s deleted", deleteThreeportInstanceName))

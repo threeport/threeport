@@ -36,13 +36,14 @@ func (cc *ControllerConfig) ClientLib() error {
 		// get all objects
 		getAllFuncName := fmt.Sprintf("Get%s", pluralize.Pluralize(mc.TypeName, 2, false))
 		f.Comment(fmt.Sprintf(
-			"%s feteches all %s.",
+			"%s fetches all %s.",
 			getAllFuncName,
 			pluralize.Pluralize(strcase.ToDelimited(mc.TypeName, ' '), 2, false),
 		))
 		f.Comment("TODO: implement pagination")
 		f.Func().Id(getAllFuncName).Params(
-			Id("apiAddr").Op(",").Id("apiToken").String(),
+			Id("apiClient").Op("*").Qual("net/http", "Client"),
+			Id("apiAddr").String(),
 		).Parens(List(
 			Op("*").Index().Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -56,13 +57,13 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion").Op(","),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodGet"),
 				Line().New(Qual("bytes", "Buffer")),
 				Line().Qual("net/http", "StatusOK"),
@@ -103,13 +104,14 @@ func (cc *ControllerConfig) ClientLib() error {
 		// get object by ID
 		getByIDFuncName := fmt.Sprintf("Get%sByID", mc.TypeName)
 		f.Comment(fmt.Sprintf(
-			"%s feteches a %s by ID.",
+			"%s fetches a %s by ID.",
 			getByIDFuncName,
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(getByIDFuncName).Params(
+			Id("apiClient").Op("*").Qual("net/http", "Client"),
+			Id("apiAddr").String(),
 			Id("id").Uint(),
-			Id("apiAddr").Op(",").Id("apiToken").String(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -123,13 +125,13 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("id"),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodGet"),
 				Line().New(Qual("bytes", "Buffer")),
 				Line().Qual("net/http", "StatusOK"),
@@ -170,12 +172,13 @@ func (cc *ControllerConfig) ClientLib() error {
 		// get object by name
 		getByNameFuncName := fmt.Sprintf("Get%sByName", mc.TypeName)
 		f.Comment(fmt.Sprintf(
-			"%s feteches a %s by name.",
+			"%s fetches a %s by name.",
 			getByNameFuncName,
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(getByNameFuncName).Params(
-			Id("name").Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
+			Id("apiClient").Op("*").Qual("net/http", "Client"),
+			Id("apiAddr").Op(",").Id("name").String(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -188,13 +191,13 @@ func (cc *ControllerConfig) ClientLib() error {
 			).Index().Id(cc.PackageName).Dot(mc.TypeName),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s?name=%%s", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("name"),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodGet"),
 				Line().New(Qual("bytes", "Buffer")),
 				Line().Qual("net/http", "StatusOK"),
@@ -270,10 +273,12 @@ func (cc *ControllerConfig) ClientLib() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(createFuncName).Params(
+			Id("apiClient").Op("*").Qual("net/http", "Client"),
+			Id("apiAddr").String(),
 			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
-			).Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
+			),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -292,13 +297,13 @@ func (cc *ControllerConfig) ClientLib() error {
 			)),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion"),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodPost"),
 				Line().Qual("bytes", "NewBuffer").Call(Id(
 					fmt.Sprintf("json%s", mc.TypeName),
@@ -346,10 +351,12 @@ func (cc *ControllerConfig) ClientLib() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(updateFuncName).Params(
+			Id("apiClient").Op("*").Qual("net/http", "Client"),
+			Id("apiAddr").String(),
 			Id(strcase.ToLowerCamel(mc.TypeName)).Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
-			).Op(",").Id("apiAddr").Op(",").Id("apiToken").String(),
+			),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -375,6 +382,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			)),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
@@ -383,7 +391,6 @@ func (cc *ControllerConfig) ClientLib() error {
 						Id("ApiVersion").Op(",").
 						Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName))),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodPatch"),
 				Line().Qual("bytes", "NewBuffer").Call(Id(
 					fmt.Sprintf("json%s", mc.TypeName),
@@ -431,8 +438,9 @@ func (cc *ControllerConfig) ClientLib() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Func().Id(deleteFuncName).Params(
+			Id("apiClient").Op("*").Qual("net/http", "Client"),
+			Id("apiAddr").String(),
 			Id("id").Uint(),
-			Id("apiAddr").Op(",").Id("apiToken").String(),
 		).Parens(List(
 			Op("*").Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
@@ -446,13 +454,13 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
 						"%%s/%%s/%s/%%d", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 					)).Op(",").
 						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("id"),
 				),
-				Line().Id("apiToken"),
 				Line().Qual("net/http", "MethodDelete"),
 				Line().New(Qual("bytes", "Buffer")),
 				Line().Qual("net/http", "StatusOK"),

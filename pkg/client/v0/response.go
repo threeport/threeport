@@ -15,21 +15,35 @@ var ErrorObjectNotFound = errors.New("object not found")
 
 // GetResponse calls the threeport API and returns a response.
 func GetResponse(
+	client *http.Client,
 	url string,
-	apiToken string,
 	httpMethod string,
 	reqBody *bytes.Buffer,
 	expectedStatusCode int,
 ) (*v0.Response, error) {
 
+	urlScheme := "http://"
+
+	// check if TLS is configured
+	tlsConfigured := false
+	if transport, ok := client.Transport.(*http.Transport); ok {
+		if transport.TLSClientConfig != nil {
+			tlsConfigured = true
+		}
+	}
+
+	// update url if TLS is configured
+	if tlsConfigured {
+		urlScheme = "https://"
+	}
+	url = urlScheme + url
+
 	req, err := http.NewRequest(httpMethod, url, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request to threeport API: %w", err)
 	}
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", apiToken))
 	req.Header.Add("Content-Type", "application/json")
 
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed execute call to threeport API: %w", err)

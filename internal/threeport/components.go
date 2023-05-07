@@ -1,6 +1,7 @@
 package threeport
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/version"
+	"github.com/threeport/threeport/pkg/auth/v0"
+	v0 "github.com/threeport/threeport/pkg/client/v0"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -19,7 +22,7 @@ const (
 	ThreeportWorkloadControllerImage = "threeport-workload-controller"
 	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
 	ThreeportLocalAPIEndpoint        = "localhost"
-	ThreeportLocalAPIProtocol        = "http"
+	ThreeportLocalAPIPort            = "443"
 )
 
 // ThreeportDevImages returns a map of main package dirs to image names
@@ -38,6 +41,8 @@ func InstallThreeportControlPlaneComponents(
 	devEnvironment bool,
 	apiHostname string,
 	customThreeportImageRepo string,
+	customThreeportImageTag string,
+	authConfig *auth.AuthConfig,
 ) error {
 	// install the API
 	if err := InstallThreeportAPI(
@@ -46,6 +51,8 @@ func InstallThreeportControlPlaneComponents(
 		devEnvironment,
 		apiHostname,
 		customThreeportImageRepo,
+		customThreeportImageTag,
+		authConfig,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport API server: %w", err)
 	}
@@ -56,6 +63,8 @@ func InstallThreeportControlPlaneComponents(
 		mapper,
 		devEnvironment,
 		customThreeportImageRepo,
+		customThreeportImageTag,
+		authConfig,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport controllers: %w", err)
 	}
@@ -71,12 +80,30 @@ func InstallThreeportAPI(
 	devEnvironment bool,
 	apiHostname string,
 	customThreeportImageRepo string,
+	customThreeportImageTag string,
+	authConfig *auth.AuthConfig,
 ) error {
-	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo)
-	apiIngressAnnotations := getAPIIngressAnnotations(devEnvironment)
-	apiIngressTLS := getAPIIngressTLS(devEnvironment, apiHostname)
-	apiArgs := getAPIArgs(devEnvironment)
-	apiVols, apiVolMounts := getAPIVolumes(devEnvironment)
+	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
+	apiArgs := getAPIArgs(devEnvironment, authConfig)
+	apiVols, apiVolMounts := getAPIVolumes(devEnvironment, authConfig)
+
+	if authConfig != nil {
+		// generate server certificate
+		serverCertificate, serverPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		if err != nil {
+			return fmt.Errorf("failed to generate server certificate and private key: %w", err)
+		}
+
+		var apiCa = getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
+		if _, err := kube.CreateResource(apiCa, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
+
+		var apiCert = getTLSSecret("api-cert", serverCertificate, serverPrivateKey)
+		if _, err := kube.CreateResource(apiCert, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
+	}
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -179,7 +206,7 @@ NATS_PORT=4222
 								"ports": []interface{}{
 									map[string]interface{}{
 										"containerPort": 1323,
-										"name":          "http",
+										"name":          "api",
 										"protocol":      "TCP",
 									},
 								},
@@ -208,12 +235,14 @@ NATS_PORT=4222
 				"selector": map[string]interface{}{
 					"app.kubernetes.io/name": "threeport-api-server",
 				},
+				"type": "NodePort",
 				"ports": []interface{}{
 					map[string]interface{}{
 						"name":       "http",
-						"port":       80,
+						"port":       1323,
 						"protocol":   "TCP",
 						"targetPort": 1323,
+						"nodePort":   30000,
 					},
 				},
 			},
@@ -221,46 +250,6 @@ NATS_PORT=4222
 	}
 	if _, err := kube.CreateResource(apiService, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create API server service: %w", err)
-	}
-
-	var apiIngress = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "networking.k8s.io/v1",
-			"kind":       "Ingress",
-			"metadata": map[string]interface{}{
-				"name":        ThreeportAPIIngressResourceName,
-				"namespace":   ControlPlaneNamespace,
-				"annotations": apiIngressAnnotations,
-			},
-			"spec": map[string]interface{}{
-				"ingressClassName": "kong",
-				"rules": []interface{}{
-					map[string]interface{}{
-						"host": apiHostname,
-						"http": map[string]interface{}{
-							"paths": []interface{}{
-								map[string]interface{}{
-									"path":     "/",
-									"pathType": "Prefix",
-									"backend": map[string]interface{}{
-										"service": map[string]interface{}{
-											"name": "threeport-api-server",
-											"port": map[string]interface{}{
-												"number": 80,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				"tls": apiIngressTLS,
-			},
-		},
-	}
-	if _, err := kube.CreateResource(apiIngress, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create API ingress: %w", err)
 	}
 
 	return nil
@@ -273,9 +262,31 @@ func InstallThreeportControllers(
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
 	customThreeportImageRepo string,
+	customThreeportImageTag string,
+	authConfig *auth.AuthConfig,
 ) error {
-	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo)
-	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment)
+	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
+	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment, authConfig)
+	workloadArgs := getWorkloadArgs(devEnvironment, authConfig)
+
+	if authConfig != nil {
+
+		// generate workload certificate
+		workloadCertificate, workloadPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		if err != nil {
+			return fmt.Errorf("failed to generate client certificate and private key: %w", err)
+		}
+
+		var workloadCa = getTLSSecret("workload-ca", authConfig.CAPemEncoded, "")
+		if _, err := kube.CreateResource(workloadCa, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
+
+		var workloadCert = getTLSSecret("workload-cert", workloadCertificate, workloadPrivateKey)
+		if _, err := kube.CreateResource(workloadCert, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
+	}
 
 	var workloadControllerSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -287,7 +298,7 @@ func InstallThreeportControllers(
 			},
 			"type": "Opaque",
 			"stringData": map[string]interface{}{
-				"API_SERVER":      "http://threeport-api-server",
+				"API_SERVER":      "threeport-api-server:1323",
 				"MSG_BROKER_HOST": "nats-js",
 				"MSG_BROKER_PORT": "4222",
 			},
@@ -324,6 +335,7 @@ func InstallThreeportControllers(
 								"name":            "workload-controller",
 								"image":           workloadControllerImage,
 								"imagePullPolicy": "IfNotPresent",
+								"args":            workloadArgs,
 								"envFrom": []interface{}{
 									map[string]interface{}{
 										"secretRef": map[string]interface{}{
@@ -348,19 +360,20 @@ func InstallThreeportControllers(
 }
 
 // WaitForThreeportAPI waits for the threeport API to respond to a request.
-func WaitForThreeportAPI(apiEndpoint string) error {
+func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
 	attempts := 0
 	maxAttempts := 30
 	waitSeconds := 10
 	apiReady := false
 	for attempts < maxAttempts {
-		testResp, err := http.Get(fmt.Sprintf("%s/version", apiEndpoint))
+		_, err := v0.GetResponse(
+			apiClient,
+			fmt.Sprintf("%s/version", apiEndpoint),
+			http.MethodGet,
+			new(bytes.Buffer),
+			http.StatusOK,
+		)
 		if err != nil {
-			time.Sleep(time.Second * time.Duration(waitSeconds))
-			attempts += 1
-			continue
-		}
-		if testResp.StatusCode != http.StatusOK {
 			time.Sleep(time.Second * time.Duration(waitSeconds))
 			attempts += 1
 			continue
@@ -379,7 +392,7 @@ func WaitForThreeportAPI(apiEndpoint string) error {
 }
 
 // getAPIImage returns the proper container image to use for the API.
-func getAPIImage(devEnvironment bool, customThreeportImageRepo string) string {
+func getAPIImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
 	if devEnvironment {
 		devImages := ThreeportDevImages()
 		return devImages["rest-api"]
@@ -389,11 +402,17 @@ func getAPIImage(devEnvironment bool, customThreeportImageRepo string) string {
 	if customThreeportImageRepo != "" {
 		imageRepo = customThreeportImageRepo
 	}
+
+	imageTag := version.GetVersion()
+	if customThreeportImageTag != "" {
+		imageTag = customThreeportImageTag
+	}
+
 	apiImage := fmt.Sprintf(
 		"%s/%s:%s",
 		imageRepo,
 		ThreeportAPIImage,
-		version.GetVersion(),
+		imageTag,
 	)
 
 	return apiImage
@@ -426,19 +445,65 @@ func getAPIIngressTLS(devEnvironment bool, apiHostname string) []interface{} {
 }
 
 // getAPIArgs returns the args that are passed to the API server.
-func getAPIArgs(devEnvironment bool) []interface{} {
+func getAPIArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
+
+	// in devEnvironment, auth is disabled by default
+	// in tptctl, auth is enabled by default
+
+	// enable auth if authConfig is set in dev environment
 	if devEnvironment {
-		return []interface{}{}
+		args := "-auto-migrate=true -verbose=true"
+
+		if authConfig == nil {
+			args += " -auth-enabled=false"
+		}
+
+		// -build.args_bin is an air flag, not a part of the API server
+		return []interface{}{
+			"-build.args_bin",
+			args,
+		}
 	}
 
-	return []interface{}{
-		"-auto-migrate",
-		"true",
+	args := []interface{}{
+		"-auto-migrate=true",
 	}
+
+	// disable auth if authConfig is not set in tptctl
+	if authConfig == nil {
+		args = append(args, "-auth-enabled=false")
+	}
+
+	return args
+}
+
+// getWorkloadArgs returns the args that are passed to the workload controller.
+func getWorkloadArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
+
+	// in devEnvironment, auth is disabled by default
+	// in tptctl, auth is enabled by default
+
+	// enable auth if authConfig is set in dev environment
+	// if devEnvironment && authConfig != nil {
+	if devEnvironment && authConfig == nil {
+		return []interface{}{
+			"-build.args_bin",
+			"-auth-enabled=false",
+		}
+	}
+
+	// disable auth if authConfig is not set in tptctl
+	if authConfig == nil {
+		return []interface{}{
+			"-auth-enabled=false",
+		}
+	}
+
+	return []interface{}{}
 }
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
-func getAPIVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
+func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
 	vols := []interface{}{
 		map[string]interface{}{
 			"name": "db-config",
@@ -467,6 +532,16 @@ func getAPIVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
 		},
 	}
 
+	if authConfig != nil {
+		caVol, caVolMount := getSecretVols("api-ca", "/etc/threeport/ca")
+		certVol, certVolMount := getSecretVols("api-cert", "/etc/threeport/cert")
+
+		vols = append(vols, caVol)
+		vols = append(vols, certVol)
+		volMounts = append(volMounts, caVolMount)
+		volMounts = append(volMounts, certVolMount)
+	}
+
 	if devEnvironment {
 		codePathVol, codePathVolMount := getCodePathVols()
 		vols = append(vols, codePathVol)
@@ -478,7 +553,7 @@ func getAPIVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
 
 // getWorkloadControllerImage returns the proper container image to use for the
 // workload controller.
-func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo string) string {
+func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
 	if devEnvironment {
 		devImages := ThreeportDevImages()
 		return devImages["workload-controller"]
@@ -488,11 +563,17 @@ func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo st
 	if customThreeportImageRepo != "" {
 		imageRepo = customThreeportImageRepo
 	}
+
+	imageTag := version.GetVersion()
+	if customThreeportImageTag != "" {
+		imageTag = customThreeportImageTag
+	}
+
 	workloadControllerImage := fmt.Sprintf(
 		"%s/%s:%s",
 		imageRepo,
 		ThreeportWorkloadControllerImage,
-		version.GetVersion(),
+		imageTag,
 	)
 
 	return workloadControllerImage
@@ -500,9 +581,19 @@ func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo st
 
 // getWorkloadControllerVolumes returns the volumes and volume mounts for the workload
 // controller.
-func getWorkloadControllerVolumes(devEnvironment bool) ([]interface{}, []interface{}) {
+func getWorkloadControllerVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
 	vols := []interface{}{}
 	volMounts := []interface{}{}
+
+	if authConfig != nil {
+		caVol, caVolMount := getSecretVols("workload-ca", "/etc/threeport/ca")
+		certVol, certVolMount := getSecretVols("workload-cert", "/etc/threeport/cert")
+
+		vols = append(vols, caVol)
+		vols = append(vols, certVol)
+		volMounts = append(volMounts, caVolMount)
+		volMounts = append(volMounts, certVolMount)
+	}
 
 	if devEnvironment {
 		codePathVol, codePathVolMount := getCodePathVols()
@@ -529,4 +620,45 @@ func getCodePathVols() (map[string]interface{}, map[string]interface{}) {
 	}
 
 	return codePathVol, codePathVolMount
+}
+
+// getSecretVols returns volumes and volume mounts for secrets.
+func getSecretVols(name string, mountPath string) (map[string]interface{}, map[string]interface{}) {
+
+	vol := map[string]interface{}{
+		"name": name,
+		"secret": map[string]interface{}{
+			"secretName": name,
+		},
+	}
+
+	volMount := map[string]interface{}{
+		"name":      name,
+		"mountPath": mountPath,
+	}
+
+	return vol, volMount
+
+}
+
+// getTLSSecret returns a Kubernetes secret for the given certificate and private key.
+func getTLSSecret(name string, certificate string, privateKey string) *unstructured.Unstructured {
+
+	secret := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"type":       "kubernetes.io/tls",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": ControlPlaneNamespace,
+			},
+			"stringData": map[string]interface{}{
+				"tls.crt": certificate,
+				"tls.key": privateKey,
+			},
+		},
+	}
+
+	return secret
 }

@@ -32,9 +32,9 @@ func workloadInstanceCreated(
 
 	// use workload definition ID to get workload resource definitions
 	workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
-		*workloadInstance.WorkloadDefinitionID,
+		r.APIClient,
 		r.APIServer,
-		"",
+		*workloadInstance.WorkloadDefinitionID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource definitions by workload definition ID: %w", err)
@@ -45,9 +45,9 @@ func workloadInstanceCreated(
 
 	// get workload definition for this instance
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
-		*workloadInstance.WorkloadDefinitionID,
+		r.APIClient,
 		r.APIServer,
-		"",
+		*workloadInstance.WorkloadDefinitionID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload definition for the instance being deployed: %w", err)
@@ -65,9 +65,9 @@ func workloadInstanceCreated(
 
 	// get cluster instance info
 	clusterInstance, err := client.GetClusterInstanceByID(
-		*workloadInstance.ClusterInstanceID,
+		r.APIClient,
 		r.APIServer,
-		"",
+		*workloadInstance.ClusterInstanceID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
@@ -124,9 +124,9 @@ func workloadInstanceCreated(
 
 		// create object in threeport API
 		_, err = client.CreateWorkloadResourceInstance(
-			&wri,
+			r.APIClient,
 			r.APIServer,
-			"",
+			&wri,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create workload resource instance in threeport: %w", err)
@@ -160,9 +160,9 @@ func workloadInstanceDeleted(
 
 	// get workload resource instances
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
-		*workloadInstance.ID,
+		r.APIClient,
 		r.APIServer,
-		"",
+		*workloadInstance.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
@@ -173,9 +173,9 @@ func workloadInstanceDeleted(
 
 	// get cluster instance info
 	clusterInstance, err := client.GetClusterInstanceByID(
-		*workloadInstance.ClusterInstanceID,
+		r.APIClient,
 		r.APIServer,
-		"",
+		*workloadInstance.ClusterInstanceID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
@@ -207,7 +207,7 @@ func workloadInstanceDeleted(
 		}
 
 		// delete each workload resource instance in threeport API
-		_, err = client.DeleteWorkloadResourceInstance(*wri.ID, r.APIServer, "")
+		_, err = client.DeleteWorkloadResourceInstance(r.APIClient, r.APIServer, *wri.ID)
 		if err != nil {
 			return fmt.Errorf("failed to delete workload resource instance with ID %d: %w", wri.ID, err)
 		}
@@ -227,9 +227,9 @@ func confirmWorkloadDefReconciled(
 	workloadInstance *v0.WorkloadInstance,
 ) (bool, error) {
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
-		*workloadInstance.WorkloadDefinitionID,
+		r.APIClient,
 		r.APIServer,
-		"",
+		*workloadInstance.WorkloadDefinitionID,
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
