@@ -26,18 +26,15 @@ type ControlPlaneInfraEKS struct {
 	AWSAccountID          string `yaml:"AWSAccountID"`
 }
 
-func eksClusterName(threeportName string) string {
-	return fmt.Sprintf("%s-eks-cluster", threeportName)
-}
-
 // Create installs a Kubernetes cluster using AWS EKS for the threeport control
 // plane.
 func (i *ControlPlaneInfraEKS) Create(providerConfigDir string) (*kube.KubeConnectionInfo, error) {
 	// create a new resource config to configure Kubernetes cluster
 	resourceConfig := resource.NewResourceConfig()
-	resourceConfig.Name = eksClusterName(i.ThreeportInstanceName)
+	resourceConfig.Name = ThreeportClusterName(i.ThreeportInstanceName)
 	resourceConfig.AWSAccountID = i.AWSAccountID
 	resourceConfig.InstanceTypes = []string{"t2.medium"}
+	resourceConfig.InitialNodes = int32(2)
 	resourceConfig.MinNodes = int32(2)
 	resourceConfig.MaxNodes = int32(6)
 	resourceConfig.DNSManagement = true
@@ -46,6 +43,12 @@ func (i *ControlPlaneInfraEKS) Create(providerConfigDir string) (*kube.KubeConne
 		Namespace: threeport.DNSManagerServiceAccountNamepace,
 	}
 	resourceConfig.DNSManagementServiceAccount = dnsManagementSvcAcct
+	resourceConfig.ClusterAutoscaling = true
+	clusterAutoscalingSvcAcct := resource.ClusterAutoscalingServiceAccount{
+		Name:      threeport.ClusterAutoscalerServiceAccountName,
+		Namespace: threeport.ClusterAutoscalerServiceAccountNamespace,
+	}
+	resourceConfig.ClusterAutoscalingServiceAccount = clusterAutoscalingSvcAcct
 	storageManagementSvcAcct := resource.StorageManagementServiceAccount{
 		Name:      threeport.StorageManagerServiceAccountName,
 		Namespace: threeport.StorageManagerServiceAccountNamespace,
@@ -86,7 +89,7 @@ func (i *ControlPlaneInfraEKS) Create(providerConfigDir string) (*kube.KubeConne
 	}
 	ioutil.WriteFile(inventoryFilepath(providerConfigDir, i.ThreeportInstanceName), inventoryJSON, 0644)
 
-	kubeConnInfo, err := getConnectionInfo(awsConfig, eksClusterName(i.ThreeportInstanceName))
+	kubeConnInfo, err := getConnectionInfo(awsConfig, ThreeportClusterName(i.ThreeportInstanceName))
 	if err != nil {
 		return nil, fmt.Errorf("failed to EKS cluster connection info: %w", err)
 	}

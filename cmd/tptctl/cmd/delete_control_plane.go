@@ -15,6 +15,7 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
@@ -73,7 +74,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 		if instanceConfig.Provider == threeport.ControlPlaneInfraProviderEKS {
 			// get the cluster instance object
 			clusterInstName := threeport.BootstrapClusterName(deleteThreeportInstanceName)
-			clusterInstance, err := GetClusterInstanceByName(clusterInstName, instanceConfig.APIServer, "")
+			clusterInstance, err := client.GetClusterInstanceByName(clusterInstName, instanceConfig.APIServer, "")
 			if err != nil {
 				cli.Error("failed to retrieve cluster instance from threeport API", err)
 				os.Exit(1)
@@ -81,14 +82,14 @@ var DeleteControlPlaneCmd = &cobra.Command{
 
 			// create a client and resource mapper to connect to kubernetes cluster
 			// API for deleting resources
-			dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance, false)
+			dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, false)
 			if err != nil {
 				cli.Error("failed to get a Kubernetes client and mapper", err)
 				os.Exit(1)
 			}
 
 			// delete threeport API service to remove load balancer
-			if err := UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
+			if err := threeport.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 				cli.Error("failed delete threeport API service", err)
 				os.Exit(1)
 			}

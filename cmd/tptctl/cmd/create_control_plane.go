@@ -159,7 +159,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 
 		configInternal.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
 
-		// create control plane
+		// create control plane infra
 		kubeConnectionInfo, err := controlPlaneInfra.Create(providerConfigDir)
 		if err != nil {
 			// since we failed to complete cluster creation, delete it in case a
@@ -236,6 +236,41 @@ var CreateControlPlaneCmd = &cobra.Command{
 				cli.Warning("you may have dangling cluster infra resources still running")
 			}
 			cli.Error("failed to get a Kubernetes client and mapper", err)
+			os.Exit(1)
+		}
+
+		// install the threeport control plane system services
+		if err := threeport.InstallThreeportSystemServices(
+			dynamicKubeClient,
+			mapper,
+			provider.ThreeportClusterName(createThreeportInstanceName),
+		); err != nil {
+			// print the error when it happens and then again post-deletion
+			cli.Error("failed to install threeport control plane system services", err)
+			// delete control plane cluster
+			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
+				cli.Error("failed to delete control plane infra", err)
+				cli.Warning("you may have dangling cluster infra resources still running")
+			}
+			cli.Error("failed to install threeport control plane system services", err)
+			os.Exit(1)
+		}
+
+		// install the threeport control plane support services
+		if err := threeport.InstallThreeportSupportServices(
+			dynamicKubeClient,
+			mapper,
+			false,
+			createAdminEmail,
+		); err != nil {
+			// print the error when it happens and then again post-deletion
+			cli.Error("failed to install threeport control plane support services", err)
+			// delete control plane cluster
+			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
+				cli.Error("failed to delete control plane infra", err)
+				cli.Warning("you may have dangling cluster infra resources still running")
+			}
+			cli.Error("failed to install threeport control plane support services", err)
 			os.Exit(1)
 		}
 

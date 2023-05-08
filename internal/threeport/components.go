@@ -377,13 +377,13 @@ func UnInstallThreeportControlPlaneComponents(
 	mapper *meta.RESTMapper,
 ) error {
 	// get the service resource
-	apiService, err := getThreeportAPIService(kubeClient, mapper)
+	apiService, err := getThreeportAPIService(kubeClient, *mapper)
 	if err != nil {
 		return fmt.Errorf("failed to get threeport API service resource: %w", err)
 	}
 
 	// delete the service
-	if err := kube.DeleteResource(apiService, kubeClient, mapper); err != nil {
+	if err := kube.DeleteResource(apiService, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to delete the threeport API service resource: %w", err)
 	}
 
@@ -495,7 +495,7 @@ func GetThreeportAPIEndpoint(
 			"timed out after %d seconds trying to retrieve threeport API load balancer endpoint: %w",
 			maxAttempts*waitSeconds,
 		)
-		return apiEndpoint, fmt.Errorf("%s: %w", getEndpointErr)
+		return apiEndpoint, fmt.Errorf("%s: %w", msg, getEndpointErr)
 	}
 
 	return apiEndpoint, nil
