@@ -7,17 +7,18 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/threeport/threeport/internal/util"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 // KubeConnectionInfo contains the necessary info to connect to a Kubernetes
 // API.
 type KubeConnectionInfo struct {
-	APIEndpoint   string
-	CACertificate string
-	Certificate   string
-	Key           string
-	EKSToken      string
+	APIEndpoint   string `yaml:"APIEndpoint"`
+	CACertificate string `yaml:"CACertificate"`
+	Certificate   string `yaml:"Certificate"`
+	Key           string `yaml:"Key"`
+	EKSToken      string `yaml:"EKSToken"`
 }
 
 // DefaultKubeconfig returns the path to the user's default kubeconfig.
@@ -52,7 +53,7 @@ func GetConnectionInfoFromKubeconfig(kubeconfig string) (*KubeConnectionInfo, er
 	clusterFound := false
 	for clusterName, cluster := range kubeConfig.Clusters {
 		if clusterName == kubeConfig.CurrentContext {
-			kubeConnInfo.CACertificate = string(cluster.CertificateAuthorityData)
+			kubeConnInfo.CACertificate = util.Base64Encode(string(cluster.CertificateAuthorityData))
 			kubeConnInfo.APIEndpoint = string(cluster.Server)
 			clusterFound = true
 		}
@@ -68,8 +69,8 @@ func GetConnectionInfoFromKubeconfig(kubeconfig string) (*KubeConnectionInfo, er
 	userFound := false
 	for userName, user := range kubeConfig.AuthInfos {
 		if userName == kubeConfig.CurrentContext {
-			kubeConnInfo.Certificate = string(user.ClientCertificateData)
-			kubeConnInfo.Key = string(user.ClientKeyData)
+			kubeConnInfo.Certificate = util.Base64Encode(string(user.ClientCertificateData))
+			kubeConnInfo.Key = util.Base64Encode(string(user.ClientKeyData))
 			userFound = true
 		}
 	}

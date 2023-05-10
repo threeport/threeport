@@ -7913,20 +7913,35 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+<<<<<<< HEAD
+=======
+                "DomainNameDefinition",
+                "DomainNameInstance",
+>>>>>>> 21ada6e (feat: add TLS asset management for remote API)
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
+<<<<<<< HEAD
                 "Profile",
                 "Tier",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
+=======
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "User",
+                "Company",
+>>>>>>> 21ada6e (feat: add TLS asset management for remote API)
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
+<<<<<<< HEAD
                 "User",
                 "Company",
                 "ClusterDefinition",
@@ -7939,20 +7954,43 @@ const docTemplate = `{
                 "NetworkIngressInstance"
             ],
             "x-enum-varnames": [
+=======
+                "Profile",
+                "Tier",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "ClusterDefinition",
+                "ClusterInstance"
+            ],
+            "x-enum-varnames": [
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+>>>>>>> 21ada6e (feat: add TLS asset management for remote API)
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
+<<<<<<< HEAD
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
+=======
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeUser",
+                "ObjectTypeCompany",
+>>>>>>> 21ada6e (feat: add TLS asset management for remote API)
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
+<<<<<<< HEAD
                 "ObjectTypeUser",
                 "ObjectTypeCompany",
                 "ObjectTypeClusterDefinition",
@@ -7963,6 +8001,15 @@ const docTemplate = `{
                 "ObjectTypeDomainNameInstance",
                 "ObjectTypeNetworkIngressDefinition",
                 "ObjectTypeNetworkIngressInstance"
+=======
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance"
+>>>>>>> 21ada6e (feat: add TLS asset management for remote API)
             ]
         },
         "v0.Profile": {

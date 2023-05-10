@@ -189,18 +189,42 @@ var CreateControlPlaneCmd = &cobra.Command{
 		var clusterInstance v0.ClusterInstance
 		switch controlPlane.InfraProvider {
 		case threeport.ControlPlaneInfraProviderKind:
+			caCert, err := util.Base64Decode(kubeConnectionInfo.CACertificate)
+			if err != nil {
+				cli.Error("failed to decode kind cluster CA certificate", err)
+				os.Exit(1)
+			}
+			cert, err := util.Base64Decode(kubeConnectionInfo.Certificate)
+			if err != nil {
+				cli.Error("failed to decode kind cluster certificate", err)
+				os.Exit(1)
+			}
+			key, err := util.Base64Decode(kubeConnectionInfo.Key)
+			if err != nil {
+				cli.Error("failed to decode kind cluster key", err)
+				os.Exit(1)
+			}
 			clusterInstance = v0.ClusterInstance{
 				Instance: v0.Instance{
 					Name: &clusterInstName,
 				},
 				ThreeportControlPlaneCluster: &controlPlaneCluster,
 				APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
-				CACertificate:                &kubeConnectionInfo.CACertificate,
-				Certificate:                  &kubeConnectionInfo.Certificate,
-				Key:                          &kubeConnectionInfo.Key,
+				CACertificate:                &caCert,
+				Certificate:                  &cert,
+				Key:                          &key,
 				DefaultCluster:               &defaultCluster,
 			}
 		case threeport.ControlPlaneInfraProviderEKS:
+			caCert, err := util.Base64Decode(kubeConnectionInfo.CACertificate)
+			if err != nil {
+				cli.Error("failed to decode EKS cluster CA certificate", err)
+				os.Exit(1)
+			}
+			eksToken, err := util.Base64Decode(kubeConnectionInfo.EKSToken)
+			if err != nil {
+				cli.Error("failed to decode EKS cluster token", err)
+			}
 			clusterInstance = v0.ClusterInstance{
 				Instance: v0.Instance{
 					Name: &clusterInstName,
@@ -260,24 +284,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 				cli.Warning("you may have dangling cluster infra resources still running")
 			}
 			cli.Error("failed to install threeport control plane system services", err)
-			os.Exit(1)
-		}
-
-		// install the threeport control plane support services
-		if err := threeport.InstallThreeportSupportServices(
-			dynamicKubeClient,
-			mapper,
-			false,
-			createAdminEmail,
-		); err != nil {
-			// print the error when it happens and then again post-deletion
-			cli.Error("failed to install threeport control plane support services", err)
-			// delete control plane cluster
-			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
-				cli.Error("failed to delete control plane infra", err)
-				cli.Warning("you may have dangling cluster infra resources still running")
-			}
-			cli.Error("failed to install threeport control plane support services", err)
 			os.Exit(1)
 		}
 
@@ -387,6 +393,35 @@ var CreateControlPlaneCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			threeportAPIEndpoint = tpapiEndpoint
+			newThreeportInstance.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
+		}
+
+		// update threeport config
+		configInternal.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
+
+		// install the threeport API TLS assets
+		if err := threeport.InstallThreeportAPITLS(
+			dynamicKubeClient,
+			mapper,
+			authConfig,
+			threeportAPIEndpoint,
+		); err != nil {
+			// print the error when it happens and then again post-deletion
+			cli.Error("failed to install threeport API TLS assets", err)
+			// delete control plane cluster
+			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
+				cli.Error("failed to delete control plane infra", err)
+				cli.Warning("you may have dangling cluster infra resources still running")
+			}
+			cli.Error("failed to install threeport API TLS assets", err)
+			os.Exit(1)
+		}
+
+		// get threeport API client
+		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
+		if err != nil {
+			cli.Error("failed to create http client", err)
+			os.Exit(1)
 		}
 
 		// wait for API server to start running
