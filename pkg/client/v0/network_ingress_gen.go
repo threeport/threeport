@@ -141,10 +141,11 @@ func CreateNetworkIngressDefinition(apiClient *http.Client, apiAddr string, netw
 
 // UpdateNetworkIngressDefinition updates a network ingress definition.
 func UpdateNetworkIngressDefinition(apiClient *http.Client, apiAddr string, networkIngressDefinition *v0.NetworkIngressDefinition) (*v0.NetworkIngressDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	networkIngressDefinitionID := *networkIngressDefinition.ID
 	networkIngressDefinition.ID = nil
+	networkIngressDefinition.CreatedAt = nil
+	networkIngressDefinition.UpdatedAt = nil
 
 	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
 	if err != nil {
@@ -334,10 +335,11 @@ func CreateNetworkIngressInstance(apiClient *http.Client, apiAddr string, networ
 
 // UpdateNetworkIngressInstance updates a network ingress instance.
 func UpdateNetworkIngressInstance(apiClient *http.Client, apiAddr string, networkIngressInstance *v0.NetworkIngressInstance) (*v0.NetworkIngressInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	networkIngressInstanceID := *networkIngressInstance.ID
 	networkIngressInstance.ID = nil
+	networkIngressInstance.CreatedAt = nil
+	networkIngressInstance.UpdatedAt = nil
 
 	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
 	if err != nil {

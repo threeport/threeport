@@ -9,12 +9,17 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/cli"
+	clientInternal "github.com/threeport/threeport/internal/client"
 	configInternal "github.com/threeport/threeport/internal/config"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
+	"github.com/threeport/threeport/internal/util"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
@@ -72,9 +77,17 @@ var DeleteControlPlaneCmd = &cobra.Command{
 		// if provider is EKS we need to delete the threeport API service to
 		// remove the AWS load balancer before deleting the rest of the infra
 		if instanceConfig.Provider == threeport.ControlPlaneInfraProviderEKS {
+			apiClient, err := clientInternal.GetHTTPClient(true)
+			if err != nil {
+				cli.Error("failed to create http client", err)
+				os.Exit(1)
+			}
+
 			// get the cluster instance object
-			clusterInstName := threeport.BootstrapClusterName(deleteThreeportInstanceName)
-			clusterInstance, err := client.GetClusterInstanceByName(clusterInstName, instanceConfig.APIServer, "")
+			clusterInstance, err := client.GetThreeportControlPlaneClusterInstance(
+				apiClient,
+				instanceConfig.APIServer,
+			)
 			if err != nil {
 				cli.Error("failed to retrieve cluster instance from threeport API", err)
 				os.Exit(1)
@@ -82,10 +95,39 @@ var DeleteControlPlaneCmd = &cobra.Command{
 
 			// create a client and resource mapper to connect to kubernetes cluster
 			// API for deleting resources
-			dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, false)
+			var dynamicKubeClient dynamic.Interface
+			var mapper *meta.RESTMapper
+			dynamicKubeClient, mapper, err = kube.GetClient(clusterInstance, false)
 			if err != nil {
-				cli.Error("failed to get a Kubernetes client and mapper", err)
-				os.Exit(1)
+				if kubeerrors.IsUnauthorized(err) {
+					// refresh token
+					kubeConn, err := controlPlaneInfra.(*provider.ControlPlaneInfraEKS).RefreshConnection()
+					if err != nil {
+						cli.Error("failed to refresh token to connect to EKS cluster", err)
+						os.Exit(1)
+					}
+					eksToken, err := util.Base64Decode(kubeConn.EKSToken)
+					if err != nil {
+						cli.Error("failed to decode EKS cluster token", err)
+					}
+					clusterInstance.EKSToken = &eksToken
+					updatedClusterInst, err := client.UpdateClusterInstance(
+						apiClient,
+						instanceConfig.APIServer,
+						clusterInstance,
+					)
+					if err != nil {
+						cli.Error("failed to update EKS token on cluster instance", err)
+						os.Exit(1)
+					}
+					dynamicKubeClient, mapper, err = kube.GetClient(updatedClusterInst, false)
+					if err != nil {
+						cli.Error("failed to get a Kubernetes client and mapper with refreshed token", err)
+					}
+				} else {
+					cli.Error("failed to get a Kubernetes client and mapper", err)
+					os.Exit(1)
+				}
 			}
 
 			// delete threeport API service to remove load balancer
@@ -101,8 +143,13 @@ var DeleteControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		configInternal.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportInstanceName)
+		// delete infra inventory for EKS control plane
+		if instanceConfig.Provider == threeport.ControlPlaneInfraProviderEKS {
 
+		}
+
+		// update threeport config to remove deleted threeport instance
+		configInternal.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportInstanceName)
 		cli.Info("threeport config updated")
 
 		cli.Complete(fmt.Sprintf("threeport instance %s deleted", deleteThreeportInstanceName))

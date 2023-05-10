@@ -141,10 +141,11 @@ func CreateUser(apiClient *http.Client, apiAddr string, user *v0.User) (*v0.User
 
 // UpdateUser updates a user.
 func UpdateUser(apiClient *http.Client, apiAddr string, user *v0.User) (*v0.User, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	userID := *user.ID
 	user.ID = nil
+	user.CreatedAt = nil
+	user.UpdatedAt = nil
 
 	jsonUser, err := client.MarshalObject(user)
 	if err != nil {
@@ -334,10 +335,11 @@ func CreateCompany(apiClient *http.Client, apiAddr string, company *v0.Company) 
 
 // UpdateCompany updates a company.
 func UpdateCompany(apiClient *http.Client, apiAddr string, company *v0.Company) (*v0.Company, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	companyID := *company.ID
 	company.ID = nil
+	company.CreatedAt = nil
+	company.UpdatedAt = nil
 
 	jsonCompany, err := client.MarshalObject(company)
 	if err != nil {

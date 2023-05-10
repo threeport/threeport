@@ -141,10 +141,11 @@ func CreateClusterDefinition(apiClient *http.Client, apiAddr string, clusterDefi
 
 // UpdateClusterDefinition updates a cluster definition.
 func UpdateClusterDefinition(apiClient *http.Client, apiAddr string, clusterDefinition *v0.ClusterDefinition) (*v0.ClusterDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	clusterDefinitionID := *clusterDefinition.ID
 	clusterDefinition.ID = nil
+	clusterDefinition.CreatedAt = nil
+	clusterDefinition.UpdatedAt = nil
 
 	jsonClusterDefinition, err := client.MarshalObject(clusterDefinition)
 	if err != nil {
@@ -334,10 +335,11 @@ func CreateClusterInstance(apiClient *http.Client, apiAddr string, clusterInstan
 
 // UpdateClusterInstance updates a cluster instance.
 func UpdateClusterInstance(apiClient *http.Client, apiAddr string, clusterInstance *v0.ClusterInstance) (*v0.ClusterInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	clusterInstanceID := *clusterInstance.ID
 	clusterInstance.ID = nil
+	clusterInstance.CreatedAt = nil
+	clusterInstance.UpdatedAt = nil
 
 	jsonClusterInstance, err := client.MarshalObject(clusterInstance)
 	if err != nil {

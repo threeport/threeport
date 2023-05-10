@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -16,10 +17,11 @@ import (
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/threeport"
+	"github.com/threeport/threeport/internal/util"
 )
 
 type ControlPlaneInfraEKS struct {
-	ThreeportInstanceName string
+	ThreeportInstanceName string `yaml:"ThreeportInstanceName"`
 	AWSConfigEnv          bool   `yaml:"AWSConfigEnv"`
 	AWSConfigProfile      string `yaml:"AWSConfigProfile"`
 	AWSRegion             string `yaml:"AWSRegion"`
@@ -89,7 +91,7 @@ func (i *ControlPlaneInfraEKS) Create(providerConfigDir string) (*kube.KubeConne
 	}
 	ioutil.WriteFile(inventoryFilepath(providerConfigDir, i.ThreeportInstanceName), inventoryJSON, 0644)
 
-	kubeConnInfo, err := getConnectionInfo(awsConfig, ThreeportClusterName(i.ThreeportInstanceName))
+	kubeConnInfo, err := getEKSConnectionInfo(awsConfig, ThreeportClusterName(i.ThreeportInstanceName))
 	if err != nil {
 		return nil, fmt.Errorf("failed to EKS cluster connection info: %w", err)
 	}
@@ -131,14 +133,32 @@ func (i *ControlPlaneInfraEKS) Delete(providerConfigDir string) error {
 		return fmt.Errorf("error deleting AWS resources: %w", err)
 	}
 
-	// TODO: delete inventory file
+	// delete inventory file - emit a warning instead of an error on failure
+	if err := os.Remove(inventoryFilepath(providerConfigDir, i.ThreeportInstanceName)); err != nil {
+		cli.Warning(fmt.Sprintf("failed to delete inventory file: %w", err))
+	}
 
 	return nil
 }
 
-// getConnectionInfo queries AWS for the connection token and returns the
+// RefreshConnection gets a new token for authentication to an EKS cluster.
+func (i *ControlPlaneInfraEKS) RefreshConnection() (*kube.KubeConnectionInfo, error) {
+	// create an AWS config to connect to AWS API
+	awsConfig, err := resource.LoadAWSConfig(
+		i.AWSConfigEnv,
+		i.AWSConfigProfile,
+		i.AWSRegion,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
+	}
+
+	return getEKSConnectionInfo(awsConfig, ThreeportClusterName(i.ThreeportInstanceName))
+}
+
+// getEKSConnectionInfo queries AWS for the connection token and returns the
 // connection info for a particular cluster name.
-func getConnectionInfo(awsConfig *aws.Config, clusterName string) (*kube.KubeConnectionInfo, error) {
+func getEKSConnectionInfo(awsConfig *aws.Config, clusterName string) (*kube.KubeConnectionInfo, error) {
 	svc := eks.NewFromConfig(*awsConfig)
 
 	// get EKS cluster info
@@ -170,8 +190,8 @@ func getConnectionInfo(awsConfig *aws.Config, clusterName string) (*kube.KubeCon
 
 	kubeConnInfo := kube.KubeConnectionInfo{
 		APIEndpoint:   *cluster.Endpoint,
-		CACertificate: string(ca),
-		EKSToken:      token.Token,
+		CACertificate: util.Base64Encode(string(ca)),
+		EKSToken:      util.Base64Encode(token.Token),
 	}
 
 	return &kubeConnInfo, nil

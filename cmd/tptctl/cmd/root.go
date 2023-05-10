@@ -6,7 +6,9 @@ package cmd
 import (
 	"os"
 
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
+	"github.com/threeport/threeport/internal/cli"
 	configInternal "github.com/threeport/threeport/internal/config"
 )
 
@@ -44,4 +46,23 @@ func init() {
 	cobra.OnInitialize(func() {
 		configInternal.InitConfig(cfgFile, providerConfigDir)
 	})
+	cobra.OnInitialize(providerConfig)
+}
+
+func providerConfig() {
+	// determine user home dir
+	home, err := homedir.Dir()
+	if err != nil {
+		cli.Error("failed to determine user home directory", err)
+		os.Exit(1)
+	}
+
+	if providerConfigDir == "" {
+		if err := os.MkdirAll(configInternal.DefaultThreeportConfigPath(home), os.ModePerm); err != nil {
+			cli.Error("failed to write create config directory", err)
+			os.Exit(1)
+
+		}
+		providerConfigDir = configInternal.DefaultThreeportConfigPath(home)
+	}
 }

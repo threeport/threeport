@@ -141,10 +141,11 @@ func CreateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 
 // UpdateLogBackend updates a log backend.
 func UpdateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.LogBackend) (*v0.LogBackend, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	logBackendID := *logBackend.ID
 	logBackend.ID = nil
+	logBackend.CreatedAt = nil
+	logBackend.UpdatedAt = nil
 
 	jsonLogBackend, err := client.MarshalObject(logBackend)
 	if err != nil {
@@ -334,10 +335,11 @@ func CreateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 
 // UpdateLogStorageDefinition updates a log storage definition.
 func UpdateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStorageDefinition *v0.LogStorageDefinition) (*v0.LogStorageDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	logStorageDefinitionID := *logStorageDefinition.ID
 	logStorageDefinition.ID = nil
+	logStorageDefinition.CreatedAt = nil
+	logStorageDefinition.UpdatedAt = nil
 
 	jsonLogStorageDefinition, err := client.MarshalObject(logStorageDefinition)
 	if err != nil {
@@ -527,10 +529,11 @@ func CreateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 
 // UpdateLogStorageInstance updates a log storage instance.
 func UpdateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorageInstance *v0.LogStorageInstance) (*v0.LogStorageInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	logStorageInstanceID := *logStorageInstance.ID
 	logStorageInstance.ID = nil
+	logStorageInstance.CreatedAt = nil
+	logStorageInstance.UpdatedAt = nil
 
 	jsonLogStorageInstance, err := client.MarshalObject(logStorageInstance)
 	if err != nil {

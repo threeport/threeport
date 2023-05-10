@@ -189,6 +189,12 @@ definitions:
       APIEndpoint:
         description: The network endpoint at which to reach the kube-api.
         type: string
+      AWSConfigEnv:
+        type: boolean
+      AWSConfigProfile:
+        type: string
+      AWSRegion:
+        type: string
       CACertificate:
         description: |-
           The CA certificate used to generate the cert and key if
@@ -207,6 +213,11 @@ definitions:
           If true the cluster instance to use for deployments if not otherwise
           specified.  Can only have one per account.
         type: boolean
+      EKSToken:
+        description: |-
+          TODO: pull these EKS and AWS fields into related AWS tables
+          EKSToken is the token used for authentication by AWS EKS clusters.
+        type: string
       Key:
         description: The client key to use for auth to the kube-api.
         type: string
@@ -239,9 +250,8 @@ definitions:
         type: array
     required:
     - APIEndpoint
-    - Certificate
+    - CACertificate
     - ClusterDefinitionID
-    - Key
     - Name
     type: object
   v0.Company:
@@ -516,12 +526,6 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ClusterDefinition
-    - ClusterInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - User
-    - Company
     - DomainNameDefinition
     - DomainNameInstance
     - AwsAccount
@@ -529,25 +533,25 @@ definitions:
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
+    - User
+    - Company
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
     - Profile
     - Tier
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - ClusterDefinition
+    - ClusterInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
     - ObjectTypeAwsAccount
@@ -555,17 +559,23 @@ definitions:
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeProfile
     - ObjectTypeTier
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
   v0.Profile:
     properties:
       CompanyID:

@@ -141,10 +141,11 @@ func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 
 // UpdateProfile updates a profile.
 func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) (*v0.Profile, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	profileID := *profile.ID
 	profile.ID = nil
+	profile.CreatedAt = nil
+	profile.UpdatedAt = nil
 
 	jsonProfile, err := client.MarshalObject(profile)
 	if err != nil {
@@ -334,10 +335,11 @@ func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 
 // UpdateTier updates a tier.
 func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	tierID := *tier.ID
 	tier.ID = nil
+	tier.CreatedAt = nil
+	tier.UpdatedAt = nil
 
 	jsonTier, err := client.MarshalObject(tier)
 	if err != nil {

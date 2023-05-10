@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,56 +17,51 @@ const (
 	configType = "yaml"
 )
 
-func InitConfig(cfgFile, providerConfigDir string) error {
+func InitConfig(cfgFile, providerConfigDir string) {
 	// determine user home dir
 	home, err := homedir.Dir()
 	if err != nil {
-		return fmt.Errorf("failed to determine user home directory: %w", err)
+		cli.Error("failed to determine user home directory", err)
+		os.Exit(1)
 	}
-	viper.AddConfigPath(configPath(home))
-	viper.SetConfigName(configName)
-	viper.SetConfigType(configType)
-	configFilePath := filepath.Join(configPath(home), fmt.Sprintf("%s.%s", configName, configType))
 
-	// read config file if provided, else go to default
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
+	// set default threeport config path if not set by user
+	if cfgFile == "" {
+		viper.AddConfigPath(DefaultThreeportConfigPath(home))
+		viper.SetConfigName(configName)
+		viper.SetConfigType(configType)
+		cfgFile = filepath.Join(DefaultThreeportConfigPath(home), fmt.Sprintf("%s.%s", configName, configType))
+	}
 
-		// create config if not present
-		if err := viper.SafeWriteConfigAs(configFilePath); err != nil {
-			if os.IsNotExist(err) {
-				if err := os.MkdirAll(configPath(home), os.ModePerm); err != nil {
-					return fmt.Errorf("failed to create config directory: %w", err)
-				}
-				if err := viper.WriteConfigAs(configFilePath); err != nil {
-					return fmt.Errorf("failed to write config to disk: %w", err)
-				}
-			}
+	// create file if it doesn't exit
+	if _, err := os.Stat(cfgFile); errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(DefaultThreeportConfigPath(home), os.ModePerm); err != nil {
+			cli.Error("failed to create config directory", err)
+			os.Exit(1)
+		}
+		if err := viper.WriteConfigAs(cfgFile); err != nil {
+			cli.Error("failed to write config to disk", err)
+			os.Exit(1)
 		}
 	}
 
-	if providerConfigDir == "" {
-		if err := os.MkdirAll(configPath(home), os.ModePerm); err != nil {
-			return fmt.Errorf("failed to write create config directory: %w", err)
-		}
-		providerConfigDir = configPath(home)
-	}
+	viper.SetConfigFile(cfgFile)
 
 	// ensure config permissions are read/write for user only
-	if err := os.Chmod(configFilePath, 0600); err != nil {
+	if err := os.Chmod(cfgFile, 0600); err != nil {
 		cli.Error("failed to set permissions to read/write only", err)
 		os.Exit(1)
 	}
 
 	if err := viper.ReadInConfig(); err != nil {
-		return fmt.Errorf("failed to read config: %w", err)
+		cli.Error("failed to read config", err)
+		os.Exit(1)
+
 	}
-	return nil
 }
 
+// GetThreeportConfig retrieves the threeport config
 func GetThreeportConfig() (*config.ThreeportConfig, error) {
-	// get threeport config
 	threeportConfig := &config.ThreeportConfig{}
 	if err := viper.Unmarshal(threeportConfig); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
@@ -74,9 +70,9 @@ func GetThreeportConfig() (*config.ThreeportConfig, error) {
 	return threeportConfig, nil
 }
 
+// UpdateThreeportConfig updates a threeport config to add a new instance and
+// set it as the current instance.
 func UpdateThreeportConfig(threeportInstanceConfigExists bool, threeportConfig *config.ThreeportConfig, createThreeportInstanceName string, newThreeportInstance *config.Instance) {
-
-	// update threeport config to add the new instance and set as current instance
 	if threeportInstanceConfigExists {
 		for n, instance := range threeportConfig.Instances {
 			if instance.Name == createThreeportInstanceName {
@@ -91,10 +87,9 @@ func UpdateThreeportConfig(threeportInstanceConfigExists bool, threeportConfig *
 	viper.WriteConfig()
 }
 
+// DeleteThreeportConfigInstance updates a threeport config to remove a deleted
+// threeport instance and the current instance.
 func DeleteThreeportConfigInstance(threeportConfig *config.ThreeportConfig, deleteThreeportInstanceName string) {
-
-	// update threeport config to remove the deleted threeport instance and
-	// current instance
 	updatedInstances := []config.Instance{}
 	for _, instance := range threeportConfig.Instances {
 		if instance.Name == deleteThreeportInstanceName {
@@ -109,7 +104,8 @@ func DeleteThreeportConfigInstance(threeportConfig *config.ThreeportConfig, dele
 	viper.WriteConfig()
 }
 
-func configPath(homedir string) string {
-	//return fmt.Sprintf("%s/.config/threeport", homedir)
+// DefaultThreeportConfigPath returns the default path to the threeport config
+// file on the user's filesystem.
+func DefaultThreeportConfigPath(homedir string) string {
 	return filepath.Join(homedir, ".config", "threeport")
 }

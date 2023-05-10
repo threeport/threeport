@@ -94,24 +94,6 @@ func InstallThreeportAPI(
 	apiServiceAnnotations := getAPIServiceAnnotations(infraProvider)
 	apiServicePortName, apiServicePort := getAPIServicePort(infraProvider)
 
-	if authConfig != nil {
-		// generate server certificate
-		serverCertificate, serverPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
-		if err != nil {
-			return fmt.Errorf("failed to generate server certificate and private key: %w", err)
-		}
-
-		var apiCa = getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
-		if _, err := kube.CreateResource(apiCa, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret: %w", err)
-		}
-
-		var apiCert = getTLSSecret("api-cert", serverCertificate, serverPrivateKey)
-		if _, err := kube.CreateResource(apiCert, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret: %w", err)
-		}
-	}
-
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -243,7 +225,6 @@ NATS_PORT=4222
 				"selector": map[string]interface{}{
 					"app.kubernetes.io/name": "threeport-api-server",
 				},
-				"type": "NodePort",
 				"ports": []interface{}{
 					map[string]interface{}{
 						"name":       apiServicePortName,
@@ -259,6 +240,38 @@ NATS_PORT=4222
 	}
 	if _, err := kube.CreateResource(apiService, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create API server service: %w", err)
+	}
+
+	return nil
+}
+
+// InstallThreeportAPITLS installs TLS assets for threeport API.
+func InstallThreeportAPITLS(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	authConfig *auth.AuthConfig,
+	serverAltName string,
+) error {
+	if authConfig != nil {
+		// generate server certificate
+		serverCertificate, serverPrivateKey, err := auth.GenerateCertificate(
+			authConfig.CAConfig,
+			&authConfig.CAPrivateKey,
+			serverAltName,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to generate server certificate and private key: %w", err)
+		}
+
+		var apiCa = getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
+		if _, err := kube.CreateResource(apiCa, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
+
+		var apiCert = getTLSSecret("api-cert", serverCertificate, serverPrivateKey)
+		if _, err := kube.CreateResource(apiCert, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
 	}
 
 	return nil
@@ -485,6 +498,7 @@ func GetThreeportAPIEndpoint(
 			continue
 		}
 		apiEndpointRetrieved = true
+		break
 	}
 
 	if !apiEndpointRetrieved {
@@ -799,7 +813,7 @@ func getTLSSecret(name string, certificate string, privateKey string) *unstructu
 // provider.
 func getAPIServiceType(infraProvider string) string {
 	if infraProvider == "kind" {
-		return "ClusterIP"
+		return "NodePort"
 	}
 
 	return "LoadBalancer"

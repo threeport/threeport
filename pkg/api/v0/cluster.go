@@ -55,8 +55,15 @@ type ClusterInstance struct {
 	// The client key to use for auth to the kube-api.
 	Key *string `json:"Key,omitempty" validate:"optional"`
 
+	// TODO: pull these EKS and AWS fields into related AWS tables
 	// EKSToken is the token used for authentication by AWS EKS clusters.
 	EKSToken *string `json:"EKSToken,omitempty" validate:"optional"`
+
+	AWSConfigEnv *bool `json:"AWSConfigEnv,omitempty" validate:"optional"`
+
+	AWSConfigProfile *string `json:"AWSConfigProfile,omitempty" validate:"optional"`
+
+	AWSRegion *string `json:"AWSRegion,omitempty" validate:"optional"`
 
 	// If true the cluster instance to use for deployments if not otherwise
 	// specified.  Can only have one per account.

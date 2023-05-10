@@ -15,7 +15,7 @@ import (
 // GetClient creates a dynamic client interface and rest mapper from a cluster
 // instance.
 func GetClient(cluster *v0.ClusterInstance, threeportControlPlane bool) (dynamic.Interface, *meta.RESTMapper, error) {
-	restConfig := GetRESTConfig(cluster, threeportControlPlane)
+	restConfig := getRESTConfig(cluster, threeportControlPlane)
 
 	// create new dynamic client
 	dynamicKubeClient, err := dynamic.NewForConfig(restConfig)
@@ -38,7 +38,7 @@ func GetClient(cluster *v0.ClusterInstance, threeportControlPlane bool) (dynamic
 
 // GetDiscoveryClient returns a new discovery client for a cluster instance.
 func GetDiscoveryClient(cluster *v0.ClusterInstance, threeportControlPlane bool) (*discovery.DiscoveryClient, error) {
-	restConfig := GetRESTConfig(cluster, threeportControlPlane)
+	restConfig := getRESTConfig(cluster, threeportControlPlane)
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new discovery client from rest config: %w", err)
@@ -47,8 +47,8 @@ func GetDiscoveryClient(cluster *v0.ClusterInstance, threeportControlPlane bool)
 	return discoveryClient, nil
 }
 
-// GetRESTConfig returns a REST config for a cluster instance.
-func GetRESTConfig(cluster *v0.ClusterInstance, threeportControlPlane bool) *rest.Config {
+// getRESTConfig returns a REST config for a cluster instance.
+func getRESTConfig(cluster *v0.ClusterInstance, threeportControlPlane bool) *rest.Config {
 	// determine if the client is for a control plane component calling the
 	// local kube API and set endpoint as needed
 	kubeAPIEndpoint := *cluster.APIEndpoint

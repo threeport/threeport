@@ -141,10 +141,11 @@ func CreateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwar
 
 // UpdateForwardProxyDefinition updates a forward proxy definition.
 func UpdateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwardProxyDefinition *v0.ForwardProxyDefinition) (*v0.ForwardProxyDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	forwardProxyDefinitionID := *forwardProxyDefinition.ID
 	forwardProxyDefinition.ID = nil
+	forwardProxyDefinition.CreatedAt = nil
+	forwardProxyDefinition.UpdatedAt = nil
 
 	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
 	if err != nil {
@@ -334,10 +335,11 @@ func CreateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardP
 
 // UpdateForwardProxyInstance updates a forward proxy instance.
 func UpdateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardProxyInstance *v0.ForwardProxyInstance) (*v0.ForwardProxyInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	forwardProxyInstanceID := *forwardProxyInstance.ID
 	forwardProxyInstance.ID = nil
+	forwardProxyInstance.CreatedAt = nil
+	forwardProxyInstance.UpdatedAt = nil
 
 	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
 	if err != nil {

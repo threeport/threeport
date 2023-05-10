@@ -141,10 +141,11 @@ func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 
 // UpdateDomainNameDefinition updates a domain name definition.
 func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	domainNameDefinitionID := *domainNameDefinition.ID
 	domainNameDefinition.ID = nil
+	domainNameDefinition.CreatedAt = nil
+	domainNameDefinition.UpdatedAt = nil
 
 	jsonDomainNameDefinition, err := client.MarshalObject(domainNameDefinition)
 	if err != nil {
@@ -334,10 +335,11 @@ func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 
 // UpdateDomainNameInstance updates a domain name instance.
 func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	domainNameInstanceID := *domainNameInstance.ID
 	domainNameInstance.ID = nil
+	domainNameInstance.CreatedAt = nil
+	domainNameInstance.UpdatedAt = nil
 
 	jsonDomainNameInstance, err := client.MarshalObject(domainNameInstance)
 	if err != nil {

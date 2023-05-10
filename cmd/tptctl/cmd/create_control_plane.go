@@ -18,7 +18,7 @@ import (
 	"github.com/threeport/threeport/internal/threeport"
 	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	auth "github.com/threeport/threeport/pkg/auth/v0"
+	"github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
@@ -53,19 +53,19 @@ var CreateControlPlaneCmd = &cobra.Command{
 	Long:         `Create a new instance of the Threeport control plane.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-
+		// get the threeport config
 		threeportConfig, err := configInternal.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 		}
 
 		// check threeport config for exisiting instance
-		threeportInstanceConfigExists, err := threeportConfig.CheckThreeportConfigExists(createThreeportInstanceName, forceOverwriteConfig)
+		threeportInstanceConfigExists, err := threeportConfig.CheckThreeportConfigExists(
+			createThreeportInstanceName,
+			forceOverwriteConfig,
+		)
 		if err != nil {
-			cli.Error(
-				"interupted creation of threeport instance",
-				err,
-			)
+			cli.Error("interupted creation of threeport instance", err)
 			cli.Info("if you wish to overwrite the existing config use --force-overwrite-config flag")
 			cli.Warning("you will lose the ability to connect to the existing threeport instance if it still exists")
 			os.Exit(1)
@@ -79,6 +79,12 @@ var CreateControlPlaneCmd = &cobra.Command{
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
+		}
+
+		// create threeport config for new instance
+		newThreeportInstance := &config.Instance{
+			Name:     createThreeportInstanceName,
+			Provider: infraProvider,
 		}
 
 		// configure the control plane
@@ -110,9 +116,8 @@ var CreateControlPlaneCmd = &cobra.Command{
 			kindConfig := controlPlaneInfraKind.GetKindConfig(devEnvironment, numWorkerNodes)
 			controlPlaneInfraKind.KindConfig = kindConfig
 			controlPlaneInfra = &controlPlaneInfraKind
+			newThreeportInstance.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeportLocalAPIPort)
 		case threeport.ControlPlaneInfraProviderEKS:
-			//threeportAPIEndpoint = "threeport-test.threeport.io"
-			threeportAPIProtocol = "https"
 			controlPlaneInfraEKS := provider.ControlPlaneInfraEKS{
 				ThreeportInstanceName: createThreeportInstanceName,
 				AWSConfigEnv:          awsConfigEnv,
@@ -121,14 +126,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 				AWSAccountID:          createProviderAccountID,
 			}
 			controlPlaneInfra = &controlPlaneInfraEKS
-		}
-
-		// create threeport config for new instance
-		newThreeportInstance := &config.Instance{
-			Name:       createThreeportInstanceName,
-			Provider:   infraProvider,
-			APIServer:  fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeportLocalAPIPort),
-			Kubeconfig: kubeconfigPath,
+			newThreeportInstance.EKSProviderConfig = controlPlaneInfraEKS
 		}
 
 		// if auth is enabled, generate client certificate and add to local config
@@ -141,7 +139,10 @@ var CreateControlPlaneCmd = &cobra.Command{
 			}
 
 			// generate client certificate
-			clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+			clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
+				authConfig.CAConfig,
+				&authConfig.CAPrivateKey,
+			)
 			if err != nil {
 				cli.Error("failed to generate client certificate and private key", err)
 				os.Exit(1)
@@ -157,8 +158,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 			newThreeportInstance.CACert = authConfig.CABase64Encoded
 		}
 
-		configInternal.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
-
 		// create control plane infra
 		kubeConnectionInfo, err := controlPlaneInfra.Create(providerConfigDir)
 		if err != nil {
@@ -168,6 +167,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			cli.Error("failed to get create control plane infra for threeport", err)
 			os.Exit(1)
 		}
+		newThreeportInstance.KubeAPI = *kubeConnectionInfo
 
 		// the cluster instance is the default compute space cluster to be added
 		// to the API
@@ -177,26 +177,53 @@ var CreateControlPlaneCmd = &cobra.Command{
 		var clusterInstance v0.ClusterInstance
 		switch controlPlane.InfraProvider {
 		case threeport.ControlPlaneInfraProviderKind:
+			caCert, err := util.Base64Decode(kubeConnectionInfo.CACertificate)
+			if err != nil {
+				cli.Error("failed to decode kind cluster CA certificate", err)
+				os.Exit(1)
+			}
+			cert, err := util.Base64Decode(kubeConnectionInfo.Certificate)
+			if err != nil {
+				cli.Error("failed to decode kind cluster certificate", err)
+				os.Exit(1)
+			}
+			key, err := util.Base64Decode(kubeConnectionInfo.Key)
+			if err != nil {
+				cli.Error("failed to decode kind cluster key", err)
+				os.Exit(1)
+			}
 			clusterInstance = v0.ClusterInstance{
 				Instance: v0.Instance{
 					Name: &clusterInstName,
 				},
 				ThreeportControlPlaneCluster: &controlPlaneCluster,
 				APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
-				CACertificate:                &kubeConnectionInfo.CACertificate,
-				Certificate:                  &kubeConnectionInfo.Certificate,
-				Key:                          &kubeConnectionInfo.Key,
+				CACertificate:                &caCert,
+				Certificate:                  &cert,
+				Key:                          &key,
 				DefaultCluster:               &defaultCluster,
 			}
 		case threeport.ControlPlaneInfraProviderEKS:
+			caCert, err := util.Base64Decode(kubeConnectionInfo.CACertificate)
+			if err != nil {
+				cli.Error("failed to decode EKS cluster CA certificate", err)
+				os.Exit(1)
+			}
+			eksToken, err := util.Base64Decode(kubeConnectionInfo.EKSToken)
+			if err != nil {
+				cli.Error("failed to decode EKS cluster token", err)
+			}
 			clusterInstance = v0.ClusterInstance{
 				Instance: v0.Instance{
 					Name: &clusterInstName,
 				},
 				ThreeportControlPlaneCluster: &controlPlaneCluster,
 				APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
-				CACertificate:                &kubeConnectionInfo.CACertificate,
-				EKSToken:                     &kubeConnectionInfo.EKSToken,
+				CACertificate:                &caCert,
+				EKSToken:                     &eksToken,
+				AWSConfigEnv:                 &awsConfigEnv,
+				AWSConfigProfile:             &awsConfigProfile,
+				AWSRegion:                    &awsRegion,
 				DefaultCluster:               &defaultCluster,
 			}
 		}
@@ -204,31 +231,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 		// create a client and resource mapper to connect to kubernetes cluster
 		// API for installing resources
 		dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance, false)
-		if err != nil {
-			// delete control plane cluster
-			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
-				cli.Error("failed to delete control plane infra", err)
-				cli.Warning("you may have dangling cluster infra resources still running")
-			}
-			cli.Error("failed to get a Kubernetes client and mapper", err)
-			os.Exit(1)
-		}
-
-		// install the CRDs required for threeport control plane
-		if err := threeport.InstallThreeportCRDs(dynamicKubeClient, mapper); err != nil {
-			// print the error when it happens and then again post-deletion
-			cli.Error("failed to install threeport control plane CRDs", err)
-			// delete control plane cluster
-			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
-				cli.Error("failed to delete control plane infra", err)
-				cli.Warning("you may have dangling cluster infra resources still running")
-			}
-			cli.Error("failed to install threeport control plane CRDs", err)
-			os.Exit(1)
-		}
-
-		// re-create the kube client and resource mapper with the CRDs installed
-		dynamicKubeClient, mapper, err = kube.GetClient(&clusterInstance, false)
 		if err != nil {
 			// delete control plane cluster
 			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
@@ -253,24 +255,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 				cli.Warning("you may have dangling cluster infra resources still running")
 			}
 			cli.Error("failed to install threeport control plane system services", err)
-			os.Exit(1)
-		}
-
-		// install the threeport control plane support services
-		if err := threeport.InstallThreeportSupportServices(
-			dynamicKubeClient,
-			mapper,
-			false,
-			createAdminEmail,
-		); err != nil {
-			// print the error when it happens and then again post-deletion
-			cli.Error("failed to install threeport control plane support services", err)
-			// delete control plane cluster
-			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
-				cli.Error("failed to delete control plane infra", err)
-				cli.Warning("you may have dangling cluster infra resources still running")
-			}
-			cli.Error("failed to install threeport control plane support services", err)
 			os.Exit(1)
 		}
 
@@ -313,11 +297,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
-		if err != nil {
-			cli.Error("failed to create http client", err)
-			os.Exit(1)
-
 		// get the threeport API's endpoint
 		if infraProvider == "eks" {
 			tpapiEndpoint, err := threeport.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
@@ -332,6 +311,35 @@ var CreateControlPlaneCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			threeportAPIEndpoint = tpapiEndpoint
+			newThreeportInstance.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
+		}
+
+		// update threeport config
+		configInternal.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
+
+		// install the threeport API TLS assets
+		if err := threeport.InstallThreeportAPITLS(
+			dynamicKubeClient,
+			mapper,
+			authConfig,
+			threeportAPIEndpoint,
+		); err != nil {
+			// print the error when it happens and then again post-deletion
+			cli.Error("failed to install threeport API TLS assets", err)
+			// delete control plane cluster
+			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
+				cli.Error("failed to delete control plane infra", err)
+				cli.Warning("you may have dangling cluster infra resources still running")
+			}
+			cli.Error("failed to install threeport API TLS assets", err)
+			os.Exit(1)
+		}
+
+		// get threeport API client
+		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
+		if err != nil {
+			cli.Error("failed to create http client", err)
+			os.Exit(1)
 		}
 
 		// wait for API server to start running
@@ -441,10 +449,6 @@ func init() {
 		&authEnabled,
 		"auth-enabled", true, "Enable client certificate authentication (default is true)",
 	)
-	CreateControlPlaneCmd.Flags().StringVarP(
-		&createProviderAccountID,
-		"provider-account-id", "a", "", "The provider account ID.  Required if providing a root domain for automated DNS management.",
-	)
 	CreateControlPlaneCmd.Flags().StringVar(
 		&createRootDomain,
 		"root-domain", "", "The root domain name to use for the Threeport API. Requires a public hosted zone in AWS Route53. A subdomain for the Threeport API will be added to the root domain.",
@@ -493,10 +497,9 @@ func validateCreateControlPlaneFlags(infraProvider, createRootDomain, createProv
 		)
 	}
 
-	// validate flags for DNS management
-	if createRootDomain != "" && createProviderAccountID == "" {
+	if infraProvider == threeport.ControlPlaneInfraProviderEKS && createProviderAccountID == "" {
 		return errors.New(
-			"if a root domain is provided for automated DNS management, your cloud provider account ID must also be provided. It is also recommended to provide an admin email, but not required.",
+			"your AWS account ID must be provided if deploying using the eks provider",
 		)
 	}
 

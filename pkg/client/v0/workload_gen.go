@@ -141,10 +141,11 @@ func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 
 // UpdateWorkloadDefinition updates a workload definition.
 func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	workloadDefinitionID := *workloadDefinition.ID
 	workloadDefinition.ID = nil
+	workloadDefinition.CreatedAt = nil
+	workloadDefinition.UpdatedAt = nil
 
 	jsonWorkloadDefinition, err := client.MarshalObject(workloadDefinition)
 	if err != nil {
@@ -334,10 +335,11 @@ func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 
 // UpdateWorkloadResourceDefinition updates a workload resource definition.
 func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	workloadResourceDefinitionID := *workloadResourceDefinition.ID
 	workloadResourceDefinition.ID = nil
+	workloadResourceDefinition.CreatedAt = nil
+	workloadResourceDefinition.UpdatedAt = nil
 
 	jsonWorkloadResourceDefinition, err := client.MarshalObject(workloadResourceDefinition)
 	if err != nil {
@@ -527,10 +529,11 @@ func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 
 // UpdateWorkloadInstance updates a workload instance.
 func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	workloadInstanceID := *workloadInstance.ID
 	workloadInstance.ID = nil
+	workloadInstance.CreatedAt = nil
+	workloadInstance.UpdatedAt = nil
 
 	jsonWorkloadInstance, err := client.MarshalObject(workloadInstance)
 	if err != nil {
@@ -720,10 +723,11 @@ func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 
 // UpdateWorkloadResourceInstance updates a workload resource instance.
 func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	workloadResourceInstanceID := *workloadResourceInstance.ID
 	workloadResourceInstance.ID = nil
+	workloadResourceInstance.CreatedAt = nil
+	workloadResourceInstance.UpdatedAt = nil
 
 	jsonWorkloadResourceInstance, err := client.MarshalObject(workloadResourceInstance)
 	if err != nil {

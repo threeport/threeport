@@ -364,12 +364,13 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Error(),
 		)).Block(
-			Comment("capture the object ID then remove it from the object since the API will not"),
-			Comment("allow an update the ID field"),
+			Comment("capture the object ID then remove fields that cannot be updated in the API"),
 			Id(
 				fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName)),
 			).Op(":=").Op("*").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID"),
 			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID").Op("=").Nil(),
+			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("CreatedAt").Op("=").Nil(),
+			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("UpdatedAt").Op("=").Nil(),
 			Line(),
 			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/client",
