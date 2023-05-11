@@ -287,7 +287,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			Error(),
 		)).Block(
 			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
-				"github.com/threeport/threeport/pkg/client",
+				"github.com/threeport/threeport/internal/util",
 				"MarshalObject",
 			).Call(Id(strcase.ToLowerCamel(mc.TypeName))),
 			If(Id("err").Op("!=").Nil().Block(
@@ -373,7 +373,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("UpdatedAt").Op("=").Nil(),
 			Line(),
 			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
-				"github.com/threeport/threeport/pkg/client",
+				"github.com/threeport/threeport/internal/util",
 				"MarshalObject",
 			).Call(Id(strcase.ToLowerCamel(mc.TypeName))),
 			If(Id("err").Op("!=").Nil().Block(

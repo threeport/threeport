@@ -35,7 +35,7 @@ const (
 	ControlPlaneTierProd = "production"
 )
 
-// ControlPlane is an instance of a threeport control plane
+// ControlPlane is an instance of a threeport control plane.
 type ControlPlane struct {
 	InfraProvider ControlPlaneInfraProvider
 	Tier          ControlPlaneTier

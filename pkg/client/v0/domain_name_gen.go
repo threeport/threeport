@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -109,7 +109,7 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 // CreateDomainNameDefinition creates a new domain name definition.
 func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
-	jsonDomainNameDefinition, err := client.MarshalObject(domainNameDefinition)
+	jsonDomainNameDefinition, err := util.MarshalObject(domainNameDefinition)
 	if err != nil {
 		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -147,7 +147,7 @@ func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 	domainNameDefinition.CreatedAt = nil
 	domainNameDefinition.UpdatedAt = nil
 
-	jsonDomainNameDefinition, err := client.MarshalObject(domainNameDefinition)
+	jsonDomainNameDefinition, err := util.MarshalObject(domainNameDefinition)
 	if err != nil {
 		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -303,7 +303,7 @@ func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 // CreateDomainNameInstance creates a new domain name instance.
 func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
-	jsonDomainNameInstance, err := client.MarshalObject(domainNameInstance)
+	jsonDomainNameInstance, err := util.MarshalObject(domainNameInstance)
 	if err != nil {
 		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -341,7 +341,7 @@ func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 	domainNameInstance.CreatedAt = nil
 	domainNameInstance.UpdatedAt = nil
 
-	jsonDomainNameInstance, err := client.MarshalObject(domainNameInstance)
+	jsonDomainNameInstance, err := util.MarshalObject(domainNameInstance)
 	if err != nil {
 		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}

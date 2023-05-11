@@ -7,9 +7,6 @@ import (
 	"testing"
 	"time"
 
-	clientInternal "github.com/threeport/threeport/internal/client"
-	configInternal "github.com/threeport/threeport/internal/config"
-
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -17,6 +14,7 @@ import (
 	"github.com/threeport/threeport/internal/threeport"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 // testWorkload represents a test case for this e2e test.
@@ -63,13 +61,13 @@ func TestWorkloadE2E(t *testing.T) {
 			authEnabled = true
 
 			// initialize config so we can pull credentials from it
-			configInternal.InitConfig("", "")
+			config.InitConfig("", "")
 		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
 			authEnabled = false
 		}
 
 		// configure http client for calls to threeport API
-		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
+		apiClient, err := client.GetHTTPClient(authEnabled, "", "", "")
 		assert.Nil(err, "should have no error creating http client")
 
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(

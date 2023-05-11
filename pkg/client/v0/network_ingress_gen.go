@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -109,7 +109,7 @@ func GetNetworkIngressDefinitionByName(apiClient *http.Client, apiAddr, name str
 
 // CreateNetworkIngressDefinition creates a new network ingress definition.
 func CreateNetworkIngressDefinition(apiClient *http.Client, apiAddr string, networkIngressDefinition *v0.NetworkIngressDefinition) (*v0.NetworkIngressDefinition, error) {
-	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
+	jsonNetworkIngressDefinition, err := util.MarshalObject(networkIngressDefinition)
 	if err != nil {
 		return networkIngressDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -147,7 +147,7 @@ func UpdateNetworkIngressDefinition(apiClient *http.Client, apiAddr string, netw
 	networkIngressDefinition.CreatedAt = nil
 	networkIngressDefinition.UpdatedAt = nil
 
-	jsonNetworkIngressDefinition, err := client.MarshalObject(networkIngressDefinition)
+	jsonNetworkIngressDefinition, err := util.MarshalObject(networkIngressDefinition)
 	if err != nil {
 		return networkIngressDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -303,7 +303,7 @@ func GetNetworkIngressInstanceByName(apiClient *http.Client, apiAddr, name strin
 
 // CreateNetworkIngressInstance creates a new network ingress instance.
 func CreateNetworkIngressInstance(apiClient *http.Client, apiAddr string, networkIngressInstance *v0.NetworkIngressInstance) (*v0.NetworkIngressInstance, error) {
-	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
+	jsonNetworkIngressInstance, err := util.MarshalObject(networkIngressInstance)
 	if err != nil {
 		return networkIngressInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -341,7 +341,7 @@ func UpdateNetworkIngressInstance(apiClient *http.Client, apiAddr string, networ
 	networkIngressInstance.CreatedAt = nil
 	networkIngressInstance.UpdatedAt = nil
 
-	jsonNetworkIngressInstance, err := client.MarshalObject(networkIngressInstance)
+	jsonNetworkIngressInstance, err := util.MarshalObject(networkIngressInstance)
 	if err != nil {
 		return networkIngressInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}

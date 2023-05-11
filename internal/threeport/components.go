@@ -320,7 +320,7 @@ func InstallThreeportControllers(
 			},
 			"type": "Opaque",
 			"stringData": map[string]interface{}{
-				"API_SERVER":      "threeport-api-server:1323",
+				"API_SERVER":      "threeport-api-server",
 				"MSG_BROKER_HOST": "nats-js",
 				"MSG_BROKER_PORT": "4222",
 			},
@@ -506,7 +506,7 @@ func GetThreeportAPIEndpoint(
 			errors.New("hostname for load balancer not found in threeport API service")
 		}
 		msg := fmt.Sprintf(
-			"timed out after %d seconds trying to retrieve threeport API load balancer endpoint: %w",
+			"timed out after %d seconds trying to retrieve threeport API load balancer endpoint",
 			maxAttempts*waitSeconds,
 		)
 		return apiEndpoint, fmt.Errorf("%s: %w", msg, getEndpointErr)

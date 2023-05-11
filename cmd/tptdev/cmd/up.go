@@ -11,14 +11,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/cli"
-	clientInternal "github.com/threeport/threeport/internal/client"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
 	"github.com/threeport/threeport/internal/tptdev"
 	"github.com/threeport/threeport/internal/util"
-
-	configInternal "github.com/threeport/threeport/internal/config"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -43,8 +40,8 @@ var upCmd = &cobra.Command{
 	Short: "Spin up a new threeport development environment",
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		threeportConfig, err := configInternal.GetThreeportConfig()
+		// get threeport config
+		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 		}
@@ -83,6 +80,13 @@ var upCmd = &cobra.Command{
 			threeportPath = tp
 		}
 
+		// create threeport config for new instance
+		newThreeportInstance := &config.Instance{
+			Name:      createThreeportDevName,
+			Provider:  "kind",
+			APIServer: fmt.Sprintf("https://%s:%d", threeport.ThreeportLocalAPIEndpoint, threeportLocalAPIPort),
+		}
+
 		// create kind cluster
 		controlPlaneInfra := provider.ControlPlaneInfraKind{
 			ThreeportInstanceName: createThreeportDevName,
@@ -92,10 +96,15 @@ var upCmd = &cobra.Command{
 		devEnvironment := true
 		kindConfig := controlPlaneInfra.GetKindConfig(devEnvironment, numWorkerNodes)
 		controlPlaneInfra.KindConfig = kindConfig
-		kubeConnectionInfo, err := controlPlaneInfra.Create()
+		kubeConnectionInfo, err := controlPlaneInfra.Create(providerConfigDir)
 		if err != nil {
 			cli.Error("failed to create kind cluster", err)
 			os.Exit(1)
+		}
+		newThreeportInstance.KubeAPI = config.KubeAPI{
+			APIEndpoint:   kubeConnectionInfo.APIEndpoint,
+			CACertificate: util.Base64Encode(kubeConnectionInfo.CACertificate),
+			Certificate:   util.Base64Encode(kubeConnectionInfo.Certificate),
 		}
 
 		// the cluster instance is the default compute space cluster to be added
@@ -121,14 +130,6 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// create threeport config for new instance
-		newThreeportInstance := &config.Instance{
-			Name:       createThreeportDevName,
-			Provider:   "kind",
-			APIServer:  fmt.Sprintf("https://%s:%d", threeport.ThreeportLocalAPIEndpoint, threeportLocalAPIPort),
-			Kubeconfig: kubeconfigPath,
-		}
-
 		var authConfig *auth.AuthConfig
 		if authEnabled {
 			authConfig, err = auth.GetAuthConfig()
@@ -150,14 +151,26 @@ var upCmd = &cobra.Command{
 				ClientKey:  util.Base64Encode(clientPrivateKey),
 			}
 
+			newThreeportInstance.AuthEnabled = true
 			newThreeportInstance.Credentials = append(newThreeportInstance.Credentials, *clientCredentials)
 			newThreeportInstance.CACert = authConfig.CABase64Encoded
+		} else {
+			newThreeportInstance.AuthEnabled = false
 		}
 
-		configInternal.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportDevName, newThreeportInstance)
+		// update threeport config and refresh threeport config to updated version
+		config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportDevName, newThreeportInstance)
+		threeportConfig, err = config.GetThreeportConfig()
+		if err != nil {
+			cli.Error("failed to refresh threeport config", err)
+		}
 
 		// install the threeport control plane dependencies
-		if err := threeport.InstallThreeportControlPlaneDependencies(dynamicKubeClient, mapper); err != nil {
+		if err := threeport.InstallThreeportControlPlaneDependencies(
+			dynamicKubeClient,
+			mapper,
+			threeport.ControlPlaneInfraProviderKind,
+		); err != nil {
 			cli.Error("failed to install threeport control plane dependencies", err)
 			os.Exit(1)
 		}
@@ -177,15 +190,26 @@ var upCmd = &cobra.Command{
 			"",
 			"",
 			authConfig,
+			threeport.ControlPlaneInfraProviderKind,
 		); err != nil {
 			cli.Error("failed to install threeport control plane components", err)
 			os.Exit(1)
 		}
 
 		// configure http client for calls to threeport API
-		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
+		var ca string
+		var clientCertificate string
+		var clientPrivateKey string
+		if authEnabled {
+			ca, clientCertificate, clientPrivateKey, err = threeportConfig.GetThreeportCertificates()
+			if err != nil {
+				cli.Error("failed to get threeport certificates from config", err)
+				os.Exit(1)
+			}
+		}
+		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		if err != nil {
-			cli.Error("failed to create http client: ", err)
+			cli.Error("failed to create http client", err)
 			os.Exit(1)
 		}
 
@@ -292,6 +316,6 @@ func init() {
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
 	)
 	cobra.OnInitialize(func() {
-		configInternal.InitConfig(cfgFile, providerConfigDir)
+		config.InitConfig(cfgFile, providerConfigDir)
 	})
 }

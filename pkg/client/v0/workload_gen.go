@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -109,7 +109,7 @@ func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (
 
 // CreateWorkloadDefinition creates a new workload definition.
 func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
-	jsonWorkloadDefinition, err := client.MarshalObject(workloadDefinition)
+	jsonWorkloadDefinition, err := util.MarshalObject(workloadDefinition)
 	if err != nil {
 		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -147,7 +147,7 @@ func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 	workloadDefinition.CreatedAt = nil
 	workloadDefinition.UpdatedAt = nil
 
-	jsonWorkloadDefinition, err := client.MarshalObject(workloadDefinition)
+	jsonWorkloadDefinition, err := util.MarshalObject(workloadDefinition)
 	if err != nil {
 		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -303,7 +303,7 @@ func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name s
 
 // CreateWorkloadResourceDefinition creates a new workload resource definition.
 func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
-	jsonWorkloadResourceDefinition, err := client.MarshalObject(workloadResourceDefinition)
+	jsonWorkloadResourceDefinition, err := util.MarshalObject(workloadResourceDefinition)
 	if err != nil {
 		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -341,7 +341,7 @@ func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 	workloadResourceDefinition.CreatedAt = nil
 	workloadResourceDefinition.UpdatedAt = nil
 
-	jsonWorkloadResourceDefinition, err := client.MarshalObject(workloadResourceDefinition)
+	jsonWorkloadResourceDefinition, err := util.MarshalObject(workloadResourceDefinition)
 	if err != nil {
 		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -497,7 +497,7 @@ func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v
 
 // CreateWorkloadInstance creates a new workload instance.
 func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
-	jsonWorkloadInstance, err := client.MarshalObject(workloadInstance)
+	jsonWorkloadInstance, err := util.MarshalObject(workloadInstance)
 	if err != nil {
 		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -535,7 +535,7 @@ func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 	workloadInstance.CreatedAt = nil
 	workloadInstance.UpdatedAt = nil
 
-	jsonWorkloadInstance, err := client.MarshalObject(workloadInstance)
+	jsonWorkloadInstance, err := util.MarshalObject(workloadInstance)
 	if err != nil {
 		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -691,7 +691,7 @@ func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name str
 
 // CreateWorkloadResourceInstance creates a new workload resource instance.
 func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
-	jsonWorkloadResourceInstance, err := client.MarshalObject(workloadResourceInstance)
+	jsonWorkloadResourceInstance, err := util.MarshalObject(workloadResourceInstance)
 	if err != nil {
 		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -729,7 +729,7 @@ func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 	workloadResourceInstance.CreatedAt = nil
 	workloadResourceInstance.UpdatedAt = nil
 
-	jsonWorkloadResourceInstance, err := client.MarshalObject(workloadResourceInstance)
+	jsonWorkloadResourceInstance, err := util.MarshalObject(workloadResourceInstance)
 	if err != nil {
 		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}

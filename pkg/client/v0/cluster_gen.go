@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -109,7 +109,7 @@ func GetClusterDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 // CreateClusterDefinition creates a new cluster definition.
 func CreateClusterDefinition(apiClient *http.Client, apiAddr string, clusterDefinition *v0.ClusterDefinition) (*v0.ClusterDefinition, error) {
-	jsonClusterDefinition, err := client.MarshalObject(clusterDefinition)
+	jsonClusterDefinition, err := util.MarshalObject(clusterDefinition)
 	if err != nil {
 		return clusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -147,7 +147,7 @@ func UpdateClusterDefinition(apiClient *http.Client, apiAddr string, clusterDefi
 	clusterDefinition.CreatedAt = nil
 	clusterDefinition.UpdatedAt = nil
 
-	jsonClusterDefinition, err := client.MarshalObject(clusterDefinition)
+	jsonClusterDefinition, err := util.MarshalObject(clusterDefinition)
 	if err != nil {
 		return clusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -303,7 +303,7 @@ func GetClusterInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 // CreateClusterInstance creates a new cluster instance.
 func CreateClusterInstance(apiClient *http.Client, apiAddr string, clusterInstance *v0.ClusterInstance) (*v0.ClusterInstance, error) {
-	jsonClusterInstance, err := client.MarshalObject(clusterInstance)
+	jsonClusterInstance, err := util.MarshalObject(clusterInstance)
 	if err != nil {
 		return clusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -341,7 +341,7 @@ func UpdateClusterInstance(apiClient *http.Client, apiAddr string, clusterInstan
 	clusterInstance.CreatedAt = nil
 	clusterInstance.UpdatedAt = nil
 
-	jsonClusterInstance, err := client.MarshalObject(clusterInstance)
+	jsonClusterInstance, err := util.MarshalObject(clusterInstance)
 	if err != nil {
 		return clusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}

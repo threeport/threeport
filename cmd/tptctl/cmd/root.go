@@ -6,10 +6,9 @@ package cmd
 import (
 	"os"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/threeport/threeport/internal/cli"
-	configInternal "github.com/threeport/threeport/internal/config"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 var (
@@ -31,6 +30,7 @@ applications that are deployed into the Threeport compute space.`,
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		cli.Error("tptctl root command failed to execute", err)
 		os.Exit(1)
 	}
 }
@@ -44,25 +44,18 @@ func init() {
 	)
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	cobra.OnInitialize(func() {
-		configInternal.InitConfig(cfgFile, providerConfigDir)
+		config.InitConfig(cfgFile, providerConfigDir)
 	})
 	cobra.OnInitialize(providerConfig)
 }
 
 func providerConfig() {
-	// determine user home dir
-	home, err := homedir.Dir()
-	if err != nil {
-		cli.Error("failed to determine user home directory", err)
-		os.Exit(1)
-	}
-
 	if providerConfigDir == "" {
-		if err := os.MkdirAll(configInternal.DefaultThreeportConfigPath(home), os.ModePerm); err != nil {
-			cli.Error("failed to write create config directory", err)
+		providerConf, err := config.DefaultProviderConfigDir()
+		if err != nil {
+			cli.Error("failed to set infra provider config directory", err)
 			os.Exit(1)
-
 		}
-		providerConfigDir = configInternal.DefaultThreeportConfigPath(home)
+		providerConfigDir = providerConf
 	}
 }

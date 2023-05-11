@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -109,7 +109,7 @@ func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsA
 
 // CreateAwsAccount creates a new aws account.
 func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
-	jsonAwsAccount, err := client.MarshalObject(awsAccount)
+	jsonAwsAccount, err := util.MarshalObject(awsAccount)
 	if err != nil {
 		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -147,7 +147,7 @@ func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 	awsAccount.CreatedAt = nil
 	awsAccount.UpdatedAt = nil
 
-	jsonAwsAccount, err := client.MarshalObject(awsAccount)
+	jsonAwsAccount, err := util.MarshalObject(awsAccount)
 	if err != nil {
 		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -303,7 +303,7 @@ func GetAwsEksClusterDefinitionByName(apiClient *http.Client, apiAddr, name stri
 
 // CreateAwsEksClusterDefinition creates a new aws eks cluster definition.
 func CreateAwsEksClusterDefinition(apiClient *http.Client, apiAddr string, awsEksClusterDefinition *v0.AwsEksClusterDefinition) (*v0.AwsEksClusterDefinition, error) {
-	jsonAwsEksClusterDefinition, err := client.MarshalObject(awsEksClusterDefinition)
+	jsonAwsEksClusterDefinition, err := util.MarshalObject(awsEksClusterDefinition)
 	if err != nil {
 		return awsEksClusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -341,7 +341,7 @@ func UpdateAwsEksClusterDefinition(apiClient *http.Client, apiAddr string, awsEk
 	awsEksClusterDefinition.CreatedAt = nil
 	awsEksClusterDefinition.UpdatedAt = nil
 
-	jsonAwsEksClusterDefinition, err := client.MarshalObject(awsEksClusterDefinition)
+	jsonAwsEksClusterDefinition, err := util.MarshalObject(awsEksClusterDefinition)
 	if err != nil {
 		return awsEksClusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -497,7 +497,7 @@ func GetAwsEksClusterInstanceByName(apiClient *http.Client, apiAddr, name string
 
 // CreateAwsEksClusterInstance creates a new aws eks cluster instance.
 func CreateAwsEksClusterInstance(apiClient *http.Client, apiAddr string, awsEksClusterInstance *v0.AwsEksClusterInstance) (*v0.AwsEksClusterInstance, error) {
-	jsonAwsEksClusterInstance, err := client.MarshalObject(awsEksClusterInstance)
+	jsonAwsEksClusterInstance, err := util.MarshalObject(awsEksClusterInstance)
 	if err != nil {
 		return awsEksClusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -535,7 +535,7 @@ func UpdateAwsEksClusterInstance(apiClient *http.Client, apiAddr string, awsEksC
 	awsEksClusterInstance.CreatedAt = nil
 	awsEksClusterInstance.UpdatedAt = nil
 
-	jsonAwsEksClusterInstance, err := client.MarshalObject(awsEksClusterInstance)
+	jsonAwsEksClusterInstance, err := util.MarshalObject(awsEksClusterInstance)
 	if err != nil {
 		return awsEksClusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -691,7 +691,7 @@ func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, n
 
 // CreateAwsRelationalDatabaseDefinition creates a new aws relational database definition.
 func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition) (*v0.AwsRelationalDatabaseDefinition, error) {
-	jsonAwsRelationalDatabaseDefinition, err := client.MarshalObject(awsRelationalDatabaseDefinition)
+	jsonAwsRelationalDatabaseDefinition, err := util.MarshalObject(awsRelationalDatabaseDefinition)
 	if err != nil {
 		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -729,7 +729,7 @@ func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 	awsRelationalDatabaseDefinition.CreatedAt = nil
 	awsRelationalDatabaseDefinition.UpdatedAt = nil
 
-	jsonAwsRelationalDatabaseDefinition, err := client.MarshalObject(awsRelationalDatabaseDefinition)
+	jsonAwsRelationalDatabaseDefinition, err := util.MarshalObject(awsRelationalDatabaseDefinition)
 	if err != nil {
 		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -885,7 +885,7 @@ func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, nam
 
 // CreateAwsRelationalDatabaseInstance creates a new aws relational database instance.
 func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance) (*v0.AwsRelationalDatabaseInstance, error) {
-	jsonAwsRelationalDatabaseInstance, err := client.MarshalObject(awsRelationalDatabaseInstance)
+	jsonAwsRelationalDatabaseInstance, err := util.MarshalObject(awsRelationalDatabaseInstance)
 	if err != nil {
 		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -923,7 +923,7 @@ func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 	awsRelationalDatabaseInstance.CreatedAt = nil
 	awsRelationalDatabaseInstance.UpdatedAt = nil
 
-	jsonAwsRelationalDatabaseInstance, err := client.MarshalObject(awsRelationalDatabaseInstance)
+	jsonAwsRelationalDatabaseInstance, err := util.MarshalObject(awsRelationalDatabaseInstance)
 	if err != nil {
 		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}

@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -109,7 +109,7 @@ func GetForwardProxyDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 // CreateForwardProxyDefinition creates a new forward proxy definition.
 func CreateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwardProxyDefinition *v0.ForwardProxyDefinition) (*v0.ForwardProxyDefinition, error) {
-	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
+	jsonForwardProxyDefinition, err := util.MarshalObject(forwardProxyDefinition)
 	if err != nil {
 		return forwardProxyDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -147,7 +147,7 @@ func UpdateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwar
 	forwardProxyDefinition.CreatedAt = nil
 	forwardProxyDefinition.UpdatedAt = nil
 
-	jsonForwardProxyDefinition, err := client.MarshalObject(forwardProxyDefinition)
+	jsonForwardProxyDefinition, err := util.MarshalObject(forwardProxyDefinition)
 	if err != nil {
 		return forwardProxyDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -303,7 +303,7 @@ func GetForwardProxyInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 // CreateForwardProxyInstance creates a new forward proxy instance.
 func CreateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardProxyInstance *v0.ForwardProxyInstance) (*v0.ForwardProxyInstance, error) {
-	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
+	jsonForwardProxyInstance, err := util.MarshalObject(forwardProxyInstance)
 	if err != nil {
 		return forwardProxyInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -341,7 +341,7 @@ func UpdateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardP
 	forwardProxyInstance.CreatedAt = nil
 	forwardProxyInstance.UpdatedAt = nil
 
-	jsonForwardProxyInstance, err := client.MarshalObject(forwardProxyInstance)
+	jsonForwardProxyInstance, err := util.MarshalObject(forwardProxyInstance)
 	if err != nil {
 		return forwardProxyInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}

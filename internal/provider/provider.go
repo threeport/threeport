@@ -7,17 +7,8 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 )
 
-//// ControlPlane contains the attributes of a threeport control plane.
-//type ControlPlaneInfraProvider struct {
-//	InstanceName           string
-//	ProviderAccountID      string
-//	MinClusterNodes        int32
-//	MaxClusterNodes        int32
-//	DefaultAWSInstanceType string
-//	RootDomainName         string
-//	AdminEmail             string
-//}
-
+// ControlPlaneInfra is the interface each provider has to satisfy to manage
+// control plane infra.
 type ControlPlaneInfra interface {
 	Create(providerConfigDir string) (*kube.KubeConnectionInfo, error)
 	Delete(providerConfigDir string) error

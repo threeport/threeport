@@ -14,8 +14,6 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/cli"
-	clientInternal "github.com/threeport/threeport/internal/client"
-	configInternal "github.com/threeport/threeport/internal/config"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
@@ -35,7 +33,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig, err := configInternal.GetThreeportConfig()
+		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 		}
@@ -77,7 +75,12 @@ var DeleteControlPlaneCmd = &cobra.Command{
 		// if provider is EKS we need to delete the threeport API service to
 		// remove the AWS load balancer before deleting the rest of the infra
 		if instanceConfig.Provider == threeport.ControlPlaneInfraProviderEKS {
-			apiClient, err := clientInternal.GetHTTPClient(true)
+			ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
+			if err != nil {
+				cli.Error("failed to get threeport certificates from config", err)
+				os.Exit(1)
+			}
+			apiClient, err := client.GetHTTPClient(instanceConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey)
 			if err != nil {
 				cli.Error("failed to create http client", err)
 				os.Exit(1)
@@ -143,13 +146,8 @@ var DeleteControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// delete infra inventory for EKS control plane
-		if instanceConfig.Provider == threeport.ControlPlaneInfraProviderEKS {
-
-		}
-
 		// update threeport config to remove deleted threeport instance
-		configInternal.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportInstanceName)
+		config.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportInstanceName)
 		cli.Info("threeport config updated")
 
 		cli.Complete(fmt.Sprintf("threeport instance %s deleted", deleteThreeportInstanceName))

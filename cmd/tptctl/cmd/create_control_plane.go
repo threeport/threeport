@@ -11,8 +11,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/cli"
-	clientInternal "github.com/threeport/threeport/internal/client"
-	configInternal "github.com/threeport/threeport/internal/config"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
@@ -54,7 +52,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get the threeport config
-		threeportConfig, err := configInternal.GetThreeportConfig()
+		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 		}
@@ -125,8 +123,13 @@ var CreateControlPlaneCmd = &cobra.Command{
 				AWSRegion:             awsRegion,
 				AWSAccountID:          createProviderAccountID,
 			}
+			newThreeportInstance.EKSProviderConfig = config.EKSProviderConfig{
+				AWSConfigEnv:     awsConfigEnv,
+				AWSConfigProfile: awsConfigProfile,
+				AWSRegion:        awsRegion,
+				AWSAccountID:     createProviderAccountID,
+			}
 			controlPlaneInfra = &controlPlaneInfraEKS
-			newThreeportInstance.EKSProviderConfig = controlPlaneInfraEKS
 		}
 
 		// if auth is enabled, generate client certificate and add to local config
@@ -154,8 +157,11 @@ var CreateControlPlaneCmd = &cobra.Command{
 				ClientKey:  util.Base64Encode(clientPrivateKey),
 			}
 
+			newThreeportInstance.AuthEnabled = true
 			newThreeportInstance.Credentials = append(newThreeportInstance.Credentials, *clientCredentials)
 			newThreeportInstance.CACert = authConfig.CABase64Encoded
+		} else {
+			newThreeportInstance.AuthEnabled = false
 		}
 
 		// create control plane infra
@@ -167,7 +173,13 @@ var CreateControlPlaneCmd = &cobra.Command{
 			cli.Error("failed to get create control plane infra for threeport", err)
 			os.Exit(1)
 		}
-		newThreeportInstance.KubeAPI = *kubeConnectionInfo
+		newThreeportInstance.KubeAPI = config.KubeAPI{
+			APIEndpoint:   kubeConnectionInfo.APIEndpoint,
+			CACertificate: util.Base64Encode(kubeConnectionInfo.CACertificate),
+			Certificate:   util.Base64Encode(kubeConnectionInfo.Certificate),
+			Key:           util.Base64Encode(kubeConnectionInfo.Key),
+			EKSToken:      util.Base64Encode(kubeConnectionInfo.EKSToken),
+		}
 
 		// the cluster instance is the default compute space cluster to be added
 		// to the API
@@ -177,50 +189,26 @@ var CreateControlPlaneCmd = &cobra.Command{
 		var clusterInstance v0.ClusterInstance
 		switch controlPlane.InfraProvider {
 		case threeport.ControlPlaneInfraProviderKind:
-			caCert, err := util.Base64Decode(kubeConnectionInfo.CACertificate)
-			if err != nil {
-				cli.Error("failed to decode kind cluster CA certificate", err)
-				os.Exit(1)
-			}
-			cert, err := util.Base64Decode(kubeConnectionInfo.Certificate)
-			if err != nil {
-				cli.Error("failed to decode kind cluster certificate", err)
-				os.Exit(1)
-			}
-			key, err := util.Base64Decode(kubeConnectionInfo.Key)
-			if err != nil {
-				cli.Error("failed to decode kind cluster key", err)
-				os.Exit(1)
-			}
 			clusterInstance = v0.ClusterInstance{
 				Instance: v0.Instance{
 					Name: &clusterInstName,
 				},
 				ThreeportControlPlaneCluster: &controlPlaneCluster,
 				APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
-				CACertificate:                &caCert,
-				Certificate:                  &cert,
-				Key:                          &key,
+				CACertificate:                &kubeConnectionInfo.CACertificate,
+				Certificate:                  &kubeConnectionInfo.Certificate,
+				Key:                          &kubeConnectionInfo.Key,
 				DefaultCluster:               &defaultCluster,
 			}
 		case threeport.ControlPlaneInfraProviderEKS:
-			caCert, err := util.Base64Decode(kubeConnectionInfo.CACertificate)
-			if err != nil {
-				cli.Error("failed to decode EKS cluster CA certificate", err)
-				os.Exit(1)
-			}
-			eksToken, err := util.Base64Decode(kubeConnectionInfo.EKSToken)
-			if err != nil {
-				cli.Error("failed to decode EKS cluster token", err)
-			}
 			clusterInstance = v0.ClusterInstance{
 				Instance: v0.Instance{
 					Name: &clusterInstName,
 				},
 				ThreeportControlPlaneCluster: &controlPlaneCluster,
 				APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
-				CACertificate:                &caCert,
-				EKSToken:                     &eksToken,
+				CACertificate:                &kubeConnectionInfo.CACertificate,
+				EKSToken:                     &kubeConnectionInfo.EKSToken,
 				AWSConfigEnv:                 &awsConfigEnv,
 				AWSConfigProfile:             &awsConfigProfile,
 				AWSRegion:                    &awsRegion,
@@ -314,8 +302,12 @@ var CreateControlPlaneCmd = &cobra.Command{
 			newThreeportInstance.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
 		}
 
-		// update threeport config
-		configInternal.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
+		// update threeport config and refresh threeport config to updated version
+		config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
+		threeportConfig, err = config.GetThreeportConfig()
+		if err != nil {
+			cli.Error("failed to refresh threeport config", err)
+		}
 
 		// install the threeport API TLS assets
 		if err := threeport.InstallThreeportAPITLS(
@@ -336,7 +328,12 @@ var CreateControlPlaneCmd = &cobra.Command{
 		}
 
 		// get threeport API client
-		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
+		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
+		if err != nil {
+			cli.Error("failed to get threeport certificates from config", err)
+			os.Exit(1)
+		}
+		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		if err != nil {
 			cli.Error("failed to create http client", err)
 			os.Exit(1)

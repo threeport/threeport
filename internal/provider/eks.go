@@ -17,15 +17,14 @@ import (
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/threeport"
-	"github.com/threeport/threeport/internal/util"
 )
 
 type ControlPlaneInfraEKS struct {
-	ThreeportInstanceName string `yaml:"ThreeportInstanceName"`
-	AWSConfigEnv          bool   `yaml:"AWSConfigEnv"`
-	AWSConfigProfile      string `yaml:"AWSConfigProfile"`
-	AWSRegion             string `yaml:"AWSRegion"`
-	AWSAccountID          string `yaml:"AWSAccountID"`
+	ThreeportInstanceName string
+	AWSConfigEnv          bool
+	AWSConfigProfile      string
+	AWSRegion             string
+	AWSAccountID          string
 }
 
 // Create installs a Kubernetes cluster using AWS EKS for the threeport control
@@ -135,7 +134,7 @@ func (i *ControlPlaneInfraEKS) Delete(providerConfigDir string) error {
 
 	// delete inventory file - emit a warning instead of an error on failure
 	if err := os.Remove(inventoryFilepath(providerConfigDir, i.ThreeportInstanceName)); err != nil {
-		cli.Warning(fmt.Sprintf("failed to delete inventory file: %w", err))
+		cli.Warning(fmt.Sprintf("failed to delete inventory file: %s", err))
 	}
 
 	return nil
@@ -190,8 +189,8 @@ func getEKSConnectionInfo(awsConfig *aws.Config, clusterName string) (*kube.Kube
 
 	kubeConnInfo := kube.KubeConnectionInfo{
 		APIEndpoint:   *cluster.Endpoint,
-		CACertificate: util.Base64Encode(string(ca)),
-		EKSToken:      util.Base64Encode(token.Token),
+		CACertificate: string(ca),
+		EKSToken:      token.Token,
 	}
 
 	return &kubeConnInfo, nil
