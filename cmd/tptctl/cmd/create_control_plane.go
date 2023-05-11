@@ -189,42 +189,18 @@ var CreateControlPlaneCmd = &cobra.Command{
 		var clusterInstance v0.ClusterInstance
 		switch controlPlane.InfraProvider {
 		case threeport.ControlPlaneInfraProviderKind:
-			caCert, err := util.Base64Decode(kubeConnectionInfo.CACertificate)
-			if err != nil {
-				cli.Error("failed to decode kind cluster CA certificate", err)
-				os.Exit(1)
-			}
-			cert, err := util.Base64Decode(kubeConnectionInfo.Certificate)
-			if err != nil {
-				cli.Error("failed to decode kind cluster certificate", err)
-				os.Exit(1)
-			}
-			key, err := util.Base64Decode(kubeConnectionInfo.Key)
-			if err != nil {
-				cli.Error("failed to decode kind cluster key", err)
-				os.Exit(1)
-			}
 			clusterInstance = v0.ClusterInstance{
 				Instance: v0.Instance{
 					Name: &clusterInstName,
 				},
 				ThreeportControlPlaneCluster: &controlPlaneCluster,
 				APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
-				CACertificate:                &caCert,
-				Certificate:                  &cert,
-				Key:                          &key,
+				CACertificate:                &kubeConnectionInfo.CACertificate,
+				Certificate:                  &kubeConnectionInfo.Certificate,
+				Key:                          &kubeConnectionInfo.Key,
 				DefaultCluster:               &defaultCluster,
 			}
 		case threeport.ControlPlaneInfraProviderEKS:
-			caCert, err := util.Base64Decode(kubeConnectionInfo.CACertificate)
-			if err != nil {
-				cli.Error("failed to decode EKS cluster CA certificate", err)
-				os.Exit(1)
-			}
-			eksToken, err := util.Base64Decode(kubeConnectionInfo.EKSToken)
-			if err != nil {
-				cli.Error("failed to decode EKS cluster token", err)
-			}
 			clusterInstance = v0.ClusterInstance{
 				Instance: v0.Instance{
 					Name: &clusterInstName,
@@ -418,7 +394,12 @@ var CreateControlPlaneCmd = &cobra.Command{
 		}
 
 		// get threeport API client
-		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
+		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
+		if err != nil {
+			cli.Error("failed to get threeport certificates from config", err)
+			os.Exit(1)
+		}
+		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		if err != nil {
 			cli.Error("failed to create http client", err)
 			os.Exit(1)

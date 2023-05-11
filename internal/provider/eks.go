@@ -17,7 +17,6 @@ import (
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/threeport"
-	"github.com/threeport/threeport/internal/util"
 )
 
 type ControlPlaneInfraEKS struct {
@@ -198,8 +197,8 @@ func getEKSConnectionInfo(awsConfig *aws.Config, clusterName string) (*kube.Kube
 
 	kubeConnInfo := kube.KubeConnectionInfo{
 		APIEndpoint:   *cluster.Endpoint,
-		CACertificate: util.Base64Encode(string(ca)),
-		EKSToken:      util.Base64Encode(token.Token),
+		CACertificate: string(ca),
+		EKSToken:      token.Token,
 	}
 
 	return &kubeConnInfo, nil
