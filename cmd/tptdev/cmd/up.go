@@ -84,7 +84,7 @@ var upCmd = &cobra.Command{
 		newThreeportInstance := &config.Instance{
 			Name:      createThreeportDevName,
 			Provider:  "kind",
-			APIServer: fmt.Sprintf("https://%s:%d", threeport.ThreeportLocalAPIEndpoint, threeportLocalAPIPort),
+			APIServer: fmt.Sprintf("%s:%d", threeport.ThreeportLocalAPIEndpoint, threeportLocalAPIPort),
 		}
 
 		// create kind cluster
