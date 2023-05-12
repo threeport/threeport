@@ -12,6 +12,7 @@ import (
 
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/threeport"
+	"github.com/threeport/threeport/internal/tptdev"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
@@ -66,10 +67,15 @@ func TestWorkloadE2E(t *testing.T) {
 			authEnabled = false
 		}
 
-		// configure http client for calls to threeport API
-		apiClient, err := client.GetHTTPClient(authEnabled, "", "", "")
+		// get threeport config and configure http client for calls to threeport API
+		threeportConfig, err := config.GetThreeportConfig()
+		assert.Nil(err, "should have no error getting threeport config")
+		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForInstance(tptdev.DefaultInstanceName)
+		assert.Nil(err, "should have no error getting credentials for threeport API")
+		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		assert.Nil(err, "should have no error creating http client")
 
+		// create test workload definition
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			apiClient,
 			apiAddr(),
