@@ -35,6 +35,13 @@ func (i *ControlPlaneInfraEKS) Create(providerConfigDir string) (*kube.KubeConne
 	resourceConfig.Name = ThreeportClusterName(i.ThreeportInstanceName)
 	resourceConfig.AWSAccountID = i.AWSAccountID
 	resourceConfig.InstanceTypes = []string{"t2.medium"}
+	resourceConfig.AvailabilityZones = []resource.AvailabilityZone{
+		{
+			Zone:              "us-east-2a",
+			PrivateSubnetCIDR: "10.0.0.0/22",
+			PublicSubnetCIDR:  "10.0.4.0/22",
+		},
+	}
 	resourceConfig.InitialNodes = int32(2)
 	resourceConfig.MinNodes = int32(2)
 	resourceConfig.MaxNodes = int32(6)
