@@ -127,9 +127,7 @@ func GenerateCertificate(
 		"threeport-api-server.threeport-control-plane.svc.cluster",
 		"threeport-api-server.threeport-control-plane.svc.cluster.local",
 	}
-	for _, altName := range altNames {
-		dnsNames = append(dnsNames, altName)
-	}
+	dnsNames = append(dnsNames, altNames...)
 	cert := &x509.Certificate{
 		SerialNumber: randomNumber,
 		URIs:         []*url.URL{{Scheme: "https", Host: "localhost"}},
