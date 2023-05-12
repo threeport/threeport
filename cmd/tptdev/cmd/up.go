@@ -206,6 +206,23 @@ var upCmd = &cobra.Command{
 				cli.Error("failed to get threeport certificates from config", err)
 				os.Exit(1)
 			}
+			// install the threeport API TLS assets
+			if err := threeport.InstallThreeportAPITLS(
+				dynamicKubeClient,
+				mapper,
+				authConfig,
+				threeport.ThreeportLocalAPIEndpoint,
+			); err != nil {
+				// print the error when it happens and then again post-deletion
+				cli.Error("failed to install threeport API TLS assets", err)
+				// delete control plane cluster
+				if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
+					cli.Error("failed to delete control plane infra", err)
+					cli.Warning("you may have dangling cluster infra resources still running")
+				}
+				cli.Error("failed to install threeport API TLS assets", err)
+				os.Exit(1)
+			}
 		}
 		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		if err != nil {
