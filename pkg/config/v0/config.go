@@ -107,14 +107,15 @@ func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
 	return "", errors.New("current instance not found when retrieving threeport API endpoint")
 }
 
-// GetThreeportCertificates returns the CA certificate, client certificate, and client private key for the current instance.
-func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clientPrivateKey string, err error) {
+// GetThreeportCertificates returns the CA certificate, client certificate, and
+// client private key for a named threeport instance.
+func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName string) (caCert, clientCert, clientPrivateKey string, err error) {
 	for i, instance := range cfg.Instances {
-		if instance.Name == cfg.CurrentInstance {
+		if instance.Name == instanceName {
 			caCert = cfg.Instances[i].CACert
 		}
 		for j, credential := range instance.Credentials {
-			if credential.Name == cfg.CurrentInstance {
+			if credential.Name == instanceName {
 				clientCert = cfg.Instances[i].Credentials[j].ClientCert
 				clientPrivateKey = cfg.Instances[i].Credentials[j].ClientKey
 
@@ -138,7 +139,15 @@ func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clie
 		}
 	}
 
-	return "", "", "", errors.New("could not load credentials")
+	return "", "", "", errors.New(
+		fmt.Sprintf("could not find threeport instance name %s in threeport config", instanceName),
+	)
+}
+
+// GetThreeportCertificates returns the CA certificate, client certificate, and
+// client private key for the current instance.
+func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clientPrivateKey string, err error) {
+	return cfg.GetThreeportCertificatesForInstance(cfg.CurrentInstance)
 }
 
 func InitConfig(cfgFile, providerConfigDir string) {
