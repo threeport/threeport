@@ -55,6 +55,7 @@ func (i *ControlPlaneInfraEKS) Create(providerConfigDir string) (*kube.KubeConne
 		Namespace: threeport.StorageManagerServiceAccountNamespace,
 	}
 	resourceConfig.StorageManagementServiceAccount = storageManagementSvcAcct
+	resourceConfig.Tags = map[string]string{"ProvisionedBy": "tptctl"}
 
 	// create an AWS config to connect to AWS API
 	awsConfig, err := resource.LoadAWSConfig(
