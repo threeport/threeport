@@ -51,7 +51,7 @@ endif
 
 #dev-up: @ Run a local development environment
 dev-up: build-tptdev
-	./bin/tptdev up
+	./bin/tptdev up --auth-enabled=true
 
 #dev-down: @ Delete the local development environment
 dev-down: build-tptdev
