@@ -17,7 +17,6 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/threeport"
-	"github.com/threeport/threeport/internal/util"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
@@ -103,17 +102,13 @@ var DeleteControlPlaneCmd = &cobra.Command{
 			dynamicKubeClient, mapper, err = kube.GetClient(clusterInstance, false)
 			if err != nil {
 				if kubeerrors.IsUnauthorized(err) {
-					// refresh token
+					// refresh token, save to cluster instance and get kube client
 					kubeConn, err := controlPlaneInfra.(*provider.ControlPlaneInfraEKS).RefreshConnection()
 					if err != nil {
 						cli.Error("failed to refresh token to connect to EKS cluster", err)
 						os.Exit(1)
 					}
-					eksToken, err := util.Base64Decode(kubeConn.EKSToken)
-					if err != nil {
-						cli.Error("failed to decode EKS cluster token", err)
-					}
-					clusterInstance.EKSToken = &eksToken
+					clusterInstance.EKSToken = &kubeConn.EKSToken
 					updatedClusterInst, err := client.UpdateClusterInstance(
 						apiClient,
 						instanceConfig.APIServer,
@@ -135,7 +130,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 
 			// delete threeport API service to remove load balancer
 			if err := threeport.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
-				cli.Error("failed delete threeport API service", err)
+				cli.Error("failed to delete threeport API service", err)
 				os.Exit(1)
 			}
 		}
