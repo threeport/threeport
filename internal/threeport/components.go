@@ -92,7 +92,7 @@ func InstallThreeportAPI(
 	apiVols, apiVolMounts := getAPIVolumes(devEnvironment, authConfig)
 	apiServiceType := getAPIServiceType(infraProvider)
 	apiServiceAnnotations := getAPIServiceAnnotations(infraProvider)
-	apiServicePortName, apiServicePort := getAPIServicePort(infraProvider)
+	apiServicePortName, apiServicePort := getAPIServicePort(infraProvider, authConfig)
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -832,9 +832,13 @@ func getAPIServiceAnnotations(infraProvider string) map[string]interface{} {
 }
 
 // getAPIServicePort returns threeport API's service port based on infra
-// provider.
-func getAPIServicePort(infraProvider string) (string, int32) {
+// provider.  For kind returns 80 or 443 based on whether authentication is
+// enabled.
+func getAPIServicePort(infraProvider string, authConfig *auth.AuthConfig) (string, int32) {
 	if infraProvider == "kind" {
+		if authConfig != nil {
+			return "https", 443
+		}
 		return "http", 80
 	}
 
