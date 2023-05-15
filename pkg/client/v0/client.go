@@ -11,16 +11,18 @@ import (
 	"path/filepath"
 )
 
-// GetHTTPClient returns an HTTP client with TLS configuration
-// when authEnabled is true, and an HTTP client without TLS
-// when authEnabled is false.
+// GetHTTPClient returns an HTTP client with TLS configuration when authEnabled
+// is true, and an HTTP client without TLS when authEnabled is false.  If used
+// by a workload in a runtime environment, the values for the TLS assets should
+// be empty strings.  In that case they will be read from disk (from a mounted
+// secret).  If used by a command line tool, the TLS assets should be obtained
+// from the threeport config prior to calling this function and then provied.
 func GetHTTPClient(
 	authEnabled bool,
 	ca string,
 	clientCertificate string,
 	clientPrivateKey string,
 ) (*http.Client, error) {
-
 	if !authEnabled {
 		return &http.Client{}, nil
 	}
@@ -34,9 +36,11 @@ func GetHTTPClient(
 	var rootCA string
 	var cert tls.Certificate
 
-	// load certificates from ~/.threeport or /etc/threeport
+	// get TLS asset values
+	// first check to see if they were provided and use those values if they were
+	// (for command line usage)
+	// then check the filesystem at the expected location (for workload usage)
 	if ca != "" && clientCertificate != "" && clientPrivateKey != "" {
-
 		// load client certificate and private key
 		loadedCert, err := tls.X509KeyPair([]byte(clientCertificate), []byte(clientPrivateKey))
 		if err != nil {
@@ -48,8 +52,7 @@ func GetHTTPClient(
 		rootCA = ca
 
 	} else if errThreeportCert == nil && errThreeportCA == nil {
-
-		// Load from /etc/threeport directory
+		// load from /etc/threeport directory
 		certFile := filepath.Join(configDir, "cert/tls.crt")
 		keyFile := filepath.Join(configDir, "cert/tls.key")
 		caFilePath := filepath.Join(configDir, "ca/tls.crt")

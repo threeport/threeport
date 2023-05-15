@@ -109,39 +109,54 @@ func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
 
 // GetThreeportCertificates returns the CA certificate, client certificate, and
 // client private key for a named threeport instance.
-func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName string) (caCert, clientCert, clientPrivateKey string, err error) {
-	for i, instance := range cfg.Instances {
-		if instance.Name == instanceName {
-			caCert = cfg.Instances[i].CACert
-		}
-		for j, credential := range instance.Credentials {
-			if credential.Name == instanceName {
-				clientCert = cfg.Instances[i].Credentials[j].ClientCert
-				clientPrivateKey = cfg.Instances[i].Credentials[j].ClientKey
-
-				caCert, err := util.Base64Decode(caCert)
-				if err != nil {
-					return "", "", "", fmt.Errorf("failed to decode CA certificate: %w", err)
-				}
-
-				clientCert, err := util.Base64Decode(clientCert)
-				if err != nil {
-					return "", "", "", fmt.Errorf("failed to decode client certificate: %w", err)
-				}
-
-				clientPrivateKey, err := util.Base64Decode(clientPrivateKey)
-				if err != nil {
-					return "", "", "", fmt.Errorf("failed to decode client private key: %w", err)
-				}
-
-				return caCert, clientCert, clientPrivateKey, nil
-			}
+func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName string) (string, string, string, error) {
+	// find instance
+	var instance Instance
+	instanceFound := false
+	for _, inst := range cfg.Instances {
+		if inst.Name == instanceName {
+			instance = inst
+			instanceFound = true
+			break
 		}
 	}
+	if !instanceFound {
+		return "", "", "", errors.New(
+			fmt.Sprintf("could not find threeport instance name %s in threeport config", instanceName),
+		)
+	}
 
-	return "", "", "", errors.New(
-		fmt.Sprintf("could not find threeport instance name %s in threeport config", instanceName),
-	)
+	// fetch certs from instance config
+	caCert, err := util.Base64Decode(instance.CACert)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to decode CA certificate: %w", err)
+	}
+	var clientCert string
+	var clientPrivateKey string
+	credsFound := false
+	for _, credential := range instance.Credentials {
+		if credential.Name == instanceName {
+			cert, err := util.Base64Decode(credential.ClientCert)
+			if err != nil {
+				return "", "", "", fmt.Errorf("failed to decode client certificate: %w", err)
+			}
+			key, err := util.Base64Decode(credential.ClientKey)
+			if err != nil {
+				return "", "", "", fmt.Errorf("failed to decode client private key: %w", err)
+			}
+			clientCert = cert
+			clientPrivateKey = key
+			credsFound = true
+			break
+		}
+	}
+	if !credsFound {
+		return "", "", "", errors.New(
+			fmt.Sprintf("could not find credentials for instance name %s in threeport config", instanceName),
+		)
+	}
+
+	return caCert, clientCert, clientPrivateKey, nil
 }
 
 // GetThreeportCertificates returns the CA certificate, client certificate, and
