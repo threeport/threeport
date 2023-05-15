@@ -444,7 +444,7 @@ func init() {
 	)
 	CreateControlPlaneCmd.Flags().BoolVar(
 		&authEnabled,
-		"auth-enabled", true, "Enable client certificate authentication (default is true)",
+		"auth-enabled", true, "Enable client certificate authentication. Can only be disabled when using kind provider.",
 	)
 	CreateControlPlaneCmd.Flags().StringVar(
 		&createRootDomain,
@@ -468,7 +468,7 @@ func init() {
 	)
 	CreateControlPlaneCmd.Flags().IntVar(
 		&threeportLocalAPIPort,
-		"threeport-api-port", 443, "Local port to bind threeport APIServer to. Only applies to kind provider. (default is 443)")
+		"threeport-api-port", 443, "Local port to bind threeport APIServer to. Only applies to kind provider.")
 	CreateControlPlaneCmd.Flags().IntVar(
 		&numWorkerNodes,
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy. Only applies to kind provider. (default is 0)")
@@ -494,6 +494,14 @@ func validateCreateControlPlaneFlags(infraProvider, createRootDomain, createProv
 		)
 	}
 
+	// ensure client cert auth is used on remote installations
+	if infraProvider != threeport.ControlPlaneInfraProviderKind && !authEnabled {
+		return errors.New(
+			"cannot turn off client certificate authentication unless using the kind provider",
+		)
+	}
+
+	// ensure that AWS account ID is provided if using EKS provider
 	if infraProvider == threeport.ControlPlaneInfraProviderEKS && createProviderAccountID == "" {
 		return errors.New(
 			"your AWS account ID must be provided if deploying using the eks provider",
