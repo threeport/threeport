@@ -246,23 +246,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// install the threeport control plane system services
-		if err := threeport.InstallThreeportSystemServices(
-			dynamicKubeClient,
-			mapper,
-			provider.ThreeportClusterName(createThreeportInstanceName),
-		); err != nil {
-			// print the error when it happens and then again post-deletion
-			cli.Error("failed to install threeport control plane system services", err)
-			// delete control plane cluster
-			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
-				cli.Error("failed to delete control plane infra", err)
-				cli.Warning("you may have dangling cluster infra resources still running")
-			}
-			cli.Error("failed to install threeport control plane system services", err)
-			os.Exit(1)
-		}
-
 		// install the threeport control plane dependencies
 		if err := threeport.InstallThreeportControlPlaneDependencies(
 			dynamicKubeClient,
@@ -325,55 +308,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 		if err != nil {
 			cli.Error("failed to refresh threeport config", err)
 		}
-
-		// install the threeport API TLS assets
-		if err := threeport.InstallThreeportAPITLS(
-			dynamicKubeClient,
-			mapper,
-			authConfig,
-			threeportAPIEndpoint,
-		); err != nil {
-			// print the error when it happens and then again post-deletion
-			cli.Error("failed to install threeport API TLS assets", err)
-			// delete control plane cluster
-			if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
-				cli.Error("failed to delete control plane infra", err)
-				cli.Warning("you may have dangling cluster infra resources still running")
-			}
-			cli.Error("failed to install threeport API TLS assets", err)
-			os.Exit(1)
-		}
-
-		// get threeport API client
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
-		if err != nil {
-			cli.Error("failed to get threeport certificates from config", err)
-			os.Exit(1)
-		}
-		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
-		if err != nil {
-			cli.Error("failed to create http client", err)
-			os.Exit(1)
-
-		// get the threeport API's endpoint
-		if infraProvider == "eks" {
-			tpapiEndpoint, err := threeport.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
-			if err != nil {
-				// print the error when it happens and then again post-deletion
-				cli.Error("failed to get threeport API's public endpoint: %w", err)
-				if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
-					cli.Error("failed to delete control plane infra", err)
-					cli.Warning("you may have dangling cluster infra resources still running")
-				}
-				cli.Error("failed to get threeport API's public endpoint: %w", err)
-				os.Exit(1)
-			}
-			threeportAPIEndpoint = tpapiEndpoint
-			newThreeportInstance.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
-		}
-
-		// update threeport config
-		configInternal.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, createThreeportInstanceName, newThreeportInstance)
 
 		// install the threeport API TLS assets
 		if err := threeport.InstallThreeportAPITLS(
