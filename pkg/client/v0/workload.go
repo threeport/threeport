@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client_v0 "github.com/threeport/threeport/pkg/client"
 )
 
 // CreateWorkloadResourceDefinitions creates a new set of workload resource
@@ -17,7 +17,7 @@ func CreateWorkloadResourceDefinitions(
 	apiAddr string,
 	workloadResourceDefinitions *[]v0.WorkloadResourceDefinition,
 ) (*[]v0.WorkloadResourceDefinition, error) {
-	jsonWorkloadResourceDefinitions, err := client_v0.MarshalObject(workloadResourceDefinitions)
+	jsonWorkloadResourceDefinitions, err := util.MarshalObject(workloadResourceDefinitions)
 	if err != nil {
 		return workloadResourceDefinitions, fmt.Errorf("failed to marshal provided objects to JSON: %w", err)
 	}

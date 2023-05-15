@@ -10,10 +10,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/cli"
-	configInternal "github.com/threeport/threeport/internal/config"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/provider"
 	"github.com/threeport/threeport/internal/tptdev"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 var (
@@ -42,16 +42,23 @@ var downCmd = &cobra.Command{
 			ThreeportInstanceName: deleteThreeportDevName,
 			KubeconfigPath:        deleteKubeconfig,
 		}
-		if err := controlPlaneInfra.Delete(); err != nil {
+		providerConfigDir, err := config.DefaultProviderConfigDir()
+		if err != nil {
+			cli.Error("failed to get default provider config directory", err)
+			os.Exit(1)
+		}
+		if err := controlPlaneInfra.Delete(providerConfigDir); err != nil {
 			cli.Error("failed to delete control plane infra", err)
+			os.Exit(1)
 		}
 
-		threeportConfig, err := configInternal.GetThreeportConfig()
+		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
+			os.Exit(1)
 		}
 
-		configInternal.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportDevName)
+		config.DeleteThreeportConfigInstance(threeportConfig, deleteThreeportDevName)
 		cli.Complete(fmt.Sprintf("threeport dev instance %s deleted", deleteThreeportDevName))
 	},
 }

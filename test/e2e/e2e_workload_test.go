@@ -7,16 +7,15 @@ import (
 	"testing"
 	"time"
 
-	clientInternal "github.com/threeport/threeport/internal/client"
-	configInternal "github.com/threeport/threeport/internal/config"
-
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/threeport"
+	"github.com/threeport/threeport/internal/tptdev"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 // testWorkload represents a test case for this e2e test.
@@ -63,15 +62,20 @@ func TestWorkloadE2E(t *testing.T) {
 			authEnabled = true
 
 			// initialize config so we can pull credentials from it
-			configInternal.InitConfig("", "")
+			config.InitConfig("", "")
 		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
 			authEnabled = false
 		}
 
-		// configure http client for calls to threeport API
-		apiClient, err := clientInternal.GetHTTPClient(authEnabled)
+		// get threeport config and configure http client for calls to threeport API
+		threeportConfig, err := config.GetThreeportConfig()
+		assert.Nil(err, "should have no error getting threeport config")
+		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForInstance(tptdev.DefaultInstanceName)
+		assert.Nil(err, "should have no error getting credentials for threeport API")
+		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		assert.Nil(err, "should have no error creating http client")
 
+		// create test workload definition
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			apiClient,
 			apiAddr(),

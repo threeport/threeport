@@ -7501,14 +7501,22 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "APIEndpoint",
-                "Certificate",
+                "CACertificate",
                 "ClusterDefinitionID",
-                "Key",
                 "Name"
             ],
             "properties": {
                 "APIEndpoint": {
                     "description": "The network endpoint at which to reach the kube-api.",
+                    "type": "string"
+                },
+                "AWSConfigEnv": {
+                    "type": "boolean"
+                },
+                "AWSConfigProfile": {
+                    "type": "string"
+                },
+                "AWSRegion": {
                     "type": "string"
                 },
                 "CACertificate": {
@@ -7529,6 +7537,10 @@ const docTemplate = `{
                 "DefaultCluster": {
                     "description": "If true the cluster instance to use for deployments if not otherwise\nspecified.  Can only have one per account.",
                     "type": "boolean"
+                },
+                "EKSToken": {
+                    "description": "TODO: pull these EKS and AWS fields into related AWS tables\nEKSToken is the token used for authentication by AWS EKS clusters.",
+                    "type": "string"
                 },
                 "Key": {
                     "description": "The client key to use for auth to the kube-api.",
@@ -7901,56 +7913,56 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
                 "User",
                 "Company",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
                 "ClusterDefinition",
                 "ClusterInstance",
                 "Profile",
                 "Tier",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance"
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
                 "ObjectTypeUser",
                 "ObjectTypeCompany",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeClusterDefinition",
                 "ObjectTypeClusterInstance",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance"
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance"
             ]
         },
         "v0.Profile": {

@@ -46,7 +46,7 @@ func GetResponse(
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed execute call to threeport API: %w", err)
+		return nil, fmt.Errorf("failed to execute call to threeport API: %w", err)
 	}
 	defer resp.Body.Close()
 

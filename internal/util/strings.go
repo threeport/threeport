@@ -38,10 +38,12 @@ func RandomString(length int) string {
 	return string(bytes)
 }
 
+// Base64Encode base64 encodes any string.
 func Base64Encode(str string) string {
 	return base64.StdEncoding.EncodeToString([]byte(str))
 }
 
+// Base64Decode base64 decodes any string.
 func Base64Decode(str string) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {

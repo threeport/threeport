@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -109,7 +109,7 @@ func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile
 
 // CreateProfile creates a new profile.
 func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) (*v0.Profile, error) {
-	jsonProfile, err := client.MarshalObject(profile)
+	jsonProfile, err := util.MarshalObject(profile)
 	if err != nil {
 		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -141,12 +141,13 @@ func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 
 // UpdateProfile updates a profile.
 func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) (*v0.Profile, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	profileID := *profile.ID
 	profile.ID = nil
+	profile.CreatedAt = nil
+	profile.UpdatedAt = nil
 
-	jsonProfile, err := client.MarshalObject(profile)
+	jsonProfile, err := util.MarshalObject(profile)
 	if err != nil {
 		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -302,7 +303,7 @@ func GetTierByName(apiClient *http.Client, apiAddr, name string) (*v0.Tier, erro
 
 // CreateTier creates a new tier.
 func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier, error) {
-	jsonTier, err := client.MarshalObject(tier)
+	jsonTier, err := util.MarshalObject(tier)
 	if err != nil {
 		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -334,12 +335,13 @@ func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 
 // UpdateTier updates a tier.
 func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	tierID := *tier.ID
 	tier.ID = nil
+	tier.CreatedAt = nil
+	tier.UpdatedAt = nil
 
-	jsonTier, err := client.MarshalObject(tier)
+	jsonTier, err := util.MarshalObject(tier)
 	if err != nil {
 		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}

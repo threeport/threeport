@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -109,7 +109,7 @@ func GetLogBackendByName(apiClient *http.Client, apiAddr, name string) (*v0.LogB
 
 // CreateLogBackend creates a new log backend.
 func CreateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.LogBackend) (*v0.LogBackend, error) {
-	jsonLogBackend, err := client.MarshalObject(logBackend)
+	jsonLogBackend, err := util.MarshalObject(logBackend)
 	if err != nil {
 		return logBackend, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -141,12 +141,13 @@ func CreateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 
 // UpdateLogBackend updates a log backend.
 func UpdateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.LogBackend) (*v0.LogBackend, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	logBackendID := *logBackend.ID
 	logBackend.ID = nil
+	logBackend.CreatedAt = nil
+	logBackend.UpdatedAt = nil
 
-	jsonLogBackend, err := client.MarshalObject(logBackend)
+	jsonLogBackend, err := util.MarshalObject(logBackend)
 	if err != nil {
 		return logBackend, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -302,7 +303,7 @@ func GetLogStorageDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 // CreateLogStorageDefinition creates a new log storage definition.
 func CreateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStorageDefinition *v0.LogStorageDefinition) (*v0.LogStorageDefinition, error) {
-	jsonLogStorageDefinition, err := client.MarshalObject(logStorageDefinition)
+	jsonLogStorageDefinition, err := util.MarshalObject(logStorageDefinition)
 	if err != nil {
 		return logStorageDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -334,12 +335,13 @@ func CreateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 
 // UpdateLogStorageDefinition updates a log storage definition.
 func UpdateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStorageDefinition *v0.LogStorageDefinition) (*v0.LogStorageDefinition, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	logStorageDefinitionID := *logStorageDefinition.ID
 	logStorageDefinition.ID = nil
+	logStorageDefinition.CreatedAt = nil
+	logStorageDefinition.UpdatedAt = nil
 
-	jsonLogStorageDefinition, err := client.MarshalObject(logStorageDefinition)
+	jsonLogStorageDefinition, err := util.MarshalObject(logStorageDefinition)
 	if err != nil {
 		return logStorageDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -495,7 +497,7 @@ func GetLogStorageInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 // CreateLogStorageInstance creates a new log storage instance.
 func CreateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorageInstance *v0.LogStorageInstance) (*v0.LogStorageInstance, error) {
-	jsonLogStorageInstance, err := client.MarshalObject(logStorageInstance)
+	jsonLogStorageInstance, err := util.MarshalObject(logStorageInstance)
 	if err != nil {
 		return logStorageInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -527,12 +529,13 @@ func CreateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 
 // UpdateLogStorageInstance updates a log storage instance.
 func UpdateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorageInstance *v0.LogStorageInstance) (*v0.LogStorageInstance, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	logStorageInstanceID := *logStorageInstance.ID
 	logStorageInstance.ID = nil
+	logStorageInstance.CreatedAt = nil
+	logStorageInstance.UpdatedAt = nil
 
-	jsonLogStorageInstance, err := client.MarshalObject(logStorageInstance)
+	jsonLogStorageInstance, err := util.MarshalObject(logStorageInstance)
 	if err != nil {
 		return logStorageInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}

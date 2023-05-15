@@ -20,6 +20,7 @@ const (
 	ThreeportImageRepo               = "ghcr.io/threeport"
 	ThreeportAPIImage                = "threeport-rest-api"
 	ThreeportWorkloadControllerImage = "threeport-workload-controller"
+	ThreeportAPIServiceResourceName  = "threeport-api-server"
 	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
 	ThreeportLocalAPIEndpoint        = "localhost"
 	ThreeportLocalAPIPort            = "443"
@@ -43,6 +44,7 @@ func InstallThreeportControlPlaneComponents(
 	customThreeportImageRepo string,
 	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
+	infraProvider string,
 ) error {
 	// install the API
 	if err := InstallThreeportAPI(
@@ -53,6 +55,7 @@ func InstallThreeportControlPlaneComponents(
 		customThreeportImageRepo,
 		customThreeportImageTag,
 		authConfig,
+		infraProvider,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport API server: %w", err)
 	}
@@ -82,28 +85,14 @@ func InstallThreeportAPI(
 	customThreeportImageRepo string,
 	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
+	infraProvider string,
 ) error {
 	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
 	apiArgs := getAPIArgs(devEnvironment, authConfig)
 	apiVols, apiVolMounts := getAPIVolumes(devEnvironment, authConfig)
-
-	if authConfig != nil {
-		// generate server certificate
-		serverCertificate, serverPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
-		if err != nil {
-			return fmt.Errorf("failed to generate server certificate and private key: %w", err)
-		}
-
-		var apiCa = getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
-		if _, err := kube.CreateResource(apiCa, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret: %w", err)
-		}
-
-		var apiCert = getTLSSecret("api-cert", serverCertificate, serverPrivateKey)
-		if _, err := kube.CreateResource(apiCert, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret: %w", err)
-		}
-	}
+	apiServiceType := getAPIServiceType(infraProvider)
+	apiServiceAnnotations := getAPIServiceAnnotations(infraProvider)
+	apiServicePortName, apiServicePort := getAPIServicePort(infraProvider, authConfig)
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -228,28 +217,61 @@ NATS_PORT=4222
 			"apiVersion": "v1",
 			"kind":       "Service",
 			"metadata": map[string]interface{}{
-				"name":      "threeport-api-server",
+				"name":      ThreeportAPIServiceResourceName,
 				"namespace": ControlPlaneNamespace,
 			},
+			"annotations": apiServiceAnnotations,
 			"spec": map[string]interface{}{
 				"selector": map[string]interface{}{
 					"app.kubernetes.io/name": "threeport-api-server",
 				},
-				"type": "NodePort",
 				"ports": []interface{}{
 					map[string]interface{}{
-						"name":       "http",
-						"port":       1323,
+						"name":       apiServicePortName,
+						"port":       apiServicePort,
 						"protocol":   "TCP",
 						"targetPort": 1323,
 						"nodePort":   30000,
 					},
 				},
+				"type": apiServiceType,
 			},
 		},
 	}
 	if _, err := kube.CreateResource(apiService, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create API server service: %w", err)
+	}
+
+	return nil
+}
+
+// InstallThreeportAPITLS installs TLS assets for threeport API.
+func InstallThreeportAPITLS(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	authConfig *auth.AuthConfig,
+	serverAltName string,
+) error {
+	if authConfig != nil {
+		// generate server certificate
+		serverCertificate, serverPrivateKey, err := auth.GenerateCertificate(
+			authConfig.CAConfig,
+			&authConfig.CAPrivateKey,
+			serverAltName,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to generate server certificate and private key: %w", err)
+		}
+
+		var apiCa = getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
+		if _, err := kube.CreateResource(apiCa, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
+
+		var apiCert = getTLSSecret("api-cert", serverCertificate, serverPrivateKey)
+		if _, err := kube.CreateResource(apiCert, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret: %w", err)
+		}
 	}
 
 	return nil
@@ -298,7 +320,7 @@ func InstallThreeportControllers(
 			},
 			"type": "Opaque",
 			"stringData": map[string]interface{}{
-				"API_SERVER":      "threeport-api-server:1323",
+				"API_SERVER":      "threeport-api-server",
 				"MSG_BROKER_HOST": "nats-js",
 				"MSG_BROKER_PORT": "4222",
 			},
@@ -359,8 +381,32 @@ func InstallThreeportControllers(
 	return nil
 }
 
+// UnInstallThreeportControlPlaneComponents removes any threeport components
+// that are tied to infrastructure.  It removes the threeport API's service
+// resource that removes the load balancer.  The load balancer must be removed
+// prior to deleting infra.
+func UnInstallThreeportControlPlaneComponents(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// get the service resource
+	apiService, err := getThreeportAPIService(kubeClient, *mapper)
+	if err != nil {
+		return fmt.Errorf("failed to get threeport API service resource: %w", err)
+	}
+
+	// delete the service
+	if err := kube.DeleteResource(apiService, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to delete the threeport API service resource: %w", err)
+	}
+
+	return nil
+}
+
 // WaitForThreeportAPI waits for the threeport API to respond to a request.
 func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
+	var waitError error
+
 	attempts := 0
 	maxAttempts := 30
 	waitSeconds := 10
@@ -374,6 +420,7 @@ func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
 			http.StatusOK,
 		)
 		if err != nil {
+			waitError = err
 			time.Sleep(time.Second * time.Duration(waitSeconds))
 			attempts += 1
 			continue
@@ -382,13 +429,112 @@ func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
 		break
 	}
 	if !apiReady {
-		return fmt.Errorf(
-			"timed out waiting for threeport API to become ready: %w",
-			errors.New(fmt.Sprintf("%d seconds elapsed without 200 response from threeport API", maxAttempts*waitSeconds)),
+		msg := fmt.Sprintf(
+			"timed out after %d seconds waiting for 200 response from threeport API",
+			maxAttempts*waitSeconds,
 		)
+		return fmt.Errorf("%s: %w", msg, waitError)
 	}
 
 	return nil
+}
+
+// GetThreeportAPIEndpoint retrieves the endpoint given to the threeport API
+// when the external load balancer was provisioned by the infra provider.  It
+// will attempt to retrieve this value several times since the load balancer
+// value may not be available immediately.
+func GetThreeportAPIEndpoint(
+	kubeClient dynamic.Interface,
+	mapper meta.RESTMapper,
+) (string, error) {
+	var apiEndpoint string
+	var getEndpointErr error
+
+	attempts := 0
+	maxAttempts := 12
+	waitSeconds := 5
+	apiEndpointRetrieved := false
+	for attempts < maxAttempts {
+		// get the service resource
+		apiService, err := getThreeportAPIService(kubeClient, mapper)
+		if err != nil {
+			getEndpointErr = err
+			time.Sleep(time.Second * time.Duration(waitSeconds))
+			attempts += 1
+			continue
+		}
+
+		// find the ingress hostname in the service resource
+		status, found, err := unstructured.NestedMap(apiService.Object, "status")
+		if err != nil || !found {
+			getEndpointErr = err
+			time.Sleep(time.Second * time.Duration(waitSeconds))
+			attempts += 1
+			continue
+		}
+
+		loadBalancer, found, err := unstructured.NestedMap(status, "loadBalancer")
+		if err != nil || !found {
+			getEndpointErr = err
+			time.Sleep(time.Second * time.Duration(waitSeconds))
+			attempts += 1
+			continue
+		}
+
+		ingress, found, err := unstructured.NestedSlice(loadBalancer, "ingress")
+		if err != nil || !found || len(ingress) == 0 {
+			getEndpointErr = err
+			time.Sleep(time.Second * time.Duration(waitSeconds))
+			attempts += 1
+			continue
+		}
+
+		firstIngress := ingress[0].(map[string]interface{})
+		apiEndpoint, found, err = unstructured.NestedString(firstIngress, "hostname")
+		if err != nil || !found {
+			getEndpointErr = err
+			time.Sleep(time.Second * time.Duration(waitSeconds))
+			attempts += 1
+			continue
+		}
+		apiEndpointRetrieved = true
+		break
+	}
+
+	if !apiEndpointRetrieved {
+		if getEndpointErr == nil {
+			errors.New("hostname for load balancer not found in threeport API service")
+		}
+		msg := fmt.Sprintf(
+			"timed out after %d seconds trying to retrieve threeport API load balancer endpoint",
+			maxAttempts*waitSeconds,
+		)
+		return apiEndpoint, fmt.Errorf("%s: %w", msg, getEndpointErr)
+	}
+
+	return apiEndpoint, nil
+}
+
+// getThreeportAPIService returns the Kubernetes service resource for the
+// threeport API as an unstructured object.
+func getThreeportAPIService(
+	kubeClient dynamic.Interface,
+	mapper meta.RESTMapper,
+) (*unstructured.Unstructured, error) {
+	apiService, err := kube.GetResource(
+		"",
+		"v1",
+		"Service",
+		ControlPlaneNamespace,
+		ThreeportAPIServiceResourceName,
+		kubeClient,
+		mapper,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to Kubernetes service resource for threeport API: %w", err)
+	}
+
+	return apiService, nil
 }
 
 // getAPIImage returns the proper container image to use for the API.
@@ -661,4 +807,40 @@ func getTLSSecret(name string, certificate string, privateKey string) *unstructu
 	}
 
 	return secret
+}
+
+// getAPIServiceType returns the threeport API's service type based on the infra
+// provider.
+func getAPIServiceType(infraProvider string) string {
+	if infraProvider == "kind" {
+		return "NodePort"
+	}
+
+	return "LoadBalancer"
+}
+
+// getAPIServiceAnnotations returns the threeport API's service annotation based
+// on infra provider to provision the correct load balancer.
+func getAPIServiceAnnotations(infraProvider string) map[string]interface{} {
+	if infraProvider == "eks" {
+		return map[string]interface{}{
+			"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
+		}
+	}
+
+	return map[string]interface{}{}
+}
+
+// getAPIServicePort returns threeport API's service port based on infra
+// provider.  For kind returns 80 or 443 based on whether authentication is
+// enabled.
+func getAPIServicePort(infraProvider string, authConfig *auth.AuthConfig) (string, int32) {
+	if infraProvider == "kind" {
+		if authConfig != nil {
+			return "https", 443
+		}
+		return "http", 80
+	}
+
+	return "https", 443
 }

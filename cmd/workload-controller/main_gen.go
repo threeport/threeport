@@ -16,10 +16,10 @@ import (
 	uuid "github.com/google/uuid"
 	flag "github.com/namsral/flag"
 	natsgo "github.com/nats-io/nats.go"
-	clientInternal "github.com/threeport/threeport/internal/client"
 	version "github.com/threeport/threeport/internal/version"
 	workload "github.com/threeport/threeport/internal/workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller"
 	zap "go.uber.org/zap"
 )
@@ -122,7 +122,7 @@ func main() {
 	var shutdownWait sync.WaitGroup
 
 	// configure http client for calls to threeport API
-	apiClient, err := clientInternal.GetHTTPClient(*authEnabled)
+	apiClient, err := client.GetHTTPClient(*authEnabled, "", "", "")
 	if err != nil {
 		log.Error(err, "failed to create http client")
 		os.Exit(1)

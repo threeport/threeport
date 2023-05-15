@@ -16,7 +16,9 @@ import (
 func InstallThreeportControlPlaneDependencies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	infraProvider string,
 ) error {
+	crdbVolClaimTemplateSpec := getCRDBVolClaimTemplateSpec(infraProvider)
 
 	var namespace = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -750,16 +752,7 @@ lame_duck_duration: 30s
 								"app.kubernetes.io/instance": "crdb",
 							},
 						},
-						"spec": map[string]interface{}{
-							"accessModes": []interface{}{
-								"ReadWriteOnce",
-							},
-							"resources": map[string]interface{}{
-								"requests": map[string]interface{}{
-									"storage": "1Gi",
-								},
-							},
-						},
+						"spec": crdbVolClaimTemplateSpec,
 					},
 				},
 			},
@@ -770,4 +763,25 @@ lame_duck_duration: 30s
 	}
 
 	return nil
+}
+
+// getCRDBVolClaimTemplateSpec returns the spec for the cockroach DB volume
+// claim template based on the infra provider.
+func getCRDBVolClaimTemplateSpec(infraProvider string) map[string]interface{} {
+	volClaimTemplateSpec := map[string]interface{}{
+		"accessModes": []interface{}{
+			"ReadWriteOnce",
+		},
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"storage": "1Gi",
+			},
+		},
+	}
+
+	if infraProvider == "eks" {
+		volClaimTemplateSpec["storageClassName"] = "gp2"
+	}
+
+	return volClaimTemplateSpec
 }

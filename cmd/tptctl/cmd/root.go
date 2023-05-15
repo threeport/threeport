@@ -7,7 +7,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	configInternal "github.com/threeport/threeport/internal/config"
+	"github.com/threeport/threeport/internal/cli"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 var (
@@ -29,6 +30,7 @@ applications that are deployed into the Threeport compute space.`,
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		cli.Error("tptctl root command failed to execute", err)
 		os.Exit(1)
 	}
 }
@@ -42,6 +44,18 @@ func init() {
 	)
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	cobra.OnInitialize(func() {
-		configInternal.InitConfig(cfgFile, providerConfigDir)
+		config.InitConfig(cfgFile, providerConfigDir)
 	})
+	cobra.OnInitialize(providerConfig)
+}
+
+func providerConfig() {
+	if providerConfigDir == "" {
+		providerConf, err := config.DefaultProviderConfigDir()
+		if err != nil {
+			cli.Error("failed to set infra provider config directory", err)
+			os.Exit(1)
+		}
+		providerConfigDir = providerConf
+	}
 }

@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client"
 	"net/http"
 )
 
@@ -109,7 +109,7 @@ func GetUserByName(apiClient *http.Client, apiAddr, name string) (*v0.User, erro
 
 // CreateUser creates a new user.
 func CreateUser(apiClient *http.Client, apiAddr string, user *v0.User) (*v0.User, error) {
-	jsonUser, err := client.MarshalObject(user)
+	jsonUser, err := util.MarshalObject(user)
 	if err != nil {
 		return user, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -141,12 +141,13 @@ func CreateUser(apiClient *http.Client, apiAddr string, user *v0.User) (*v0.User
 
 // UpdateUser updates a user.
 func UpdateUser(apiClient *http.Client, apiAddr string, user *v0.User) (*v0.User, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	userID := *user.ID
 	user.ID = nil
+	user.CreatedAt = nil
+	user.UpdatedAt = nil
 
-	jsonUser, err := client.MarshalObject(user)
+	jsonUser, err := util.MarshalObject(user)
 	if err != nil {
 		return user, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -302,7 +303,7 @@ func GetCompanyByName(apiClient *http.Client, apiAddr, name string) (*v0.Company
 
 // CreateCompany creates a new company.
 func CreateCompany(apiClient *http.Client, apiAddr string, company *v0.Company) (*v0.Company, error) {
-	jsonCompany, err := client.MarshalObject(company)
+	jsonCompany, err := util.MarshalObject(company)
 	if err != nil {
 		return company, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -334,12 +335,13 @@ func CreateCompany(apiClient *http.Client, apiAddr string, company *v0.Company) 
 
 // UpdateCompany updates a company.
 func UpdateCompany(apiClient *http.Client, apiAddr string, company *v0.Company) (*v0.Company, error) {
-	// capture the object ID then remove it from the object since the API will not
-	// allow an update the ID field
+	// capture the object ID then remove fields that cannot be updated in the API
 	companyID := *company.ID
 	company.ID = nil
+	company.CreatedAt = nil
+	company.UpdatedAt = nil
 
-	jsonCompany, err := client.MarshalObject(company)
+	jsonCompany, err := util.MarshalObject(company)
 	if err != nil {
 		return company, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
