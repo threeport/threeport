@@ -30,7 +30,7 @@ applications that are deployed into the Threeport compute space.`,
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		cli.Error("tptctl root command failed to execute", err)
+		cli.Error("", err)
 		os.Exit(1)
 	}
 }
