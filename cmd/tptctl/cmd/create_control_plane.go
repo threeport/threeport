@@ -436,7 +436,7 @@ func init() {
 	)
 	CreateControlPlaneCmd.Flags().StringVar(
 		&awsRegion,
-		"aws-region", "", "AWS region code to install threeport in when using eks provider.",
+		"aws-region", "", "AWS region code to install threeport in when using eks provider. If provided, will take precedence over AWS config profile and environment variables.",
 	)
 	CreateControlPlaneCmd.Flags().BoolVar(
 		&forceOverwriteConfig,
