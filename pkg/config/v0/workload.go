@@ -87,7 +87,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 	// get workload instance by name
 	workloadInstName := defaultWorkloadInstanceName(w.Name)
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, workloadInstName, apiEndpoint)
+	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, workloadInstName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find workload instance with name %s: %w", workloadInstName, err)
 	}
@@ -99,7 +99,7 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	}
 
 	// get workload definition by name
-	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, w.Name, apiEndpoint)
+	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, w.Name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find workload definition with name %s: %w", w.Name, err)
 	}
@@ -143,7 +143,7 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 // Delete deletes a workload definition from the Threeport API.
 func (wd *WorkloadDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, error) {
 	// get workload definition by name
-	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, wd.Name, apiEndpoint)
+	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, wd.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", wd.Name, err)
 	}
@@ -171,8 +171,8 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 	} else {
 		clusterInst, err := client.GetClusterInstanceByName(
 			apiClient,
-			wi.ClusterInstance.Name,
 			apiEndpoint,
+			wi.ClusterInstance.Name,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to cluster instance by name %s: %w", wi.ClusterInstance.Name, err)
@@ -183,8 +183,8 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 	// get workload definition by name
 	workloadDefinition, err := client.GetWorkloadDefinitionByName(
 		apiClient,
-		wi.WorkloadDefinition.Name,
 		apiEndpoint,
+		wi.WorkloadDefinition.Name,
 	)
 	if err != nil {
 		return nil, err
@@ -211,7 +211,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 // Delete deletes a workload instance from the Threeport API.
 func (wd *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadInstance, error) {
 	// get workload instance by name
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, wd.Name, apiEndpoint)
+	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wd.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", wd.Name, err)
 	}

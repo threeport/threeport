@@ -55,6 +55,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
+			os.Exit(1)
 		}
 
 		// check threeport config for exisiting instance
@@ -307,6 +308,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 		threeportConfig, err = config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to refresh threeport config", err)
+			os.Exit(1)
 		}
 
 		// install the threeport API TLS assets

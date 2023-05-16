@@ -26,13 +26,12 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 	Long:         `Create a new workload instance.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		// get threeport config and extract threeport API endpoint
 		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
+			os.Exit(1)
 		}
-
 		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)
@@ -51,6 +50,12 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// get threeport API client
+		authEnabled, err = threeportConfig.GetThreeportAuthEnabled()
+		if err != nil {
+			cli.Error("failed to determine if auth is enabled on threeport API", err)
+			os.Exit(1)
+		}
 		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
 		if err != nil {
 			cli.Error("failed to get threeport certificates from config", err)
@@ -58,7 +63,7 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 		}
 		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		if err != nil {
-			cli.Error("failed to create https client", err)
+			cli.Error("failed to create threeport API client", err)
 			os.Exit(1)
 		}
 
@@ -66,7 +71,7 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 		workloadInstance := workloadInstanceConfig.WorkloadInstance
 		wi, err := workloadInstance.Create(apiClient, apiEndpoint)
 		if err != nil {
-			cli.Error("failed to create workload", err)
+			cli.Error("failed to create workload instance", err)
 			os.Exit(1)
 		}
 

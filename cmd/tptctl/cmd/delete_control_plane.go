@@ -35,6 +35,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
+			os.Exit(1)
 		}
 
 		// check threeport config for exisiting instance
@@ -121,6 +122,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 					dynamicKubeClient, mapper, err = kube.GetClient(updatedClusterInst, false)
 					if err != nil {
 						cli.Error("failed to get a Kubernetes client and mapper with refreshed token", err)
+						os.Exit(1)
 					}
 				} else {
 					cli.Error("failed to get a Kubernetes client and mapper", err)
