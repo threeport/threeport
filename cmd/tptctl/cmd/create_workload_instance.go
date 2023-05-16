@@ -30,6 +30,7 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
+			os.Exit(1)
 		}
 		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
 		if err != nil {
