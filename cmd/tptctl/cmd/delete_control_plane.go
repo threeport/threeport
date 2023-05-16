@@ -73,6 +73,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 		}
 
 		// if provider is EKS we need to delete the threeport API service to
+		// check for existing workload instances that may prevent deletion and
 		// remove the AWS load balancer before deleting the rest of the infra
 		if instanceConfig.Provider == threeport.ControlPlaneInfraProviderEKS {
 			ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
@@ -83,6 +84,24 @@ var DeleteControlPlaneCmd = &cobra.Command{
 			apiClient, err := client.GetHTTPClient(instanceConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey)
 			if err != nil {
 				cli.Error("failed to create http client", err)
+				os.Exit(1)
+			}
+
+			// check for workload instances on non-kind clusters - halt delete if
+			// any are present
+			workloadInstances, err := client.GetWorkloadInstances(
+				apiClient,
+				instanceConfig.APIServer,
+			)
+			if err != nil {
+				cli.Error("failed to retrieve workload instances from threeport API", err)
+				os.Exit(1)
+			}
+			if len(*workloadInstances) > 0 {
+				cli.Error(
+					"found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane",
+					errors.New("one or more workload instances found"),
+				)
 				os.Exit(1)
 			}
 
