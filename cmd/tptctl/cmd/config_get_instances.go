@@ -26,6 +26,7 @@ var ConfigGetInstancesCmd = &cobra.Command{
 		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
+			os.Exit(1)
 		}
 
 		// output table of results
