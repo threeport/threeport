@@ -79,6 +79,16 @@ type Credential struct {
 	ClientKey  string `yaml:"ClientKey"`
 }
 
+// GetAllInstanceNames returns all instance names in a threeport config.
+func (cfg *ThreeportConfig) GetAllInstanceNames() []string {
+	var allInstances []string
+	for _, instance := range cfg.Instances {
+		allInstances = append(allInstances, instance.Name)
+	}
+
+	return allInstances
+}
+
 // CheckThreeportConfigExists checks if a Threeport instance config exists.
 func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceName string, forceOverwriteConfig bool) (bool, error) {
 	// check threeport config for exisiting instance
@@ -163,6 +173,13 @@ func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName str
 // client private key for the current instance.
 func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clientPrivateKey string, err error) {
 	return cfg.GetThreeportCertificatesForInstance(cfg.CurrentInstance)
+}
+
+// SetCurrentInstance updates the threeport config to set CurrentInstance as the
+// provided instance name.
+func (cfg *ThreeportConfig) SetCurrentInstance(instanceName string) {
+	viper.Set("CurrentInstance", instanceName)
+	viper.WriteConfig()
 }
 
 func InitConfig(cfgFile, providerConfigDir string) {
