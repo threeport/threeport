@@ -3,5 +3,5 @@ WorkloadInstance:
   WorkloadDefinition:
     Name: "go-web3-sample-app-def"
   #ClusterInstance:
-  #  Name: "non-default-cluster"
+  #  Name: "dev-0-compute-space-0"
 

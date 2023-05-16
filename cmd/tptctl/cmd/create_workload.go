@@ -53,6 +53,11 @@ and workload instance based on the workload config.`,
 		}
 
 		// get threeport API client
+		authEnabled, err = threeportConfig.GetThreeportAuthEnabled()
+		if err != nil {
+			cli.Error("failed to determine if auth is enabled on threeport API", err)
+			os.Exit(1)
+		}
 		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
 		if err != nil {
 			cli.Error("failed to get threeport certificates from config", err)
