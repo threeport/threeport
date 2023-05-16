@@ -3458,7 +3458,7 @@ func InstallThreeportSystemServices(
 	infraProvider string,
 	clusterName string,
 ) error {
-	if infraProvider == threeport.ControlPlaneInfraProviderEKS {
+	if infraProvider == ControlPlaneInfraProviderEKS {
 		var clusterAutoscalerServiceAcct = &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",
