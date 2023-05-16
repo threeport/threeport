@@ -112,6 +112,7 @@ var upCmd = &cobra.Command{
 		// resources
 		clusterInstName := fmt.Sprintf("%s-compute-space-0", createThreeportDevName)
 		controlPlaneCluster := true
+		defaultCluster := true
 		clusterInstance := v0.ClusterInstance{
 			Instance: v0.Instance{
 				Name: &clusterInstName,
@@ -121,6 +122,7 @@ var upCmd = &cobra.Command{
 			CACertificate:                &kubeConnectionInfo.CACertificate,
 			Certificate:                  &kubeConnectionInfo.Certificate,
 			Key:                          &kubeConnectionInfo.Key,
+			DefaultCluster:               &defaultCluster,
 		}
 
 		// create a client to connect to kind cluster kube API

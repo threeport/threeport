@@ -117,6 +117,18 @@ func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
 	return "", errors.New("current instance not found when retrieving threeport API endpoint")
 }
 
+// GetThreeportAuthEnabled returns a boolean that indicates whether current
+// instance has auth enabled.
+func (cfg *ThreeportConfig) GetThreeportAuthEnabled() (bool, error) {
+	for i, instance := range cfg.Instances {
+		if instance.Name == cfg.CurrentInstance {
+			return cfg.Instances[i].AuthEnabled, nil
+		}
+	}
+
+	return false, errors.New("current instance not found when retrieving threeport API endpoint")
+}
+
 // GetThreeportCertificates returns the CA certificate, client certificate, and
 // client private key for a named threeport instance.
 func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName string) (string, string, string, error) {
@@ -161,9 +173,8 @@ func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName str
 		}
 	}
 	if !credsFound {
-		return "", "", "", errors.New(
-			fmt.Sprintf("could not find credentials for instance name %s in threeport config", instanceName),
-		)
+		// for clusters with auth disabled return empty values
+		return "", "", "", nil
 	}
 
 	return caCert, clientCert, clientPrivateKey, nil

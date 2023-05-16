@@ -3,6 +3,7 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -24,6 +25,12 @@ func GetDefaultClusterInstance(apiClient *http.Client, apiAddr string) (*v0.Clus
 		return &clusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return &clusterInstance, errors.New("no default cluster instance found")
+	}
+	if len(response.Data) > 1 {
+		return &clusterInstance, errors.New("multiple clusters marked as default cluster")
+	}
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return &clusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
