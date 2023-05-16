@@ -6,6 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -29,6 +30,7 @@ instance.`,
 		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
+			os.Exit(1)
 		}
 
 		// get all instances in the threeport config and make sure the requested
@@ -47,6 +49,7 @@ instance.`,
 				configCurrentInstanceName,
 			))
 			cli.Error("cannot set instance as current instance", err)
+			os.Exit(1)
 		}
 
 		// set the current instance
