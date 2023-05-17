@@ -16,7 +16,7 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// GetWorkloadDefinitionsCmd represents the workload-definition command
+// GetWorkloadDefinitionsCmd represents the workload-definitions command
 var GetWorkloadDefinitionsCmd = &cobra.Command{
 	Use:          "workload-definitions",
 	Example:      "tptctl get workload-definitions",
