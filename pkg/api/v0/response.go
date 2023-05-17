@@ -153,7 +153,7 @@ func CreateResponseWithError404(params *PageRequestParams, error error, objectTy
 }
 
 func CreateResponseWithError409(params *PageRequestParams, error error, objectType ObjectType) *Response {
-	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusConflict, http.StatusText(http.StatusNotFound), error.Error()), objectType)
+	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusConflict, http.StatusText(http.StatusConflict), error.Error()), objectType)
 }
 
 func CreateResponseWithError500(params *PageRequestParams, error error, objectType ObjectType) *Response {
