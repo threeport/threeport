@@ -33,10 +33,6 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = ForwardProxyDefinition{}
 	case ObjectTypeForwardProxyInstance:
 		objStruct = ForwardProxyInstance{}
-	case ObjectTypeUser:
-		objStruct = User{}
-	case ObjectTypeCompany:
-		objStruct = Company{}
 	case ObjectTypeLogBackend:
 		objStruct = LogBackend{}
 	case ObjectTypeLogStorageDefinition:
@@ -90,10 +86,6 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeForwardProxyDefinition
 	case PathForwardProxyInstances:
 		return ObjectTypeForwardProxyInstance
-	case PathUsers:
-		return ObjectTypeUser
-	case PathCompanies:
-		return ObjectTypeCompany
 	case PathLogBackends:
 		return ObjectTypeLogBackend
 	case PathLogStorageDefinitions:
@@ -147,10 +139,6 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeForwardProxyDefinition
 	case ForwardProxyInstance, *ForwardProxyInstance, []ForwardProxyInstance:
 		return ObjectTypeForwardProxyInstance
-	case User, *User, []User:
-		return ObjectTypeUser
-	case Company, *Company, []Company:
-		return ObjectTypeCompany
 	case LogBackend, *LogBackend, []LogBackend:
 		return ObjectTypeLogBackend
 	case LogStorageDefinition, *LogStorageDefinition, []LogStorageDefinition:

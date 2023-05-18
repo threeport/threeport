@@ -2,7 +2,7 @@
 // +threeport-codegen database-exclude
 package v0
 
-import notifications "github.com/threeport/threeport/pkg/notifications"
+import notifications "github.com/threeport/threeport/pkg/notifications/v0"
 
 type APIObject interface {
 	GetID() uint

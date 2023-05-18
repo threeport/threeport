@@ -15,7 +15,7 @@ import (
 	workload "github.com/threeport/threeport/internal/workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	controller "github.com/threeport/threeport/pkg/controller"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
 	zap "go.uber.org/zap"
 	"net/http"
 	"os"

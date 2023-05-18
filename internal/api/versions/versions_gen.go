@@ -16,8 +16,6 @@ func AddVersions() {
 	AddDomainNameInstanceVersions()
 	AddForwardProxyDefinitionVersions()
 	AddForwardProxyInstanceVersions()
-	AddUserVersions()
-	AddCompanyVersions()
 	AddLogBackendVersions()
 	AddLogStorageDefinitionVersions()
 	AddLogStorageInstanceVersions()

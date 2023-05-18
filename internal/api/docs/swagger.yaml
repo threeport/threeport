@@ -23,6 +23,7 @@ definitions:
         description: The region to use for AWS managed services if not specified.
         type: string
       Name:
+        description: The unique name of an AWS account.
         type: string
       SecretAccessKey:
         description: The secret key credentials for the AWS account.
@@ -36,12 +37,10 @@ definitions:
   v0.AwsEksClusterDefinition:
     properties:
       AWSAccountID:
-        description: The AWS account in which the RDS instance will be provisioned.
+        description: The AWS account in which the EKS cluster will be provisioned.
         type: integer
       ClusterDefinitionID:
-        type: integer
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
+        description: The definition for an EKS cluster in AWS.
         type: integer
       Name:
         description: An arbitrary name for the definition.
@@ -56,9 +55,6 @@ definitions:
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - AWSAccountID
     - Name
@@ -66,9 +62,7 @@ definitions:
   v0.AwsEksClusterInstance:
     properties:
       ClusterInstanceID:
-        type: integer
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
+        description: The cluster instance associated with the AWS EKS cluster.
         type: integer
       Name:
         description: An arbitrary name the instance
@@ -78,9 +72,6 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - Name
     type: object
@@ -89,9 +80,6 @@ definitions:
       AWSAccountID:
         description: The AWS account in which the RDS instance will be provisioned.
         type: integer
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       Engine:
         description: |-
           The database engine for the instance.  One of:
@@ -99,7 +87,7 @@ definitions:
           * postgres
         type: string
       Name:
-        description: An arbitrary name for the definition.
+        description: Thue unique name for DB definition.
         type: string
       ProfileID:
         description: |-
@@ -114,42 +102,33 @@ definitions:
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - AWSAccountID
     - Engine
+    - Name
     - Name
     - Storage
     type: object
   v0.AwsRelationalDatabaseInstance:
     properties:
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       Name:
-        description: An arbitrary name the instance
+        description: Thue unique name for DB instance.
         type: string
       Status:
         type: string
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
       awsRelationalDatabaseDefinitionID:
         type: integer
     required:
+    - Name
     - Name
     - Status
     type: object
   v0.ClusterDefinition:
     properties:
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       DefaultNodeGroupInitialSize:
         type: integer
       DefaultNodeGroupInstanceType:
+        description: 'TODO: move these values to the AWS EKS cluster definition object.'
         type: string
       DefaultNodeGroupMaximumSize:
         type: integer
@@ -166,17 +145,14 @@ definitions:
       Region:
         description: |-
           The geographical region for the cluster roughly corresponding to cloud
-          provider regions.
-          TODO: determine whether to make this attribute immutable b/c cluster
-          instances will not be moved once deployed.
+          provider regions.  Note: changes to this value will not alter the derived
+          instances which is an immutable characteristic on instances.  It will
+          only affect new instances derived from this definition.
         type: string
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
-        type: integer
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
         type: integer
       ZoneCount:
         description: The number of zones the cluster should span for availability.
@@ -204,9 +180,7 @@ definitions:
         description: The client certificate to use for auth to the kube-api.
         type: string
       ClusterDefinitionID:
-        type: integer
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
+        description: The cluster definition for this instance.
         type: integer
       DefaultCluster:
         description: |-
@@ -240,9 +214,6 @@ definitions:
           If true, controllers will connect to the kube API using internal DNS
           rather than the APIEndpoint.
         type: boolean
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
       WorkloadInstance:
         description: The associated workload instances running on this cluster.
         items:
@@ -254,24 +225,8 @@ definitions:
     - ClusterDefinitionID
     - Name
     type: object
-  v0.Company:
-    properties:
-      Name:
-        description: Company's legal name.
-        type: string
-      Users:
-        description: Users that represent the company.
-        items:
-          $ref: '#/definitions/v0.User'
-        type: array
-    required:
-    - Name
-    type: object
   v0.DomainNameDefinition:
     properties:
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       Domain:
         description: |-
           The base domain upon which the subdomain will be added to give a workload
@@ -290,9 +245,6 @@ definitions:
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
       Zone:
         description: The name of the zone in which the domain is managed.
         type: string
@@ -307,9 +259,6 @@ definitions:
         description: The cluster where the workload that is using the domain name
           is running.
         type: integer
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       DomainNameDefinitionID:
         description: The definition used to define the instance.
         type: integer
@@ -321,9 +270,6 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - ClusterInstanceID
     - DomainNameDefinitionID
@@ -331,9 +277,6 @@ definitions:
     type: object
   v0.ForwardProxyDefinition:
     properties:
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -353,9 +296,6 @@ definitions:
       UpstreamPath:
         description: The path for the upstream service.
         type: string
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - Name
     - UpstreamHost
@@ -364,11 +304,10 @@ definitions:
   v0.ForwardProxyInstance:
     properties:
       ClusterInstanceID:
-        type: integer
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
+        description: The cluster where the forward proxy is deployed.
         type: integer
       ForwardProxyDefinitionID:
+        description: The definition used to define the instance.
         type: integer
       Name:
         description: An arbitrary name the instance
@@ -378,9 +317,6 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - Name
     type: object
@@ -389,14 +325,20 @@ definitions:
       Destination:
         description: The network address to connect to for storing log messages.
         type: string
+      Name:
+        description: The unique name of a logging back end.
+        type: string
     required:
     - Destination
+    - Name
     type: object
   v0.LogStorageDefinition:
     properties:
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
+      LogBackends:
+        description: The backend storage mechanisms for retaining logs.
+        items:
+          $ref: '#/definitions/v0.LogBackend'
+        type: array
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -410,20 +352,18 @@ definitions:
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - Name
     type: object
   v0.LogStorageInstance:
     properties:
       ClusterID:
-        type: integer
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
+        description: |-
+          The cluster from which log messages are being aggregated to send to a log
+          back end.
         type: integer
       LogStorageDefinitionID:
+        description: The definition used to define the instance.
         type: integer
       Name:
         description: An arbitrary name the instance
@@ -433,9 +373,6 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - Name
     type: object
@@ -456,9 +393,6 @@ definitions:
     type: object
   v0.NetworkIngressDefinition:
     properties:
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       DomainNameID:
         description: The domain name to serve requests for.
         type: integer
@@ -495,98 +429,81 @@ definitions:
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - Name
     type: object
   v0.NetworkIngressInstance:
     properties:
       ClusterInstanceID:
-        type: integer
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
+        description: The cluster where the ingress layer is installed.
         type: integer
       Name:
         description: An arbitrary name the instance
         type: string
       NetworkIngressDefinitionID:
+        description: The definition used to define the instance.
         type: integer
       Status:
         description: |-
           The status of the instance.
           TODO: use a custom type
         type: string
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - Name
     type: object
   v0.ObjectType:
     enum:
-    - DomainNameDefinition
-    - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - Profile
+    - Tier
     - ClusterDefinition
     - ClusterInstance
-    - User
-    - Company
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - Profile
-    - Tier
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeClusterDefinition
     - ObjectTypeClusterInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       Name:
-        description: The name of a profile
+        description: The unique name of a profile
         type: string
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - Name
     type: object
@@ -630,9 +547,6 @@ definitions:
     type: object
   v0.Tier:
     properties:
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       Criticality:
         description: |-
           The relative rank of criticality between tiers.  The higher the number,
@@ -641,54 +555,14 @@ definitions:
           can then use this criticality value to determine user access.
         type: integer
       Name:
+        description: The unique name of a tier.
         type: string
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
     required:
     - Criticality
     - Name
     type: object
-  v0.User:
-    properties:
-      CompanyID:
-        description: Company that the user represents.
-        type: integer
-      CountryOfResidence:
-        description: Country where user resides.
-        type: string
-      DateOfBirth:
-        description: 'User''s date of birth.  Format: `2006-01-02T00:00:00Z`'
-        type: string
-      Email:
-        description: User's email address.
-        type: string
-      FirstName:
-        description: User's first name.
-        type: string
-      LastName:
-        description: User's last name.
-        type: string
-      Nationality:
-        description: Country of which user is a citizen.
-        type: string
-      Password:
-        description: User's account password.
-        type: string
-    required:
-    - CountryOfResidence
-    - DateOfBirth
-    - Email
-    - FirstName
-    - LastName
-    - Nationality
-    - Password
-    type: object
   v0.WorkloadDefinition:
     properties:
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -705,9 +579,6 @@ definitions:
         description: |-
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
-        type: integer
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
         type: integer
       WorkloadInstances:
         description: The associated workload instances that are deployed from this
@@ -732,9 +603,6 @@ definitions:
       ClusterInstanceID:
         description: ClusterID is the cluster to which the workload is deployed.
         type: integer
-      CompanyID:
-        description: Required if no UserID.  The company that owns the object.
-        type: integer
       Name:
         description: An arbitrary name the instance
         type: string
@@ -747,9 +615,6 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
-      UserID:
-        description: Required if no CompanyID.  The user that owns the object.
-        type: integer
       WorkloadDefinitionID:
         description: |-
           WorkloadDefinitionID is the definition used to configure the workload
@@ -916,18 +781,6 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetClusterInstanceVersions gets the supported versions for the cluster
         instance API.
-  /companies/versions:
-    get:
-      description: Get the supported API versions for companies.
-      operationId: company-get-versions
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
-      summary: GetCompanyVersions gets the supported versions for the company API.
   /domain-name-definitions/versions:
     get:
       description: Get the supported API versions for domain name definitions.
@@ -1069,18 +922,6 @@ paths:
           schema:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetTierVersions gets the supported versions for the tier API.
-  /users/versions:
-    get:
-      description: Get the supported API versions for users.
-      operationId: user-get-versions
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
-      summary: GetUserVersions gets the supported versions for the user API.
   /v0/aws-accounts:
     get:
       consumes:
@@ -2479,205 +2320,6 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing cluster instance by replacing the entire object.
-  /v0/companies:
-    get:
-      consumes:
-      - application/json
-      description: Get all companies from the Threeport database.
-      operationId: get-companies
-      parameters:
-      - description: company search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all companies.
-    post:
-      consumes:
-      - application/json
-      description: Add a new company to the Threeport database.
-      operationId: add-company
-      parameters:
-      - description: Company object
-        in: body
-        name: company
-        required: true
-        schema:
-          $ref: '#/definitions/v0.Company'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new company.
-  /v0/companies/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a company by from the database.
-      operationId: delete-company
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a company.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular company from the database.
-      operationId: get-company
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a company.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a company in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating company objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-company
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Company object
-        in: body
-        name: company
-        required: true
-        schema:
-          $ref: '#/definitions/v0.Company'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing company.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a company in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating company objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-company
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Company object
-        in: body
-        name: company
-        required: true
-        schema:
-          $ref: '#/definitions/v0.Company'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing company by replacing the entire object.
   /v0/domain-name-definitions:
     get:
       consumes:
@@ -4873,205 +4515,6 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing tier by replacing the entire object.
-  /v0/users:
-    get:
-      consumes:
-      - application/json
-      description: Get all users from the Threeport database.
-      operationId: get-users
-      parameters:
-      - description: user search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all users.
-    post:
-      consumes:
-      - application/json
-      description: Add a new user to the Threeport database.
-      operationId: add-user
-      parameters:
-      - description: User object
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/v0.User'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new user.
-  /v0/users/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a user by from the database.
-      operationId: delete-user
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a user.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular user from the database.
-      operationId: get-user
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a user.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a user in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating user objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-user
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: User object
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/v0.User'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing user.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a user in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating user objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-user
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: User object
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/v0.User'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing user by replacing the entire object.
   /v0/workload-definitions:
     get:
       consumes:

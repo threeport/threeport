@@ -5,18 +5,16 @@ type ClusterDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	//// Required.  An arbitrary name for the cluster definition.
-	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null"  validate:"required"`
-
 	// The geographical region for the cluster roughly corresponding to cloud
-	// provider regions.
-	// TODO: determine whether to make this attribute immutable b/c cluster
-	// instances will not be moved once deployed.
+	// provider regions.  Note: changes to this value will not alter the derived
+	// instances which is an immutable characteristic on instances.  It will
+	// only affect new instances derived from this definition.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
 	// The number of zones the cluster should span for availability.
 	ZoneCount *int32 `json:"ZoneCount,omitempty" query:"zonecount" validate:"optional"`
 
+	// TODO: move these values to the AWS EKS cluster definition object.
 	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" query:"defaultnodegroupinstancetype" validate:"optional"`
 
 	DefaultNodeGroupInitialSize *int32 `json:"DefaultNodeGroupInitialSize,omitempty" query:"defaultnodegroupinitialsize" validate:"optional"`
@@ -29,9 +27,6 @@ type ClusterDefinition struct {
 type ClusterInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
-
-	//// The provider or technology used to provision the cluster.
-	//Provider *string `json:"Provider,omitempty" query:"provider" gorm:"not null" validate:"required"`
 
 	// The geographical region for the cluster roughly corresponding to cloud
 	// provider regions.  Stored in the instance (as well as definition) since a
@@ -69,6 +64,7 @@ type ClusterInstance struct {
 	// specified.  Can only have one per account.
 	DefaultCluster *bool `json:"DefaultCluster,omitempty" query:"defaultcluster" gorm:"default:false" validate:"optional"`
 
+	// The cluster definition for this instance.
 	ClusterDefinitionID *uint `json:"ClusterDefinitionID,omitempty" gorm:"not null" validate:"required"`
 
 	// The associated workload instances running on this cluster.

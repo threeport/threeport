@@ -9,25 +9,20 @@ type ForwardProxyDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	//// An arbitrary name for the deployed instance.
-	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
-
 	// The hostname of the upstream service.
 	UpstreamHost *string `json:"UpstreamHost,omitempty" query:"upstreamhost" gorm:"not null" validate:"required"`
 
 	// The path for the upstream service.
 	UpstreamPath *string `json:"UpstreamPath,omitempty" query:"upstreampath" gorm:"not null" validate:"required"`
-
-	//// WorkloadInstanceID is the workload instance for which the service
-	//// dependency is being managed.
-	//WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 }
 
 type ForwardProxyInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
 
+	// The definition used to define the instance.
 	ForwardProxyDefinitionID *uint `json:"ForwardProxyDefinitionID,omitempty" validate:"optional,association"`
 
+	// The cluster where the forward proxy is deployed.
 	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" validate:"optional,association"`
 }
