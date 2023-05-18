@@ -12,7 +12,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	//"github.com/threeport/threeport/internal/authority"
 	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -118,7 +117,7 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 
 	// error out if a GORM Model field was passed for an update
 	for k, _ := range payloadObject {
-		if util.SliceContains(v0.GORMModelFields, k, false) {
+		if util.StringSliceContains(v0.GORMModelFields, k, false) {
 			*providedGORMModelFields = append(*providedGORMModelFields, k)
 		}
 	}
@@ -128,7 +127,7 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 
 	// error out if an association was passed for an update
 	for k, _ := range payloadObject {
-		if util.SliceContains(*associatedFields, k, false) {
+		if util.StringSliceContains(*associatedFields, k, false) {
 			*providedAssociationsFields = append(*providedAssociationsFields, k)
 		}
 	}
@@ -138,27 +137,17 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 	optionalFields = &ObjectTaggedFields[VersionObject{Version: apiVer, Object: string(objectType)}].Optional
 	optionalAssociationsFields = &ObjectTaggedFields[VersionObject{Version: apiVer, Object: string(objectType)}].OptionalAssociations
 	requiredFields = &ObjectTaggedFields[VersionObject{Version: apiVer, Object: string(objectType)}].Required
-	// in the payload k can be supplied an JSON alias i.e. DefinitionJSON instead of JSONDefinition
-	// type WorkloadResourceDefinition struct {
-	//	 gorm.Model `swaggerignore:"true" mapstructure:",squash"`
-	//	 JSONDefinition *datatypes.JSON `json:"DefinitionJSON,omitempty" gorm:"not null" validate:"required"`
-	//	 WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"not null" validate:"required"`
-	// }
-	// {
-	//	 "DefinitionJSON": "{\"foo\": \"bar\"}",
-	//	 "WorkloadDefinitionID": 1
-	// }
 	for k, _ := range payloadObject {
 		// check the field k form the payload
-		if !util.SliceContains(*optionalFields, k, false) &&
-			!util.SliceContains(*optionalAssociationsFields, k, false) &&
-			!util.SliceContains(*requiredFields, k, false) {
+		if !util.StringSliceContains(*optionalFields, k, false) &&
+			!util.StringSliceContains(*optionalAssociationsFields, k, false) &&
+			!util.StringSliceContains(*requiredFields, k, false) {
 			// now we need to check the same for the alias of the k
 			kAlias := getFieldNameByJsonTag(k, "json", v0.GetStructByObjectType(objectType))
 			if len(kAlias) > 0 {
-				if !util.SliceContains(*optionalFields, kAlias, false) &&
-					!util.SliceContains(*optionalAssociationsFields, kAlias, false) &&
-					!util.SliceContains(*requiredFields, kAlias, false) {
+				if !util.StringSliceContains(*optionalFields, kAlias, false) &&
+					!util.StringSliceContains(*optionalAssociationsFields, kAlias, false) &&
+					!util.StringSliceContains(*requiredFields, kAlias, false) {
 					*unsupportedFields = append(*unsupportedFields, kAlias)
 				}
 			} else {
@@ -228,50 +217,6 @@ func PayloadCheck(c echo.Context, checkAssociation bool, objectType v0.ObjectTyp
 
 	return 500, nil
 }
-
-//// AuthorizationTokenCheck middleware that checks if user presented OAuth token has permissions to
-//// call REST API method
-//func AuthorizationTokenCheck(next echo.HandlerFunc) echo.HandlerFunc {
-//	return func(c echo.Context) error {
-//		// authentication
-//		reqToken := c.Request().Header.Get(AuthorizationKey)
-//		splitToken := strings.Split(reqToken, "Bearer ")
-//
-//		// construct ObjectType from Request Path
-//		objectType := v0.GetObjectTypeByPath(c.Request().URL.Path)
-//
-//		if len(strings.TrimSpace(reqToken)) == 0 || len(splitToken) == 1 {
-//			return ResponseStatus400(c, nil, errors.New(ErrTokenIsNotProvided), objectType)
-//		} else {
-//			authenticate.Token = splitToken[1]
-//		}
-//
-//		// create Authentik client configuration and client itself
-//		akadminConfig := authenticate.CreateConfiguration(os.Getenv(authenticate.AuthentikScheme), os.Getenv(authenticate.AuthentikHost), authenticate.Token)
-//		akadminApiClient := authenticate.NewAPIClient(akadminConfig)
-//
-//		// retrieve Groups user belongs to
-//		userGroups, err := authenticate.MeRetrieveUserGroups(context.Background(), akadminApiClient)
-//		if err != nil {
-//			return ResponseStatus400(c, nil, errors.New("Cannot retrieve user info"), objectType)
-//		}
-//		if len(userGroups) == 0 {
-//			return ResponseStatus400(c, nil, errors.New("User has no permission to call this API [User doesn't belong to any Authentik group]"), objectType)
-//		}
-//
-//		// authorization, check if user has permission to call this API function
-//		hasPermission, err := authority.Auth.CheckGroupsPermission(userGroups, objectType, c.Request().Method)
-//		if err != nil {
-//			return ResponseStatus400(c, nil, errors.New(err.Error()), objectType)
-//		}
-//		if !hasPermission {
-//			return ResponseStatus400(c, nil, errors.New("User has no permission to call this API"), objectType)
-//		}
-//
-//		// Continue default operation of Echo
-//		return next(c)
-//	}
-//}
 
 // MiddlewareFunc is a potential replacement for PayloadCheck in the future
 func MiddlewareFunc(next echo.HandlerFunc) echo.HandlerFunc {

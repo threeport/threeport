@@ -55,6 +55,22 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingWorkloadDefinition v0.WorkloadDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", workloadDefinition.Name).First(&existingWorkloadDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&workloadDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -356,6 +372,7 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// persist to DB
 	if result := h.DB.Create(&workloadResourceDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -651,6 +668,22 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingWorkloadInstance v0.WorkloadInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", workloadInstance.Name).First(&existingWorkloadInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&workloadInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -946,6 +979,7 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// persist to DB
 	if result := h.DB.Create(&workloadResourceInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}

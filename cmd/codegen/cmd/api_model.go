@@ -15,7 +15,18 @@ import (
 
 	"github.com/threeport/threeport/internal/codegen"
 	"github.com/threeport/threeport/internal/codegen/models"
+	"github.com/threeport/threeport/internal/util"
 )
+
+// nameFields returns a list of struct type fields that indicate a struct
+// requires a unique name for the object.
+func nameFields() []string {
+	return []string{
+		"Name",
+		"Definition",
+		"Instance",
+	}
+}
 
 var (
 	filename    string
@@ -62,34 +73,55 @@ When 'make generate' is run, the following code is generated for API:
 			return fmt.Errorf("failed to parse source code file: %w", err)
 		}
 		////////////////////////////////////////////////////////////////////////////
-		// print the syntax tree for dev purposes
+		//// print the syntax tree for dev purposes
 		//if err = ast.Print(fset, pf); err != nil {
 		//	return err
 		//}
 		////////////////////////////////////////////////////////////////////////////
-		var structTypeNames []string
+		var modelConfigs []models.ModelConfig
 		for _, node := range pf.Decls {
 			switch node.(type) {
 			case *ast.GenDecl:
 				genDecl := node.(*ast.GenDecl)
 				for _, spec := range genDecl.Specs {
 					switch spec.(type) {
+					// in the case we're looking at a struct type definition, inspect
 					case *ast.TypeSpec:
 						typeSpec := spec.(*ast.TypeSpec)
-						structTypeNames = append(structTypeNames, typeSpec.Name.Name)
+						// capture the name of the struct - the model name
+						mc := models.ModelConfig{
+							TypeName:  typeSpec.Name.Name,
+							NameField: false, // will be set to true as needed below
+						}
+						// check if this is a struct type
+						if structType, ok := typeSpec.Type.(*ast.StructType); ok {
+							// if so, iterate over the fields
+							for _, field := range structType.Fields.List {
+								//check if this is an ident type
+								if identType, ok := field.Type.(*ast.Ident); ok {
+									// if so, it may be an anonymous field - check
+									// the name
+									if util.StringSliceContains(nameFields(), identType.Name, true) {
+										mc.NameField = true
+									}
+								}
+								// each field is an *ast.Field, which has a Names field that
+								// is a []*ast.Ident - iterate over those names to find the
+								// one we're looking for
+								for _, name := range field.Names {
+									if util.StringSliceContains(nameFields(), name.Name, true) {
+										mc.NameField = true
+									}
+								}
+							}
+						}
+						modelConfigs = append(modelConfigs, mc)
 					}
 				}
 			}
 		}
 
-		// create the model config
-		var modelConfigs []models.ModelConfig
-		for _, stn := range structTypeNames {
-			mc := models.ModelConfig{
-				TypeName: stn,
-			}
-			modelConfigs = append(modelConfigs, mc)
-		}
+		// construct the controller config object
 		controllerConfig := models.ControllerConfig{
 			ModelFilename:         filename,
 			PackageName:           packageName,

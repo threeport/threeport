@@ -55,6 +55,7 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// persist to DB
 	if result := h.DB.Create(&logBackend); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -350,6 +351,22 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingLogStorageDefinition v0.LogStorageDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", logStorageDefinition.Name).First(&existingLogStorageDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&logStorageDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -645,6 +662,22 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingLogStorageInstance v0.LogStorageInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", logStorageInstance.Name).First(&existingLogStorageInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&logStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
