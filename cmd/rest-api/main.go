@@ -18,7 +18,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
-	//"github.com/threeport/threeport/internal/authority"
 	iapi "github.com/threeport/threeport/internal/api"
 	"github.com/threeport/threeport/internal/api/database"
 	_ "github.com/threeport/threeport/internal/api/docs"

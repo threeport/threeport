@@ -5,14 +5,8 @@ package v0
 type Profile struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
-	// The name of a profile
+	// The unique name of a profile
 	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
-
-	// Required if no CompanyID.  The user that owns the object.
-	UserID *uint `json:"UserID,omitempty" query:"userid" validate:"optional"`
-
-	// Required if no UserID.  The company that owns the object.
-	CompanyID *uint `json:"CompanyID,omitempty" query:"companyid" validate:"optional"`
 }
 
 // Tier is a level of criticality for access control.  Common tiers would be
@@ -22,13 +16,8 @@ type Profile struct {
 type Tier struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
+	// The unique name of a tier.
 	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
-
-	// Required if no CompanyID.  The user that owns the object.
-	UserID *uint `json:"UserID,omitempty" query:"userid" validate:"optional"`
-
-	// Required if no UserID.  The company that owns the object.
-	CompanyID *uint `json:"CompanyID,omitempty" query:"companyid" validate:"optional"`
 
 	// The relative rank of criticality between tiers.  The higher the number,
 	// the greater the criticality.  For example, a development tier could have

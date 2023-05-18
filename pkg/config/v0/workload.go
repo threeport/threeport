@@ -40,7 +40,6 @@ type WorkloadDefinitionConfig struct {
 type WorkloadDefinitionValues struct {
 	Name         string `yaml:"Name"`
 	YAMLDocument string `yaml:"YAMLDocument"`
-	UserID       uint   `yaml:"UserID"`
 }
 
 // WorkloadInstanceConfig contains the config for a workload instance.
@@ -136,8 +135,7 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	// construct workload definition object
 	workloadDefinition := v0.WorkloadDefinition{
 		Definition: v0.Definition{
-			Name:   &wd.Name,
-			UserID: &wd.UserID,
+			Name: &wd.Name,
 		},
 		YAMLDocument: &stringContent,
 	}

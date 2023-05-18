@@ -7,8 +7,6 @@ type NetworkIngressDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
-
 	// TCP Port to expose to outside network.
 	TCPPort *int32 `json:"TCPPort,omitempty" query:"tcpport" validate:"optional"`
 
@@ -36,9 +34,9 @@ type NetworkIngressInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
 
-	//Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
-
+	// The definition used to define the instance.
 	NetworkIngressDefinitionID *uint `json:"NetworkIngressDefinitionID,omitempty" validate:"optional,association"`
 
+	// The cluster where the ingress layer is installed.
 	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" validate:"optional,association"`
 }

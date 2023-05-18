@@ -21,8 +21,6 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	DomainNameInstanceRoutes(e, h)
 	ForwardProxyDefinitionRoutes(e, h)
 	ForwardProxyInstanceRoutes(e, h)
-	UserRoutes(e, h)
-	CompanyRoutes(e, h)
 	LogBackendRoutes(e, h)
 	LogStorageDefinitionRoutes(e, h)
 	LogStorageInstanceRoutes(e, h)

@@ -8,7 +8,7 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	notifications "github.com/threeport/threeport/pkg/notifications"
+	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
 )
@@ -53,6 +53,21 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 	// check for missing required fields
 	if id, err := iapi.ValidateBoundData(c, logBackend, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingLogBackend v0.LogBackend
+	nameUsed := true
+	result := h.DB.Where("name = ?", logBackend.Name).First(&existingLogBackend)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB

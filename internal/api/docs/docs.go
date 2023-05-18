@@ -147,24 +147,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/companies/versions": {
-            "get": {
-                "description": "Get the supported API versions for companies.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "GetCompanyVersions gets the supported versions for the company API.",
-                "operationId": "company-get-versions",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
-                        }
-                    }
-                }
-            }
-        },
         "/domain-name-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for domain name definitions.",
@@ -353,24 +335,6 @@ const docTemplate = `{
                 ],
                 "summary": "GetTierVersions gets the supported versions for the tier API.",
                 "operationId": "tier-get-versions",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/versions": {
-            "get": {
-                "description": "Get the supported API versions for users.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "GetUserVersions gets the supported versions for the user API.",
-                "operationId": "user-get-versions",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2317,287 +2281,6 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.ClusterInstance"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/companies": {
-            "get": {
-                "description": "Get all companies from the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets all companies.",
-                "operationId": "get-companies",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "company search by name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new company to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new company.",
-                "operationId": "add-company",
-                "parameters": [
-                    {
-                        "description": "Company object",
-                        "name": "company",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.Company"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/companies/{id}": {
-            "get": {
-                "description": "Get a particular company from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a company.",
-                "operationId": "get-company",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Replace a company in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating company objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates an existing company by replacing the entire object.",
-                "operationId": "replace-company",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Company object",
-                        "name": "company",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.Company"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a company by from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a company.",
-                "operationId": "delete-company",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Update a company in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating company objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates specific fields for an existing company.",
-                "operationId": "update-company",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Company object",
-                        "name": "company",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.Company"
                         }
                     }
                 ],
@@ -5720,287 +5403,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/users": {
-            "get": {
-                "description": "Get all users from the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets all users.",
-                "operationId": "get-users",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "user search by name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new user to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new user.",
-                "operationId": "add-user",
-                "parameters": [
-                    {
-                        "description": "User object",
-                        "name": "user",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.User"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/users/{id}": {
-            "get": {
-                "description": "Get a particular user from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a user.",
-                "operationId": "get-user",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Replace a user in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating user objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates an existing user by replacing the entire object.",
-                "operationId": "replace-user",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "User object",
-                        "name": "user",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.User"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a user by from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a user.",
-                "operationId": "delete-user",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Update a user in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating user objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates specific fields for an existing user.",
-                "operationId": "update-user",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "User object",
-                        "name": "user",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.User"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/v0/workload-definitions": {
             "get": {
                 "description": "Get all workload definitions from the Threeport database.",
@@ -7308,6 +6710,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Name": {
+                    "description": "The unique name of an AWS account.",
                     "type": "string"
                 },
                 "SecretAccessKey": {
@@ -7324,14 +6727,11 @@ const docTemplate = `{
             ],
             "properties": {
                 "AWSAccountID": {
-                    "description": "The AWS account in which the RDS instance will be provisioned.",
+                    "description": "The AWS account in which the EKS cluster will be provisioned.",
                     "type": "integer"
                 },
                 "ClusterDefinitionID": {
-                    "type": "integer"
-                },
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
+                    "description": "The definition for an EKS cluster in AWS.",
                     "type": "integer"
                 },
                 "Name": {
@@ -7345,10 +6745,6 @@ const docTemplate = `{
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
@@ -7359,10 +6755,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "ClusterInstanceID": {
-                    "type": "integer"
-                },
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
+                    "description": "The cluster instance associated with the AWS EKS cluster.",
                     "type": "integer"
                 },
                 "Name": {
@@ -7372,10 +6765,6 @@ const docTemplate = `{
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
@@ -7385,6 +6774,7 @@ const docTemplate = `{
                 "AWSAccountID",
                 "Engine",
                 "Name",
+                "Name",
                 "Storage"
             ],
             "properties": {
@@ -7392,16 +6782,12 @@ const docTemplate = `{
                     "description": "The AWS account in which the RDS instance will be provisioned.",
                     "type": "integer"
                 },
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "Engine": {
                     "description": "The database engine for the instance.  One of:\n* mysql\n* postgres",
                     "type": "string"
                 },
                 "Name": {
-                    "description": "An arbitrary name for the definition.",
+                    "description": "Thue unique name for DB definition.",
                     "type": "string"
                 },
                 "ProfileID": {
@@ -7415,10 +6801,6 @@ const docTemplate = `{
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
@@ -7426,23 +6808,16 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "Name",
+                "Name",
                 "Status"
             ],
             "properties": {
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "Name": {
-                    "description": "An arbitrary name the instance",
+                    "description": "Thue unique name for DB instance.",
                     "type": "string"
                 },
                 "Status": {
                     "type": "string"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 },
                 "awsRelationalDatabaseDefinitionID": {
                     "type": "integer"
@@ -7455,14 +6830,11 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "DefaultNodeGroupInitialSize": {
                     "type": "integer"
                 },
                 "DefaultNodeGroupInstanceType": {
+                    "description": "TODO: move these values to the AWS EKS cluster definition object.",
                     "type": "string"
                 },
                 "DefaultNodeGroupMaximumSize": {
@@ -7480,15 +6852,11 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "Region": {
-                    "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.\nTODO: determine whether to make this attribute immutable b/c cluster\ninstances will not be moved once deployed.",
+                    "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.  Note: changes to this value will not alter the derived\ninstances which is an immutable characteristic on instances.  It will\nonly affect new instances derived from this definition.",
                     "type": "string"
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
-                    "type": "integer"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
                     "type": "integer"
                 },
                 "ZoneCount": {
@@ -7528,10 +6896,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ClusterDefinitionID": {
-                    "type": "integer"
-                },
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
+                    "description": "The cluster definition for this instance.",
                     "type": "integer"
                 },
                 "DefaultCluster": {
@@ -7562,34 +6927,11 @@ const docTemplate = `{
                     "description": "If true, controllers will connect to the kube API using internal DNS\nrather than the APIEndpoint.",
                     "type": "boolean"
                 },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
-                },
                 "WorkloadInstance": {
                     "description": "The associated workload instances running on this cluster.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.WorkloadInstance"
-                    }
-                }
-            }
-        },
-        "v0.Company": {
-            "type": "object",
-            "required": [
-                "Name"
-            ],
-            "properties": {
-                "Name": {
-                    "description": "Company's legal name.",
-                    "type": "string"
-                },
-                "Users": {
-                    "description": "Users that represent the company.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.User"
                     }
                 }
             }
@@ -7602,10 +6944,6 @@ const docTemplate = `{
                 "Zone"
             ],
             "properties": {
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "Domain": {
                     "description": "The base domain upon which the subdomain will be added to give a workload\na unique domain name.",
                     "type": "string"
@@ -7620,10 +6958,6 @@ const docTemplate = `{
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
-                    "type": "integer"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
                     "type": "integer"
                 },
                 "Zone": {
@@ -7644,10 +6978,6 @@ const docTemplate = `{
                     "description": "The cluster where the workload that is using the domain name is running.",
                     "type": "integer"
                 },
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "DomainNameDefinitionID": {
                     "description": "The definition used to define the instance.",
                     "type": "integer"
@@ -7659,10 +6989,6 @@ const docTemplate = `{
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
@@ -7674,10 +7000,6 @@ const docTemplate = `{
                 "UpstreamPath"
             ],
             "properties": {
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -7697,10 +7019,6 @@ const docTemplate = `{
                 "UpstreamPath": {
                     "description": "The path for the upstream service.",
                     "type": "string"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
@@ -7711,13 +7029,11 @@ const docTemplate = `{
             ],
             "properties": {
                 "ClusterInstanceID": {
-                    "type": "integer"
-                },
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
+                    "description": "The cluster where the forward proxy is deployed.",
                     "type": "integer"
                 },
                 "ForwardProxyDefinitionID": {
+                    "description": "The definition used to define the instance.",
                     "type": "integer"
                 },
                 "Name": {
@@ -7727,21 +7043,22 @@ const docTemplate = `{
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
         "v0.LogBackend": {
             "type": "object",
             "required": [
-                "Destination"
+                "Destination",
+                "Name"
             ],
             "properties": {
                 "Destination": {
                     "description": "The network address to connect to for storing log messages.",
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "The unique name of a logging back end.",
                     "type": "string"
                 }
             }
@@ -7752,9 +7069,12 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
+                "LogBackends": {
+                    "description": "The backend storage mechanisms for retaining logs.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.LogBackend"
+                    }
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
@@ -7767,10 +7087,6 @@ const docTemplate = `{
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
@@ -7781,13 +7097,11 @@ const docTemplate = `{
             ],
             "properties": {
                 "ClusterID": {
-                    "type": "integer"
-                },
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
+                    "description": "The cluster from which log messages are being aggregated to send to a log\nback end.",
                     "type": "integer"
                 },
                 "LogStorageDefinitionID": {
+                    "description": "The definition used to define the instance.",
                     "type": "integer"
                 },
                 "Name": {
@@ -7797,10 +7111,6 @@ const docTemplate = `{
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
@@ -7830,10 +7140,6 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "DomainNameID": {
                     "description": "The domain name to serve requests for.",
                     "type": "integer"
@@ -7873,10 +7179,6 @@ const docTemplate = `{
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
@@ -7887,10 +7189,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "ClusterInstanceID": {
-                    "type": "integer"
-                },
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
+                    "description": "The cluster where the ingress layer is installed.",
                     "type": "integer"
                 },
                 "Name": {
@@ -7898,71 +7197,64 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "NetworkIngressDefinitionID": {
+                    "description": "The definition used to define the instance.",
                     "type": "integer"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "Profile",
+                "Tier",
                 "ClusterDefinition",
                 "ClusterInstance",
-                "User",
-                "Company",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "Profile",
-                "Tier",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
-                "WorkloadResourceInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance"
+                "WorkloadResourceInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeClusterDefinition",
                 "ObjectTypeClusterInstance",
-                "ObjectTypeUser",
-                "ObjectTypeCompany",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance"
+                "ObjectTypeWorkloadResourceInstance"
             ]
         },
         "v0.Profile": {
@@ -7971,17 +7263,9 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "Name": {
-                    "description": "The name of a profile",
+                    "description": "The unique name of a profile",
                     "type": "string"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 }
             }
         },
@@ -8048,65 +7332,12 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "Criticality": {
                     "description": "The relative rank of criticality between tiers.  The higher the number,\nthe greater the criticality.  For example, a development tier could have\na criticality value of 10 while production could be 100.  Access control\ncan then use this criticality value to determine user access.",
                     "type": "integer"
                 },
                 "Name": {
-                    "type": "string"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
-                }
-            }
-        },
-        "v0.User": {
-            "type": "object",
-            "required": [
-                "CountryOfResidence",
-                "DateOfBirth",
-                "Email",
-                "FirstName",
-                "LastName",
-                "Nationality",
-                "Password"
-            ],
-            "properties": {
-                "CompanyID": {
-                    "description": "Company that the user represents.",
-                    "type": "integer"
-                },
-                "CountryOfResidence": {
-                    "description": "Country where user resides.",
-                    "type": "string"
-                },
-                "DateOfBirth": {
-                    "description": "User's date of birth.  Format: ` + "`" + `2006-01-02T00:00:00Z` + "`" + `",
-                    "type": "string"
-                },
-                "Email": {
-                    "description": "User's email address.",
-                    "type": "string"
-                },
-                "FirstName": {
-                    "description": "User's first name.",
-                    "type": "string"
-                },
-                "LastName": {
-                    "description": "User's last name.",
-                    "type": "string"
-                },
-                "Nationality": {
-                    "description": "Country of which user is a citizen.",
-                    "type": "string"
-                },
-                "Password": {
-                    "description": "User's account password.",
+                    "description": "The unique name of a tier.",
                     "type": "string"
                 }
             }
@@ -8118,10 +7349,6 @@ const docTemplate = `{
                 "YAMLDocument"
             ],
             "properties": {
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -8136,10 +7363,6 @@ const docTemplate = `{
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
-                    "type": "integer"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
                     "type": "integer"
                 },
                 "WorkloadInstances": {
@@ -8174,10 +7397,6 @@ const docTemplate = `{
                     "description": "ClusterID is the cluster to which the workload is deployed.",
                     "type": "integer"
                 },
-                "CompanyID": {
-                    "description": "Required if no UserID.  The company that owns the object.",
-                    "type": "integer"
-                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -8189,10 +7408,6 @@ const docTemplate = `{
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
-                },
-                "UserID": {
-                    "description": "Required if no CompanyID.  The user that owns the object.",
-                    "type": "integer"
                 },
                 "WorkloadDefinitionID": {
                     "description": "WorkloadDefinitionID is the definition used to configure the workload\ninstance.",

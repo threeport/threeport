@@ -27,17 +27,18 @@ const (
 
 var GORMModelFields = []string{"ID", "CreatedAt", "UpdatedAt", "DeletedAt"}
 
-// Object model info
-// Type of returned object one of: Account, Block, CoincoverOrder, Company, Network, Node,
-// Pool, Share, Token, Transaction, Transfer, User
+// Object model info.
 type Object interface{}
 
-// Status represents the response HTTP status including error messages if applicable
+// Status represents the response HTTP status including error messages if
+// applicable.
 type Status struct {
 	// The HTTP response status code, e.g. 200 | 201 | 500
 	Code int `json:"code" example:"200"`
+
 	// The HTTP response status code message, e.g. OK | Created | Internal Server Error
 	Message string `json:"message" example:"OK"`
+
 	// The response error message if applicable, defaults to ""
 	Error string `json:"error" example:""`
 }
@@ -47,10 +48,13 @@ type Status struct {
 type Response struct {
 	// Meta contains PageRequestParams (current page and size of current page) and TotalCount (number of returned Object elements)
 	Meta Meta `json:"Meta"`
+
 	// Type contains ObjectType of returned Data elements
 	Type ObjectType `json:"Type" example:"Transfer"`
+
 	// Data contains array of returned Object elements
 	Data []Object `json:"Data"`
+
 	// Status represents an error that occurred while handling a request
 	Status Status `json:"Status"`
 }
@@ -67,6 +71,7 @@ type PageRequestParams struct {
 // Meta model info
 type Meta struct {
 	PageRequestParams
+
 	// TotalCount of returned Object elements
 	TotalCount int64 `json:"TotalCount" example:"1"`
 }

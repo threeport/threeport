@@ -20,41 +20,15 @@ type VersionObject struct {
 
 var ObjectTaggedFields = make(map[VersionObject]*FieldsByTag)
 
-//var (
-//	ObjectTaggedFields                     = make(map[VersionObject]*FieldsByTag)
-//	AccountTaggedFields                    = make(map[string]*FieldsByTag)
-//	BlockTaggedFields                      = make(map[string]*FieldsByTag)
-//	CoincoverOrderTaggedFields             = make(map[string]*FieldsByTag)
-//	CompanyTaggedFields                    = make(map[string]*FieldsByTag)
-//	NetworkTaggedFields                    = make(map[string]*FieldsByTag)
-//	NodeTaggedFields                       = make(map[string]*FieldsByTag)
-//	PoolTaggedFields                       = make(map[string]*FieldsByTag)
-//	ShareTaggedFields                      = make(map[string]*FieldsByTag)
-//	TokenTaggedFields                      = make(map[string]*FieldsByTag)
-//	TransactionTaggedFields                = make(map[string]*FieldsByTag)
-//	TransferTaggedFields                   = make(map[string]*FieldsByTag)
-//	UserTaggedFields                       = make(map[string]*FieldsByTag)
-//	UserIDPTaggedFields                    = make(map[string]*FieldsByTag)
-//	WorkloadClusterTaggedFields            = make(map[string]*FieldsByTag)
-//	WorkloadDefinitionTaggedFields         = make(map[string]*FieldsByTag)
-//	WorkloadResourceDefinitionTaggedFields = make(map[string]*FieldsByTag)
-//	WorkloadInstanceTaggedFields           = make(map[string]*FieldsByTag)
-//	WorkloadServiceDependencyTaggedFields  = make(map[string]*FieldsByTag)
-//)
-
 // Translate performs translation of object v if needed
 func Translate(tagName string, v reflect.Value, tag reflect.StructTag) {
 	if !v.CanSet() {
-		// unexported fields cannot be set
-		//fmt.Printf("Skipping %q %s because it cannot be set.\n", v.String(), tag)
 		return
 	}
 	val := tag.Get(TagNameValidate)
 	if val == "" {
 		return
 	}
-	// modify values if needed
-	//v.SetString(fmt.Sprintf("value %q translated with %s", v.String(), val))
 }
 
 // ParseStruct parses structure's fields into respective Required, Optional and OptionalAssociations arrays
