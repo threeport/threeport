@@ -183,6 +183,9 @@ func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName str
 // GetThreeportCertificates returns the CA certificate, client certificate, and
 // client private key for the current instance.
 func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clientPrivateKey string, err error) {
+	if cfg.CurrentInstance == "" {
+		return "", "", "", errors.New("current instance not set - set it with 'tptctl config current-instance -n [instance name]'")
+	}
 	return cfg.GetThreeportCertificatesForInstance(cfg.CurrentInstance)
 }
 
