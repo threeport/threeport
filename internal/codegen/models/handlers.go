@@ -34,6 +34,50 @@ func (cc *ControllerConfig) ModelHandlers() error {
 	f.ImportAlias("github.com/threeport/threeport/internal/api", "iapi")
 
 	for _, mc := range cc.ModelConfigs {
+		// for models that have a name field - either directly in the model or
+		// inherited from Definition or Instance - add a check for duplicate
+		// names in the handler that adds the record to the DB
+		checkDuplicateNames := &Statement{}
+		if mc.NameField {
+			checkDuplicateNames.Comment("check for duplicate names")
+			checkDuplicateNames.Line()
+			checkDuplicateNames.Var().Id(fmt.Sprintf("existing%s", mc.TypeName)).Qual(
+				fmt.Sprintf(
+					"github.com/threeport/threeport/pkg/api/%s",
+					cc.ParsedModelFile.Name.Name,
+				),
+				mc.TypeName,
+			).Line()
+			checkDuplicateNames.Id("nameUsed").Op(":=").Lit(true).Line()
+			checkDuplicateNames.Id("result").Op(":=").Id("h").Dot("DB").Dot("Where").Call(
+				Lit("name = ?"), Id(strcase.ToLowerCamel(mc.TypeName)).Dot("Name"),
+			).Dot("First").Call(
+				Op("&").Id(fmt.Sprintf("existing%s", mc.TypeName)),
+			).Line()
+			checkDuplicateNames.If(Id("result").Dot("Error").Op("!=").Nil()).Block(
+				If(Qual("errors", "Is").Call(
+					Id("result").Dot("Error"), Qual("gorm.io/gorm", "ErrRecordNotFound"),
+				)).Block(
+					Id("nameUsed").Op("=").Lit(false),
+				).Else().Block(
+					Return(
+						Id("iapi").Dot("ResponseStatus500").Call(
+							Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"),
+						),
+					),
+				),
+			).Line()
+			checkDuplicateNames.If(Id("nameUsed")).Block(
+				Return(
+					Id("iapi").Dot("ResponseStatus409").Call(
+						Id("c"), Nil(), Qual("errors", "New").Call(
+							Lit("object with provided name already exists"),
+						), Id("objectType"),
+					),
+				),
+			).Line()
+		}
+
 		// delete handler includes instance check for definition objects to ensure
 		// no definitions with related instances get deleted
 		instanceCheck := false
@@ -270,6 +314,8 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
 			),
 			Line(),
+			checkDuplicateNames,
+			Comment("persist to DB"),
 			If(Id("result").Op(":=").Id("h").Dot("DB").Dot("Create").Call(
 				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
 			).Op(";").Id("result").Dot("Error").Op("!=").Nil()).Block(

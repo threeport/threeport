@@ -526,56 +526,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     - ClusterDefinition
     - ClusterInstance
+    - User
+    - Company
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - User
-    - Company
     - Profile
     - Tier
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
     - ObjectTypeClusterDefinition
     - ObjectTypeClusterInstance
+    - ObjectTypeUser
+    - ObjectTypeCompany
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeUser
-    - ObjectTypeCompany
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       CompanyID:

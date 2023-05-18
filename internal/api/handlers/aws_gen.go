@@ -55,6 +55,22 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingAwsAccount v0.AwsAccount
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsAccount.Name).First(&existingAwsAccount)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&awsAccount); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -350,6 +366,22 @@ func (h Handler) AddAwsEksClusterDefinition(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingAwsEksClusterDefinition v0.AwsEksClusterDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsEksClusterDefinition.Name).First(&existingAwsEksClusterDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&awsEksClusterDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -645,6 +677,22 @@ func (h Handler) AddAwsEksClusterInstance(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingAwsEksClusterInstance v0.AwsEksClusterInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsEksClusterInstance.Name).First(&existingAwsEksClusterInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&awsEksClusterInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -940,6 +988,22 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingAwsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsRelationalDatabaseDefinition.Name).First(&existingAwsRelationalDatabaseDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&awsRelationalDatabaseDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -1235,6 +1299,22 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingAwsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsRelationalDatabaseInstance.Name).First(&existingAwsRelationalDatabaseInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&awsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}

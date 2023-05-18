@@ -15,7 +15,8 @@ type ControllerConfig struct {
 
 // ModelConfig contains the values for a particular model.
 type ModelConfig struct {
-	TypeName string
+	TypeName  string
+	NameField bool
 
 	// notification subjects
 	CreateSubject string

@@ -55,6 +55,22 @@ func (h Handler) AddClusterDefinition(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingClusterDefinition v0.ClusterDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", clusterDefinition.Name).First(&existingClusterDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&clusterDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -350,6 +366,22 @@ func (h Handler) AddClusterInstance(c echo.Context) error {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingClusterInstance v0.ClusterInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", clusterInstance.Name).First(&existingClusterInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
 	if result := h.DB.Create(&clusterInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}

@@ -10,7 +10,7 @@ import (
 const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 
 // SliceContains returns true if a slice contains a certain string.
-func SliceContains(sl []string, name string, caseSensitive bool) bool {
+func StringSliceContains(sl []string, name string, caseSensitive bool) bool {
 	for _, value := range sl {
 		switch caseSensitive {
 		case true:
