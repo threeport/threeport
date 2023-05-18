@@ -171,7 +171,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			// since we failed to complete cluster creation, delete it in case a
 			// a cluster was created to prevent dangling clusters.
 			_ = controlPlaneInfra.Delete(providerConfigDir)
-			cli.Error("failed to get create control plane infra for threeport", err)
+			cli.Error("failed to create control plane infra for threeport", err)
 			os.Exit(1)
 		}
 		newThreeportInstance.KubeAPI = config.KubeAPI{
