@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -165,8 +167,13 @@ var CreateControlPlaneCmd = &cobra.Command{
 			newThreeportInstance.AuthEnabled = false
 		}
 
+		// create a channel to receive interrupt signals in case user hits
+		// Ctrl+C while running
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
 		// create control plane infra
-		kubeConnectionInfo, err := controlPlaneInfra.Create(providerConfigDir)
+		kubeConnectionInfo, err := controlPlaneInfra.Create(providerConfigDir, sigs)
 		if err != nil {
 			// since we failed to complete cluster creation, delete it in case a
 			// a cluster was created to prevent dangling clusters.

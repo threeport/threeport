@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/threeport/threeport/internal/kube"
 )
@@ -9,7 +10,7 @@ import (
 // ControlPlaneInfra is the interface each provider has to satisfy to manage
 // control plane infra.
 type ControlPlaneInfra interface {
-	Create(providerConfigDir string) (*kube.KubeConnectionInfo, error)
+	Create(providerConfigDir string, sigs chan os.Signal) (*kube.KubeConnectionInfo, error)
 	Delete(providerConfigDir string) error
 }
 
