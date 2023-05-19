@@ -7057,6 +7057,13 @@ const docTemplate = `{
                     "description": "The network address to connect to for storing log messages.",
                     "type": "string"
                 },
+                "LogStorageDefinitions": {
+                    "description": "The storage definitions using the log backend for log storage.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.LogStorageDefinition"
+                    }
+                },
                 "Name": {
                     "description": "The unique name of a logging back end.",
                     "type": "string"
@@ -7209,52 +7216,52 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-                "Profile",
-                "Tier",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance",
                 "ClusterDefinition",
                 "ClusterInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance"
+                "Profile",
+                "Tier",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeClusterDefinition",
                 "ObjectTypeClusterInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance"
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance"
             ]
         },
         "v0.Profile": {

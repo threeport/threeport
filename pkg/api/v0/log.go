@@ -1,7 +1,7 @@
 //go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
-// LogBackend is where the log messages are stored.  This is referenced
+// LogBackend is where the log messages are stored.
 type LogBackend struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
@@ -10,18 +10,22 @@ type LogBackend struct {
 
 	// The network address to connect to for storing log messages.
 	Destination *string `json:"Destination,omitempty" query:"destination" gorm:"not null" validate:"required"`
+
+	// The storage definitions using the log backend for log storage.
+	LogStorageDefinitions []*LogStorageDefinition `json:"LogStorageDefinitions,omitempty" query:"logstoragedefinitions" gorm:"many2many:log_backends_log_storage_definitions;" validate:"optional,association"`
 }
 
-// LogStorage provides retention of log output from a workload in one or more
-// log storage back ends.
+// LogStorageDefinition provides  configuration for the retention of log output
+// from workloads to one or more log storage back ends.
 type LogStorageDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
 	// The backend storage mechanisms for retaining logs.
-	LogBackends []*LogBackend `json:"LogBackends,omitempty" query:"logbackends" validate:"optional,association"`
+	LogBackends []*LogBackend `json:"LogBackends,omitempty" query:"logbackends" gorm:"many2many:log_backends_log_storage_definitions;" validate:"optional,association"`
 }
 
+// An instance of log storage deployed to a compute space cluster.
 type LogStorageInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
