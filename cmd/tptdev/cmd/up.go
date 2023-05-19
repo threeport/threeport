@@ -6,6 +6,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -87,6 +89,11 @@ var upCmd = &cobra.Command{
 			APIServer: fmt.Sprintf("%s:%d", threeport.ThreeportLocalAPIEndpoint, threeportLocalAPIPort),
 		}
 
+		// create a channel to receive interrupt signals in case user hits
+		// Ctrl+C while running
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
 		// create kind cluster
 		controlPlaneInfra := provider.ControlPlaneInfraKind{
 			ThreeportInstanceName: createThreeportDevName,
@@ -96,7 +103,7 @@ var upCmd = &cobra.Command{
 		devEnvironment := true
 		kindConfig := controlPlaneInfra.GetKindConfig(devEnvironment, numWorkerNodes)
 		controlPlaneInfra.KindConfig = kindConfig
-		kubeConnectionInfo, err := controlPlaneInfra.Create(providerConfigDir)
+		kubeConnectionInfo, err := controlPlaneInfra.Create(providerConfigDir, sigs)
 		if err != nil {
 			cli.Error("failed to create kind cluster", err)
 			os.Exit(1)
