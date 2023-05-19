@@ -130,8 +130,8 @@ func (i *ControlPlaneInfraEKS) Delete(providerConfigDir string) error {
 
 	// create cluster resources in AWS
 	resourceClient := resource.ResourceClient{&msgChan, ctx, awsConfig}
-	if err := resourceClient.DeleteResourceStack(inventoryFilepath(
-		providerConfigDir, i.ThreeportInstanceName),
+	if err := resourceClient.DeleteResourceStack(
+		inventoryFilepath(providerConfigDir, i.ThreeportInstanceName),
 	); err != nil {
 		return fmt.Errorf("error deleting AWS resources: %w", err)
 	}
