@@ -2,12 +2,14 @@ package provider
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cmd"
 
+	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 )
 
@@ -28,11 +30,22 @@ type ControlPlaneInfraKind struct {
 
 // Create installs a Kubernetes cluster using kind for the threeport control
 // plane.
-func (i *ControlPlaneInfraKind) Create(providerConfigDir string) (*kube.KubeConnectionInfo, error) {
+func (i *ControlPlaneInfraKind) Create(providerConfigDir string, sigs chan os.Signal) (*kube.KubeConnectionInfo, error) {
 	logger := cmd.NewLogger()
 	prov := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
 	)
+
+	// delete kind cluster if user interrupts creation with Ctrl+C
+	go func() {
+		<-sigs
+		cli.Info("\nreceived interrupt signal, cleaning up resources...")
+		if err := prov.Delete(ThreeportClusterName(i.ThreeportInstanceName), i.KubeconfigPath); err != nil {
+			cli.Error("\nfailed to delete kind cluster", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}()
 
 	// create the kind cluster
 	if err := prov.Create(
