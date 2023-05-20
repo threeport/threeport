@@ -1,10 +1,14 @@
 name: Clone
 
-#on:
-#  push:
-#    tags:
-#      - '*'
-on: workflow_dispatch
+on:
+  push:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+  workflow_dispatch:
 
 jobs:
   clone:
