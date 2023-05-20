@@ -1,0 +1,20 @@
+name: Clone
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+
+      - name: Clone release
+        uses: andrewthetechie/gha-clone-releases@v1.7.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          src_repo: threeport/threeport
+          dst_repo: threeport/releases
+          copy_assets: true
+
