@@ -1,12 +1,13 @@
 name: Clone
 
-on:
-  push:
-    tags:
-      - '*'
+#on:
+#  push:
+#    tags:
+#      - '*'
+on: workflow_dispatch
 
 jobs:
-  build:
+  clone:
     runs-on: ubuntu-22.04
     steps:
 
