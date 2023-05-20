@@ -20,6 +20,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           src_repo: threeport/threeport
-          dst_repo: threeport/releases
+          dest_repo: threeport/releases
           copy_assets: true
 
