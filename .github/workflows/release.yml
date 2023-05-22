@@ -36,6 +36,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   clone:
+    needs: goreleaser
     runs-on: ubuntu-22.04
     steps:
 
