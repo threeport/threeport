@@ -48,7 +48,7 @@ jobs:
         application_private_key: ${{ secrets.APPLICATION_PRIVATE_KEY }}
 
     - name: Clone release
-      uses: andrewthetechie/gha-clone-releases@v1.7.0
+      uses: andrewthetechie/gha-clone-releases@v1.8.0
       with:
         token: ${{ steps.get_workflow_token.outputs.token }}
         src_repo: threeport/threeport
