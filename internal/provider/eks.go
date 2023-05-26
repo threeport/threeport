@@ -195,7 +195,7 @@ func getEKSConnectionInfo(awsConfig *aws.Config, awsProfile, clusterName string)
 	}
 	awsSession, err := session.NewSessionWithOptions(sessionOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new AWS session for generating EKS cluster token", err)
+		return nil, fmt.Errorf("failed to create new AWS session for generating EKS cluster token: %w", err)
 	}
 
 	// get EKS cluster token and CA certificate
