@@ -25,6 +25,9 @@ func GetClient(cluster *v0.ClusterInstance, threeportControlPlane bool) (dynamic
 
 	// get the discovery client using rest config
 	discoveryClient, err := GetDiscoveryClient(cluster, threeportControlPlane)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get discovery client for kube API: %w", err)
+	}
 
 	// the rest mapper allows us to deterimine resource types
 	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
