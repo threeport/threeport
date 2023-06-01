@@ -55,17 +55,26 @@ func TestWorkloadE2E(t *testing.T) {
 			YAMLDocument: &workloadDefYAML,
 		}
 
+		yamlDoc := ""
+		duplicateWorkload := v0.WorkloadDefinition{
+			Definition: v0.Definition{
+				Name: &workloadDefName,
+			},
+			YAMLDocument: &yamlDoc,
+		}
+
 		// determine if the API is serving HTTPS or HTTP
 		var authEnabled bool
 		_, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
 		config.InitConfig("", "")
 		if strings.Contains(err.Error(), "signed by unknown authority") {
 			authEnabled = true
-
-			// initialize config so we can pull credentials from it
 		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
 			authEnabled = false
 		}
+
+		// initialize config so we can pull credentials from it
+		config.InitConfig("", "")
 
 		// get threeport config and configure http client for calls to threeport API
 		threeportConfig, err := config.GetThreeportConfig()
@@ -82,6 +91,14 @@ func TestWorkloadE2E(t *testing.T) {
 			&workloadDef,
 		)
 		assert.Nil(err, "should have no error creating workload definition")
+
+		// ensure duplicate workload name throws error
+		_, err = client.CreateWorkloadDefinition(
+			apiClient,
+			apiAddr(),
+			&duplicateWorkload,
+		)
+		assert.NotNil(err, "duplicate workload definition should throw error")
 
 		if assert.NotNil(createdWorkloadDef, "should have a workload definition returned") {
 			assert.NotNil(createdWorkloadDef.ID, "created workload definition should contain unique ID")
