@@ -18,7 +18,7 @@ type Definition struct {
 // Instance includes a set of fields for every instance object.
 type Instance struct {
 	// An arbitrary name the instance
-	Name *string `json:"Name,omitempty" query:"name" gorm:"not null"  validate:"required"`
+	Name *string `json:"Name,omitempty" query:"name" gorm:"not null,unique"  validate:"required"`
 
 	// The status of the instance.
 	//TODO: use a custom type

@@ -42,6 +42,7 @@ func TestWorkloadE2E(t *testing.T) {
 	testWorkloads := testResources()
 
 	for _, testWorkload := range *testWorkloads {
+
 		// create workload definition
 		workloadDefName := testWorkload.Name
 		var workloadDefYAML string
@@ -55,6 +56,7 @@ func TestWorkloadE2E(t *testing.T) {
 			YAMLDocument: &workloadDefYAML,
 		}
 
+		// create a duplicate workload definition
 		yamlDoc := ""
 		duplicateWorkload := v0.WorkloadDefinition{
 			Definition: v0.Definition{
@@ -187,6 +189,22 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.Nil(err, "should have no error creating workload instance")
 		assert.NotNil(createdWorkloadInst, "should have a workload instance returned")
+
+		// create a duplicate workload instance
+		duplicateWorkloadInst := v0.WorkloadInstance{
+			Instance: v0.Instance{
+				Name: &workloadInstName,
+			},
+			ClusterInstanceID:    testClusterInst.ID,
+			WorkloadDefinitionID: createdWorkloadDef.ID,
+		}
+
+		_, err = client.CreateWorkloadInstance(
+			apiClient,
+			apiAddr(),
+			&duplicateWorkloadInst,
+		)
+		assert.NotNil(err, "duplicate workload instance should throw error")
 
 		// get the cluster instance from the threeport API so we can connect to it
 		clusterInstance, err := client.GetClusterInstanceByID(
