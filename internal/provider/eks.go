@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	aws_v1 "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/nukleros/eks-cluster/pkg/api"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"sigs.k8s.io/aws-iam-authenticator/pkg/token"
 
@@ -40,14 +41,11 @@ func (i *ControlPlaneInfraEKS) Create(providerConfigDir string, sigs chan os.Sig
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
 	}
 
-	// create a message channel to receive information about progression of
-	// remote resource creation, and then present that info to user
-	msgChan := make(chan string)
-	go outputMessages(&msgChan)
-	ctx := context.Background()
-
 	// create a resource client to create EKS resources
-	resourceClient := resource.ResourceClient{&msgChan, ctx, awsConfig}
+	resourceClient, err := api.CreateResourceClient(i.AWSConfigEnv, i.AWSConfigProfile)
+	if err != nil {
+		return nil, err
+	}
 
 	// delete resource stack if user interrupts creation with Ctrl+C
 	go func() {
@@ -90,18 +88,7 @@ func (i *ControlPlaneInfraEKS) Create(providerConfigDir string, sigs chan os.Sig
 	resourceConfig.Tags = map[string]string{"ProvisionedBy": "tptctl"}
 
 	// create EKS cluster resource stack in AWS
-	if err := resourceClient.CreateResourceStack(
-		inventoryFilepath(providerConfigDir, i.ThreeportInstanceName),
-		resourceConfig,
-	); err != nil {
-		// delete resources that were created, if any
-		if deleteErr := resourceClient.DeleteResourceStack(
-			inventoryFilepath(providerConfigDir, i.ThreeportInstanceName),
-		); deleteErr != nil {
-			return nil, fmt.Errorf("\nerror creating AWS resources: %w\nerror deleting AWS resources: %s", err, deleteErr)
-		}
-		return nil, fmt.Errorf("error creating AWS resources: %w", err)
-	}
+	api.Create(resourceClient, resourceConfig, inventoryFilepath(providerConfigDir, i.ThreeportInstanceName))
 
 	// get kubernetes API connection info
 	kubeConnInfo, err := getEKSConnectionInfo(
@@ -118,33 +105,16 @@ func (i *ControlPlaneInfraEKS) Create(providerConfigDir string, sigs chan os.Sig
 
 // Delete deletes an AWS EKS cluster and the threeport control plane with it.
 func (i *ControlPlaneInfraEKS) Delete(providerConfigDir string) error {
-	// create an AWS config to connect to AWS API
-	awsConfig, err := resource.LoadAWSConfig(
-		i.AWSConfigEnv,
-		i.AWSConfigProfile,
-		i.AWSRegion,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to load AWS configuration: %w", err)
-	}
 
 	// create a resource client for spinning up AWS resources and getting status
 	// messages back as it progresses
-	msgChan := make(chan string)
-	go outputMessages(&msgChan)
-	ctx := context.Background()
-
-	// create cluster resources in AWS
-	resourceClient := resource.ResourceClient{&msgChan, ctx, awsConfig}
-	if err := resourceClient.DeleteResourceStack(
-		inventoryFilepath(providerConfigDir, i.ThreeportInstanceName),
-	); err != nil {
-		return fmt.Errorf("error deleting AWS resources: %w", err)
+	resourceClient, err := api.CreateResourceClient(i.AWSConfigEnv, i.AWSConfigProfile)
+	if err != nil {
+		return err
 	}
 
-	// delete inventory file - emit a warning instead of an error on failure
-	if err := os.Remove(inventoryFilepath(providerConfigDir, i.ThreeportInstanceName)); err != nil {
-		cli.Warning(fmt.Sprintf("failed to delete inventory file: %s", err))
+	if err := api.Delete(resourceClient, inventoryFilepath(providerConfigDir, i.ThreeportInstanceName)); err != nil {
+		return fmt.Errorf("error deleting AWS resources: %w", err)
 	}
 
 	return nil
