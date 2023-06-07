@@ -1,4 +1,4 @@
-package threeport
+package cmd
 
 import (
 	"errors"
