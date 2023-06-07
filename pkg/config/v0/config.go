@@ -79,6 +79,31 @@ type Credential struct {
 	ClientKey  string `yaml:"ClientKey"`
 }
 
+// CLIArgs is the set of arguments passed to the CLI.
+type CLIArgs struct {
+	InstanceName            *string
+	CreateRootDomain        *string
+	CreateProviderAccountID *string
+	CreateAdminEmail        *string
+	ForceOverwriteConfig    *bool
+	AuthEnabled             *bool
+	InfraProvider           *string
+	KindKubeconfigPath      *string
+	ControlPlaneImageRepo   *string
+	ControlPlaneImageTag    *string
+	ThreeportLocalAPIPort   *int
+	NumWorkerNodes          *int
+	AwsConfigProfile        *string
+	AwsConfigEnv            *bool
+	AwsRegion               *string
+	CreateThreeportDevName  *string
+	KubeconfigPath          *string
+	ThreeportPath           *string
+	CfgFile                 *string
+	ProviderConfigDir       *string
+	DevEnvironment          *bool
+}
+
 // GetAllInstanceNames returns all instance names in a threeport config.
 func (cfg *ThreeportConfig) GetAllInstanceNames() []string {
 	var allInstances []string
