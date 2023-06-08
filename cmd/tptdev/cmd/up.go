@@ -77,26 +77,4 @@ func init() {
 		config.InitConfig(cliArgs.CfgFile, cliArgs.ProviderConfigDir)
 	})
 
-	// get kubeconfig to use for kind cluster
-	if cliArgs.KindKubeconfigPath == "" {
-		k, err := kube.DefaultKubeconfig()
-		if err != nil {
-			cli.Error("failed to get default kubeconfig path", err)
-			os.Exit(1)
-		}
-		cliArgs.KindKubeconfigPath = k
-	}
-
-	// set default threeport repo path if not provided
-	// this is needed to map the container path to the host path for live
-	// reloads of the code
-	if cliArgs.ThreeportPath == "" {
-		tp, err := os.Getwd()
-		if err != nil {
-			cli.Error("failed to get current working directory", err)
-			os.Exit(1)
-		}
-		cliArgs.ThreeportPath = tp
-	}
-
 }

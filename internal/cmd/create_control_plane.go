@@ -23,6 +23,28 @@ const tier = threeport.ControlPlaneTierDev
 
 func CreateControlPlane(args *config.CLIArgs) error {
 
+	// get kubeconfig to use for kind cluster
+	if args.KindKubeconfigPath == "" {
+		k, err := kube.DefaultKubeconfig()
+		if err != nil {
+			cli.Error("failed to get default kubeconfig path", err)
+			os.Exit(1)
+		}
+		args.KindKubeconfigPath = k
+	}
+
+	// set default threeport repo path if not provided
+	// this is needed to map the container path to the host path for live
+	// reloads of the code
+	if args.ThreeportPath == "" {
+		tp, err := os.Getwd()
+		if err != nil {
+			cli.Error("failed to get current working directory", err)
+			os.Exit(1)
+		}
+		args.ThreeportPath = tp
+	}
+
 	// get the threeport config
 	threeportConfig, err := config.GetThreeportConfig()
 	if err != nil {
