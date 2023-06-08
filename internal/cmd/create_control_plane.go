@@ -97,38 +97,6 @@ func CreateControlPlane(args *config.CLIArgs) error {
 		controlPlaneInfra = &controlPlaneInfraEKS
 	}
 
-	// if auth is enabled, generate client certificate and add to local config
-	var authConfig *auth.AuthConfig
-	if args.AuthEnabled {
-		authConfig, err = auth.GetAuthConfig()
-		if err != nil {
-			cli.Error("failed to get auth config", err)
-			os.Exit(1)
-		}
-
-		// generate client certificate
-		clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
-			authConfig.CAConfig,
-			&authConfig.CAPrivateKey,
-		)
-		if err != nil {
-			cli.Error("failed to generate client certificate and private key", err)
-			os.Exit(1)
-		}
-
-		clientCredentials := &config.Credential{
-			Name:       args.InstanceName,
-			ClientCert: util.Base64Encode(clientCertificate),
-			ClientKey:  util.Base64Encode(clientPrivateKey),
-		}
-
-		newThreeportInstance.AuthEnabled = true
-		newThreeportInstance.Credentials = append(newThreeportInstance.Credentials, *clientCredentials)
-		newThreeportInstance.CACert = authConfig.CABase64Encoded
-	} else {
-		newThreeportInstance.AuthEnabled = false
-	}
-
 	// create a channel to receive interrupt signals in case user hits
 	// Ctrl+C while running
 	sigs := make(chan os.Signal, 1)
@@ -149,6 +117,18 @@ func CreateControlPlane(args *config.CLIArgs) error {
 		Certificate:   util.Base64Encode(kubeConnectionInfo.Certificate),
 		Key:           util.Base64Encode(kubeConnectionInfo.Key),
 		EKSToken:      util.Base64Encode(kubeConnectionInfo.EKSToken),
+	}
+
+	// create a client and resource mapper to connect to kubernetes cluster
+	// API for installing resources
+	if err != nil {
+		// delete control plane cluster
+		if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
+			cli.Error("failed to delete control plane infra", err)
+			cli.Warning("you may have dangling cluster infra resources still running")
+		}
+		cli.Error("failed to get a Kubernetes client and mapper", err)
+		os.Exit(1)
 	}
 
 	// the cluster instance is the default compute space cluster to be added
@@ -185,9 +165,6 @@ func CreateControlPlane(args *config.CLIArgs) error {
 			DefaultCluster:               &defaultCluster,
 		}
 	}
-
-	// create a client and resource mapper to connect to kubernetes cluster
-	// API for installing resources
 	dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance, false)
 	if err != nil {
 		// delete control plane cluster
@@ -213,6 +190,77 @@ func CreateControlPlane(args *config.CLIArgs) error {
 			cli.Warning("you may have dangling cluster infra resources still running")
 		}
 		cli.Error("failed to install threeport control plane dependencies", err)
+		os.Exit(1)
+	}
+
+	// if auth is enabled, generate client certificate and add to local config
+	var authConfig *auth.AuthConfig
+	if args.AuthEnabled {
+		authConfig, err = auth.GetAuthConfig()
+		if err != nil {
+			cli.Error("failed to get auth config", err)
+			os.Exit(1)
+		}
+
+		// generate client certificate
+		clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
+			authConfig.CAConfig,
+			&authConfig.CAPrivateKey,
+		)
+		if err != nil {
+			cli.Error("failed to generate client certificate and private key", err)
+			os.Exit(1)
+		}
+
+		clientCredentials := &config.Credential{
+			Name:       args.InstanceName,
+			ClientCert: util.Base64Encode(clientCertificate),
+			ClientKey:  util.Base64Encode(clientPrivateKey),
+		}
+
+		newThreeportInstance.AuthEnabled = true
+		newThreeportInstance.Credentials = append(newThreeportInstance.Credentials, *clientCredentials)
+		newThreeportInstance.CACert = authConfig.CABase64Encoded
+
+		// install the threeport API TLS assets
+		if err := threeport.InstallThreeportAPITLS(
+			dynamicKubeClient,
+			mapper,
+			authConfig,
+			threeportAPIEndpoint,
+		); err != nil {
+			// print the error when it happens and then again post-deletion
+			cli.Error("failed to install threeport API TLS assets", err)
+			// delete control plane cluster
+			if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
+				cli.Error("failed to delete control plane infra", err)
+				cli.Warning("you may have dangling cluster infra resources still running")
+			}
+			cli.Error("failed to install threeport API TLS assets", err)
+			os.Exit(1)
+	}
+
+	} else {
+		newThreeportInstance.AuthEnabled = false
+	}
+
+	// update threeport config and refresh threeport config to updated version
+	config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, args.InstanceName, newThreeportInstance)
+	threeportConfig, err = config.GetThreeportConfig()
+	if err != nil {
+		cli.Error("failed to refresh threeport config", err)
+		os.Exit(1)
+	}
+
+	// get threeport API client
+	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
+	if err != nil {
+		cli.Error("failed to get threeport certificates from config", err)
+		os.Exit(1)
+	}
+	apiClient, err := client.GetHTTPClient(args.AuthEnabled, ca, clientCertificate, clientPrivateKey)
+	if err != nil {
+		cli.Error("failed to create http client", err)
 		os.Exit(1)
 	}
 
@@ -268,15 +316,6 @@ func CreateControlPlane(args *config.CLIArgs) error {
 			os.Exit(1)
 		}
 
-		apiClient, err := client.GetHTTPClient(args.AuthEnabled,
-			kubeConnectionInfo.CACertificate,
-			kubeConnectionInfo.Certificate,
-			kubeConnectionInfo.Key)
-		if err != nil {
-			cli.Error("failed to create http client", err)
-			os.Exit(1)
-		}
-
 		// wait for API server to start running
 		cli.Info("waiting for threeport API to start running")
 		if err := threeport.WaitForThreeportAPI(
@@ -323,39 +362,8 @@ func CreateControlPlane(args *config.CLIArgs) error {
 
 	// update threeport config and refresh threeport config to updated version
 	config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, args.InstanceName, newThreeportInstance)
-	threeportConfig, err = config.GetThreeportConfig()
 	if err != nil {
 		cli.Error("failed to refresh threeport config", err)
-		os.Exit(1)
-	}
-
-	// install the threeport API TLS assets
-	if err := threeport.InstallThreeportAPITLS(
-		dynamicKubeClient,
-		mapper,
-		authConfig,
-		threeportAPIEndpoint,
-	); err != nil {
-		// print the error when it happens and then again post-deletion
-		cli.Error("failed to install threeport API TLS assets", err)
-		// delete control plane cluster
-		if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
-			cli.Error("failed to delete control plane infra", err)
-			cli.Warning("you may have dangling cluster infra resources still running")
-		}
-		cli.Error("failed to install threeport API TLS assets", err)
-		os.Exit(1)
-	}
-
-	// get threeport API client
-	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
-	if err != nil {
-		cli.Error("failed to get threeport certificates from config", err)
-		os.Exit(1)
-	}
-	apiClient, err := client.GetHTTPClient(args.AuthEnabled, ca, clientCertificate, clientPrivateKey)
-	if err != nil {
-		cli.Error("failed to create http client", err)
 		os.Exit(1)
 	}
 
