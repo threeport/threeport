@@ -10,7 +10,6 @@ import (
 
 	"github.com/threeport/threeport/internal/cli"
 	internalCmd "github.com/threeport/threeport/internal/cmd"
-	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/tptdev"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
