@@ -34,47 +34,6 @@ func ThreeportDevImages() map[string]string {
 	}
 }
 
-// InstallThreeportControlPlaneComponents installs the threeport API and
-// controllers.
-func InstallThreeportControlPlaneComponents(
-	kubeClient dynamic.Interface,
-	mapper *meta.RESTMapper,
-	devEnvironment bool,
-	apiHostname string,
-	customThreeportImageRepo string,
-	customThreeportImageTag string,
-	authConfig *auth.AuthConfig,
-	infraProvider string,
-) error {
-	// install the API
-	if err := InstallThreeportAPI(
-		kubeClient,
-		mapper,
-		devEnvironment,
-		apiHostname,
-		customThreeportImageRepo,
-		customThreeportImageTag,
-		authConfig,
-		infraProvider,
-	); err != nil {
-		return fmt.Errorf("failed to install threeport API server: %w", err)
-	}
-
-	// install the controllers
-	if err := InstallThreeportControllers(
-		kubeClient,
-		mapper,
-		devEnvironment,
-		customThreeportImageRepo,
-		customThreeportImageTag,
-		authConfig,
-	); err != nil {
-		return fmt.Errorf("failed to install threeport controllers: %w", err)
-	}
-
-	return nil
-}
-
 // InstallThreeportControlPlaneAPI installs the threeport API in a Kubernetes
 // cluster.
 func InstallThreeportAPI(
