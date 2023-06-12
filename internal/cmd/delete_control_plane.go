@@ -24,7 +24,7 @@ func DeleteControlPlane(args *config.CLIArgs) error {
 		os.Exit(1)
 	}
 
-	// check threeport config for exisiting instance
+	// check threeport config for existing instance
 	// find the threeport instance by name
 	threeportInstanceConfigExists := false
 	var instanceConfig config.Instance
@@ -157,4 +157,3 @@ func DeleteControlPlane(args *config.CLIArgs) error {
 
 	return nil
 }
-

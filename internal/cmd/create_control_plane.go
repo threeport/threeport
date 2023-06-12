@@ -52,7 +52,7 @@ func CreateControlPlane(args *config.CLIArgs) error {
 		os.Exit(1)
 	}
 
-	// check threeport config for exisiting instance
+	// check threeport config for existing instance
 	threeportInstanceConfigExists, err := threeportConfig.CheckThreeportConfigExists(
 		args.InstanceName,
 		args.ForceOverwriteConfig,
