@@ -113,8 +113,14 @@ func (i *ControlPlaneInfraEKS) Delete(providerConfigDir string) error {
 		return err
 	}
 
+	// delete EKS cluster resources
 	if err := api.Delete(resourceClient, inventoryFilepath(providerConfigDir, i.ThreeportInstanceName)); err != nil {
 		return fmt.Errorf("error deleting AWS resources: %w", err)
+	}
+
+	// remove inventory file from filesystem
+	if err := os.Remove(inventoryFilepath(providerConfigDir, i.ThreeportInstanceName)); err != nil {
+			cli.Warning(fmt.Sprintf("failed to delete inventory file: %s", err))
 	}
 
 	return nil
