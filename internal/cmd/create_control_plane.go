@@ -24,13 +24,13 @@ const tier = threeport.ControlPlaneTierDev
 func CreateControlPlane(args *config.CLIArgs) error {
 
 	// get kubeconfig to use for kind cluster
-	if args.KindKubeconfigPath == "" {
+	if args.KubeconfigPath == "" {
 		k, err := kube.DefaultKubeconfig()
 		if err != nil {
 			cli.Error("failed to get default kubeconfig path", err)
 			os.Exit(1)
 		}
-		args.KindKubeconfigPath = k
+		args.KubeconfigPath = k
 	}
 
 	// set default threeport repo path if not provided
@@ -95,7 +95,7 @@ func CreateControlPlane(args *config.CLIArgs) error {
 		threeportAPIEndpoint = threeport.ThreeportLocalAPIEndpoint
 		controlPlaneInfraKind := provider.ControlPlaneInfraKind{
 			ThreeportInstanceName: args.InstanceName,
-			KubeconfigPath:        args.KindKubeconfigPath,
+			KubeconfigPath:        args.KubeconfigPath,
 			ThreeportPath:         args.ThreeportPath,
 		}
 		kindConfig := controlPlaneInfraKind.GetKindConfig(args.DevEnvironment, args.NumWorkerNodes)
@@ -260,7 +260,7 @@ func CreateControlPlane(args *config.CLIArgs) error {
 			}
 			cli.Error("failed to install threeport API TLS assets", err)
 			os.Exit(1)
-	}
+		}
 
 	} else {
 		newThreeportInstance.AuthEnabled = false

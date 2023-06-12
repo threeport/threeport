@@ -46,6 +46,7 @@ func DeleteControlPlane(args *config.CLIArgs) error {
 	case threeport.ControlPlaneInfraProviderKind:
 		controlPlaneInfraKind := provider.ControlPlaneInfraKind{
 			ThreeportInstanceName: instanceConfig.Name,
+			KubeconfigPath:        args.KubeconfigPath,
 		}
 		controlPlaneInfra = &controlPlaneInfraKind
 	case threeport.ControlPlaneInfraProviderEKS:
@@ -154,4 +155,6 @@ func DeleteControlPlane(args *config.CLIArgs) error {
 
 	cli.Complete(fmt.Sprintf("threeport instance %s deleted", args.InstanceName))
 
+	return nil
 }
+

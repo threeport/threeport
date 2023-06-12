@@ -15,8 +15,6 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-var cliArgs *config.CLIArgs
-
 // TODO: will become a variable once production-ready control plane instances are
 // available.
 const tier = threeport.ControlPlaneTierDev
@@ -58,7 +56,7 @@ func init() {
 	//	"tier", "t", threeport.ControlPlaneTierDev, "Determines the level of availability and data retention for the control plane.",
 	//)
 	CreateControlPlaneCmd.Flags().StringVar(
-		&cliArgs.KindKubeconfigPath,
+		&cliArgs.KubeconfigPath,
 		"kind-kubeconfig", "", "Path to kubeconfig used for kind provider installs (default is ~/.kube/config).",
 	)
 	CreateControlPlaneCmd.Flags().StringVar(

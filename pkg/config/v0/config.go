@@ -88,7 +88,6 @@ type CLIArgs struct {
 	ForceOverwriteConfig    bool
 	AuthEnabled             bool
 	InfraProvider           string
-	KindKubeconfigPath      string
 	ControlPlaneImageRepo   string
 	ControlPlaneImageTag    string
 	ThreeportLocalAPIPort   int

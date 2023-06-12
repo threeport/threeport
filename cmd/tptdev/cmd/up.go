@@ -14,8 +14,6 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-var cliArgs *config.CLIArgs
-
 // upCmd represents the up command
 var upCmd = &cobra.Command{
 	Use:   "up",
@@ -32,9 +30,6 @@ var upCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(upCmd)
-	cliArgs = &config.CLIArgs{}
-	cliArgs.InfraProvider = "kind"
-	cliArgs.DevEnvironment = true
 
 	upCmd.Flags().StringVarP(
 		&cliArgs.KubeconfigPath,
