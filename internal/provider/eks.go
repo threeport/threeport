@@ -118,9 +118,9 @@ func (i *ControlPlaneInfraEKS) Delete(providerConfigDir string) error {
 		return fmt.Errorf("error deleting AWS resources: %w", err)
 	}
 
-	// remove inventory file from filesystem
+	// delete inventory file - emit a warning instead of an error on failure
 	if err := os.Remove(inventoryFilepath(providerConfigDir, i.ThreeportInstanceName)); err != nil {
-			cli.Warning(fmt.Sprintf("failed to delete inventory file: %s", err))
+		cli.Warning(fmt.Sprintf("failed to delete inventory file: %s", err))
 	}
 
 	return nil
