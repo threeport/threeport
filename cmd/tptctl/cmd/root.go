@@ -12,7 +12,7 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-var cliArgs = &config.CLIArgs{}
+var cliArgs = &config.ControlPlaneCLIArgs{}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{

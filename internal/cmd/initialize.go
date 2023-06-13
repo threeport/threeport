@@ -8,7 +8,7 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-func InitArgs(args *config.CLIArgs) {
+func InitArgs(args *config.ControlPlaneCLIArgs) {
 	if args.ProviderConfigDir == "" {
 		providerConf, err := config.DefaultProviderConfigDir()
 		if err != nil {

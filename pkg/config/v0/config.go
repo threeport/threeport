@@ -79,8 +79,8 @@ type Credential struct {
 	ClientKey  string `yaml:"ClientKey"`
 }
 
-// CLIArgs is the set of arguments passed to the CLI.
-type CLIArgs struct {
+// ControlPlaneCLIArgs is the set of arguments passed to the CLI.
+type ControlPlaneCLIArgs struct {
 	InstanceName            string
 	CreateRootDomain        string
 	CreateProviderAccountID string

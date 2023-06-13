@@ -21,7 +21,7 @@ import (
 
 const tier = threeport.ControlPlaneTierDev
 
-func CreateControlPlane(args *config.CLIArgs) error {
+func CreateControlPlane(args *config.ControlPlaneCLIArgs) error {
 
 	// get kubeconfig to use for kind cluster
 	if args.KubeconfigPath == "" {
