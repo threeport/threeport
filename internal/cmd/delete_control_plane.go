@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-func DeleteControlPlane(args *config.ControlPlaneCLIArgs) error {
+func DeleteControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	// get threeport config
 	threeportConfig, err := config.GetThreeportConfig()
 	if err != nil {

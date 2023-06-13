@@ -79,29 +79,6 @@ type Credential struct {
 	ClientKey  string `yaml:"ClientKey"`
 }
 
-// ControlPlaneCLIArgs is the set of arguments passed to the CLI.
-type ControlPlaneCLIArgs struct {
-	InstanceName            string
-	CreateRootDomain        string
-	CreateProviderAccountID string
-	CreateAdminEmail        string
-	ForceOverwriteConfig    bool
-	AuthEnabled             bool
-	InfraProvider           string
-	ControlPlaneImageRepo   string
-	ControlPlaneImageTag    string
-	ThreeportLocalAPIPort   int
-	NumWorkerNodes          int
-	AwsConfigProfile        string
-	AwsConfigEnv            bool
-	AwsRegion               string
-	KubeconfigPath          string
-	ThreeportPath           string
-	CfgFile                 string
-	ProviderConfigDir       string
-	DevEnvironment          bool
-}
-
 // GetAllInstanceNames returns all instance names in a threeport config.
 func (cfg *ThreeportConfig) GetAllInstanceNames() []string {
 	var allInstances []string

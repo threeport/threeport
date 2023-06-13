@@ -12,7 +12,6 @@ import (
 	"github.com/threeport/threeport/internal/cli"
 	internalCmd "github.com/threeport/threeport/internal/cmd"
 	"github.com/threeport/threeport/internal/threeport"
-	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 // TODO: will become a variable once production-ready control plane instances are
@@ -38,7 +37,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 func init() {
 	createCmd.AddCommand(CreateControlPlaneCmd)
 
-	cliArgs = &config.ControlPlaneCLIArgs{}
+	cliArgs = &cli.ControlPlaneCLIArgs{}
 
 	CreateControlPlaneCmd.Flags().StringVarP(
 		&cliArgs.InstanceName,
