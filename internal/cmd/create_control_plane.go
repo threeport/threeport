@@ -27,8 +27,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	if args.KubeconfigPath == "" {
 		k, err := kube.DefaultKubeconfig()
 		if err != nil {
-			cli.Error("failed to get default kubeconfig path", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to get default kubeconfig path: %w", err)
 		}
 		args.KubeconfigPath = k
 	}
@@ -39,8 +38,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	if args.ThreeportPath == "" {
 		tp, err := os.Getwd()
 		if err != nil {
-			cli.Error("failed to get current working directory", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to get current working directory: %w", err)
 		}
 		args.ThreeportPath = tp
 	}
@@ -48,8 +46,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	// get the threeport config
 	threeportConfig, err := config.GetThreeportConfig()
 	if err != nil {
-		cli.Error("failed to get threeport config", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to get threeport config: %w", err)
 	}
 
 	// check threeport config for existing instance
@@ -58,10 +55,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 		args.ForceOverwriteConfig,
 	)
 	if err != nil {
-		cli.Error("interrupted creation of threeport instance", err)
-		cli.Info("if you wish to overwrite the existing config use --force-overwrite-config flag")
-		cli.Warning("you will lose the ability to connect to the existing threeport instance if it still exists")
-		os.Exit(1)
+		return fmt.Errorf("interrupted creation of threeport instance: %w", err)
 	}
 
 	// flag validation
@@ -71,8 +65,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 		args.CreateProviderAccountID,
 		args.AuthEnabled,
 	); err != nil {
-		cli.Error("flag validation failed", err)
-		os.Exit(1)
+		return fmt.Errorf("flag validation failed: %w", err)
 	}
 
 	// create threeport config for new instance
@@ -130,8 +123,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 		// since we failed to complete cluster creation, delete it in case a
 		// a cluster was created to prevent dangling clusters.
 		_ = controlPlaneInfra.Delete(args.ProviderConfigDir)
-		cli.Error("failed to create control plane infra for threeport", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create control plane infra for threeport: %w", err)
 	}
 	newThreeportInstance.KubeAPI = config.KubeAPI{
 		APIEndpoint:   kubeConnectionInfo.APIEndpoint,
@@ -146,11 +138,9 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	if err != nil {
 		// delete control plane cluster
 		if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
-			cli.Error("failed to delete control plane infra", err)
-			cli.Warning("you may have dangling cluster infra resources still running")
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
 		}
-		cli.Error("failed to get a Kubernetes client and mapper", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 	}
 
 	// the cluster instance is the default compute space cluster to be added
@@ -191,11 +181,9 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	if err != nil {
 		// delete control plane cluster
 		if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
-			cli.Error("failed to delete control plane infra", err)
-			cli.Warning("you may have dangling cluster infra resources still running")
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
 		}
-		cli.Error("failed to get a Kubernetes client and mapper", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 	}
 
 	// install the threeport control plane dependencies
@@ -208,11 +196,9 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 		cli.Error("failed to install threeport control plane dependencies", err)
 		// delete control plane cluster
 		if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
-			cli.Error("failed to delete control plane infra", err)
-			cli.Warning("you may have dangling cluster infra resources still running")
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
 		}
-		cli.Error("failed to install threeport control plane dependencies", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to install threeport control plane dependencies: %w", err)
 	}
 
 	// if auth is enabled, generate client certificate and add to local config
@@ -220,8 +206,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	if args.AuthEnabled {
 		authConfig, err = auth.GetAuthConfig()
 		if err != nil {
-			cli.Error("failed to get auth config", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to get auth config: %w", err)
 		}
 
 		// generate client certificate
@@ -230,8 +215,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 			&authConfig.CAPrivateKey,
 		)
 		if err != nil {
-			cli.Error("failed to generate client certificate and private key", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to generate client certificate and private key: %w", err)
 		}
 
 		clientCredentials := &config.Credential{
@@ -255,11 +239,9 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 			cli.Error("failed to install threeport API TLS assets", err)
 			// delete control plane cluster
 			if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
-				cli.Error("failed to delete control plane infra", err)
-				cli.Warning("you may have dangling cluster infra resources still running")
+				return fmt.Errorf("failed to delete control plane infra: %w", err)
 			}
-			cli.Error("failed to install threeport API TLS assets", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to install threeport API TLS assets: %w", err)
 		}
 
 	} else {
@@ -270,20 +252,17 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, args.InstanceName, newThreeportInstance)
 	threeportConfig, err = config.GetThreeportConfig()
 	if err != nil {
-		cli.Error("failed to refresh threeport config", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to refresh threeport config: %w", err)
 	}
 
 	// get threeport API client
 	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
 	if err != nil {
-		cli.Error("failed to get threeport certificates from config", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to get threeport certificates from config: %w", err)
 	}
 	apiClient, err := client.GetHTTPClient(args.AuthEnabled, ca, clientCertificate, clientPrivateKey)
 	if err != nil {
-		cli.Error("failed to create http client", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create http client: %w", err)
 	}
 
 	if !args.DevEnvironment {
@@ -319,8 +298,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 
 		// build and load dev images for API and controllers
 		if err := tptdev.PrepareDevImages(args.ThreeportPath, provider.ThreeportClusterName(args.InstanceName)); err != nil {
-			cli.Error("failed to build and load dev control plane images", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to build and load dev control plane images: %w", err)
 		}
 
 		// install the threeport control plane API and controllers
@@ -334,8 +312,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 			authConfig,
 			threeport.ControlPlaneInfraProviderKind,
 		); err != nil {
-			cli.Error("failed to install threeport control plane components", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to install threeport control plane components: %w", err)
 		}
 
 		// wait for API server to start running
@@ -343,8 +320,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 		if err := threeport.WaitForThreeportAPI(
 			apiClient, fmt.Sprintf("%s:%d", threeport.ThreeportLocalAPIEndpoint, args.ThreeportLocalAPIPort),
 		); err != nil {
-			cli.Error("threeport API did not come up", err)
-			os.Exit(1)
+			return fmt.Errorf("threeport API did not come up: %w", err)
 		}
 
 		// install the threeport controllers - these need to be installed once
@@ -359,8 +335,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 			"",
 			authConfig,
 		); err != nil {
-			cli.Error("failed to install threeport control plane components", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to install threeport control plane components: %w", err)
 		}
 
 	}
@@ -372,11 +347,9 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 			// print the error when it happens and then again post-deletion
 			cli.Error("failed to get threeport API's public endpoint: %w", err)
 			if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
-				cli.Error("failed to delete control plane infra", err)
-				cli.Warning("you may have dangling cluster infra resources still running")
+				return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
 			}
-			cli.Error("failed to get threeport API's public endpoint: %w", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to get threeport API's public endpoint: %w", err)
 		}
 		threeportAPIEndpoint = tpapiEndpoint
 		newThreeportInstance.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
@@ -385,8 +358,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	// update threeport config and refresh threeport config to updated version
 	config.UpdateThreeportConfig(threeportInstanceConfigExists, threeportConfig, args.InstanceName, newThreeportInstance)
 	if err != nil {
-		cli.Error("failed to refresh threeport config", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to refresh threeport config: %w", err)
 	}
 
 	// wait for API server to start running
@@ -399,11 +371,9 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 		cli.Error("threeport API did not come up", err)
 		// delete control plane cluster
 		if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
-			cli.Error("failed to delete control plane infra", err)
-			cli.Warning("you may have dangling cluster infra resources still running")
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
 		}
-		cli.Error("threeport API did not come up", err)
-		os.Exit(1)
+		return fmt.Errorf("threeport API did not come up: %w", err)
 	}
 
 	// create the default compute space cluster definition in threeport API
@@ -423,11 +393,9 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 		cli.Error("failed to create new cluster definition for default compute space", err)
 		// delete control plane cluster
 		if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
-			cli.Error("failed to delete control plane infra", err)
-			cli.Warning("you may have dangling cluster infra resources still running")
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
 		}
-		cli.Error("failed to create new cluster definition for default compute space", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create new cluster definition for default compute space: %w", err)
 	}
 
 	// create default compute space cluster instance in threeport API
@@ -442,11 +410,9 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 		cli.Error("failed to create new cluster instance for default compute space", err)
 		// delete control plane cluster
 		if err := controlPlaneInfra.Delete(args.ProviderConfigDir); err != nil {
-			cli.Error("failed to delete control plane infra", err)
-			cli.Warning("you may have dangling cluster infra resources still running")
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
 		}
-		cli.Error("failed to create new cluster instance for default compute space", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create new cluster instance for default compute space: %w", err)
 	}
 
 	cli.Info("threeport config updated")
