@@ -1,11 +1,16 @@
 package workload
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
+	agent "github.com/threeport/threeport-agent/api/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/threeport/threeport/internal/kube"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -27,6 +32,8 @@ func workloadInstanceCreated(
 		return fmt.Errorf("failed to determine if workload definition is reconciled: %w", err)
 	}
 	if !reconciled {
+		//log.Info("workload definition not reconciled")
+		//return nil
 		return errors.New("workload definition not reconciled")
 	}
 
@@ -51,6 +58,14 @@ func workloadInstanceCreated(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload definition for the instance being deployed: %w", err)
+	}
+
+	// construct ThreeportWorkload resource to inform the threeport-agent of
+	// which resources it should watch
+	threeportWorkload := agent.ThreeportWorkload{
+		Spec: agent.ThreeportWorkloadSpec{
+			WorkloadInstanceID: *workloadInstance.ID,
+		},
 	}
 
 	// construct workload resource instances
@@ -86,10 +101,10 @@ func workloadInstanceCreated(
 		return fmt.Errorf("failed to set namespaces for workload resource instances: %w", err)
 	}
 
-	// create a client to connect to kube API
+	// create a dynamic client to connect to kube API
 	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
 	if err != nil {
-		fmt.Errorf("failed to create kube API client object: %w", err)
+		return fmt.Errorf("failed to create dynamic kube API client: %w", err)
 	}
 
 	// create each resource in the target kube cluster
@@ -107,10 +122,10 @@ func workloadInstanceCreated(
 		}
 
 		// set label metadata on kube object
-		kubeObject, err = kube.SetLabels(
+		kubeObject, err = kube.AddLabels(
 			kubeObject,
 			*workloadDefinition.Name,
-			*workloadInstance.Name,
+			workloadInstance,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to add label metadata to objects: %w", err)
@@ -123,7 +138,7 @@ func workloadInstanceCreated(
 		}
 
 		// create object in threeport API
-		_, err = client.CreateWorkloadResourceInstance(
+		createdWRI, err := client.CreateWorkloadResourceInstance(
 			r.APIClient,
 			r.APIServer,
 			&wri,
@@ -132,10 +147,44 @@ func workloadInstanceCreated(
 			return fmt.Errorf("failed to create workload resource instance in threeport: %w", err)
 		}
 
+		agentWRI := agent.WorkloadResourceInstance{
+			Name:        kubeObject.GetName(),
+			Namespace:   kubeObject.GetNamespace(),
+			Group:       kubeObject.GroupVersionKind().Group,
+			Version:     kubeObject.GroupVersionKind().Version,
+			Kind:        kubeObject.GetKind(),
+			ThreeportID: *createdWRI.ID,
+		}
+		threeportWorkload.Spec.WorkloadResourceInstances = append(
+			threeportWorkload.Spec.WorkloadResourceInstances,
+			agentWRI,
+		)
+
 		log.V(1).Info(
 			"workload resource instance created",
 			"workloadResourceInstanceID", wri.ID,
 		)
+	}
+
+	// create the ThreeportWorkload resource to inform the threeport-agent of
+	// the resources that need to be watched
+	resourceClient := dynamicKubeClient.Resource(schema.GroupVersionResource{
+		Group:    agent.GroupVersion.Group,
+		Version:  agent.GroupVersion.Version,
+		Resource: "threeportworkloads",
+	})
+	object, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&threeportWorkload)
+	if err != nil {
+		return fmt.Errorf("failed to convert ThreeportWorkload into unstructured object: %w", err)
+	}
+	var unstructured unstructured.Unstructured
+	unstructured.Object = object
+	unstructured.SetAPIVersion(fmt.Sprintf("%s/%s", agent.GroupVersion.Group, agent.GroupVersion.Version))
+	unstructured.SetKind("ThreeportWorkload")
+	unstructured.SetName(fmt.Sprintf("workload-instance-%d", *workloadInstance.ID))
+	_, err = resourceClient.Create(context.Background(), &unstructured, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create new ThreeportWorkload resource: %w", err)
 	}
 
 	return nil
