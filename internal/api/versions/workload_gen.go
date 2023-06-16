@@ -136,3 +136,35 @@ func AddWorkloadResourceInstanceVersions() {
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)
 }
+
+// AddWorkloadEventVersions adds field validation info and adds it
+// to the REST API versions.
+func AddWorkloadEventVersions() {
+	iapi.WorkloadEventTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.WorkloadEvent)),
+		"",
+		iapi.Translate,
+		iapi.WorkloadEventTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeWorkloadEvent),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.WorkloadEventTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}

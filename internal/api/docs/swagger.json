@@ -9,7 +9,7 @@
             "url": "https://threeport.io/support",
             "email": "support@threeport.io"
         },
-        "version": "v0.0.6"
+        "version": "v0.1.2"
     },
     "host": "rest-api.threeport.io",
     "basePath": "/",
@@ -5677,6 +5677,287 @@
                 }
             }
         },
+        "/v0/workload-events": {
+            "get": {
+                "description": "Get all workload events from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all workload events.",
+                "operationId": "get-workloadEvents",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workload event search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new workload event to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new workload event.",
+                "operationId": "add-workloadEvent",
+                "parameters": [
+                    {
+                        "description": "WorkloadEvent object",
+                        "name": "workloadEvent",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.WorkloadEvent"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/workload-events/{id}": {
+            "get": {
+                "description": "Get a particular workload event from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a workload event.",
+                "operationId": "get-workloadEvent",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a workload event in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating workload event objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing workload event by replacing the entire object.",
+                "operationId": "replace-workloadEvent",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "WorkloadEvent object",
+                        "name": "workloadEvent",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.WorkloadEvent"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a workload event by from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a workload event.",
+                "operationId": "delete-workloadEvent",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a workload event in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating workload event objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing workload event.",
+                "operationId": "update-workloadEvent",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "WorkloadEvent object",
+                        "name": "workloadEvent",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.WorkloadEvent"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/workload-instances": {
             "get": {
                 "description": "Get all workload instances from the Threeport database.",
@@ -6609,6 +6890,24 @@
                 }
             }
         },
+        "/workload-events/versions": {
+            "get": {
+                "description": "Get the supported API versions for workload events.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetWorkloadEventVersions gets the supported versions for the workload event API.",
+                "operationId": "workloadEvent-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/workload-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for workload instances.",
@@ -7209,52 +7508,54 @@
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
-                "ClusterDefinition",
-                "ClusterInstance",
+                "WorkloadEvent",
+                "Profile",
+                "Tier",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "Profile",
-                "Tier",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance"
+                "ClusterDefinition",
+                "ClusterInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
+                "ObjectTypeWorkloadEvent",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance"
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance"
             ]
         },
         "v0.Profile": {
@@ -7385,6 +7686,40 @@
                 }
             }
         },
+        "v0.WorkloadEvent": {
+            "type": "object",
+            "required": [
+                "Message",
+                "Reason",
+                "RuntimeEventUID",
+                "Timestamp",
+                "Type"
+            ],
+            "properties": {
+                "Message": {
+                    "type": "string"
+                },
+                "Reason": {
+                    "type": "string"
+                },
+                "RuntimeEventUID": {
+                    "description": "The unique ID for the Event obejct in Kubernetes.  This is recorded for\nde-duplicating purposes.",
+                    "type": "string"
+                },
+                "Timestamp": {
+                    "type": "string"
+                },
+                "Type": {
+                    "type": "string"
+                },
+                "WorkloadInstanceID": {
+                    "type": "integer"
+                },
+                "WorkloadResourceInstanceID": {
+                    "type": "integer"
+                }
+            }
+        },
         "v0.WorkloadInstance": {
             "type": "object",
             "required": [
@@ -7397,6 +7732,12 @@
                     "description": "ClusterID is the cluster to which the workload is deployed.",
                     "type": "integer"
                 },
+                "Events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadEvent"
+                    }
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -7406,7 +7747,6 @@
                     "type": "boolean"
                 },
                 "Status": {
-                    "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
                 },
                 "WorkloadDefinitionID": {
@@ -7449,6 +7789,12 @@
                 "WorkloadInstanceID"
             ],
             "properties": {
+                "Events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadEvent"
+                    }
+                },
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.  This field is a superset of\nWorkloadResourceDefinition.JSONDefinition in that it has namespace\nmanagement and other configuration - such as resource allocation\nmanagement - added.",
                     "type": "array",
@@ -7456,9 +7802,14 @@
                         "type": "integer"
                     }
                 },
-                "Status": {
-                    "description": "The Kubernetes status of the deployed resource.\nOne of:\n* Pending\n* Running\n* Succeeded\n* Failed\n* Unknown",
+                "LastOperation": {
                     "type": "string"
+                },
+                "RuntimeDefinition": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "WorkloadInstanceID": {
                     "description": "The workload definition this resource belongs to.",

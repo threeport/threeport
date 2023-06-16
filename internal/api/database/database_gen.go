@@ -70,6 +70,7 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 		db.AutoMigrate(&v0.WorkloadResourceDefinition{})
 		db.AutoMigrate(&v0.WorkloadInstance{})
 		db.AutoMigrate(&v0.WorkloadResourceInstance{})
+		db.AutoMigrate(&v0.WorkloadEvent{})
 
 	}
 

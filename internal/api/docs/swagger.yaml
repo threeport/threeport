@@ -458,52 +458,54 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
-    - ClusterDefinition
-    - ClusterInstance
+    - WorkloadEvent
+    - Profile
+    - Tier
+    - DomainNameDefinition
+    - DomainNameInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - Profile
-    - Tier
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - DomainNameDefinition
-    - DomainNameInstance
+    - ClusterDefinition
+    - ClusterInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       Name:
@@ -603,11 +605,41 @@ definitions:
     - Name
     - YAMLDocument
     type: object
+  v0.WorkloadEvent:
+    properties:
+      Message:
+        type: string
+      Reason:
+        type: string
+      RuntimeEventUID:
+        description: |-
+          The unique ID for the Event obejct in Kubernetes.  This is recorded for
+          de-duplicating purposes.
+        type: string
+      Timestamp:
+        type: string
+      Type:
+        type: string
+      WorkloadInstanceID:
+        type: integer
+      WorkloadResourceInstanceID:
+        type: integer
+    required:
+    - Message
+    - Reason
+    - RuntimeEventUID
+    - Timestamp
+    - Type
+    type: object
   v0.WorkloadInstance:
     properties:
       ClusterInstanceID:
         description: ClusterID is the cluster to which the workload is deployed.
         type: integer
+      Events:
+        items:
+          $ref: '#/definitions/v0.WorkloadEvent'
+        type: array
       Name:
         description: An arbitrary name the instance
         type: string
@@ -616,9 +648,6 @@ definitions:
           controller.
         type: boolean
       Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
         type: string
       WorkloadDefinitionID:
         description: |-
@@ -651,6 +680,10 @@ definitions:
     type: object
   v0.WorkloadResourceInstance:
     properties:
+      Events:
+        items:
+          $ref: '#/definitions/v0.WorkloadEvent'
+        type: array
       JSONDefinition:
         description: |-
           The individual manifest in JSON format.  This field is a superset of
@@ -660,16 +693,12 @@ definitions:
         items:
           type: integer
         type: array
-      Status:
-        description: |-
-          The Kubernetes status of the deployed resource.
-          One of:
-          * Pending
-          * Running
-          * Succeeded
-          * Failed
-          * Unknown
+      LastOperation:
         type: string
+      RuntimeDefinition:
+        items:
+          type: integer
+        type: array
       WorkloadInstanceID:
         description: The workload definition this resource belongs to.
         type: integer
@@ -693,7 +722,7 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: v0.0.6
+  version: v0.1.2
 paths:
   /aws-accounts/versions:
     get:
@@ -4719,6 +4748,205 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload definition by replacing the entire object.
+  /v0/workload-events:
+    get:
+      consumes:
+      - application/json
+      description: Get all workload events from the Threeport database.
+      operationId: get-workloadEvents
+      parameters:
+      - description: workload event search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all workload events.
+    post:
+      consumes:
+      - application/json
+      description: Add a new workload event to the Threeport database.
+      operationId: add-workloadEvent
+      parameters:
+      - description: WorkloadEvent object
+        in: body
+        name: workloadEvent
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadEvent'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new workload event.
+  /v0/workload-events/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a workload event by from the database.
+      operationId: delete-workloadEvent
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a workload event.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular workload event from the database.
+      operationId: get-workloadEvent
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a workload event.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a workload event in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating workload event objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-workloadEvent
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadEvent object
+        in: body
+        name: workloadEvent
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadEvent'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing workload event.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a workload event in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating workload event objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-workloadEvent
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadEvent object
+        in: body
+        name: workloadEvent
+        required: true
+        schema:
+          $ref: '#/definitions/v0.WorkloadEvent'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing workload event by replacing the entire object.
   /v0/workload-instances:
     get:
       consumes:
@@ -5379,6 +5607,19 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetWorkloadDefinitionVersions gets the supported versions for the workload
         definition API.
+  /workload-events/versions:
+    get:
+      description: Get the supported API versions for workload events.
+      operationId: workloadEvent-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetWorkloadEventVersions gets the supported versions for the workload
+        event API.
   /workload-instances/versions:
     get:
       description: Get the supported API versions for workload instances.

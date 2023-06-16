@@ -25,5 +25,6 @@ func AddVersions() {
 	AddWorkloadResourceDefinitionVersions()
 	AddWorkloadInstanceVersions()
 	AddWorkloadResourceInstanceVersions()
+	AddWorkloadEventVersions()
 
 }
