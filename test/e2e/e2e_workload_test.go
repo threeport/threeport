@@ -42,6 +42,7 @@ func TestWorkloadE2E(t *testing.T) {
 	testWorkloads := testResources()
 
 	for _, testWorkload := range *testWorkloads {
+
 		// create workload definition
 		workloadDefName := testWorkload.Name
 		var workloadDefYAML string
@@ -55,17 +56,27 @@ func TestWorkloadE2E(t *testing.T) {
 			YAMLDocument: &workloadDefYAML,
 		}
 
+		// create a duplicate workload definition
+		yamlDoc := ""
+		duplicateWorkload := v0.WorkloadDefinition{
+			Definition: v0.Definition{
+				Name: &workloadDefName,
+			},
+			YAMLDocument: &yamlDoc,
+		}
+
 		// determine if the API is serving HTTPS or HTTP
 		var authEnabled bool
 		_, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
 		config.InitConfig("", "")
 		if strings.Contains(err.Error(), "signed by unknown authority") {
 			authEnabled = true
-
-			// initialize config so we can pull credentials from it
 		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
 			authEnabled = false
 		}
+
+		// initialize config so we can pull credentials from it
+		config.InitConfig("", "")
 
 		// get threeport config and configure http client for calls to threeport API
 		threeportConfig, err := config.GetThreeportConfig()
@@ -82,6 +93,14 @@ func TestWorkloadE2E(t *testing.T) {
 			&workloadDef,
 		)
 		assert.Nil(err, "should have no error creating workload definition")
+
+		// ensure duplicate workload name throws error
+		_, err = client.CreateWorkloadDefinition(
+			apiClient,
+			apiAddr(),
+			&duplicateWorkload,
+		)
+		assert.NotNil(err, "duplicate workload definition should throw error")
 
 		if assert.NotNil(createdWorkloadDef, "should have a workload definition returned") {
 			assert.NotNil(createdWorkloadDef.ID, "created workload definition should contain unique ID")
@@ -170,6 +189,22 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.Nil(err, "should have no error creating workload instance")
 		assert.NotNil(createdWorkloadInst, "should have a workload instance returned")
+
+		// create a duplicate workload instance
+		duplicateWorkloadInst := v0.WorkloadInstance{
+			Instance: v0.Instance{
+				Name: &workloadInstName,
+			},
+			ClusterInstanceID:    testClusterInst.ID,
+			WorkloadDefinitionID: createdWorkloadDef.ID,
+		}
+
+		_, err = client.CreateWorkloadInstance(
+			apiClient,
+			apiAddr(),
+			&duplicateWorkloadInst,
+		)
+		assert.NotNil(err, "duplicate workload instance should throw error")
 
 		// get the cluster instance from the threeport API so we can connect to it
 		clusterInstance, err := client.GetClusterInstanceByID(
