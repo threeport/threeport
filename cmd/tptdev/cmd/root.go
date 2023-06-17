@@ -7,6 +7,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/threeport/threeport/internal/cli"
+	internalCmd "github.com/threeport/threeport/internal/cmd"
+	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -15,6 +18,8 @@ var rootCmd = &cobra.Command{
 	Short: "Manage threeport development environments",
 	Long:  `Manage threeport development environments.`,
 }
+
+var cliArgs = &cli.ControlPlaneCLIArgs{}
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -35,4 +40,12 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	cobra.OnInitialize(func() {
+		config.InitConfig(cliArgs.CfgFile, cliArgs.ProviderConfigDir)
+		internalCmd.InitArgs(cliArgs)
+
+		cliArgs.InfraProvider = "kind"
+		cliArgs.DevEnvironment = true
+	})
 }

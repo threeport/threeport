@@ -37,7 +37,7 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 		}
 
 		// get threeport API client
-		authEnabled, err = threeportConfig.GetThreeportAuthEnabled()
+		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled()
 		if err != nil {
 			cli.Error("failed to determine if auth is enabled on threeport API", err)
 			os.Exit(1)
@@ -47,7 +47,7 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 			cli.Error("failed to get threeport certificates from config", err)
 			os.Exit(1)
 		}
-		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
+		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey)
 		if err != nil {
 			cli.Error("failed to create threeport API client", err)
 			os.Exit(1)

@@ -58,11 +58,11 @@ func TestWorkloadE2E(t *testing.T) {
 		// determine if the API is serving HTTPS or HTTP
 		var authEnabled bool
 		_, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
+		config.InitConfig("", "")
 		if strings.Contains(err.Error(), "signed by unknown authority") {
 			authEnabled = true
 
 			// initialize config so we can pull credentials from it
-			config.InitConfig("", "")
 		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
 			authEnabled = false
 		}
