@@ -292,6 +292,16 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 			return fmt.Errorf("failed to install threeport controllers: %w", err)
 		}
 
+		// install the agent
+		if err := threeport.InstallThreeportAgent(
+			dynamicKubeClient,
+			mapper,
+			args,
+			authConfig,
+		); err != nil {
+			return fmt.Errorf("failed to install threeport agent: %w", err)
+		}
+
 		return nil
 
 	} else {
@@ -312,7 +322,7 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 			authConfig,
 			threeport.ControlPlaneInfraProviderKind,
 		); err != nil {
-			return fmt.Errorf("failed to install threeport control plane components: %w", err)
+			return fmt.Errorf("failed to install threeport API: %w", err)
 		}
 
 		// wait for API server to start running
@@ -335,9 +345,18 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 			"",
 			authConfig,
 		); err != nil {
-			return fmt.Errorf("failed to install threeport control plane components: %w", err)
+			return fmt.Errorf("failed to install threeport controllers: %w", err)
 		}
 
+		// install the agent
+		if err := threeport.InstallThreeportAgent(
+			dynamicKubeClient,
+			mapper,
+			args,
+			authConfig,
+		); err != nil {
+			return fmt.Errorf("failed to install threeport agent: %w", err)
+		}
 	}
 
 	//  the threeport API's endpoint

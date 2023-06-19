@@ -7,19 +7,22 @@ import (
 	"net/http"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
+
+	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/version"
 	"github.com/threeport/threeport/pkg/auth/v0"
 	v0 "github.com/threeport/threeport/pkg/client/v0"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/dynamic"
 )
 
 const (
 	ThreeportImageRepo               = "ghcr.io/threeport"
 	ThreeportAPIImage                = "threeport-rest-api"
 	ThreeportWorkloadControllerImage = "threeport-workload-controller"
+	ThreeportAgentImage              = "threeport-agent"
 	ThreeportAPIServiceResourceName  = "threeport-api-server"
 	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
 	ThreeportLocalAPIEndpoint        = "localhost"
@@ -31,6 +34,7 @@ func ThreeportDevImages() map[string]string {
 	return map[string]string{
 		"rest-api":            fmt.Sprintf("%s-dev:latest", ThreeportAPIImage),
 		"workload-controller": fmt.Sprintf("%s-dev:latest", ThreeportWorkloadControllerImage),
+		"agent":               fmt.Sprintf("%s-dev:latest", ThreeportAgentImage),
 	}
 }
 
@@ -237,7 +241,7 @@ func InstallThreeportAPITLS(
 }
 
 // InstallThreeportControlPlaneControllers installs the threeport controllers in
-// a Kubernetes cluster
+// a Kubernetes cluster.
 func InstallThreeportControllers(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -250,22 +254,22 @@ func InstallThreeportControllers(
 	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment, authConfig)
 	workloadArgs := getWorkloadArgs(devEnvironment, authConfig)
 
+	// if auth is enabled on API, generate client cert and key and store in
+	// secrets
 	if authConfig != nil {
-
-		// generate workload certificate
 		workloadCertificate, workloadPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
 		if err != nil {
-			return fmt.Errorf("failed to generate client certificate and private key: %w", err)
+			return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
 		}
 
 		var workloadCa = getTLSSecret("workload-ca", authConfig.CAPemEncoded, "")
 		if _, err := kube.CreateResource(workloadCa, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret: %w", err)
+			return fmt.Errorf("failed to create API server secret for workload controller: %w", err)
 		}
 
 		var workloadCert = getTLSSecret("workload-cert", workloadCertificate, workloadPrivateKey)
 		if _, err := kube.CreateResource(workloadCert, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret: %w", err)
+			return fmt.Errorf("failed to create API server secret for workload controller: %w", err)
 		}
 	}
 
@@ -335,6 +339,666 @@ func InstallThreeportControllers(
 	}
 	if _, err := kube.CreateResource(workloadControllerDeployment, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
+	}
+
+	return nil
+}
+
+// InstallThreeportAgent installs the threeport agent on a Kubernetes cluster.
+func InstallThreeportAgent(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	args *cli.ControlPlaneCLIArgs,
+	authConfig *auth.AuthConfig,
+) error {
+	agentImage := getAgentImage(args.DevEnvironment, args.ControlPlaneImageRepo, args.ControlPlaneImageTag)
+	agentArgs := getAgentArgs(args.DevEnvironment, authConfig)
+	agentVols, agentVolMounts := getAgentVolumes(args.DevEnvironment, authConfig)
+
+	// if auth is enabled on API, generate client cert and key and store in
+	// secrets
+	if authConfig != nil {
+		agentCertificate, agentPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		if err != nil {
+			return fmt.Errorf("failed to generate client certificate and private key for threeport agent: %w", err)
+		}
+
+		var agentCa = getTLSSecret("agent-ca", authConfig.CAPemEncoded, "")
+		if _, err := kube.CreateResource(agentCa, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret for threeport agent: %w", err)
+		}
+
+		var agentCert = getTLSSecret("agent-cert", agentCertificate, agentPrivateKey)
+		if _, err := kube.CreateResource(agentCert, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret for threeport agent: %w", err)
+		}
+	}
+
+	var threeportAgentCRD = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "apiextensions.k8s.io/v1",
+			"kind":       "CustomResourceDefinition",
+			"metadata": map[string]interface{}{
+				"annotations": map[string]interface{}{
+					"controller-gen.kubebuilder.io/version": "v0.11.3",
+				},
+				"creationTimestamp": nil,
+				"name":              "threeportworkloads.control-plane.threeport.io",
+			},
+			"spec": map[string]interface{}{
+				"group": "control-plane.threeport.io",
+				"names": map[string]interface{}{
+					"kind":     "ThreeportWorkload",
+					"listKind": "ThreeportWorkloadList",
+					"plural":   "threeportworkloads",
+					"singular": "threeportworkload",
+				},
+				"scope": "Cluster",
+				"versions": []interface{}{
+					map[string]interface{}{
+						"name": "v1alpha1",
+						"schema": map[string]interface{}{
+							"openAPIV3Schema": map[string]interface{}{
+								"description": "ThreeportWorkload is the Schema for the threeportworkloads API",
+								"properties": map[string]interface{}{
+									"apiVersion": map[string]interface{}{
+										"description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+										"type":        "string",
+									},
+									"kind": map[string]interface{}{
+										"description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+										"type":        "string",
+									},
+									"metadata": map[string]interface{}{
+										"type": "object",
+									},
+									"spec": map[string]interface{}{
+										"description": "ThreeportWorkloadSpec defines the desired state of ThreeportWorkload",
+										"properties": map[string]interface{}{
+											"workloadInstanceId": map[string]interface{}{
+												"description": "WorkloadInstance is the unique ID for a threeport object that represents a deployed instance of a workload.",
+												"type":        "integer",
+											},
+											"workloadResourceInstances": map[string]interface{}{
+												"description": "WorkloadResources is a slice of WorkloadResource objects.",
+												"items": map[string]interface{}{
+													"description": "WorkloadResource is a Kubernetes resource that should be watched and reported upon by the threeport agent.",
+													"properties": map[string]interface{}{
+														"group": map[string]interface{}{
+															"type": "string",
+														},
+														"kind": map[string]interface{}{
+															"type": "string",
+														},
+														"name": map[string]interface{}{
+															"type": "string",
+														},
+														"namespace": map[string]interface{}{
+															"type": "string",
+														},
+														"threeportID": map[string]interface{}{
+															"type": "integer",
+														},
+														"version": map[string]interface{}{
+															"type": "string",
+														},
+													},
+													"type": "object",
+												},
+												"type": "array",
+											},
+										},
+										"type": "object",
+									},
+									"status": map[string]interface{}{
+										"description": "ThreeportWorkloadStatus defines the observed state of ThreeportWorkload",
+										"type":        "object",
+									},
+								},
+								"type": "object",
+							},
+						},
+						"served":  true,
+						"storage": true,
+						"subresources": map[string]interface{}{
+							"status": map[string]interface{}{},
+						},
+					},
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentCRD, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent CRD: %w", err)
+	}
+
+	var threeportAgentServiceAccount = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ServiceAccount",
+			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/name":       "threeport-agent",
+					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/version":    version.GetVersion(),
+					"app.kubernetes.io/component":  "runtime-agent",
+					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/managed-by": "threeport",
+				},
+				"name":      "threeport-agent-controller-manager",
+				"namespace": ControlPlaneNamespace,
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentServiceAccount, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent service account: %w", err)
+	}
+
+	var threeportAgentLeaderElectionRole = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "Role",
+			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/name":       "threeport-agent",
+					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/version":    version.GetVersion(),
+					"app.kubernetes.io/component":  "runtime-agent",
+					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/managed-by": "threeport",
+				},
+				"name":      "threeport-agent-leader-election-role",
+				"namespace": ControlPlaneNamespace,
+			},
+			"rules": []interface{}{
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"",
+					},
+					"resources": []interface{}{
+						"configmaps",
+					},
+					"verbs": []interface{}{
+						"get",
+						"list",
+						"watch",
+						"create",
+						"update",
+						"patch",
+						"delete",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"coordination.k8s.io",
+					},
+					"resources": []interface{}{
+						"leases",
+					},
+					"verbs": []interface{}{
+						"get",
+						"list",
+						"watch",
+						"create",
+						"update",
+						"patch",
+						"delete",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"",
+					},
+					"resources": []interface{}{
+						"events",
+					},
+					"verbs": []interface{}{
+						"create",
+						"patch",
+					},
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentLeaderElectionRole, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent leader election role: %w", err)
+	}
+
+	var threeportAgentManagerRole = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "ClusterRole",
+			"metadata": map[string]interface{}{
+				"creationTimestamp": nil,
+				"name":              "threeport-agent-manager-role",
+			},
+			"rules": []interface{}{
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"control-plane.threeport.io",
+					},
+					"resources": []interface{}{
+						"threeportworkloads",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"control-plane.threeport.io",
+					},
+					"resources": []interface{}{
+						"threeportworkloads/finalizers",
+					},
+					"verbs": []interface{}{
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"control-plane.threeport.io",
+					},
+					"resources": []interface{}{
+						"threeportworkloads/status",
+					},
+					"verbs": []interface{}{
+						"get",
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"*",
+					},
+					"resources": []interface{}{
+						"*",
+					},
+					"verbs": []interface{}{
+						"get",
+						"list",
+						"watch",
+					},
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentManagerRole, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent manager role: %w", err)
+	}
+
+	var threeportAgentMetricsReaderRole = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "ClusterRole",
+			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/name":       "threeport-agent",
+					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/version":    version.GetVersion(),
+					"app.kubernetes.io/component":  "runtime-agent",
+					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/managed-by": "threeport",
+				},
+				"name": "threeport-agent-metrics-reader",
+			},
+			"rules": []interface{}{
+				map[string]interface{}{
+					"nonResourceURLs": []interface{}{
+						"/metrics",
+					},
+					"verbs": []interface{}{
+						"get",
+					},
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentMetricsReaderRole, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent metrics reader role: %w", err)
+	}
+
+	var threeportAgentProxyRole = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "ClusterRole",
+			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/name":       "threeport-agent",
+					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/version":    version.GetVersion(),
+					"app.kubernetes.io/component":  "runtime-agent",
+					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/managed-by": "threeport",
+				},
+				"name": "threeport-agent-proxy-role",
+			},
+			"rules": []interface{}{
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"authentication.k8s.io",
+					},
+					"resources": []interface{}{
+						"tokenreviews",
+					},
+					"verbs": []interface{}{
+						"create",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"authorization.k8s.io",
+					},
+					"resources": []interface{}{
+						"subjectaccessreviews",
+					},
+					"verbs": []interface{}{
+						"create",
+					},
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentProxyRole, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent proxy role: %w", err)
+	}
+
+	var threeportAgentLeaderElectionRoleBinding = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "RoleBinding",
+			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/name":       "threeport-agent",
+					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/version":    version.GetVersion(),
+					"app.kubernetes.io/component":  "runtime-agent",
+					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/managed-by": "threeport",
+				},
+				"name":      "threeport-agent-leader-election-rolebinding",
+				"namespace": ControlPlaneNamespace,
+			},
+			"roleRef": map[string]interface{}{
+				"apiGroup": "rbac.authorization.k8s.io",
+				"kind":     "Role",
+				"name":     "threeport-agent-leader-election-role",
+			},
+			"subjects": []interface{}{
+				map[string]interface{}{
+					"kind":      "ServiceAccount",
+					"name":      "threeport-agent-controller-manager",
+					"namespace": ControlPlaneNamespace,
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentLeaderElectionRoleBinding, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent leader election role binding: %w", err)
+	}
+
+	var threeportAgentManagerRoleBinding = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "ClusterRoleBinding",
+			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/name":       "threeport-agent",
+					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/version":    version.GetVersion(),
+					"app.kubernetes.io/component":  "runtime-agent",
+					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/managed-by": "threeport",
+				},
+				"name": "threeport-agent-manager-rolebinding",
+			},
+			"roleRef": map[string]interface{}{
+				"apiGroup": "rbac.authorization.k8s.io",
+				"kind":     "ClusterRole",
+				"name":     "threeport-agent-manager-role",
+			},
+			"subjects": []interface{}{
+				map[string]interface{}{
+					"kind":      "ServiceAccount",
+					"name":      "threeport-agent-controller-manager",
+					"namespace": ControlPlaneNamespace,
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentManagerRoleBinding, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent manager role binding: %w", err)
+	}
+
+	var threeportAgentProxyRoleBinding = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "ClusterRoleBinding",
+			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/name":       "threeport-agent",
+					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/version":    version.GetVersion(),
+					"app.kubernetes.io/component":  "runtime-agent",
+					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/managed-by": "threeport",
+				},
+				"name": "threeport-agent-proxy-rolebinding",
+			},
+			"roleRef": map[string]interface{}{
+				"apiGroup": "rbac.authorization.k8s.io",
+				"kind":     "ClusterRole",
+				"name":     "threeport-agent-proxy-role",
+			},
+			"subjects": []interface{}{
+				map[string]interface{}{
+					"kind":      "ServiceAccount",
+					"name":      "threeport-agent-controller-manager",
+					"namespace": ControlPlaneNamespace,
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentProxyRoleBinding, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent proxy role binding: %w", err)
+	}
+
+	var threeportAgentControllerManagerMetricsService = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Service",
+			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/name":       "threeport-agent",
+					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/version":    version.GetVersion(),
+					"app.kubernetes.io/component":  "runtime-agent",
+					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/managed-by": "threeport",
+				},
+				"name":      "threeport-agent-controller-manager-metrics-service",
+				"namespace": ControlPlaneNamespace,
+			},
+			"spec": map[string]interface{}{
+				"ports": []interface{}{
+					map[string]interface{}{
+						"name":       "https",
+						"port":       8443,
+						"protocol":   "TCP",
+						"targetPort": "https",
+					},
+				},
+				"selector": map[string]interface{}{
+					"app.kubernetes.io/name": "threeport-agent",
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentControllerManagerMetricsService, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent controller manager metrics service: %w", err)
+	}
+
+	var threeportAgentDeployment = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/name":       "threeport-agent",
+					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/version":    version.GetVersion(),
+					"app.kubernetes.io/component":  "runtime-agent",
+					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/managed-by": "threeport",
+				},
+				"name":      "threeport-agent",
+				"namespace": ControlPlaneNamespace,
+			},
+			"spec": map[string]interface{}{
+				"replicas": 1,
+				"selector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"app.kubernetes.io/name": "threeport-agent",
+					},
+				},
+				"template": map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							"kubectl.kubernetes.io/default-container": "manager",
+						},
+						"labels": map[string]interface{}{
+							"app.kubernetes.io/name": "threeport-agent",
+						},
+					},
+					"spec": map[string]interface{}{
+						"affinity": map[string]interface{}{
+							"nodeAffinity": map[string]interface{}{
+								"requiredDuringSchedulingIgnoredDuringExecution": map[string]interface{}{
+									"nodeSelectorTerms": []interface{}{
+										map[string]interface{}{
+											"matchExpressions": []interface{}{
+												map[string]interface{}{
+													"key":      "kubernetes.io/arch",
+													"operator": "In",
+													"values": []interface{}{
+														"amd64",
+														"arm64",
+														"ppc64le",
+														"s390x",
+													},
+												},
+												map[string]interface{}{
+													"key":      "kubernetes.io/os",
+													"operator": "In",
+													"values": []interface{}{
+														"linux",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						"containers": []interface{}{
+							map[string]interface{}{
+								"args": []interface{}{
+									"--secure-listen-address=0.0.0.0:8443",
+									"--upstream=http://127.0.0.1:8080/",
+									"--logtostderr=true",
+									"--v=0",
+								},
+								"image":           "gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1",
+								"imagePullPolicy": "IfNotPresent",
+								"name":            "kube-rbac-proxy",
+								"ports": []interface{}{
+									map[string]interface{}{
+										"containerPort": 8443,
+										"name":          "https",
+										"protocol":      "TCP",
+									},
+								},
+								"resources": map[string]interface{}{
+									"limits": map[string]interface{}{
+										"cpu":    "500m",
+										"memory": "128Mi",
+									},
+									"requests": map[string]interface{}{
+										"cpu":    "5m",
+										"memory": "64Mi",
+									},
+								},
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{
+											"ALL",
+										},
+									},
+								},
+							},
+							map[string]interface{}{
+								"args":            agentArgs,
+								"image":           agentImage,
+								"imagePullPolicy": "IfNotPresent",
+								"livenessProbe": map[string]interface{}{
+									"httpGet": map[string]interface{}{
+										"path": "/healthz",
+										"port": 8081,
+									},
+									"initialDelaySeconds": 30,
+									"periodSeconds":       20,
+								},
+								"name": "manager",
+								"readinessProbe": map[string]interface{}{
+									"httpGet": map[string]interface{}{
+										"path": "/readyz",
+										"port": 8081,
+									},
+									"initialDelaySeconds": 5,
+									"periodSeconds":       10,
+								},
+								//"resources": map[string]interface{}{
+								//	"limits": map[string]interface{}{
+								//		"cpu":    "500m",
+								//		"memory": "128Mi",
+								//	},
+								//	"requests": map[string]interface{}{
+								//		"cpu":    "10m",
+								//		"memory": "64Mi",
+								//	},
+								//},
+								//"securityContext": map[string]interface{}{
+								//	"allowPrivilegeEscalation": false,
+								//	"capabilities": map[string]interface{}{
+								//		"drop": []interface{}{
+								//			"ALL",
+								//		},
+								//	},
+								//},
+								"volumeMounts": agentVolMounts,
+							},
+						},
+						"volumes": agentVols,
+						//"securityContext": map[string]interface{}{
+						//	"runAsNonRoot": true,
+						//},
+						"serviceAccountName":            "threeport-agent-controller-manager",
+						"terminationGracePeriodSeconds": 10,
+					},
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(threeportAgentDeployment, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create threeport agent deployment: %w", err)
 	}
 
 	return nil
@@ -802,4 +1466,91 @@ func getAPIServicePort(infraProvider string, authConfig *auth.AuthConfig) (strin
 	}
 
 	return "https", 443
+}
+
+// getAgentImage returns the proper container image to use for the
+// threeport agent.
+func getAgentImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
+	if devEnvironment {
+		devImages := ThreeportDevImages()
+		return devImages["agent"]
+	}
+
+	imageRepo := ThreeportImageRepo
+	if customThreeportImageRepo != "" {
+		imageRepo = customThreeportImageRepo
+	}
+
+	imageTag := version.GetVersion()
+	if customThreeportImageTag != "" {
+		imageTag = customThreeportImageTag
+	}
+
+	agentImage := fmt.Sprintf(
+		"%s/%s:%s",
+		imageRepo,
+		ThreeportAgentImage,
+		imageTag,
+	)
+
+	return agentImage
+}
+
+// getAgentArgs returns the args that are passed to the threeport agent.  In
+// devEnvironment, auth is disabled by default.  In tptctl auth is enabled by
+// default.
+func getAgentArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
+	// set flags for dev environment
+	if devEnvironment {
+		if authConfig == nil {
+			return []interface{}{
+				"-build.args_bin",
+				"--auth-enabled=false, --metrics-bind-address=127.0.0.1:8080, --leader-elect",
+			}
+		} else {
+			return []interface{}{
+				"-build.args_bin",
+				"--metrics-bind-address=127.0.0.1:8080, --leader-elect",
+			}
+		}
+	}
+
+	// disable auth if authConfig is not set on non-dev deployment
+	if authConfig == nil {
+		return []interface{}{
+			"--auth-enabled=false",
+			"--metrics-bind-address=127.0.0.1:8080",
+			"--leader-elect",
+		}
+	}
+
+	return []interface{}{
+		"--metrics-bind-address=127.0.0.1:8080",
+		"--leader-elect",
+	}
+}
+
+// getAgentVolumes returns the volumes and volume mounts for the workload
+// controller.
+func getAgentVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
+	vols := []interface{}{}
+	volMounts := []interface{}{}
+
+	if authConfig != nil {
+		caVol, caVolMount := getSecretVols("workload-ca", "/etc/threeport/ca")
+		certVol, certVolMount := getSecretVols("workload-cert", "/etc/threeport/cert")
+
+		vols = append(vols, caVol)
+		vols = append(vols, certVol)
+		volMounts = append(volMounts, caVolMount)
+		volMounts = append(volMounts, certVolMount)
+	}
+
+	if devEnvironment {
+		codePathVol, codePathVolMount := getCodePathVols()
+		vols = append(vols, codePathVol)
+		volMounts = append(volMounts, codePathVolMount)
+	}
+
+	return vols, volMounts
 }

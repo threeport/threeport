@@ -4,25 +4,15 @@ WORKLOAD_CONTROLLER_IMG ?= threeport-workload-controller:latest
 #help: @ List available make targets
 help:
 	@clear
-	@echo "Usage: make COMMAND"
+	@echo "Usage: make <target>"
 	@echo "Commands :"
 	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-19s\033[0m - %s\n", $$1, $$2}'
+
+## builds
 
 #build-codegen: @ Build codegen binary
 build-codegen:
 	go build -o bin/threeport-codegen cmd/codegen/main.go
-
-#generate: @ Run code generation
-generate: build-codegen
-	go generate ./...
-
-#test: @ Run automated tests
-tests:
-	go test -v ./... -count=1
-
-#test-commit: @ Checks to make sure commit messages follow conventional commits format
-test-commit:
-	test/scripts/commit-check-latest.sh
 
 #build-tptdev: @ Build tptdev binary
 build-tptdev:
@@ -32,6 +22,25 @@ build-tptdev:
 build-tptctl:
 	go build -o bin/tptctl cmd/tptctl/main.go
 
+## code generation
+
+#generate: @ Run code generation
+generate: build-codegen
+	go generate ./...
+
+## testing
+
+#test: @ Run automated tests
+tests:
+	go test -v ./... -count=1
+
+#test-commit: @ Check to make sure commit messages follow conventional commits format
+test-commit:
+	test/scripts/commit-check-latest.sh
+
+## release
+
+#release: @ Set a new version of threeport, commit, tag and push to origin.  Will trigger CI for new release of threeport.
 release:
 ifndef RELEASE_VERSION
 	@echo "RELEASE_VERSION environment variable not set"
@@ -47,7 +56,7 @@ endif
 	@git push origin main --tag
 	@echo "version ${RELEASE_VERSION} released"
 
-## dev environment targets
+## dev environment
 
 #dev-up: @ Run a local development environment
 dev-up: build-tptdev
@@ -105,6 +114,10 @@ rest-api-image-build:
 workload-controller-image-build:
 	docker build -t $(WORKLOAD_CONTROLLER_IMG) -f cmd/workload-controller/image/Dockerfile .
 
+#agent-image-build: @ Build agent container image
+agent-image-build:
+	docker build -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile .
+
 #rest-api-image: @ Build and push REST API container image
 rest-api-image: rest-api-image-build
 	docker push $(REST_API_IMG)
@@ -112,4 +125,8 @@ rest-api-image: rest-api-image-build
 #workload-controller-image: @ Build and push workload controller container image
 workload-controller-image: workload-controller-image-build
 	docker push $(WORKLOAD_CONTROLLER_IMG)
+
+#agent-image: @ Build and push agent container image
+agent-image: agent-image-build
+	docker push $(AGENT_IMG)
 
