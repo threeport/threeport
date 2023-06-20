@@ -46,8 +46,6 @@ type ThreeportWorkloadReconciler struct {
 	DynamicClient  *dynamic.DynamicClient
 	EventInformer  cache.SharedInformer
 	NotifChan      *chan notify.ThreeportNotif
-	//ThreeportAPIServer string
-	//ThreeportAPIClient *http.Client
 }
 
 //+kubebuilder:rbac:groups=control-plane.threeport.io,resources=threeportworkloads,verbs=get;list;watch;create;update;patch;delete
@@ -125,9 +123,10 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		r.addEventHandler(log, resourceUID, &threeportWorkload.Spec.WorkloadInstanceID, &workloadResource.ThreeportID)
 	}
 
-	// watch pods with control-plane.threeport.io/workload-instance label and
-	// add informer event handlers to capture Event resources for those
+	// watch pods and replicasets with workload instance label (agent.WorkloadInstanceLabelKey)
+	// and add informer event handlers to capture Event resources for those
 	go r.addPodEventHandler(ctx, log, threeportWorkload.Spec.WorkloadInstanceID)
+	go r.addReplicaSetEventHandler(ctx, log, threeportWorkload.Spec.WorkloadInstanceID)
 
 	return ctrl.Result{}, nil
 }

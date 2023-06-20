@@ -5,6 +5,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/threeport/threeport/internal/agent"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
@@ -21,8 +22,7 @@ func AddLabels(
 		"app.kubernetes.io/managed-by": KubeManagedByLabel,
 		"app.kubernetes.io/name":       workloadDefName,
 		"app.kubernetes.io/instance":   *workloadInst.Name,
-		// TODO: make this a constant shared with theeport-agent
-		"control-plane.threeport.io/workload-instance": fmt.Sprintf("%d", *workloadInst.ID),
+		agent.WorkloadInstanceLabelKey: fmt.Sprintf("%d", *workloadInst.ID),
 	}
 
 	for key, value := range newLabels {
@@ -65,8 +65,7 @@ func setPodTemplateLabel(kubeObject *unstructured.Unstructured, workloadInstID u
 	if err != nil {
 		return nil, err
 	}
-	// TODO: make this a constant shared with theeport-agent
-	podLabels["control-plane.threeport.io/workload-instance"] = fmt.Sprintf("%d", workloadInstID)
+	podLabels[agent.WorkloadInstanceLabelKey] = fmt.Sprintf("%d", workloadInstID)
 
 	if err := unstructured.SetNestedStringMap(kubeObject.Object, podLabels, "spec", "template", "metadata", "labels"); err != nil {
 		return nil, err
