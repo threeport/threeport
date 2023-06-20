@@ -18,6 +18,23 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
+var (
+	// Resource is the name of the ThreeportWorkload resource
+	ThreeportWorkloadResource = "threeportworkloads"
+
+	// Kind is the name of the the ThreeportWorkload kind
+	ThreeportWorkloadKind = "ThreeportWorkload"
+
+	// GroupVersionResource is the group version resource used with dynamic
+	// clients
+	ThreeportWorkloadGVR = schema.GroupVersionResource{
+		Group:    GroupVersion.Group,
+		Version:  GroupVersion.Version,
+		Resource: ThreeportWorkloadResource,
+	}
 )
 
 // ThreeportWorkloadSpec defines the desired state of ThreeportWorkload

@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -142,13 +143,15 @@ func Notify(
 			}
 		default:
 			if len(workloadResourceInstances) > 0 || len(workloadEvents) > 0 {
-				// we have data to update in threeport API
+				// we have data to update in threeport API - if we get an error
+				// that is a "not found" error we ignore as this happens when a
+				// workload instance is deleted in threeport
 				if err := sendThreeportUpdates(
 					threeportAPIServer,
 					threeportAPIClient,
 					workloadResourceInstances,
 					workloadEvents,
-				); err != nil {
+				); err != nil && !errors.Is(err, tpclient.ErrorObjectNotFound) {
 					log.Error(err, "failed to send threeport updates")
 				} else {
 					// reset the payload info to emtpy to prepare for more notif

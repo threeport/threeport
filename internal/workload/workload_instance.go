@@ -6,13 +6,12 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	agent "github.com/threeport/threeport-agent/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/kube"
+	agentapi "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -62,8 +61,11 @@ func workloadInstanceCreated(
 
 	// construct ThreeportWorkload resource to inform the threeport-agent of
 	// which resources it should watch
-	threeportWorkload := agent.ThreeportWorkload{
-		Spec: agent.ThreeportWorkloadSpec{
+	threeportWorkload := agentapi.ThreeportWorkload{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: agent.ThreeportWorkloadName(*workloadInstance.ID),
+		},
+		Spec: agentapi.ThreeportWorkloadSpec{
 			WorkloadInstanceID: *workloadInstance.ID,
 		},
 	}
@@ -147,7 +149,7 @@ func workloadInstanceCreated(
 			return fmt.Errorf("failed to create workload resource instance in threeport: %w", err)
 		}
 
-		agentWRI := agent.WorkloadResourceInstance{
+		agentWRI := agentapi.WorkloadResourceInstance{
 			Name:        kubeObject.GetName(),
 			Namespace:   kubeObject.GetNamespace(),
 			Group:       kubeObject.GroupVersionKind().Group,
@@ -168,21 +170,12 @@ func workloadInstanceCreated(
 
 	// create the ThreeportWorkload resource to inform the threeport-agent of
 	// the resources that need to be watched
-	resourceClient := dynamicKubeClient.Resource(schema.GroupVersionResource{
-		Group:    agent.GroupVersion.Group,
-		Version:  agent.GroupVersion.Version,
-		Resource: "threeportworkloads",
-	})
-	object, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&threeportWorkload)
+	resourceClient := dynamicKubeClient.Resource(agentapi.ThreeportWorkloadGVR)
+	unstructured, err := agentapi.UnstructuredThreeportWorkload(&threeportWorkload)
 	if err != nil {
-		return fmt.Errorf("failed to convert ThreeportWorkload into unstructured object: %w", err)
+		return fmt.Errorf("failed to generate unstructured object for ThreeportWorkload resource for creation in run time cluster")
 	}
-	var unstructured unstructured.Unstructured
-	unstructured.Object = object
-	unstructured.SetAPIVersion(fmt.Sprintf("%s/%s", agent.GroupVersion.Group, agent.GroupVersion.Version))
-	unstructured.SetKind("ThreeportWorkload")
-	unstructured.SetName(fmt.Sprintf("workload-instance-%d", *workloadInstance.ID))
-	_, err = resourceClient.Create(context.Background(), &unstructured, metav1.CreateOptions{})
+	_, err = resourceClient.Create(context.Background(), unstructured, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create new ThreeportWorkload resource: %w", err)
 	}
@@ -197,16 +190,6 @@ func workloadInstanceDeleted(
 	workloadInstance *v0.WorkloadInstance,
 	log *logr.Logger,
 ) error {
-	// ensure workload definition is reconciled before working on an instance
-	// for it
-	reconciled, err := confirmWorkloadDefReconciled(r, workloadInstance)
-	if err != nil {
-		return fmt.Errorf("failed to determine if workload definition is reconciled: %w", err)
-	}
-	if !reconciled {
-		return errors.New("workload definition not reconciled")
-	}
-
 	// get workload resource instances
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
 		r.APIClient,
@@ -275,6 +258,17 @@ func workloadInstanceDeleted(
 		"workload events deleted",
 		"workloadInstanceID", workloadInstance.ID,
 	)
+
+	// delete the ThreeportWorkload resource to inform the threeport-agent the
+	// resources are gone
+	resourceClient := dynamicKubeClient.Resource(agentapi.ThreeportWorkloadGVR)
+	if err = resourceClient.Delete(
+		context.Background(),
+		agent.ThreeportWorkloadName(*workloadInstance.ID),
+		metav1.DeleteOptions{},
+	); err != nil {
+		return fmt.Errorf("failed to delete new ThreeportWorkload resource: %w", err)
+	}
 
 	return nil
 }

@@ -74,6 +74,10 @@ dev-logs-api:
 dev-logs-wrk:
 	kubectl logs deploy/threeport-workload-controller -n threeport-control-plane -f
 
+#dev-logs-agent: @ Follow log output from the local dev agent
+dev-logs-agent:
+	kubectl logs deploy/threeport-agent -n threeport-control-plane -f
+
 #dev-forward-api: @ Forward local port 1323 to the local dev API
 dev-forward-api:
 	kubectl port-forward -n threeport-control-plane service/threeport-api-server 1323:80
