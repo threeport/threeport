@@ -280,7 +280,7 @@ func (h Handler) ReplaceProfile(c echo.Context) error {
 }
 
 // @Summary deletes a profile.
-// @Description Delete a profile by from the database.
+// @Description Delete a profile by ID from the database.
 // @ID delete-profile
 // @Accept json
 // @Produce json
@@ -591,7 +591,7 @@ func (h Handler) ReplaceTier(c echo.Context) error {
 }
 
 // @Summary deletes a tier.
-// @Description Delete a tier by from the database.
+// @Description Delete a tier by ID from the database.
 // @ID delete-tier
 // @Accept json
 // @Produce json

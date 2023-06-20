@@ -525,7 +525,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws account by from the database.",
+                "description": "Delete a aws account ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -806,7 +806,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws eks cluster definition by from the database.",
+                "description": "Delete a aws eks cluster definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1087,7 +1087,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws eks cluster instance by from the database.",
+                "description": "Delete a aws eks cluster instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1368,7 +1368,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws relational database definition by from the database.",
+                "description": "Delete a aws relational database definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1649,7 +1649,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws relational database instance by from the database.",
+                "description": "Delete a aws relational database instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1930,7 +1930,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a cluster definition by from the database.",
+                "description": "Delete a cluster definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2211,7 +2211,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a cluster instance by from the database.",
+                "description": "Delete a cluster instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2492,7 +2492,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a domain name definition by from the database.",
+                "description": "Delete a domain name definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2773,7 +2773,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a domain name instance by from the database.",
+                "description": "Delete a domain name instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3054,7 +3054,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a forward proxy definition by from the database.",
+                "description": "Delete a forward proxy definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3335,7 +3335,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a forward proxy instance by from the database.",
+                "description": "Delete a forward proxy instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3616,7 +3616,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a log backend by from the database.",
+                "description": "Delete a log backend ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3897,7 +3897,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a log storage definition by from the database.",
+                "description": "Delete a log storage definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4178,7 +4178,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a log storage instance by from the database.",
+                "description": "Delete a log storage instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4459,7 +4459,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a network ingress definition by from the database.",
+                "description": "Delete a network ingress definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4740,7 +4740,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a network ingress instance by from the database.",
+                "description": "Delete a network ingress instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5021,7 +5021,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a profile by from the database.",
+                "description": "Delete a profile ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5302,7 +5302,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a tier by from the database.",
+                "description": "Delete a tier ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5583,7 +5583,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a workload definition by from the database.",
+                "description": "Delete a workload definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5671,6 +5671,54 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/workload-event-sets/{workloadInstanceID}": {
+            "delete": {
+                "description": "Deletes a set of workload events by workload instance ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a workload event set by workload instance ID.",
+                "operationId": "delete-workloadEventSet",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "workloadInstanceID",
+                        "name": "workloadInstanceID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -5864,7 +5912,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a workload event by from the database.",
+                "description": "Delete a workload event ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6145,7 +6193,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a workload instance by from the database.",
+                "description": "Delete a workload instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6473,7 +6521,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a workload resource definition by from the database.",
+                "description": "Delete a workload resource definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6754,7 +6802,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a workload resource instance by from the database.",
+                "description": "Delete a workload resource instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7515,51 +7563,51 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
-                "WorkloadEvent",
                 "Profile",
                 "Tier",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "ClusterDefinition",
-                "ClusterInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance",
+                "WorkloadEvent",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance"
@@ -7704,9 +7752,11 @@ const docTemplate = `{
             ],
             "properties": {
                 "Message": {
+                    "description": "The message associated with the event.",
                     "type": "string"
                 },
                 "Reason": {
+                    "description": "The reason for the event.",
                     "type": "string"
                 },
                 "RuntimeEventUID": {
@@ -7714,15 +7764,19 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Timestamp": {
+                    "description": "The timestamp for the event in the cluster.",
                     "type": "string"
                 },
                 "Type": {
+                    "description": "The type of event that occurred in Kubernetes.",
                     "type": "string"
                 },
                 "WorkloadInstanceID": {
+                    "description": "The related workload instance.",
                     "type": "integer"
                 },
                 "WorkloadResourceInstanceID": {
+                    "description": "The related workload resource instance.",
                     "type": "integer"
                 }
             }
@@ -7797,6 +7851,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "Events": {
+                    "description": "All events that have occured related to this object.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.WorkloadEvent"
@@ -7810,9 +7865,11 @@ const docTemplate = `{
                     }
                 },
                 "LastOperation": {
+                    "description": "The most recent operation performed on a Kubernete resource in the\ncluster.",
                     "type": "string"
                 },
                 "RuntimeDefinition": {
+                    "description": "The JSON definition of a Kubernetes resource as stored in etcd in the\ncluster.",
                     "type": "array",
                     "items": {
                         "type": "integer"

@@ -266,6 +266,16 @@ func workloadInstanceDeleted(
 		)
 	}
 
+	// delete workload events related to workload instance
+	_, err = client.DeleteWorkloadEventsByWorkloadInstanceID(r.APIClient, r.APIServer, *workloadInstance.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete workload events for workload instance with ID %d: %w", workloadInstance.ID, err)
+	}
+	log.V(1).Info(
+		"workload events deleted",
+		"workloadInstanceID", workloadInstance.ID,
+	)
+
 	return nil
 }
 

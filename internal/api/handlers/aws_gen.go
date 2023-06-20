@@ -280,7 +280,7 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 }
 
 // @Summary deletes a aws account.
-// @Description Delete a aws account by from the database.
+// @Description Delete a aws account by ID from the database.
 // @ID delete-awsAccount
 // @Accept json
 // @Produce json
@@ -591,7 +591,7 @@ func (h Handler) ReplaceAwsEksClusterDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a aws eks cluster definition.
-// @Description Delete a aws eks cluster definition by from the database.
+// @Description Delete a aws eks cluster definition by ID from the database.
 // @ID delete-awsEksClusterDefinition
 // @Accept json
 // @Produce json
@@ -902,7 +902,7 @@ func (h Handler) ReplaceAwsEksClusterInstance(c echo.Context) error {
 }
 
 // @Summary deletes a aws eks cluster instance.
-// @Description Delete a aws eks cluster instance by from the database.
+// @Description Delete a aws eks cluster instance by ID from the database.
 // @ID delete-awsEksClusterInstance
 // @Accept json
 // @Produce json
@@ -1213,7 +1213,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a aws relational database definition.
-// @Description Delete a aws relational database definition by from the database.
+// @Description Delete a aws relational database definition by ID from the database.
 // @ID delete-awsRelationalDatabaseDefinition
 // @Accept json
 // @Produce json
@@ -1524,7 +1524,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 }
 
 // @Summary deletes a aws relational database instance.
-// @Description Delete a aws relational database instance by from the database.
+// @Description Delete a aws relational database instance by ID from the database.
 // @ID delete-awsRelationalDatabaseInstance
 // @Accept json
 // @Produce json

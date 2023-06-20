@@ -280,7 +280,7 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a domain name definition.
-// @Description Delete a domain name definition by from the database.
+// @Description Delete a domain name definition by ID from the database.
 // @ID delete-domainNameDefinition
 // @Accept json
 // @Produce json
@@ -591,7 +591,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 }
 
 // @Summary deletes a domain name instance.
-// @Description Delete a domain name instance by from the database.
+// @Description Delete a domain name instance by ID from the database.
 // @ID delete-domainNameInstance
 // @Accept json
 // @Produce json

@@ -8,11 +8,14 @@ import (
 	"gorm.io/datatypes"
 )
 
-const PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-sets"
+const (
+	PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-sets"
+	PathWorkloadEventSets              = "/v0/workload-event-sets"
+)
 
+// +threeport-codegen:reconciler
 // WorkloadDefinition is the collection of Kubernetes manifests that define a
 // distinct workload.
-// +threeport-codegen:reconciler
 type WorkloadDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`

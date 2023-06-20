@@ -280,7 +280,7 @@ func (h Handler) ReplaceLogBackend(c echo.Context) error {
 }
 
 // @Summary deletes a log backend.
-// @Description Delete a log backend by from the database.
+// @Description Delete a log backend by ID from the database.
 // @ID delete-logBackend
 // @Accept json
 // @Produce json
@@ -591,7 +591,7 @@ func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a log storage definition.
-// @Description Delete a log storage definition by from the database.
+// @Description Delete a log storage definition by ID from the database.
 // @ID delete-logStorageDefinition
 // @Accept json
 // @Produce json
@@ -902,7 +902,7 @@ func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 }
 
 // @Summary deletes a log storage instance.
-// @Description Delete a log storage instance by from the database.
+// @Description Delete a log storage instance by ID from the database.
 // @ID delete-logStorageInstance
 // @Accept json
 // @Produce json

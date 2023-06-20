@@ -280,7 +280,7 @@ func (h Handler) ReplaceNetworkIngressDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a network ingress definition.
-// @Description Delete a network ingress definition by from the database.
+// @Description Delete a network ingress definition by ID from the database.
 // @ID delete-networkIngressDefinition
 // @Accept json
 // @Produce json
@@ -591,7 +591,7 @@ func (h Handler) ReplaceNetworkIngressInstance(c echo.Context) error {
 }
 
 // @Summary deletes a network ingress instance.
-// @Description Delete a network ingress instance by from the database.
+// @Description Delete a network ingress instance by ID from the database.
 // @ID delete-networkIngressInstance
 // @Accept json
 // @Produce json

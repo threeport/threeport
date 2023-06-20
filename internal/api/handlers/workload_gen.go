@@ -280,7 +280,7 @@ func (h Handler) ReplaceWorkloadDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a workload definition.
-// @Description Delete a workload definition by from the database.
+// @Description Delete a workload definition by ID from the database.
 // @ID delete-workloadDefinition
 // @Accept json
 // @Produce json
@@ -582,7 +582,7 @@ func (h Handler) ReplaceWorkloadResourceDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a workload resource definition.
-// @Description Delete a workload resource definition by from the database.
+// @Description Delete a workload resource definition by ID from the database.
 // @ID delete-workloadResourceDefinition
 // @Accept json
 // @Produce json
@@ -893,7 +893,7 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 }
 
 // @Summary deletes a workload instance.
-// @Description Delete a workload instance by from the database.
+// @Description Delete a workload instance by ID from the database.
 // @ID delete-workloadInstance
 // @Accept json
 // @Produce json
@@ -1189,7 +1189,7 @@ func (h Handler) ReplaceWorkloadResourceInstance(c echo.Context) error {
 }
 
 // @Summary deletes a workload resource instance.
-// @Description Delete a workload resource instance by from the database.
+// @Description Delete a workload resource instance by ID from the database.
 // @ID delete-workloadResourceInstance
 // @Accept json
 // @Produce json
@@ -1485,7 +1485,7 @@ func (h Handler) ReplaceWorkloadEvent(c echo.Context) error {
 }
 
 // @Summary deletes a workload event.
-// @Description Delete a workload event by from the database.
+// @Description Delete a workload event by ID from the database.
 // @ID delete-workloadEvent
 // @Accept json
 // @Produce json

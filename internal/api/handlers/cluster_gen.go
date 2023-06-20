@@ -280,7 +280,7 @@ func (h Handler) ReplaceClusterDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a cluster definition.
-// @Description Delete a cluster definition by from the database.
+// @Description Delete a cluster definition by ID from the database.
 // @ID delete-clusterDefinition
 // @Accept json
 // @Produce json
@@ -591,7 +591,7 @@ func (h Handler) ReplaceClusterInstance(c echo.Context) error {
 }
 
 // @Summary deletes a cluster instance.
-// @Description Delete a cluster instance by from the database.
+// @Description Delete a cluster instance by ID from the database.
 // @ID delete-clusterInstance
 // @Accept json
 // @Produce json
