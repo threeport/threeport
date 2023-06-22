@@ -22,16 +22,18 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/agent/notify"
 	api "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
 )
@@ -39,13 +41,19 @@ import (
 // ThreeportWorkloadReconciler reconciles a ThreeportWorkload object
 type ThreeportWorkloadReconciler struct {
 	client.Client
-	Scheme         *runtime.Scheme
-	ManagerContext context.Context
-	RESTMapper     meta.RESTMapper
-	KubeClient     *kubernetes.Clientset
-	DynamicClient  *dynamic.DynamicClient
-	EventInformer  cache.SharedInformer
-	NotifChan      *chan notify.ThreeportNotif
+	Scheme            *runtime.Scheme
+	ManagerContext    context.Context
+	RESTMapper        meta.RESTMapper
+	KubeClient        *kubernetes.Clientset
+	DynamicClient     *dynamic.DynamicClient
+	RESTConfig        *rest.Config
+	NotifChan         *chan notify.ThreeportNotif
+	InformerStopChans []InformerStopChannels
+}
+
+type InformerStopChannels struct {
+	WorkloadInstanceID uint
+	StopChannels       []chan struct{}
 }
 
 //+kubebuilder:rbac:groups=control-plane.threeport.io,resources=threeportworkloads,verbs=get;list;watch;create;update;patch;delete
@@ -66,7 +74,6 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	// get the ThreeportWorkload resource
 	var threeportWorkload api.ThreeportWorkload
 	if err := r.Get(ctx, req.NamespacedName, &threeportWorkload); err != nil {
-		// TODO: kill watches on threeport workload resource delete
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -82,12 +89,12 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	// actually handle de-duplication since it can do so more efficiently.
 
 	// loop over each resource defined, place a watch on each and add informer
-	// handlers to process events for those resources
-	for _, workloadResource := range threeportWorkload.Spec.WorkloadResourceInstances {
+	// event handlers to process K8s events that involve these resources
+	for _, workloadResourceInstance := range threeportWorkload.Spec.WorkloadResourceInstances {
 		gvk := schema.GroupVersionKind{
-			Group:   workloadResource.Group,
-			Version: workloadResource.Version,
-			Kind:    workloadResource.Kind,
+			Group:   workloadResourceInstance.Group,
+			Version: workloadResourceInstance.Version,
+			Kind:    workloadResourceInstance.Kind,
 		}
 
 		// get resource mapping from API
@@ -99,11 +106,11 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 		// get resource unique ID from API
 		nsName := types.NamespacedName{
-			Namespace: workloadResource.Namespace,
-			Name:      workloadResource.Name,
+			Namespace: workloadResourceInstance.Namespace,
+			Name:      workloadResourceInstance.Name,
 		}
 		var unstructuredObj unstructured.Unstructured
-		unstructuredObj.SetGroupVersionKind(gvr.GroupVersion().WithKind(workloadResource.Kind))
+		unstructuredObj.SetGroupVersionKind(gvr.GroupVersion().WithKind(workloadResourceInstance.Kind))
 		if err := r.Get(ctx, nsName, &unstructuredObj); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to get resource from API: %w", err)
 		}
@@ -113,22 +120,57 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		go r.watchResource(
 			log,
 			gvr,
-			workloadResource.Name,
-			workloadResource.Namespace,
-			workloadResource.ThreeportID,
+			threeportWorkload.Spec.WorkloadInstanceID,
+			workloadResourceInstance.Name,
+			workloadResourceInstance.Namespace,
+			workloadResourceInstance.ThreeportID,
+			resourceUID,
 		)
-
-		// add informer event handler to capture Event resources for the
-		// resource
-		r.addEventHandler(log, resourceUID, &threeportWorkload.Spec.WorkloadInstanceID, &workloadResource.ThreeportID)
 	}
 
-	// watch pods and replicasets with workload instance label (agent.WorkloadInstanceLabelKey)
-	// and add informer event handlers to capture Event resources for those
-	go r.addPodEventHandler(ctx, log, threeportWorkload.Spec.WorkloadInstanceID)
-	go r.addReplicaSetEventHandler(ctx, log, threeportWorkload.Spec.WorkloadInstanceID)
+	// set label selector - this is used to identify pods and replicasets
+	labelSelector := labels.Set(map[string]string{
+		agent.WorkloadInstanceLabelKey: fmt.Sprint(threeportWorkload.Spec.WorkloadInstanceID),
+	}).AsSelector().String()
+
+	// create pod and replicaset informers, add the their stop channels to the
+	// reconciler, and add event handlers to the informers
+	podInformer, podInformerStopChan := r.createPodInformer(ctx, labelSelector, threeportWorkload.Spec.WorkloadInstanceID)
+	r.addInformerStopChannel(threeportWorkload.Spec.WorkloadInstanceID, podInformerStopChan)
+	go r.addPodEventHandlers(ctx, log, threeportWorkload.Spec.WorkloadInstanceID, podInformer, podInformerStopChan)
+
+	replicasetInformer, replicasetInformerStopChan := r.createReplicaSetInformer(ctx, labelSelector, threeportWorkload.Spec.WorkloadInstanceID)
+	r.addInformerStopChannel(threeportWorkload.Spec.WorkloadInstanceID, replicasetInformerStopChan)
+	go r.addReplicaSetEventHandlers(ctx, log, threeportWorkload.Spec.WorkloadInstanceID, replicasetInformer, replicasetInformerStopChan)
 
 	return ctrl.Result{}, nil
+}
+
+// addInformerStopChannel adds an informer stop channel to an existing
+// InformerStopChannels object if one exists for a particular workload instance,
+// otherwise adds a new record for a workload instance with the provided stop
+// channel.
+func (r *ThreeportWorkloadReconciler) addInformerStopChannel(
+	workloadInstanceID uint,
+	stopChannel chan struct{},
+) {
+	workloadInstanceIDFound := false
+	for i, informerStopChans := range r.InformerStopChans {
+		if informerStopChans.WorkloadInstanceID == workloadInstanceID {
+			informerStopChans.StopChannels = append(informerStopChans.StopChannels, stopChannel)
+			r.InformerStopChans[i] = informerStopChans
+			workloadInstanceIDFound = true
+			break
+		}
+	}
+
+	if !workloadInstanceIDFound {
+		informerStopChans := InformerStopChannels{
+			WorkloadInstanceID: workloadInstanceID,
+			StopChannels:       []chan struct{}{stopChannel},
+		}
+		r.InformerStopChans = append(r.InformerStopChans, informerStopChans)
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.

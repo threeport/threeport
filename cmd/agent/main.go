@@ -26,9 +26,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/labstack/gommon/log"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
@@ -36,7 +33,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -130,17 +126,9 @@ func main() {
 		setupLog.Error(err, "failed to create dynamic client")
 	}
 
-	// create an informer for events objects so controller can collect events
-	// that involve threeport-manage resources
+	// create a typed kubernetes client to use for watching known resources like
+	// pods and replicasets
 	clientset, err := kubernetes.NewForConfig(mgr.GetConfig())
-	listWatcher := cache.NewListWatchFromClient(
-		clientset.CoreV1().RESTClient(),
-		"events",
-		metav1.NamespaceAll,
-		fields.Everything(),
-	)
-	informer := cache.NewSharedInformer(listWatcher, &corev1.Event{}, 6e+11) // re-sync every 10 min
-	go informer.Run(managerContext.Done())
 
 	// create an notify channel for controllers to pass information to
 	// notification function that updates threeport API
@@ -179,7 +167,7 @@ func main() {
 		RESTMapper:     mapper,
 		KubeClient:     clientset,
 		DynamicClient:  dynamicClient,
-		EventInformer:  informer,
+		RESTConfig:     mgr.GetConfig(),
 		NotifChan:      &notifChan,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ThreeportWorkload")
