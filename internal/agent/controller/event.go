@@ -1,9 +1,11 @@
 package controller
 
 import (
-	"github.com/go-logr/logr"
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/threeport/threeport/internal/agent/notify"
 )
@@ -11,12 +13,14 @@ import (
 // addEventEventHandlers adds event handlers for Event objects filtered by
 // resource unique ID.
 func (r *ThreeportWorkloadReconciler) addEventEventHandlers(
-	log logr.Logger,
+	ctx context.Context,
 	resourceUID string,
 	workloadInstanceID uint,
 	workloadResourceInstanceID uint,
 	informer cache.SharedInformer,
 ) {
+	logger := log.FromContext(ctx)
+
 	// add handlers for when events are added and delet
 	handlers := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -57,10 +61,9 @@ func (r *ThreeportWorkloadReconciler) addEventEventHandlers(
 		},
 	}
 	informer.AddEventHandler(handlers)
-	log.Info(
+	logger.Info(
 		"event handlers for resource involved events added",
 		"resourceID", resourceUID,
-		"workloadInstanceID", &workloadInstanceID,
 		"workloadResourceInstanceID", &workloadResourceInstanceID,
 	)
 }

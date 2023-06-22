@@ -31,11 +31,12 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/agent/notify"
-	api "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
+	agentapi "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
 )
 
 // ThreeportWorkloadReconciler reconciles a ThreeportWorkload object
@@ -69,12 +70,25 @@ type InformerStopChannels struct {
 // act upon changes in state within the Kubernetes cluster where the workload
 // instance resources live.
 func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
 	// get the ThreeportWorkload resource
-	var threeportWorkload api.ThreeportWorkload
+	var threeportWorkload agentapi.ThreeportWorkload
 	if err := r.Get(ctx, req.NamespacedName, &threeportWorkload); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	logger = logger.WithValues("workloadInstanceID", threeportWorkload.Spec.WorkloadInstanceID)
+	ctx = log.IntoContext(ctx, logger)
+
+	// add finalizer if needed or perform on-deletion operations if
+	// ThreeportWorkload resources is being deleted
+	deleted, err := r.reconcileFinalizer(ctx, &threeportWorkload)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to reconcile finalizer on ThreeportWorkload: %w", err)
+	}
+	if deleted {
+		// if being deleted stop reconciliation
+		return ctrl.Result{}, nil
 	}
 
 	// TODO: Currently, when a controller is restarted it collects all events
@@ -118,7 +132,7 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 		// initiate watch on workload instance resource
 		go r.watchResource(
-			log,
+			ctx,
 			gvr,
 			threeportWorkload.Spec.WorkloadInstanceID,
 			workloadResourceInstance.Name,
@@ -137,13 +151,52 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	// reconciler, and add event handlers to the informers
 	podInformer, podInformerStopChan := r.createPodInformer(ctx, labelSelector, threeportWorkload.Spec.WorkloadInstanceID)
 	r.addInformerStopChannel(threeportWorkload.Spec.WorkloadInstanceID, podInformerStopChan)
-	go r.addPodEventHandlers(ctx, log, threeportWorkload.Spec.WorkloadInstanceID, podInformer, podInformerStopChan)
+	go r.addPodEventHandlers(ctx, threeportWorkload.Spec.WorkloadInstanceID, podInformer, podInformerStopChan)
 
 	replicasetInformer, replicasetInformerStopChan := r.createReplicaSetInformer(ctx, labelSelector, threeportWorkload.Spec.WorkloadInstanceID)
 	r.addInformerStopChannel(threeportWorkload.Spec.WorkloadInstanceID, replicasetInformerStopChan)
-	go r.addReplicaSetEventHandlers(ctx, log, threeportWorkload.Spec.WorkloadInstanceID, replicasetInformer, replicasetInformerStopChan)
+	go r.addReplicaSetEventHandlers(ctx, threeportWorkload.Spec.WorkloadInstanceID, replicasetInformer, replicasetInformerStopChan)
 
 	return ctrl.Result{}, nil
+}
+
+// reconcileFinalizer adds a finalizer to ThreeportWorkload resources if not
+// present and stops informers when they are deleted.
+func (r *ThreeportWorkloadReconciler) reconcileFinalizer(
+	ctx context.Context,
+	threeportWorkload *agentapi.ThreeportWorkload,
+) (bool, error) {
+	deleted := false
+
+	// examine DeletionTimestamp to determine if ThreeportWorkload resource is
+	// being deleted
+	if threeportWorkload.ObjectMeta.DeletionTimestamp.IsZero() {
+		// the ThreeportWorkload resource is not being deleted, so if it does
+		// not have our finalizer, add it to register the finalizer
+		if !controllerutil.ContainsFinalizer(threeportWorkload, agent.ThreeportWorkloadFinalizer) {
+			controllerutil.AddFinalizer(threeportWorkload, agent.ThreeportWorkloadFinalizer)
+			if err := r.Update(ctx, threeportWorkload); err != nil {
+				return deleted, fmt.Errorf("failed to update ThreeportWorkload resource: %w", err)
+			}
+		}
+	} else {
+		// the object is being deleted
+		deleted = true
+		if controllerutil.ContainsFinalizer(threeportWorkload, agent.ThreeportWorkloadFinalizer) {
+			// our finalizer is present, stop informers for this workload
+			// instance's resources
+			r.stopInformers(ctx, threeportWorkload.Spec.WorkloadInstanceID)
+
+			// remove our finalizer from the list and update it to allow
+			// deletion of the ThreeportWorkload resource
+			controllerutil.RemoveFinalizer(threeportWorkload, agent.ThreeportWorkloadFinalizer)
+			if err := r.Update(ctx, threeportWorkload); err != nil {
+				return deleted, fmt.Errorf("failed to remove finalizer on ThreeportWorkload resource: %w", err)
+			}
+		}
+	}
+
+	return deleted, nil
 }
 
 // addInformerStopChannel adds an informer stop channel to an existing
@@ -173,9 +226,33 @@ func (r *ThreeportWorkloadReconciler) addInformerStopChannel(
 	}
 }
 
+// stopInformers finds the informer stop channels for a threeport workload
+// instance ID and stops each of them and then removes that record from the
+// Reconciler.  This function doesn't return an error if no stop channels are
+// found since there's nothing we can do about it at this point.
+func (r *ThreeportWorkloadReconciler) stopInformers(ctx context.Context, workloadInstanceID uint) {
+	logger := log.FromContext(ctx)
+
+	for i, informerStopChans := range r.InformerStopChans {
+		if informerStopChans.WorkloadInstanceID == workloadInstanceID {
+			for _, stopChan := range informerStopChans.StopChannels {
+				if stopChan != nil {
+					logger.Info("ThreeportWorkload resource deleted - stopping informers")
+					close(stopChan)
+				}
+			}
+			// remove the InformerStopChannels object from the array by
+			// replacing the target with the last item and shrinking the slice by 1
+			r.InformerStopChans[i] = r.InformerStopChans[len(r.InformerStopChans)-1]
+			r.InformerStopChans = r.InformerStopChans[:len(r.InformerStopChans)-1]
+			return
+		}
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *ThreeportWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&api.ThreeportWorkload{}).
+		For(&agentapi.ThreeportWorkload{}).
 		Complete(r)
 }

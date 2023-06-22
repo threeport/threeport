@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -11,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // createPodInformer creates a new shared informer for pods filtered by labels,
@@ -50,11 +50,12 @@ func (r *ThreeportWorkloadReconciler) createPodInformer(
 // that all events for that pod are sent to threeport API.
 func (r *ThreeportWorkloadReconciler) addPodEventHandlers(
 	ctx context.Context,
-	log logr.Logger,
 	workloadInstanceID uint,
 	podInformer cache.SharedInformer,
 	podInformerStopChan chan struct{},
 ) {
+	logger := log.FromContext(ctx)
+
 	// podEventInformers maps pod UIDs to a stop channel that is used to stop
 	// informers when the pod is deleted
 	podEventInformers := make(map[string]chan struct{}) // map[resourceUID]stopChannel
@@ -74,7 +75,7 @@ func (r *ThreeportWorkloadReconciler) addPodEventHandlers(
 				stopChan := make(chan struct{})
 				clientset, err := kubernetes.NewForConfig(r.RESTConfig)
 				if err != nil {
-					log.Error(err, "failed to create kubernetes client for event informer")
+					logger.Error(err, "failed to create kubernetes client for event informer")
 					return
 				}
 				listWatcher := cache.NewListWatchFromClient(
@@ -86,7 +87,7 @@ func (r *ThreeportWorkloadReconciler) addPodEventHandlers(
 				eventInformer := cache.NewSharedInformer(listWatcher, &corev1.Event{}, 6e+11) // re-sync every 10 min
 				go eventInformer.Run(stopChan)
 
-				r.addEventEventHandlers(log, string(uid), workloadInstanceID, 0, eventInformer)
+				r.addEventEventHandlers(ctx, string(uid), workloadInstanceID, 0, eventInformer)
 				podEventInformers[string(uid)] = stopChan
 			}
 		},
@@ -96,7 +97,7 @@ func (r *ThreeportWorkloadReconciler) addPodEventHandlers(
 			uid := obj.(*corev1.Pod).UID
 			for watchedUID, stopChan := range podEventInformers {
 				if watchedUID == string(uid) {
-					log.Info("pod deleted, stopping event informer")
+					logger.Info("pod deleted, stopping event informer")
 					close(stopChan)
 					delete(podEventInformers, watchedUID)
 					break

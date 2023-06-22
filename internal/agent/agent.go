@@ -2,7 +2,10 @@ package agent
 
 import "fmt"
 
-const WorkloadInstanceLabelKey = "control-plane.threeport.io/workload-instance"
+const (
+	ThreeportWorkloadFinalizer = "control-plane.threeport.io/threeport-workload-finalizer"
+	WorkloadInstanceLabelKey   = "control-plane.threeport.io/workload-instance"
+)
 
 // ThreeportWorkloadName returns a standardized name for a ThreeportWorkload
 // Kubernetes custom resource based on the workload instance ID.

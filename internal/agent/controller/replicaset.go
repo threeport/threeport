@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // createReplicaSetInformer creates a new shared informer for replicasets filtered by labels,
@@ -51,11 +51,12 @@ func (r *ThreeportWorkloadReconciler) createReplicaSetInformer(
 // that all events for that replicaset are sent to threeport API.
 func (r *ThreeportWorkloadReconciler) addReplicaSetEventHandlers(
 	ctx context.Context,
-	log logr.Logger,
 	workloadInstanceID uint,
 	replicasetInformer cache.SharedInformer,
 	replicasetInformerStopChan chan struct{},
 ) {
+	logger := log.FromContext(ctx)
+
 	// replicasetEventInformers maps replicaset UIDs to a stop channel that is used to stop
 	// informers when the replicaset is deleted
 	replicasetEventInformers := make(map[string]chan struct{}) // map[resourceUID]stopChannel
@@ -75,7 +76,7 @@ func (r *ThreeportWorkloadReconciler) addReplicaSetEventHandlers(
 				stopChan := make(chan struct{})
 				clientset, err := kubernetes.NewForConfig(r.RESTConfig)
 				if err != nil {
-					log.Error(err, "failed to create kubernetes client for event informer")
+					logger.Error(err, "failed to create kubernetes client for event informer")
 					return
 				}
 				listWatcher := cache.NewListWatchFromClient(
@@ -87,7 +88,7 @@ func (r *ThreeportWorkloadReconciler) addReplicaSetEventHandlers(
 				eventInformer := cache.NewSharedInformer(listWatcher, &corev1.Event{}, 6e+11) // re-sync every 10 min
 				go eventInformer.Run(stopChan)
 
-				r.addEventEventHandlers(log, string(uid), workloadInstanceID, 0, eventInformer)
+				r.addEventEventHandlers(ctx, string(uid), workloadInstanceID, 0, eventInformer)
 				replicasetEventInformers[string(uid)] = stopChan
 			}
 		},
@@ -97,7 +98,7 @@ func (r *ThreeportWorkloadReconciler) addReplicaSetEventHandlers(
 			uid := obj.(*appsv1.ReplicaSet).UID
 			for watchedUID, stopChan := range replicasetEventInformers {
 				if watchedUID == string(uid) {
-					log.Info("replicaset deleted, stopping event informer")
+					logger.Info("replicaset deleted, stopping event informer")
 					close(stopChan)
 					delete(replicasetEventInformers, watchedUID)
 					break
