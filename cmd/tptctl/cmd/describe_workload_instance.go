@@ -18,16 +18,16 @@ import (
 )
 
 var (
-	deleteWorkloadInstanceConfigPath string
-	deleteWorkloadInstanceName       string
+	describeWorkloadInstanceConfigPath string
+	describeWorkloadInstanceName       string
 )
 
-// DeleteWorkloadInstanceCmd represents the workload-instance command
-var DeleteWorkloadInstanceCmd = &cobra.Command{
+// DescribeWorkloadInstanceCmd represents the workload-instances command
+var DescribeWorkloadInstanceCmd = &cobra.Command{
 	Use:          "workload-instance",
-	Example:      "tptctl delete workload-instance --config /path/to/config.yaml",
-	Short:        "Delete an existing workload instance",
-	Long:         `Delete an existing workload instance.`,
+	Example:      "tptctl describe workload-instance",
+	Short:        "Describe a workload instance",
+	Long:         `Describe a workload instance.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config and extract threeport API endpoint
@@ -44,17 +44,17 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 
 		// flag validation
 		if err := validateDeleteWorkloadInstanceFlags(
-			deleteWorkloadInstanceConfigPath,
-			deleteWorkloadInstanceName,
+			describeWorkloadInstanceConfigPath,
+			describeWorkloadInstanceName,
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
 		}
 
 		var workloadInstanceConfig config.WorkloadInstanceConfig
-		if deleteWorkloadInstanceConfigPath != "" {
+		if describeWorkloadInstanceConfigPath != "" {
 			// load workload instance config
-			configContent, err := ioutil.ReadFile(deleteWorkloadInstanceConfigPath)
+			configContent, err := ioutil.ReadFile(describeWorkloadInstanceConfigPath)
 			if err != nil {
 				cli.Error("failed to read config file", err)
 				os.Exit(1)
@@ -66,7 +66,7 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 		} else {
 			workloadInstanceConfig = config.WorkloadInstanceConfig{
 				WorkloadInstance: config.WorkloadInstanceValues{
-					Name: deleteWorkloadInstanceName,
+					Name: describeWorkloadInstanceName,
 				},
 			}
 		}
@@ -84,37 +84,57 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 		}
 		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey)
 		if err != nil {
-			cli.Error("failed to create https client", err)
+			cli.Error("failed to create threeport API client", err)
 			os.Exit(1)
 		}
 
-		// delete workload instance
+		// describe workload instance
 		workloadInstance := workloadInstanceConfig.WorkloadInstance
-		wi, err := workloadInstance.Delete(apiClient, apiEndpoint)
+		workloadStatus, err := workloadInstance.Describe(apiClient, apiEndpoint)
 		if err != nil {
-			cli.Error("failed to delete workload instance", err)
+			cli.Error("failed to describe workload instance", err)
 			os.Exit(1)
 		}
 
-		cli.Complete(fmt.Sprintf("workload instance %s deleted\n", *wi.Name))
+		// output describe details
+		cli.Info(fmt.Sprintf(
+			"Workload Instance Name: %s",
+			workloadInstanceConfig.WorkloadInstance.Name,
+		))
+		cli.Info(fmt.Sprintf(
+			"Workload Status: %s",
+			workloadStatus.Status,
+		))
+		if workloadStatus.Reason != "" {
+			cli.Info(fmt.Sprintf(
+				"Workload Status Reason: %s",
+				workloadStatus.Reason,
+			))
+		}
+		if len(workloadStatus.Events) > 0 {
+			cli.Warning("Failed Events:")
+			for _, event := range workloadStatus.Events {
+				fmt.Printf("    * %s\n", event)
+			}
+		}
 	},
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteWorkloadInstanceCmd)
+	describeCmd.AddCommand(DescribeWorkloadInstanceCmd)
 
-	DeleteWorkloadInstanceCmd.Flags().StringVarP(
-		&deleteWorkloadInstanceConfigPath,
+	DescribeWorkloadInstanceCmd.Flags().StringVarP(
+		&describeWorkloadInstanceConfigPath,
 		"config", "c", "", "Path to file with workload instance config.",
 	)
-	DeleteWorkloadInstanceCmd.Flags().StringVarP(
-		&deleteWorkloadInstanceName,
+	DescribeWorkloadInstanceCmd.Flags().StringVarP(
+		&describeWorkloadInstanceName,
 		"name", "n", "", "Name of workload instance.",
 	)
 }
 
-// validateDeleteControlPlaneFlags validates flag inputs as needed.
-func validateDeleteWorkloadInstanceFlags(workloadInstConfigPath, workloadInstName string) error {
+// validateDescribeControlPlaneFlags validates flag inputs as needed.
+func validateDescribeWorkloadInstanceFlags(workloadInstConfigPath, workloadInstName string) error {
 	if workloadInstConfigPath == "" && workloadInstName == "" {
 		return errors.New("must provide either workload instance name or path to config file")
 	}

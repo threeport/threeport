@@ -61,6 +61,13 @@ var GetWorkloadDefinitionsCmd = &cobra.Command{
 		}
 
 		// write the output
+		if len(*workloadDefinitions) == 0 {
+			cli.Info(fmt.Sprintf(
+				"No workload definitions currently managed by %s threeport control plane",
+				threeportConfig.CurrentInstance,
+			))
+			os.Exit(0)
+		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 		fmt.Fprintln(writer, "NAME\t AGE")
 		for _, wd := range *workloadDefinitions {

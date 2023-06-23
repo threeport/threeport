@@ -64,6 +64,13 @@ This command displays all instances and the definitions used to configure them.`
 		}
 
 		// write the output
+		if len(*workloadInstances) == 0 {
+			cli.Info(fmt.Sprintf(
+				"No workloads currently managed by %s threeport control plane",
+				threeportConfig.CurrentInstance,
+			))
+			os.Exit(0)
+		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 		fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t WORKLOAD INSTANCE\t CLUSTER INSTANCE\t AGE")
 		metadataErr := false
@@ -96,10 +103,10 @@ This command displays all instances and the definitions used to configure them.`
 
 		if metadataErr {
 			if workloadDefErr != nil {
-				cli.Error("encountered errors retrieving workload definition info", workloadDefErr)
+				cli.Error("encountered an error retrieving workload definition info", workloadDefErr)
 			}
 			if clusterInstErr != nil {
-				cli.Error("encountered errors retrieving cluster instance info", clusterInstErr)
+				cli.Error("encountered an error retrieving cluster instance info", clusterInstErr)
 			}
 			os.Exit(1)
 		}
