@@ -20,7 +20,9 @@ import (
 	"github.com/threeport/threeport/internal/agent/notify"
 )
 
-// watchResource opens a watch on the requested resource.
+// watchResource opens a watch on the requested resource, creates an informer to
+// capture event resources associated with it and sends notifications based on
+// operations performed on the resource.
 func (r *ThreeportWorkloadReconciler) watchResource(
 	ctx context.Context,
 	gvr schema.GroupVersionResource,

@@ -2,7 +2,6 @@ package notify
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -88,15 +87,14 @@ func Notify(
 				// threeport API and return
 				log.Info("notification channel closed")
 				if len(workloadResourceInstances) > 0 || len(workloadEvents) > 0 {
-					if err := sendThreeportUpdates(
+					// send final notifications - no point capturing any returned
+					// unsent objects since this reciever is being stopped
+					_, _ = sendThreeportUpdates(
 						threeportAPIServer,
 						threeportAPIClient,
-						workloadResourceInstances,
-						workloadEvents,
-					); err != nil {
-						log.Error(err, "failed to send threeport updates after notifcation channel closed")
-						return
-					}
+						&workloadResourceInstances,
+						&workloadEvents,
+					)
 					log.Info("final notifications sent")
 				}
 				log.Info("notifications receiver stopping")
@@ -143,22 +141,17 @@ func Notify(
 			}
 		default:
 			if len(workloadResourceInstances) > 0 || len(workloadEvents) > 0 {
-				// we have data to update in threeport API - if we get an error
-				// that is a "not found" error we ignore as this happens when a
-				// workload instance is deleted in threeport
-				if err := sendThreeportUpdates(
+				// we have data to update in threeport API - send the updates
+				// and get back any workload resource instances or workload
+				// events that were not sent so they can be retried later
+				wris, wes := sendThreeportUpdates(
 					threeportAPIServer,
 					threeportAPIClient,
-					workloadResourceInstances,
-					workloadEvents,
-				); err != nil && !errors.Is(err, tpclient.ErrorObjectNotFound) {
-					log.Error(err, "failed to send threeport updates")
-				} else {
-					// reset the payload info to emtpy to prepare for more notif
-					// info
-					workloadResourceInstances = []tpapi.WorkloadResourceInstance{}
-					workloadEvents = []tpapi.WorkloadEvent{}
-				}
+					&workloadResourceInstances,
+					&workloadEvents,
+				)
+				workloadResourceInstances = *wris
+				workloadEvents = *wes
 			}
 			// wait 10 seconds before checking notif channel again
 			time.Sleep(time.Second * 10)
@@ -167,38 +160,44 @@ func Notify(
 }
 
 // sendThreeportUpdates makes the call to the threeport API to update the
-// workload objects.
+// workload objects.  If there is a failure on the update return the failed
+// objects back so they may be retried later.  Note that if a "not found" error
+// occurs on an update to a workload resource instance it is not sent back as it
+// has been deleted.
 func sendThreeportUpdates(
 	tpAPIServer string,
 	tpAPIClient *http.Client,
-	workloadResourceInstances []tpapi.WorkloadResourceInstance,
-	workloadEvents []tpapi.WorkloadEvent,
-) error {
+	workloadResourceInstances *[]tpapi.WorkloadResourceInstance,
+	workloadEvents *[]tpapi.WorkloadEvent,
+) (*[]tpapi.WorkloadResourceInstance, *[]tpapi.WorkloadEvent) {
+	var unsentWRIs []tpapi.WorkloadResourceInstance
+	var unsentWEs []tpapi.WorkloadEvent
+
 	// update workload resource instances
-	for _, wri := range workloadResourceInstances {
+	for _, wri := range *workloadResourceInstances {
 		_, err := tpclient.UpdateWorkloadResourceInstance(
 			tpAPIClient,
 			tpAPIServer,
 			&wri,
 		)
-		if err != nil {
-			return fmt.Errorf("failed to update workload resource instance with ID %d: %w", wri.ID, err)
+		if err != nil && !errors.Is(err, tpclient.ErrorObjectNotFound) {
+			unsentWRIs = append(unsentWRIs, wri)
 		}
 	}
 
 	// add workload events
-	for _, we := range workloadEvents {
+	for _, we := range *workloadEvents {
 		_, err := tpclient.CreateWorkloadEvent(
 			tpAPIClient,
 			tpAPIServer,
 			&we,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to create new workload event: %w", err)
+			unsentWEs = append(unsentWEs, we)
 		}
 	}
 
-	return nil
+	return &unsentWRIs, &unsentWEs
 }
 
 // appendUniqueWRI looks for a workload resource instance with a matching ID

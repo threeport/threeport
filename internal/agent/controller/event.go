@@ -21,7 +21,7 @@ func (r *ThreeportWorkloadReconciler) addEventEventHandlers(
 ) {
 	logger := log.FromContext(ctx)
 
-	// add handlers for when events are added and delet
+	// add handlers for when events are added and deleted
 	handlers := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			event := obj.(*corev1.Event)
