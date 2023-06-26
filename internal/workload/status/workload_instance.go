@@ -9,7 +9,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
-	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
@@ -45,7 +44,7 @@ type WorkloadInstanceStatusDetail struct {
 	Status WorkloadInstanceStatus
 	Reason string
 	Error  error
-	Events []string
+	Events []v0.WorkloadEvent
 }
 
 // GetWorkloadInstanceStatus inspects a workload instance and returns the status
@@ -57,13 +56,7 @@ func GetWorkloadInstanceStatus(
 ) *WorkloadInstanceStatusDetail {
 	var workloadInstanceStatusDetail WorkloadInstanceStatusDetail
 
-	// check workload instance is reconciled
-	if !*workloadInstance.Reconciled {
-		workloadInstanceStatusDetail.Status = WorkloadInstanceStatusReconciling
-		return &workloadInstanceStatusDetail
-	}
-
-	// collect any failed events
+	// collect any events of type Warning or Failed
 	workloadEvents, err := client.GetWorkloadEventsByWorkloadInstanceID(
 		apiClient,
 		apiEndpoint,
@@ -74,13 +67,29 @@ func GetWorkloadInstanceStatus(
 		workloadInstanceStatusDetail.Error = fmt.Errorf("failed to get workload events from API: %w", err)
 		return &workloadInstanceStatusDetail
 	}
-	var failedEvents []string
+	var alertEvents []v0.WorkloadEvent
 	for _, event := range *workloadEvents {
-		if *event.Reason == "Failed" {
-			failedEvents = util.AddStringToSliceIfNotExists(failedEvents, *event.Message)
+		if *event.Type == "Warning" || *event.Type == "Failed" {
+			// capture event if we haven't already
+			eventCaptured := false
+			for _, ae := range alertEvents {
+				if *ae.Message == *event.Message {
+					eventCaptured = true
+					break
+				}
+			}
+			if !eventCaptured {
+				alertEvents = append(alertEvents, event)
+			}
 		}
 	}
-	workloadInstanceStatusDetail.Events = failedEvents
+	workloadInstanceStatusDetail.Events = alertEvents
+
+	// check workload instance is reconciled
+	if !*workloadInstance.Reconciled {
+		workloadInstanceStatusDetail.Status = WorkloadInstanceStatusReconciling
+		return &workloadInstanceStatusDetail
+	}
 
 	// find Deployment or StatefulSet resources and check they are healthy
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
@@ -94,23 +103,25 @@ func GetWorkloadInstanceStatus(
 		return &workloadInstanceStatusDetail
 	}
 	for _, wri := range *workloadResourceInstances {
-		var runtimeDefinition unstructured.Unstructured
-		if err := yaml.Unmarshal([]byte(*wri.RuntimeDefinition), &runtimeDefinition); err != nil {
-			workloadInstanceStatusDetail.Status = WorkloadInstanceStatusError
-			workloadInstanceStatusDetail.Error = fmt.Errorf("failed to get workload resource instances from API: %w", err)
-			return &workloadInstanceStatusDetail
-		}
-		if runtimeDefinition.GetKind() == "Deployment" {
-			status, reason, err := inspectDeployment(&runtimeDefinition)
-			if err != nil {
-				workloadInstanceStatusDetail.Status = status
-				workloadInstanceStatusDetail.Error = err
+		if wri.RuntimeDefinition != nil {
+			var runtimeDefinition unstructured.Unstructured
+			if err := yaml.Unmarshal([]byte(*wri.RuntimeDefinition), &runtimeDefinition); err != nil {
+				workloadInstanceStatusDetail.Status = WorkloadInstanceStatusError
+				workloadInstanceStatusDetail.Error = fmt.Errorf("failed to get workload resource instances from API: %w", err)
 				return &workloadInstanceStatusDetail
 			}
-			if status != WorkloadInstanceStatusHealthy {
-				workloadInstanceStatusDetail.Status = status
-				workloadInstanceStatusDetail.Reason = reason
-				return &workloadInstanceStatusDetail
+			if runtimeDefinition.GetKind() == "Deployment" {
+				status, reason, err := inspectDeployment(&runtimeDefinition)
+				if err != nil {
+					workloadInstanceStatusDetail.Status = status
+					workloadInstanceStatusDetail.Error = err
+					return &workloadInstanceStatusDetail
+				}
+				if status != WorkloadInstanceStatusHealthy {
+					workloadInstanceStatusDetail.Status = status
+					workloadInstanceStatusDetail.Reason = reason
+					return &workloadInstanceStatusDetail
+				}
 			}
 		}
 	}

@@ -100,7 +100,6 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 			var workloadInstStatus string
 			workloadInstStatusDetail := status.GetWorkloadInstanceStatus(apiClient, apiEndpoint, &wi)
 			if workloadInstStatusDetail.Error != nil {
-				//if err != nil {
 				metadataErr = true
 				statusErr = workloadInstStatusDetail.Error
 				workloadInstStatus = "<error>"

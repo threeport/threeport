@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,8 +32,6 @@ func workloadInstanceCreated(
 		return fmt.Errorf("failed to determine if workload definition is reconciled: %w", err)
 	}
 	if !reconciled {
-		//log.Info("workload definition not reconciled")
-		//return nil
 		return errors.New("workload definition not reconciled")
 	}
 
@@ -136,6 +135,28 @@ func workloadInstanceCreated(
 		// create kube resource
 		_, err = kube.CreateResource(kubeObject, dynamicKubeClient, *mapper)
 		if err != nil {
+			// add a WorkloadEvent to surface the problem
+			eventRuntimeUID := r.ControllerID.String()
+			eventType := "Failed"
+			eventReason := "CreateResourceError"
+			eventMessage := fmt.Sprintf("failed to create Kubernetes resource for workload instance: %s", err)
+			timestamp := time.Now()
+			createEvent := v0.WorkloadEvent{
+				RuntimeEventUID:    &eventRuntimeUID,
+				Type:               &eventType,
+				Reason:             &eventReason,
+				Message:            &eventMessage,
+				Timestamp:          &timestamp,
+				WorkloadInstanceID: workloadInstance.ID,
+			}
+			_, err := client.CreateWorkloadEvent(
+				r.APIClient,
+				r.APIServer,
+				&createEvent,
+			)
+			if err != nil {
+				log.Error(err, "failed to create workload event for Kubernetes resource creation error")
+			}
 			return fmt.Errorf("failed to create Kubernetes resource: %w", err)
 		}
 

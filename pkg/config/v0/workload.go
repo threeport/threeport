@@ -226,12 +226,6 @@ func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint s
 		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", wi.Name, err)
 	}
 
-	//// get workload events
-	//workloadEvents, err := client.GetWorkloadEventsByWorkloadInstanceID(apiClient, apiEndpoint, *workloadInstance.ID)
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to get workload events from threeport API: %w", err)
-	//}
-
 	// get workload instance status
 	statusDetail := status.GetWorkloadInstanceStatus(apiClient, apiEndpoint, workloadInstance)
 	if statusDetail.Error != nil {

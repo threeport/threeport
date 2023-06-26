@@ -8,11 +8,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
 	"github.com/threeport/threeport/internal/cli"
+	"github.com/threeport/threeport/internal/util"
+	"github.com/threeport/threeport/internal/workload/status"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
@@ -111,11 +114,17 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 				workloadStatus.Reason,
 			))
 		}
-		if len(workloadStatus.Events) > 0 {
-			cli.Warning("Failed Events:")
+		if len(workloadStatus.Events) > 0 && workloadStatus.Status != status.WorkloadInstanceStatusHealthy {
+			cli.Warning("Failed & Warning Events:")
+			writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
+			fmt.Fprintln(writer, "TYPE\t REASON\t MESSAGE\t AGE")
 			for _, event := range workloadStatus.Events {
-				fmt.Printf("    * %s\n", event)
+				fmt.Fprintln(
+					writer, *event.Type, "\t", *event.Reason, "\t", *event.Message, "\t",
+					util.GetAge(event.Timestamp),
+				)
 			}
+			writer.Flush()
 		}
 	},
 }

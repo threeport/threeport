@@ -97,8 +97,11 @@ type WorkloadResourceInstance struct {
 type WorkloadEvent struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
-	// The unique ID for the Event obejct in Kubernetes.  This is recorded for
-	// de-duplicating purposes.
+	// A unique ID for de-duplicating purposes.  It is one of two thing:
+	// * The Kubernetes Event resource UID: when the WorkloadEvent is derived
+	// directly from a Kubernetes Event.
+	// * The workload controller ID: when the WorkloadEvent is emitted by the
+	// workload controller.
 	RuntimeEventUID *string `json:"RuntimeEventUID,omitempty" query:"runtimeeventuid" gorm:"not null" validate:"required"`
 
 	// The type of event that occurred in Kubernetes.
