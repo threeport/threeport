@@ -61,7 +61,7 @@ Following is an index of package documentation:
 * [`internal/tptdev`](../internal/tptdev/README.md)
 * [`internal/version`](../internal/version/README.md)
 * [`internal/workload`](../internal/workload/README.md)
-* [`internal/agent`](../pkg/agent/README.md)
+* [`pkg/agent`](../pkg/agent/README.md)
 * [`pkg/api`](../pkg/api/README.md)
 * [`pkg/client`](../pkg/client/README.md)
 * [`pkg/config`](../pkg/config/README.md)
