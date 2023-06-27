@@ -13,7 +13,7 @@ Its primary purpose is to send information back to the Threeport API so that:
 
 The following diagram illustrates its function.
 
-![threeport-agent](img/ThreeportAgent.png)
+![threeport-agent](../../docs/img/ThreeportAgent.png)
 
 The flow of operations is as follows:
 
