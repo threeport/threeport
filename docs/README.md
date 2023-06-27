@@ -51,6 +51,7 @@ a list of available operations.
 ## Packages
 
 Following is an index of package documentation:
+* [`internal/agent`](../internal/agent/README.md)
 * [`internal/api`](../internal/api/README.md)
 * [`internal/codegen`](../internal/codegen/README.md)
 * [`internal/kube`](../internal/kube/README.md)
@@ -60,6 +61,7 @@ Following is an index of package documentation:
 * [`internal/tptdev`](../internal/tptdev/README.md)
 * [`internal/version`](../internal/version/README.md)
 * [`internal/workload`](../internal/workload/README.md)
+* [`internal/agent`](../pkg/agent/README.md)
 * [`pkg/api`](../pkg/api/README.md)
 * [`pkg/client`](../pkg/client/README.md)
 * [`pkg/config`](../pkg/config/README.md)
