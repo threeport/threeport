@@ -151,11 +151,14 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	// reconciler, and add event handlers to the informers
 	podInformer, podInformerStopChan := r.createPodInformer(ctx, labelSelector, threeportWorkload.Spec.WorkloadInstanceID)
 	r.addInformerStopChannel(threeportWorkload.Spec.WorkloadInstanceID, podInformerStopChan)
-	go r.addPodEventHandlers(ctx, threeportWorkload.Spec.WorkloadInstanceID, podInformer, podInformerStopChan)
+	r.addPodEventHandlers(ctx, threeportWorkload.Spec.WorkloadInstanceID, podInformer, podInformerStopChan)
 
 	replicasetInformer, replicasetInformerStopChan := r.createReplicaSetInformer(ctx, labelSelector, threeportWorkload.Spec.WorkloadInstanceID)
 	r.addInformerStopChannel(threeportWorkload.Spec.WorkloadInstanceID, replicasetInformerStopChan)
-	go r.addReplicaSetEventHandlers(ctx, threeportWorkload.Spec.WorkloadInstanceID, replicasetInformer, replicasetInformerStopChan)
+	r.addReplicaSetEventHandlers(ctx, threeportWorkload.Spec.WorkloadInstanceID, replicasetInformer, replicasetInformerStopChan)
+
+	// stop informers when threeport-agent is shut down
+	go r.stopInformersOnInterrupt(ctx, podInformerStopChan, replicasetInformerStopChan)
 
 	return ctrl.Result{}, nil
 }
@@ -202,7 +205,8 @@ func (r *ThreeportWorkloadReconciler) reconcileFinalizer(
 // addInformerStopChannel adds an informer stop channel to an existing
 // InformerStopChannels object if one exists for a particular workload instance,
 // otherwise adds a new record for a workload instance with the provided stop
-// channel.
+// channel.  These are recorded on the ThreeportWorkloadReconciler object so
+// the informers can be stopped when the ThreeportWorkload resource is deleted.
 func (r *ThreeportWorkloadReconciler) addInformerStopChannel(
 	workloadInstanceID uint,
 	stopChannel chan struct{},
@@ -248,6 +252,21 @@ func (r *ThreeportWorkloadReconciler) stopInformers(ctx context.Context, workloa
 			return
 		}
 	}
+}
+
+// stopInformersOnInterrupt closes the stop channels for the pod and replicaset informers
+// informers when the threeport-agent is shut down.
+func (r *ThreeportWorkloadReconciler) stopInformersOnInterrupt(
+	ctx context.Context,
+	podInformerStopChan chan struct{},
+	replicasetInformerStopChan chan struct{},
+) {
+	logger := log.FromContext(ctx)
+
+	<-r.ManagerContext.Done()
+	logger.Info("threeport-agent interrupted, stopping event informers for pods and replicasets")
+	close(podInformerStopChan)
+	close(replicasetInformerStopChan)
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -42,10 +42,17 @@ func (r *ThreeportWorkloadReconciler) watchResource(
 	)
 
 	// use dynamic client to watch specified resource
-	resourceWatch, err := r.DynamicClient.Resource(gvr).Namespace(resourceNamespace).Watch(context.TODO(), metav1.ListOptions{
-		FieldSelector: "metadata.name=" + resourceName,
-		Watch:         true,
-	})
+	resourceWatch, err := r.DynamicClient.Resource(
+		gvr,
+	).Namespace(
+		resourceNamespace,
+	).Watch(
+		ctx,
+		metav1.ListOptions{
+			FieldSelector: "metadata.name=" + resourceName,
+			Watch:         true,
+		},
+	)
 	if err != nil {
 		logger.Error(err, "failed to create watch on resource")
 	}
