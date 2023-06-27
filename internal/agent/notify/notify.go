@@ -175,13 +175,14 @@ func sendThreeportUpdates(
 
 	// update workload resource instances
 	for _, wri := range *workloadResourceInstances {
+		wriCopy := wri // ID gets stripped by UpdateWorkloadResourceInstance :/
 		_, err := tpclient.UpdateWorkloadResourceInstance(
 			tpAPIClient,
 			tpAPIServer,
 			&wri,
 		)
 		if err != nil && !errors.Is(err, tpclient.ErrorObjectNotFound) {
-			unsentWRIs = append(unsentWRIs, wri)
+			unsentWRIs = append(unsentWRIs, wriCopy)
 		}
 	}
 
