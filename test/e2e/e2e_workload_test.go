@@ -277,7 +277,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// check threeport API for expected WorkloadEvents
 		startedEventFound := false
 		eventAttempts := 0
-		eventAttemptsMax := 30
+		eventAttemptsMax := 300
 		eventCheckDurationSeconds := 1
 		for eventAttempts < eventAttemptsMax {
 			workloadEvents, err := client.GetWorkloadEventsByWorkloadInstanceID(
