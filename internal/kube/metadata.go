@@ -52,6 +52,8 @@ func AddLabels(
 
 func getPodAbstractionKinds() []string {
 	return []string{
+		"Job",
+		"ReplicaSet",
 		"Deployment",
 		"StatefulSet",
 		"DaemonSet",

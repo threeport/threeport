@@ -50,17 +50,6 @@ func GetDiscoveryClient(cluster *v0.ClusterInstance, threeportControlPlane bool)
 	return discoveryClient, nil
 }
 
-//// GetThreeportWorkloadClient creates a dynamic client for the ThreeportWorkload
-//// custom resource used by the threeport-agent.
-//func GetThreeportWorkloadClient(cluster *v0.ClusterInstance, threeportControlPlane bool) (dynamic.Interface, error) {
-//	restConfig := getRESTConfig(cluster, threeportControlPlane)
-//
-//	client, err := dynamic.NewForConfigWithOptions(
-//		restConfig,
-//		dynamic.WithTypedClientFor(&agent.ThreeportWorkload{}),
-//	)
-//}
-
 // getRESTConfig returns a REST config for a cluster instance.
 func getRESTConfig(cluster *v0.ClusterInstance, threeportControlPlane bool) *rest.Config {
 	// determine if the client is for a control plane component calling the
