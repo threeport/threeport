@@ -56,7 +56,7 @@ func GetWorkloadInstanceStatus(
 ) *WorkloadInstanceStatusDetail {
 	var workloadInstanceStatusDetail WorkloadInstanceStatusDetail
 
-	// collect any events of type Warning or Failed
+	// retrieve events for workload instance
 	workloadEvents, err := client.GetWorkloadEventsByWorkloadInstanceID(
 		apiClient,
 		apiEndpoint,
@@ -67,6 +67,15 @@ func GetWorkloadInstanceStatus(
 		workloadInstanceStatusDetail.Error = fmt.Errorf("failed to get workload events from API: %w", err)
 		return &workloadInstanceStatusDetail
 	}
+
+	// return status "Reconciling" until we begin to get events that indicate
+	// the Kubernetes resources are being created
+	if len(*workloadEvents) == 0 {
+		workloadInstanceStatusDetail.Status = WorkloadInstanceStatusReconciling
+		return &workloadInstanceStatusDetail
+	}
+
+	// collect any events of type Warning or Failed
 	var alertEvents []v0.WorkloadEvent
 	for _, event := range *workloadEvents {
 		if *event.Type == "Warning" || *event.Type == "Failed" {
