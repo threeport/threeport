@@ -119,8 +119,21 @@ func GetWorkloadInstanceStatus(
 				workloadInstanceStatusDetail.Error = fmt.Errorf("failed to get workload resource instances from API: %w", err)
 				return &workloadInstanceStatusDetail
 			}
-			if runtimeDefinition.GetKind() == "Deployment" {
+			switch runtimeDefinition.GetKind() {
+			case "Deployment":
 				status, reason, err := inspectDeployment(&runtimeDefinition)
+				if err != nil {
+					workloadInstanceStatusDetail.Status = status
+					workloadInstanceStatusDetail.Error = err
+					return &workloadInstanceStatusDetail
+				}
+				if status != WorkloadInstanceStatusHealthy {
+					workloadInstanceStatusDetail.Status = status
+					workloadInstanceStatusDetail.Reason = reason
+					return &workloadInstanceStatusDetail
+				}
+			case "StatefulSet":
+				status, reason, err := inspectStatefulSet(&runtimeDefinition)
 				if err != nil {
 					workloadInstanceStatusDetail.Status = status
 					workloadInstanceStatusDetail.Error = err
@@ -160,6 +173,35 @@ func inspectDeployment(runtimeDefinition *unstructured.Unstructured) (WorkloadIn
 		reason := fmt.Sprintf(
 			"Deployment %s/%s is configured to have %d replicas but has %d ready",
 			deployment.ObjectMeta.Namespace, deployment.ObjectMeta.Name,
+			desiredReplicas, readyReplicas,
+		)
+		return WorkloadInstanceStatusUnhealthy, reason, nil
+	}
+
+	return WorkloadInstanceStatusHealthy, "", nil
+}
+
+// inspectStatefulSet inspects a StatefulSet resource for status.
+func inspectStatefulSet(runtimeDefinition *unstructured.Unstructured) (WorkloadInstanceStatus, string, error) {
+	var statefulSet appsv1.StatefulSet
+	if err := scheme.Scheme.Convert(runtimeDefinition, &statefulSet, nil); err != nil {
+		return WorkloadInstanceStatusError, "", fmt.Errorf("failed to convert runtime definition into typed StatefulSet object: %w", err)
+	}
+
+	// check statefulset replicas
+	desiredReplicas := statefulSet.Spec.Replicas
+	readyReplicas := statefulSet.Status.ReadyReplicas
+	if readyReplicas == int32(0) {
+		reason := fmt.Sprintf(
+			"StatefulSet %s/%s has 0 replicas ready",
+			statefulSet.ObjectMeta.Namespace, statefulSet.ObjectMeta.Name,
+		)
+		return WorkloadInstanceStatusDown, reason, nil
+	}
+	if readyReplicas < *desiredReplicas {
+		reason := fmt.Sprintf(
+			"StatefulSet %s/%s is configured to have %d replicas but has %d ready",
+			statefulSet.ObjectMeta.Namespace, statefulSet.ObjectMeta.Name,
 			desiredReplicas, readyReplicas,
 		)
 		return WorkloadInstanceStatusUnhealthy, reason, nil
