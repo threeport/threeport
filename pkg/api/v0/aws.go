@@ -27,7 +27,7 @@ type AwsAccount struct {
 	SecretAccessKey *string `json:"SecretAccessKey,omitempty" query:"secretaccesskey" gorm:"not null" validate:"required"`
 
 	// The cluster instances deployed in this AWS account.
-	AwsEksKubernetesRuntimeDefinitions []*AwsEksKubernetesRuntimeDefinition `json:"AwsEksKubernetesRuntimeDefinitions,omitempty" validate:"optional,association"`
+	AwsEksClusterInstances []*AwsEksClusterInstance `json:"AwsEksClusterInstances,omitempty" validate:"optional,association"`
 }
 
 // AwsEksKubernetesRuntimeDefinition provides the configuration for EKS cluster instances.
@@ -35,12 +35,11 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	// The AWS account in which the EKS cluster is provisioned.
-	AwsAccountID *uint `json:"AWSAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
-
-	// TODO: add fields for region limitations
-	// RegionsAllowed
-	// RegionsForbidden
+	// The AWS region in which EKS clusters will be provisioned.  Note: changes to
+	// this value will not alter the derived instances which is an immutable
+	// characteristic on instances.  It will only affect new instances derived
+	// from this definition.
+	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
 	// The number of zones the cluster should span for availability.
 	ZoneCount *int `json:"ZoneCount,omitempty" query:"zonecount" gorm:"not null" validate:"required"`
@@ -57,16 +56,16 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// The maximum number of nodes the default initial node group should have.
 	DefaultNodeGroupMaximumSize *int `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" gorm:"not null" validate:"required"`
 
-	// The AWS EKS kubernetes runtime instances derived from this definition.
-	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `json:"AwsEksKubernetesRuntimeInstances,omitempty" validate:"optional,association"`
+	// The AWS EKS cluster instances derived from this definition.
+	AwsEksClusterInstances []*AwsEksClusterInstance `json:"AwsEksClusterInstances,omitempty" validate:"optional,association"`
 
-	// The kubernetes runtime definition for an EKS cluster in AWS.
-	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" query:"kubernetesruntimedefinitionid" gorm:"not null" validate:"required"`
+	// The cluster definition for an EKS cluster in AWS.
+	ClusterDefinitionID *uint `json:"ClusterDefinitionID,omitempty" validate:"optional,association"`
 }
 
 // +threeport-codegen:reconciler
-// AwsEksKubernetesRuntimeInstance is a deployed instance of an EKS cluster.
-type AwsEksKubernetesRuntimeInstance struct {
+// AwsEksClusterInstance is a deployed instance of an EKS cluster.
+type AwsEksClusterInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
 
@@ -75,23 +74,17 @@ type AwsEksKubernetesRuntimeInstance struct {
 	// definition will not move a cluster.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
+	// The cluster instance associated with the AWS EKS cluster.
+	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" validate:"optional,association"`
+
+	// The AWS account in which the EKS cluster is provisioned.
+	AwsAccountID *uint `json:"AWSAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
+
 	// The definition that configures this instance.
-	AwsEksKubernetesRuntimeDefinitionID *uint `json:"AwsEksKubernetesRuntimeDefinitionID,omitempty" query:"awsekskubernetesruntimedefinitionid" gorm:"not null" validate:"required"`
+	AwsEksClusterDefinitionID *uint `json:"AwsEksClusterDefinitionID,omitempty" query:"awseksclusterdefinitionid" gorm:"not null" validate:"required"`
 
 	// Indicates if object is considered to be reconciled by workload controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
-
-	// An inventory of all AWS resources for the EKS cluster.
-	ResourceInventory *datatypes.JSON `json:"ResourceInventory,omitempty" validate:"optional"`
-
-	// The kubernetes runtime instance associated with the AWS EKS cluster.
-	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
-
-	// InterruptReconciliation is used by the controller to indicated that future
-	// reconcilation should be interrupted.  Useful in cases where there is a
-	// situation where future reconciliation could be descructive such as
-	// spinning up more infrastructure when there is a unresolved problem.
-	InterruptReconciliation *bool `json:"InterruptReconciliation,omitempty" query:"interruptreconciliation" gorm:"default:false" validate:"optional"`
 }
 
 // AwsRelationalDatabaseDefinition is the configuration for an RDS instance

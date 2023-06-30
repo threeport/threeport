@@ -132,10 +132,6 @@ func main() {
 		Subjects: v0.GetWorkloadSubjects(),
 	})
 	js.AddStream(&nats.StreamConfig{
-		Name:     v0.KubernetesRuntimeStreamName,
-		Subjects: v0.GetKubernetesRuntimeSubjects(),
-	})
-	js.AddStream(&nats.StreamConfig{
 		Name:     v0.AwsStreamName,
 		Subjects: v0.GetAwsSubjects(),
 	})
