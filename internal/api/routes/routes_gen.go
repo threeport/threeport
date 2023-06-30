@@ -30,5 +30,6 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	WorkloadResourceDefinitionRoutes(e, h)
 	WorkloadInstanceRoutes(e, h)
 	WorkloadResourceInstanceRoutes(e, h)
+	WorkloadEventRoutes(e, h)
 
 }

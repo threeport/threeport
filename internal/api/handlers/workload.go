@@ -5,6 +5,7 @@ import (
 
 	echo "github.com/labstack/echo/v4"
 	gorm "gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	iapi "github.com/threeport/threeport/internal/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -61,4 +62,70 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 	}
 
 	return iapi.ResponseStatus201(c, *response)
+}
+
+// @Summary gets a workload event set by workload instance ID.
+// @Description Gets a set of workload events by workload instance ID from the database.
+// @ID get-workloadEventSet
+// @Accept json
+// @Produce json
+// @Param workloadInstanceID path int true "workloadInstanceID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/workload-event-sets/{workloadInstanceID} [get]
+func (h Handler) GetWorkloadEventSet(c echo.Context) error {
+	objectType := v0.ObjectTypeWorkloadEvent
+	workloadInstanceID := c.Param("workloadInstanceID")
+
+	var totalCount int64
+	if result := h.DB.Model(&v0.WorkloadEvent{}).Where("workload_instance_id = ?", workloadInstanceID).Count(&totalCount); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	records := &[]v0.WorkloadEvent{}
+	if result := h.DB.Order("ID asc").Where("workload_instance_id = ?", workloadInstanceID).Find(records); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, *records)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a workload event set by workload instance ID.
+// @Description Deletes a set of workload events by workload instance ID from the database.
+// @ID delete-workloadEventSet
+// @Accept json
+// @Produce json
+// @Param workloadInstanceID path int true "workloadInstanceID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/workload-event-sets/{workloadInstanceID} [delete]
+func (h Handler) DeleteWorkloadEventSet(c echo.Context) error {
+	objectType := v0.ObjectTypeWorkloadEvent
+	workloadInstanceID := c.Param("workloadInstanceID")
+	var workloadEvents []v0.WorkloadEvent
+	if result := h.DB.Clauses(clause.Returning{}).Where(
+		"workload_instance_id = ?",
+		workloadInstanceID,
+	).Delete(&workloadEvents); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, workloadEvents)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
 }

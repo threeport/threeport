@@ -13,6 +13,7 @@ const (
 	ObjectTypeWorkloadResourceDefinition ObjectType = "WorkloadResourceDefinition"
 	ObjectTypeWorkloadInstance           ObjectType = "WorkloadInstance"
 	ObjectTypeWorkloadResourceInstance   ObjectType = "WorkloadResourceInstance"
+	ObjectTypeWorkloadEvent              ObjectType = "WorkloadEvent"
 
 	WorkloadStreamName = "workloadStream"
 
@@ -36,10 +37,16 @@ const (
 	WorkloadResourceInstanceUpdateSubject = "workloadResourceInstance.update"
 	WorkloadResourceInstanceDeleteSubject = "workloadResourceInstance.delete"
 
+	WorkloadEventSubject       = "workloadEvent.*"
+	WorkloadEventCreateSubject = "workloadEvent.create"
+	WorkloadEventUpdateSubject = "workloadEvent.update"
+	WorkloadEventDeleteSubject = "workloadEvent.delete"
+
 	PathWorkloadDefinitions         = "/v0/workload-definitions"
 	PathWorkloadResourceDefinitions = "/v0/workload-resource-definitions"
 	PathWorkloadInstances           = "/v0/workload-instances"
 	PathWorkloadResourceInstances   = "/v0/workload-resource-instances"
+	PathWorkloadEvents              = "/v0/workload-events"
 )
 
 // GetWorkloadDefinitionSubjects returns the NATS subjects
@@ -82,6 +89,16 @@ func GetWorkloadResourceInstanceSubjects() []string {
 	}
 }
 
+// GetWorkloadEventSubjects returns the NATS subjects
+// for workload events.
+func GetWorkloadEventSubjects() []string {
+	return []string{
+		WorkloadEventCreateSubject,
+		WorkloadEventUpdateSubject,
+		WorkloadEventDeleteSubject,
+	}
+}
+
 // GetWorkloadSubjects returns the NATS subjects
 // for all workload objects.
 func GetWorkloadSubjects() []string {
@@ -91,6 +108,7 @@ func GetWorkloadSubjects() []string {
 	workloadSubjects = append(workloadSubjects, GetWorkloadResourceDefinitionSubjects()...)
 	workloadSubjects = append(workloadSubjects, GetWorkloadInstanceSubjects()...)
 	workloadSubjects = append(workloadSubjects, GetWorkloadResourceInstanceSubjects()...)
+	workloadSubjects = append(workloadSubjects, GetWorkloadEventSubjects()...)
 
 	return workloadSubjects
 }
@@ -225,4 +243,37 @@ func (wri *WorkloadResourceInstance) GetID() uint {
 // String returns a string representation of the ojbect.
 func (wri WorkloadResourceInstance) String() string {
 	return fmt.Sprintf("v0.WorkloadResourceInstance")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (we *WorkloadEvent) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	lastDelay int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		LastRequeueDelay: &lastDelay,
+		Object:           we,
+		Operation:        operation,
+		Requeue:          requeue,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", we, err)
+	}
+
+	return &payload, nil
+}
+
+// GetID returns the unique ID for the object.
+func (we *WorkloadEvent) GetID() uint {
+	return *we.ID
+}
+
+// String returns a string representation of the ojbect.
+func (we WorkloadEvent) String() string {
+	return fmt.Sprintf("v0.WorkloadEvent")
 }

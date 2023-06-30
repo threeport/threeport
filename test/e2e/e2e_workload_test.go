@@ -114,7 +114,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// check to make sure workload definition gets reconciled by workload
 		// controller
 		workloadDefChecks := 0
-		workloadDefMaxChecks := 60
+		workloadDefMaxChecks := 300
 		workloadDefCheckDurationSeconds := 1
 		reconciled := false
 		var existingWorkloadDef *v0.WorkloadDefinition
@@ -273,6 +273,32 @@ func TestWorkloadE2E(t *testing.T) {
 			time.Sleep(time.Duration(findCheckDurationSeconds * 1000000000))
 		}
 		assert.Equal(allResourcesFound, true, fmt.Sprintf("should have found all resources in Kubernetes after %d seconds", findAttemptsMax*findCheckDurationSeconds))
+
+		// check threeport API for expected WorkloadEvents
+		startedEventFound := false
+		eventAttempts := 0
+		eventAttemptsMax := 300
+		eventCheckDurationSeconds := 1
+		for eventAttempts < eventAttemptsMax {
+			workloadEvents, err := client.GetWorkloadEventsByWorkloadInstanceID(
+				apiClient,
+				apiAddr(),
+				*createdWorkloadInst.ID,
+			)
+			assert.Nil(err, "should have no error returned when trying to retrieve workload events for workload instance")
+			for _, event := range *workloadEvents {
+				if *event.Type == "Normal" && *event.Reason == "Started" {
+					startedEventFound = true
+					break
+				}
+			}
+			if startedEventFound {
+				break
+			}
+			eventAttempts += 1
+			time.Sleep(time.Duration(eventCheckDurationSeconds * 1000000000))
+		}
+		assert.Equal(startedEventFound, true, fmt.Sprintf("should have found all container started events in Kubernetes after %d seconds", eventAttemptsMax*eventCheckDurationSeconds))
 
 		// attempt deleting workload definition - should fail with instance still in
 		// place

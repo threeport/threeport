@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
@@ -217,12 +218,29 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 	return createdWorkloadInstance, nil
 }
 
-// Delete deletes a workload instance from the Threeport API.
-func (wd *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadInstance, error) {
+// Describe returns important failure events related to a workload instance.
+func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.WorkloadInstanceStatusDetail, error) {
 	// get workload instance by name
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wd.Name)
+	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", wi.Name, err)
+	}
+
+	// get workload instance status
+	statusDetail := status.GetWorkloadInstanceStatus(apiClient, apiEndpoint, workloadInstance)
+	if statusDetail.Error != nil {
+		return nil, fmt.Errorf("failed to get status for workload instance with name %s: %w", wi.Name, statusDetail.Error)
+	}
+
+	return statusDetail, nil
+}
+
+// Delete deletes a workload instance from the Threeport API.
+func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadInstance, error) {
+	// get workload instance by name
+	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", wi.Name, err)
 	}
 
 	// delete workload instance

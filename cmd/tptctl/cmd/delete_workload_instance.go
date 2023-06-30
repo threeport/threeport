@@ -30,14 +30,12 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 	Long:         `Delete an existing workload instance.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		// get threeport config and extract threeport API endpoint
 		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
-
 		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)
@@ -94,7 +92,7 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 		workloadInstance := workloadInstanceConfig.WorkloadInstance
 		wi, err := workloadInstance.Delete(apiClient, apiEndpoint)
 		if err != nil {
-			cli.Error("failed to delete workload", err)
+			cli.Error("failed to delete workload instance", err)
 			os.Exit(1)
 		}
 
@@ -115,7 +113,7 @@ func init() {
 	)
 }
 
-// validateCreateControlPlaneFlags validates flag inputs as needed.
+// validateDeleteControlPlaneFlags validates flag inputs as needed.
 func validateDeleteWorkloadInstanceFlags(workloadInstConfigPath, workloadInstName string) error {
 	if workloadInstConfigPath == "" && workloadInstName == "" {
 		return errors.New("must provide either workload instance name or path to config file")

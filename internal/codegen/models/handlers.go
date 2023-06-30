@@ -1017,7 +1017,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			"@Summary deletes a %s.", strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Comment(fmt.Sprintf(
-			"@Description Delete a %s by from the database.",
+			"@Description Delete a %s by ID from the database.",
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Comment(fmt.Sprintf(

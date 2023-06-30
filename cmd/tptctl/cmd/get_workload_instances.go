@@ -12,6 +12,7 @@ import (
 
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/util"
+	"github.com/threeport/threeport/internal/workload/status"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
@@ -61,11 +62,19 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 		}
 
 		// write the output
+		if len(*workloadInstances) == 0 {
+			cli.Info(fmt.Sprintf(
+				"No workload instances currently managed by %s threeport control plane",
+				threeportConfig.CurrentInstance,
+			))
+			os.Exit(0)
+		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t CLUSTER INSTANCE\t AGE")
+		fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t CLUSTER INSTANCE\t STATUS\t AGE")
 		metadataErr := false
 		var workloadDefErr error
 		var clusterInstErr error
+		var statusErr error
 		for _, wi := range *workloadInstances {
 			// get workload definition name for instance
 			var workloadDef string
@@ -87,16 +96,31 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 			} else {
 				clusterInst = *clusterInstance.Name
 			}
-			fmt.Fprintln(writer, *wi.Name, "\t", workloadDef, "\t", clusterInst, "\t", util.GetAge(wi.CreatedAt))
+			// get workload status
+			var workloadInstStatus string
+			workloadInstStatusDetail := status.GetWorkloadInstanceStatus(apiClient, apiEndpoint, &wi)
+			if workloadInstStatusDetail.Error != nil {
+				metadataErr = true
+				statusErr = workloadInstStatusDetail.Error
+				workloadInstStatus = "<error>"
+			}
+			workloadInstStatus = string(workloadInstStatusDetail.Status)
+			fmt.Fprintln(
+				writer, *wi.Name, "\t", workloadDef, "\t", clusterInst, "\t",
+				workloadInstStatus, "\t", util.GetAge(wi.CreatedAt),
+			)
 		}
 		writer.Flush()
 
 		if metadataErr {
 			if workloadDefErr != nil {
-				cli.Error("encountered errors retrieving workload definition info", workloadDefErr)
+				cli.Error("encountered an error retrieving workload definition info", workloadDefErr)
 			}
 			if clusterInstErr != nil {
-				cli.Error("encountered errors retrieving cluster instance info", clusterInstErr)
+				cli.Error("encountered an error retrieving cluster instance info", clusterInstErr)
+			}
+			if statusErr != nil {
+				cli.Error("encountered an error retrieving workload instance status", statusErr)
 			}
 			os.Exit(1)
 		}

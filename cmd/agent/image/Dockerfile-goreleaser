@@ -1,0 +1,4 @@
+FROM scratch
+COPY threeport-agent /threeport-agent
+ENTRYPOINT ["/threeport-agent"]
+

@@ -280,7 +280,7 @@ func (h Handler) ReplaceForwardProxyDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a forward proxy definition.
-// @Description Delete a forward proxy definition by from the database.
+// @Description Delete a forward proxy definition by ID from the database.
 // @ID delete-forwardProxyDefinition
 // @Accept json
 // @Produce json
@@ -591,7 +591,7 @@ func (h Handler) ReplaceForwardProxyInstance(c echo.Context) error {
 }
 
 // @Summary deletes a forward proxy instance.
-// @Description Delete a forward proxy instance by from the database.
+// @Description Delete a forward proxy instance by ID from the database.
 // @ID delete-forwardProxyInstance
 // @Accept json
 // @Produce json

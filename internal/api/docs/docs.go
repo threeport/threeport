@@ -525,7 +525,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws account by from the database.",
+                "description": "Delete a aws account ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -806,7 +806,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws eks cluster definition by from the database.",
+                "description": "Delete a aws eks cluster definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1087,7 +1087,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws eks cluster instance by from the database.",
+                "description": "Delete a aws eks cluster instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1368,7 +1368,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws relational database definition by from the database.",
+                "description": "Delete a aws relational database definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1649,7 +1649,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws relational database instance by from the database.",
+                "description": "Delete a aws relational database instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1930,7 +1930,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a cluster definition by from the database.",
+                "description": "Delete a cluster definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2211,7 +2211,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a cluster instance by from the database.",
+                "description": "Delete a cluster instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2492,7 +2492,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a domain name definition by from the database.",
+                "description": "Delete a domain name definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2773,7 +2773,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a domain name instance by from the database.",
+                "description": "Delete a domain name instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3054,7 +3054,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a forward proxy definition by from the database.",
+                "description": "Delete a forward proxy definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3335,7 +3335,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a forward proxy instance by from the database.",
+                "description": "Delete a forward proxy instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3616,7 +3616,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a log backend by from the database.",
+                "description": "Delete a log backend ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3897,7 +3897,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a log storage definition by from the database.",
+                "description": "Delete a log storage definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4178,7 +4178,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a log storage instance by from the database.",
+                "description": "Delete a log storage instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4459,7 +4459,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a network ingress definition by from the database.",
+                "description": "Delete a network ingress definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4740,7 +4740,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a network ingress instance by from the database.",
+                "description": "Delete a network ingress instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5021,7 +5021,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a profile by from the database.",
+                "description": "Delete a profile ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5302,7 +5302,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a tier by from the database.",
+                "description": "Delete a tier ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5583,7 +5583,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a workload definition by from the database.",
+                "description": "Delete a workload definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5653,6 +5653,335 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.WorkloadDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/workload-event-sets/{workloadInstanceID}": {
+            "delete": {
+                "description": "Deletes a set of workload events by workload instance ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a workload event set by workload instance ID.",
+                "operationId": "delete-workloadEventSet",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "workloadInstanceID",
+                        "name": "workloadInstanceID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/workload-events": {
+            "get": {
+                "description": "Get all workload events from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all workload events.",
+                "operationId": "get-workloadEvents",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workload event search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new workload event to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new workload event.",
+                "operationId": "add-workloadEvent",
+                "parameters": [
+                    {
+                        "description": "WorkloadEvent object",
+                        "name": "workloadEvent",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.WorkloadEvent"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/workload-events/{id}": {
+            "get": {
+                "description": "Get a particular workload event from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a workload event.",
+                "operationId": "get-workloadEvent",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a workload event in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating workload event objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing workload event by replacing the entire object.",
+                "operationId": "replace-workloadEvent",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "WorkloadEvent object",
+                        "name": "workloadEvent",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.WorkloadEvent"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a workload event ID by from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a workload event.",
+                "operationId": "delete-workloadEvent",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a workload event in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating workload event objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing workload event.",
+                "operationId": "update-workloadEvent",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "WorkloadEvent object",
+                        "name": "workloadEvent",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.WorkloadEvent"
                         }
                     }
                 ],
@@ -5864,7 +6193,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a workload instance by from the database.",
+                "description": "Delete a workload instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6192,7 +6521,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a workload resource definition by from the database.",
+                "description": "Delete a workload resource definition ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6473,7 +6802,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a workload resource instance by from the database.",
+                "description": "Delete a workload resource instance ID by from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6606,6 +6935,24 @@ const docTemplate = `{
                 ],
                 "summary": "GetWorkloadDefinitionVersions gets the supported versions for the workload definition API.",
                 "operationId": "workloadDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/workload-events/versions": {
+            "get": {
+                "description": "Get the supported API versions for workload events.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetWorkloadEventVersions gets the supported versions for the workload event API.",
+                "operationId": "workloadEvent-get-versions",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7216,52 +7563,54 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
-                "ClusterDefinition",
-                "ClusterInstance",
+                "Profile",
+                "Tier",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "Profile",
-                "Tier",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance",
+                "WorkloadEvent",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "NetworkIngressDefinition",
                 "NetworkIngressInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
                 "DomainNameDefinition",
-                "DomainNameInstance"
+                "DomainNameInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeNetworkIngressDefinition",
                 "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
                 "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance"
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance"
             ]
         },
         "v0.Profile": {
@@ -7392,6 +7741,46 @@ const docTemplate = `{
                 }
             }
         },
+        "v0.WorkloadEvent": {
+            "type": "object",
+            "required": [
+                "Message",
+                "Reason",
+                "RuntimeEventUID",
+                "Timestamp",
+                "Type"
+            ],
+            "properties": {
+                "Message": {
+                    "description": "The message associated with the event.",
+                    "type": "string"
+                },
+                "Reason": {
+                    "description": "The reason for the event.",
+                    "type": "string"
+                },
+                "RuntimeEventUID": {
+                    "description": "The unique ID for the Event obejct in Kubernetes.  This is recorded for\nde-duplicating purposes.",
+                    "type": "string"
+                },
+                "Timestamp": {
+                    "description": "The timestamp for the event in the cluster.",
+                    "type": "string"
+                },
+                "Type": {
+                    "description": "The type of event that occurred in Kubernetes.",
+                    "type": "string"
+                },
+                "WorkloadInstanceID": {
+                    "description": "The related workload instance.",
+                    "type": "integer"
+                },
+                "WorkloadResourceInstanceID": {
+                    "description": "The related workload resource instance.",
+                    "type": "integer"
+                }
+            }
+        },
         "v0.WorkloadInstance": {
             "type": "object",
             "required": [
@@ -7404,6 +7793,12 @@ const docTemplate = `{
                     "description": "ClusterID is the cluster to which the workload is deployed.",
                     "type": "integer"
                 },
+                "Events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadEvent"
+                    }
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -7413,7 +7808,6 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "Status": {
-                    "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
                 },
                 "WorkloadDefinitionID": {
@@ -7456,6 +7850,13 @@ const docTemplate = `{
                 "WorkloadInstanceID"
             ],
             "properties": {
+                "Events": {
+                    "description": "All events that have occured related to this object.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadEvent"
+                    }
+                },
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.  This field is a superset of\nWorkloadResourceDefinition.JSONDefinition in that it has namespace\nmanagement and other configuration - such as resource allocation\nmanagement - added.",
                     "type": "array",
@@ -7463,9 +7864,16 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
-                "Status": {
-                    "description": "The Kubernetes status of the deployed resource.\nOne of:\n* Pending\n* Running\n* Succeeded\n* Failed\n* Unknown",
+                "LastOperation": {
+                    "description": "The most recent operation performed on a Kubernete resource in the\ncluster.",
                     "type": "string"
+                },
+                "RuntimeDefinition": {
+                    "description": "The JSON definition of a Kubernetes resource as stored in etcd in the\ncluster.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "WorkloadInstanceID": {
                     "description": "The workload definition this resource belongs to.",
@@ -7489,7 +7897,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.0.6",
+	Version:          "v0.1.2",
 	Host:             "rest-api.threeport.io",
 	BasePath:         "/",
 	Schemes:          []string{},

@@ -3,14 +3,19 @@
 package v0
 
 import (
+	"time"
+
 	"gorm.io/datatypes"
 )
 
-const PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-sets"
+const (
+	PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-sets"
+	PathWorkloadEventSets              = "/v0/workload-event-sets"
+)
 
+// +threeport-codegen:reconciler
 // WorkloadDefinition is the collection of Kubernetes manifests that define a
 // distinct workload.
-// +threeport-codegen:reconciler
 type WorkloadDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
@@ -56,6 +61,10 @@ type WorkloadInstance struct {
 
 	// Indicates if object is considered to be reconciled by workload controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
+
+	Status *string `json:"Status,omitempty" query:"status" validate:"optional"`
+
+	Events []*WorkloadEvent `json:"Events,omitempty" query:"events" validate:"optional"`
 }
 
 // WorkloadResourceInstance is a Kubernetes resource instance.
@@ -71,12 +80,45 @@ type WorkloadResourceInstance struct {
 	// The workload definition this resource belongs to.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 
-	// The Kubernetes status of the deployed resource.
-	// One of:
-	// * Pending
-	// * Running
-	// * Succeeded
-	// * Failed
-	// * Unknown
-	Status *string `json:"Status,omitempty" query:"status" validate:"optional"`
+	// The most recent operation performed on a Kubernete resource in the
+	// cluster.
+	LastOperation *string `json:"LastOperation,omitempty" query:"lastoperation" validate:"optional"`
+
+	// The JSON definition of a Kubernetes resource as stored in etcd in the
+	// cluster.
+	RuntimeDefinition *datatypes.JSON `json:"RuntimeDefinition,omitempty" query:"runtimedefinition" validate:"optional"`
+
+	// All events that have occured related to this object.
+	Events []*WorkloadEvent `json:"Events,omitempty" query:"events" validate:"optional"`
+}
+
+// WorkloadEvent is a summary of a Kubernetes Event that is associated with a
+// WorkloadResourceInstance.
+type WorkloadEvent struct {
+	Common `swaggerignore:"true" mapstructure:",squash"`
+
+	// A unique ID for de-duplicating purposes.  It is one of two thing:
+	// * The Kubernetes Event resource UID: when the WorkloadEvent is derived
+	// directly from a Kubernetes Event.
+	// * The workload controller ID: when the WorkloadEvent is emitted by the
+	// workload controller.
+	RuntimeEventUID *string `json:"RuntimeEventUID,omitempty" query:"runtimeeventuid" gorm:"not null" validate:"required"`
+
+	// The type of event that occurred in Kubernetes.
+	Type *string `json:"Type,omitempty" query:"type" gorm:"not null" validate:"required"`
+
+	// The reason for the event.
+	Reason *string `json:"Reason,omitempty" query:"reason" gorm:"not null" validate:"required"`
+
+	// The message associated with the event.
+	Message *string `json:"Message,omitempty" query:"message" gorm:"not null" validate:"required"`
+
+	// The timestamp for the event in the cluster.
+	Timestamp *time.Time `json:"Timestamp,omitempty" query:"timestamp" gorm:"not null" validate:"required"`
+
+	// The related workload instance.
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" validate:"optional"`
+
+	// The related workload resource instance.
+	WorkloadResourceInstanceID *uint `json:"WorkloadResourceInstanceID,omitempty" query:"workloadresourceinstanceid" validate:"optional"`
 }

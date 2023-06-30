@@ -13,6 +13,7 @@ Following is an overview of what lives at the root of this repo:
 * The `bin` directory is where binary artifacts are stored when built.
 * The `cmd` directory contains the main package for each program that produces a
   binary artifact:
+  * [agent](../cmd/agent/README.md) is the run time control plane agent.
   * [codegen](../cmd/codegen/README.md) generates scaffolding and boilerplate code
     for various components and packages.
   * [rest-api](../cmd/rest-api/README.md) is the RESTful API for the threeport
@@ -31,7 +32,7 @@ Following is an overview of what lives at the root of this repo:
   imported into other projects.
 * The `test` directory contains testing components such end-to-end tests.
 
-## Core Components
+## Core Components from the Community
 
 The threeport control plane core components consist of the RESTful API and the
 various controllers that provide logic and functionality for the system.  In
@@ -50,6 +51,7 @@ a list of available operations.
 ## Packages
 
 Following is an index of package documentation:
+* [`internal/agent`](../internal/agent/README.md)
 * [`internal/api`](../internal/api/README.md)
 * [`internal/codegen`](../internal/codegen/README.md)
 * [`internal/kube`](../internal/kube/README.md)
@@ -59,6 +61,7 @@ Following is an index of package documentation:
 * [`internal/tptdev`](../internal/tptdev/README.md)
 * [`internal/version`](../internal/version/README.md)
 * [`internal/workload`](../internal/workload/README.md)
+* [`pkg/agent`](../pkg/agent/README.md)
 * [`pkg/api`](../pkg/api/README.md)
 * [`pkg/client`](../pkg/client/README.md)
 * [`pkg/config`](../pkg/config/README.md)
