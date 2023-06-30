@@ -369,8 +369,8 @@ github.com/nats-io/nkeys v0.4.4/go.mod h1:XUkxdLPTufzlihbamfzQ7mw/VGx6ObUs+0bN5s
 github.com/nats-io/nuid v1.0.1 h1:5iA8DT8V7q8WK2EScv2padNa/rTESc1KdnPw4TC2paw=
 github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OSON2c=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
-github.com/nukleros/eks-cluster v0.7.1 h1:3quvZS/J7UnKI3PRa2OFWgZePtmm9Zm206fDYJwZKY4=
-github.com/nukleros/eks-cluster v0.7.1/go.mod h1:cWpeWHlp6xdB2woV/rGqLIFK0i8NaGLlckgHNRIxgbY=
+github.com/nukleros/eks-cluster v0.8.0 h1:sKz0ZxgQE7j22JbRiJ09mQWmr2obt9qJk8JHSOZmvS8=
+github.com/nukleros/eks-cluster v0.8.0/go.mod h1:cWpeWHlp6xdB2woV/rGqLIFK0i8NaGLlckgHNRIxgbY=
 github.com/onsi/ginkgo/v2 v2.11.0 h1:WgqUCUt/lT6yXoQ8Wef0fsNn5cAuMK7+KT9UFRz2tcU=
 github.com/onsi/ginkgo/v2 v2.11.0/go.mod h1:ZhrRA5XmEE3x3rhlzamx/JJvujdZoJ2uvgI7kR0iZvM=
 github.com/onsi/gomega v1.27.8 h1:gegWiwZjBsf2DgiSbf5hpokZ98JVDMcWkUiigk6/KXc=
@@ -446,8 +446,6 @@ github.com/swaggo/files/v2 v2.0.0 h1:hmAt8Dkynw7Ssz46F6pn8ok6YmGZqHSVLZ+HQM7i0kw
 github.com/swaggo/files/v2 v2.0.0/go.mod h1:24kk2Y9NYEJ5lHuCra6iVwkMjIekMCaFq/0JQj66kyM=
 github.com/swaggo/swag v1.16.1 h1:fTNRhKstPKxcnoKsytm4sahr8FaYzUcT7i1/3nd/fBg=
 github.com/swaggo/swag v1.16.1/go.mod h1:9/LMvHycG3NFHfR6LwvikHv5iFvmPADQ359cKikGxto=
-github.com/threeport/threeport-agent v0.0.1 h1:aYC5GQrIn6F08GFo/84qywnwqgemzU2j83qdSSLxdEQ=
-github.com/threeport/threeport-agent v0.0.1/go.mod h1:7R98UhI+PimLt3bwiqrX4HGnmXrqvHQzqmkOYJ78R5Q=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasttemplate v1.2.1/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+qRAEEKiv+SiQ=
