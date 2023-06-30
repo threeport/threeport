@@ -115,7 +115,7 @@ func DeleteControlPlane(args *cli.ControlPlaneCLIArgs) error {
 					cli.Error("failed to refresh token to connect to EKS cluster", err)
 					os.Exit(1)
 				}
-				clusterInstance.EKSToken = &kubeConn.EKSToken
+				clusterInstance.ConnectionToken = &kubeConn.EKSToken
 				updatedClusterInst, err := client.UpdateClusterInstance(
 					apiClient,
 					instanceConfig.APIServer,

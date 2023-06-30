@@ -11,8 +11,8 @@ import (
 	uuid "github.com/google/uuid"
 	flag "github.com/namsral/flag"
 	natsgo "github.com/nats-io/nats.go"
+	aws "github.com/threeport/threeport/internal/aws"
 	version "github.com/threeport/threeport/internal/version"
-	workload "github.com/threeport/threeport/internal/workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -25,15 +25,10 @@ import (
 
 func main() {
 	// flags
-	var workloadDefinitionConcurrentReconciles = flag.Int(
-		"WorkloadDefinition-concurrent-reconciles",
+	var awsEksClusterInstanceConcurrentReconciles = flag.Int(
+		"AwsEksClusterInstance-concurrent-reconciles",
 		1,
-		"Number of concurrent reconcilers to run for workload definitions",
-	)
-	var workloadInstanceConcurrentReconciles = flag.Int(
-		"WorkloadInstance-concurrent-reconciles",
-		1,
-		"Number of concurrent reconcilers to run for workload instances",
+		"Number of concurrent reconcilers to run for aws eks cluster instances",
 	)
 
 	var apiServer = flag.String("api-server", "threeport-api-server", "Threepoort REST API server endpoint")
@@ -94,25 +89,25 @@ func main() {
 
 	// JetStream key-value store setup
 	kvConfig := natsgo.KeyValueConfig{
-		Bucket:      workload.LockBucketName,
-		Description: workload.LockBucketDescr,
+		Bucket:      aws.LockBucketName,
+		Description: aws.LockBucketDescr,
 		TTL:         time.Minute * 20,
 	}
 	kv, err := controller.CreateLockBucketIfNotExists(js, &kvConfig)
 	if err != nil {
-		log.Error(err, "failed to bind to JetStream key-value locking bucket", "lockBucketName", workload.LockBucketName)
+		log.Error(err, "failed to bind to JetStream key-value locking bucket", "lockBucketName", aws.LockBucketName)
 		os.Exit(1)
 	}
 
-	// check to ensure workload stream has been created by API
-	workloadStreamNameFound := false
+	// check to ensure aws stream has been created by API
+	awsStreamNameFound := false
 	for stream := range js.StreamNames() {
-		if stream == v0.WorkloadStreamName {
-			workloadStreamNameFound = true
+		if stream == v0.AwsStreamName {
+			awsStreamNameFound = true
 		}
 	}
-	if !workloadStreamNameFound {
-		log.Error(errors.New("JetStream stream not found"), "failed to find stream with workload stream name", "workloadStreamName", v0.WorkloadStreamName)
+	if !awsStreamNameFound {
+		log.Error(errors.New("JetStream stream not found"), "failed to find stream with aws stream name", "awsStreamName", v0.AwsStreamName)
 		os.Exit(1)
 	}
 
@@ -130,32 +125,25 @@ func main() {
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *workloadDefinitionConcurrentReconciles,
-		Name:                 "WorkloadDefinitionReconciler",
-		NotifSubject:         v0.WorkloadDefinitionSubject,
-		ObjectType:           v0.ObjectTypeWorkloadDefinition,
-		ReconcileFunc:        workload.WorkloadDefinitionReconciler,
-	})
-	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *workloadInstanceConcurrentReconciles,
-		Name:                 "WorkloadInstanceReconciler",
-		NotifSubject:         v0.WorkloadInstanceSubject,
-		ObjectType:           v0.ObjectTypeWorkloadInstance,
-		ReconcileFunc:        workload.WorkloadInstanceReconciler,
+		ConcurrentReconciles: *awsEksClusterInstanceConcurrentReconciles,
+		Name:                 "AwsEksClusterInstanceReconciler",
+		NotifSubject:         v0.AwsEksClusterInstanceSubject,
+		ObjectType:           v0.ObjectTypeAwsEksClusterInstance,
+		ReconcileFunc:        aws.AwsEksClusterInstanceReconciler,
 	})
 
 	for _, r := range reconcilerConfigs {
 
 		// create JetStream consumer
 		consumer := r.Name + "Consumer"
-		js.AddConsumer(v0.WorkloadStreamName, &natsgo.ConsumerConfig{
+		js.AddConsumer(v0.AwsStreamName, &natsgo.ConsumerConfig{
 			AckPolicy:     natsgo.AckExplicitPolicy,
 			Durable:       consumer,
 			FilterSubject: r.NotifSubject,
 		})
 
 		// create durable pull subscription
-		sub, err := js.PullSubscribe(r.NotifSubject, consumer, natsgo.BindStream(v0.WorkloadStreamName))
+		sub, err := js.PullSubscribe(r.NotifSubject, consumer, natsgo.BindStream(v0.AwsStreamName))
 		if err != nil {
 			log.Error(err, "failed to create pull subscription for reconciler notifications", "reconcilerName", r.Name)
 			os.Exit(1)
@@ -185,11 +173,11 @@ func main() {
 	}
 
 	log.Info(
-		"workload controller started",
+		"aws controller started",
 		"version", version.GetVersion(),
 		"controllerID", controllerID.String(),
 		"NATSConnection", natsConn,
-		"lockBucketName", workload.LockBucketName,
+		"lockBucketName", aws.LockBucketName,
 	)
 
 	// add a shutdown endpoint for graceful shutdowns
@@ -217,11 +205,11 @@ func main() {
 	// wait for reconcilers to finish
 	shutdownWait.Wait()
 
-	log.Info("workload controller shutting down")
+	log.Info("aws controller shutting down")
 	os.Exit(0)
 }
 func showHelpAndExit(exitCode int) {
-	fmt.Printf("Usage: threeport-workload-controller [options]\n")
+	fmt.Printf("Usage: threeport-aws-controller [options]\n")
 	fmt.Println("options:")
 	flag.PrintDefaults()
 	os.Exit(exitCode)

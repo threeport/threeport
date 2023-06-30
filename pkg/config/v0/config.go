@@ -77,6 +77,7 @@ type Credential struct {
 	Name       string `yaml:"Name"`
 	ClientCert string `yaml:"ClientCert"`
 	ClientKey  string `yaml:"ClientKey"`
+	Token      string ``
 }
 
 // GetAllInstanceNames returns all instance names in a threeport config.

@@ -71,6 +71,10 @@ func (cc *ControllerConfig) MainPackage() error {
 				"%sConcurrentReconciles",
 				strcase.ToLowerCamel(obj),
 			)),
+			Id("NotifSubject"): Qual(
+				"github.com/threeport/threeport/pkg/api/v0",
+				fmt.Sprintf("%sSubject", obj),
+			),
 		}))
 		reconcilerConfigs.Line()
 	}
@@ -294,19 +298,6 @@ func (cc *ControllerConfig) MainPackage() error {
 		).Block(
 			Line().Comment("create JetStream consumer"),
 			Id("consumer").Op(":=").Id("r").Dot("Name").Op("+").Lit("Consumer"),
-			Id("subject").Op(",").Id("err").Op(":=").Qual(
-				"github.com/threeport/threeport/pkg/api/v0",
-				"GetSubjectByReconcilerName",
-			).Call(Id("r").Dot("Name")),
-			If(Id("err").Op("!=").Nil()).Block(
-				Id("log").Dot("Error").Call(
-					Id("err"),
-					Lit("failed to get notification subject by reconciler name"),
-					Lit("reconcilerName"),
-					Id("r").Dot("Name"),
-				),
-				Qual("os", "Exit").Call(Lit(1)),
-			),
 			Id("js").Dot("AddConsumer").Call(Qual(
 				"github.com/threeport/threeport/pkg/api/v0",
 				controllerStreamName,
@@ -319,13 +310,13 @@ func (cc *ControllerConfig) MainPackage() error {
 					"github.com/nats-io/nats.go",
 					"AckExplicitPolicy",
 				),
-				Id("FilterSubject"): Id("subject"),
+				Id("FilterSubject"): Id("r").Dot("NotifSubject"),
 			}),
 			),
 
 			Line().Comment("create durable pull subscription"),
 			Id("sub").Op(",").Id("err").Op(":=").Id("js").Dot("PullSubscribe").Call(
-				Id("subject"),
+				Id("r").Dot("NotifSubject"),
 				Id("consumer"),
 				Qual(
 					"github.com/nats-io/nats.go",
@@ -334,6 +325,15 @@ func (cc *ControllerConfig) MainPackage() error {
 					"github.com/threeport/threeport/pkg/api/v0",
 					controllerStreamName,
 				)),
+			),
+			If(Id("err").Op("!=").Nil()).Block(
+				Id("log").Dot("Error").Call(
+					Id("err"),
+					Lit("failed to create pull subscription for reconciler notifications"),
+					Lit("reconcilerName"),
+					Id("r").Dot("Name"),
+				),
+				Qual("os", "Exit").Call(Lit(1)),
 			),
 
 			Line().Comment("create exit channel"),

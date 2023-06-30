@@ -126,13 +126,15 @@ func main() {
 		e.Logger.Fatalf("failed to create jetstream context: %v", err)
 	}
 
-	// add workload stream
+	// add controller streams
 	js.AddStream(&nats.StreamConfig{
 		Name:     v0.WorkloadStreamName,
 		Subjects: v0.GetWorkloadSubjects(),
 	})
-
-	// add gateway stream
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.AwsStreamName,
+		Subjects: v0.GetAwsSubjects(),
+	})
 	js.AddStream(&nats.StreamConfig{
 		Name:     v0.GatewayStreamName,
 		Subjects: v0.GetGatewaySubjects(),

@@ -72,13 +72,13 @@ func getRESTConfig(cluster *v0.ClusterInstance, threeportControlPlane bool) *res
 			Host:            kubeAPIEndpoint,
 			TLSClientConfig: tlsConfig,
 		}
-	case cluster.EKSToken != nil:
+	case cluster.ConnectionToken != nil:
 		tlsConfig := rest.TLSClientConfig{
 			CAData: []byte(*cluster.CACertificate),
 		}
 		restConfig = rest.Config{
 			Host:            kubeAPIEndpoint,
-			BearerToken:     *cluster.EKSToken,
+			BearerToken:     *cluster.ConnectionToken,
 			TLSClientConfig: tlsConfig,
 		}
 	}

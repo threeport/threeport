@@ -5140,6 +5140,571 @@ const docTemplate = `{
                 }
             }
         },
+<<<<<<< HEAD
+=======
+        "/v0/network-ingress-definitions": {
+            "get": {
+                "description": "Get all network ingress definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all network ingress definitions.",
+                "operationId": "get-networkIngressDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "network ingress definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new network ingress definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new network ingress definition.",
+                "operationId": "add-networkIngressDefinition",
+                "parameters": [
+                    {
+                        "description": "NetworkIngressDefinition object",
+                        "name": "networkIngressDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.NetworkIngressDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/network-ingress-definitions/{id}": {
+            "get": {
+                "description": "Get a particular network ingress definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a network ingress definition.",
+                "operationId": "get-networkIngressDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a network ingress definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating network ingress definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing network ingress definition by replacing the entire object.",
+                "operationId": "replace-networkIngressDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "NetworkIngressDefinition object",
+                        "name": "networkIngressDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.NetworkIngressDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a network ingress definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a network ingress definition.",
+                "operationId": "delete-networkIngressDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a network ingress definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating network ingress definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing network ingress definition.",
+                "operationId": "update-networkIngressDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "NetworkIngressDefinition object",
+                        "name": "networkIngressDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.NetworkIngressDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/network-ingress-instances": {
+            "get": {
+                "description": "Get all network ingress instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all network ingress instances.",
+                "operationId": "get-networkIngressInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "network ingress instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new network ingress instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new network ingress instance.",
+                "operationId": "add-networkIngressInstance",
+                "parameters": [
+                    {
+                        "description": "NetworkIngressInstance object",
+                        "name": "networkIngressInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.NetworkIngressInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/network-ingress-instances/{id}": {
+            "get": {
+                "description": "Get a particular network ingress instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a network ingress instance.",
+                "operationId": "get-networkIngressInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a network ingress instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating network ingress instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing network ingress instance by replacing the entire object.",
+                "operationId": "replace-networkIngressInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "NetworkIngressInstance object",
+                        "name": "networkIngressInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.NetworkIngressInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a network ingress instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a network ingress instance.",
+                "operationId": "delete-networkIngressInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a network ingress instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating network ingress instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing network ingress instance.",
+                "operationId": "update-networkIngressInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "NetworkIngressInstance object",
+                        "name": "networkIngressInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.NetworkIngressInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+>>>>>>> 68c94e3 (feat: add aws controller)
         "/v0/profiles": {
             "get": {
                 "description": "Get all profiles from the Threeport database.",
@@ -7418,6 +7983,13 @@ const docTemplate = `{
                     "description": "The key ID credentials for the AWS account.",
                     "type": "string"
                 },
+                "AwsEksClusterInstances": {
+                    "description": "The cluster instances deployed in this AWS account.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.AwsEksClusterInstance"
+                    }
+                },
                 "DefaultRegion": {
                     "description": "The region to use for AWS managed services if not specified.",
                     "type": "string"
@@ -7435,16 +8007,34 @@ const docTemplate = `{
         "v0.AwsEksClusterDefinition": {
             "type": "object",
             "required": [
-                "AWSAccountID",
                 "Name"
             ],
             "properties": {
-                "AWSAccountID": {
-                    "description": "The AWS account in which the EKS cluster will be provisioned.",
-                    "type": "integer"
+                "AwsEksClusterInstances": {
+                    "description": "The AWS EKS cluster instances derived from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.AwsEksClusterInstance"
+                    }
                 },
                 "ClusterDefinitionID": {
-                    "description": "The definition for an EKS cluster in AWS.",
+                    "description": "The cluster definition for an EKS cluster in AWS.",
+                    "type": "integer"
+                },
+                "DefaultNodeGroupInitialSize": {
+                    "description": "The number of nodes in the default initial node group.",
+                    "type": "integer"
+                },
+                "DefaultNodeGroupInstanceType": {
+                    "description": "The AWS instance type for the default initial node group.",
+                    "type": "string"
+                },
+                "DefaultNodeGroupMaximumSize": {
+                    "description": "The maximum number of nodes the default initial node group should have.",
+                    "type": "integer"
+                },
+                "DefaultNodeGroupMinimumSize": {
+                    "description": "The minimum number of nodes the default initial node group should have.",
                     "type": "integer"
                 },
                 "Name": {
@@ -7455,8 +8045,16 @@ const docTemplate = `{
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
                 },
+                "Region": {
+                    "description": "The AWS region in which EKS clusters will be provisioned.  Note: changes to\nthis value will not alter the derived instances which is an immutable\ncharacteristic on instances.  It will only affect new instances derived\nfrom this definition.",
+                    "type": "string"
+                },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                },
+                "ZoneCount": {
+                    "description": "The number of zones the cluster should span for availability.",
                     "type": "integer"
                 }
             }
@@ -7464,15 +8062,33 @@ const docTemplate = `{
         "v0.AwsEksClusterInstance": {
             "type": "object",
             "required": [
+                "AWSAccountID",
+                "AwsEksClusterDefinitionID",
                 "Name"
             ],
             "properties": {
+                "AWSAccountID": {
+                    "description": "The AWS account in which the EKS cluster is provisioned.",
+                    "type": "integer"
+                },
+                "AwsEksClusterDefinitionID": {
+                    "description": "The definition that configures this instance.",
+                    "type": "integer"
+                },
                 "ClusterInstanceID": {
                     "description": "The cluster instance associated with the AWS EKS cluster.",
                     "type": "integer"
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by workload controller.",
+                    "type": "boolean"
+                },
+                "Region": {
+                    "description": "The AWS Region in which the cluster is provisioned.  This field is\nstored in the instance (as well as definition) since a change to the\ndefinition will not move a cluster.",
                     "type": "string"
                 },
                 "Status": {
@@ -7487,7 +8103,6 @@ const docTemplate = `{
                 "AWSAccountID",
                 "Engine",
                 "Name",
-                "Name",
                 "Storage"
             ],
             "properties": {
@@ -7500,7 +8115,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Name": {
-                    "description": "Thue unique name for DB definition.",
+                    "description": "An arbitrary name for the definition.",
                     "type": "string"
                 },
                 "ProfileID": {
@@ -7520,20 +8135,22 @@ const docTemplate = `{
         "v0.AwsRelationalDatabaseInstance": {
             "type": "object",
             "required": [
-                "Name",
+                "AwsRelationalDatabaseDefinitionID",
                 "Name",
                 "Status"
             ],
             "properties": {
+                "AwsRelationalDatabaseDefinitionID": {
+                    "description": "The definition that configures this instance.",
+                    "type": "integer"
+                },
                 "Name": {
-                    "description": "Thue unique name for DB instance.",
+                    "description": "An arbitrary name the instance",
                     "type": "string"
                 },
                 "Status": {
+                    "description": "The status of the running instance",
                     "type": "string"
-                },
-                "awsRelationalDatabaseDefinitionID": {
-                    "type": "integer"
                 }
             }
         },
@@ -7579,7 +8196,70 @@ const docTemplate = `{
             }
         },
         "v0.ClusterInstance": {
+<<<<<<< HEAD
             "type": "object"
+=======
+            "type": "object",
+            "required": [
+                "APIEndpoint",
+                "CACertificate",
+                "ClusterDefinitionID",
+                "Name"
+            ],
+            "properties": {
+                "APIEndpoint": {
+                    "description": "The network endpoint at which to reach the kube-api.",
+                    "type": "string"
+                },
+                "CACertificate": {
+                    "description": "The CA certificate used to generate the cert and key if\nself-signed.",
+                    "type": "string"
+                },
+                "Certificate": {
+                    "description": "The client certificate to use for auth to the kube-api.",
+                    "type": "string"
+                },
+                "ClusterDefinitionID": {
+                    "description": "The cluster definition for this instance.",
+                    "type": "integer"
+                },
+                "ConnectionToken": {
+                    "description": "ConnectionToken is used to authenticate with a OIDC provider that\nimplements auth for a Kubernetes cluster.  It is an alternative to client\ncertficate and key authenticaion.",
+                    "type": "string"
+                },
+                "DefaultCluster": {
+                    "description": "If true the cluster instance to use for deployments if not otherwise\nspecified.  Can only have one per account.",
+                    "type": "boolean"
+                },
+                "Key": {
+                    "description": "The client key to use for auth to the kube-api.",
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Region": {
+                    "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.  Stored in the instance (as well as definition) since a\nchange to the definition will not move a cluster.",
+                    "type": "string"
+                },
+                "Status": {
+                    "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                },
+                "ThreeportControlPlaneCluster": {
+                    "description": "If true, controllers will connect to the kube API using internal DNS\nrather than the APIEndpoint.",
+                    "type": "boolean"
+                },
+                "WorkloadInstance": {
+                    "description": "The associated workload instances running on this cluster.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadInstance"
+                    }
+                }
+            }
+>>>>>>> 68c94e3 (feat: add aws controller)
         },
         "v0.DomainNameDefinition": {
             "type": "object",
@@ -7882,6 +8562,7 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+<<<<<<< HEAD
                 "GatewayDefinition",
                 "GatewayInstance",
                 "Profile",
@@ -7894,11 +8575,14 @@ const docTemplate = `{
                 "WorkloadEvent",
                 "ClusterDefinition",
                 "ClusterInstance",
+=======
+>>>>>>> 68c94e3 (feat: add aws controller)
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
+<<<<<<< HEAD
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
                 "LogBackend",
@@ -7920,11 +8604,34 @@ const docTemplate = `{
                 "ObjectTypeWorkloadEvent",
                 "ObjectTypeClusterDefinition",
                 "ObjectTypeClusterInstance",
+=======
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance",
+                "WorkloadEvent",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "Profile",
+                "Tier",
+                "ClusterDefinition",
+                "ClusterInstance"
+            ],
+            "x-enum-varnames": [
+>>>>>>> 68c94e3 (feat: add aws controller)
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
+<<<<<<< HEAD
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
                 "ObjectTypeLogBackend",
@@ -7932,6 +8639,26 @@ const docTemplate = `{
                 "ObjectTypeLogStorageInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance"
+=======
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance"
+>>>>>>> 68c94e3 (feat: add aws controller)
             ]
         },
         "v0.Profile": {

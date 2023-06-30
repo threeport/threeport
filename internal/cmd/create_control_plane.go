@@ -170,11 +170,11 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 			ThreeportControlPlaneCluster: &controlPlaneCluster,
 			APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
 			CACertificate:                &kubeConnectionInfo.CACertificate,
-			EKSToken:                     &kubeConnectionInfo.EKSToken,
-			AWSConfigEnv:                 &args.AwsConfigEnv,
-			AWSConfigProfile:             &args.AwsConfigProfile,
-			AWSRegion:                    &args.AwsRegion,
-			DefaultCluster:               &defaultCluster,
+			ConnectionToken:              &kubeConnectionInfo.EKSToken,
+			//AWSConfigEnv:                 &args.AwsConfigEnv,
+			//AWSConfigProfile:             &args.AwsConfigProfile,
+			//AWSRegion:                    &args.AwsRegion,
+			DefaultCluster: &defaultCluster,
 		}
 	}
 	dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance, false)
