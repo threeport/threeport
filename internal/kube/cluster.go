@@ -118,13 +118,13 @@ func getRESTConfig(
 			Host:            kubeAPIEndpoint,
 			TLSClientConfig: tlsConfig,
 		}
-	case runtime.ConnectionToken != nil:
+	case cluster.ConnectionToken != nil:
 		tlsConfig := rest.TLSClientConfig{
 			CAData: []byte(*runtime.CACertificate),
 		}
 		restConfig = rest.Config{
 			Host:            kubeAPIEndpoint,
-			BearerToken:     *runtime.ConnectionToken,
+			BearerToken:     *cluster.ConnectionToken,
 			TLSClientConfig: tlsConfig,
 		}
 	}

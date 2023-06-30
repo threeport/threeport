@@ -28,9 +28,8 @@ A controller is a piece of software that runs as a part of the Threeport control
 plane.
 
 Controllers are based on the API data model.  A controller's domain of operation
-is scoped by a source file in`pkg/api`.  For example the
-kubernetes-runtime-controller is responsible for reconciling objects defined in
-`pkg/api/v0/kubernetes_runtime.go`.
+is scoped by a source file in`pkg/api`.  For example the workload-controller is
+responsible for reconciling objects defined in `pkg/api/v0/workload.go`.
 
 ### Reconcilers
 
@@ -49,95 +48,48 @@ workload-controller has two reconcilers:
 ## Creating a New Controller
 
 The following steps outline creating a new controller.  Examples are used for
-the kubernetes-runtime-controller.  Refer to the code for that controller and
-its objects for examples.
+the workload-controller.  Refer to the code for that controller for examples.
 
-1. Create a data model for the objects that will be used and reconciled.
-   Example: `pkg/api/v0/kubernetes_runtime.go`.
+1. Create a data model for the objects that will be used and reconciled.  Some
+   objects simply store data and do not require reconcilation of state.  For
+   example in `pkg/api/v0/workload.go`, the `WorkloadResourceDefinition` and
+   `WorkloadResourceInstance` objects are not reconciled.  They simply store
+   data and are a resource for reconciliation of other objects.
 1. Add the following generate marker to the top of the source file:
    ```go
    //go:generate ../../../bin/threeport-codegen controller --filename $GOFILE
    ```
+   See `pkg/api/v0/workload.go` for an example.
 1. Add the reconciler marker to those objects that will require reconcilation:
    ```go
    // +threeport-codegen:reconciler
    ```
-   See the `KubernetesRuntimeDefinition` and `KubernetesRuntimeInstance` objects in
-   `pkg/api/v0/kubernetes_runtime.go`.
-   Note: not all objects necessarily require reconciliation.  Some just store
-   data that is referred to when reconciling state for other objects.
-1. If you have any "Definition" or "Instance objects that are getting a
-   reconciler, you will need to include a `Reconciled` field of type `*bool`.
-   The generated code will expect this.  This is not required if no reconciler
-   exists for the object.
+   See the `WorkloadDefinition` and `WorkloadInstance` objects in
+   `pkg/api/v0/workload.go`.
 1. Create the following directories based on the name of the source file in the
-   API.  For example:
-   * `cmd/kubernetes-runtime-controller`
-   * `internal/kubernetes-runtime`
+   API.  For example if you data models are defined in `pkg/api/v0/animal.go` you
+   will need the following directories:
+   * `cmd/animal-controller`
+   * `internal/animal`
 1. Run code generation:
    ```bash
    make generate
    ```
-1. You will find a new files in `internal/kubernetes-runtime` for each object being
-   reconciled.  This example has two objects with a reconciler marker that get
-   corresponding reconciler files:
-   * `KubernetesRuntimeDefinition`: `internal/kubernetes-runtime/kubernetes_runtime_definition_gen.go`
-   * `KubernetesRuntimeInstance`: `internal/kubernetes-runtime/kubernetes_runtime_instance_gen.go`
-   In each reconciler file, you will find calls to some  as-yet-undefined
-   functions.  In `internal/kubernetes-runtime/kubernetes_runtime_definition_gen.go`
-   is:
-   * `kubernetesRuntimeDefinitionCreated`
-   * `kubernetesRuntimeDefinitionUpdate`
-   * `kubernetesRuntimeDefinitionDelete`
-1. Create a new file called `internal/kubernetes-runtime/kubernetes_runtime_definition.go`
-   and add each of those functions
+1. You will find a new files in `internal/animal` for each object being
+   reconciled.  If you had `Cat` and `Dog` objects that had a reconciler marker
+   on them, you will find two new files:
+   * `internal/animal/cat_gen.go`
+   * `internal/animal/dog_gen.go`
+   In the case of the cat reconciler, you will find calls to some
+   as-yet-undefined functions:
+   * `catCreated`
+   * `catDeleted`
+1. Create a new file called `internal/animal/cat.go` and add those functions
    with the business logic to reconcile the system when each of those actions
-   occur, i.e. when a kubernetes runtime definition is created, update or deleted.
-   The empty functions in
-   `internal/kubernetes-runtime/kubernetes_runtime_definition.go` will look as
-   follows.
-   ```go
-    // kubernetesRuntimeDefinitionCreated reconciles state for a new kubernetes
-    // runtime definition.
-    func kubernetesRuntimeDefinitionCreated(
-        r *controller.Reconciler,
-        kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
-        log *logr.Logger,
-    ) error {
-        return nil
-    }
-
-    // kubernetesRuntimeDefinitionCreated reconciles state for a kubernetes
-    // runtime definition whenever it is changed.
-    func kubernetesRuntimeDefinitionUpdated(
-        r *controller.Reconciler,
-        kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
-        log *logr.Logger,
-    ) error {
-        return nil
-    }
-
-    // kubernetesRuntimeDefinitionCreated reconciles state for a kubernetes
-    // runtime definition whenever it is removed.
-    func kubernetesRuntimeDefinitionDeleted(
-        r *controller.Reconciler,
-        kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
-        log *logr.Logger,
-    ) error {
-        return nil
-    }
-   ```
-   Repeat for each reconciler.
+   occur, i.e. when a cat is created or deleted.  Repeat for the dog reconciler.
 1. Manually update the REST API main package where the NATS streams for
    controller notifications is added.  Look for the calls to `js.AddStream()`
    for other controllers and add the stream name and subjects for the new
    controller.  Follow the same naming pattern - the necessary constants will
-   in the API package, e.g. `pkg/api/v0/kubernetes_runtime_gen.go`.
-1. Create an image directory to build container images for the new controller.
-   For now, copy an existing controllers Dockerfiles and modify to suit the new
-   controller.
-   Example:
-   ```bash
-   cp -R cmd/workload-controller/image cmd/kubernetes-runtime-controller
-   ```
+   already have been generated in `pkg/api/v0/[controller name]_gen.go`.
 
