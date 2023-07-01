@@ -7,7 +7,12 @@ import (
 	"path/filepath"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/nukleros/eks-cluster/pkg/connection"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/eks"
+	aws_v1 "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/nukleros/eks-cluster/pkg/api"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gopkg.in/ini.v1"
 
@@ -15,30 +20,70 @@ import (
 	"github.com/threeport/threeport/internal/threeport"
 )
 
-// KubernetesRuntimeInfraEKS represents the infrastructure for a threeport-managed EKS
-// cluster.
-type KubernetesRuntimeInfraEKS struct {
-	// The unique name of the kubernetes runtime instance managed by threeport.
-	RuntimeInstanceName string
-
-	// The AWS account ID where the cluster infra is provisioned.
-	AwsAccountID string
-
-	// The configuration containing credentials to connect to an AWS account.
-	AwsConfig *aws.Config
-
-	// The eks-clutser client used to create AWS EKS resources.
-	ResourceClient *resource.ResourceClient
-
-	// The inventory of AWS resources used to run an EKS cluster.
-	ResourceInventory *resource.ResourceInventory
+type ControlPlaneInfraEKS struct {
+	ThreeportInstanceName string
+	AwsConfigEnv          bool
+	AwsConfigProfile      string
+	AwsRegion             string
+	AwsAccountID          string
+	AwsAccessKeyID        string
+	AwsSecretAccessKey    string
 }
 
-// Create installs a Kubernetes cluster using AWS EKS for threeport workloads.
-func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
+// Create installs a Kubernetes cluster using AWS EKS for the threeport control
+// plane.
+func (i *ControlPlaneInfraEKS) Create(providerConfigDir string, sigs chan os.Signal) (*kube.KubeConnectionInfo, error) {
+	// create an AWS config to connect to AWS API
+	var awsConfig aws.Config
+	if i.AwsAccessKeyID != "" && i.AwsSecretAccessKey != "" {
+		config, err := config.LoadDefaultConfig(
+			context.Background(),
+			config.WithCredentialsProvider(
+				credentials.NewStaticCredentialsProvider(
+					i.AwsAccessKeyID,
+					i.AwsSecretAccessKey,
+					"",
+				),
+			),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load AWS configuration with static credentials: %w", err)
+		}
+		awsConfig = config
+	} else {
+		config, err := resource.LoadAWSConfig(
+			i.AwsConfigEnv,
+			i.AwsConfigProfile,
+			i.AwsRegion,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
+		}
+		awsConfig = *config
+	}
+
+	// create a resource client to create EKS resources
+	resourceClient, err := api.CreateResourceClient(i.AwsConfigEnv, i.AwsConfigProfile)
+	if err != nil {
+		return nil, err
+	}
+
+	// delete resource stack if user interrupts creation with Ctrl+C
+	go func() {
+		<-sigs
+		cli.Info("\nreceived interrupt signal, cleaning up resources...")
+		if err := resourceClient.DeleteResourceStack(
+			inventoryFilepath(providerConfigDir, i.ThreeportInstanceName),
+		); err != nil {
+			cli.Error("\nfailed to delete EKS resources", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}()
+
 	// create a new resource config to configure Kubernetes cluster
 	resourceConfig := resource.NewResourceConfig()
-	resourceConfig.Name = i.RuntimeInstanceName
+	resourceConfig.Name = ThreeportClusterName(i.ThreeportInstanceName)
 	resourceConfig.AWSAccountID = i.AwsAccountID
 	resourceConfig.InstanceTypes = []string{"t2.medium"}
 	resourceConfig.InitialNodes = int32(2)
@@ -66,22 +111,28 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 	}
 
 	// get kubernetes API connection info
-	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: i.RuntimeInstanceName}
-	if err := eksClusterConn.Get(i.AwsConfig); err != nil {
-		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
-	}
-	kubeConnInfo := kube.KubeConnectionInfo{
-		APIEndpoint:        eksClusterConn.APIEndpoint,
-		CACertificate:      eksClusterConn.CACertificate,
-		EKSToken:           eksClusterConn.Token,
-		EKSTokenExpiration: eksClusterConn.TokenExpiration,
+	kubeConnInfo, err := getEKSConnectionInfo(
+		&awsConfig,
+		i.AwsConfigProfile,
+		ThreeportClusterName(i.ThreeportInstanceName),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to EKS cluster connection info: %w", err)
 	}
 
 	return &kubeConnInfo, nil
 }
 
-// Delete deletes an AWS EKS cluster.
-func (i *KubernetesRuntimeInfraEKS) Delete() error {
+// Delete deletes an AWS EKS cluster and the threeport control plane with it.
+func (i *ControlPlaneInfraEKS) Delete(providerConfigDir string) error {
+
+	// create a resource client for spinning up AWS resources and getting status
+	// messages back as it progresses
+	resourceClient, err := api.CreateResourceClient(i.AwsConfigEnv, i.AwsConfigProfile)
+	if err != nil {
+		return err
+	}
+
 	// delete EKS cluster resources
 	if err := i.ResourceClient.DeleteResourceStack(i.ResourceInventory); err != nil {
 		return fmt.Errorf("failed to delete eks cluster resource stack: %w", err)
@@ -91,13 +142,69 @@ func (i *KubernetesRuntimeInfraEKS) Delete() error {
 }
 
 // RefreshConnection gets a new token for authentication to an EKS cluster.
-func (i *KubernetesRuntimeInfraEKS) RefreshConnection() (*kube.KubeConnectionInfo, error) {
-	// get connection info
-	eksClusterConn := connection.EKSClusterConnectionInfo{
-		ClusterName: i.RuntimeInstanceName,
+func (i *ControlPlaneInfraEKS) RefreshConnection() (*kube.KubeConnectionInfo, error) {
+	// create an AWS config to connect to AWS API
+	awsConfig, err := resource.LoadAWSConfig(
+		i.AwsConfigEnv,
+		i.AwsConfigProfile,
+		i.AwsRegion,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
 	}
-	if err := eksClusterConn.Get(i.AwsConfig); err != nil {
-		return nil, fmt.Errorf("failed to retrieve EKS cluster connection info for token refresh: %w", err)
+
+	return getEKSConnectionInfo(
+		awsConfig,
+		i.AwsConfigProfile,
+		ThreeportClusterName(i.ThreeportInstanceName),
+	)
+}
+
+// getEKSConnectionInfo queries AWS for the connection token and returns the
+// connection info for a particular cluster name.
+func getEKSConnectionInfo(awsConfig *aws.Config, awsProfile, clusterName string) (*kube.KubeConnectionInfo, error) {
+	svc := eks.NewFromConfig(*awsConfig)
+
+	// get EKS cluster info
+	describeClusterinput := &eks.DescribeClusterInput{
+		Name: aws.String(clusterName),
+	}
+	describeClusterResult, err := svc.DescribeCluster(context.TODO(), describeClusterinput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe EKS cluster: %w", err)
+	}
+	cluster := describeClusterResult.Cluster
+
+	// create a new session using the v1 SDK which is used by
+	// sigs.k8s.io/aws-iam-authenticator/pkg/token to get a token
+	sessionOpts := session.Options{
+		Profile: awsProfile,
+		Config: aws_v1.Config{
+			Region: aws_v1.String(awsConfig.Region),
+		},
+		SharedConfigState: session.SharedConfigEnable,
+	}
+	awsSession, err := session.NewSessionWithOptions(sessionOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new AWS session for generating EKS cluster token: %w", err)
+	}
+
+	// get EKS cluster token and CA certificate
+	gen, err := token.NewGenerator(true, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate new token: %w", err)
+	}
+	opts := &token.GetTokenOptions{
+		ClusterID: clusterName,
+		Session:   awsSession,
+	}
+	token, err := gen.GetWithOptions(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get token with options: %w", err)
+	}
+	ca, err := base64.StdEncoding.DecodeString(*cluster.CertificateAuthority.Data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode CA data: %w", err)
 	}
 
 	// construct KubeConnectionInfo object
