@@ -538,6 +538,7 @@ definitions:
   v0.ObjectType:
     enum:
 <<<<<<< HEAD
+<<<<<<< HEAD
     - GatewayDefinition
     - GatewayInstance
     - Profile
@@ -584,22 +585,34 @@ definitions:
     - DomainNameInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
+=======
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+>>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
     - WorkloadEvent
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - Profile
-    - Tier
     - ClusterDefinition
     - ClusterInstance
+    - Profile
+    - Tier
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - AwsAccount
+    - AwsEksClusterDefinition
+    - AwsEksClusterInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
     type: string
     x-enum-varnames:
+<<<<<<< HEAD
 >>>>>>> 68c94e3 (feat: add aws controller)
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
@@ -619,21 +632,35 @@ definitions:
     - ObjectTypeDomainNameInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
+=======
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+>>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
     - ObjectTypeClusterDefinition
     - ObjectTypeClusterInstance
+<<<<<<< HEAD
 >>>>>>> 68c94e3 (feat: add aws controller)
+=======
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksClusterDefinition
+    - ObjectTypeAwsEksClusterInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+>>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
   v0.Profile:
     properties:
       Name:

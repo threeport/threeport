@@ -1062,7 +1062,7 @@ func InstallThreeportAgent(
 										"path": "/healthz",
 										"port": 8081,
 									},
-									"initialDelaySeconds": 30,
+									"initialDelaySeconds": 5,
 									"periodSeconds":       20,
 								},
 								"name": "manager",

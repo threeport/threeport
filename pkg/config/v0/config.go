@@ -66,10 +66,10 @@ type KubeAPI struct {
 // EKSProviderConfig is the set of provider config information needed to manage
 // EKS clusters on AWs.
 type EKSProviderConfig struct {
-	AWSConfigEnv     bool   `yaml:"AWSConfigEnv"`
-	AWSConfigProfile string `yaml:"AWSConfigProfile"`
-	AWSRegion        string `yaml:"AWSRegion"`
-	AWSAccountID     string `yaml:"AWSAccountID"`
+	AwsConfigEnv     bool   `yaml:"AWSConfigEnv"`
+	AwsConfigProfile string `yaml:"AWSConfigProfile"`
+	AwsRegion        string `yaml:"AWSRegion"`
+	AwsAccountID     string `yaml:"AWSAccountID"`
 }
 
 // Credential is a client certificate and key pair for authenticating to a Threeport instance.

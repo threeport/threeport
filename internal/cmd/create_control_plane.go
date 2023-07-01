@@ -98,16 +98,16 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	case threeport.ControlPlaneInfraProviderEKS:
 		controlPlaneInfraEKS := provider.ControlPlaneInfraEKS{
 			ThreeportInstanceName: args.InstanceName,
-			AWSConfigEnv:          args.AwsConfigEnv,
-			AWSConfigProfile:      args.AwsConfigProfile,
-			AWSRegion:             args.AwsRegion,
-			AWSAccountID:          args.CreateProviderAccountID,
+			AwsConfigEnv:          args.AwsConfigEnv,
+			AwsConfigProfile:      args.AwsConfigProfile,
+			AwsRegion:             args.AwsRegion,
+			AwsAccountID:          args.CreateProviderAccountID,
 		}
 		newThreeportInstance.EKSProviderConfig = config.EKSProviderConfig{
-			AWSConfigEnv:     args.AwsConfigEnv,
-			AWSConfigProfile: args.AwsConfigProfile,
-			AWSRegion:        args.AwsRegion,
-			AWSAccountID:     args.CreateProviderAccountID,
+			AwsConfigEnv:     args.AwsConfigEnv,
+			AwsConfigProfile: args.AwsConfigProfile,
+			AwsRegion:        args.AwsRegion,
+			AwsAccountID:     args.CreateProviderAccountID,
 		}
 		controlPlaneInfra = &controlPlaneInfraEKS
 	}
@@ -171,9 +171,9 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 			APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
 			CACertificate:                &kubeConnectionInfo.CACertificate,
 			ConnectionToken:              &kubeConnectionInfo.EKSToken,
-			//AWSConfigEnv:                 &args.AwsConfigEnv,
-			//AWSConfigProfile:             &args.AwsConfigProfile,
-			//AWSRegion:                    &args.AwsRegion,
+			//AwsConfigEnv:                 &args.AwsConfigEnv,
+			//AwsConfigProfile:             &args.AwsConfigProfile,
+			//AwsRegion:                    &args.AwsRegion,
 			DefaultCluster: &defaultCluster,
 		}
 	}

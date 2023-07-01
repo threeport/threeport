@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	aws_v1 "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -22,27 +24,48 @@ import (
 
 type ControlPlaneInfraEKS struct {
 	ThreeportInstanceName string
-	AWSConfigEnv          bool
-	AWSConfigProfile      string
-	AWSRegion             string
-	AWSAccountID          string
+	AwsConfigEnv          bool
+	AwsConfigProfile      string
+	AwsRegion             string
+	AwsAccountID          string
+	AwsAccessKeyID        string
+	AwsSecretAccessKey    string
 }
 
 // Create installs a Kubernetes cluster using AWS EKS for the threeport control
 // plane.
 func (i *ControlPlaneInfraEKS) Create(providerConfigDir string, sigs chan os.Signal) (*kube.KubeConnectionInfo, error) {
 	// create an AWS config to connect to AWS API
-	awsConfig, err := resource.LoadAWSConfig(
-		i.AWSConfigEnv,
-		i.AWSConfigProfile,
-		i.AWSRegion,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
+	var awsConfig aws.Config
+	if i.AwsAccessKeyID != "" && i.AwsSecretAccessKey != "" {
+		config, err := config.LoadDefaultConfig(
+			context.Background(),
+			config.WithCredentialsProvider(
+				credentials.NewStaticCredentialsProvider(
+					i.AwsAccessKeyID,
+					i.AwsSecretAccessKey,
+					"",
+				),
+			),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load AWS configuration with static credentials: %w", err)
+		}
+		awsConfig = config
+	} else {
+		config, err := resource.LoadAWSConfig(
+			i.AwsConfigEnv,
+			i.AwsConfigProfile,
+			i.AwsRegion,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
+		}
+		awsConfig = *config
 	}
 
 	// create a resource client to create EKS resources
-	resourceClient, err := api.CreateResourceClient(i.AWSConfigEnv, i.AWSConfigProfile)
+	resourceClient, err := api.CreateResourceClient(i.AwsConfigEnv, i.AwsConfigProfile)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +86,7 @@ func (i *ControlPlaneInfraEKS) Create(providerConfigDir string, sigs chan os.Sig
 	// create a new resource config to configure Kubernetes cluster
 	resourceConfig := resource.NewResourceConfig()
 	resourceConfig.Name = ThreeportClusterName(i.ThreeportInstanceName)
-	resourceConfig.AWSAccountID = i.AWSAccountID
+	resourceConfig.AWSAccountID = i.AwsAccountID
 	resourceConfig.InstanceTypes = []string{"t2.medium"}
 	resourceConfig.InitialNodes = int32(2)
 	resourceConfig.MinNodes = int32(2)
@@ -92,8 +115,8 @@ func (i *ControlPlaneInfraEKS) Create(providerConfigDir string, sigs chan os.Sig
 
 	// get kubernetes API connection info
 	kubeConnInfo, err := getEKSConnectionInfo(
-		awsConfig,
-		i.AWSConfigProfile,
+		&awsConfig,
+		i.AwsConfigProfile,
 		ThreeportClusterName(i.ThreeportInstanceName),
 	)
 	if err != nil {
@@ -108,7 +131,7 @@ func (i *ControlPlaneInfraEKS) Delete(providerConfigDir string) error {
 
 	// create a resource client for spinning up AWS resources and getting status
 	// messages back as it progresses
-	resourceClient, err := api.CreateResourceClient(i.AWSConfigEnv, i.AWSConfigProfile)
+	resourceClient, err := api.CreateResourceClient(i.AwsConfigEnv, i.AwsConfigProfile)
 	if err != nil {
 		return err
 	}
@@ -130,9 +153,9 @@ func (i *ControlPlaneInfraEKS) Delete(providerConfigDir string) error {
 func (i *ControlPlaneInfraEKS) RefreshConnection() (*kube.KubeConnectionInfo, error) {
 	// create an AWS config to connect to AWS API
 	awsConfig, err := resource.LoadAWSConfig(
-		i.AWSConfigEnv,
-		i.AWSConfigProfile,
-		i.AWSRegion,
+		i.AwsConfigEnv,
+		i.AwsConfigProfile,
+		i.AwsRegion,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
@@ -140,7 +163,7 @@ func (i *ControlPlaneInfraEKS) RefreshConnection() (*kube.KubeConnectionInfo, er
 
 	return getEKSConnectionInfo(
 		awsConfig,
-		i.AWSConfigProfile,
+		i.AwsConfigProfile,
 		ThreeportClusterName(i.ThreeportInstanceName),
 	)
 }
