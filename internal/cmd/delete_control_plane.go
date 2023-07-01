@@ -52,9 +52,9 @@ func DeleteControlPlane(args *cli.ControlPlaneCLIArgs) error {
 	case threeport.ControlPlaneInfraProviderEKS:
 		controlPlaneInfraEKS := provider.ControlPlaneInfraEKS{
 			ThreeportInstanceName: instanceConfig.Name,
-			AWSConfigEnv:          instanceConfig.EKSProviderConfig.AWSConfigEnv,
-			AWSConfigProfile:      instanceConfig.EKSProviderConfig.AWSConfigProfile,
-			AWSRegion:             instanceConfig.EKSProviderConfig.AWSRegion,
+			AwsConfigEnv:          instanceConfig.EKSProviderConfig.AwsConfigEnv,
+			AwsConfigProfile:      instanceConfig.EKSProviderConfig.AwsConfigProfile,
+			AwsRegion:             instanceConfig.EKSProviderConfig.AwsRegion,
 		}
 		controlPlaneInfra = &controlPlaneInfraEKS
 	}
