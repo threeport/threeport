@@ -8673,6 +8673,7 @@ const docTemplate = `{
             "type": "string",
             "enum": [
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "GatewayDefinition",
                 "GatewayInstance",
                 "Profile",
@@ -8743,22 +8744,34 @@ const docTemplate = `{
                 "DomainNameInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
+=======
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+>>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
                 "Profile",
                 "Tier",
-                "ClusterDefinition",
-                "ClusterInstance"
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "AwsAccount",
+                "AwsEksClusterDefinition",
+                "AwsEksClusterInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance"
             ],
             "x-enum-varnames": [
+<<<<<<< HEAD
 >>>>>>> 68c94e3 (feat: add aws controller)
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
@@ -8778,21 +8791,37 @@ const docTemplate = `{
                 "ObjectTypeDomainNameInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
+=======
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+>>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
+<<<<<<< HEAD
                 "ObjectTypeClusterDefinition",
                 "ObjectTypeClusterInstance"
 >>>>>>> 68c94e3 (feat: add aws controller)
+=======
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksClusterDefinition",
+                "ObjectTypeAwsEksClusterInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance"
+>>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
             ]
         },
         "v0.Profile": {

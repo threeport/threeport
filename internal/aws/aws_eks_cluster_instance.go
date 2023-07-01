@@ -2,9 +2,11 @@ package aws
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
 
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -32,6 +34,15 @@ func awsEksClusterInstanceCreated(
 	if err != nil {
 		return fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
 	}
+
+	controlPlaneInfra := provider.ControlPlaneInfraEKS{
+		ThreeportInstanceName: awsEksClusterInstance.Name,
+		AwsAccessKeyID:        awsAccount.AccessKeyID,
+		AwsSecretAccessKey:    awsAccount.SecretAccessKey,
+	}
+
+	sigs := make(chan os.Signal)
+	kubeConnectionInfo, err := controlPlaneInfra.Create("", sigs)
 
 	reconLog := log.WithValues(
 		"awsEksClsuterDefinitionRegion", *awsEksClusterDefinition.Region,
