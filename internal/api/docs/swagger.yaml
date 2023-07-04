@@ -397,12 +397,6 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ClusterDefinition
-    - ClusterInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
@@ -411,8 +405,12 @@ definitions:
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - GatewayDefinition
     - GatewayInstance
+    - ClusterDefinition
+    - ClusterInstance
     - Profile
     - Tier
     - WorkloadDefinition
@@ -420,14 +418,10 @@ definitions:
     - WorkloadInstance
     - WorkloadResourceInstance
     - WorkloadEvent
+    - DomainNameDefinition
+    - DomainNameInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
@@ -436,8 +430,12 @@ definitions:
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeProfile
     - ObjectTypeTier
     - ObjectTypeWorkloadDefinition
@@ -445,6 +443,8 @@ definitions:
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       Name:

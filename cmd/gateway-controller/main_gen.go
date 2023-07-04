@@ -11,6 +11,7 @@ import (
 	uuid "github.com/google/uuid"
 	flag "github.com/namsral/flag"
 	natsgo "github.com/nats-io/nats.go"
+	gateway "github.com/threeport/threeport/internal/gateway"
 	version "github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -24,6 +25,12 @@ import (
 
 func main() {
 	// flags
+	var gatewayDefinitionConcurrentReconciles = flag.Int(
+		"GatewayDefinition-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for gateway definitions",
+	)
+
 	var apiServer = flag.String("api-server", "threeport-api-server", "Threepoort REST API server endpoint")
 	var msgBrokerHost = flag.String("msg-broker-host", "", "Threeport message broker hostname")
 	var msgBrokerPort = flag.String("msg-broker-port", "", "Threeport message broker port")
@@ -117,6 +124,13 @@ func main() {
 
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *gatewayDefinitionConcurrentReconciles,
+		Name:                 "GatewayDefinitionReconciler",
+		ObjectType:           v0.ObjectTypeGatewayDefinition,
+		ReconcileFunc:        gateway.GatewayDefinitionReconciler,
+	})
+
 	for _, r := range reconcilerConfigs {
 
 		// create JetStream consumer

@@ -2,6 +2,7 @@
 //go:generate ../../../bin/threeport-codegen controller --filename $GOFILE
 package v0
 
+// +threeport-codegen:reconciler
 // Gateway is a route for requests to a workload from clients outside the
 // private network of a workload cluster.  This
 type GatewayDefinition struct {
