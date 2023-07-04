@@ -1,5 +1,6 @@
 REST_API_IMG ?= threeport-rest-api:latest
 WORKLOAD_CONTROLLER_IMG ?= threeport-workload-controller:latest
+GATEWAY_IMG ?= threeport-gateway:latest
 
 #help: @ List available make targets
 help:
@@ -121,6 +122,10 @@ workload-controller-image-build:
 #agent-image-build: @ Build agent container image
 agent-image-build:
 	docker build -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile .
+
+#gateway-image-build: @ Build agent container image
+gateway-image-build:
+	docker build -t $(GATEWAY_IMG) -f cmd/gateway-controller/image/Dockerfile .
 
 #rest-api-image: @ Build and push REST API container image
 rest-api-image: rest-api-image-build
