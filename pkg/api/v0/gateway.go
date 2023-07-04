@@ -1,9 +1,10 @@
 //go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate ../../../bin/threeport-codegen controller --filename $GOFILE
 package v0
 
-// NetworkIngress is a route for requests to a workload from clients outside the
+// Gateway is a route for requests to a workload from clients outside the
 // private network of a workload cluster.  This
-type NetworkIngressDefinition struct {
+type GatewayDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
@@ -30,12 +31,12 @@ type NetworkIngressDefinition struct {
 	DomainNameID *uint `json:"DomainNameID,omitempty" query:"domainname" validate:"optional"`
 }
 
-type NetworkIngressInstance struct {
+type GatewayInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
 
 	// The definition used to define the instance.
-	NetworkIngressDefinitionID *uint `json:"NetworkIngressDefinitionID,omitempty" validate:"optional,association"`
+	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" validate:"optional,association"`
 
 	// The cluster where the ingress layer is installed.
 	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" validate:"optional,association"`

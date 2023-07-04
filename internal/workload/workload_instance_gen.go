@@ -5,7 +5,6 @@ package workload
 import (
 	"errors"
 	"fmt"
-
 	mapstructure "github.com/mitchellh/mapstructure"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"

@@ -9,10 +9,10 @@ import (
 	"reflect"
 )
 
-// AddNetworkIngressDefinitionVersions adds field validation info and adds it
+// AddGatewayDefinitionVersions adds field validation info and adds it
 // to the REST API versions.
-func AddNetworkIngressDefinitionVersions() {
-	iapi.NetworkIngressDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+func AddGatewayDefinitionVersions() {
+	iapi.GatewayDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
 		Optional:             []string{},
 		OptionalAssociations: []string{},
 		Required:             []string{},
@@ -22,29 +22,29 @@ func AddNetworkIngressDefinitionVersions() {
 	// parse struct and populate the FieldsByTag object
 	iapi.ParseStruct(
 		iapi.TagNameValidate,
-		reflect.ValueOf(new(v0.NetworkIngressDefinition)),
+		reflect.ValueOf(new(v0.GatewayDefinition)),
 		"",
 		iapi.Translate,
-		iapi.NetworkIngressDefinitionTaggedFields,
+		iapi.GatewayDefinitionTaggedFields,
 	)
 
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
-		Object:  string(v0.ObjectTypeNetworkIngressDefinition),
+		Object:  string(v0.ObjectTypeGatewayDefinition),
 		Version: iapi.V0,
 	}
 
 	// add the object tagged fields to the global tagged fields map
-	iapi.ObjectTaggedFields[versionObj] = iapi.NetworkIngressDefinitionTaggedFields[iapi.TagNameValidate]
+	iapi.ObjectTaggedFields[versionObj] = iapi.GatewayDefinitionTaggedFields[iapi.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)
 }
 
-// AddNetworkIngressInstanceVersions adds field validation info and adds it
+// AddGatewayInstanceVersions adds field validation info and adds it
 // to the REST API versions.
-func AddNetworkIngressInstanceVersions() {
-	iapi.NetworkIngressInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+func AddGatewayInstanceVersions() {
+	iapi.GatewayInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
 		Optional:             []string{},
 		OptionalAssociations: []string{},
 		Required:             []string{},
@@ -54,20 +54,20 @@ func AddNetworkIngressInstanceVersions() {
 	// parse struct and populate the FieldsByTag object
 	iapi.ParseStruct(
 		iapi.TagNameValidate,
-		reflect.ValueOf(new(v0.NetworkIngressInstance)),
+		reflect.ValueOf(new(v0.GatewayInstance)),
 		"",
 		iapi.Translate,
-		iapi.NetworkIngressInstanceTaggedFields,
+		iapi.GatewayInstanceTaggedFields,
 	)
 
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
-		Object:  string(v0.ObjectTypeNetworkIngressInstance),
+		Object:  string(v0.ObjectTypeGatewayInstance),
 		Version: iapi.V0,
 	}
 
 	// add the object tagged fields to the global tagged fields map
-	iapi.ObjectTaggedFields[versionObj] = iapi.NetworkIngressInstanceTaggedFields[iapi.TagNameValidate]
+	iapi.ObjectTaggedFields[versionObj] = iapi.GatewayInstanceTaggedFields[iapi.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)

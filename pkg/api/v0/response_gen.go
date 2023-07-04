@@ -33,16 +33,16 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = ForwardProxyDefinition{}
 	case ObjectTypeForwardProxyInstance:
 		objStruct = ForwardProxyInstance{}
+	case ObjectTypeGatewayDefinition:
+		objStruct = GatewayDefinition{}
+	case ObjectTypeGatewayInstance:
+		objStruct = GatewayInstance{}
 	case ObjectTypeLogBackend:
 		objStruct = LogBackend{}
 	case ObjectTypeLogStorageDefinition:
 		objStruct = LogStorageDefinition{}
 	case ObjectTypeLogStorageInstance:
 		objStruct = LogStorageInstance{}
-	case ObjectTypeNetworkIngressDefinition:
-		objStruct = NetworkIngressDefinition{}
-	case ObjectTypeNetworkIngressInstance:
-		objStruct = NetworkIngressInstance{}
 	case ObjectTypeWorkloadDefinition:
 		objStruct = WorkloadDefinition{}
 	case ObjectTypeWorkloadResourceDefinition:
@@ -88,16 +88,16 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeForwardProxyDefinition
 	case PathForwardProxyInstances:
 		return ObjectTypeForwardProxyInstance
+	case PathGatewayDefinitions:
+		return ObjectTypeGatewayDefinition
+	case PathGatewayInstances:
+		return ObjectTypeGatewayInstance
 	case PathLogBackends:
 		return ObjectTypeLogBackend
 	case PathLogStorageDefinitions:
 		return ObjectTypeLogStorageDefinition
 	case PathLogStorageInstances:
 		return ObjectTypeLogStorageInstance
-	case PathNetworkIngressDefinitions:
-		return ObjectTypeNetworkIngressDefinition
-	case PathNetworkIngressInstances:
-		return ObjectTypeNetworkIngressInstance
 	case PathWorkloadDefinitions:
 		return ObjectTypeWorkloadDefinition
 	case PathWorkloadResourceDefinitions:
@@ -143,16 +143,16 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeForwardProxyDefinition
 	case ForwardProxyInstance, *ForwardProxyInstance, []ForwardProxyInstance:
 		return ObjectTypeForwardProxyInstance
+	case GatewayDefinition, *GatewayDefinition, []GatewayDefinition:
+		return ObjectTypeGatewayDefinition
+	case GatewayInstance, *GatewayInstance, []GatewayInstance:
+		return ObjectTypeGatewayInstance
 	case LogBackend, *LogBackend, []LogBackend:
 		return ObjectTypeLogBackend
 	case LogStorageDefinition, *LogStorageDefinition, []LogStorageDefinition:
 		return ObjectTypeLogStorageDefinition
 	case LogStorageInstance, *LogStorageInstance, []LogStorageInstance:
 		return ObjectTypeLogStorageInstance
-	case NetworkIngressDefinition, *NetworkIngressDefinition, []NetworkIngressDefinition:
-		return ObjectTypeNetworkIngressDefinition
-	case NetworkIngressInstance, *NetworkIngressInstance, []NetworkIngressInstance:
-		return ObjectTypeNetworkIngressInstance
 	case WorkloadDefinition, *WorkloadDefinition, []WorkloadDefinition:
 		return ObjectTypeWorkloadDefinition
 	case WorkloadResourceDefinition, *WorkloadResourceDefinition, []WorkloadResourceDefinition:
