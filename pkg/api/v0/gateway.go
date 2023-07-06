@@ -31,6 +31,9 @@ type GatewayDefinition struct {
 	// The domain name to serve requests for.
 	DomainNameID *uint `json:"DomainNameID,omitempty" query:"domainname" validate:"optional"`
 
+	// The workload definition this resource belongs to.
+	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"constraint:OnDelete:CASCADE;omitempty" validate:"optional"`
+
 	// Indicates if object is considered to be reconciled by gateway controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
