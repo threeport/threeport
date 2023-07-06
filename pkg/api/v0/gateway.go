@@ -31,7 +31,7 @@ type GatewayDefinition struct {
 	// The domain name to serve requests for.
 	DomainNameID *uint `json:"DomainNameID,omitempty" query:"domainname" validate:"optional"`
 
-	// Indicates if object is considered to be reconciled by workload controller.
+	// Indicates if object is considered to be reconciled by gateway controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
@@ -46,4 +46,7 @@ type GatewayInstance struct {
 
 	// The cluster where the ingress layer is installed.
 	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" validate:"optional,association"`
+
+	// Indicates if object is considered to be reconciled by gateway controller.
+	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
