@@ -30,6 +30,9 @@ type GatewayDefinition struct {
 
 	// The domain name to serve requests for.
 	DomainNameID *uint `json:"DomainNameID,omitempty" query:"domainname" validate:"optional"`
+
+	// Indicates if object is considered to be reconciled by workload controller.
+	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
 type GatewayInstance struct {
