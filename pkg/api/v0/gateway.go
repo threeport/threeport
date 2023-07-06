@@ -35,6 +35,8 @@ type GatewayDefinition struct {
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
+// +threeport-codegen:reconciler
+// WorkloadInstance is a deployed instance of a workload.
 type GatewayInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
