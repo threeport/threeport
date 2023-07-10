@@ -9,7 +9,7 @@ func CreateGlooEdge() *unstructured.Unstructured {
 			"apiVersion": "ingress.support-services.nukleros.io/v1alpha1",
 			"kind":       "GlooEdge",
 			"metadata": map[string]interface{}{
-				"name": "glooedge-sample",
+				"name": "glooedge",
 			},
 			"spec": nil,
 		},
