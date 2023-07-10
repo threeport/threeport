@@ -22,65 +22,117 @@ func CreateGateway() *unstructured.Unstructured {
 
 	var gateway = &unstructured.Unstructured{
 		Object: map[string]interface{}{
-				"apiVersion": "gateway.solo.io/v1",
-				"kind":       "Gateway",
-				"metadata": map[string]interface{}{
-						"labels": map[string]interface{}{
-								"app": "gloo",
-						},
-						"name":      "gateway-proxy-ssl",
-						"namespace": "gloo-system",
+			"kind": "Gateway",
+			"metadata": map[string]interface{}{
+				"name":      "gateway-proxy",
+				"namespace": "default",
+				"labels": map[string]interface{}{
+					"app": "gloo",
 				},
-				"spec": map[string]interface{}{
-						"bindAddress": "::",
-						"bindPort":    8443,
-						"httpGateway": map[string]interface{}{},
-						"proxyNames": []interface{}{
-								"gateway-proxy",
+			},
+			"spec": map[string]interface{}{
+				"bindAddress":   "::",
+				"bindPort":      8080,
+				"httpGateway":   map[string]interface{}{},
+				"useProxyProto": false,
+				"ssl":           false,
+				"options": map[string]interface{}{
+					"accessLoggingService": map[string]interface{}{
+						"accessLog": []interface{}{
+							map[string]interface{}{
+								"fileSink": map[string]interface{}{
+									"path":         "/dev/stdout",
+									"stringFormat": "",
+								},
+							},
 						},
-						"ssl":           true,
-						"useProxyProto": false,
+					},
 				},
+				"proxyNames": []interface{}{
+					"gateway-proxy",
+				},
+			},
 		},
 	}
 
 	return gateway
 }
 
+func CreateGatewaySSL() *unstructured.Unstructured {
+
+	var gatewaySSL = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "gateway.solo.io/v1",
+			"kind":       "Gateway",
+			"metadata": map[string]interface{}{
+				"name":      "gateway-proxy-ssl",
+				"namespace": "default",
+				"labels": map[string]interface{}{
+					"app": "gloo",
+				},
+			},
+			"spec": map[string]interface{}{
+				"bindAddress":   "::",
+				"bindPort":      8443,
+				"httpGateway":   map[string]interface{}{},
+				"useProxyProto": false,
+				"ssl":           true,
+				"options": map[string]interface{}{
+					"accessLoggingService": map[string]interface{}{
+						"accessLog": []interface{}{
+							map[string]interface{}{
+								"fileSink": map[string]interface{}{
+									"path":         "/dev/stdout",
+									"stringFormat": "",
+								},
+							},
+						},
+					},
+				},
+				"proxyNames": []interface{}{
+					"gateway-proxy",
+				},
+			},
+		},
+	}
+
+	return gatewaySSL
+}
+
 func CreateVirtualService() *unstructured.Unstructured {
 
 	var virtualService = &unstructured.Unstructured{
 		Object: map[string]interface{}{
-				"apiVersion": "gateway.solo.io/v1",
-				"kind":       "VirtualService",
-				"metadata": map[string]interface{}{
-						"name":      "default",
-						"namespace": "gloo-system",
-				},
-				"spec": map[string]interface{}{
-						"virtualHost": map[string]interface{}{
-								"domains": []interface{}{
-										"*",
+			"apiVersion": "gateway.solo.io/v1",
+			"kind":       "VirtualService",
+			"metadata": map[string]interface{}{
+				"name":      "default",
+				"namespace": "gloo-system",
+			},
+			"spec": map[string]interface{}{
+				"virtualHost": map[string]interface{}{
+					"domains": []interface{}{
+						"*",
+					},
+					"routes": []interface{}{
+						map[string]interface{}{
+							"matchers": []interface{}{
+								map[string]interface{}{
+									"prefix": "/",
 								},
-								"routes": []interface{}{
-										map[string]interface{}{
-												"matchers": []interface{}{
-														map[string]interface{}{
-																"prefix": "/",
-														},
-												},
-												"routeAction": map[string]interface{}{
-														"single": map[string]interface{}{
-																"upstream": map[string]interface{}{
-																		"name":      "my-upstream",
-																		"namespace": "gloo-system",
-																},
-														},
-												},
-										},
+							},
+							"routeAction": map[string]interface{}{
+								"single": map[string]interface{}{
+									"upstream": map[string]interface{}{
+										"name":      "my-upstream",
+										"namespace": "gloo-system",
+									},
 								},
+							},
 						},
+					},
 				},
+			},
 		},
 	}
 
