@@ -71,5 +71,5 @@ type ClusterInstance struct {
 	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstance,omitempty" validate:"optional,association"`
 
 	// The WorkloadInstanceID of the gateway support service
-	GatewayWorkloadInstanceID *uint `json:"GatewayWorkloadInstanceID,omitempty" validate:"optional"`
+	GatewayControllerInstanceID *uint `json:"GatewayWorkloadInstanceID,omitempty" validate:"optional"`
 }
