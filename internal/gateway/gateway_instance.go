@@ -225,7 +225,7 @@ func gatewayInstanceCreated(
 	// build the workload resource definition and marshal to json
 	workloadResourceDefinition := &v0.WorkloadResourceDefinition{
 		JSONDefinition:       &jsonDefinition,
-		WorkloadDefinitionID: gatewayDefinition.WorkloadDefinitionID,
+		WorkloadDefinitionID: gatewayControllerWorkloadDefinition.ID,
 	}
 
 	// update the parent workload definition with the new workload resource definition
