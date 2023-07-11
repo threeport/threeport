@@ -165,11 +165,13 @@ func gatewayInstanceCreated(
 			return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
 		}
 
-		bindPort, found, err := unstructured.NestedInt64(kubeObject.Object, "spec", "bindPort")
-		bindPortInt32 := int32(bindPort)
-		if err == nil && found && bindPortInt32 == *gatewayWorkloadDefinition.TCPPort {
-			portFound = true
-			break
+		bindPorts, found, err := unstructured.NestedSlice(kubeObject.Object, "spec", "tcpPorts")
+		for _, bindPort := range bindPorts {
+			bindPortInt32 := bindPort.(int32)
+			if err == nil && found && bindPortInt32 == *gatewayWorkloadDefinition.TCPPort {
+				portFound = true
+				break
+			}
 		}
 	}
 
