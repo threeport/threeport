@@ -59,7 +59,7 @@ func gatewayInstanceCreated(
 
 		glooEdgeString := string(glooEdgeBytes)
 
-		workloadDef := v0.WorkloadDefinition{
+		glooEdgeWorkloadDefinition := v0.WorkloadDefinition{
 			Definition: v0.Definition{
 				Name: &workloadDefName,
 			},
@@ -70,38 +70,38 @@ func gatewayInstanceCreated(
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			r.APIClient,
 			r.APIServer,
-			&workloadDef,
+			&glooEdgeWorkloadDefinition,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to get gateway controller instance: %w", err)
 		}
 
 		// create gateway workload instance
-		workloadInst := v0.WorkloadInstance{
+		glooEdgeWorkloadInstance := v0.WorkloadInstance{
 			Instance: v0.Instance{
 				Name: &workloadDefName,
 			},
 			ClusterInstanceID:    gatewayInstance.ClusterInstanceID,
 			WorkloadDefinitionID: createdWorkloadDef.ID,
 		}
-		createdWorkloadInstance, err := client.CreateWorkloadInstance(
+		createdGlooEdgeWorkloadInstance, err := client.CreateWorkloadInstance(
 			r.APIClient,
 			r.APIServer,
-			&workloadInst,
+			&glooEdgeWorkloadInstance,
 		)
 
 		// update cluster instance with gateway controller instance id
-		clusterInstance.GatewayControllerInstanceID = createdWorkloadInstance.ID
+		clusterInstance.GatewayControllerInstanceID = createdGlooEdgeWorkloadInstance.ID
 		_, err = client.UpdateClusterInstance(
 			r.APIClient,
 			r.APIServer,
 			clusterInstance,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to get gateway controller workload definition: %w", err)
+			return fmt.Errorf("failed to update gateway controller workload instance: %w", err)
 		}
 
-		return errors.New("failed to deploy gateway instance, no gateway controller instance found. Deploying gateway controller")
+		return errors.New("failed to deploy gateway instance, no gateway controller instance found. Deploying gateway controller instance")
 
 	} else {
 
@@ -116,6 +116,8 @@ func gatewayInstanceCreated(
 		}
 
 	}
+
+	// ensure gateway controller has requested port exposed
 
 	// get gateway controller workload instance
 	gatewayControllerInstance, err := client.GetWorkloadInstanceByID(
