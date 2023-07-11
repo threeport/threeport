@@ -179,6 +179,8 @@ func gatewayInstanceCreated(
 		return errors.New("gateway controller instance does not have requested port exposed")
 	}
 
+	// update parent workload definition with virtual service to expose requested port
+
 	// get parent workload definition that we're configuring this gateway for
 	parentWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
 		r.APIClient,
@@ -189,7 +191,6 @@ func gatewayInstanceCreated(
 		return fmt.Errorf("failed to get parent workload definition: %w", err)
 	}
 
-	var virtualServicePortFound = false
 	for _, wri := range parentWorkloadDefinition.WorkloadResourceDefinitions {
 		// marshal the resource definition json
 		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
@@ -206,12 +207,8 @@ func gatewayInstanceCreated(
 		bindPort, found, err := unstructured.NestedInt64(kubeObject.Object, "spec", "bindPort")
 		bindPortInt32 := int32(bindPort)
 		if err == nil && found && bindPortInt32 == *gatewayWorkloadDefinition.TCPPort {
-			virtualServicePortFound = true
-			break
+			return errors.New("virtual service already exists for requested port")
 		}
-	}
-
-	if !virtualServicePortFound {
 	}
 
 	virtualServiceBytes, err := json.Marshal(CreateVirtualService())
