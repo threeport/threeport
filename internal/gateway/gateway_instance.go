@@ -175,6 +175,8 @@ func gatewayInstanceCreated(
 
 	// create a gateway with the requested port
 	if !portFound {
+		//TODO: create gateway with requested port if not found
+		return errors.New("gateway controller instance does not have requested port exposed")
 	}
 
 	// get gateway definition for this instance
