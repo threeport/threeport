@@ -53,6 +53,16 @@ func gatewayDefinitionCreated(
 
 // gatewayDefinitionDeleted performs reconciliation when a gateway definition
 // has been deleted.
+func gatewayDefinitionUpdated(
+	r *controller.Reconciler,
+	gatewayDefinition *v0.GatewayDefinition,
+	log *logr.Logger,
+) error {
+	return nil
+}
+
+// gatewayDefinitionDeleted performs reconciliation when a gateway definition
+// has been deleted.
 func gatewayDefinitionDeleted(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,

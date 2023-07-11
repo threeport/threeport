@@ -205,6 +205,17 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifPayload, err := updatedProfile.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ProfileCreateSubject, *notifPayload)
+
 	response, err := v0.CreateResponse(nil, existingProfile)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -515,6 +526,17 @@ func (h Handler) UpdateTier(c echo.Context) error {
 	if result := h.DB.Model(&existingTier).Updates(updatedTier); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := updatedTier.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.TierCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingTier)
 	if err != nil {

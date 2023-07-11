@@ -130,6 +130,17 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+			case notifications.NotificationOperationUpdated:
+				if err := gatewayDefinitionUpdated(r, &gatewayDefinition, &log); err != nil {
+					log.Error(err, "failed to reconcile updated gateway definition object")
+					r.UnlockAndRequeue(
+						&gatewayDefinition,
+						msg.Subject,
+						notifPayload,
+						requeueDelay,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
 				if err := gatewayDefinitionDeleted(r, &gatewayDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted gateway definition object")

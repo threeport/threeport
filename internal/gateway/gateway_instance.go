@@ -239,6 +239,16 @@ func gatewayInstanceCreated(
 }
 
 // gatewayInstanceDeleted performs reconciliation when a gateway instance
+// has been updated
+func gatewayInstanceUpdated(
+	r *controller.Reconciler,
+	gatewayInstance *v0.GatewayInstance,
+	log *logr.Logger,
+) error {
+	return nil
+}
+
+// gatewayInstanceDeleted performs reconciliation when a gateway instance
 // has been deleted
 func gatewayInstanceDeleted(
 	r *controller.Reconciler,
@@ -246,7 +256,7 @@ func gatewayInstanceDeleted(
 	log *logr.Logger,
 ) error {
 	// get gateway resource instances
-	gatewayResourceInstances, err := client.GetGatewayResourceInstancesByGatewayInstanceID(
+	gatewayResourceInstances, err := client.GetGatewayResourceInstancesByID(
 		r.APIClient,
 		r.APIServer,
 		*gatewayInstance.ID,

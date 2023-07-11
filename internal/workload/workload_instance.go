@@ -205,6 +205,16 @@ func workloadInstanceCreated(
 }
 
 // workloadInstanceDeleted performs reconciliation when a workload instance
+// has been updated
+func workloadInstanceUpdated(
+	r *controller.Reconciler,
+	workloadInstance *v0.WorkloadInstance,
+	log *logr.Logger,
+) error {
+	return nil
+}
+
+// workloadInstanceDeleted performs reconciliation when a workload instance
 // has been deleted
 func workloadInstanceDeleted(
 	r *controller.Reconciler,

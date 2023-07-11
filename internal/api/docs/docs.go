@@ -7412,12 +7412,20 @@ const docTemplate = `{
                     "description": "Allow requests from the public internet.",
                     "type": "boolean"
                 },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "type": "boolean"
+                },
                 "TCPPort": {
                     "description": "TCP Port to expose to outside network.",
                     "type": "integer"
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                },
+                "WorkloadDefinitionID": {
+                    "description": "The workload definition this resource belongs to.",
                     "type": "integer"
                 }
             }
@@ -7439,6 +7447,10 @@ const docTemplate = `{
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "type": "boolean"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -7544,54 +7556,54 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "AwsAccount",
-                "AwsEksClusterDefinition",
-                "AwsEksClusterInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "ClusterDefinition",
-                "ClusterInstance",
                 "Profile",
                 "Tier",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "DomainNameDefinition",
-                "DomainNameInstance"
+                "AwsAccount",
+                "AwsEksClusterDefinition",
+                "AwsEksClusterInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksClusterDefinition",
-                "ObjectTypeAwsEksClusterInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance"
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksClusterDefinition",
+                "ObjectTypeAwsEksClusterInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance"
             ]
         },
         "v0.Profile": {

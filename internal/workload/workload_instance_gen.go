@@ -130,6 +130,17 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+			case notifications.NotificationOperationUpdated:
+				if err := workloadInstanceUpdated(r, &workloadInstance, &log); err != nil {
+					log.Error(err, "failed to reconcile updated workload instance object")
+					r.UnlockAndRequeue(
+						&workloadInstance,
+						msg.Subject,
+						notifPayload,
+						requeueDelay,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
 				if err := workloadInstanceDeleted(r, &workloadInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted workload instance object")
