@@ -2,12 +2,13 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	"gopkg.in/yaml.v2"
+	"gorm.io/datatypes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -26,6 +27,16 @@ func gatewayInstanceCreated(
 	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) error {
+
+	// ensure gateway definition is reconciled before working on an instance
+	// for it
+	reconciled, err := confirmGatewayDefReconciled(r, gatewayInstance)
+	if err != nil {
+		return fmt.Errorf("failed to determine if gateway definition is reconciled: %w", err)
+	}
+	if !reconciled {
+		return errors.New("gateway definition not reconciled")
+	}
 
 	// get cluster instance info
 	clusterInstance, err := client.GetClusterInstanceByID(
@@ -73,14 +84,14 @@ func gatewayInstanceCreated(
 			ClusterInstanceID:    gatewayInstance.ClusterInstanceID,
 			WorkloadDefinitionID: createdWorkloadDef.ID,
 		}
-		createdWorkloadInst, err := client.CreateWorkloadInstance(
+		createdWorkloadInstance, err := client.CreateWorkloadInstance(
 			r.APIClient,
 			r.APIServer,
 			&workloadInst,
 		)
 
 		// update cluster instance with gateway controller instance id
-		clusterInstance.GatewayControllerInstanceID = createdWorkloadInst.ID
+		clusterInstance.GatewayControllerInstanceID = createdWorkloadInstance.ID
 		_, err = client.UpdateClusterInstance(
 			r.APIClient,
 			r.APIServer,
@@ -90,76 +101,78 @@ func gatewayInstanceCreated(
 			return fmt.Errorf("failed to get gateway controller workload definition: %w", err)
 		}
 
+		return errors.New("failed to deploy gateway instance, no gateway controller instance found. Deploying gateway controller")
+
+	} else {
+
+		// ensure gateway controller instance is reconciled before working on
+		// a gateway instance for it
+		reconciled, err := confirmGatewayControllerInstanceReconciled(r, *clusterInstance.GatewayControllerInstanceID)
+		if err != nil {
+			return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
+		}
+		if !reconciled {
+			return errors.New("gateway controller instance not reconciled")
+		}
+
 	}
 
-	// confirm gateway controller instance is reconciled
-
-	// // get gateway workload instance
-	// gatewayControllerInstance, err := client.GetWorkloadInstanceByID(
-	// 	r.APIClient,
-	// 	r.APIServer,
-	// 	*clusterInstance.GatewayControllerInstanceID,
-	// )
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get gateway controller instance: %w", err)
-	// }
-
-	// // get gateway workload definition
-	// gatewayControllerWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
-	// 	r.APIClient,
-	// 	r.APIServer,
-	// 	*gatewayControllerInstance.WorkloadDefinitionID,
-	// )
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get gateway controller workload definition: %w", err)
-	// }
-
-	// // get gateway definition
-	// gatewayWorkloadDefinition, err := client.GetGatewayDefinitionByID(
-	// 	r.APIClient,
-	// 	r.APIServer,
-	// 	*gatewayInstance.GatewayDefinitionID,
-	// )
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get gateway controller workload definition: %w", err)
-	// }
-
-	// var portFound = false
-	// // check existing gateways for requested port
-	// for _, wri := range gatewayControllerWorkloadDefinition.WorkloadResourceDefinitions {
-
-	// 	// marshal the resource definition json
-	// 	jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to marshal json for workload resource instance: %w", err)
-	// 	}
-
-	// 	// build kube unstructured object from json
-	// 	kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-	// 	if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
-	// 		return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
-	// 	}
-
-	// 	bindPort, found, err := unstructured.NestedInt64(kubeObject.Object, "spec", "bindPort")
-	// 	bindPortInt32 := int32(bindPort)
-	// 	if err == nil && found && bindPortInt32 == *gatewayWorkloadDefinition.TCPPort {
-	// 		portFound = true
-	// 		break
-	// 	}
-	// }
-
-	// // create a gateway with the requested port
-	// if !portFound {
-	// }
-
-	// ensure gateway definition is reconciled before working on an instance
-	// for it
-	reconciled, err := confirmGatewayDefReconciled(r, gatewayInstance)
+	// get gateway controller workload instance
+	gatewayControllerInstance, err := client.GetWorkloadInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*clusterInstance.GatewayControllerInstanceID,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to determine if gateway definition is reconciled: %w", err)
+		return fmt.Errorf("failed to get gateway controller instance: %w", err)
 	}
-	if !reconciled {
-		return errors.New("gateway definition not reconciled")
+
+	// get gateway controller workload definition
+	gatewayControllerWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayControllerInstance.WorkloadDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get gateway controller workload definition: %w", err)
+	}
+
+	// get gateway definition
+	gatewayWorkloadDefinition, err := client.GetGatewayDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayInstance.GatewayDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get gateway controller workload definition: %w", err)
+	}
+
+	var portFound = false
+	// check existing gateways for requested port
+	for _, wri := range gatewayControllerWorkloadDefinition.WorkloadResourceDefinitions {
+
+		// marshal the resource definition json
+		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
+		if err != nil {
+			return fmt.Errorf("failed to marshal json for workload resource instance: %w", err)
+		}
+
+		// build kube unstructured object from json
+		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
+			return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
+		}
+
+		bindPort, found, err := unstructured.NestedInt64(kubeObject.Object, "spec", "bindPort")
+		bindPortInt32 := int32(bindPort)
+		if err == nil && found && bindPortInt32 == *gatewayWorkloadDefinition.TCPPort {
+			portFound = true
+			break
+		}
+	}
+
+	// create a gateway with the requested port
+	if !portFound {
 	}
 
 	// get gateway definition for this instance
@@ -172,31 +185,22 @@ func gatewayInstanceCreated(
 		return fmt.Errorf("failed to get gateway definition for the instance being deployed: %w", err)
 	}
 
-	// get a kube discovery client for the cluster
-	discoveryClient, err := kube.GetDiscoveryClient(clusterInstance, true)
-
-	// manipulate namespace on kube resources as needed
-	processedWRIs, err := kube.SetNamespaces(
-		&gatewayResourceInstances,
-		gatewayInstance,
-		discoveryClient,
+	// get parent workload definition that we're configuring this gateway for
+	parentWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayDefinition.WorkloadDefinitionID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to set namespaces for gateway resource instances: %w", err)
+		return fmt.Errorf("failed to get parent workload definition: %w", err)
 	}
 
-	// create a dynamic client to connect to kube API
-	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
-	if err != nil {
-		return fmt.Errorf("failed to create dynamic kube API client: %w", err)
-	}
-
-	// create each resource in the target kube cluster
-	for _, wri := range *processedWRIs {
+	var virtualServicePortFound = false
+	for _, wri := range parentWorkloadDefinition.WorkloadResourceDefinitions {
 		// marshal the resource definition json
 		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
 		if err != nil {
-			return fmt.Errorf("failed to marshal json for gateway resource instance: %w", err)
+			return fmt.Errorf("failed to marshal json for workload resource instance: %w", err)
 		}
 
 		// build kube unstructured object from json
@@ -205,84 +209,40 @@ func gatewayInstanceCreated(
 			return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
 		}
 
-		// set label metadata on kube object
-		kubeObject, err = kube.AddLabels(
-			kubeObject,
-			*gatewayDefinition.Name,
-			gatewayInstance,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to add label metadata to objects: %w", err)
+		bindPort, found, err := unstructured.NestedInt64(kubeObject.Object, "spec", "bindPort")
+		bindPortInt32 := int32(bindPort)
+		if err == nil && found && bindPortInt32 == *gatewayWorkloadDefinition.TCPPort {
+			virtualServicePortFound = true
+			break
 		}
-
-		// create kube resource
-		_, err = kube.CreateResource(kubeObject, dynamicKubeClient, *mapper)
-		if err != nil {
-			// add a GatewayEvent to surface the problem
-			eventRuntimeUID := r.ControllerID.String()
-			eventType := "Failed"
-			eventReason := "CreateResourceError"
-			eventMessage := fmt.Sprintf("failed to create Kubernetes resource for gateway instance: %s", err)
-			timestamp := time.Now()
-			createEvent := v0.GatewayEvent{
-				RuntimeEventUID:   &eventRuntimeUID,
-				Type:              &eventType,
-				Reason:            &eventReason,
-				Message:           &eventMessage,
-				Timestamp:         &timestamp,
-				GatewayInstanceID: gatewayInstance.ID,
-			}
-			_, err := client.CreateGatewayEvent(
-				r.APIClient,
-				r.APIServer,
-				&createEvent,
-			)
-			if err != nil {
-				log.Error(err, "failed to create gateway event for Kubernetes resource creation error")
-			}
-			return fmt.Errorf("failed to create Kubernetes resource: %w", err)
-		}
-
-		// create object in threeport API
-		createdWRI, err := client.CreateGatewayResourceInstance(
-			r.APIClient,
-			r.APIServer,
-			&wri,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create gateway resource instance in threeport: %w", err)
-		}
-
-		agentWRI := agentapi.GatewayResourceInstance{
-			Name:        kubeObject.GetName(),
-			Namespace:   kubeObject.GetNamespace(),
-			Group:       kubeObject.GroupVersionKind().Group,
-			Version:     kubeObject.GroupVersionKind().Version,
-			Kind:        kubeObject.GetKind(),
-			ThreeportID: *createdWRI.ID,
-		}
-		threeportGateway.Spec.GatewayResourceInstances = append(
-			threeportGateway.Spec.GatewayResourceInstances,
-			agentWRI,
-		)
-
-		log.V(1).Info(
-			"gateway resource instance created",
-			"gatewayResourceInstanceID", wri.ID,
-		)
 	}
 
-	// create the ThreeportGateway resource to inform the threeport-agent of
-	// the resources that need to be watched
-	resourceClient := dynamicKubeClient.Resource(agentapi.ThreeportGatewayGVR)
-	unstructured, err := agentapi.UnstructuredThreeportGateway(&threeportGateway)
+	if !virtualServicePortFound {
+	}
+
+	virtualServiceBytes, err := json.Marshal(CreateVirtualService())
 	if err != nil {
-		return fmt.Errorf("failed to generate unstructured object for ThreeportGateway resource for creation in run time cluster")
+		return fmt.Errorf("Error marshaling to JSON: %v", err)
 	}
-	_, err = resourceClient.Create(context.Background(), unstructured, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to create new ThreeportGateway resource: %w", err)
+
+	// unmarshal the json into the type used by API
+	var jsonDefinition datatypes.JSON
+	if err := jsonDefinition.UnmarshalJSON(virtualServiceBytes); err != nil {
+		return fmt.Errorf("failed to unmarshal json to datatypes.JSON: %w", err)
 	}
+
+	// build the workload resource definition and marshal to json
+	workloadResourceDefinition := &v0.WorkloadResourceDefinition{
+		JSONDefinition:       &jsonDefinition,
+		WorkloadDefinitionID: gatewayDefinition.WorkloadDefinitionID,
+	}
+
+	// update the parent workload definition with the new workload resource definition
+	client.CreateWorkloadResourceDefinition(
+		r.APIClient,
+		r.APIServer,
+		workloadResourceDefinition,
+	)
 
 	return nil
 }
@@ -398,7 +358,6 @@ func confirmGatewayDefReconciled(
 
 	return true, nil
 }
-
 
 // TODO: refactor this into generic reconcile check function for instances
 // confirmGatewayDefReconciled confirms the gateway definition related to a
