@@ -179,21 +179,11 @@ func gatewayInstanceCreated(
 		return errors.New("gateway controller instance does not have requested port exposed")
 	}
 
-	// get gateway definition for this instance
-	gatewayDefinition, err := client.GetGatewayDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.GatewayDefinitionID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get gateway definition for the instance being deployed: %w", err)
-	}
-
 	// get parent workload definition that we're configuring this gateway for
 	parentWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
 		r.APIClient,
 		r.APIServer,
-		*gatewayDefinition.WorkloadDefinitionID,
+		*gatewayWorkloadDefinition.WorkloadDefinitionID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get parent workload definition: %w", err)
