@@ -305,11 +305,17 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayDefinition
 	gatewayDefinitionID := c.Param("id")
 	var gatewayDefinition v0.GatewayDefinition
-	if result := h.DB.First(&gatewayDefinition, gatewayDefinitionID); result.Error != nil {
+	if result := h.DB.Preload("GatewayInstances").First(&gatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check to make sure no dependent instances exist for this definition
+	if len(gatewayDefinition.GatewayInstances) != 0 {
+		err := errors.New("gateway definition has related gateway instances - cannot be deleted")
+		return iapi.ResponseStatus409(c, nil, err, objectType)
 	}
 
 	if result := h.DB.Delete(&gatewayDefinition); result.Error != nil {

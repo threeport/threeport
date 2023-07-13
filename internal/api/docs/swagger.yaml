@@ -327,6 +327,9 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
+      WorkloadInstanceID:
+        description: The workload resource instance this gateway belongs to.
+        type: integer
     required:
     - Name
     type: object
@@ -408,54 +411,54 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - Profile
-    - Tier
-    - DomainNameDefinition
-    - DomainNameInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - GatewayDefinition
-    - GatewayInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
     - WorkloadEvent
+    - Profile
+    - Tier
+    - ClusterDefinition
+    - ClusterInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       Name:

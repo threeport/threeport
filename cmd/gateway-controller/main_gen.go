@@ -6,11 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"sync"
-	"time"
-
 	logr "github.com/go-logr/logr"
 	zapr "github.com/go-logr/zapr"
 	uuid "github.com/google/uuid"
@@ -22,6 +17,10 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	zap "go.uber.org/zap"
+	"net/http"
+	"os"
+	"sync"
+	"time"
 )
 
 func main() {

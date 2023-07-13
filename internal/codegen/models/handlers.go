@@ -16,7 +16,7 @@ import (
 // deletionInstanceCheckTypeNames returns the definition objects that need to
 // have related instances checked when deleting
 func deletionInstanceCheckTypeNames() []string {
-	return []string{"WorkloadDefinition"}
+	return []string{"WorkloadDefinition", "GatewayDefinition"}
 }
 
 // apiHandlersPath returns the path from the models to the API's internal handlers
