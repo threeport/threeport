@@ -72,9 +72,11 @@ func workloadInstanceCreated(
 	// construct workload resource instances
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 	for _, wrd := range *workloadResourceDefinitions {
+		reconciled := false
 		wri := v0.WorkloadResourceInstance{
 			JSONDefinition:     wrd.JSONDefinition,
 			WorkloadInstanceID: workloadInstance.ID,
+			Reconciled:         &reconciled,
 		}
 		workloadResourceInstances = append(workloadResourceInstances, wri)
 	}
@@ -162,6 +164,10 @@ func workloadInstanceCreated(
 			}
 			return fmt.Errorf("failed to create Kubernetes resource: %w", err)
 		}
+
+		// set workload resource instance reconciled to true
+		reconciled := true
+		wri.Reconciled = &reconciled
 
 		// create object in threeport API
 		createdWRI, err := client.CreateWorkloadResourceInstance(
@@ -270,7 +276,7 @@ func workloadInstanceUpdated(
 				return fmt.Errorf("failed to update Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
 			}
 
-		// otherwise, it is an existing resource and we may update it
+			// otherwise, it is an existing resource and we may update it
 		} else {
 			// update kube resource
 			if _, err := kube.UpdateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
