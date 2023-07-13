@@ -84,6 +84,11 @@ func gatewayInstanceCreated(
 		return fmt.Errorf("failed to update gateway instance: %w", err)
 	}
 
+	log.V(1).Info(
+		"gateway instance created",
+		"gatewayResourceInstanceID", gatewayInstance.ID,
+	)
+
 	return nil
 }
 
@@ -158,6 +163,11 @@ func gatewayInstanceUpdated(
 	if err != nil {
 		return fmt.Errorf("failed to update gateway instance: %w", err)
 	}
+
+	log.V(1).Info(
+		"gateway instance updated",
+		"gatewayResourceInstanceID", gatewayInstance.ID,
+	)
 
 	return nil
 }
@@ -249,6 +259,11 @@ func gatewayInstanceDeleted(
 	if err != nil {
 		return fmt.Errorf("failed to delete workload resource instance with ID %d: %w", workloadResourceInstance.ID, err)
 	}
+
+	log.V(1).Info(
+		"gateway instance deleted",
+		"gatewayResourceInstanceID", gatewayInstance.ID,
+	)
 
 	return nil
 }
