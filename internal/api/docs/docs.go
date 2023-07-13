@@ -7981,6 +7981,10 @@ const docTemplate = `{
                     "description": "The key ID credentials for the AWS account.",
                     "type": "string"
                 },
+                "AccountID": {
+                    "description": "The account ID for the AWS account.",
+                    "type": "string"
+                },
                 "AwsEksClusterInstances": {
                     "description": "The cluster instances deployed in this AWS account.",
                     "type": "array",
@@ -8674,6 +8678,7 @@ const docTemplate = `{
             "enum": [
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "GatewayDefinition",
                 "GatewayInstance",
                 "Profile",
@@ -8700,11 +8705,14 @@ const docTemplate = `{
                 "ClusterInstance",
 =======
 >>>>>>> 68c94e3 (feat: add aws controller)
+=======
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
+<<<<<<< HEAD
 <<<<<<< HEAD
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
@@ -8751,33 +8759,39 @@ const docTemplate = `{
                 "LogStorageDefinition",
                 "LogStorageInstance",
 >>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
+=======
+                "Profile",
+                "Tier",
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "ClusterDefinition",
-                "ClusterInstance",
-                "Profile",
-                "Tier",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "ClusterDefinition",
+                "ClusterInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "AwsAccount",
-                "AwsEksClusterDefinition",
-                "AwsEksClusterInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance"
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance"
             ],
             "x-enum-varnames": [
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 68c94e3 (feat: add aws controller)
+=======
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
+<<<<<<< HEAD
 <<<<<<< HEAD
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
@@ -8798,11 +8812,16 @@ const docTemplate = `{
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
 >>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
+=======
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
+<<<<<<< HEAD
                 "ObjectTypeClusterDefinition",
                 "ObjectTypeClusterInstance",
                 "ObjectTypeProfile",
@@ -8812,16 +8831,28 @@ const docTemplate = `{
                 "ObjectTypeClusterInstance"
 >>>>>>> 68c94e3 (feat: add aws controller)
 =======
+=======
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
+<<<<<<< HEAD
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance"
 >>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
+=======
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance"
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
             ]
         },
         "v0.Profile": {

@@ -17,9 +17,6 @@ type AwsAccount struct {
 	// The account ID for the AWS account.
 	AccountID *string `json:"AccountID,omitempty" query:"accountid" gorm:"not null" validate:"required"`
 
-	// If true is the AWS Account used if none specified in a definition.
-	DefaultAccount *bool `json:"DefaultAccount,omitempty" query:"defaultaccount" gorm:"default:false" validate:"optional"`
-
 	// The key ID credentials for the AWS account.
 	AccessKeyID *string `json:"AccessKeyID,omitempty" query:"accesskeyid" gorm:"not null" validate:"required"`
 

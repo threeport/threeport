@@ -12,6 +12,24 @@ const (
 	ControlPlaneNamespace = "threeport-control-plane"
 )
 
+// ClusterInfraProvider indicates which infrastructure provider is being
+// used to run the threeport control plane.
+type ClusterInfraProvider string
+
+const (
+	ClusterInfraProviderKind = "kind"
+	ClusterInfraProviderEKS  = "eks"
+)
+
+// SupportedInfraProviders returns all supported infra providers.
+// TODO: move this to code generated from constants above
+func SupportedInfraProviders() []ClusterInfraProvider {
+	return []ClusterInfraProvider{
+		ClusterInfraProviderKind,
+		ClusterInfraProviderEKS,
+	}
+}
+
 // ControlPlaneTier denotes what level of availability and data retention is
 // employed for an installation of a threeport control plane.
 type ControlPlaneTier string
@@ -23,7 +41,7 @@ const (
 
 // ControlPlane is an instance of a threeport control plane.
 type ControlPlane struct {
-	InfraProvider v0.KubernetesRuntimeInfraProvider
+	InfraProvider ClusterInfraProvider
 	Tier          ControlPlaneTier
 }
 

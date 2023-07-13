@@ -72,11 +72,9 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// determine if the API is serving HTTPS or HTTP
 		var authEnabled bool
-		var respCodeErr error
-		resp, err := http.Get(fmt.Sprintf("http://%s/version", apiAddr()))
-		assert.Nil(err, "should not get an error when calling threeport API version endpoint")
-		switch resp.StatusCode {
-		case 400:
+		_, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
+		cli.InitConfig("", "")
+		if strings.Contains(err.Error(), "signed by unknown authority") {
 			authEnabled = true
 			t.Log("auth enabled")
 		case 200:
