@@ -91,6 +91,9 @@ func workloadInstanceCreated(
 
 	// get a kube discovery client for the cluster
 	discoveryClient, err := kube.GetDiscoveryClient(clusterInstance, true)
+	if err != nil {
+		return fmt.Errorf("failed to get kube discovery client for cluster: %w", err)
+	}
 
 	// manipulate namespace on kube resources as needed
 	processedWRIs, err := kube.SetNamespaces(
@@ -317,7 +320,7 @@ func workloadInstanceDeleted(
 	// create a client to connect to kube API
 	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
 	if err != nil {
-		fmt.Errorf("failed to create kube API client object: %w", err)
+		return fmt.Errorf("failed to create kube API client object: %w", err)
 	}
 
 	// delete each workload resource instance and resource in the target kube cluster
@@ -388,7 +391,7 @@ func confirmWorkloadDefReconciled(
 	if err != nil {
 		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
 	}
-	if workloadDefinition.Reconciled != nil && *workloadDefinition.Reconciled != true {
+	if workloadDefinition.Reconciled != nil && !*workloadDefinition.Reconciled {
 		return false, nil
 	}
 
