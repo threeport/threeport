@@ -223,11 +223,11 @@ func gatewayInstanceCreated(
 		return fmt.Errorf("failed to get gateway workload definition: %w", err)
 	}
 
+	// create decoder to interpret yaml manifest
 	decoder := yamlv3.NewDecoder(strings.NewReader(*gatewayWorkloadDefinition.YAMLDocument))
 
 	// decode the next resource, exit loop if the end has been reached
 	var node yamlv3.Node
-
 	err = decoder.Decode(&node)
 	if errors.Is(err, io.EOF) {
 		return fmt.Errorf("failed to decode yaml from gateway workload definition: %w", err)
@@ -264,6 +264,14 @@ func gatewayInstanceCreated(
 		r.APIClient,
 		r.APIServer,
 		workloadResourceInstance,
+	)
+
+	// trigger a reconciliation of the workload instance by setting Reconciled to false
+	workloadInstance.Reconciled = &reconciled
+	client.UpdateWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		workloadInstance,
 	)
 
 	return nil
