@@ -53,7 +53,6 @@ func GetAuthConfig() (*AuthConfig, error) {
 
 // GenerateCACertificate generates a certificate authority and private key for the Threeport API.
 func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKey *rsa.PrivateKey, err error) {
-
 	// generate a random identifier for use as a serial number
 	max := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
 	randomNumber, err := rand.Int(rand.Reader, max)
@@ -110,7 +109,6 @@ func GenerateCertificate(
 	caPrivateKey *rsa.PrivateKey,
 	altNames ...string,
 ) (certificate string, privateKey string, err error) {
-
 	// generate a random identifier for use as a serial number
 	max := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
 	randomNumber, err := rand.Int(rand.Reader, max)

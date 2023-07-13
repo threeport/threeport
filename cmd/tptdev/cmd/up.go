@@ -9,9 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/cli"
-	internalCmd "github.com/threeport/threeport/internal/cmd"
 	"github.com/threeport/threeport/internal/tptdev"
-	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 // upCmd represents the up command
@@ -20,7 +18,7 @@ var upCmd = &cobra.Command{
 	Short: "Spin up a new threeport development environment",
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := internalCmd.CreateControlPlane(cliArgs)
+		err := cliArgs.CreateControlPlane()
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
 			os.Exit(1)
@@ -68,7 +66,6 @@ func init() {
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
 	)
 	cobra.OnInitialize(func() {
-		config.InitConfig(cliArgs.CfgFile, cliArgs.ProviderConfigDir)
+		cli.InitConfig(cliArgs.CfgFile, cliArgs.ProviderConfigDir)
 	})
-
 }

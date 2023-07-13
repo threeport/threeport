@@ -4,13 +4,13 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/cli"
-	internalCmd "github.com/threeport/threeport/internal/cmd"
 	"github.com/threeport/threeport/internal/threeport"
 )
 
@@ -26,9 +26,13 @@ var CreateControlPlaneCmd = &cobra.Command{
 	Long:         `Create a new instance of the Threeport control plane.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := internalCmd.CreateControlPlane(cliArgs)
+		err := cliArgs.CreateControlPlane()
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
+			if errors.Is(cli.ThreeportConfigAlreadyExistsErr, err) {
+				cli.Info("if you wish to overwrite the existing config use --force-overwrite-config flag")
+				cli.Warning("you will lose the ability to connect to the existing threeport instance if it is still running")
+			}
 			os.Exit(1)
 		}
 	},

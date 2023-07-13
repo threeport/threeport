@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/threeport/threeport/internal/cli"
-	internalCmd "github.com/threeport/threeport/internal/cmd"
 )
 
 // DeleteControlPlaneCmd represents the delete control-plane command
@@ -19,7 +18,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 	Long:         `Delete an instance of the Threeport control plane.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := internalCmd.DeleteControlPlane(cliArgs)
+		err := cliArgs.DeleteControlPlane()
 		if err != nil {
 			cli.Error("failed to delete threeport control plane", err)
 			os.Exit(1)

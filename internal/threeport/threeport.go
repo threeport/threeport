@@ -8,21 +8,21 @@ const (
 	ControlPlaneNamespace = "threeport-control-plane"
 )
 
-// ControlPlaneInfraProvider indicates which infrastructure provider is being
+// ClusterInfraProvider indicates which infrastructure provider is being
 // used to run the threeport control plane.
-type ControlPlaneInfraProvider string
+type ClusterInfraProvider string
 
 const (
-	ControlPlaneInfraProviderKind = "kind"
-	ControlPlaneInfraProviderEKS  = "eks"
+	ClusterInfraProviderKind = "kind"
+	ClusterInfraProviderEKS  = "eks"
 )
 
 // SupportedInfraProviders returns all supported infra providers.
 // TODO: move this to code generated from constants above
-func SupportedInfraProviders() []ControlPlaneInfraProvider {
-	return []ControlPlaneInfraProvider{
-		ControlPlaneInfraProviderKind,
-		ControlPlaneInfraProviderEKS,
+func SupportedInfraProviders() []ClusterInfraProvider {
+	return []ClusterInfraProvider{
+		ClusterInfraProviderKind,
+		ClusterInfraProviderEKS,
 	}
 }
 
@@ -37,7 +37,7 @@ const (
 
 // ControlPlane is an instance of a threeport control plane.
 type ControlPlane struct {
-	InfraProvider ControlPlaneInfraProvider
+	InfraProvider ClusterInfraProvider
 	Tier          ControlPlaneTier
 }
 

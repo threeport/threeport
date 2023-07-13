@@ -33,6 +33,9 @@ definitions:
       AccessKeyID:
         description: The key ID credentials for the AWS account.
         type: string
+      AccountID:
+        description: The account ID for the AWS account.
+        type: string
       AwsEksClusterInstances:
         description: The cluster instances deployed in this AWS account.
         items:
@@ -49,6 +52,7 @@ definitions:
         type: string
     required:
     - AccessKeyID
+    - AccountID
     - DefaultRegion
     - Name
     - SecretAccessKey
@@ -539,6 +543,7 @@ definitions:
     enum:
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     - GatewayDefinition
     - GatewayInstance
     - Profile
@@ -605,13 +610,34 @@ definitions:
     - ForwardProxyInstance
     - DomainNameDefinition
     - DomainNameInstance
+=======
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - Profile
+    - Tier
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+    - ClusterDefinition
+    - ClusterInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     type: string
     x-enum-varnames:
+<<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 68c94e3 (feat: add aws controller)
     - ObjectTypeAwsAccount
@@ -655,12 +681,35 @@ definitions:
     - ObjectTypeForwardProxyInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+=======
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+<<<<<<< HEAD
 >>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
+=======
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
   v0.Profile:
     properties:
       Name:

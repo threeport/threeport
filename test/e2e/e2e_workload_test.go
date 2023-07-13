@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/threeport"
 	"github.com/threeport/threeport/internal/tptdev"
@@ -69,7 +70,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// determine if the API is serving HTTPS or HTTP
 		var authEnabled bool
 		_, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
-		config.InitConfig("", "")
+		cli.InitConfig("", "")
 		if strings.Contains(err.Error(), "signed by unknown authority") {
 			authEnabled = true
 		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
@@ -77,7 +78,7 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 
 		// initialize config so we can pull credentials from it
-		config.InitConfig("", "")
+		cli.InitConfig("", "")
 
 		// get threeport config and configure http client for calls to threeport API
 		threeportConfig, err := config.GetThreeportConfig()

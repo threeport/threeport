@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
-	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/version"
 	"github.com/threeport/threeport/pkg/auth/v0"
@@ -457,7 +456,10 @@ func InstallAwsController(
 func InstallThreeportAgent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	args *cli.ControlPlaneCLIArgs,
+	threeportInstanceName string,
+	devEnvironment bool,
+	customThreeportImageRepo string,
+	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
 ) error {
 	agentImage := getImage("agent", args.DevEnvironment, args.ControlPlaneImageRepo, args.ControlPlaneImageTag)
@@ -588,7 +590,7 @@ func InstallThreeportAgent(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    "threeport-control-plane",
@@ -610,7 +612,7 @@ func InstallThreeportAgent(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    "threeport-control-plane",
@@ -750,7 +752,7 @@ func InstallThreeportAgent(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    "threeport-control-plane",
@@ -781,7 +783,7 @@ func InstallThreeportAgent(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    "threeport-control-plane",
@@ -826,7 +828,7 @@ func InstallThreeportAgent(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    "threeport-control-plane",
@@ -860,7 +862,7 @@ func InstallThreeportAgent(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    "threeport-control-plane",
@@ -893,7 +895,7 @@ func InstallThreeportAgent(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    "threeport-control-plane",
@@ -926,7 +928,7 @@ func InstallThreeportAgent(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    "threeport-control-plane",
@@ -961,7 +963,7 @@ func InstallThreeportAgent(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + args.InstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    "threeport-control-plane",
