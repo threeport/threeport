@@ -213,7 +213,7 @@ func workloadInstanceCreated(
 	return nil
 }
 
-// workloadInstanceDeleted performs reconciliation when a workload instance
+// workloadInstanceUpdated performs reconciliation when a workload instance
 // has been updated
 func workloadInstanceUpdated(
 	r *controller.Reconciler,
@@ -273,10 +273,13 @@ func workloadInstanceUpdated(
 		// must create it
 		if wri.LastOperation == nil {
 			if _, err := kube.CreateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
-				return fmt.Errorf("failed to update Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
+				return fmt.Errorf("failed to create Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
 			}
-
-			// otherwise, it is an existing resource and we may update it
+		} else if wri.DeletedAt != nil {
+			if err := kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
+				return fmt.Errorf("failed to delete Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
+			}
+		// otherwise, it is an existing resource and we may update it
 		} else {
 			// update kube resource
 			if _, err := kube.UpdateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {

@@ -1,20 +1,16 @@
 package gateway
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
-	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/kube"
-	agentapi "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -30,11 +26,11 @@ func gatewayInstanceCreated(
 
 	// ensure gateway definition is reconciled before working on an instance
 	// for it
-	gatewayReconciled, err := confirmGatewayDefReconciled(r, gatewayInstance)
+	gatewayDefinitionReconciled, err := confirmGatewayDefReconciled(r, gatewayInstance)
 	if err != nil {
 		return fmt.Errorf("failed to determine if gateway definition is reconciled: %w", err)
 	}
-	if !gatewayReconciled {
+	if !gatewayDefinitionReconciled {
 		return errors.New("gateway definition not reconciled")
 	}
 
@@ -106,13 +102,13 @@ func gatewayInstanceCreated(
 
 	}
 
-	// ensure gateway controller instance is reconciled before working on
+	// ensure gateway controller instance is gatewayControllerInstanceReconciled before working on
 	// a gateway instance for it
-	reconciled, err := confirmGatewayControllerInstanceReconciled(r, *clusterInstance.GatewayControllerInstanceID)
+	gatewayControllerInstanceReconciled, err := confirmGatewayControllerInstanceReconciled(r, *clusterInstance.GatewayControllerInstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
 	}
-	if !reconciled {
+	if !gatewayControllerInstanceReconciled {
 		return errors.New("gateway controller instance not reconciled")
 	}
 
@@ -194,13 +190,13 @@ func gatewayInstanceCreated(
 	if err != nil {
 		return fmt.Errorf("failed to get service objects from workload instance: %v", err)
 	}
+	serviceObject := serviceObjects[0]
 
 	// // TODO: handle multiple services
 	// if len(serviceObjects) > 1 {
 	// }
 
 	// unmarshal service namespace
-	serviceObject := serviceObjects[0]
 	namespace, found, err := unstructured.NestedString(serviceObject.Object, "metadata", "namespace")
 	if err != nil || !found {
 		return fmt.Errorf("failed to unmarshal kubernetes service object's namespace field: %w", err)
@@ -232,27 +228,46 @@ func gatewayInstanceCreated(
 	jsonManifest := datatypes.JSON(jsonBytes)
 
 	// build the workload resource definition and marshal to json
-	reconciled = false
+	workloadResourceInstanceReconciled := false
 	workloadResourceInstance := &v0.WorkloadResourceInstance{
 		JSONDefinition:     &jsonManifest,
 		WorkloadInstanceID: workloadInstance.ID,
-		Reconciled:         &reconciled,
+		Reconciled:         &workloadResourceInstanceReconciled,
 	}
 
 	// update the workload instance with the new workload resource instance
-	client.CreateWorkloadResourceInstance(
+	_, err = client.CreateWorkloadResourceInstance(
 		r.APIClient,
 		r.APIServer,
 		workloadResourceInstance,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to create workload resource instance: %w", err)
+	}
 
 	// trigger a reconciliation of the workload instance by setting Reconciled to false
-	workloadInstance.Reconciled = &reconciled
-	client.UpdateWorkloadInstance(
+	workloadInstance.Reconciled = &workloadResourceInstanceReconciled
+	_, err = client.UpdateWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		workloadInstance,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to update workload instance: %w", err)
+	}
+
+	// update gateway instance
+	gatewayInstanceReconciled := true
+	gatewayInstance.WorkloadResourceInstanceID = workloadResourceInstance.ID
+	gatewayInstance.Reconciled = &gatewayInstanceReconciled
+	_, err = client.UpdateGatewayInstance(
+		r.APIClient,
+		r.APIServer,
+		gatewayInstance,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update gateway instance: %w", err)
+	}
 
 	return nil
 }
@@ -275,16 +290,13 @@ func gatewayInstanceDeleted(
 	log *logr.Logger,
 ) error {
 	// get gateway resource instances
-	gatewayResourceInstances, err := client.GetGatewayResourceInstancesByID(
+	workloadResourceInstance, err := client.GetWorkloadResourceInstanceByID(
 		r.APIClient,
 		r.APIServer,
-		*gatewayInstance.ID,
+		*gatewayInstance.WorkloadResourceInstanceID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get gateway resource instances by gateway instance ID: %w", err)
-	}
-	if len(*gatewayResourceInstances) == 0 {
-		return errors.New("zero gateway resource instances to delete")
+		return fmt.Errorf("failed to get workload resource instance by workload resource instance ID: %w", err)
 	}
 
 	// get cluster instance info
@@ -303,55 +315,59 @@ func gatewayInstanceDeleted(
 		fmt.Errorf("failed to create kube API client object: %w", err)
 	}
 
-	// delete each gateway resource instance and resource in the target kube cluster
-	for _, wri := range *gatewayResourceInstances {
-		// marshal the resource instance json
-		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
-		if err != nil {
-			return fmt.Errorf("failed to marshal json for gateway resource instance with ID %d: %w", wri.ID, err)
-		}
+	// delete gateway resource instance and resource in the target kube cluster
 
-		// build kube unstructured object from json
-		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
-			return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object gateway resource instance with ID %d: %w", wri.ID, err)
-		}
-
-		// delete kube resource
-		if err := kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to delete Kubernetes resource gateway resource instance with ID %d: %w", wri.ID, err)
-		}
-
-		// delete each gateway resource instance in threeport API
-		_, err = client.DeleteGatewayResourceInstance(r.APIClient, r.APIServer, *wri.ID)
-		if err != nil {
-			return fmt.Errorf("failed to delete gateway resource instance with ID %d: %w", wri.ID, err)
-		}
-		log.V(1).Info(
-			"gateway resource instance deleted",
-			"gatewayResourceInstanceID", wri.ID,
-		)
+	// marshal the resource instance json
+	jsonDefinition, err := workloadResourceInstance.JSONDefinition.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("failed to marshal json for gateway resource instance with ID %d: %w", workloadResourceInstance.ID, err)
 	}
 
-	// delete gateway events related to gateway instance
-	_, err = client.DeleteGatewayEventsByGatewayInstanceID(r.APIClient, r.APIServer, *gatewayInstance.ID)
+	// build kube unstructured object from json
+	kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
+	if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
+		return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object gateway resource instance with ID %d: %w", workloadResourceInstance.ID, err)
+	}
+
+	// delete kube resource
+	if err := kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to delete Kubernetes resource gateway resource instance with ID %d: %w", workloadResourceInstance.ID, err)
+	}
+
+	// delete gateway resource instance in threeport API
+	_, err = client.DeleteWorkloadResourceInstance(
+		r.APIClient,
+		r.APIServer,
+		*workloadResourceInstance.ID,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to delete gateway events for gateway instance with ID %d: %w", gatewayInstance.ID, err)
+		return fmt.Errorf("failed to delete gateway resource instance with ID %d: %w", workloadResourceInstance.ID, err)
 	}
 	log.V(1).Info(
-		"gateway events deleted",
-		"gatewayInstanceID", gatewayInstance.ID,
+		"workload resource instance deleted",
+		"workloadResourceInstanceID", workloadResourceInstance.ID,
 	)
 
-	// delete the ThreeportGateway resource to inform the threeport-agent the
-	// resources are gone
-	resourceClient := dynamicKubeClient.Resource(agentapi.ThreeportGatewayGVR)
-	if err = resourceClient.Delete(
-		context.Background(),
-		agent.ThreeportGatewayName(*gatewayInstance.ID),
-		metav1.DeleteOptions{},
-	); err != nil {
-		return fmt.Errorf("failed to delete new ThreeportGateway resource: %w", err)
+	// get workload instance
+	workloadInstance, err := client.GetWorkloadInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*workloadResourceInstance.WorkloadInstanceID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get workload instance with ID %d: %w", *workloadResourceInstance.WorkloadInstanceID, err)
+	}
+
+	// update workload instance
+	workloadInstanceReconciled := false
+	workloadInstance.Reconciled = &workloadInstanceReconciled
+	_, err = client.UpdateWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		workloadInstance,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to delete workload resource instance with ID %d: %w", workloadResourceInstance.ID, err)
 	}
 
 	return nil

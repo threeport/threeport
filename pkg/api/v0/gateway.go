@@ -47,8 +47,8 @@ type GatewayInstance struct {
 	// The definition used to define the instance.
 	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" validate:"optional,association"`
 
-	// The workload instance this resource belongs to.
-	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" validate:"optional,association"`
+	// The workload resource instance this gateway belongs to.
+	WorkloadResourceInstanceID *uint `json:"WorkloadInstanceID,omitempty" validate:"optional,association"`
 
 	// The cluster where the ingress layer is installed.
 	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" validate:"optional,association"`
