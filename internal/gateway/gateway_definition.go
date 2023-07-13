@@ -19,7 +19,7 @@ func gatewayDefinitionCreated(
 	log *logr.Logger,
 ) error {
 
-	// create Gloo vertual service definition
+	// create Gloo virtual service definition
 	virtualService := CreateVirtualService()
 
 	// marshal virtual service definition into YAML
@@ -41,6 +41,19 @@ func gatewayDefinitionCreated(
 	createdWorkloadDefinition, err := client.CreateWorkloadDefinition(r.APIClient, r.APIServer, &workloadDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to create workload definition in threeport API: %w", err)
+	}
+
+	// update gateway definition
+	gatewayDefinitionReconciled := true
+	gatewayDefinition.WorkloadDefinitionID = createdWorkloadDefinition.ID
+	gatewayDefinition.Reconciled = &gatewayDefinitionReconciled
+	_, err = client.UpdateGatewayDefinition(
+		r.APIClient,
+		r.APIServer,
+		gatewayDefinition,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update gateway definition in threeport API: %w", err)
 	}
 
 	log.V(1).Info(

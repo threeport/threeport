@@ -95,7 +95,7 @@ func workloadDefinitionCreated(
 }
 
 // workloadDefinitionUpdated performs reconciliation when a workload definition
-// has been deleted.
+// has been updated.
 func workloadDefinitionUpdated(
 	r *controller.Reconciler,
 	workloadDefinition *v0.WorkloadDefinition,
