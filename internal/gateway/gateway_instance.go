@@ -2,15 +2,17 @@ package gateway
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"strings"
 
 	"github.com/go-logr/logr"
-	"gopkg.in/yaml.v2"
+	yamlv3 "gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 
 	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/kube"
@@ -30,11 +32,11 @@ func gatewayInstanceCreated(
 
 	// ensure gateway definition is reconciled before working on an instance
 	// for it
-	reconciled, err := confirmGatewayDefReconciled(r, gatewayInstance)
+	gatewayReconciled, err := confirmGatewayDefReconciled(r, gatewayInstance)
 	if err != nil {
 		return fmt.Errorf("failed to determine if gateway definition is reconciled: %w", err)
 	}
-	if !reconciled {
+	if !gatewayReconciled {
 		return errors.New("gateway definition not reconciled")
 	}
 
@@ -140,7 +142,7 @@ func gatewayInstanceCreated(
 	}
 
 	// get gateway definition
-	gatewayWorkloadDefinition, err := client.GetGatewayDefinitionByID(
+	gatewayDefinition, err := client.GetGatewayDefinitionByID(
 		r.APIClient,
 		r.APIServer,
 		*gatewayInstance.GatewayDefinitionID,
@@ -168,7 +170,7 @@ func gatewayInstanceCreated(
 		bindPorts, found, err := unstructured.NestedSlice(kubeObject.Object, "spec", "tcpPorts")
 		for _, bindPort := range bindPorts {
 			bindPortInt32 := bindPort.(int32)
-			if err == nil && found && bindPortInt32 == *gatewayWorkloadDefinition.TCPPort {
+			if err == nil && found && bindPortInt32 == *gatewayDefinition.TCPPort {
 				portFound = true
 				break
 			}
@@ -181,19 +183,17 @@ func gatewayInstanceCreated(
 		return errors.New("gateway controller instance does not have requested port exposed")
 	}
 
-	// update parent workload definition with virtual service to expose requested port
-
-	// get parent workload definition that we're configuring this gateway for
-	parentWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
+	// get workload instance that we're configuring this gateway instance for
+	workloadInstance, err := client.GetWorkloadInstanceByID(
 		r.APIClient,
 		r.APIServer,
-		*gatewayWorkloadDefinition.WorkloadDefinitionID,
+		*gatewayDefinition.WorkloadDefinitionID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get parent workload definition: %w", err)
 	}
 
-	for _, wri := range parentWorkloadDefinition.WorkloadResourceDefinitions {
+	for _, wri := range workloadInstance.WorkloadResourceInstances {
 		// marshal the resource definition json
 		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
 		if err != nil {
@@ -208,33 +208,62 @@ func gatewayInstanceCreated(
 
 		bindPort, found, err := unstructured.NestedInt64(kubeObject.Object, "spec", "bindPort")
 		bindPortInt32 := int32(bindPort)
-		if err == nil && found && bindPortInt32 == *gatewayWorkloadDefinition.TCPPort {
+		if err == nil && found && bindPortInt32 == *gatewayDefinition.TCPPort {
 			return errors.New("virtual service already exists for requested port")
 		}
 	}
 
-	virtualServiceBytes, err := json.Marshal(CreateVirtualService())
+	// get gateway workload definition
+	gatewayWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayDefinition.WorkloadDefinitionID,
+	)
 	if err != nil {
-		return fmt.Errorf("Error marshaling to JSON: %v", err)
+		return fmt.Errorf("failed to get gateway workload definition: %w", err)
+	}
+
+	decoder := yamlv3.NewDecoder(strings.NewReader(*gatewayWorkloadDefinition.YAMLDocument))
+
+	// decode the next resource, exit loop if the end has been reached
+	var node yamlv3.Node
+
+	err = decoder.Decode(&node)
+	if errors.Is(err, io.EOF) {
+		return fmt.Errorf("failed to decode yaml from gateway workload definition: %w", err)
+	}
+
+	// marshal the yaml
+	yamlContent, err := yamlv3.Marshal(&node)
+	if err != nil {
+		return fmt.Errorf("failed to marshal yaml from gateway workload definition: %w", err)
+	}
+
+	// convert yaml to json
+	jsonContent, err := yaml.YAMLToJSON(yamlContent)
+	if err != nil {
+		return fmt.Errorf("failed to convert yaml to json: %w", err)
 	}
 
 	// unmarshal the json into the type used by API
-	var jsonDefinition datatypes.JSON
-	if err := jsonDefinition.UnmarshalJSON(virtualServiceBytes); err != nil {
+	var jsonManifest datatypes.JSON
+	if err := jsonManifest.UnmarshalJSON(jsonContent); err != nil {
 		return fmt.Errorf("failed to unmarshal json to datatypes.JSON: %w", err)
 	}
 
 	// build the workload resource definition and marshal to json
-	workloadResourceDefinition := &v0.WorkloadResourceDefinition{
-		JSONDefinition:       &jsonDefinition,
-		WorkloadDefinitionID: gatewayControllerWorkloadDefinition.ID,
+	reconciled := false
+	workloadResourceInstance := &v0.WorkloadResourceInstance{
+		JSONDefinition:     &jsonManifest,
+		WorkloadInstanceID: workloadInstance.ID,
+		Reconciled:         &reconciled,
 	}
 
-	// update the parent workload definition with the new workload resource definition
-	client.CreateWorkloadResourceDefinition(
+	// update the workload instance with the new workload resource instance
+	client.CreateWorkloadResourceInstance(
 		r.APIClient,
 		r.APIServer,
-		workloadResourceDefinition,
+		workloadResourceInstance,
 	)
 
 	return nil
