@@ -192,7 +192,7 @@ func gatewayInstanceDeleted(
 	// create a client to connect to kube API
 	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
 	if err != nil {
-		fmt.Errorf("failed to create kube API client object: %w", err)
+		return fmt.Errorf("failed to create kube API client object: %w", err)
 	}
 
 	// delete gateway resource instance and resource in the target kube cluster
@@ -268,7 +268,7 @@ func confirmGatewayDefReconciled(
 	if err != nil {
 		return false, fmt.Errorf("failed to get gateway definition by gateway definition ID: %w", err)
 	}
-	if gatewayDefinition.Reconciled != nil && *gatewayDefinition.Reconciled != true {
+	if gatewayDefinition.Reconciled != nil && !*gatewayDefinition.Reconciled {
 		return false, nil
 	}
 
@@ -290,7 +290,7 @@ func confirmGatewayControllerInstanceReconciled(
 	if err != nil {
 		return false, fmt.Errorf("failed to get gateway definition by gateway definition ID: %w", err)
 	}
-	if gatewayControllerInstance.Reconciled != nil && *gatewayControllerInstance.Reconciled != true {
+	if gatewayControllerInstance.Reconciled != nil && !*gatewayControllerInstance.Reconciled {
 		return false, nil
 	}
 
@@ -339,7 +339,7 @@ func confirmGatewayControllerDeployed(
 
 		glooEdgeBytes, err := yaml.Marshal(CreateGlooEdge())
 		if err != nil {
-			return fmt.Errorf("Error marshaling to YAML: %v", err)
+			return fmt.Errorf("error marshaling to YAML: %v", err)
 		}
 
 		glooEdgeString := string(glooEdgeBytes)
@@ -464,7 +464,7 @@ func configureVirtualService(
 	var virtualService map[string]interface{}
 	err = yaml.Unmarshal([]byte(*gatewayWorkloadDefinition.YAMLDocument), &virtualService)
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing YAML: %v", err)
+		return nil, fmt.Errorf("error parsing YAML: %v", err)
 	}
 
 	serviceObjects, err := getUnstructuredObjectsFromWorkloadResourceInstances(workloadInstance.WorkloadResourceInstances, "Service")
@@ -512,7 +512,7 @@ func configureVirtualService(
 
 }
 
-// getThreeportobjects returns all threeport objects required for 
+// getThreeportobjects returns all threeport objects required for
 // gateway instance reconciliation
 func getThreeportObjects(
 	r *controller.Reconciler,
