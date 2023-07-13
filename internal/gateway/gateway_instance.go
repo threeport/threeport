@@ -128,16 +128,6 @@ func gatewayInstanceCreated(
 		return fmt.Errorf("failed to get gateway controller instance: %w", err)
 	}
 
-	// get gateway controller workload definition
-	gatewayControllerWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayControllerInstance.WorkloadDefinitionID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get gateway controller workload definition: %w", err)
-	}
-
 	// get gateway definition
 	gatewayDefinition, err := client.GetGatewayDefinitionByID(
 		r.APIClient,
@@ -150,29 +140,22 @@ func gatewayInstanceCreated(
 
 	// check existing gateways for requested port
 	var portFound = false
-	for _, wrd := range gatewayControllerWorkloadDefinition.WorkloadResourceDefinitions {
 
-		// marshal the resource definition json
-		jsonDefinition, err := wrd.JSONDefinition.MarshalJSON()
-		if err != nil {
-			return fmt.Errorf("failed to marshal json for workload resource instance: %w", err)
-		}
+	gatewayObjects, err := getObjects(gatewayControllerInstance.WorkloadResourceInstances, "Gateway")
+	if err != nil {
+		return fmt.Errorf("failed to get service objects from workload instance: %v", err)
+	}
+	gatewayObject := gatewayObjects[0]
 
-		// build kube unstructured object from json
-		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
-			return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
-		}
-
-		bindPorts, found, err := unstructured.NestedSlice(kubeObject.Object, "spec", "tcpPorts")
-		if err != nil {
-			for _, bindPort := range bindPorts {
-				bindPortInt32 := bindPort.(int32)
-				if found && bindPortInt32 == *gatewayDefinition.TCPPort {
-					portFound = true
-					break
-				}
-			}
+	bindPorts, found, err := unstructured.NestedSlice(gatewayObject.Object, "spec", "tcpPorts")
+	if err != nil {
+		return fmt.Errorf("failed to get tcp ports from from gloo edge custom resource: %v", err)
+	}
+	for _, bindPort := range bindPorts {
+		bindPortInt32 := bindPort.(int32)
+		if found && bindPortInt32 == *gatewayDefinition.TCPPort {
+			portFound = true
+			break
 		}
 	}
 
