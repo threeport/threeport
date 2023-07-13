@@ -8093,6 +8093,12 @@ const docTemplate = `{
                     "description": "The AWS Region in which the cluster is provisioned.  This field is\nstored in the instance (as well as definition) since a change to the\ndefinition will not move a cluster.",
                     "type": "string"
                 },
+                "ResourceInventory": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
@@ -8679,6 +8685,7 @@ const docTemplate = `{
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "GatewayDefinition",
                 "GatewayInstance",
                 "Profile",
@@ -8707,11 +8714,16 @@ const docTemplate = `{
 >>>>>>> 68c94e3 (feat: add aws controller)
 =======
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
+=======
+                "DomainNameDefinition",
+                "DomainNameInstance",
+>>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
                 "ForwardProxyDefinition",
@@ -8763,6 +8775,8 @@ const docTemplate = `{
                 "Profile",
                 "Tier",
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
+=======
+>>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -8770,27 +8784,33 @@ const docTemplate = `{
                 "WorkloadEvent",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
                 "ClusterDefinition",
                 "ClusterInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
                 "LogBackend",
                 "LogStorageDefinition",
-                "LogStorageInstance"
+                "LogStorageInstance",
+                "Profile",
+                "Tier"
             ],
             "x-enum-varnames": [
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 68c94e3 (feat: add aws controller)
 =======
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
+=======
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+>>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
                 "ObjectTypeForwardProxyDefinition",
@@ -8816,6 +8836,8 @@ const docTemplate = `{
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
+=======
+>>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
@@ -8835,10 +8857,9 @@ const docTemplate = `{
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeClusterDefinition",
                 "ObjectTypeClusterInstance",
+<<<<<<< HEAD
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
 <<<<<<< HEAD
@@ -8853,6 +8874,15 @@ const docTemplate = `{
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance"
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
+=======
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier"
+>>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
             ]
         },
         "v0.Profile": {
