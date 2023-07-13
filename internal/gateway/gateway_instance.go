@@ -103,20 +103,16 @@ func gatewayInstanceCreated(
 			return fmt.Errorf("failed to update gateway controller workload instance: %w", err)
 		}
 
-		return errors.New("failed to deploy gateway instance, no gateway controller instance found. Deploying gateway controller instance")
+	}
 
-	} else {
-
-		// ensure gateway controller instance is reconciled before working on
-		// a gateway instance for it
-		reconciled, err := confirmGatewayControllerInstanceReconciled(r, *clusterInstance.GatewayControllerInstanceID)
-		if err != nil {
-			return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
-		}
-		if !reconciled {
-			return errors.New("gateway controller instance not reconciled")
-		}
-
+	// ensure gateway controller instance is reconciled before working on
+	// a gateway instance for it
+	reconciled, err := confirmGatewayControllerInstanceReconciled(r, *clusterInstance.GatewayControllerInstanceID)
+	if err != nil {
+		return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
+	}
+	if !reconciled {
+		return errors.New("gateway controller instance not reconciled")
 	}
 
 	// ensure gateway controller has requested port exposed
@@ -168,11 +164,13 @@ func gatewayInstanceCreated(
 		}
 
 		bindPorts, found, err := unstructured.NestedSlice(kubeObject.Object, "spec", "tcpPorts")
-		for _, bindPort := range bindPorts {
-			bindPortInt32 := bindPort.(int32)
-			if err == nil && found && bindPortInt32 == *gatewayDefinition.TCPPort {
-				portFound = true
-				break
+		if err != nil {
+			for _, bindPort := range bindPorts {
+				bindPortInt32 := bindPort.(int32)
+				if found && bindPortInt32 == *gatewayDefinition.TCPPort {
+					portFound = true
+					break
+				}
 			}
 		}
 	}
