@@ -80,9 +80,12 @@ type WorkloadResourceInstance struct {
 	// The workload definition this resource belongs to.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 
-	// The most recent operation performed on a Kubernete resource in the
+	// The most recent operation performed on a Kubernetes resource in the
 	// cluster.
 	LastOperation *string `json:"LastOperation,omitempty" query:"lastoperation" validate:"optional"`
+
+	// Indicates if object is considered to be reconciled by workload controller.
+	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 
 	// The JSON definition of a Kubernetes resource as stored in etcd in the
 	// cluster.

@@ -211,6 +211,76 @@ func workloadInstanceUpdated(
 	workloadInstance *v0.WorkloadInstance,
 	log *logr.Logger,
 ) error {
+	// get workload resource instances
+	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
+		r.APIClient,
+		r.APIServer,
+		*workloadInstance.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
+	}
+	if len(*workloadResourceInstances) == 0 {
+		return errors.New("zero workload resource instances to update")
+	}
+
+	// get cluster instance info
+	clusterInstance, err := client.GetClusterInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*workloadInstance.ClusterInstanceID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
+	}
+
+	// create a client to connect to kube API
+	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
+	if err != nil {
+		return fmt.Errorf("failed to create kube API client object: %w", err)
+	}
+
+	// update each workload resource instance and resource in the target kube cluster
+	for _, wri := range *workloadResourceInstances {
+
+		// only update resource instances that have not been reconciled
+		if *wri.Reconciled {
+			continue
+		}
+
+		// marshal the resource instance json
+		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
+		if err != nil {
+			return fmt.Errorf("failed to marshal json for workload resource instance with ID %d: %w", wri.ID, err)
+		}
+
+		// build kube unstructured object from json
+		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
+			return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object workload resource instance with ID %d: %w", wri.ID, err)
+		}
+
+		// if the resource instance does not have a last operation, it must be new and we
+		// must create it
+		if wri.LastOperation == nil {
+			if _, err := kube.CreateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
+				return fmt.Errorf("failed to update Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
+			}
+
+		// otherwise, it is an existing resource and we may update it
+		} else {
+			// update kube resource
+			if _, err := kube.UpdateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
+				return fmt.Errorf("failed to update Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
+			}
+		}
+
+		log.V(1).Info(
+			"workload resource instance updated",
+			"workloadResourceInstanceID", wri.ID,
+		)
+	}
+
 	return nil
 }
 
