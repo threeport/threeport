@@ -131,6 +131,10 @@ definitions:
           stored in the instance (as well as definition) since a change to the
           definition will not move a cluster.
         type: string
+      ResourceInventory:
+        items:
+          type: integer
+        type: array
       Status:
         description: |-
           The status of the instance.

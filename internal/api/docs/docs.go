@@ -8096,6 +8096,12 @@ const docTemplate = `{
                     "description": "The AWS Region in which the cluster is provisioned.  This field is\nstored in the instance (as well as definition) since a change to the\ndefinition will not move a cluster.",
                     "type": "string"
                 },
+                "ResourceInventory": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
@@ -8731,7 +8737,9 @@ const docTemplate = `{
                 "DomainNameInstance",
                 "LogBackend",
                 "LogStorageDefinition",
-                "LogStorageInstance"
+                "LogStorageInstance",
+                "Profile",
+                "Tier"
             ],
             "x-enum-varnames": [
                 "ObjectTypeLogBackend",

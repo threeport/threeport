@@ -79,6 +79,9 @@ type AwsEksClusterInstance struct {
 
 	// Indicates if object is considered to be reconciled by workload controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
+
+	// An inventory of all AWS resources for the EKS cluster.
+	ResourceInventory *datatypes.JSON `json:"ResourceInventory,omitempty" validate:"optional"`
 }
 
 // AwsRelationalDatabaseDefinition is the configuration for an RDS instance
