@@ -439,7 +439,8 @@ func InstallAwsController(
 								"volumeMounts": awsControllerVolMounts,
 							},
 						},
-						"volumes": awsControllerVols,
+						"terminationGracePeriodSeconds": 900, // 15 min grace period to allow for AWS resource cleanup
+						"volumes":                       awsControllerVols,
 					},
 				},
 			},

@@ -131,6 +131,10 @@ definitions:
           stored in the instance (as well as definition) since a change to the
           definition will not move a cluster.
         type: string
+      ResourceInventory:
+        items:
+          type: integer
+        type: array
       Status:
         description: |-
           The status of the instance.
@@ -544,6 +548,7 @@ definitions:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     - GatewayDefinition
     - GatewayInstance
     - Profile
@@ -612,13 +617,15 @@ definitions:
     - DomainNameInstance
 =======
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
+=======
+    - DomainNameDefinition
+    - DomainNameInstance
+>>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - Profile
-    - Tier
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -626,25 +633,31 @@ definitions:
     - WorkloadEvent
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
     - ClusterDefinition
     - ClusterInstance
-    - DomainNameDefinition
-    - DomainNameInstance
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
+    - Profile
+    - Tier
     type: string
     x-enum-varnames:
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 68c94e3 (feat: add aws controller)
+=======
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+>>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+<<<<<<< HEAD
 <<<<<<< HEAD
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
@@ -693,6 +706,8 @@ definitions:
 =======
     - ObjectTypeProfile
     - ObjectTypeTier
+=======
+>>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -700,16 +715,19 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
     - ObjectTypeClusterDefinition
     - ObjectTypeClusterInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
+<<<<<<< HEAD
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
+=======
+    - ObjectTypeProfile
+    - ObjectTypeTier
+>>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
   v0.Profile:
     properties:
       Name:
