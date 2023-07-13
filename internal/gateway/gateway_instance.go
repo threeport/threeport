@@ -68,14 +68,14 @@ func gatewayInstanceCreated(
 			YAMLDocument: &glooEdgeString,
 		}
 
-		// create gateway workload definition
+		// create gateway controller workload definition
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			r.APIClient,
 			r.APIServer,
 			&glooEdgeWorkloadDefinition,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to get gateway controller instance: %w", err)
+			return fmt.Errorf("failed to create gateway controller workload definition: %w", err)
 		}
 
 		// create gateway workload instance
@@ -91,6 +91,9 @@ func gatewayInstanceCreated(
 			r.APIServer,
 			&glooEdgeWorkloadInstance,
 		)
+		if err != nil {
+			return fmt.Errorf("failed to create gateway controller workload instance: %w", err)
+		}
 
 		// update cluster instance with gateway controller instance id
 		clusterInstance.GatewayControllerInstanceID = createdGlooEdgeWorkloadInstance.ID
@@ -147,12 +150,12 @@ func gatewayInstanceCreated(
 		return fmt.Errorf("failed to get gateway controller workload definition: %w", err)
 	}
 
-	var portFound = false
 	// check existing gateways for requested port
-	for _, wri := range gatewayControllerWorkloadDefinition.WorkloadResourceDefinitions {
+	var portFound = false
+	for _, wrd := range gatewayControllerWorkloadDefinition.WorkloadResourceDefinitions {
 
 		// marshal the resource definition json
-		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
+		jsonDefinition, err := wrd.JSONDefinition.MarshalJSON()
 		if err != nil {
 			return fmt.Errorf("failed to marshal json for workload resource instance: %w", err)
 		}
@@ -175,9 +178,8 @@ func gatewayInstanceCreated(
 		}
 	}
 
-	// create a gateway with the requested port
+	// TODO: if port not found, update gateway controller workload definition with the requested port
 	if !portFound {
-		//TODO: create gateway with requested port if not found
 		return errors.New("gateway controller instance does not have requested port exposed")
 	}
 
@@ -188,27 +190,7 @@ func gatewayInstanceCreated(
 		*gatewayDefinition.WorkloadDefinitionID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get parent workload definition: %w", err)
-	}
-
-	for _, wri := range workloadInstance.WorkloadResourceInstances {
-		// marshal the resource definition json
-		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
-		if err != nil {
-			return fmt.Errorf("failed to marshal json for workload resource instance: %w", err)
-		}
-
-		// build kube unstructured object from json
-		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
-			return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
-		}
-
-		bindPort, found, err := unstructured.NestedInt64(kubeObject.Object, "spec", "bindPort")
-		bindPortInt32 := int32(bindPort)
-		if err == nil && found && bindPortInt32 == *gatewayDefinition.TCPPort {
-			return errors.New("virtual service already exists for requested port")
-		}
+		return fmt.Errorf("failed to get workload instance: %w", err)
 	}
 
 	// get gateway workload definition
@@ -224,7 +206,7 @@ func gatewayInstanceCreated(
 	// create decoder to interpret yaml manifest
 	decoder := yamlv3.NewDecoder(strings.NewReader(*gatewayWorkloadDefinition.YAMLDocument))
 
-	// decode the next resource, exit loop if the end has been reached
+	// decode yaml resource
 	var node yamlv3.Node
 	err = decoder.Decode(&node)
 	if errors.Is(err, io.EOF) {
@@ -250,7 +232,7 @@ func gatewayInstanceCreated(
 	}
 
 	// build the workload resource definition and marshal to json
-	reconciled := false
+	reconciled = false
 	workloadResourceInstance := &v0.WorkloadResourceInstance{
 		JSONDefinition:     &jsonManifest,
 		WorkloadInstanceID: workloadInstance.ID,
