@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
+	//"github.com/nukleros/eks-cluster/pkg/api"
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -35,14 +36,40 @@ func awsEksClusterInstanceCreated(
 		return fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
 	}
 
+	// create AWS config
+	awsConfig, err := LoadAWSConfigFromAPIKeys(
+		awsAccount.AccessKeyID,
+		awsAccount.SecretAccessKey,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create AWS config from API keys: %w", err)
+	}
+
+	// create resource client
+	resourceClient, err := api.CreateResourceClientForWorkload(awsConfig)
+	if err != nil {
+		return fmt.Errof("failed to create EKS resource creation client: %w", err)
+	}
+
+	// log messages from channel in resource client on goroutine
+
+	// store inventory in database as they arrive on inventory channel
+
 	controlPlaneInfra := provider.ControlPlaneInfraEKS{
 		ThreeportInstanceName: awsEksClusterInstance.Name,
-		AwsAccessKeyID:        awsAccount.AccessKeyID,
-		AwsSecretAccessKey:    awsAccount.SecretAccessKey,
+		AwsAccountID:          awsAccount.AccountID,
+		AwsConfig:             awsConfig,
+		ResourceClient:        resourceClient,
 	}
 
 	sigs := make(chan os.Signal)
 	kubeConnectionInfo, err := controlPlaneInfra.Create("", sigs)
+
+	// create control plane infra
+	kubeConnectionInfo, err := controlPlanInfra.Create("", sigs)
+	//if err != nil {
+	//	_ = controlPlaneInfra.Delete
+	//}
 
 	reconLog := log.WithValues(
 		"awsEksClsuterDefinitionRegion", *awsEksClusterDefinition.Region,

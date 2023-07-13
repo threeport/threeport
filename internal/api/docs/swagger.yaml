@@ -33,6 +33,9 @@ definitions:
       AccessKeyID:
         description: The key ID credentials for the AWS account.
         type: string
+      AccountID:
+        description: The account ID for the AWS account.
+        type: string
       AwsEksClusterInstances:
         description: The cluster instances deployed in this AWS account.
         items:
@@ -729,6 +732,8 @@ definitions:
     - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+=======
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance

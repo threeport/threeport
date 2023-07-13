@@ -2520,7 +2520,7 @@ func InstallThreeportSystemServices(
 	infraProvider string,
 	clusterName string,
 ) error {
-	if infraProvider == v0.KubernetesRuntimeInfraProviderEKS {
+	if infraProvider == ClusterInfraProviderEKS {
 		var clusterAutoscalerServiceAcct = &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",

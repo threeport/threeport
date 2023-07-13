@@ -12,10 +12,10 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 )
 
-// KubernetesRuntimeInfraKind represents a kind cluster for local a threeport instance.
-type KubernetesRuntimeInfraKind struct {
-	// The unique name of the kubernetes runtime instance.
-	RuntimeInstanceName string
+// ClusterInfraKind represents a kind cluster for local a threeport instance.
+type ClusterInfraKind struct {
+	// The unique name of the threeport instance.
+	ThreeportInstanceName string
 
 	// Path to user's kubeconfig file for connecting to Kubernetes API.
 	KubeconfigPath string
@@ -34,7 +34,7 @@ type KubernetesRuntimeInfraKind struct {
 
 // Create installs a Kubernetes cluster using kind for the threeport control
 // plane.
-func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) {
+func (i *ClusterInfraKind) Create() (*kube.KubeConnectionInfo, error) {
 	logger := cmd.NewLogger()
 	prov := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
@@ -60,7 +60,8 @@ func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) 
 }
 
 // Delete deletes a kind cluster and the threeport control plane with it.
-func (i *KubernetesRuntimeInfraKind) Delete() error {
+// func (i *ClusterInfraKind) Delete(providerConfigDir string) error {
+func (i *ClusterInfraKind) Delete() error {
 	logger := cmd.NewLogger()
 	prov := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),

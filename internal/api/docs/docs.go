@@ -7984,6 +7984,10 @@ const docTemplate = `{
                     "description": "The key ID credentials for the AWS account.",
                     "type": "string"
                 },
+                "AccountID": {
+                    "description": "The account ID for the AWS account.",
+                    "type": "string"
+                },
                 "AwsEksClusterInstances": {
                     "description": "The cluster instances deployed in this AWS account.",
                     "type": "array",
@@ -8725,11 +8729,9 @@ const docTemplate = `{
                 "KubernetesRuntimeInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "AwsAccount",
-                "AwsEksClusterDefinition",
-                "AwsEksClusterInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance"
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance"
             ],
             "x-enum-varnames": [
                 "ObjectTypeLogBackend",
@@ -8751,6 +8753,7 @@ const docTemplate = `{
                 "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
+<<<<<<< HEAD
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
