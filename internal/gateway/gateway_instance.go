@@ -2,13 +2,11 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"strings"
 
 	"github.com/go-logr/logr"
-	yamlv3 "gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -203,33 +201,52 @@ func gatewayInstanceCreated(
 		return fmt.Errorf("failed to get gateway workload definition: %w", err)
 	}
 
-	// create decoder to interpret yaml manifest
-	decoder := yamlv3.NewDecoder(strings.NewReader(*gatewayWorkloadDefinition.YAMLDocument))
-
-	// decode yaml resource
-	var node yamlv3.Node
-	err = decoder.Decode(&node)
-	if errors.Is(err, io.EOF) {
-		return fmt.Errorf("failed to decode yaml from gateway workload definition: %w", err)
-	}
-
-	// marshal the yaml
-	yamlContent, err := yamlv3.Marshal(&node)
+	var virtualService map[string]interface{}
+	err = yaml.Unmarshal([]byte(*gatewayWorkloadDefinition.YAMLDocument), &virtualService)
 	if err != nil {
-		return fmt.Errorf("failed to marshal yaml from gateway workload definition: %w", err)
+		return fmt.Errorf("Error parsing YAML: %v", err)
 	}
 
-	// convert yaml to json
-	jsonContent, err := yaml.YAMLToJSON(yamlContent)
+	serviceObjects, err := getObjects(workloadInstance.WorkloadResourceInstances, "Service")
 	if err != nil {
-		return fmt.Errorf("failed to convert yaml to json: %w", err)
+		return fmt.Errorf("failed to get service objects from workload instance: %v", err)
 	}
 
-	// unmarshal the json into the type used by API
-	var jsonManifest datatypes.JSON
-	if err := jsonManifest.UnmarshalJSON(jsonContent); err != nil {
-		return fmt.Errorf("failed to unmarshal json to datatypes.JSON: %w", err)
+	// // TODO: handle multiple services
+	// if len(serviceObjects) > 1 {
+	// }
+
+	// unmarshal service namespace
+	serviceObject := serviceObjects[0]
+	namespace, found, err := unstructured.NestedString(serviceObject.Object, "metadata", "namespace")
+	if err != nil || !found {
+		return fmt.Errorf("failed to unmarshal kubernetes service object's namespace field: %w", err)
 	}
+
+	// unmarshal service name
+	name, found, err := unstructured.NestedString(serviceObject.Object, "metadata", "name")
+	if err != nil || !found {
+		return fmt.Errorf("failed to unmarshal kubernetes service object's name field: %w", err)
+	}
+
+	// get route array object
+	routes, found, err := unstructured.NestedSlice(virtualService, "spec", "virtualHost", "routes")
+	if err != nil || !found {
+		return fmt.Errorf("failed to get virtualservice route: %w", err)
+	}
+
+	// set virtual service upstream field
+	err = unstructured.SetNestedField(routes[0].(map[string]interface{}), fmt.Sprintf("%s-%s", namespace, name), "routeAction", "single", "upstream", "name")
+	if err != nil {
+		return fmt.Errorf("failed to set upstream name on virtual service: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(virtualService)
+	if err != nil {
+		return fmt.Errorf("failed to marshal json to datatypes.JSON: %w", err)
+	}
+
+	jsonManifest := datatypes.JSON(jsonBytes)
 
 	// build the workload resource definition and marshal to json
 	reconciled = false
@@ -399,4 +416,30 @@ func confirmGatewayControllerInstanceReconciled(
 	}
 
 	return true, nil
+}
+
+func getObjects(workloadInstances []*v0.WorkloadResourceInstance, kind string) ([]unstructured.Unstructured, error) {
+
+	var objects []unstructured.Unstructured
+	for _, wri := range workloadInstances {
+		// marshal the resource definition json
+		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal json for workload resource instance: %w", err)
+		}
+
+		// build kube unstructured object from json
+		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
+		}
+
+		// search for service resource
+		manifestKind, found, err := unstructured.NestedString(kubeObject.Object, "kind")
+		if err != nil || found && manifestKind == kind {
+			objects = append(objects, *kubeObject)
+		}
+	}
+
+	return objects, nil
 }
