@@ -29,14 +29,17 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = ForwardProxyDefinition{}
 	case ObjectTypeForwardProxyInstance:
 		objStruct = ForwardProxyInstance{}
+<<<<<<< HEAD
 	case ObjectTypeGatewayDefinition:
 		objStruct = GatewayDefinition{}
 	case ObjectTypeGatewayInstance:
 		objStruct = GatewayInstance{}
+=======
 	case ObjectTypeKubernetesRuntimeDefinition:
 		objStruct = KubernetesRuntimeDefinition{}
 	case ObjectTypeKubernetesRuntimeInstance:
 		objStruct = KubernetesRuntimeInstance{}
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 	case ObjectTypeLogBackend:
 		objStruct = LogBackend{}
 	case ObjectTypeLogStorageDefinition:
@@ -86,14 +89,17 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeForwardProxyDefinition
 	case PathForwardProxyInstances:
 		return ObjectTypeForwardProxyInstance
+<<<<<<< HEAD
 	case PathGatewayDefinitions:
 		return ObjectTypeGatewayDefinition
 	case PathGatewayInstances:
 		return ObjectTypeGatewayInstance
+=======
 	case PathKubernetesRuntimeDefinitions:
 		return ObjectTypeKubernetesRuntimeDefinition
 	case PathKubernetesRuntimeInstances:
 		return ObjectTypeKubernetesRuntimeInstance
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 	case PathLogBackends:
 		return ObjectTypeLogBackend
 	case PathLogStorageDefinitions:
@@ -143,14 +149,17 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeForwardProxyDefinition
 	case ForwardProxyInstance, *ForwardProxyInstance, []ForwardProxyInstance:
 		return ObjectTypeForwardProxyInstance
+<<<<<<< HEAD
 	case GatewayDefinition, *GatewayDefinition, []GatewayDefinition:
 		return ObjectTypeGatewayDefinition
 	case GatewayInstance, *GatewayInstance, []GatewayInstance:
 		return ObjectTypeGatewayInstance
+=======
 	case KubernetesRuntimeDefinition, *KubernetesRuntimeDefinition, []KubernetesRuntimeDefinition:
 		return ObjectTypeKubernetesRuntimeDefinition
 	case KubernetesRuntimeInstance, *KubernetesRuntimeInstance, []KubernetesRuntimeInstance:
 		return ObjectTypeKubernetesRuntimeInstance
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 	case LogBackend, *LogBackend, []LogBackend:
 		return ObjectTypeLogBackend
 	case LogStorageDefinition, *LogStorageDefinition, []LogStorageDefinition:

@@ -30,7 +30,6 @@ type WorkloadConfig struct {
 type WorkloadValues struct {
 	Name                      string                          `yaml:"Name"`
 	YAMLDocument              string                          `yaml:"YAMLDocument"`
-	WorkloadConfigPath        string                          `yaml:"WorkloadConfigPath"`
 	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 }
 

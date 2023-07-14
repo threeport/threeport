@@ -45,36 +45,6 @@ func GetDefaultKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string)
 	return &kubernetesRuntimeInstance, nil
 }
 
-// GetKubernetesRuntimeInstancesByKubernetesRuntimeDefinitionID fetches kubernetes runtime
-// instances by kubernetes runtime definition ID
-func GetKubernetesRuntimeInstancesByKubernetesRuntimeDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.KubernetesRuntimeInstance, error) {
-	var kubernetesRuntimeInstances []v0.KubernetesRuntimeInstance
-
-	response, err := GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s?kubernetesruntimedefinitionid=%d", apiAddr, v0.PathKubernetesRuntimeInstances, id),
-		http.MethodGet,
-		new(bytes.Buffer),
-		http.StatusOK,
-	)
-	if err != nil {
-		return &kubernetesRuntimeInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &kubernetesRuntimeInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&kubernetesRuntimeInstances); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &kubernetesRuntimeInstances, nil
-}
-
 // GetThreeportControlPlaneKubernetesRuntimeInstance gets the kubernetes runtime instance hosting the
 // threeport control plane.
 func GetThreeportControlPlaneKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string) (*v0.KubernetesRuntimeInstance, error) {
