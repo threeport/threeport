@@ -133,21 +133,12 @@ func gatewayDefinitionDeleted(
 	log *logr.Logger,
 ) error {
 
-	// get related gateway definitions
-	gatewayDefinition, err := client.GetGatewayDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayDefinition.ID,
-	)
+	// delete workload definition
+	_, err := client.DeleteWorkloadDefinition(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
 	if err != nil {
-		return fmt.Errorf("failed to get gateway definition by gateway definition ID: %w", err)
+		return fmt.Errorf("failed to delete workload definition with ID %d: %w", *gatewayDefinition.WorkloadDefinitionID, err)
 	}
 
-	// related gateway definition
-	_, err = client.DeleteGatewayDefinition(r.APIClient, r.APIServer, *gatewayDefinition.ID)
-	if err != nil {
-		return fmt.Errorf("failed to delete gateway definition with ID %d: %w", gatewayDefinition.ID, err)
-	}
 	log.V(1).Info(
 		"gateway definition deleted",
 		"gatewayDefinitionID", gatewayDefinition.ID,
