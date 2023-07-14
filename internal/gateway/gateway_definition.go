@@ -71,6 +71,57 @@ func gatewayDefinitionUpdated(
 	gatewayDefinition *v0.GatewayDefinition,
 	log *logr.Logger,
 ) error {
+
+	// only reconcile if gateway definition needs to be reconciled
+	if gatewayDefinition.Reconciled != nil && !*gatewayDefinition.Reconciled {
+		return nil
+	}
+
+	// create Gloo virtual service definition
+	virtualService := CreateVirtualService(gatewayDefinition)
+
+	// marshal virtual service definition into YAML
+	virtualServiceBytes, err := yaml.Marshal(virtualService)
+	if err != nil {
+		return fmt.Errorf("error marshaling YAML: %w", err)
+	}
+	virtualServiceManifest := string(virtualServiceBytes)
+
+	// get workload definition
+	workloadDefinition, err := client.GetWorkloadDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayDefinition.WorkloadDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
+	}
+
+	// update workload definition
+	workloadDefinition.YAMLDocument = &virtualServiceManifest
+	_, err = client.UpdateWorkloadDefinition(r.APIClient, r.APIServer, workloadDefinition)
+	if err != nil {
+		return fmt.Errorf("failed to create workload definition in threeport API: %w", err)
+	}
+
+	// update gateway definition
+	gatewayDefinitionReconciled := true
+	gatewayDefinition.WorkloadDefinitionID = workloadDefinition.ID
+	gatewayDefinition.Reconciled = &gatewayDefinitionReconciled
+	_, err = client.UpdateGatewayDefinition(
+		r.APIClient,
+		r.APIServer,
+		gatewayDefinition,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update gateway definition in threeport API: %w", err)
+	}
+
+	log.V(1).Info(
+		"gateway definition created",
+		"gatewayDefinitionID", workloadDefinition.ID,
+	)
+
 	return nil
 }
 
