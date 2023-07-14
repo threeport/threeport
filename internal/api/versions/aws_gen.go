@@ -41,10 +41,10 @@ func AddAwsAccountVersions() {
 	api.AddRestApiVersion(versionObj)
 }
 
-// AddAwsEksClusterDefinitionVersions adds field validation info and adds it
+// AddAwsEksKubernetesRuntimeDefinitionVersions adds field validation info and adds it
 // to the REST API versions.
-func AddAwsEksClusterDefinitionVersions() {
-	iapi.AwsEksClusterDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+func AddAwsEksKubernetesRuntimeDefinitionVersions() {
+	iapi.AwsEksKubernetesRuntimeDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
 		Optional:             []string{},
 		OptionalAssociations: []string{},
 		Required:             []string{},
@@ -54,29 +54,29 @@ func AddAwsEksClusterDefinitionVersions() {
 	// parse struct and populate the FieldsByTag object
 	iapi.ParseStruct(
 		iapi.TagNameValidate,
-		reflect.ValueOf(new(v0.AwsEksClusterDefinition)),
+		reflect.ValueOf(new(v0.AwsEksKubernetesRuntimeDefinition)),
 		"",
 		iapi.Translate,
-		iapi.AwsEksClusterDefinitionTaggedFields,
+		iapi.AwsEksKubernetesRuntimeDefinitionTaggedFields,
 	)
 
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
-		Object:  string(v0.ObjectTypeAwsEksClusterDefinition),
+		Object:  string(v0.ObjectTypeAwsEksKubernetesRuntimeDefinition),
 		Version: iapi.V0,
 	}
 
 	// add the object tagged fields to the global tagged fields map
-	iapi.ObjectTaggedFields[versionObj] = iapi.AwsEksClusterDefinitionTaggedFields[iapi.TagNameValidate]
+	iapi.ObjectTaggedFields[versionObj] = iapi.AwsEksKubernetesRuntimeDefinitionTaggedFields[iapi.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)
 }
 
-// AddAwsEksClusterInstanceVersions adds field validation info and adds it
+// AddAwsEksKubernetesRuntimeInstanceVersions adds field validation info and adds it
 // to the REST API versions.
-func AddAwsEksClusterInstanceVersions() {
-	iapi.AwsEksClusterInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+func AddAwsEksKubernetesRuntimeInstanceVersions() {
+	iapi.AwsEksKubernetesRuntimeInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
 		Optional:             []string{},
 		OptionalAssociations: []string{},
 		Required:             []string{},
@@ -86,20 +86,20 @@ func AddAwsEksClusterInstanceVersions() {
 	// parse struct and populate the FieldsByTag object
 	iapi.ParseStruct(
 		iapi.TagNameValidate,
-		reflect.ValueOf(new(v0.AwsEksClusterInstance)),
+		reflect.ValueOf(new(v0.AwsEksKubernetesRuntimeInstance)),
 		"",
 		iapi.Translate,
-		iapi.AwsEksClusterInstanceTaggedFields,
+		iapi.AwsEksKubernetesRuntimeInstanceTaggedFields,
 	)
 
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
-		Object:  string(v0.ObjectTypeAwsEksClusterInstance),
+		Object:  string(v0.ObjectTypeAwsEksKubernetesRuntimeInstance),
 		Version: iapi.V0,
 	}
 
 	// add the object tagged fields to the global tagged fields map
-	iapi.ObjectTaggedFields[versionObj] = iapi.AwsEksClusterInstanceTaggedFields[iapi.TagNameValidate]
+	iapi.ObjectTaggedFields[versionObj] = iapi.AwsEksKubernetesRuntimeInstanceTaggedFields[iapi.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)

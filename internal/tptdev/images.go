@@ -37,14 +37,14 @@ type imageTagFetcher func(nodes.Node, string) (map[string]bool, error)
 
 // PrepareDevImages builds and loads the threeport control plane images for
 // development use.
-func PrepareDevImages(threeportPath, kindClusterName string) error {
+func PrepareDevImages(threeportPath, kindKubernetesRuntimeName string) error {
 	devImages := threeport.ThreeportDevImages()
 
 	if err := BuildDevImages(threeportPath, devImages); err != nil {
 		return fmt.Errorf("failed to build dev images: %w", err)
 	}
 
-	if err := LoadDevImages(kindClusterName, devImages); err != nil {
+	if err := LoadDevImages(kindKubernetesRuntimeName, devImages); err != nil {
 		return fmt.Errorf("failed to load dev images to kind cluster: %w", err)
 	}
 
@@ -93,7 +93,7 @@ func BuildDevImages(threeportPath string, devImages map[string]string) error {
 
 // LoadDevImages loads the threeport control plane development container images
 // onto the kind cluster nodes.
-func LoadDevImages(kindClusterName string, devImages map[string]string) error {
+func LoadDevImages(kindKubernetesRuntimeName string, devImages map[string]string) error {
 	logger := cmd.NewLogger()
 	provider := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
@@ -112,12 +112,12 @@ func LoadDevImages(kindClusterName string, devImages map[string]string) error {
 	}
 
 	// check that the cluster nodes exist
-	nodeList, err := provider.ListInternalNodes(kindClusterName)
+	nodeList, err := provider.ListInternalNodes(kindKubernetesRuntimeName)
 	if err != nil {
 		return err
 	}
 	if len(nodeList) == 0 {
-		return fmt.Errorf("no nodes found for cluster %q", kindClusterName)
+		return fmt.Errorf("no nodes found for cluster %q", kindKubernetesRuntimeName)
 	}
 
 	// map cluster nodes by their name

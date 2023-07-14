@@ -19,18 +19,18 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
-// awsEksClusterInstanceCreated reconciles state for created AWS EKS clusters by
+// awsEksKubernetesRuntimeInstanceCreated reconciles state for created AWS EKS clusters by
 // creating a new EKS cluster.
-func awsEksClusterInstanceCreated(
+func awsEksKubernetesRuntimeInstanceCreated(
 	r *controller.Reconciler,
-	awsEksClusterInstance *v0.AwsEksClusterInstance,
+	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) error {
 	// get cluster definition and aws account info
-	awsEksClusterDefinition, err := client.GetAwsEksClusterDefinitionByID(
+	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
 		r.APIClient,
 		r.APIServer,
-		*awsEksClusterInstance.AwsEksClusterDefinitionID,
+		*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to retreive cluster definition by ID: %w", err)
@@ -38,7 +38,7 @@ func awsEksClusterInstanceCreated(
 	awsAccount, err := client.GetAwsAccountByID(
 		r.APIClient,
 		r.APIServer,
-		*awsEksClusterInstance.AwsAccountID,
+		*awsEksKubernetesRuntimeInstance.AwsAccountID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
@@ -46,16 +46,16 @@ func awsEksClusterInstanceCreated(
 
 	// add log metadata
 	reconLog := log.WithValues(
-		"awsEksClsuterDefinitionRegion", *awsEksClusterDefinition.Region,
-		"awsEksClsuterDefinitionZoneCount", *awsEksClusterDefinition.ZoneCount,
-		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksClusterDefinition.DefaultNodeGroupInstanceType,
+		"awsEksClsuterDefinitionRegion", *awsEksKubernetesRuntimeDefinition.Region,
+		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
+		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 		"awsAccountAccessKeyID", *awsAccount.AccessKeyID,
 	)
 
 	// create AWS config
 	awsConfig, err := config.LoadDefaultConfig(
 		context.Background(),
-		config.WithRegion(*awsEksClusterInstance.Region),
+		config.WithRegion(*awsEksKubernetesRuntimeInstance.Region),
 		config.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(
 				*awsAccount.AccessKeyID,
@@ -86,11 +86,11 @@ func awsEksClusterInstanceCreated(
 				reconLog.Error(err, "failed to marshal inventory")
 			}
 			dbInventory := datatypes.JSON(inventoryJSON)
-			awsEksClusterInstance.ResourceInventory = &dbInventory
-			_, err = client.UpdateAwsEksClusterInstance(
+			awsEksKubernetesRuntimeInstance.ResourceInventory = &dbInventory
+			_, err = client.UpdateAwsEksKubernetesRuntimeInstance(
 				r.APIClient,
 				r.APIServer,
-				awsEksClusterInstance,
+				awsEksKubernetesRuntimeInstance,
 			)
 			if err != nil {
 				reconLog.Error(err, "failed to update EKS cluster instance inventory")
@@ -108,10 +108,10 @@ func awsEksClusterInstanceCreated(
 		<-sigs
 		reconLog.Info("controller terminated mid resource creation, removing resources...")
 		// retrieve eks cluster instance
-		latestAwsEksClusterInstance, err := client.GetAwsEksClusterInstanceByID(
+		latestAwsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByID(
 			r.APIClient,
 			r.APIServer,
-			*awsEksClusterInstance.ID,
+			*awsEksKubernetesRuntimeInstance.ID,
 		)
 		if err != nil {
 			reconLog.Error(err, "failed to get EKS cluster instance inventory from threeport API")
@@ -120,7 +120,7 @@ func awsEksClusterInstanceCreated(
 		// unmarshal the inventory into an ResourceInventory object
 		var inventory resource.ResourceInventory
 		if err := resource.UnmarshalInventory(
-			[]byte(*latestAwsEksClusterInstance.ResourceInventory),
+			[]byte(*latestAwsEksKubernetesRuntimeInstance.ResourceInventory),
 			&inventory,
 		); err != nil {
 			reconLog.Error(err, "failed to unmarshal resource inventory")
@@ -131,8 +131,8 @@ func awsEksClusterInstanceCreated(
 		}
 	}()
 
-	clusterInfra := provider.ClusterInfraEKS{
-		ThreeportInstanceName: *awsEksClusterInstance.Name,
+	clusterInfra := provider.KubernetesRuntimeInfraEKS{
+		ThreeportInstanceName: *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:          *awsAccount.AccountID,
 		AwsConfig:             awsConfig,
 		ResourceClient:        *resourceClient,
@@ -152,19 +152,19 @@ func awsEksClusterInstanceCreated(
 
 	//// create new cluster instance
 	//dummyName := "dummyName"
-	//controlPlaneCluster := false
-	//defaultCluster := true
-	//clusterInstance := v0.ClusterInstance{
+	//controlPlaneKubernetesRuntime := false
+	//defaultKubernetesRuntime := true
+	//clusterInstance := v0.KubernetesRuntimeInstance{
 	//	Instance: v0.Instance{
 	//		Name: &dummyName,
 	//	},
-	//	ThreeportControlPlaneCluster: &controlPlaneCluster,
+	//	ThreeportControlPlaneKubernetesRuntime: &controlPlaneKubernetesRuntime,
 	//	APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
 	//	CACertificate:                &kubeConnectionInfo.CACertificate,
 	//	ConnectionToken:              &kubeConnectionInfo.EKSToken,
-	//	DefaultCluster:               &defaultCluster,
+	//	DefaultKubernetesRuntime:               &defaultKubernetesRuntime,
 	//}
-	//_, err = client.CreateClusterInstance(
+	//_, err = client.CreateKubernetesRuntimeInstance(
 	//	r.APIClient,
 	//	r.APIServer,
 	//	&clusterInstance,
@@ -178,9 +178,9 @@ func awsEksClusterInstanceCreated(
 	return nil
 }
 
-func awsEksClusterInstanceDeleted(
+func awsEksKubernetesRuntimeInstanceDeleted(
 	r *controller.Reconciler,
-	awsEksClusterInstance *v0.AwsEksClusterInstance,
+	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) error {
 	return nil

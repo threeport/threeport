@@ -14,51 +14,51 @@ import (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// ClusterDefinition
+// KubernetesRuntimeDefinition
 ///////////////////////////////////////////////////////////////////////////////
 
-// @Summary GetClusterDefinitionVersions gets the supported versions for the cluster definition API.
-// @Description Get the supported API versions for cluster definitions.
-// @ID clusterDefinition-get-versions
+// @Summary GetKubernetesRuntimeDefinitionVersions gets the supported versions for the kubernetes runtime definition API.
+// @Description Get the supported API versions for kubernetes runtime definitions.
+// @ID kubernetesRuntimeDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /cluster-definitions/versions [get]
-func (h Handler) GetClusterDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeClusterDefinition)])
+// @Router /kubernetes-runtime-definitions/versions [get]
+func (h Handler) GetKubernetesRuntimeDefinitionVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeKubernetesRuntimeDefinition)])
 }
 
-// @Summary adds a new cluster definition.
-// @Description Add a new cluster definition to the Threeport database.
-// @ID add-clusterDefinition
+// @Summary adds a new kubernetes runtime definition.
+// @Description Add a new kubernetes runtime definition to the Threeport database.
+// @ID add-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
-// @Param clusterDefinition body v0.ClusterDefinition true "ClusterDefinition object"
+// @Param kubernetesRuntimeDefinition body v0.KubernetesRuntimeDefinition true "KubernetesRuntimeDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-definitions [post]
-func (h Handler) AddClusterDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterDefinition
-	var clusterDefinition v0.ClusterDefinition
+// @Router /v0/kubernetes-runtime-definitions [post]
+func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
+	var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	if err := c.Bind(&clusterDefinition); err != nil {
+	if err := c.Bind(&kubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, clusterDefinition, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, kubernetesRuntimeDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// check for duplicate names
-	var existingClusterDefinition v0.ClusterDefinition
+	var existingKubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
 	nameUsed := true
-	result := h.DB.Where("name = ?", clusterDefinition.Name).First(&existingClusterDefinition)
+	result := h.DB.Where("name = ?", kubernetesRuntimeDefinition.Name).First(&existingKubernetesRuntimeDefinition)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
@@ -71,12 +71,12 @@ func (h Handler) AddClusterDefinition(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.DB.Create(&clusterDefinition); result.Error != nil {
+	if result := h.DB.Create(&kubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller
-	notifPayload, err := clusterDefinition.NotificationPayload(
+	notifPayload, err := kubernetesRuntimeDefinition.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
 		0,
@@ -84,9 +84,9 @@ func (h Handler) AddClusterDefinition(c echo.Context) error {
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.ClusterDefinitionCreateSubject, *notifPayload)
+	h.JS.Publish(v0.KubernetesRuntimeDefinitionCreateSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, clusterDefinition)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -94,34 +94,34 @@ func (h Handler) AddClusterDefinition(c echo.Context) error {
 	return iapi.ResponseStatus201(c, *response)
 }
 
-// @Summary gets all cluster definitions.
-// @Description Get all cluster definitions from the Threeport database.
-// @ID get-clusterDefinitions
+// @Summary gets all kubernetes runtime definitions.
+// @Description Get all kubernetes runtime definitions from the Threeport database.
+// @ID get-kubernetesRuntimeDefinitions
 // @Accept json
 // @Produce json
-// @Param name query string false "cluster definition search by name"
+// @Param name query string false "kubernetes runtime definition search by name"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-definitions [get]
-func (h Handler) GetClusterDefinitions(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterDefinition
+// @Router /v0/kubernetes-runtime-definitions [get]
+func (h Handler) GetKubernetesRuntimeDefinitions(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
 	if err != nil {
 		return iapi.ResponseStatus400(c, &params, err, objectType)
 	}
 
-	var filter v0.ClusterDefinition
+	var filter v0.KubernetesRuntimeDefinition
 	if err := c.Bind(&filter); err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&v0.ClusterDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.KubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	records := &[]v0.ClusterDefinition{}
+	records := &[]v0.KubernetesRuntimeDefinition{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
@@ -134,28 +134,28 @@ func (h Handler) GetClusterDefinitions(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary gets a cluster definition.
-// @Description Get a particular cluster definition from the database.
-// @ID get-clusterDefinition
+// @Summary gets a kubernetes runtime definition.
+// @Description Get a particular kubernetes runtime definition from the database.
+// @ID get-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-definitions/{id} [get]
-func (h Handler) GetClusterDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterDefinition
-	clusterDefinitionID := c.Param("id")
-	var clusterDefinition v0.ClusterDefinition
-	if result := h.DB.First(&clusterDefinition, clusterDefinitionID); result.Error != nil {
+// @Router /v0/kubernetes-runtime-definitions/{id} [get]
+func (h Handler) GetKubernetesRuntimeDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
+	kubernetesRuntimeDefinitionID := c.Param("id")
+	var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
+	if result := h.DB.First(&kubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, clusterDefinition)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -163,27 +163,27 @@ func (h Handler) GetClusterDefinition(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates specific fields for an existing cluster definition.
-// @Description Update a cluster definition in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating cluster definition objects only.
+// @Summary updates specific fields for an existing kubernetes runtime definition.
+// @Description Update a kubernetes runtime definition in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating kubernetes runtime definition objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-clusterDefinition
+// @ID update-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param clusterDefinition body v0.ClusterDefinition true "ClusterDefinition object"
+// @Param kubernetesRuntimeDefinition body v0.KubernetesRuntimeDefinition true "KubernetesRuntimeDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-definitions/{id} [patch]
-func (h Handler) UpdateClusterDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterDefinition
-	clusterDefinitionID := c.Param("id")
-	var existingClusterDefinition v0.ClusterDefinition
-	if result := h.DB.First(&existingClusterDefinition, clusterDefinitionID); result.Error != nil {
+// @Router /v0/kubernetes-runtime-definitions/{id} [patch]
+func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
+	kubernetesRuntimeDefinitionID := c.Param("id")
+	var existingKubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
+	if result := h.DB.First(&existingKubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -196,17 +196,21 @@ func (h Handler) UpdateClusterDefinition(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedClusterDefinition v0.ClusterDefinition
-	if err := c.Bind(&updatedClusterDefinition); err != nil {
+	var updatedKubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
+	if err := c.Bind(&updatedKubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+<<<<<<< HEAD:internal/api/handlers/cluster_gen.go
 	// update object in database
 	if result := h.DB.Model(&existingClusterDefinition).Updates(updatedClusterDefinition); result.Error != nil {
+=======
+	if result := h.DB.Model(&existingKubernetesRuntimeDefinition).Updates(updatedKubernetesRuntimeDefinition); result.Error != nil {
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime):internal/api/handlers/kubernetes_runtime_gen.go
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingClusterDefinition)
+	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -214,28 +218,28 @@ func (h Handler) UpdateClusterDefinition(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates an existing cluster definition by replacing the entire object.
-// @Description Replace a cluster definition in the database.  All required fields must be provided.
+// @Summary updates an existing kubernetes runtime definition by replacing the entire object.
+// @Description Replace a kubernetes runtime definition in the database.  All required fields must be provided.
 // @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating cluster definition objects only.
+// @Description Note: This API endpint is for updating kubernetes runtime definition objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-clusterDefinition
+// @ID replace-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param clusterDefinition body v0.ClusterDefinition true "ClusterDefinition object"
+// @Param kubernetesRuntimeDefinition body v0.KubernetesRuntimeDefinition true "KubernetesRuntimeDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-definitions/{id} [put]
-func (h Handler) ReplaceClusterDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterDefinition
-	clusterDefinitionID := c.Param("id")
-	var existingClusterDefinition v0.ClusterDefinition
-	if result := h.DB.First(&existingClusterDefinition, clusterDefinitionID); result.Error != nil {
+// @Router /v0/kubernetes-runtime-definitions/{id} [put]
+func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
+	kubernetesRuntimeDefinitionID := c.Param("id")
+	var existingKubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
+	if result := h.DB.First(&existingKubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -248,31 +252,31 @@ func (h Handler) ReplaceClusterDefinition(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedClusterDefinition v0.ClusterDefinition
-	if err := c.Bind(&updatedClusterDefinition); err != nil {
+	var updatedKubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
+	if err := c.Bind(&updatedKubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, updatedClusterDefinition, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, updatedKubernetesRuntimeDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
-	updatedClusterDefinition.ID = existingClusterDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedClusterDefinition); result.Error != nil {
+	updatedKubernetesRuntimeDefinition.ID = existingKubernetesRuntimeDefinition.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// reload updated data from DB
-	if result := h.DB.First(&existingClusterDefinition, clusterDefinitionID); result.Error != nil {
+	if result := h.DB.First(&existingKubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingClusterDefinition)
+	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -280,9 +284,9 @@ func (h Handler) ReplaceClusterDefinition(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary deletes a cluster definition.
-// @Description Delete a cluster definition by ID from the database.
-// @ID delete-clusterDefinition
+// @Summary deletes a kubernetes runtime definition.
+// @Description Delete a kubernetes runtime definition by ID from the database.
+// @ID delete-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -290,24 +294,24 @@ func (h Handler) ReplaceClusterDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-definitions/{id} [delete]
-func (h Handler) DeleteClusterDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterDefinition
-	clusterDefinitionID := c.Param("id")
-	var clusterDefinition v0.ClusterDefinition
-	if result := h.DB.First(&clusterDefinition, clusterDefinitionID); result.Error != nil {
+// @Router /v0/kubernetes-runtime-definitions/{id} [delete]
+func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
+	kubernetesRuntimeDefinitionID := c.Param("id")
+	var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
+	if result := h.DB.First(&kubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	if result := h.DB.Delete(&clusterDefinition); result.Error != nil {
+	if result := h.DB.Delete(&kubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller
-	notifPayload, err := clusterDefinition.NotificationPayload(
+	notifPayload, err := kubernetesRuntimeDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
 		0,
@@ -315,9 +319,9 @@ func (h Handler) DeleteClusterDefinition(c echo.Context) error {
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.ClusterDefinitionDeleteSubject, *notifPayload)
+	h.JS.Publish(v0.KubernetesRuntimeDefinitionDeleteSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, clusterDefinition)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -326,51 +330,51 @@ func (h Handler) DeleteClusterDefinition(c echo.Context) error {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// ClusterInstance
+// KubernetesRuntimeInstance
 ///////////////////////////////////////////////////////////////////////////////
 
-// @Summary GetClusterInstanceVersions gets the supported versions for the cluster instance API.
-// @Description Get the supported API versions for cluster instances.
-// @ID clusterInstance-get-versions
+// @Summary GetKubernetesRuntimeInstanceVersions gets the supported versions for the kubernetes runtime instance API.
+// @Description Get the supported API versions for kubernetes runtime instances.
+// @ID kubernetesRuntimeInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /cluster-instances/versions [get]
-func (h Handler) GetClusterInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeClusterInstance)])
+// @Router /kubernetes-runtime-instances/versions [get]
+func (h Handler) GetKubernetesRuntimeInstanceVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeKubernetesRuntimeInstance)])
 }
 
-// @Summary adds a new cluster instance.
-// @Description Add a new cluster instance to the Threeport database.
-// @ID add-clusterInstance
+// @Summary adds a new kubernetes runtime instance.
+// @Description Add a new kubernetes runtime instance to the Threeport database.
+// @ID add-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
-// @Param clusterInstance body v0.ClusterInstance true "ClusterInstance object"
+// @Param kubernetesRuntimeInstance body v0.KubernetesRuntimeInstance true "KubernetesRuntimeInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-instances [post]
-func (h Handler) AddClusterInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterInstance
-	var clusterInstance v0.ClusterInstance
+// @Router /v0/kubernetes-runtime-instances [post]
+func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeInstance
+	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	if err := c.Bind(&clusterInstance); err != nil {
+	if err := c.Bind(&kubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, clusterInstance, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, kubernetesRuntimeInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// check for duplicate names
-	var existingClusterInstance v0.ClusterInstance
+	var existingKubernetesRuntimeInstance v0.KubernetesRuntimeInstance
 	nameUsed := true
-	result := h.DB.Where("name = ?", clusterInstance.Name).First(&existingClusterInstance)
+	result := h.DB.Where("name = ?", kubernetesRuntimeInstance.Name).First(&existingKubernetesRuntimeInstance)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
@@ -383,12 +387,12 @@ func (h Handler) AddClusterInstance(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.DB.Create(&clusterInstance); result.Error != nil {
+	if result := h.DB.Create(&kubernetesRuntimeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller
-	notifPayload, err := clusterInstance.NotificationPayload(
+	notifPayload, err := kubernetesRuntimeInstance.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
 		0,
@@ -396,9 +400,9 @@ func (h Handler) AddClusterInstance(c echo.Context) error {
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.ClusterInstanceCreateSubject, *notifPayload)
+	h.JS.Publish(v0.KubernetesRuntimeInstanceCreateSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, clusterInstance)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -406,34 +410,34 @@ func (h Handler) AddClusterInstance(c echo.Context) error {
 	return iapi.ResponseStatus201(c, *response)
 }
 
-// @Summary gets all cluster instances.
-// @Description Get all cluster instances from the Threeport database.
-// @ID get-clusterInstances
+// @Summary gets all kubernetes runtime instances.
+// @Description Get all kubernetes runtime instances from the Threeport database.
+// @ID get-kubernetesRuntimeInstances
 // @Accept json
 // @Produce json
-// @Param name query string false "cluster instance search by name"
+// @Param name query string false "kubernetes runtime instance search by name"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-instances [get]
-func (h Handler) GetClusterInstances(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterInstance
+// @Router /v0/kubernetes-runtime-instances [get]
+func (h Handler) GetKubernetesRuntimeInstances(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
 	if err != nil {
 		return iapi.ResponseStatus400(c, &params, err, objectType)
 	}
 
-	var filter v0.ClusterInstance
+	var filter v0.KubernetesRuntimeInstance
 	if err := c.Bind(&filter); err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&v0.ClusterInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.KubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	records := &[]v0.ClusterInstance{}
+	records := &[]v0.KubernetesRuntimeInstance{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
@@ -446,28 +450,28 @@ func (h Handler) GetClusterInstances(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary gets a cluster instance.
-// @Description Get a particular cluster instance from the database.
-// @ID get-clusterInstance
+// @Summary gets a kubernetes runtime instance.
+// @Description Get a particular kubernetes runtime instance from the database.
+// @ID get-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-instances/{id} [get]
-func (h Handler) GetClusterInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterInstance
-	clusterInstanceID := c.Param("id")
-	var clusterInstance v0.ClusterInstance
-	if result := h.DB.First(&clusterInstance, clusterInstanceID); result.Error != nil {
+// @Router /v0/kubernetes-runtime-instances/{id} [get]
+func (h Handler) GetKubernetesRuntimeInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeInstance
+	kubernetesRuntimeInstanceID := c.Param("id")
+	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
+	if result := h.DB.First(&kubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, clusterInstance)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -475,27 +479,27 @@ func (h Handler) GetClusterInstance(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates specific fields for an existing cluster instance.
-// @Description Update a cluster instance in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating cluster instance objects only.
+// @Summary updates specific fields for an existing kubernetes runtime instance.
+// @Description Update a kubernetes runtime instance in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating kubernetes runtime instance objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-clusterInstance
+// @ID update-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param clusterInstance body v0.ClusterInstance true "ClusterInstance object"
+// @Param kubernetesRuntimeInstance body v0.KubernetesRuntimeInstance true "KubernetesRuntimeInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-instances/{id} [patch]
-func (h Handler) UpdateClusterInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterInstance
-	clusterInstanceID := c.Param("id")
-	var existingClusterInstance v0.ClusterInstance
-	if result := h.DB.First(&existingClusterInstance, clusterInstanceID); result.Error != nil {
+// @Router /v0/kubernetes-runtime-instances/{id} [patch]
+func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeInstance
+	kubernetesRuntimeInstanceID := c.Param("id")
+	var existingKubernetesRuntimeInstance v0.KubernetesRuntimeInstance
+	if result := h.DB.First(&existingKubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -508,17 +512,21 @@ func (h Handler) UpdateClusterInstance(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedClusterInstance v0.ClusterInstance
-	if err := c.Bind(&updatedClusterInstance); err != nil {
+	var updatedKubernetesRuntimeInstance v0.KubernetesRuntimeInstance
+	if err := c.Bind(&updatedKubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+<<<<<<< HEAD:internal/api/handlers/cluster_gen.go
 	// update object in database
 	if result := h.DB.Model(&existingClusterInstance).Updates(updatedClusterInstance); result.Error != nil {
+=======
+	if result := h.DB.Model(&existingKubernetesRuntimeInstance).Updates(updatedKubernetesRuntimeInstance); result.Error != nil {
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime):internal/api/handlers/kubernetes_runtime_gen.go
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingClusterInstance)
+	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -526,28 +534,28 @@ func (h Handler) UpdateClusterInstance(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates an existing cluster instance by replacing the entire object.
-// @Description Replace a cluster instance in the database.  All required fields must be provided.
+// @Summary updates an existing kubernetes runtime instance by replacing the entire object.
+// @Description Replace a kubernetes runtime instance in the database.  All required fields must be provided.
 // @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating cluster instance objects only.
+// @Description Note: This API endpint is for updating kubernetes runtime instance objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-clusterInstance
+// @ID replace-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param clusterInstance body v0.ClusterInstance true "ClusterInstance object"
+// @Param kubernetesRuntimeInstance body v0.KubernetesRuntimeInstance true "KubernetesRuntimeInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-instances/{id} [put]
-func (h Handler) ReplaceClusterInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterInstance
-	clusterInstanceID := c.Param("id")
-	var existingClusterInstance v0.ClusterInstance
-	if result := h.DB.First(&existingClusterInstance, clusterInstanceID); result.Error != nil {
+// @Router /v0/kubernetes-runtime-instances/{id} [put]
+func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeInstance
+	kubernetesRuntimeInstanceID := c.Param("id")
+	var existingKubernetesRuntimeInstance v0.KubernetesRuntimeInstance
+	if result := h.DB.First(&existingKubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -560,31 +568,31 @@ func (h Handler) ReplaceClusterInstance(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedClusterInstance v0.ClusterInstance
-	if err := c.Bind(&updatedClusterInstance); err != nil {
+	var updatedKubernetesRuntimeInstance v0.KubernetesRuntimeInstance
+	if err := c.Bind(&updatedKubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, updatedClusterInstance, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, updatedKubernetesRuntimeInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
-	updatedClusterInstance.ID = existingClusterInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedClusterInstance); result.Error != nil {
+	updatedKubernetesRuntimeInstance.ID = existingKubernetesRuntimeInstance.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesRuntimeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// reload updated data from DB
-	if result := h.DB.First(&existingClusterInstance, clusterInstanceID); result.Error != nil {
+	if result := h.DB.First(&existingKubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingClusterInstance)
+	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -592,9 +600,9 @@ func (h Handler) ReplaceClusterInstance(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary deletes a cluster instance.
-// @Description Delete a cluster instance by ID from the database.
-// @ID delete-clusterInstance
+// @Summary deletes a kubernetes runtime instance.
+// @Description Delete a kubernetes runtime instance by ID from the database.
+// @ID delete-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -602,24 +610,24 @@ func (h Handler) ReplaceClusterInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/cluster-instances/{id} [delete]
-func (h Handler) DeleteClusterInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeClusterInstance
-	clusterInstanceID := c.Param("id")
-	var clusterInstance v0.ClusterInstance
-	if result := h.DB.First(&clusterInstance, clusterInstanceID); result.Error != nil {
+// @Router /v0/kubernetes-runtime-instances/{id} [delete]
+func (h Handler) DeleteKubernetesRuntimeInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeKubernetesRuntimeInstance
+	kubernetesRuntimeInstanceID := c.Param("id")
+	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
+	if result := h.DB.First(&kubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	if result := h.DB.Delete(&clusterInstance); result.Error != nil {
+	if result := h.DB.Delete(&kubernetesRuntimeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller
-	notifPayload, err := clusterInstance.NotificationPayload(
+	notifPayload, err := kubernetesRuntimeInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
 		0,
@@ -627,9 +635,9 @@ func (h Handler) DeleteClusterInstance(c echo.Context) error {
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.ClusterInstanceDeleteSubject, *notifPayload)
+	h.JS.Publish(v0.KubernetesRuntimeInstanceDeleteSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, clusterInstance)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}

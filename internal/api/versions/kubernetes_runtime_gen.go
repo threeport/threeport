@@ -9,10 +9,10 @@ import (
 	"reflect"
 )
 
-// AddClusterDefinitionVersions adds field validation info and adds it
+// AddKubernetesRuntimeDefinitionVersions adds field validation info and adds it
 // to the REST API versions.
-func AddClusterDefinitionVersions() {
-	iapi.ClusterDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+func AddKubernetesRuntimeDefinitionVersions() {
+	iapi.KubernetesRuntimeDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
 		Optional:             []string{},
 		OptionalAssociations: []string{},
 		Required:             []string{},
@@ -22,29 +22,29 @@ func AddClusterDefinitionVersions() {
 	// parse struct and populate the FieldsByTag object
 	iapi.ParseStruct(
 		iapi.TagNameValidate,
-		reflect.ValueOf(new(v0.ClusterDefinition)),
+		reflect.ValueOf(new(v0.KubernetesRuntimeDefinition)),
 		"",
 		iapi.Translate,
-		iapi.ClusterDefinitionTaggedFields,
+		iapi.KubernetesRuntimeDefinitionTaggedFields,
 	)
 
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
-		Object:  string(v0.ObjectTypeClusterDefinition),
+		Object:  string(v0.ObjectTypeKubernetesRuntimeDefinition),
 		Version: iapi.V0,
 	}
 
 	// add the object tagged fields to the global tagged fields map
-	iapi.ObjectTaggedFields[versionObj] = iapi.ClusterDefinitionTaggedFields[iapi.TagNameValidate]
+	iapi.ObjectTaggedFields[versionObj] = iapi.KubernetesRuntimeDefinitionTaggedFields[iapi.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)
 }
 
-// AddClusterInstanceVersions adds field validation info and adds it
+// AddKubernetesRuntimeInstanceVersions adds field validation info and adds it
 // to the REST API versions.
-func AddClusterInstanceVersions() {
-	iapi.ClusterInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+func AddKubernetesRuntimeInstanceVersions() {
+	iapi.KubernetesRuntimeInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
 		Optional:             []string{},
 		OptionalAssociations: []string{},
 		Required:             []string{},
@@ -54,20 +54,20 @@ func AddClusterInstanceVersions() {
 	// parse struct and populate the FieldsByTag object
 	iapi.ParseStruct(
 		iapi.TagNameValidate,
-		reflect.ValueOf(new(v0.ClusterInstance)),
+		reflect.ValueOf(new(v0.KubernetesRuntimeInstance)),
 		"",
 		iapi.Translate,
-		iapi.ClusterInstanceTaggedFields,
+		iapi.KubernetesRuntimeInstanceTaggedFields,
 	)
 
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
-		Object:  string(v0.ObjectTypeClusterInstance),
+		Object:  string(v0.ObjectTypeKubernetesRuntimeInstance),
 		Version: iapi.V0,
 	}
 
 	// add the object tagged fields to the global tagged fields map
-	iapi.ObjectTaggedFields[versionObj] = iapi.ClusterInstanceTaggedFields[iapi.TagNameValidate]
+	iapi.ObjectTaggedFields[versionObj] = iapi.KubernetesRuntimeInstanceTaggedFields[iapi.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)

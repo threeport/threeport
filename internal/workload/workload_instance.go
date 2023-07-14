@@ -80,10 +80,10 @@ func workloadInstanceCreated(
 	}
 
 	// get cluster instance info
-	clusterInstance, err := client.GetClusterInstanceByID(
+	clusterInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
 		r.APIServer,
-		*workloadInstance.ClusterInstanceID,
+		*workloadInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
@@ -354,10 +354,10 @@ func workloadInstanceDeleted(
 	}
 
 	// get cluster instance info
-	clusterInstance, err := client.GetClusterInstanceByID(
+	clusterInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
 		r.APIServer,
-		*workloadInstance.ClusterInstanceID,
+		*workloadInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)

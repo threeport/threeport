@@ -191,18 +191,18 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 
 		// check cluster instance
-		clusterInsts, err := client.GetClusterInstances(apiClient, apiAddr())
+		clusterInsts, err := client.GetKubernetesRuntimeInstances(apiClient, apiAddr())
 		assert.Nil(err, "should have no error getting workload resource definitions")
-		var testClusterInst v0.ClusterInstance
+		var testKubernetesRuntimeInst v0.KubernetesRuntimeInstance
 		if assert.NotNil(clusterInsts, "should have an array of cluster instances returned") {
 			assert.NotEqual(len(*clusterInsts), 0, "should get back at least one cluster instance")
 			for _, c := range *clusterInsts {
-				if *c.ThreeportControlPlaneCluster {
-					testClusterInst = c
+				if *c.ThreeportControlPlaneKubernetesRuntime {
+					testKubernetesRuntimeInst = c
 				}
 			}
 		}
-		assert.NotNil(testClusterInst, "should have a cluster instance being used by threeport control plane")
+		assert.NotNil(testKubernetesRuntimeInst, "should have a cluster instance being used by threeport control plane")
 
 		// create workload instance
 		workloadInstName := fmt.Sprintf("%s-0", testWorkload.Name)
@@ -210,8 +210,8 @@ func TestWorkloadE2E(t *testing.T) {
 			Instance: v0.Instance{
 				Name: &workloadInstName,
 			},
-			ClusterInstanceID:    testClusterInst.ID,
-			WorkloadDefinitionID: createdWorkloadDef.ID,
+			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
+			WorkloadDefinitionID:        createdWorkloadDef.ID,
 		}
 		createdWorkloadInst, err := client.CreateWorkloadInstance(
 			apiClient,
@@ -226,8 +226,8 @@ func TestWorkloadE2E(t *testing.T) {
 			Instance: v0.Instance{
 				Name: &workloadInstName,
 			},
-			ClusterInstanceID:    testClusterInst.ID,
-			WorkloadDefinitionID: createdWorkloadDef.ID,
+			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
+			WorkloadDefinitionID:        createdWorkloadDef.ID,
 		}
 
 		_, err = client.CreateWorkloadInstance(
@@ -255,10 +255,10 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error creating gateway instance")
 
 		// get the cluster instance from the threeport API so we can connect to it
-		clusterInstance, err := client.GetClusterInstanceByID(
+		clusterInstance, err := client.GetKubernetesRuntimeInstanceByID(
 			apiClient,
 			apiAddr(),
-			*testClusterInst.ID,
+			*testKubernetesRuntimeInst.ID,
 		)
 		assert.Nil(err, "should have no error getting cluster instance")
 		assert.NotNil(clusterInstance, "should have a cluster instance returned")

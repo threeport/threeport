@@ -73,7 +73,7 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 		fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t CLUSTER INSTANCE\t STATUS\t AGE")
 		metadataErr := false
 		var workloadDefErr error
-		var clusterInstErr error
+		var kubernetesRuntimeInstErr error
 		var statusErr error
 		for _, wi := range *workloadInstances {
 			// get workload definition name for instance
@@ -86,15 +86,15 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 			} else {
 				workloadDef = *workloadDefinition.Name
 			}
-			// get cluster instance name for instance
-			var clusterInst string
-			clusterInstance, err := client.GetClusterInstanceByID(apiClient, apiEndpoint, *wi.ClusterInstanceID)
+			// get kubernetes runtime instance name for instance
+			var kubernetesRuntimeInst string
+			kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *wi.KubernetesRuntimeInstanceID)
 			if err != nil {
 				metadataErr = true
-				clusterInstErr = err
-				clusterInst = "<error>"
+				kubernetesRuntimeInstErr = err
+				kubernetesRuntimeInst = "<error>"
 			} else {
-				clusterInst = *clusterInstance.Name
+				kubernetesRuntimeInst = *kubernetesRuntimeInstance.Name
 			}
 			// get workload status
 			var workloadInstStatus string
@@ -106,7 +106,7 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 			}
 			workloadInstStatus = string(workloadInstStatusDetail.Status)
 			fmt.Fprintln(
-				writer, *wi.Name, "\t", workloadDef, "\t", clusterInst, "\t",
+				writer, *wi.Name, "\t", workloadDef, "\t", kubernetesRuntimeInst, "\t",
 				workloadInstStatus, "\t", util.GetAge(wi.CreatedAt),
 			)
 		}
@@ -116,8 +116,8 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 			if workloadDefErr != nil {
 				cli.Error("encountered an error retrieving workload definition info", workloadDefErr)
 			}
-			if clusterInstErr != nil {
-				cli.Error("encountered an error retrieving cluster instance info", clusterInstErr)
+			if kubernetesRuntimeInstErr != nil {
+				cli.Error("encountered an error retrieving kubernetes runtime instance info", kubernetesRuntimeInstErr)
 			}
 			if statusErr != nil {
 				cli.Error("encountered an error retrieving workload instance status", statusErr)

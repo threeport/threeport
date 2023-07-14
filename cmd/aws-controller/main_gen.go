@@ -25,10 +25,10 @@ import (
 
 func main() {
 	// flags
-	var awsEksClusterInstanceConcurrentReconciles = flag.Int(
-		"AwsEksClusterInstance-concurrent-reconciles",
+	var awsEksKubernetesRuntimeInstanceConcurrentReconciles = flag.Int(
+		"AwsEksKubernetesRuntimeInstance-concurrent-reconciles",
 		1,
-		"Number of concurrent reconcilers to run for aws eks cluster instances",
+		"Number of concurrent reconcilers to run for aws eks kubernetes runtime instances",
 	)
 
 	var apiServer = flag.String("api-server", "threeport-api-server", "Threepoort REST API server endpoint")
@@ -125,11 +125,11 @@ func main() {
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *awsEksClusterInstanceConcurrentReconciles,
-		Name:                 "AwsEksClusterInstanceReconciler",
-		NotifSubject:         v0.AwsEksClusterInstanceSubject,
-		ObjectType:           v0.ObjectTypeAwsEksClusterInstance,
-		ReconcileFunc:        aws.AwsEksClusterInstanceReconciler,
+		ConcurrentReconciles: *awsEksKubernetesRuntimeInstanceConcurrentReconciles,
+		Name:                 "AwsEksKubernetesRuntimeInstanceReconciler",
+		NotifSubject:         v0.AwsEksKubernetesRuntimeInstanceSubject,
+		ObjectType:           v0.ObjectTypeAwsEksKubernetesRuntimeInstance,
+		ReconcileFunc:        aws.AwsEksKubernetesRuntimeInstanceReconciler,
 	})
 
 	for _, r := range reconcilerConfigs {

@@ -12,9 +12,9 @@ import (
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 )
 
-// AwsEksClusterInstanceReconciler reconciles system state when a AwsEksClusterInstance
+// AwsEksKubernetesRuntimeInstanceReconciler reconciles system state when a AwsEksKubernetesRuntimeInstance
 // is created, updated or deleted.
-func AwsEksClusterInstanceReconciler(r *controller.Reconciler) {
+func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 	r.ShutdownWait.Add(1)
 	reconcilerLog := r.Log.WithValues("reconcilerName", r.Name)
 	reconcilerLog.Info("reconciler started")
@@ -49,14 +49,14 @@ func AwsEksClusterInstanceReconciler(r *controller.Reconciler) {
 					"msgData", string(msg.Data),
 				)
 				go r.RequeueRaw(msg.Subject, msg.Data)
-				log.V(1).Info("aws eks cluster instance reconciliation requeued with identical payload and fixed delay")
+				log.V(1).Info("aws eks kubernetes runtime instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
 
 			// decode the object that was created
-			var awsEksClusterInstance v0.AwsEksClusterInstance
-			mapstructure.Decode(notif.Object, &awsEksClusterInstance)
-			log = log.WithValues("awsEksClusterInstanceID", awsEksClusterInstance.ID)
+			var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+			mapstructure.Decode(notif.Object, &awsEksKubernetesRuntimeInstance)
+			log = log.WithValues("awsEksKubernetesRuntimeInstanceID", awsEksKubernetesRuntimeInstance.ID)
 
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
@@ -66,7 +66,7 @@ func AwsEksClusterInstanceReconciler(r *controller.Reconciler) {
 			)
 
 			// build the notif payload for requeues
-			notifPayload, err := awsEksClusterInstance.NotificationPayload(
+			notifPayload, err := awsEksKubernetesRuntimeInstance.NotificationPayload(
 				notif.Operation,
 				true,
 				requeueDelay,
@@ -74,56 +74,56 @@ func AwsEksClusterInstanceReconciler(r *controller.Reconciler) {
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
 				go r.RequeueRaw(msg.Subject, msg.Data)
-				log.V(1).Info("aws eks cluster instance reconciliation requeued with identical payload and fixed delay")
+				log.V(1).Info("aws eks kubernetes runtime instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
 
 			// check for lock on object
-			locked, ok := r.CheckLock(&awsEksClusterInstance)
+			locked, ok := r.CheckLock(&awsEksKubernetesRuntimeInstance)
 			if locked || ok == false {
-				go r.Requeue(&awsEksClusterInstance, msg.Subject, notifPayload, requeueDelay)
-				log.V(1).Info("aws eks cluster instance reconciliation requeued")
+				go r.Requeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
+				log.V(1).Info("aws eks kubernetes runtime instance reconciliation requeued")
 				continue
 			}
 
 			// put a lock on the reconciliation of the created object
-			if ok := r.Lock(&awsEksClusterInstance); !ok {
-				go r.Requeue(&awsEksClusterInstance, msg.Subject, notifPayload, requeueDelay)
-				log.V(1).Info("aws eks cluster instance reconciliation requeued")
+			if ok := r.Lock(&awsEksKubernetesRuntimeInstance); !ok {
+				go r.Requeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
+				log.V(1).Info("aws eks kubernetes runtime instance reconciliation requeued")
 				continue
 			}
 
 			// retrieve latest version of object if requeued
 			if notif.Requeue {
-				latestAwsEksClusterInstance, err := client.GetAwsEksClusterInstanceByID(
+				latestAwsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByID(
 					r.APIClient,
 					r.APIServer,
-					*awsEksClusterInstance.ID,
+					*awsEksKubernetesRuntimeInstance.ID,
 				)
 				// check if error is 404 - if object no longer exists, no need to requeue
 				if errors.Is(err, client.ErrorObjectNotFound) {
 					log.Info(fmt.Sprintf(
 						"object with ID %d no longer exists - halting reconciliation",
-						*awsEksClusterInstance.ID,
+						*awsEksKubernetesRuntimeInstance.ID,
 					))
-					r.ReleaseLock(&awsEksClusterInstance)
+					r.ReleaseLock(&awsEksKubernetesRuntimeInstance)
 					continue
 				}
 				if err != nil {
-					log.Error(err, "failed to get aws eks cluster instance by ID from API")
-					r.UnlockAndRequeue(&awsEksClusterInstance, msg.Subject, notifPayload, requeueDelay)
+					log.Error(err, "failed to get aws eks kubernetes runtime instance by ID from API")
+					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
 					continue
 				}
-				awsEksClusterInstance = *latestAwsEksClusterInstance
+				awsEksKubernetesRuntimeInstance = *latestAwsEksKubernetesRuntimeInstance
 			}
 
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
-				if err := awsEksClusterInstanceCreated(r, &awsEksClusterInstance, &log); err != nil {
-					log.Error(err, "failed to reconcile created aws eks cluster instance object")
+				if err := awsEksKubernetesRuntimeInstanceCreated(r, &awsEksKubernetesRuntimeInstance, &log); err != nil {
+					log.Error(err, "failed to reconcile created aws eks kubernetes runtime instance object")
 					r.UnlockAndRequeue(
-						&awsEksClusterInstance,
+						&awsEksKubernetesRuntimeInstance,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
@@ -131,10 +131,10 @@ func AwsEksClusterInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				if err := awsEksClusterInstanceDeleted(r, &awsEksClusterInstance, &log); err != nil {
-					log.Error(err, "failed to reconcile deleted aws eks cluster instance object")
+				if err := awsEksKubernetesRuntimeInstanceDeleted(r, &awsEksKubernetesRuntimeInstance, &log); err != nil {
+					log.Error(err, "failed to reconcile deleted aws eks kubernetes runtime instance object")
 					r.UnlockAndRequeue(
-						&awsEksClusterInstance,
+						&awsEksKubernetesRuntimeInstance,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
@@ -147,7 +147,7 @@ func AwsEksClusterInstanceReconciler(r *controller.Reconciler) {
 					"notification included an invalid operation",
 				)
 				r.UnlockAndRequeue(
-					&awsEksClusterInstance,
+					&awsEksKubernetesRuntimeInstance,
 					msg.Subject,
 					notifPayload,
 					requeueDelay,
@@ -158,33 +158,33 @@ func AwsEksClusterInstanceReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true
 			objectReconciled := true
-			reconciledAwsEksClusterInstance := v0.AwsEksClusterInstance{
-				Common:     v0.Common{ID: awsEksClusterInstance.ID},
+			reconciledAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
+				Common:     v0.Common{ID: awsEksKubernetesRuntimeInstance.ID},
 				Reconciled: &objectReconciled,
 			}
-			updatedAwsEksClusterInstance, err := client.UpdateAwsEksClusterInstance(
+			updatedAwsEksKubernetesRuntimeInstance, err := client.UpdateAwsEksKubernetesRuntimeInstance(
 				r.APIClient,
 				r.APIServer,
-				&reconciledAwsEksClusterInstance,
+				&reconciledAwsEksKubernetesRuntimeInstance,
 			)
 			if err != nil {
-				log.Error(err, "failed to update aws eks cluster instance to mark as reconciled")
-				r.UnlockAndRequeue(&awsEksClusterInstance, msg.Subject, notifPayload, requeueDelay)
+				log.Error(err, "failed to update aws eks kubernetes runtime instance to mark as reconciled")
+				r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
 				continue
 			}
 			log.V(1).Info(
-				"aws eks cluster instance marked as reconciled in API",
-				"aws eks cluster instanceName", updatedAwsEksClusterInstance.Name,
+				"aws eks kubernetes runtime instance marked as reconciled in API",
+				"aws eks kubernetes runtime instanceName", updatedAwsEksKubernetesRuntimeInstance.Name,
 			)
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&awsEksClusterInstance); !ok {
-				log.V(1).Info("aws eks cluster instance remains locked - will unlock when TTL expires")
+			if ok := r.ReleaseLock(&awsEksKubernetesRuntimeInstance); !ok {
+				log.V(1).Info("aws eks kubernetes runtime instance remains locked - will unlock when TTL expires")
 			} else {
-				log.V(1).Info("aws eks cluster instance unlocked")
+				log.V(1).Info("aws eks kubernetes runtime instance unlocked")
 			}
 
-			log.Info("aws eks cluster instance successfully reconciled")
+			log.Info("aws eks kubernetes runtime instance successfully reconciled")
 		}
 	}
 

@@ -20,28 +20,28 @@ func AwsAccountRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.DELETE(v0.PathAwsAccounts+"/:id", h.DeleteAwsAccount)
 }
 
-// AwsEksClusterDefinitionRoutes sets up all routes for the AwsEksClusterDefinition handlers.
-func AwsEksClusterDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/aws-eks-cluster-definitions/versions", h.GetAwsEksClusterDefinitionVersions)
+// AwsEksKubernetesRuntimeDefinitionRoutes sets up all routes for the AwsEksKubernetesRuntimeDefinition handlers.
+func AwsEksKubernetesRuntimeDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/aws-eks-kubernetes-runtime-definitions/versions", h.GetAwsEksKubernetesRuntimeDefinitionVersions)
 
-	e.POST(v0.PathAwsEksClusterDefinitions, h.AddAwsEksClusterDefinition)
-	e.GET(v0.PathAwsEksClusterDefinitions, h.GetAwsEksClusterDefinitions)
-	e.GET(v0.PathAwsEksClusterDefinitions+"/:id", h.GetAwsEksClusterDefinition)
-	e.PATCH(v0.PathAwsEksClusterDefinitions+"/:id", h.UpdateAwsEksClusterDefinition)
-	e.PUT(v0.PathAwsEksClusterDefinitions+"/:id", h.ReplaceAwsEksClusterDefinition)
-	e.DELETE(v0.PathAwsEksClusterDefinitions+"/:id", h.DeleteAwsEksClusterDefinition)
+	e.POST(v0.PathAwsEksKubernetesRuntimeDefinitions, h.AddAwsEksKubernetesRuntimeDefinition)
+	e.GET(v0.PathAwsEksKubernetesRuntimeDefinitions, h.GetAwsEksKubernetesRuntimeDefinitions)
+	e.GET(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.GetAwsEksKubernetesRuntimeDefinition)
+	e.PATCH(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.UpdateAwsEksKubernetesRuntimeDefinition)
+	e.PUT(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.ReplaceAwsEksKubernetesRuntimeDefinition)
+	e.DELETE(v0.PathAwsEksKubernetesRuntimeDefinitions+"/:id", h.DeleteAwsEksKubernetesRuntimeDefinition)
 }
 
-// AwsEksClusterInstanceRoutes sets up all routes for the AwsEksClusterInstance handlers.
-func AwsEksClusterInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/aws-eks-cluster-instances/versions", h.GetAwsEksClusterInstanceVersions)
+// AwsEksKubernetesRuntimeInstanceRoutes sets up all routes for the AwsEksKubernetesRuntimeInstance handlers.
+func AwsEksKubernetesRuntimeInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/aws-eks-kubernetes-runtime-instances/versions", h.GetAwsEksKubernetesRuntimeInstanceVersions)
 
-	e.POST(v0.PathAwsEksClusterInstances, h.AddAwsEksClusterInstance)
-	e.GET(v0.PathAwsEksClusterInstances, h.GetAwsEksClusterInstances)
-	e.GET(v0.PathAwsEksClusterInstances+"/:id", h.GetAwsEksClusterInstance)
-	e.PATCH(v0.PathAwsEksClusterInstances+"/:id", h.UpdateAwsEksClusterInstance)
-	e.PUT(v0.PathAwsEksClusterInstances+"/:id", h.ReplaceAwsEksClusterInstance)
-	e.DELETE(v0.PathAwsEksClusterInstances+"/:id", h.DeleteAwsEksClusterInstance)
+	e.POST(v0.PathAwsEksKubernetesRuntimeInstances, h.AddAwsEksKubernetesRuntimeInstance)
+	e.GET(v0.PathAwsEksKubernetesRuntimeInstances, h.GetAwsEksKubernetesRuntimeInstances)
+	e.GET(v0.PathAwsEksKubernetesRuntimeInstances+"/:id", h.GetAwsEksKubernetesRuntimeInstance)
+	e.PATCH(v0.PathAwsEksKubernetesRuntimeInstances+"/:id", h.UpdateAwsEksKubernetesRuntimeInstance)
+	e.PUT(v0.PathAwsEksKubernetesRuntimeInstances+"/:id", h.ReplaceAwsEksKubernetesRuntimeInstance)
+	e.DELETE(v0.PathAwsEksKubernetesRuntimeInstances+"/:id", h.DeleteAwsEksKubernetesRuntimeInstance)
 }
 
 // AwsRelationalDatabaseDefinitionRoutes sets up all routes for the AwsRelationalDatabaseDefinition handlers.

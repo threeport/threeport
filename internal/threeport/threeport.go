@@ -8,21 +8,21 @@ const (
 	ControlPlaneNamespace = "threeport-control-plane"
 )
 
-// ClusterInfraProvider indicates which infrastructure provider is being
-// used to run the threeport control plane.
-type ClusterInfraProvider string
+// KubernetesRuntimeInfraProvider indicates which infrastructure provider is being
+// used to run the kubernetes cluster for the threeport control plane.
+type KubernetesRuntimeInfraProvider string
 
 const (
-	ClusterInfraProviderKind = "kind"
-	ClusterInfraProviderEKS  = "eks"
+	KubernetesRuntimeInfraProviderKind = "kind"
+	KubernetesRuntimeInfraProviderEKS  = "eks"
 )
 
 // SupportedInfraProviders returns all supported infra providers.
 // TODO: move this to code generated from constants above
-func SupportedInfraProviders() []ClusterInfraProvider {
-	return []ClusterInfraProvider{
-		ClusterInfraProviderKind,
-		ClusterInfraProviderEKS,
+func SupportedInfraProviders() []KubernetesRuntimeInfraProvider {
+	return []KubernetesRuntimeInfraProvider{
+		KubernetesRuntimeInfraProviderKind,
+		KubernetesRuntimeInfraProviderEKS,
 	}
 }
 
@@ -37,10 +37,12 @@ const (
 
 // ControlPlane is an instance of a threeport control plane.
 type ControlPlane struct {
-	InfraProvider ClusterInfraProvider
+	InfraProvider KubernetesRuntimeInfraProvider
 	Tier          ControlPlaneTier
 }
 
-func BootstrapClusterName(threeportInstanceName string) string {
+// BootstrapKubernetesRuntimeName is the name given to the runtime cluster used
+// as the initial compute space.
+func BootstrapKubernetesRuntimeName(threeportInstanceName string) string {
 	return fmt.Sprintf("compute-space-%s-0", threeportInstanceName)
 }

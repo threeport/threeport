@@ -22,7 +22,6 @@ type DomainNameDefinition struct {
 
 	// The type of DNS record to create.
 	// Type *string `json:"Type,omitempty" query:"type" gorm:"default:'A'" validate:"optional"`
-
 }
 
 // DomainNameInstance is an instance of domain name management for a workload.
@@ -35,5 +34,4 @@ type DomainNameInstance struct {
 
 	// The cluster where the workload that is using the domain name is running.
 	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
-
 }

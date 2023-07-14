@@ -1,7 +1,7 @@
 //go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
-type ClusterDefinition struct {
+type KubernetesRuntimeDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
@@ -24,7 +24,7 @@ type ClusterDefinition struct {
 	DefaultNodeGroupMaximumSize *int `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" validate:"optional"`
 }
 
-type ClusterInstance struct {
+type KubernetesRuntimeInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
 
@@ -33,9 +33,10 @@ type ClusterInstance struct {
 	// change to the definition will not move a cluster.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
-	// If true, controllers will connect to the kube API using internal DNS
-	// rather than the APIEndpoint.
-	ThreeportControlPlaneCluster *bool `json:"ThreeportControlPlaneCluster,omitempty" query:"threeportcontrolplanecluster" gorm:"default:false" validate:"optional"`
+	// If true, the Kubernetes cluster is hosting a threeport control plane and
+	// any controllers that connect to the kube API will use internal cluster
+	// DNS rather than the external APIEndpoint.
+	ThreeportControlPlaneHost *bool `json:"ThreeportControlPlaneHost,omitempty" query:"threeportcontrolplanehost" gorm:"default:false" validate:"optional"`
 
 	// The network endpoint at which to reach the kube-api.
 	APIEndpoint *string `json:"APIEndpoint,omitempty" gorm:"not null" validate:"required"`
@@ -55,14 +56,14 @@ type ClusterInstance struct {
 	// certficate and key authenticaion.
 	ConnectionToken *string `json:"ConnectionToken,omitempty" validate:"optional"`
 
-	// If true the cluster instance to use for deployments if not otherwise
-	// specified.  Can only have one per account.
-	DefaultCluster *bool `json:"DefaultCluster,omitempty" query:"defaultcluster" gorm:"default:false" validate:"optional"`
+	// If true, this Kubernetes cluster will be used for all workloads if not
+	// otherwise assigned.
+	DefaultRuntime *bool `json:"DefaultRuntime,omitempty" query:"defaultruntime" gorm:"default:false" validate:"optional"`
 
-	// The cluster definition for this instance.
-	ClusterDefinitionID *uint `json:"ClusterDefinitionID,omitempty" gorm:"not null" validate:"required"`
+	// The kubernetes runtime definition for this instance.
+	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" gorm:"not null" validate:"required"`
 
-	// The associated workload instances running on this cluster.
+	// The associated workload instances running on this kubernetes runtime.
 	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstance,omitempty" validate:"optional,association"`
 
 	// The WorkloadInstanceID of the gateway support service

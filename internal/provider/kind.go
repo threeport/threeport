@@ -11,8 +11,8 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 )
 
-// ClusterInfraKind represents a kind cluster for local a threeport instance.
-type ClusterInfraKind struct {
+// KubernetesRuntimeInfraKind represents a kind cluster for local a threeport instance.
+type KubernetesRuntimeInfraKind struct {
 	// The unique name of the threeport instance.
 	ThreeportInstanceName string
 
@@ -33,7 +33,7 @@ type ClusterInfraKind struct {
 
 // Create installs a Kubernetes cluster using kind for the threeport control
 // plane.
-func (i *ClusterInfraKind) Create() (*kube.KubeConnectionInfo, error) {
+func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) {
 	logger := cmd.NewLogger()
 	prov := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
@@ -41,7 +41,7 @@ func (i *ClusterInfraKind) Create() (*kube.KubeConnectionInfo, error) {
 
 	// create the kind cluster
 	if err := prov.Create(
-		ThreeportClusterName(i.ThreeportInstanceName),
+		ThreeportRuntimeName(i.ThreeportInstanceName),
 		cluster.CreateWithKubeconfigPath(i.KubeconfigPath),
 		cluster.CreateWithWaitForReady(time.Duration(1000000000*60*5)), // 5 minutes
 		cluster.CreateWithV1Alpha4Config(getKindConfig(i.DevEnvironment, i.ThreeportPath, i.NumWorkerNodes)),
@@ -59,14 +59,13 @@ func (i *ClusterInfraKind) Create() (*kube.KubeConnectionInfo, error) {
 }
 
 // Delete deletes a kind cluster and the threeport control plane with it.
-// func (i *ClusterInfraKind) Delete(providerConfigDir string) error {
-func (i *ClusterInfraKind) Delete() error {
+func (i *KubernetesRuntimeInfraKind) Delete() error {
 	logger := cmd.NewLogger()
 	prov := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
 	)
 
-	if err := prov.Delete(ThreeportClusterName(i.ThreeportInstanceName), i.KubeconfigPath); err != nil {
+	if err := prov.Delete(ThreeportRuntimeName(i.ThreeportInstanceName), i.KubeconfigPath); err != nil {
 		return fmt.Errorf("failed to delete kind cluster: %w", err)
 	}
 
