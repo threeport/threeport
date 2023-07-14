@@ -72,11 +72,11 @@ func workloadInstanceCreated(
 	// construct workload resource instances
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 	for _, wrd := range *workloadResourceDefinitions {
-		reconciled := false
+		// reconciled := false
 		wri := v0.WorkloadResourceInstance{
 			JSONDefinition:     wrd.JSONDefinition,
 			WorkloadInstanceID: workloadInstance.ID,
-			Reconciled:         &reconciled,
+			// Reconciled:         &reconciled,
 		}
 		workloadResourceInstances = append(workloadResourceInstances, wri)
 	}
@@ -166,8 +166,8 @@ func workloadInstanceCreated(
 		}
 
 		// set workload resource instance reconciled to true
-		reconciled := true
-		wri.Reconciled = &reconciled
+		// reconciled := true
+		// wri.Reconciled = &reconciled
 
 		// create object in threeport API
 		createdWRI, err := client.CreateWorkloadResourceInstance(
