@@ -34,6 +34,9 @@ type GatewayDefinition struct {
 	// The workload definition this resource belongs to.
 	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"constraint:OnDelete:CASCADE;omitempty" validate:"optional"`
 
+	// The associated workload instances that are deployed from this definition.
+	GatewayInstances []*GatewayInstance `json:"WorkloadInstances,omitempty" validate:"optional,association"`
+
 	// Indicates if object is considered to be reconciled by gateway controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
