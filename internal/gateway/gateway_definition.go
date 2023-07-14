@@ -20,7 +20,7 @@ func gatewayDefinitionCreated(
 ) error {
 
 	// create Gloo virtual service definition
-	virtualService := CreateVirtualService()
+	virtualService := CreateVirtualService(gatewayDefinition)
 
 	// marshal virtual service definition into YAML
 	virtualServiceBytes, err := yaml.Marshal(virtualService)

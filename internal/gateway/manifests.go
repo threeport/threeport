@@ -1,6 +1,9 @@
 package gateway
 
-import "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+import (
+	v0 "github.com/threeport/threeport/pkg/api/v0"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
 
 func CreateGlooEdge() *unstructured.Unstructured {
 
@@ -99,7 +102,7 @@ func CreateGatewaySSL() *unstructured.Unstructured {
 	return gatewaySSL
 }
 
-func CreateVirtualService() *unstructured.Unstructured {
+func CreateVirtualService(gatewayDefinition *v0.GatewayDefinition) *unstructured.Unstructured {
 
 	var virtualService = &unstructured.Unstructured{
 		Object: map[string]interface{}{
