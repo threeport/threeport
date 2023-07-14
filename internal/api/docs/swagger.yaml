@@ -264,6 +264,12 @@ definitions:
       DomainNameID:
         description: The domain name to serve requests for.
         type: integer
+      GatewayInstances:
+        description: The associated gateway instances that are deployed from this
+          definition.
+        items:
+          $ref: '#/definitions/v0.GatewayInstance'
+        type: array
       HTTPPort:
         description: Expose port 80.
         type: boolean
@@ -313,7 +319,8 @@ definitions:
         description: The cluster where the ingress layer is installed.
         type: integer
       GatewayDefinitionID:
-        description: The definition used to define the instance.
+        description: GatewayDefinitionID is the definition used to configure the workload
+          instance.
         type: integer
       Name:
         description: An arbitrary name the instance
@@ -327,10 +334,12 @@ definitions:
           The status of the instance.
           TODO: use a custom type
         type: string
-      WorkloadInstanceID:
+      WorkloadResourceInstanceID:
         description: The workload resource instance this gateway belongs to.
         type: integer
     required:
+    - ClusterInstanceID
+    - GatewayDefinitionID
     - Name
     type: object
   v0.LogBackend:
@@ -418,22 +427,22 @@ definitions:
     - WorkloadEvent
     - Profile
     - Tier
-    - ClusterDefinition
-    - ClusterInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - DomainNameDefinition
     - DomainNameInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - ClusterDefinition
+    - ClusterInstance
     type: string
     x-enum-varnames:
     - ObjectTypeWorkloadDefinition
@@ -443,22 +452,22 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
   v0.Profile:
     properties:
       Name:

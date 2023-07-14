@@ -7384,6 +7384,13 @@ const docTemplate = `{
                     "description": "The domain name to serve requests for.",
                     "type": "integer"
                 },
+                "GatewayInstances": {
+                    "description": "The associated gateway instances that are deployed from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.GatewayInstance"
+                    }
+                },
                 "HTTPPort": {
                     "description": "Expose port 80.",
                     "type": "boolean"
@@ -7433,6 +7440,8 @@ const docTemplate = `{
         "v0.GatewayInstance": {
             "type": "object",
             "required": [
+                "ClusterInstanceID",
+                "GatewayDefinitionID",
                 "Name"
             ],
             "properties": {
@@ -7441,7 +7450,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "GatewayDefinitionID": {
-                    "description": "The definition used to define the instance.",
+                    "description": "GatewayDefinitionID is the definition used to configure the workload instance.",
                     "type": "integer"
                 },
                 "Name": {
@@ -7456,7 +7465,7 @@ const docTemplate = `{
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
                 },
-                "WorkloadInstanceID": {
+                "WorkloadResourceInstanceID": {
                     "description": "The workload resource instance this gateway belongs to.",
                     "type": "integer"
                 }
@@ -7567,22 +7576,22 @@ const docTemplate = `{
                 "WorkloadEvent",
                 "Profile",
                 "Tier",
-                "ClusterDefinition",
-                "ClusterInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "AwsAccount",
                 "AwsEksClusterDefinition",
                 "AwsEksClusterInstance",
                 "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance"
+                "AwsRelationalDatabaseInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "ClusterDefinition",
+                "ClusterInstance"
             ],
             "x-enum-varnames": [
                 "ObjectTypeWorkloadDefinition",
@@ -7592,22 +7601,22 @@ const docTemplate = `{
                 "ObjectTypeWorkloadEvent",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance"
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance"
             ]
         },
         "v0.Profile": {
