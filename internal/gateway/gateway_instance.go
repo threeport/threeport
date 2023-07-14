@@ -100,6 +100,11 @@ func gatewayInstanceUpdated(
 	log *logr.Logger,
 ) error {
 
+	// only reconcile if gateway definition needs to be reconciled
+	if gatewayInstance.Reconciled != nil && !*gatewayInstance.Reconciled {
+		return nil
+	}
+
 	// initialize threeport object references
 	clusterInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
 	if err != nil {
