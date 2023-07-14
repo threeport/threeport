@@ -448,8 +448,8 @@ func confirmGatewayPortExposed(
 		return fmt.Errorf("failed to get tcp ports from from gloo edge custom resource: %v", err)
 	}
 	for _, bindPort := range bindPorts {
-		bindPortInt32 := bindPort.(int32)
-		if found && bindPortInt32 == *gatewayDefinition.TCPPort {
+		bindPortInt := bindPort.(int)
+		if found && bindPortInt == *gatewayDefinition.TCPPort {
 			portFound = true
 			break
 		}

@@ -10,7 +10,7 @@ type GatewayDefinition struct {
 	Definition `mapstructure:",squash"`
 
 	// TCP Port to expose to outside network.
-	TCPPort *int32 `json:"TCPPort,omitempty" query:"tcpport" validate:"optional"`
+	TCPPort *int `json:"TCPPort,omitempty" query:"tcpport" validate:"optional"`
 
 	// Expose port 443 with TLS termination.
 	HTTPSPort *bool `json:"HTTPSPort,omitempty" query:"httpsport" gorm:"default:true" validate:"optional"`
@@ -34,27 +34,27 @@ type GatewayDefinition struct {
 	// The workload definition this resource belongs to.
 	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"constraint:OnDelete:CASCADE;omitempty" validate:"optional"`
 
-	// The associated workload instances that are deployed from this definition.
-	GatewayInstances []*GatewayInstance `json:"WorkloadInstances,omitempty" validate:"optional,association"`
+	// The associated gateway instances that are deployed from this definition.
+	GatewayInstances []*GatewayInstance `json:"GatewayInstances,omitempty" validate:"optional,association"`
 
 	// Indicates if object is considered to be reconciled by gateway controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
 // +threeport-codegen:reconciler
-// WorkloadInstance is a deployed instance of a workload.
+// GatewayInstance is a deployed instance of a gateway.
 type GatewayInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
 
-	// The definition used to define the instance.
-	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" validate:"optional,association"`
+	// The cluster where the ingress layer is installed.
+	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
+
+	// GatewayDefinitionID is the definition used to configure the workload instance.
+	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" query:"gatewaydefinitionid" gorm:"not null" validate:"required"`
 
 	// The workload resource instance this gateway belongs to.
-	WorkloadResourceInstanceID *uint `json:"WorkloadInstanceID,omitempty" validate:"optional,association"`
-
-	// The cluster where the ingress layer is installed.
-	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" validate:"optional,association"`
+	WorkloadResourceInstanceID *uint `json:"WorkloadResourceInstanceID,omitempty" query:"workloadresourceinstanceid" gorm:"not null" validate:"optional,association"`
 
 	// Indicates if object is considered to be reconciled by gateway controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
