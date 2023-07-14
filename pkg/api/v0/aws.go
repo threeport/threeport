@@ -54,7 +54,7 @@ type AwsRelationalDatabaseDefinition struct {
 	Engine *string `json:"Engine,omitempty" query:"engine" gorm:"not null" validate:"required"`
 
 	// The amount of storage to allocate for the database.
-	Storage *int32 `json:"Storage,omitempty" query:"storage" gorm:"not null" validate:"required"`
+	Storage *int `json:"Storage,omitempty" query:"storage" gorm:"not null" validate:"required"`
 
 	// The AWS account in which the RDS instance will be provisioned.
 	AWSAccountID *uint `json:"AWSAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
