@@ -202,6 +202,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+<<<<<<< HEAD:internal/api/handlers/cluster_gen.go
 	// update object in database
 	if result := h.DB.Model(&existingKubernetesRuntimeDefinition).Updates(updatedKubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -520,6 +521,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+<<<<<<< HEAD:internal/api/handlers/cluster_gen.go
 	// update object in database
 	if result := h.DB.Model(&existingKubernetesRuntimeInstance).Updates(updatedKubernetesRuntimeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)

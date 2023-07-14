@@ -29,6 +29,7 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = ForwardProxyDefinition{}
 	case ObjectTypeForwardProxyInstance:
 		objStruct = ForwardProxyInstance{}
+<<<<<<< HEAD
 	case ObjectTypeGatewayDefinition:
 		objStruct = GatewayDefinition{}
 	case ObjectTypeGatewayInstance:
@@ -86,6 +87,7 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeForwardProxyDefinition
 	case PathForwardProxyInstances:
 		return ObjectTypeForwardProxyInstance
+<<<<<<< HEAD
 	case PathGatewayDefinitions:
 		return ObjectTypeGatewayDefinition
 	case PathGatewayInstances:
@@ -143,6 +145,7 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeForwardProxyDefinition
 	case ForwardProxyInstance, *ForwardProxyInstance, []ForwardProxyInstance:
 		return ObjectTypeForwardProxyInstance
+<<<<<<< HEAD
 	case GatewayDefinition, *GatewayDefinition, []GatewayDefinition:
 		return ObjectTypeGatewayDefinition
 	case GatewayInstance, *GatewayInstance, []GatewayInstance:

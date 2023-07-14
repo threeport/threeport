@@ -514,6 +514,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+<<<<<<< HEAD
 	// update object in database
 	if result := h.DB.Model(&existingAwsEksKubernetesRuntimeDefinition).Updates(updatedAwsEksKubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
@@ -832,6 +833,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+<<<<<<< HEAD
 	// update object in database
 	if result := h.DB.Model(&existingAwsEksKubernetesRuntimeInstance).Updates(updatedAwsEksKubernetesRuntimeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)

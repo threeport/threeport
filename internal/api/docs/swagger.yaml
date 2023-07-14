@@ -297,6 +297,9 @@ definitions:
           TODO: use a custom type
         type: string
     required:
+=======
+    - KubernetesRuntimeDefinitionID
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     - Name
     type: object
   v0.GatewayDefinition:
@@ -1001,10 +1004,17 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetForwardProxyInstanceVersions gets the supported versions for the
         forward proxy instance API.
+<<<<<<< HEAD
   /gateway-definitions/versions:
     get:
       description: Get the supported API versions for gateway definitions.
       operationId: gatewayDefinition-get-versions
+=======
+  /kubernetes-runtime-definitions/versions:
+    get:
+      description: Get the supported API versions for kubernetes runtime definitions.
+      operationId: kubernetesRuntimeDefinition-get-versions
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -1012,12 +1022,21 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/api.RESTAPIVersions'
+<<<<<<< HEAD
       summary: GetGatewayDefinitionVersions gets the supported versions for the gateway
         definition API.
   /gateway-instances/versions:
     get:
       description: Get the supported API versions for gateway instances.
       operationId: gatewayInstance-get-versions
+=======
+      summary: GetKubernetesRuntimeDefinitionVersions gets the supported versions
+        for the kubernetes runtime definition API.
+  /kubernetes-runtime-instances/versions:
+    get:
+      description: Get the supported API versions for kubernetes runtime instances.
+      operationId: kubernetesRuntimeInstance-get-versions
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -1025,6 +1044,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/api.RESTAPIVersions'
+<<<<<<< HEAD
       summary: GetGatewayInstanceVersions gets the supported versions for the gateway
         instance API.
   /kubernetes-runtime-definitions/versions:
@@ -3122,6 +3142,7 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing forward proxy instance by replacing the entire
         object.
+<<<<<<< HEAD
   /v0/gateway-definitions:
     get:
       consumes:
@@ -3130,6 +3151,16 @@ paths:
       operationId: get-gatewayDefinitions
       parameters:
       - description: gateway definition search by name
+=======
+  /v0/kubernetes-runtime-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all kubernetes runtime definitions from the Threeport database.
+      operationId: get-kubernetesRuntimeDefinitions
+      parameters:
+      - description: kubernetes runtime definition search by name
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
         in: query
         name: name
         type: string
@@ -3148,6 +3179,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: gets all gateway definitions.
     post:
       consumes:
@@ -3161,6 +3193,21 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayDefinition'
+=======
+      summary: gets all kubernetes runtime definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new kubernetes runtime definition to the Threeport database.
+      operationId: add-kubernetesRuntimeDefinition
+      parameters:
+      - description: KubernetesRuntimeDefinition object
+        in: body
+        name: kubernetesRuntimeDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeDefinition'
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3176,6 +3223,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: adds a new gateway definition.
   /v0/gateway-definitions/{id}:
     delete:
@@ -3183,6 +3231,15 @@ paths:
       - application/json
       description: Delete a gateway definition by ID from the database.
       operationId: delete-gatewayDefinition
+=======
+      summary: adds a new kubernetes runtime definition.
+  /v0/kubernetes-runtime-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a kubernetes runtime definition by ID from the database.
+      operationId: delete-kubernetesRuntimeDefinition
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
@@ -3208,12 +3265,21 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: deletes a gateway definition.
     get:
       consumes:
       - application/json
       description: Get a particular gateway definition from the database.
       operationId: get-gatewayDefinition
+=======
+      summary: deletes a kubernetes runtime definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular kubernetes runtime definition from the database.
+      operationId: get-kubernetesRuntimeDefinition
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
@@ -3235,29 +3301,51 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: gets a gateway definition.
+=======
+      summary: gets a kubernetes runtime definition.
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     patch:
       consumes:
       - application/json
       description: |-
+<<<<<<< HEAD
         Update a gateway definition in the database.  Provide one or more fields to update.
         Note: This API endpint is for updating gateway definition objects only.
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
       operationId: update-gatewayDefinition
+=======
+        Update a kubernetes runtime definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating kubernetes runtime definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-kubernetesRuntimeDefinition
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
         name: id
         required: true
         type: integer
+<<<<<<< HEAD
       - description: GatewayDefinition object
         in: body
         name: gatewayDefinition
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayDefinition'
+=======
+      - description: KubernetesRuntimeDefinition object
+        in: body
+        name: kubernetesRuntimeDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeDefinition'
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3277,11 +3365,16 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: updates specific fields for an existing gateway definition.
+=======
+      summary: updates specific fields for an existing kubernetes runtime definition.
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     put:
       consumes:
       - application/json
       description: |-
+<<<<<<< HEAD
         Replace a gateway definition in the database.  All required fields must be provided.
         If any optional fields are not provided, they will be null post-update.
         Note: This API endpint is for updating gateway definition objects only.
@@ -3289,18 +3382,36 @@ paths:
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
       operationId: replace-gatewayDefinition
+=======
+        Replace a kubernetes runtime definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating kubernetes runtime definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-kubernetesRuntimeDefinition
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
         name: id
         required: true
         type: integer
+<<<<<<< HEAD
       - description: GatewayDefinition object
         in: body
         name: gatewayDefinition
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayDefinition'
+=======
+      - description: KubernetesRuntimeDefinition object
+        in: body
+        name: kubernetesRuntimeDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeDefinition'
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3320,6 +3431,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: updates an existing gateway definition by replacing the entire object.
   /v0/gateway-instances:
     get:
@@ -3329,6 +3441,18 @@ paths:
       operationId: get-gatewayInstances
       parameters:
       - description: gateway instance search by name
+=======
+      summary: updates an existing kubernetes runtime definition by replacing the
+        entire object.
+  /v0/kubernetes-runtime-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all kubernetes runtime instances from the Threeport database.
+      operationId: get-kubernetesRuntimeInstances
+      parameters:
+      - description: kubernetes runtime instance search by name
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
         in: query
         name: name
         type: string
@@ -3347,6 +3471,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: gets all gateway instances.
     post:
       consumes:
@@ -3360,6 +3485,21 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayInstance'
+=======
+      summary: gets all kubernetes runtime instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new kubernetes runtime instance to the Threeport database.
+      operationId: add-kubernetesRuntimeInstance
+      parameters:
+      - description: KubernetesRuntimeInstance object
+        in: body
+        name: kubernetesRuntimeInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3375,6 +3515,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: adds a new gateway instance.
   /v0/gateway-instances/{id}:
     delete:
@@ -3382,6 +3523,15 @@ paths:
       - application/json
       description: Delete a gateway instance by ID from the database.
       operationId: delete-gatewayInstance
+=======
+      summary: adds a new kubernetes runtime instance.
+  /v0/kubernetes-runtime-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a kubernetes runtime instance by ID from the database.
+      operationId: delete-kubernetesRuntimeInstance
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
@@ -3407,12 +3557,21 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: deletes a gateway instance.
     get:
       consumes:
       - application/json
       description: Get a particular gateway instance from the database.
       operationId: get-gatewayInstance
+=======
+      summary: deletes a kubernetes runtime instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular kubernetes runtime instance from the database.
+      operationId: get-kubernetesRuntimeInstance
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
@@ -3434,29 +3593,51 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: gets a gateway instance.
+=======
+      summary: gets a kubernetes runtime instance.
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     patch:
       consumes:
       - application/json
       description: |-
+<<<<<<< HEAD
         Update a gateway instance in the database.  Provide one or more fields to update.
         Note: This API endpint is for updating gateway instance objects only.
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
       operationId: update-gatewayInstance
+=======
+        Update a kubernetes runtime instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating kubernetes runtime instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-kubernetesRuntimeInstance
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
         name: id
         required: true
         type: integer
+<<<<<<< HEAD
       - description: GatewayInstance object
         in: body
         name: gatewayInstance
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayInstance'
+=======
+      - description: KubernetesRuntimeInstance object
+        in: body
+        name: kubernetesRuntimeInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3476,11 +3657,16 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: updates specific fields for an existing gateway instance.
+=======
+      summary: updates specific fields for an existing kubernetes runtime instance.
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     put:
       consumes:
       - application/json
       description: |-
+<<<<<<< HEAD
         Replace a gateway instance in the database.  All required fields must be provided.
         If any optional fields are not provided, they will be null post-update.
         Note: This API endpint is for updating gateway instance objects only.
@@ -3488,18 +3674,36 @@ paths:
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
       operationId: replace-gatewayInstance
+=======
+        Replace a kubernetes runtime instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating kubernetes runtime instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-kubernetesRuntimeInstance
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
         name: id
         required: true
         type: integer
+<<<<<<< HEAD
       - description: GatewayInstance object
         in: body
         name: gatewayInstance
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayInstance'
+=======
+      - description: KubernetesRuntimeInstance object
+        in: body
+        name: kubernetesRuntimeInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3519,6 +3723,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
+<<<<<<< HEAD
       summary: updates an existing gateway instance by replacing the entire object.
   /v0/kubernetes-runtime-definitions:
     get:

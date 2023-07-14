@@ -15,6 +15,7 @@ var DomainNameDefinitionTaggedFields = make(map[string]*FieldsByTag)
 var DomainNameInstanceTaggedFields = make(map[string]*FieldsByTag)
 var ForwardProxyDefinitionTaggedFields = make(map[string]*FieldsByTag)
 var ForwardProxyInstanceTaggedFields = make(map[string]*FieldsByTag)
+<<<<<<< HEAD
 var GatewayDefinitionTaggedFields = make(map[string]*FieldsByTag)
 var GatewayInstanceTaggedFields = make(map[string]*FieldsByTag)
 var KubernetesRuntimeDefinitionTaggedFields = make(map[string]*FieldsByTag)
