@@ -205,17 +205,6 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := updatedGatewayDefinition.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.GatewayDefinitionCreateSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, existingGatewayDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -532,17 +521,6 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	if result := h.DB.Model(&existingGatewayInstance).Updates(updatedGatewayInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := updatedGatewayInstance.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.GatewayInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingGatewayInstance)
 	if err != nil {

@@ -308,7 +308,7 @@ definitions:
           criticality for access control.
         type: integer
       WorkloadDefinitionID:
-        description: The workload definition this resource belongs to.
+        description: The workload definition that belongs to this resource.
         type: integer
     required:
     - Name
@@ -420,54 +420,54 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - GatewayDefinition
+    - GatewayInstance
+    - Profile
+    - Tier
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
     - WorkloadEvent
-    - Profile
-    - Tier
-    - DomainNameDefinition
-    - DomainNameInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - ClusterDefinition
     - ClusterInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeClusterDefinition
     - ObjectTypeClusterInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       Name:
