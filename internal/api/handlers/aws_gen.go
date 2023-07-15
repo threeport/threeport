@@ -206,6 +206,7 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedAwsAccount.ID = existingAwsAccount.ID
 	notifPayload, err := updatedAwsAccount.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -528,6 +529,7 @@ func (h Handler) UpdateAwsEksClusterDefinition(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedAwsEksClusterDefinition.ID = existingAwsEksClusterDefinition.ID
 	notifPayload, err := updatedAwsEksClusterDefinition.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -850,6 +852,7 @@ func (h Handler) UpdateAwsEksClusterInstance(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedAwsEksClusterInstance.ID = existingAwsEksClusterInstance.ID
 	notifPayload, err := updatedAwsEksClusterInstance.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -1172,6 +1175,7 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedAwsRelationalDatabaseDefinition.ID = existingAwsRelationalDatabaseDefinition.ID
 	notifPayload, err := updatedAwsRelationalDatabaseDefinition.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -1494,6 +1498,7 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedAwsRelationalDatabaseInstance.ID = existingAwsRelationalDatabaseInstance.ID
 	notifPayload, err := updatedAwsRelationalDatabaseInstance.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,

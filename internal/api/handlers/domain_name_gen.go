@@ -206,6 +206,7 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedDomainNameDefinition.ID = existingDomainNameDefinition.ID
 	notifPayload, err := updatedDomainNameDefinition.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -528,6 +529,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedDomainNameInstance.ID = existingDomainNameInstance.ID
 	notifPayload, err := updatedDomainNameInstance.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,

@@ -206,6 +206,7 @@ func (h Handler) UpdateClusterDefinition(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedClusterDefinition.ID = existingClusterDefinition.ID
 	notifPayload, err := updatedClusterDefinition.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -528,6 +529,7 @@ func (h Handler) UpdateClusterInstance(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedClusterInstance.ID = existingClusterInstance.ID
 	notifPayload, err := updatedClusterInstance.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,

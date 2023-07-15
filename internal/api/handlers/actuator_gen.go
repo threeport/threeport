@@ -206,6 +206,7 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedProfile.ID = existingProfile.ID
 	notifPayload, err := updatedProfile.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -528,6 +529,7 @@ func (h Handler) UpdateTier(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedTier.ID = existingTier.ID
 	notifPayload, err := updatedTier.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,

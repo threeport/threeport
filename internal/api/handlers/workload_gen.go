@@ -206,6 +206,7 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedWorkloadDefinition.ID = existingWorkloadDefinition.ID
 	notifPayload, err := updatedWorkloadDefinition.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -519,6 +520,7 @@ func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedWorkloadResourceDefinition.ID = existingWorkloadResourceDefinition.ID
 	notifPayload, err := updatedWorkloadResourceDefinition.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -841,6 +843,7 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedWorkloadInstance.ID = existingWorkloadInstance.ID
 	notifPayload, err := updatedWorkloadInstance.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -1148,6 +1151,7 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedWorkloadResourceInstance.ID = existingWorkloadResourceInstance.ID
 	notifPayload, err := updatedWorkloadResourceInstance.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -1455,6 +1459,7 @@ func (h Handler) UpdateWorkloadEvent(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedWorkloadEvent.ID = existingWorkloadEvent.ID
 	notifPayload, err := updatedWorkloadEvent.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,

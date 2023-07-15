@@ -206,6 +206,7 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedLogBackend.ID = existingLogBackend.ID
 	notifPayload, err := updatedLogBackend.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -528,6 +529,7 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedLogStorageDefinition.ID = existingLogStorageDefinition.ID
 	notifPayload, err := updatedLogStorageDefinition.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -850,6 +852,7 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedLogStorageInstance.ID = existingLogStorageInstance.ID
 	notifPayload, err := updatedLogStorageInstance.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,

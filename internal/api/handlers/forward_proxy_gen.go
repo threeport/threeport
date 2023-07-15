@@ -206,6 +206,7 @@ func (h Handler) UpdateForwardProxyDefinition(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedForwardProxyDefinition.ID = existingForwardProxyDefinition.ID
 	notifPayload, err := updatedForwardProxyDefinition.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
@@ -528,6 +529,7 @@ func (h Handler) UpdateForwardProxyInstance(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedForwardProxyInstance.ID = existingForwardProxyInstance.ID
 	notifPayload, err := updatedForwardProxyInstance.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,

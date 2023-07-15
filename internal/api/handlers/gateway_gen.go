@@ -4,14 +4,13 @@ package handlers
 
 import (
 	"errors"
-	"net/http"
-
 	echo "github.com/labstack/echo/v4"
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
+	"net/http"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -536,6 +535,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	}
 
 	// notify controller
+	updatedGatewayInstance.ID = existingGatewayInstance.ID
 	notifPayload, err := updatedGatewayInstance.NotificationPayload(
 		notifications.NotificationOperationUpdated,
 		false,
