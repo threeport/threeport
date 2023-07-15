@@ -420,54 +420,54 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - GatewayDefinition
-    - GatewayInstance
-    - Profile
-    - Tier
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - WorkloadEvent
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
+    - ClusterDefinition
+    - ClusterInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - DomainNameDefinition
     - DomainNameInstance
+    - Profile
+    - Tier
+    - GatewayDefinition
+    - GatewayInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - WorkloadEvent
     type: string
     x-enum-varnames:
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
   v0.Profile:
     properties:
       Name:

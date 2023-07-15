@@ -205,6 +205,17 @@ func (h Handler) UpdateClusterDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifPayload, err := updatedClusterDefinition.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ClusterDefinitionUpdateSubject, *notifPayload)
+
 	response, err := v0.CreateResponse(nil, existingClusterDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -515,6 +526,17 @@ func (h Handler) UpdateClusterInstance(c echo.Context) error {
 	if result := h.DB.Model(&existingClusterInstance).Updates(updatedClusterInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := updatedClusterInstance.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.ClusterInstanceUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingClusterInstance)
 	if err != nil {

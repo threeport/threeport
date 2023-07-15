@@ -205,6 +205,17 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifPayload, err := updatedWorkloadDefinition.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.WorkloadDefinitionUpdateSubject, *notifPayload)
+
 	response, err := v0.CreateResponse(nil, existingWorkloadDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -506,6 +517,17 @@ func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 	if result := h.DB.Model(&existingWorkloadResourceDefinition).Updates(updatedWorkloadResourceDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := updatedWorkloadResourceDefinition.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.WorkloadResourceDefinitionUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingWorkloadResourceDefinition)
 	if err != nil {
@@ -818,6 +840,17 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifPayload, err := updatedWorkloadInstance.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.WorkloadInstanceUpdateSubject, *notifPayload)
+
 	response, err := v0.CreateResponse(nil, existingWorkloadInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1114,6 +1147,17 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller
+	notifPayload, err := updatedWorkloadResourceInstance.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.WorkloadResourceInstanceUpdateSubject, *notifPayload)
+
 	response, err := v0.CreateResponse(nil, existingWorkloadResourceInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1409,6 +1453,17 @@ func (h Handler) UpdateWorkloadEvent(c echo.Context) error {
 	if result := h.DB.Model(&existingWorkloadEvent).Updates(updatedWorkloadEvent); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := updatedWorkloadEvent.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.WorkloadEventUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingWorkloadEvent)
 	if err != nil {

@@ -4,13 +4,14 @@ package handlers
 
 import (
 	"errors"
+	"net/http"
+
 	echo "github.com/labstack/echo/v4"
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	"net/http"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -204,6 +205,18 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	if result := h.DB.Model(&existingGatewayDefinition).Updates(updatedGatewayDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	updatedGatewayDefinition.ID = existingGatewayDefinition.ID
+	notifPayload, err := updatedGatewayDefinition.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.GatewayDefinitionUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingGatewayDefinition)
 	if err != nil {
@@ -521,6 +534,17 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	if result := h.DB.Model(&existingGatewayInstance).Updates(updatedGatewayInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+
+	// notify controller
+	notifPayload, err := updatedGatewayInstance.NotificationPayload(
+		notifications.NotificationOperationUpdated,
+		false,
+		0,
+	)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+	h.JS.Publish(v0.GatewayInstanceUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingGatewayInstance)
 	if err != nil {
