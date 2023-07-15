@@ -769,30 +769,33 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 			),
 			Line(),
-			Comment("notify controller"),
-			Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("ID"),
-			Id("notifPayload").Op(",").Id("err").Op(":=").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("NotificationPayload").Call(
-				Line().Qual(
-					"github.com/threeport/threeport/pkg/notifications/v0",
-					"NotificationOperationUpdated",
+			// Comment("notify controllers if reconciliation is necessary"),
+			// If(Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("==").Nil().Op("||").Op("*").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("==").Lit(false).Block(
+				Comment("notify controller"),
+				Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("ID"),
+				Id("notifPayload").Op(",").Id("err").Op(":=").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("NotificationPayload").Call(
+					Line().Qual(
+						"github.com/threeport/threeport/pkg/notifications/v0",
+						"NotificationOperationUpdated",
+					),
+					Line().Lit(false),
+					Line().Lit(0),
+					Line(),
 				),
-				Line().Lit(false),
-				Line().Lit(0),
-				Line(),
-			),
-			If(Id("err").Op("!=").Nil().Block(
-				Return(Qual(
-					"github.com/threeport/threeport/internal/api",
-					"ResponseStatus500",
-				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
-			),
-			Id("h").Dot("JS").Dot("Publish").Call(Qual(
-				fmt.Sprintf(
-					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+				If(Id("err").Op("!=").Nil().Block(
+					Return(Qual(
+						"github.com/threeport/threeport/internal/api",
+						"ResponseStatus500",
+					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
 				),
-				mc.UpdateSubject,
-			).Op(",").Op("*").Id("notifPayload")),
+				Id("h").Dot("JS").Dot("Publish").Call(Qual(
+					fmt.Sprintf(
+						"github.com/threeport/threeport/pkg/api/%s",
+						cc.ParsedModelFile.Name.Name,
+					),
+					mc.UpdateSubject,
+				).Op(",").Op("*").Id("notifPayload")),
+			// )),
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(

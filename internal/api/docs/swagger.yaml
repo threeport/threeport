@@ -420,54 +420,54 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - DomainNameDefinition
-    - DomainNameInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - AwsAccount
-    - AwsEksClusterDefinition
-    - AwsEksClusterInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
     - WorkloadEvent
+    - Profile
+    - Tier
+    - ClusterDefinition
+    - ClusterInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - GatewayDefinition
+    - GatewayInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - GatewayDefinition
-    - GatewayInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - Profile
-    - Tier
+    - AwsAccount
+    - AwsEksClusterDefinition
+    - AwsEksClusterInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksClusterDefinition
-    - ObjectTypeAwsEksClusterInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksClusterDefinition
+    - ObjectTypeAwsEksClusterInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
   v0.Profile:
     properties:
       Name:

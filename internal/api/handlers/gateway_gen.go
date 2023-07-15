@@ -205,17 +205,20 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	updatedGatewayDefinition.ID = existingGatewayDefinition.ID
-	notifPayload, err := updatedGatewayDefinition.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// check if reconciled field was provided by client
+	if updatedGatewayDefinition.Reconciled == nil || !*updatedGatewayDefinition.Reconciled {
+		// notify controller
+		updatedGatewayDefinition.ID = existingGatewayDefinition.ID
+		notifPayload, err := updatedGatewayDefinition.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			0,
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.GatewayDefinitionUpdateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.GatewayDefinitionUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingGatewayDefinition)
 	if err != nil {
