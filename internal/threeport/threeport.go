@@ -12,24 +12,6 @@ const (
 	ControlPlaneNamespace = "threeport-control-plane"
 )
 
-// KubernetesRuntimeInfraProvider indicates which infrastructure provider is being
-// used to run the kubernetes cluster for the threeport control plane.
-type KubernetesRuntimeInfraProvider string
-
-const (
-	KubernetesRuntimeInfraProviderKind = "kind"
-	KubernetesRuntimeInfraProviderEKS  = "eks"
-)
-
-// SupportedInfraProviders returns all supported infra providers.
-// TODO: move this to code generated from constants above
-func SupportedInfraProviders() []KubernetesRuntimeInfraProvider {
-	return []KubernetesRuntimeInfraProvider{
-		KubernetesRuntimeInfraProviderKind,
-		KubernetesRuntimeInfraProviderEKS,
-	}
-}
-
 // ControlPlaneTier denotes what level of availability and data retention is
 // employed for an installation of a threeport control plane.
 type ControlPlaneTier string
@@ -41,7 +23,7 @@ const (
 
 // ControlPlane is an instance of a threeport control plane.
 type ControlPlane struct {
-	InfraProvider KubernetesRuntimeInfraProvider
+	InfraProvider v0.KubernetesRuntimeInfraProvider
 	Tier          ControlPlaneTier
 }
 

@@ -5,7 +5,8 @@ package aws
 import (
 	"errors"
 	"fmt"
-	mapstructure "github.com/mitchellh/mapstructure"
+
+	"github.com/mitchellh/mapstructure"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -40,6 +41,9 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
+			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+			fmt.Println(string(msg.Data))
+
 			// consume message data to capture notification from API
 			notif, err := notifications.ConsumeMessage(msg.Data)
 			if err != nil {
@@ -53,10 +57,13 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// decode the object that was created
+			// decode the object that was sent
 			var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
 			mapstructure.Decode(notif.Object, &awsEksKubernetesRuntimeInstance)
 			log = log.WithValues("awsEksKubernetesRuntimeInstanceID", awsEksKubernetesRuntimeInstance.ID)
+
+			fmt.Println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+			fmt.Println(*awsEksKubernetesRuntimeInstance.ID)
 
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
@@ -93,8 +100,9 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// retrieve latest version of object if requeued
-			if notif.Requeue {
+			// retrieve latest version of object if requeued unless object was
+			// deleted (in which case we have the latest version)
+			if notif.Requeue && notif.Operation != notifications.NotificationOperationDeleted {
 				latestAwsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByID(
 					r.APIClient,
 					r.APIServer,

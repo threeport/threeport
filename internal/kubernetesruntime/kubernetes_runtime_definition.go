@@ -30,15 +30,15 @@ func kubernetesRuntimeDefinitionCreated(
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// look up AWS account
 		var awsAccount v0.AwsAccount
-		if kubernetesRuntimeDefinition.InfraProviderAccountName != nil {
-			// look up account by account name
-			account, err := client.GetAwsAccountByName(
+		if kubernetesRuntimeDefinition.ProviderAccountID != nil {
+			// look up account by account ID
+			account, err := client.GetAwsAccountByAccountID(
 				r.APIClient,
 				r.APIServer,
-				*kubernetesRuntimeDefinition.InfraProviderAccountName,
+				*kubernetesRuntimeDefinition.ProviderAccountID,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to get AWS account by account name: %w", err)
+				return fmt.Errorf("failed to get AWS account by account ID: %w", err)
 			}
 			awsAccount = *account
 		} else {
@@ -77,7 +77,7 @@ func kubernetesRuntimeDefinitionCreated(
 			&awsEksKubernetesRuntimeDefinition,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to create new AWS EKS kubernetes runtime: %w", err)
+			return fmt.Errorf("failed to create new AWS EKS Kubernetes runtime: %w", err)
 		}
 	}
 

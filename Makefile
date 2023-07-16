@@ -81,6 +81,10 @@ dev-logs-api:
 dev-logs-wrk:
 	kubectl logs deploy/threeport-workload-controller -n threeport-control-plane -f
 
+#dev-logs-wrk: @ Follow log output from the local dev kubernetes runtime controller
+dev-logs-kr:
+	kubectl logs deploy/threeport-kubernetes-runtime-controller -n threeport-control-plane -f
+
 #dev-logs-aws: @ Follow log output from the local dev aws controller
 dev-logs-aws:
 	kubectl logs deploy/threeport-aws-controller -n threeport-control-plane -f
