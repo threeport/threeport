@@ -93,13 +93,6 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
-      Region:
-        description: |-
-          The AWS region in which EKS clusters will be provisioned.  Note: changes to
-          this value will not alter the derived instances which is an immutable
-          characteristic on instances.  It will only affect new instances derived
-          from this definition.
-        type: string
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
@@ -109,6 +102,7 @@ definitions:
         description: The number of zones the cluster should span for availability.
         type: integer
     required:
+    - AWSAccountID
     - Name
     - ZoneCount
     type: object
@@ -298,6 +292,8 @@ definitions:
         type: string
     required:
 =======
+=======
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
     - KubernetesRuntimeDefinitionID
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     - Name

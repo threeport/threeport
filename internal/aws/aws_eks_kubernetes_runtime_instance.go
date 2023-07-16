@@ -210,6 +210,88 @@ func awsEksKubernetesRuntimeInstanceUpdated(
 	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) error {
+	// get cluster definition and aws account info
+	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to retreive cluster definition by ID: %w", err)
+	}
+	awsAccount, err := client.GetAwsAccountByID(
+		r.APIClient,
+		r.APIServer,
+		*awsEksKubernetesRuntimeDefinition.AwsAccountID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
+	}
+
+	// add log metadata
+	reconLog := log.WithValues(
+		"awsEksClsuterInstsanceRegion", *awsEksKubernetesRuntimeInstance.Region,
+		"awsEksClsuterInstsanceResourceInventory", *awsEksKubernetesRuntimeInstance.ResourceInventory,
+		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
+		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
+		"awsAccountAccessKeyID", *awsAccount.AccessKeyID,
+	)
+
+	// create AWS config
+	awsConfig, err := config.LoadDefaultConfig(
+		context.Background(),
+		config.WithRegion(*awsEksKubernetesRuntimeInstance.Region),
+		config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(
+				*awsAccount.AccessKeyID,
+				*awsAccount.SecretAccessKey,
+				"",
+			),
+		),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create AWS config from API keys: %w", err)
+	}
+
+	// create resource client
+	resourceClient := resource.CreateResourceClient(&awsConfig)
+
+	// log messages from channel in resource client on goroutine
+	go func() {
+		for msg := range *resourceClient.MessageChan {
+			reconLog.Info(msg)
+		}
+	}()
+
+	// not storing inventory in database as the AwsEKSKubernetesRuntimeInstance
+	// object has been deleted.
+
+	// TODO: add a wait group that prevents the AWS controller from terminating
+	// until all resources are deleted
+
+	// unmarshal inventory into resource inventory object for eks-cluster lib
+	var resourceInventory resource.ResourceInventory
+	fmt.Printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+	reconLog.Info("wat")
+
+	inventoryBytes := []byte(*awsEksKubernetesRuntimeInstance.ResourceInventory)
+	if err := resource.UnmarshalInventory(inventoryBytes, &resourceInventory); err != nil {
+		return fmt.Errorf("failed to unmarshal resource inventory from aws eks kubernetes runtime instance: %w", err)
+	}
+
+	clusterInfra := provider.KubernetesRuntimeInfraEKS{
+		ThreeportInstanceName: *awsEksKubernetesRuntimeInstance.Name,
+		AwsAccountID:          *awsAccount.AccountID,
+		AwsConfig:             awsConfig,
+		ResourceClient:        *resourceClient,
+		ResourceInventory:     resourceInventory,
+	}
+
+	// create control plane infra
+	if err := clusterInfra.Delete(); err != nil {
+		return fmt.Errorf("failed to delete new threeport cluster: %w", err)
+	}
+
 	return nil
 }
 
