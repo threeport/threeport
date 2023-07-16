@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
-	"github.com/threeport/threeport/internal/kube"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -51,7 +50,7 @@ func gatewayInstanceCreated(
 	}
 
 	// update the workload instance with the new workload resource instance
-	_, err = client.CreateWorkloadResourceInstance(
+	createdWorkloadResourceInstance, err := client.CreateWorkloadResourceInstance(
 		r.APIClient,
 		r.APIServer,
 		workloadResourceInstance,
@@ -73,7 +72,7 @@ func gatewayInstanceCreated(
 
 	// update gateway instance
 	gatewayInstanceReconciled := true
-	gatewayInstance.WorkloadResourceInstanceID = workloadResourceInstance.ID
+	gatewayInstance.WorkloadResourceInstanceID = createdWorkloadResourceInstance.ID
 	gatewayInstance.Reconciled = &gatewayInstanceReconciled
 	_, err = client.UpdateGatewayInstance(
 		r.APIClient,
@@ -184,99 +183,52 @@ func gatewayInstanceDeleted(
 	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) error {
-	// get gateway resource instances
-	workloadResourceInstance, err := client.GetWorkloadResourceInstanceByID(
+
+	if gatewayInstance.WorkloadResourceInstanceID == nil {
+		return fmt.Errorf("failed to delete workload resource instance, workloadResourceInstanceID is nil")
+	}
+
+	// schedule workload resource instance for deletion
+	scheduledForDeletion := true
+	workloadResourceInstance := &v0.WorkloadResourceInstance{
+		Common: v0.Common{
+			ID: gatewayInstance.WorkloadResourceInstanceID,
+		},
+		ScheduledForDeletion: &scheduledForDeletion,
+	}
+	_, err := client.UpdateWorkloadResourceInstance(
 		r.APIClient,
 		r.APIServer,
-		*gatewayInstance.WorkloadResourceInstanceID,
+		workloadResourceInstance,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get workload resource instance by workload resource instance ID: %w", err)
+		return fmt.Errorf("failed to update workload resource instance: %w", err)
 	}
 
-	// get cluster instance info
-	clusterInstance, err := client.GetClusterInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.ClusterInstanceID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get gateway cluster instance by ID: %w", err)
+	// trigger a reconciliation of the workload instance by setting Reconciled to false
+	reconciled := false
+	workloadInstance := &v0.WorkloadInstance{
+		Common: v0.Common{
+			ID: gatewayInstance.WorkloadInstanceID,
+		},
+		Reconciled: &reconciled,
 	}
-
-	// create a client to connect to kube API
-	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
-	if err != nil {
-		return fmt.Errorf("failed to create kube API client object: %w", err)
-	}
-
-	// delete gateway resource instance and resource in the target kube cluster
-
-	// marshal the resource instance json
-	jsonDefinition, err := workloadResourceInstance.JSONDefinition.MarshalJSON()
-	if err != nil {
-		return fmt.Errorf("failed to marshal json for gateway resource instance with ID %d: %w", workloadResourceInstance.ID, err)
-	}
-
-	// build kube unstructured object from json
-	kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-	if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
-		return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object gateway resource instance with ID %d: %w", workloadResourceInstance.ID, err)
-	}
-
-	// delete kube resource
-	if err := kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to delete Kubernetes resource gateway resource instance with ID %d: %w", workloadResourceInstance.ID, err)
-	}
-
-	// delete gateway resource instance in threeport API
-	_, err = client.DeleteWorkloadResourceInstance(
-		r.APIClient,
-		r.APIServer,
-		*workloadResourceInstance.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to delete gateway resource instance with ID %d: %w", workloadResourceInstance.ID, err)
-	}
-	log.V(1).Info(
-		"workload resource instance deleted",
-		"workloadResourceInstanceID", workloadResourceInstance.ID,
-	)
-
-	// get workload instance
-	workloadInstance, err := client.GetWorkloadInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*workloadResourceInstance.WorkloadInstanceID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get workload instance with ID %d: %w", *workloadResourceInstance.WorkloadInstanceID, err)
-	}
-
-	// update workload instance
-	workloadInstanceReconciled := false
-	workloadInstance.Reconciled = &workloadInstanceReconciled
 	_, err = client.UpdateWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		workloadInstance,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to delete workload resource instance with ID %d: %w", workloadResourceInstance.ID, err)
+		return fmt.Errorf("failed to update workload instance: %w", err)
 	}
-
-	log.V(1).Info(
-		"gateway instance deleted",
-		"gatewayResourceInstanceID", gatewayInstance.ID,
-	)
 
 	return nil
 }
 
 // TODO: refactor this into generic reconcile check function for definitions
-// confirmGatewayDefReconciled confirms the gateway definition related to a
+// confirmWorkloadDefReconciled confirms the gateway definition related to a
 // gateway instance is reconciled.
-func confirmGatewayDefReconciled(
+func confirmWorkloadDefReconciled(
 	r *controller.Reconciler,
 	gatewayInstance *v0.GatewayInstance,
 ) (bool, error) {
@@ -286,14 +238,45 @@ func confirmGatewayDefReconciled(
 		*gatewayInstance.GatewayDefinitionID,
 	)
 	if err != nil {
-		return false, fmt.Errorf("failed to get gateway definition by gateway definition ID: %w", err)
+		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
 	}
-	if gatewayDefinition.Reconciled != nil && !*gatewayDefinition.Reconciled {
+
+	workloadDefinition, err := client.GetWorkloadDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayDefinition.WorkloadDefinitionID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
+	}
+
+	if workloadDefinition.Reconciled != nil && !*workloadDefinition.Reconciled {
 		return false, nil
 	}
 
 	return true, nil
 }
+
+func confirmWorkloadInstReconciled(
+	r *controller.Reconciler,
+	gatewayInstance *v0.GatewayInstance,
+) (bool, error) {
+	workloadInstance, err := client.GetWorkloadInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayInstance.WorkloadInstanceID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to get workload instance by workload instance ID: %w", err)
+	}
+
+	if workloadInstance.Reconciled != nil && !*workloadInstance.Reconciled {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 
 // TODO: refactor this into generic reconcile check function for instances
 // confirmGatewayDefReconciled confirms the gateway definition related to a
@@ -319,10 +302,10 @@ func confirmGatewayControllerInstanceReconciled(
 
 // getUnstructuredObjectsFromWorkloadResourceInstances returns a list of
 // unstructured kubernetes objects from a list of workload resource instances.
-func getUnstructuredObjectsFromWorkloadResourceInstances(workloadInstances []*v0.WorkloadResourceInstance, kind string) ([]unstructured.Unstructured, error) {
+func getUnstructuredObjectsFromWorkloadResourceInstances(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) ([]unstructured.Unstructured, error) {
 
 	var objects []unstructured.Unstructured
-	for _, wri := range workloadInstances {
+	for _, wri := range *workloadResourceInstances {
 		// marshal the resource definition json
 		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
 		if err != nil {
@@ -437,9 +420,18 @@ func confirmGatewayPortExposed(
 	// check existing gateways for requested port
 	var portFound = false
 
-	gatewayObjects, err := getUnstructuredObjectsFromWorkloadResourceInstances(gatewayControllerInstance.WorkloadResourceInstances, "Gateway")
+	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayControllerInstance.ID,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to get service objects from workload instance: %v", err)
+		return fmt.Errorf("failed to get workload resource instances: %w", err)
+	}
+
+	gatewayObjects, err := getUnstructuredObjectsFromWorkloadResourceInstances(workloadResourceInstances, "Gateway")
+	if err != nil {
+		return fmt.Errorf("failed to get service objects from workload instance: %w", err)
 	}
 	gatewayObject := gatewayObjects[0]
 
@@ -487,9 +479,21 @@ func configureVirtualService(
 		return nil, fmt.Errorf("error parsing YAML: %v", err)
 	}
 
-	serviceObjects, err := getUnstructuredObjectsFromWorkloadResourceInstances(workloadInstance.WorkloadResourceInstances, "Service")
+	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
+		r.APIClient,
+		r.APIServer,
+		*workloadInstance.ID,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get service objects from workload instance: %v", err)
+		return nil, fmt.Errorf("failed to get workload resource instances: %w", err)
+	}
+
+	serviceObjects, err := getUnstructuredObjectsFromWorkloadResourceInstances(workloadResourceInstances, "Service")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service objects from workload instance: %w", err)
+	}
+	if len(serviceObjects) == 0 {
+		return nil, fmt.Errorf("no service objects found")
 	}
 	serviceObject := serviceObjects[0]
 
@@ -562,7 +566,7 @@ func getThreeportObjects(
 	workloadInstance, err := client.GetWorkloadInstanceByID(
 		r.APIClient,
 		r.APIServer,
-		*gatewayDefinition.WorkloadDefinitionID,
+		*gatewayInstance.WorkloadInstanceID,
 	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get workload instance: %w", err)
@@ -581,35 +585,44 @@ func validateThreeportState(
 	clusterInstance *v0.ClusterInstance,
 ) error {
 
-	// ensure gateway definition is reconciled before working on an instance
-	// for it
-	gatewayDefinitionReconciled, err := confirmGatewayDefReconciled(r, gatewayInstance)
+	// ensure workload definition is reconciled
+	workloadDefinitionReconciled, err := confirmWorkloadDefReconciled(r, gatewayInstance)
 	if err != nil {
-		return fmt.Errorf("failed to determine if gateway definition is reconciled: %w", err)
+		return fmt.Errorf("failed to determine if workload definition is reconciled: %w", err)
 	}
-	if !gatewayDefinitionReconciled {
-		return errors.New("gateway definition not reconciled")
-	}
-	err = confirmGatewayControllerDeployed(r, gatewayInstance, clusterInstance)
-	if err != nil {
-		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
+	if !workloadDefinitionReconciled {
+		return errors.New("workload definition not reconciled")
 	}
 
-	// ensure gateway controller instance is reconciled before working on
-	// a gateway instance for it
-	gatewayControllerInstanceReconciled, err := confirmGatewayControllerInstanceReconciled(r, *clusterInstance.GatewayControllerInstanceID)
+	// ensure workload instance is reconciled
+	workloadInstanceReconciled, err := confirmWorkloadInstReconciled(r, gatewayInstance)
 	if err != nil {
-		return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
+		return fmt.Errorf("failed to determine if workload instance is reconciled: %w", err)
 	}
-	if !gatewayControllerInstanceReconciled {
-		return errors.New("gateway controller instance not reconciled")
+	if !workloadInstanceReconciled {
+		return errors.New("workload instance not reconciled")
 	}
 
-	// confirm requested port exposed
-	err = confirmGatewayPortExposed(r, gatewayInstance, clusterInstance, gatewayDefinition)
-	if err != nil {
-		return fmt.Errorf("failed to confirm requested port is exposed: %w", err)
-	}
+	// // ensure gateway controller is deployed
+	// err = confirmGatewayControllerDeployed(r, gatewayInstance, clusterInstance)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to reconcile gateway controller: %w", err)
+	// }
+
+	// // ensure gateway controller instance is reconciled
+	// gatewayControllerInstanceReconciled, err := confirmGatewayControllerInstanceReconciled(r, *clusterInstance.GatewayControllerInstanceID)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
+	// }
+	// if !gatewayControllerInstanceReconciled {
+	// 	return errors.New("gateway controller instance not reconciled")
+	// }
+
+	// // confirm requested port exposed
+	// err = confirmGatewayPortExposed(r, gatewayInstance, clusterInstance, gatewayDefinition)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to confirm requested port is exposed: %w", err)
+	// }
 
 	return nil
 }

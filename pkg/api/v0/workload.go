@@ -93,6 +93,9 @@ type WorkloadResourceInstance struct {
 
 	// All events that have occured related to this object.
 	Events []*WorkloadEvent `json:"Events,omitempty" query:"events" validate:"optional"`
+
+	// Whether another controller has scheduled this resource for deletion
+	ScheduledForDeletion *bool `json:"ScheduledForDeletion,omitempty" query:"scheduledfordeletion" gorm:"default:false" validate:"optional"`
 }
 
 // WorkloadEvent is a summary of a Kubernetes Event that is associated with a

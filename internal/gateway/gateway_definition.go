@@ -23,7 +23,7 @@ func gatewayDefinitionCreated(
 	virtualService := CreateVirtualService(gatewayDefinition)
 
 	// marshal virtual service definition into YAML
-	virtualServiceBytes, err := yaml.Marshal(virtualService)
+	virtualServiceBytes, err := yaml.Marshal(virtualService.Object)
 	if err != nil {
 		return fmt.Errorf("error marshaling YAML: %w", err)
 	}
@@ -58,7 +58,7 @@ func gatewayDefinitionCreated(
 
 	log.V(1).Info(
 		"gateway definition created",
-		"gatewayDefinitionID", createdWorkloadDefinition.ID,
+		"gatewayDefinitionID", gatewayDefinition.ID,
 	)
 
 	return nil

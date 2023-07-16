@@ -7465,8 +7465,12 @@ const docTemplate = `{
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
                 },
+                "WorkloadInstanceID": {
+                    "description": "The workload instance this gateway belongs to.",
+                    "type": "integer"
+                },
                 "WorkloadResourceInstanceID": {
-                    "description": "The workload resource instance this gateway belongs to.",
+                    "description": "The workload resource instance that belongs to this instance.",
                     "type": "integer"
                 }
             }
@@ -7569,21 +7573,10 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ClusterDefinition",
-                "ClusterInstance",
-                "Profile",
-                "Tier",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "AwsAccount",
-                "AwsEksClusterDefinition",
-                "AwsEksClusterInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
                 "GatewayDefinition",
                 "GatewayInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -7591,24 +7584,24 @@ const docTemplate = `{
                 "WorkloadEvent",
                 "LogBackend",
                 "LogStorageDefinition",
-                "LogStorageInstance"
+                "LogStorageInstance",
+                "AwsAccount",
+                "AwsEksClusterDefinition",
+                "AwsEksClusterInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "Profile",
+                "Tier",
+                "ClusterDefinition",
+                "ClusterInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksClusterDefinition",
-                "ObjectTypeAwsEksClusterInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
@@ -7616,7 +7609,18 @@ const docTemplate = `{
                 "ObjectTypeWorkloadEvent",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance"
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksClusterDefinition",
+                "ObjectTypeAwsEksClusterInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeClusterDefinition",
+                "ObjectTypeClusterInstance"
             ]
         },
         "v0.Profile": {

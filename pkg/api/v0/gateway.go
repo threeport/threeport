@@ -53,8 +53,11 @@ type GatewayInstance struct {
 	// GatewayDefinitionID is the definition used to configure the workload instance.
 	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" query:"gatewaydefinitionid" gorm:"not null" validate:"required"`
 
-	// The workload resource instance this gateway belongs to.
-	WorkloadResourceInstanceID *uint `json:"WorkloadResourceInstanceID,omitempty" query:"workloadresourceinstanceid" gorm:"not null" validate:"optional,association"`
+	// The workload instance this gateway belongs to.
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadresourceinstanceid" gorm:"not null" validate:"optional"`
+
+	// The workload resource instance that belongs to this instance.
+	WorkloadResourceInstanceID *uint `json:"WorkloadResourceInstanceID,omitempty" query:"workloadresourceinstanceid" validate:"optional"`
 
 	// Indicates if object is considered to be reconciled by gateway controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`

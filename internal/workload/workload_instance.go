@@ -72,7 +72,6 @@ func workloadInstanceCreated(
 	// construct workload resource instances
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 	for _, wrd := range *workloadResourceDefinitions {
-		// reconciled := false
 		wri := v0.WorkloadResourceInstance{
 			JSONDefinition:     wrd.JSONDefinition,
 			WorkloadInstanceID: workloadInstance.ID,
@@ -275,9 +274,21 @@ func workloadInstanceUpdated(
 			if _, err := kube.CreateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
 				return fmt.Errorf("failed to create Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
 			}
-		} else if wri.DeletedAt != nil {
+		} else if *wri.ScheduledForDeletion {
+
+			// delete kube resource
 			if err := kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
 				return fmt.Errorf("failed to delete Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
+			}
+
+			// delete threeport resource
+			_, err = client.DeleteWorkloadResourceInstance(
+				r.APIClient,
+				r.APIServer,
+				*wri.ID,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to delete workload resource instance with ID %d: %w", wri.ID, err)
 			}
 		// otherwise, it is an existing resource and we may update it
 		} else {
