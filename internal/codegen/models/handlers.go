@@ -19,6 +19,12 @@ func deletionInstanceCheckTypeNames() []string {
 	return []string{"WorkloadDefinition", "GatewayDefinition"}
 }
 
+// setReconcileCheckTypeNames returns the definition objects that need to
+// have their Reconcile field set to false by their handler
+func setReconcileCheckTypeNames() []string {
+	return []string{"WorkloadDefinition", "WorkloadInstance", "WorkloadResourceInstance", "GatewayDefinition", "GatewayInstance"}
+}
+
 // apiHandlersPath returns the path from the models to the API's internal handlers
 // package.
 func apiHandlersPath() string {
@@ -78,6 +84,61 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					),
 				),
 			).Line()
+		}
+
+		reconcileCheck := false
+		for _, typeName := range setReconcileCheckTypeNames() {
+			if mc.TypeName == typeName {
+				reconcileCheck = true
+			}
+		}
+
+		reconcileCheckHandler := &Statement{}
+		notifyControllersHandler := &Statement{}
+
+		if reconcileCheck {
+
+			// configure reconcileCheckHandler
+			reconcileCheckHandler = Comment("set reconciled to false, unless the client requests otherwise")
+			reconcileCheckHandler.Line()
+			reconcileCheckHandler.Id("reconciled").Op(":=").False()
+			reconcileCheckHandler.Line()
+			reconcileCheckHandler.If(
+				Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("!=").Nil().Op("&&").Op("*").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Block(
+					Id("reconciled").Op("=").True(),
+					Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("=").Op("&").Id("reconciled"),
+				),
+			)
+			// confiugre notifyControllersHandler
+
+			notifyControllersHandler = Comment("notify controllers if reconciliation is required")
+			notifyControllersHandler.Line()
+			notifyControllersHandler.If(Op("!").Id("reconciled").Block(
+				Comment("notify controller"),
+				Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("ID"),
+				Id("notifPayload").Op(",").Id("err").Op(":=").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("NotificationPayload").Call(
+					Line().Qual(
+						"github.com/threeport/threeport/pkg/notifications/v0",
+						"NotificationOperationUpdated",
+					),
+					Line().Lit(false),
+					Line().Lit(0),
+					Line(),
+				),
+				If(Id("err").Op("!=").Nil().Block(
+					Return(Qual(
+						"github.com/threeport/threeport/internal/api",
+						"ResponseStatus500",
+					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
+				),
+				Id("h").Dot("JS").Dot("Publish").Call(Qual(
+					fmt.Sprintf(
+						"github.com/threeport/threeport/pkg/api/%s",
+						cc.ParsedModelFile.Name.Name,
+					),
+					mc.UpdateSubject,
+				).Op(",").Op("*").Id("notifPayload")),
+			))
 		}
 
 		// delete handler includes instance check for definition objects to ensure
@@ -756,6 +817,9 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 			),
 			Line(),
+			reconcileCheckHandler,
+			Line(),
+			Comment("update object in database"),
 			If(
 				Id("result").Op(":=").Id("h").Dot("DB").Dot("Model").Call(
 					Op("&").Id(fmt.Sprintf("existing%s", mc.TypeName)),
@@ -769,33 +833,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 			),
 			Line(),
-			// Comment("notify controllers if reconciliation is necessary"),
-			// If(Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("==").Nil().Op("||").Op("*").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("==").Lit(false).Block(
-				Comment("notify controller"),
-				Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("ID"),
-				Id("notifPayload").Op(",").Id("err").Op(":=").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("NotificationPayload").Call(
-					Line().Qual(
-						"github.com/threeport/threeport/pkg/notifications/v0",
-						"NotificationOperationUpdated",
-					),
-					Line().Lit(false),
-					Line().Lit(0),
-					Line(),
-				),
-				If(Id("err").Op("!=").Nil().Block(
-					Return(Qual(
-						"github.com/threeport/threeport/internal/api",
-						"ResponseStatus500",
-					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
-				),
-				Id("h").Dot("JS").Dot("Publish").Call(Qual(
-					fmt.Sprintf(
-						"github.com/threeport/threeport/pkg/api/%s",
-						cc.ParsedModelFile.Name.Name,
-					),
-					mc.UpdateSubject,
-				).Op(",").Op("*").Id("notifPayload")),
-			// )),
+			notifyControllersHandler,
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(

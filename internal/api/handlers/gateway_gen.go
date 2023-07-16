@@ -201,12 +201,20 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// set reconciled to false, unless the client requests otherwise
+	reconciled := false
+	if updatedGatewayDefinition.Reconciled != nil && *updatedGatewayDefinition.Reconciled {
+		reconciled = true
+		updatedGatewayDefinition.Reconciled = &reconciled
+	}
+
+	// update object in database
 	if result := h.DB.Model(&existingGatewayDefinition).Updates(updatedGatewayDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// check if reconciled field was provided by client
-	if updatedGatewayDefinition.Reconciled == nil || !*updatedGatewayDefinition.Reconciled {
+	// notify controllers if reconciliation is required
+	if !reconciled {
 		// notify controller
 		updatedGatewayDefinition.ID = existingGatewayDefinition.ID
 		notifPayload, err := updatedGatewayDefinition.NotificationPayload(
@@ -533,21 +541,32 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// set reconciled to false, unless the client requests otherwise
+	reconciled := false
+	if updatedGatewayInstance.Reconciled != nil && *updatedGatewayInstance.Reconciled {
+		reconciled = true
+		updatedGatewayInstance.Reconciled = &reconciled
+	}
+
+	// update object in database
 	if result := h.DB.Model(&existingGatewayInstance).Updates(updatedGatewayInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	updatedGatewayInstance.ID = existingGatewayInstance.ID
-	notifPayload, err := updatedGatewayInstance.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controllers if reconciliation is required
+	if !reconciled {
+		// notify controller
+		updatedGatewayInstance.ID = existingGatewayInstance.ID
+		notifPayload, err := updatedGatewayInstance.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			0,
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.GatewayInstanceUpdateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.GatewayInstanceUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingGatewayInstance)
 	if err != nil {
