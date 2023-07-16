@@ -7,9 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+
 	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"net/http"
 )
 
 // GetAwsAccounts fetches all aws accounts.
@@ -55,6 +56,10 @@ func GetAwsAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Aws
 	)
 	if err != nil {
 		return &awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) < 1 {
+		return &awsAccount, errors.New(fmt.Sprintf("no object found with ID %d", id))
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

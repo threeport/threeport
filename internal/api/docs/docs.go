@@ -7588,12 +7588,16 @@ const docTemplate = `{
                     "description": "The account ID for the AWS account.",
                     "type": "string"
                 },
-                "AwsEksKubernetesRuntimeInstances": {
+                "AwsEksKubernetesRuntimeDefinitions": {
                     "description": "The cluster instances deployed in this AWS account.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeInstance"
+                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeDefinition"
                     }
+                },
+                "DefaultAccount": {
+                    "description": "If true is the AWS Account used if none specified in a definition.",
+                    "type": "boolean"
                 },
                 "DefaultRegion": {
                     "description": "The region to use for AWS managed services if not specified.",
@@ -7612,9 +7616,14 @@ const docTemplate = `{
         "v0.AwsEksKubernetesRuntimeDefinition": {
             "type": "object",
             "required": [
+                "AWSAccountID",
                 "Name"
             ],
             "properties": {
+                "AWSAccountID": {
+                    "description": "The AWS account in which the EKS cluster is provisioned.",
+                    "type": "integer"
+                },
                 "AwsEksKubernetesRuntimeInstances": {
                     "description": "The AWS EKS kubernetes runtime instances derived from this definition.",
                     "type": "array",
@@ -7650,10 +7659,6 @@ const docTemplate = `{
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
                 },
-                "Region": {
-                    "description": "The AWS region in which EKS clusters will be provisioned.  Note: changes to\nthis value will not alter the derived instances which is an immutable\ncharacteristic on instances.  It will only affect new instances derived\nfrom this definition.",
-                    "type": "string"
-                },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
@@ -7667,15 +7672,10 @@ const docTemplate = `{
         "v0.AwsEksKubernetesRuntimeInstance": {
             "type": "object",
             "required": [
-                "AWSAccountID",
                 "AwsEksKubernetesRuntimeDefinitionID",
                 "Name"
             ],
             "properties": {
-                "AWSAccountID": {
-                    "description": "The AWS account in which the EKS cluster is provisioned.",
-                    "type": "integer"
-                },
                 "AwsEksKubernetesRuntimeDefinitionID": {
                     "description": "The definition that configures this instance.",
                     "type": "integer"
@@ -7993,9 +7993,11 @@ const docTemplate = `{
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
             "type": "object",
             "required": [
+                "InfraProvider",
                 "Name"
             ],
             "properties": {
+<<<<<<< HEAD
 <<<<<<< HEAD
                 "DomainNameID": {
                     "description": "The domain name to serve requests for.",
@@ -8014,17 +8016,31 @@ const docTemplate = `{
 =======
                 "DefaultNodeGroupInitialSize": {
                     "type": "integer"
+=======
+                "HighAvailability": {
+                    "description": "If true, will be deployed in a highly available configuration across\nmultiple zones within a region and with multiple replicas of Kubernetes\ncontrol plane components.",
+                    "type": "boolean"
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 },
-                "DefaultNodeGroupInstanceType": {
-                    "description": "TODO: move these values to the AWS EKS cluster definition object.",
+                "InfraProvider": {
+                    "description": "The infrastructure provider running the compute infrastructure for the\ncluster.",
                     "type": "string"
                 },
+<<<<<<< HEAD
                 "DefaultNodeGroupMaximumSize": {
                     "type": "integer"
                 },
                 "DefaultNodeGroupMinimumSize": {
                     "type": "integer"
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
+=======
+                "KubernetesRuntimeInstances": {
+                    "description": "The associated kubernetes runtime instances that are deployed from this\ndefinition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
+                    }
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
@@ -8042,6 +8058,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by gateway controller.",
                     "type": "boolean"
@@ -8056,12 +8073,21 @@ const docTemplate = `{
 =======
                 "Region": {
                     "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.  Note: changes to this value will not alter the derived\ninstances which is an immutable characteristic on instances.  It will\nonly affect new instances derived from this definition.",
+=======
+                "ProviderAccountID": {
+                    "description": "The infra provider account ID.  Determines which account the infra is\ndeployed on.",
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
                     "type": "string"
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the kubernetes\nruntime controller.",
+                    "type": "boolean"
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
+<<<<<<< HEAD
                 },
 <<<<<<< HEAD
                 "WorkloadDefinitionID": {
@@ -8071,6 +8097,8 @@ const docTemplate = `{
                     "description": "The number of zones the cluster should span for availability.",
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                     "type": "integer"
+=======
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 }
             }
         },
@@ -8093,8 +8121,6 @@ const docTemplate = `{
         "v0.KubernetesRuntimeInstance": {
             "type": "object",
             "required": [
-                "APIEndpoint",
-                "CACertificate",
                 "KubernetesRuntimeDefinitionID",
                 "Name"
             ],
@@ -8128,10 +8154,15 @@ const docTemplate = `{
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                     "type": "integer"
                 },
+                "Location": {
+                    "description": "The geographical location for the runtime cluster.  This is an\nabstraction for the cloud provider regions that is mapped into the\nregions used by providers.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
+<<<<<<< HEAD
 <<<<<<< HEAD
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by gateway controller.",
@@ -8141,6 +8172,11 @@ const docTemplate = `{
                     "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.  Stored in the instance (as well as definition) since a\nchange to the definition will not move a cluster.",
                     "type": "string"
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
+=======
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the kubernetes\nruntime controller.",
+                    "type": "boolean"
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -8272,6 +8308,7 @@ const docTemplate = `{
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "GatewayDefinition",
                 "GatewayInstance",
                 "Profile",
@@ -8297,11 +8334,18 @@ const docTemplate = `{
                 "LogStorageDefinition",
                 "LogStorageInstance",
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
+=======
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -8344,23 +8388,25 @@ const docTemplate = `{
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
 =======
 >>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
+=======
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
                 "Profile",
-                "Tier"
+                "Tier",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance"
             ],
             "x-enum-varnames": [
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -8377,11 +8423,18 @@ const docTemplate = `{
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
+=======
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -8410,11 +8463,18 @@ const docTemplate = `{
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
 =======
 >>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
+=======
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
                 "ObjectTypeClusterDefinition",
@@ -8461,6 +8521,13 @@ const docTemplate = `{
                 "ObjectTypeProfile",
                 "ObjectTypeTier"
 >>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
+=======
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance"
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
             ]
         },
         "v0.Profile": {

@@ -10,6 +10,7 @@ import (
 	"go/token"
 	"strings"
 
+	"github.com/iancoleman/strcase"
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/codegen"
@@ -49,9 +50,20 @@ controllers each time 'make generate' is called.`,
 		//	return err
 		//}
 		//////////////////////////////////////////////////////////////////////////
+		baseName := codegen.FilenameSansExt(modelFilenameForController)
 		controllerConfig := controller.ControllerConfig{
-			Name: fmt.Sprintf("%s-controller", codegen.FilenameSansExt(modelFilenameForController)),
+			Name: strings.ReplaceAll(
+				fmt.Sprintf("%s-controller", baseName),
+				"_",
+				"-",
+			),
+			ShortName:   strings.ReplaceAll(baseName, "_", "-"),
+			PackageName: strings.ReplaceAll(baseName, "_", ""),
+			StreamName: fmt.Sprintf(
+				"%sStreamName", strcase.ToCamel(baseName),
+			),
 		}
+
 		for _, node := range pf.Decls {
 			switch node.(type) {
 			case *ast.GenDecl:
@@ -77,6 +89,11 @@ controllers each time 'make generate' is called.`,
 		// generate the controller's main package
 		if err := controllerConfig.MainPackage(); err != nil {
 			return fmt.Errorf("failed to generate code for controller's main package: %w", err)
+		}
+
+		// generate the controller's internal package general source code
+		if err := controllerConfig.InternalPackage(); err != nil {
+			return fmt.Errorf("failed to generate code for controller's internal package source file: %w", err)
 		}
 
 		// generate the controller's reconcile functions

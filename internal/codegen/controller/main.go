@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gertd/go-pluralize"
@@ -26,8 +25,8 @@ func (cc *ControllerConfig) MainPackage() error {
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/v0", "client")
 	f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
 
-	controllerShortName := strings.TrimSuffix(cc.Name, "-controller")
-	controllerStreamName := fmt.Sprintf("%sStreamName", strcase.ToCamel(controllerShortName))
+	//controllerShortName := strings.TrimSuffix(cc.Name, "-controller")
+	//controllerStreamName := fmt.Sprintf("%sStreamName", strcase.ToCamel(cc.ShortName))
 
 	concurrencyFlags := &Statement{}
 	for _, obj := range cc.ReconciledObjects {
@@ -64,7 +63,7 @@ func (cc *ControllerConfig) MainPackage() error {
 				fmt.Sprintf("ObjectType%s", obj),
 			),
 			Id("ReconcileFunc"): Qual(
-				fmt.Sprintf("github.com/threeport/threeport/internal/%s", controllerShortName),
+				fmt.Sprintf("github.com/threeport/threeport/internal/%s", cc.PackageName),
 				fmt.Sprintf("%sReconciler", obj),
 			),
 			Id("ConcurrentReconciles"): Op("*").Id(fmt.Sprintf(
@@ -213,9 +212,21 @@ func (cc *ControllerConfig) MainPackage() error {
 
 		Line().Comment("JetStream key-value store setup"),
 		Id("kvConfig").Op(":=").Qual("github.com/nats-io/nats.go", "KeyValueConfig").Values(Dict{
-			Id("Bucket"):      Id(controllerShortName).Dot("LockBucketName"),
-			Id("Description"): Id(controllerShortName).Dot("LockBucketDescr"),
-			Id("TTL"):         Qual("time", "Minute").Op("*").Lit(20),
+			Id("Bucket"): Qual(
+				fmt.Sprintf(
+					"github.com/threeport/threeport/internal/%s",
+					cc.PackageName,
+				),
+				"LockBucketName",
+			),
+			Id("Description"): Qual(
+				fmt.Sprintf(
+					"github.com/threeport/threeport/internal/%s",
+					cc.PackageName,
+				),
+				"LockBucketDescr",
+			),
+			Id("TTL"): Qual("time", "Minute").Op("*").Lit(20),
 		}),
 		List(
 			Id("kv"), Id("err"),
@@ -225,44 +236,50 @@ func (cc *ControllerConfig) MainPackage() error {
 				Err(),
 				Lit("failed to bind to JetStream key-value locking bucket"),
 				Lit("lockBucketName"),
-				Id(controllerShortName).Dot("LockBucketName"),
+				Qual(
+					fmt.Sprintf(
+						"github.com/threeport/threeport/internal/%s",
+						cc.PackageName,
+					),
+					"LockBucketName",
+				),
 			),
 			Qual("os", "Exit").Call(Lit(1)),
 		),
 
 		Line().Comment(fmt.Sprintf(
 			"check to ensure %s stream has been created by API",
-			controllerShortName,
+			cc.ShortName,
 		)),
 		Id(fmt.Sprintf(
 			"%sFound",
-			strcase.ToLowerCamel(controllerStreamName),
+			strcase.ToLowerCamel(cc.StreamName),
 		)).Op(":=").Lit(false),
 		For(Id("stream").Op(":=").Range().Id("js").Dot("StreamNames").Call()).Block(
 			If(Id("stream").Op("==").Qual(
 				"github.com/threeport/threeport/pkg/api/v0",
-				controllerStreamName,
+				cc.StreamName,
 			)).Block(
 				Id(fmt.Sprintf(
 					"%sFound",
-					strcase.ToLowerCamel(controllerStreamName),
+					strcase.ToLowerCamel(cc.StreamName),
 				)).Op("=").Lit(true),
 			),
 		),
 		If(Op("!").Id(fmt.Sprintf(
 			"%sFound",
-			strcase.ToLowerCamel(controllerStreamName),
+			strcase.ToLowerCamel(cc.StreamName),
 		))).Block(
 			Id("log").Dot("Error").Call(
 				Qual("errors", "New").Call(Lit("JetStream stream not found")),
 				Lit(fmt.Sprintf(
 					"failed to find stream with %s stream name",
-					controllerShortName,
+					cc.ShortName,
 				)),
-				Lit(strcase.ToLowerCamel(controllerStreamName)),
+				Lit(strcase.ToLowerCamel(cc.StreamName)),
 				Qual(
 					"github.com/threeport/threeport/pkg/api/v0",
-					controllerStreamName,
+					cc.StreamName,
 				),
 			),
 			Qual("os", "Exit").Call(Lit(1)),
@@ -300,7 +317,7 @@ func (cc *ControllerConfig) MainPackage() error {
 			Id("consumer").Op(":=").Id("r").Dot("Name").Op("+").Lit("Consumer"),
 			Id("js").Dot("AddConsumer").Call(Qual(
 				"github.com/threeport/threeport/pkg/api/v0",
-				controllerStreamName,
+				cc.StreamName,
 			).Op(",").Op("&").Qual(
 				"github.com/nats-io/nats.go",
 				"ConsumerConfig",
@@ -323,7 +340,7 @@ func (cc *ControllerConfig) MainPackage() error {
 					"BindStream",
 				).Call(Qual(
 					"github.com/threeport/threeport/pkg/api/v0",
-					controllerStreamName,
+					cc.StreamName,
 				)),
 			),
 			If(Id("err").Op("!=").Nil()).Block(
@@ -361,14 +378,20 @@ func (cc *ControllerConfig) MainPackage() error {
 		Line(),
 
 		Id("log").Dot("Info").Call(
-			Line().Lit(fmt.Sprintf("%s controller started", controllerShortName)),
+			Line().Lit(fmt.Sprintf("%s controller started", cc.ShortName)),
 			Line().Lit("version"), Qual(
 				"github.com/threeport/threeport/internal/version",
 				"GetVersion",
 			).Call(),
 			Line().Lit("controllerID"), Id("controllerID").Dot("String").Call(),
 			Line().Lit("NATSConnection"), Id("natsConn"),
-			Line().Lit("lockBucketName"), Id(controllerShortName).Dot("LockBucketName"),
+			Line().Lit("lockBucketName"), Qual(
+				fmt.Sprintf(
+					"github.com/threeport/threeport/internal/%s",
+					cc.PackageName,
+				),
+				"LockBucketName",
+			),
 			Line(),
 		),
 		Line(),
@@ -407,12 +430,12 @@ func (cc *ControllerConfig) MainPackage() error {
 		Id("shutdownWait").Dot("Wait").Call(),
 		Line(),
 
-		Id("log").Dot("Info").Call(Lit(fmt.Sprintf("%s controller shutting down", controllerShortName))),
+		Id("log").Dot("Info").Call(Lit(fmt.Sprintf("%s controller shutting down", cc.ShortName))),
 		Qual("os", "Exit").Call(Lit(0)),
 	)
 
 	f.Func().Id("showHelpAndExit").Params(Id("exitCode").Int()).Block(
-		Qual("fmt", "Printf").Call(Lit(fmt.Sprintf("Usage: threeport-%s-controller [options]\n", controllerShortName))),
+		Qual("fmt", "Printf").Call(Lit(fmt.Sprintf("Usage: threeport-%s-controller [options]\n", cc.ShortName))),
 		Qual("fmt", "Println").Call(Lit("options:")),
 		Id("flag").Dot("PrintDefaults").Call(),
 		Qual("os", "Exit").Call(Id("exitCode")),

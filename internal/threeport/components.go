@@ -18,16 +18,17 @@ import (
 )
 
 const (
-	ThreeportImageRepo               = "ghcr.io/threeport"
-	ThreeportAPIImage                = "threeport-rest-api"
-	ThreeportWorkloadControllerImage = "threeport-workload-controller"
-	ThreeportAwsControllerImage      = "threeport-aws-controller"
-	ThreeportGatewayControllerImage  = "threeport-gateway-controller"
-	ThreeportAgentImage              = "threeport-agent"
-	ThreeportAPIServiceResourceName  = "threeport-api-server"
-	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
-	ThreeportLocalAPIEndpoint        = "localhost"
-	ThreeportLocalAPIPort            = "443"
+	ThreeportImageRepo                        = "ghcr.io/threeport"
+	ThreeportAPIImage                         = "threeport-rest-api"
+	ThreeportWorkloadControllerImage          = "threeport-workload-controller"
+	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
+	ThreeportAwsControllerImage               = "threeport-aws-controller"
+	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
+	ThreeportAgentImage                       = "threeport-agent"
+	ThreeportAPIServiceResourceName           = "threeport-api-server"
+	ThreeportAPIIngressResourceName           = "threeport-api-ingress"
+	ThreeportLocalAPIEndpoint                 = "localhost"
+	ThreeportLocalAPIPort                     = "443"
 )
 
 // ThreeportDevImages returns a map of main package dirs to dev image names
@@ -51,11 +52,12 @@ func getImages(devEnvironment bool) map[string]string {
 	}
 
 	images := map[string]string{
-		"rest-api":            fmt.Sprintf("%s%s:latest", ThreeportAPIImage, imageSuffix),
-		"workload-controller": fmt.Sprintf("%s%s:latest", ThreeportWorkloadControllerImage, imageSuffix),
-		"aws-controller":      fmt.Sprintf("%s-dev:latest", ThreeportAwsControllerImage),
-		"gateway-controller":  fmt.Sprintf("%s%s:latest", ThreeportGatewayControllerImage, imageSuffix),
-		"agent":               fmt.Sprintf("%s%s:latest", ThreeportAgentImage, imageSuffix),
+		"rest-api":                      fmt.Sprintf("%s%s:latest", ThreeportAPIImage, imageSuffix),
+		"workload-controller":           fmt.Sprintf("%s%s:latest", ThreeportWorkloadControllerImage, imageSuffix),
+		"kubernetes-runtime-controller": fmt.Sprintf("%s%s:latest", ThreeportKubernetesRuntimeControllerImage, imageSuffix),
+		"aws-controller":                fmt.Sprintf("%s%s:latest", ThreeportAwsControllerImage, imageSuffix),
+		"gateway-controller":            fmt.Sprintf("%s%s:latest", ThreeportGatewayControllerImage, imageSuffix),
+		"agent":                         fmt.Sprintf("%s%s:latest", ThreeportAgentImage, imageSuffix),
 	}
 
 	return images
@@ -65,6 +67,7 @@ func getImages(devEnvironment bool) map[string]string {
 func GetThreeportControllerNames() []string {
 	return []string{
 		"workload-controller",
+		"kubernetes-runtime-controller",
 		"aws-controller",
 		"gateway-controller",
 	}
@@ -343,6 +346,110 @@ func InstallController(
 	var controllerDeployment = getControllerDeployment(name, ControlPlaneNamespace, controllerImage, controllerArgs, controllerVols, controllerVolMounts)
 	if _, err := kube.CreateResource(controllerDeployment, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
+	}
+
+	return nil
+}
+
+// InstallKubernetesRuntimeController installs the threeport kubernetes runtime
+// controller in a Kubernetes cluster.
+func InstallKubernetesRuntimeController(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	devEnvironment bool,
+	customThreeportImageRepo string,
+	customThreeportImageTag string,
+	authConfig *auth.AuthConfig,
+) error {
+	kubernetesRuntimeControllerImage := getKubernetesRuntimeControllerImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
+	kubernetesRuntimeControllerVols, kubernetesRuntimeControllerVolMounts := getKubernetesRuntimeControllerVolumes(devEnvironment, authConfig)
+	kubernetesRuntimeControllerArgs := getKubernetesRuntimeControllerArgs(devEnvironment, authConfig)
+
+	// if auth is enabled on API, generate client cert and key and store in
+	// secrets
+	if authConfig != nil {
+		kubernetesRuntimeCertificate, kubernetesRuntimePrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		if err != nil {
+			return fmt.Errorf("failed to generate client certificate and private key for kubernetes runtime controller: %w", err)
+		}
+
+		var kubernetesRuntimeCa = getTLSSecret("kubernetes-runtime-ca", authConfig.CAPemEncoded, "")
+		if _, err := kube.CreateResource(kubernetesRuntimeCa, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret for kubernetes runtime controller: %w", err)
+		}
+
+		var kubernetesRuntimeCert = getTLSSecret("kubernetes-runtime-cert", kubernetesRuntimeCertificate, kubernetesRuntimePrivateKey)
+		if _, err := kube.CreateResource(kubernetesRuntimeCert, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret for kubernetes runtime controller: %w", err)
+		}
+	}
+
+	var kubernetesRuntimeControllerSecret = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "kubernetes-runtime-controller-config",
+				"namespace": ControlPlaneNamespace,
+			},
+			"type": "Opaque",
+			"stringData": map[string]interface{}{
+				"API_SERVER":      "threeport-api-server",
+				"MSG_BROKER_HOST": "nats-js",
+				"MSG_BROKER_PORT": "4222",
+			},
+		},
+	}
+	if _, err := kube.CreateResource(kubernetesRuntimeControllerSecret, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create kubernetes runtime controller secret: %w", err)
+	}
+
+	var kubernetesRuntimeControllerDeployment = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata": map[string]interface{}{
+				"name":      "threeport-kubernetes-runtime-controller",
+				"namespace": ControlPlaneNamespace,
+			},
+			"spec": map[string]interface{}{
+				"replicas": 1,
+				"selector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"app.kubernetes.io/name": "threeport-kubernetes-runtime-controller",
+					},
+				},
+				"template": map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{
+							"app.kubernetes.io/name": "threeport-kubernetes-runtime-controller",
+						},
+					},
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								"name":            "kubernetes-runtime-controller",
+								"image":           kubernetesRuntimeControllerImage,
+								"imagePullPolicy": "IfNotPresent",
+								"args":            kubernetesRuntimeControllerArgs,
+								"envFrom": []interface{}{
+									map[string]interface{}{
+										"secretRef": map[string]interface{}{
+											"name": "kubernetes-runtime-controller-config",
+										},
+									},
+								},
+								"volumeMounts": kubernetesRuntimeControllerVolMounts,
+							},
+						},
+						"volumes": kubernetesRuntimeControllerVols,
+					},
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(kubernetesRuntimeControllerDeployment, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create kubernetes runtime controller deployment: %w", err)
 	}
 
 	return nil
@@ -1485,6 +1592,84 @@ func getControllerVolumes(name string, devEnvironment bool, authConfig *auth.Aut
 
 // getWorkloadControllerArgs returns the args that are passed to the workload controller.
 func getWorkloadControllerArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
+
+	// in devEnvironment, auth is disabled by default
+	// in tptctl, auth is enabled by default
+
+	// enable auth if authConfig is set in dev environment
+	// if devEnvironment && authConfig != nil {
+	if devEnvironment && authConfig == nil {
+		return []interface{}{
+			"-build.args_bin",
+			"-auth-enabled=false",
+		}
+	}
+
+	// disable auth if authConfig is not set in tptctl
+	if authConfig == nil {
+		return []interface{}{
+			"-auth-enabled=false",
+		}
+	}
+
+	return []interface{}{}
+}
+
+// getKubernetesRuntimeControllerImage returns the proper container image to use for the
+// kubernetes runtime controller.
+func getKubernetesRuntimeControllerImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
+	if devEnvironment {
+		devImages := ThreeportDevImages()
+		return devImages["kubernetes-runtime-controller"]
+	}
+
+	imageRepo := ThreeportImageRepo
+	if customThreeportImageRepo != "" {
+		imageRepo = customThreeportImageRepo
+	}
+
+	imageTag := version.GetVersion()
+	if customThreeportImageTag != "" {
+		imageTag = customThreeportImageTag
+	}
+
+	kubernetesRuntimeControllerImage := fmt.Sprintf(
+		"%s/%s:%s",
+		imageRepo,
+		ThreeportKubernetesRuntimeControllerImage,
+		imageTag,
+	)
+
+	return kubernetesRuntimeControllerImage
+}
+
+// getKubernetesRuntimeControllerVolumes returns the volumes and volume mounts for the workload
+// controller.
+func getKubernetesRuntimeControllerVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
+	vols := []interface{}{}
+	volMounts := []interface{}{}
+
+	if authConfig != nil {
+		caVol, caVolMount := getSecretVols("kubernetes-runtime-ca", "/etc/threeport/ca")
+		certVol, certVolMount := getSecretVols("kubernetes-runtime-cert", "/etc/threeport/cert")
+
+		vols = append(vols, caVol)
+		vols = append(vols, certVol)
+		volMounts = append(volMounts, caVolMount)
+		volMounts = append(volMounts, certVolMount)
+	}
+
+	if devEnvironment {
+		codePathVol, codePathVolMount := getCodePathVols()
+		vols = append(vols, codePathVol)
+		volMounts = append(volMounts, codePathVolMount)
+	}
+
+	return vols, volMounts
+}
+
+// getKubernetesRuntimeControllerArgs returns the args that are passed to the kubernetes runtime controller.
+func getKubernetesRuntimeControllerArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
 
 	// in devEnvironment, auth is disabled by default
 	// in tptctl, auth is enabled by default

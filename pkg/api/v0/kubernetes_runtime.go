@@ -1,37 +1,52 @@
 //go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate ../../../bin/threeport-codegen controller --filename $GOFILE
 package v0
 
+// +threeport-codegen:reconciler
+// KubernetesRuntimeDefinition is the configuration for a Kubernetes cluster.
+// TODO apply BeforeCreate functions that prevent changes to InfraProvider and
+// HighAvailability fields - these are immutable.
 type KubernetesRuntimeDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	// The geographical region for the cluster roughly corresponding to cloud
-	// provider regions.  Note: changes to this value will not alter the derived
-	// instances which is an immutable characteristic on instances.  It will
-	// only affect new instances derived from this definition.
-	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
+	// The infrastructure provider running the compute infrastructure for the
+	// cluster.
+	InfraProvider *string `json:"InfraProvider,omitempty" query:"infraprovider" gorm:"not null" validate:"required"`
 
-	// The number of zones the cluster should span for availability.
-	ZoneCount *int `json:"ZoneCount,omitempty" query:"zonecount" validate:"optional"`
+	// If true, will be deployed in a highly available configuration across
+	// multiple zones within a region and with multiple replicas of Kubernetes
+	// control plane components.
+	HighAvailability *bool `json:"HighAvailability,omitempty" query:"highavailability" validate:"optional"`
 
-	// TODO: move these values to the AWS EKS cluster definition object.
-	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" query:"defaultnodegroupinstancetype" validate:"optional"`
+	// The infra provider account ID.  Determines which account the infra is
+	// deployed on.
+	ProviderAccountID *string `json:"ProviderAccountID,omitempty" query:"provideraccountid" validate:"optional"`
 
-	DefaultNodeGroupInitialSize *int `json:"DefaultNodeGroupInitialSize,omitempty" query:"defaultnodegroupinitialsize" validate:"optional"`
+	// TODO: add fields for location limitations
+	// LocationsAllowed
+	// LocationsForbidden
 
-	DefaultNodeGroupMinimumSize *int `json:"DefaultNodeGroupMinimumSize,omitempty" query:"defaultnodegroupminimumsize" validate:"optional"`
+	// The associated kubernetes runtime instances that are deployed from this
+	// definition.
+	KubernetesRuntimeInstances []*KubernetesRuntimeInstance `json:"KubernetesRuntimeInstances,omitempty" validate:"optional,association"`
 
-	DefaultNodeGroupMaximumSize *int `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" validate:"optional"`
+	// Indicates if object is considered to be reconciled by the kubernetes
+	// runtime controller.
+	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
+// +threeport-codegen:reconciler
+// KubernetesRuntimeInstance is a deployed instance of a Kubernetes cluster.
+// TODO: Apply BeforeCreate to the Location field - it is immutable.
 type KubernetesRuntimeInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
 
-	// The geographical region for the cluster roughly corresponding to cloud
-	// provider regions.  Stored in the instance (as well as definition) since a
-	// change to the definition will not move a cluster.
-	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
+	// The geographical location for the runtime cluster.  This is an
+	// abstraction for the cloud provider regions that is mapped into the
+	// regions used by providers.
+	Location *string `json:"Location,omitempty" query:"location" validate:"optional"`
 
 	// If true, the Kubernetes cluster is hosting a threeport control plane and
 	// any controllers that connect to the kube API will use internal cluster
@@ -39,11 +54,11 @@ type KubernetesRuntimeInstance struct {
 	ThreeportControlPlaneHost *bool `json:"ThreeportControlPlaneHost,omitempty" query:"threeportcontrolplanehost" gorm:"default:false" validate:"optional"`
 
 	// The network endpoint at which to reach the kube-api.
-	APIEndpoint *string `json:"APIEndpoint,omitempty" gorm:"not null" validate:"required"`
+	APIEndpoint *string `json:"APIEndpoint,omitempty" validate:"optional"`
 
 	// The CA certificate used to generate the cert and key if
 	// self-signed.
-	CACertificate *string `json:"CACertificate,omitempty" gorm:"not null" validate:"required"`
+	CACertificate *string `json:"CACertificate,omitempty" validate:"optional"`
 
 	// The client certificate to use for auth to the kube-api.
 	Certificate *string `json:"Certificate,omitempty" validate:"optional"`
@@ -68,4 +83,8 @@ type KubernetesRuntimeInstance struct {
 
 	// The WorkloadInstanceID of the gateway support service
 	GatewayControllerInstanceID *uint `json:"GatewayWorkloadInstanceID,omitempty" validate:"optional"`
+
+	// Indicates if object is considered to be reconciled by the kubernetes
+	// runtime controller.
+	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }

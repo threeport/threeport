@@ -1,0 +1,4 @@
+FROM scratch
+COPY threeport-kubernetes-runtime-controller /threeport-kubernetes-runtime-controller
+ENTRYPOINT ["/threeport-kubernetes-runtime-controller"]
+

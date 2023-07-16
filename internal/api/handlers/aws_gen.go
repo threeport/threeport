@@ -4,13 +4,15 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
+	"net/http"
+
 	echo "github.com/labstack/echo/v4"
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	"net/http"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -944,6 +946,8 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		false,
 		0,
 	)
+	fmt.Println("########################################################")
+	fmt.Println(string(*notifPayload))
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}

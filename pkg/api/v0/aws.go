@@ -17,6 +17,9 @@ type AwsAccount struct {
 	// The account ID for the AWS account.
 	AccountID *string `json:"AccountID,omitempty" query:"accountid" gorm:"not null" validate:"required"`
 
+	// If true is the AWS Account used if none specified in a definition.
+	DefaultAccount *bool `json:"DefaultAccount,omitempty" query:"defaultaccount" gorm:"default:false" validate:"optional"`
+
 	// The key ID credentials for the AWS account.
 	AccessKeyID *string `json:"AccessKeyID,omitempty" query:"accesskeyid" gorm:"not null" validate:"required"`
 
@@ -24,7 +27,7 @@ type AwsAccount struct {
 	SecretAccessKey *string `json:"SecretAccessKey,omitempty" query:"secretaccesskey" gorm:"not null" validate:"required"`
 
 	// The cluster instances deployed in this AWS account.
-	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `json:"AwsEksKubernetesRuntimeInstances,omitempty" validate:"optional,association"`
+	AwsEksKubernetesRuntimeDefinitions []*AwsEksKubernetesRuntimeDefinition `json:"AwsEksKubernetesRuntimeDefinitions,omitempty" validate:"optional,association"`
 }
 
 // AwsEksKubernetesRuntimeDefinition provides the configuration for EKS cluster instances.
@@ -32,11 +35,12 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	// The AWS region in which EKS clusters will be provisioned.  Note: changes to
-	// this value will not alter the derived instances which is an immutable
-	// characteristic on instances.  It will only affect new instances derived
-	// from this definition.
-	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
+	// The AWS account in which the EKS cluster is provisioned.
+	AwsAccountID *uint `json:"AWSAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
+
+	// TODO: add fields for region limitations
+	// RegionsAllowed
+	// RegionsForbidden
 
 	// The number of zones the cluster should span for availability.
 	ZoneCount *int `json:"ZoneCount,omitempty" query:"zonecount" validate:"optional"`
@@ -57,7 +61,7 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `json:"AwsEksKubernetesRuntimeInstances,omitempty" validate:"optional,association"`
 
 	// The kubernetes runtime definition for an EKS cluster in AWS.
-	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" validate:"optional,association"`
+	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" query:"kubernetesruntimedefinitionid" validate:"optional,association"`
 }
 
 // +threeport-codegen:reconciler
@@ -73,9 +77,6 @@ type AwsEksKubernetesRuntimeInstance struct {
 
 	// The kubernetes runtime instance associated with the AWS EKS cluster.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" validate:"optional,association"`
-
-	// The AWS account in which the EKS cluster is provisioned.
-	AwsAccountID *uint `json:"AWSAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
 
 	// The definition that configures this instance.
 	AwsEksKubernetesRuntimeDefinitionID *uint `json:"AwsEksKubernetesRuntimeDefinitionID,omitempty" query:"awsekskubernetesruntimedefinitionid" gorm:"not null" validate:"required"`

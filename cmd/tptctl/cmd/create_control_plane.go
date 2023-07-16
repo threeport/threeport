@@ -12,6 +12,7 @@ import (
 
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/threeport"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // TODO: will become a variable once production-ready control plane instances are
@@ -50,7 +51,7 @@ func init() {
 	CreateControlPlaneCmd.MarkFlagRequired("name")
 	CreateControlPlaneCmd.Flags().StringVarP(
 		&cliArgs.InfraProvider,
-		"provider", "p", "kind", fmt.Sprintf("The infrasture provider to install upon. Supported infra providers: %s", threeport.SupportedInfraProviders()),
+		"provider", "p", "kind", fmt.Sprintf("The infrasture provider to install upon. Supported infra providers: %s", v0.SupportedInfraProviders()),
 	)
 	// this flag will be enabled once production-ready control plane instances
 	// are available.
