@@ -31,7 +31,7 @@ type GatewayDefinition struct {
 	// The domain name to serve requests for.
 	DomainNameID *uint `json:"DomainNameID,omitempty" query:"domainname" validate:"optional"`
 
-	// The workload definition this resource belongs to.
+	// The workload definition that belongs to this resource.
 	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"constraint:OnDelete:CASCADE;omitempty" validate:"optional"`
 
 	// The associated gateway instances that are deployed from this definition.

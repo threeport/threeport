@@ -150,8 +150,11 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						notifPayload,
 						requeueDelay,
 					)
-					continue
+				} else {
+					r.ReleaseLock(&workloadInstance)
 				}
+				log.Info("workload instance successfully reconciled")
+				continue
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),

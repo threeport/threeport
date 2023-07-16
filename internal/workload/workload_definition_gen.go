@@ -150,8 +150,11 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 						notifPayload,
 						requeueDelay,
 					)
-					continue
+				} else {
+					r.ReleaseLock(&workloadDefinition)
 				}
+				log.Info("workload definition successfully reconciled")
+				continue
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),

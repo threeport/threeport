@@ -42,6 +42,7 @@ func TestWorkloadE2E(t *testing.T) {
 	testWorkloads := testResources()
 
 	for _, testWorkload := range *testWorkloads {
+		fmt.Printf("testing workload: %s\n", testWorkload.Name)
 
 		// create workload definition
 		workloadDefName := testWorkload.Name
@@ -85,6 +86,21 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error getting credentials for threeport API")
 		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		assert.Nil(err, "should have no error creating http client")
+
+		gatewayDefinitionName := "gatewayDefinition"
+		gatewayDefinition := &v0.GatewayDefinition{
+			Definition: v0.Definition{
+				Name: &gatewayDefinitionName,
+			},
+		}
+
+		// create gateway definition
+		_, err = client.CreateGatewayDefinition(
+			apiClient,
+			apiAddr(),
+			gatewayDefinition,
+		)
+		assert.Nil(err, "should have no error creating gateway definition")
 
 		// create test workload definition
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
@@ -366,6 +382,14 @@ func TestWorkloadE2E(t *testing.T) {
 			time.Sleep(time.Duration(goneCheckDurationSeconds * 1000000000))
 		}
 		assert.Equal(allResourcesGone, true, fmt.Sprintf("should have found that all resources are gone from Kubernetes after %d seconds", goneAttemptsMax*goneCheckDurationSeconds))
+
+		// delete gateway definition
+		_, err = client.DeleteGatewayDefinition(
+			apiClient,
+			apiAddr(),
+			*gatewayDefinition.ID,
+		)
+		assert.Nil(err, "should have no error deleting gateway definition")
 
 		// delete workload definition
 		deletedWorkloadDef, err := client.DeleteWorkloadDefinition(

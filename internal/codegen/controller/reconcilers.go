@@ -308,8 +308,14 @@ func (cc *ControllerConfig) Reconcilers() error {
 										Line().Id("requeueDelay"),
 										Line(),
 									),
-									Continue(),
+								).Else().Block(
+									Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj))),
 								),
+								Id("log").Dot("Info").Call(Lit(fmt.Sprintf(
+									"%s successfully reconciled",
+									strcase.ToDelimited(obj, ' '),
+								))),
+								Continue(),
 							),
 							Default().Block(
 								Id("log").Dot("Error").Call(

@@ -201,10 +201,9 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// set reconciled to false, unless the client requests otherwise
-	reconciled := false
-	if updatedGatewayDefinition.Reconciled != nil && *updatedGatewayDefinition.Reconciled {
-		reconciled = true
+	// if client doesn't specify reconciled, set it to false
+	if updatedGatewayDefinition.Reconciled == nil {
+		reconciled := false
 		updatedGatewayDefinition.Reconciled = &reconciled
 	}
 
@@ -214,8 +213,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	}
 
 	// notify controllers if reconciliation is required
-	if !reconciled {
-		// notify controller
+	if !*updatedGatewayDefinition.Reconciled {
 		updatedGatewayDefinition.ID = existingGatewayDefinition.ID
 		notifPayload, err := updatedGatewayDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
@@ -541,10 +539,9 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// set reconciled to false, unless the client requests otherwise
-	reconciled := false
-	if updatedGatewayInstance.Reconciled != nil && *updatedGatewayInstance.Reconciled {
-		reconciled = true
+	// if client doesn't specify reconciled, set it to false
+	if updatedGatewayInstance.Reconciled == nil {
+		reconciled := false
 		updatedGatewayInstance.Reconciled = &reconciled
 	}
 
@@ -554,8 +551,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	}
 
 	// notify controllers if reconciliation is required
-	if !reconciled {
-		// notify controller
+	if !*updatedGatewayInstance.Reconciled {
 		updatedGatewayInstance.ID = existingGatewayInstance.ID
 		notifPayload, err := updatedGatewayInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,

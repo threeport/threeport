@@ -150,8 +150,11 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						notifPayload,
 						requeueDelay,
 					)
-					continue
+				} else {
+					r.ReleaseLock(&gatewayInstance)
 				}
+				log.Info("gateway instance successfully reconciled")
+				continue
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),

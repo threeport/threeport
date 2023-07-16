@@ -201,21 +201,10 @@ func (h Handler) UpdateForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingForwardProxyDefinition).Updates(updatedForwardProxyDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	updatedForwardProxyDefinition.ID = existingForwardProxyDefinition.ID
-	notifPayload, err := updatedForwardProxyDefinition.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ForwardProxyDefinitionUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingForwardProxyDefinition)
 	if err != nil {
@@ -524,21 +513,10 @@ func (h Handler) UpdateForwardProxyInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingForwardProxyInstance).Updates(updatedForwardProxyInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	updatedForwardProxyInstance.ID = existingForwardProxyInstance.ID
-	notifPayload, err := updatedForwardProxyInstance.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ForwardProxyInstanceUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingForwardProxyInstance)
 	if err != nil {

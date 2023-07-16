@@ -133,6 +133,10 @@ func gatewayDefinitionDeleted(
 	log *logr.Logger,
 ) error {
 
+	if gatewayDefinition.WorkloadDefinitionID == nil {
+		return fmt.Errorf("failed to delete workload definition, workload definition ID is nil")
+	}
+
 	// delete workload definition
 	_, err := client.DeleteWorkloadDefinition(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
 	if err != nil {

@@ -201,21 +201,10 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingDomainNameDefinition).Updates(updatedDomainNameDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	updatedDomainNameDefinition.ID = existingDomainNameDefinition.ID
-	notifPayload, err := updatedDomainNameDefinition.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.DomainNameDefinitionUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingDomainNameDefinition)
 	if err != nil {
@@ -524,21 +513,10 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingDomainNameInstance).Updates(updatedDomainNameInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	updatedDomainNameInstance.ID = existingDomainNameInstance.ID
-	notifPayload, err := updatedDomainNameInstance.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.DomainNameInstanceUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingDomainNameInstance)
 	if err != nil {

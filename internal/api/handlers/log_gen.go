@@ -201,21 +201,10 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingLogBackend).Updates(updatedLogBackend); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	updatedLogBackend.ID = existingLogBackend.ID
-	notifPayload, err := updatedLogBackend.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogBackendUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingLogBackend)
 	if err != nil {
@@ -524,21 +513,10 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingLogStorageDefinition).Updates(updatedLogStorageDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	updatedLogStorageDefinition.ID = existingLogStorageDefinition.ID
-	notifPayload, err := updatedLogStorageDefinition.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogStorageDefinitionUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingLogStorageDefinition)
 	if err != nil {
@@ -847,21 +825,10 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingLogStorageInstance).Updates(updatedLogStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	updatedLogStorageInstance.ID = existingLogStorageInstance.ID
-	notifPayload, err := updatedLogStorageInstance.NotificationPayload(
-		notifications.NotificationOperationUpdated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogStorageInstanceUpdateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, existingLogStorageInstance)
 	if err != nil {

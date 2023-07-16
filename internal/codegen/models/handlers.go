@@ -99,13 +99,11 @@ func (cc *ControllerConfig) ModelHandlers() error {
 		if reconcileCheck {
 
 			// configure reconcileCheckHandler
-			reconcileCheckHandler = Comment("set reconciled to false, unless the client requests otherwise")
-			reconcileCheckHandler.Line()
-			reconcileCheckHandler.Id("reconciled").Op(":=").False()
+			reconcileCheckHandler = Comment("if client doesn't specify reconciled, set it to false")
 			reconcileCheckHandler.Line()
 			reconcileCheckHandler.If(
-				Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("!=").Nil().Op("&&").Op("*").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Block(
-					Id("reconciled").Op("=").True(),
+				Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("==").Nil().Block(
+					Id("reconciled").Op(":=").False(),
 					Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("=").Op("&").Id("reconciled"),
 				),
 			)
@@ -113,8 +111,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 
 			notifyControllersHandler = Comment("notify controllers if reconciliation is required")
 			notifyControllersHandler.Line()
-			notifyControllersHandler.If(Op("!").Id("reconciled").Block(
-				Comment("notify controller"),
+			notifyControllersHandler.If(Op("!*").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Block(
 				Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("ID"),
 				Id("notifPayload").Op(",").Id("err").Op(":=").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("NotificationPayload").Call(
 					Line().Qual(

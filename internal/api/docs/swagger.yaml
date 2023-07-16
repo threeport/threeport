@@ -420,22 +420,12 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - Profile
-    - Tier
     - ClusterDefinition
     - ClusterInstance
+    - Profile
+    - Tier
     - DomainNameDefinition
     - DomainNameInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
     - AwsAccount
@@ -443,24 +433,24 @@ definitions:
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeProfile
-    - ObjectTypeTier
     - ObjectTypeClusterDefinition
     - ObjectTypeClusterInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
     - ObjectTypeAwsAccount
@@ -468,6 +458,16 @@ definitions:
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       Name:
