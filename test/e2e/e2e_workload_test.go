@@ -232,6 +232,23 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.NotNil(err, "duplicate workload instance should throw error")
 
+		// create a gateway instance
+		gatewayInstanceName := "gatewayInstance"
+		gatewayInstance := &v0.GatewayInstance{
+			Instance: v0.Instance{
+				Name: &gatewayInstanceName,
+			},
+			ClusterInstanceID:   testClusterInst.ID,
+			GatewayDefinitionID: gatewayDefinition.ID,
+			WorkloadInstanceID:  createdWorkloadInst.ID,
+		}
+		_, err = client.CreateGatewayInstance(
+			apiClient,
+			apiAddr(),
+			gatewayInstance,
+		)
+		assert.Nil(err, "should have no error creating gateway instance")
+
 		// get the cluster instance from the threeport API so we can connect to it
 		clusterInstance, err := client.GetClusterInstanceByID(
 			apiClient,
@@ -334,6 +351,14 @@ func TestWorkloadE2E(t *testing.T) {
 			*createdWorkloadDef.ID,
 		)
 		assert.NotNil(err, "should have an error returned when trying to delete workload definition with workload instance still in place")
+
+		// delete gateway instance
+		_, err = client.DeleteGatewayInstance(
+			apiClient,
+			apiAddr(),
+			*gatewayInstance.ID,
+		)
+		assert.Nil(err, "should have no error deleting gateway instance")
 
 		// delete workload instance
 		deletedWorkloadInst, err := client.DeleteWorkloadInstance(
