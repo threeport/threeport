@@ -121,7 +121,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 	// configure the control plane
 	controlPlane := threeport.ControlPlane{
-		InfraProvider: threeport.KubernetesRuntimeInfraProvider(a.InfraProvider),
+		InfraProvider: v0.KubernetesRuntimeInfraProvider(a.InfraProvider),
 		Tier:          tier,
 	}
 
@@ -129,7 +129,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
 	switch controlPlane.InfraProvider {
-	case threeport.KubernetesRuntimeInfraProviderKind:
+	case v0.KubernetesRuntimeInfraProviderKind:
 		threeportAPIEndpoint = threeport.ThreeportLocalAPIEndpoint
 
 		// delete kind kubernetes runtime if interrupted
@@ -160,7 +160,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		)
 
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
-	case threeport.KubernetesRuntimeInfraProviderEKS:
+	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create AWS Config
 		awsConfig, err := resource.LoadAWSConfig(
 			a.AwsConfigEnv,
@@ -262,9 +262,11 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	kubernetesRuntimeInstName := threeport.BootstrapKubernetesRuntimeName(a.InstanceName)
 	controlPlaneHost := true
 	defaultRuntime := true
+	instReconciled := true // this instance exists already - we don't need the k8s runtime instance doing anything
 	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
 	switch controlPlane.InfraProvider {
-	case threeport.KubernetesRuntimeInfraProviderKind:
+	case v0.KubernetesRuntimeInfraProviderKind:
+		location := "Local"
 		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
@@ -275,8 +277,11 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Certificate:               &kubeConnectionInfo.Certificate,
 			Key:                       &kubeConnectionInfo.Key,
 			DefaultRuntime:            &defaultRuntime,
+			Reconciled:                &instReconciled,
+			Location:                  &location,
 		}
-	case threeport.KubernetesRuntimeInfraProviderEKS:
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		location := a.AwsRegion
 		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
@@ -286,6 +291,8 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			CACertificate:             &kubeConnectionInfo.CACertificate,
 			ConnectionToken:           &kubeConnectionInfo.EKSToken,
 			DefaultRuntime:            &defaultRuntime,
+			Reconciled:                &instReconciled,
+			Location:                  &location,
 		}
 	}
 	dynamicKubeClient, mapper, err := kube.GetClient(&kubernetesRuntimeInstance, false)
@@ -350,6 +357,9 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	if err != nil {
 		return fmt.Errorf("failed to refresh threeport config: %w", err)
 	}
+
+	// TODO: now that threeport config is updated, when error remove infra and
+	// re-update config to remove threeport instance config
 
 	// get threeport API client
 	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
@@ -434,6 +444,9 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
 			return fmt.Errorf("failed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", err)
 		}
+		// update threeport config to remove deleted threeport instance
+		config.DeleteThreeportConfigInstance(threeportConfig, a.InstanceName)
+		Info("Threeport config updated")
 		return fmt.Errorf("threeport API did not come up: %w", err)
 	}
 
@@ -482,10 +495,13 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 	// create the default compute space kubernetes runtime definition in threeport API
 	kubernetesRuntimeDefName := fmt.Sprintf("compute-space-%s", a.InstanceName)
+	defReconciled := true // this definition for the bootstrap cluster does not require reconcilation
 	kubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
 		Definition: v0.Definition{
 			Name: &kubernetesRuntimeDefName,
 		},
+		InfraProvider: &a.InfraProvider,
+		Reconciled:    &defReconciled,
 	}
 	kubernetesRuntimeDefResult, err := client.CreateKubernetesRuntimeDefinition(
 		apiClient,
@@ -552,13 +568,13 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	switch threeportInstanceConfig.Provider {
-	case threeport.KubernetesRuntimeInfraProviderKind:
+	case v0.KubernetesRuntimeInfraProviderKind:
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
 			ThreeportInstanceName: threeportInstanceConfig.Name,
 			KubeconfigPath:        a.KubeconfigPath,
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
-	case threeport.KubernetesRuntimeInfraProviderEKS:
+	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create AWS Config
 		awsConfig, err := resource.LoadAWSConfig(
 			a.AwsConfigEnv,
@@ -611,7 +627,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 	// if provider is EKS we need to delete the threeport API service to
 	// check for existing workload instances that may prevent deletion and
 	// remove the AWS load balancer before deleting the rest of the infra
-	if threeportInstanceConfig.Provider == threeport.KubernetesRuntimeInfraProviderEKS {
+	if threeportInstanceConfig.Provider == v0.KubernetesRuntimeInfraProviderEKS {
 		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
 		if err != nil {
 			return fmt.Errorf("failed to get threeport certificates from config: %w", err)
@@ -696,10 +712,10 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 // validateCreateControlPlaneFlags validates flag inputs as needed
 func validateCreateControlPlaneFlags(infraProvider, createRootDomain, createProviderAccountID string, authEnabled bool) error {
 	// validate infra provider is supported
-	allowedInfraProviders := threeport.SupportedInfraProviders()
+	allowedInfraProviders := v0.SupportedInfraProviders()
 	matched := false
 	for _, prov := range allowedInfraProviders {
-		if threeport.KubernetesRuntimeInfraProvider(infraProvider) == prov {
+		if v0.KubernetesRuntimeInfraProvider(infraProvider) == prov {
 			matched = true
 			break
 		}
@@ -714,14 +730,14 @@ func validateCreateControlPlaneFlags(infraProvider, createRootDomain, createProv
 	}
 
 	// ensure client cert auth is used on remote installations
-	if infraProvider != threeport.KubernetesRuntimeInfraProviderKind && !authEnabled {
+	if infraProvider != v0.KubernetesRuntimeInfraProviderKind && !authEnabled {
 		return errors.New(
 			"cannot turn off client certificate authentication unless using the kind provider",
 		)
 	}
 
 	// ensure that AWS account ID is provided if using EKS provider
-	if infraProvider == threeport.KubernetesRuntimeInfraProviderEKS && createProviderAccountID == "" {
+	if infraProvider == v0.KubernetesRuntimeInfraProviderEKS && createProviderAccountID == "" {
 		return errors.New(
 			"your AWS account ID must be provided if deploying using the eks provider",
 		)

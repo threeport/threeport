@@ -5,7 +5,8 @@ package aws
 import (
 	"errors"
 	"fmt"
-	mapstructure "github.com/mitchellh/mapstructure"
+
+	"github.com/mitchellh/mapstructure"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -50,6 +51,9 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
+			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+			fmt.Println(string(msg.Data))
+
 			// consume message data to capture notification from API
 			notif, err := notifications.ConsumeMessage(msg.Data)
 			if err != nil {
@@ -62,7 +66,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// decode the object that was created
+			// decode the object that was sent
 			var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
 			if err := awsEksKubernetesRuntimeInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
@@ -71,6 +75,9 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 			log = log.WithValues("awsEksKubernetesRuntimeInstanceID", awsEksKubernetesRuntimeInstance.ID)
+
+			fmt.Println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+			fmt.Println(*awsEksKubernetesRuntimeInstance.ID)
 
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(

@@ -36,11 +36,14 @@ definitions:
       AccountID:
         description: The account ID for the AWS account.
         type: string
-      AwsEksKubernetesRuntimeInstances:
+      AwsEksKubernetesRuntimeDefinitions:
         description: The cluster instances deployed in this AWS account.
         items:
-          $ref: '#/definitions/v0.AwsEksKubernetesRuntimeInstance'
+          $ref: '#/definitions/v0.AwsEksKubernetesRuntimeDefinition'
         type: array
+      DefaultAccount:
+        description: If true is the AWS Account used if none specified in a definition.
+        type: boolean
       DefaultRegion:
         description: The region to use for AWS managed services if not specified.
         type: string
@@ -59,6 +62,9 @@ definitions:
     type: object
   v0.AwsEksKubernetesRuntimeDefinition:
     properties:
+      AWSAccountID:
+        description: The AWS account in which the EKS cluster is provisioned.
+        type: integer
       AwsEksKubernetesRuntimeInstances:
         description: The AWS EKS kubernetes runtime instances derived from this definition.
         items:
@@ -89,13 +95,6 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
-      Region:
-        description: |-
-          The AWS region in which EKS clusters will be provisioned.  Note: changes to
-          this value will not alter the derived instances which is an immutable
-          characteristic on instances.  It will only affect new instances derived
-          from this definition.
-        type: string
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
@@ -105,13 +104,11 @@ definitions:
         description: The number of zones the cluster should span for availability.
         type: integer
     required:
+    - AWSAccountID
     - Name
     type: object
   v0.AwsEksKubernetesRuntimeInstance:
     properties:
-      AWSAccountID:
-        description: The AWS account in which the EKS cluster is provisioned.
-        type: integer
       AwsEksKubernetesRuntimeDefinitionID:
         description: The definition that configures this instance.
         type: integer
@@ -142,7 +139,6 @@ definitions:
           TODO: use a custom type
         type: string
     required:
-    - AWSAccountID
     - AwsEksKubernetesRuntimeDefinitionID
     - Name
     type: object
@@ -292,15 +288,24 @@ definitions:
     type: object
   v0.KubernetesRuntimeDefinition:
     properties:
-      DefaultNodeGroupInitialSize:
-        type: integer
-      DefaultNodeGroupInstanceType:
-        description: 'TODO: move these values to the AWS EKS cluster definition object.'
+      HighAvailability:
+        description: |-
+          If true, will be deployed in a highly available configuration across
+          multiple zones within a region and with multiple replicas of Kubernetes
+          control plane components.
+        type: boolean
+      InfraProvider:
+        description: |-
+          The infrastructure provider running the compute infrastructure for the
+          cluster.
         type: string
-      DefaultNodeGroupMaximumSize:
-        type: integer
-      DefaultNodeGroupMinimumSize:
-        type: integer
+      KubernetesRuntimeInstances:
+        description: |-
+          The associated kubernetes runtime instances that are deployed from this
+          definition.
+        items:
+          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
+        type: array
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -309,22 +314,23 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
-      Region:
+      ProviderAccountID:
         description: |-
-          The geographical region for the cluster roughly corresponding to cloud
-          provider regions.  Note: changes to this value will not alter the derived
-          instances which is an immutable characteristic on instances.  It will
-          only affect new instances derived from this definition.
+          The infra provider account ID.  Determines which account the infra is
+          deployed on.
         type: string
+      Reconciled:
+        description: |-
+          Indicates if object is considered to be reconciled by the kubernetes
+          runtime controller.
+        type: boolean
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
-      ZoneCount:
-        description: The number of zones the cluster should span for availability.
-        type: integer
     required:
+    - InfraProvider
     - Name
     type: object
 <<<<<<< HEAD
@@ -363,15 +369,20 @@ definitions:
       KubernetesRuntimeDefinitionID:
         description: The kubernetes runtime definition for this instance.
         type: integer
+      Location:
+        description: |-
+          The geographical location for the runtime cluster.  This is an
+          abstraction for the cloud provider regions that is mapped into the
+          regions used by providers.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
-      Region:
+      Reconciled:
         description: |-
-          The geographical region for the cluster roughly corresponding to cloud
-          provider regions.  Stored in the instance (as well as definition) since a
-          change to the definition will not move a cluster.
-        type: string
+          Indicates if object is considered to be reconciled by the kubernetes
+          runtime controller.
+        type: boolean
       Status:
         description: |-
           The status of the instance.
@@ -390,6 +401,7 @@ definitions:
           $ref: '#/definitions/v0.WorkloadInstance'
         type: array
     required:
+<<<<<<< HEAD
     - APIEndpoint
     - CACertificate
 <<<<<<< HEAD
@@ -511,6 +523,8 @@ definitions:
         type: string
     required:
 =======
+=======
+>>>>>>> 355d969 (feat: add kubernetes runtime controller)
     - KubernetesRuntimeDefinitionID
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     - Name

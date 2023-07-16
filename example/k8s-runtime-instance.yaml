@@ -1,6 +1,6 @@
 KubernetesRuntimeInstance:
-  Name: aws-remote-compute-space-0
-  KubernetesRuntimeDefinition:
-    Name: aws-remote-compute-space
+  Name: aws-remote-compute-space-1
+  KubernetesRuntimeDefinitionID: 882957942632513537
+  DefaultRuntime: false
   Location: NorthAmericaEast
 

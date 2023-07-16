@@ -5,6 +5,7 @@ package kubernetesruntime
 import (
 	"errors"
 	"fmt"
+	mapstructure "github.com/mitchellh/mapstructure"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -61,7 +62,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// decode the object that was sent in the notification
+			// decode the object that was created
 			var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
 			if err := kubernetesRuntimeDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
@@ -164,7 +165,6 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased, msg, true)
 					log.Info("kubernetes runtime definition successfully reconciled")
 				}
-				continue
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),
@@ -202,6 +202,20 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					"kubernetes runtime definitionName", updatedKubernetesRuntimeDefinition.Name,
 				)
 			}
+			updatedKubernetesRuntimeDefinition, err := client.UpdateKubernetesRuntimeDefinition(
+				r.APIClient,
+				r.APIServer,
+				&reconciledKubernetesRuntimeDefinition,
+			)
+			if err != nil {
+				log.Error(err, "failed to update kubernetes runtime definition to mark as reconciled")
+				r.UnlockAndRequeue(&kubernetesRuntimeDefinition, msg.Subject, notifPayload, requeueDelay)
+				continue
+			}
+			log.V(1).Info(
+				"kubernetes runtime definition marked as reconciled in API",
+				"kubernetes runtime definitionName", updatedKubernetesRuntimeDefinition.Name,
+			)
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased, msg, true); !ok {
