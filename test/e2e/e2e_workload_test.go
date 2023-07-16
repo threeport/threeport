@@ -102,6 +102,16 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.Nil(err, "should have no error creating gateway definition")
 
+		// update gateway definition
+		gatewayPort := 8443
+		gatewayDefinition.TCPPort = &gatewayPort
+		_, err = client.UpdateGatewayDefinition(
+			apiClient,
+			apiAddr(),
+			gatewayDefinition,
+		)
+		assert.Nil(err, "should have no error updating gateway definition")
+
 		// create test workload definition
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			apiClient,
