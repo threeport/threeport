@@ -61,7 +61,7 @@ endif
 
 #dev-up: @ Run a local development environment
 dev-up: build-tptdev
-	./bin/tptdev up --auth-enabled=true
+	./bin/tptdev up --auth-enabled=false
 
 #dev-down: @ Delete the local development environment
 dev-down: build-tptdev
@@ -94,7 +94,7 @@ dev-forward-nats:
 #TODO: move to kubectl exec command that uses `cockroach` binary in contianer
 #dev-query-crdb: @ Open a terminal connection to the dev cockroach database (must first run `make dev-forward-crdb` in another terminal)
 dev-query-crdb:
-	cockroach sql --host localhost --insecure --database threeport_api
+	kubectl exec -it -n threeport-control-plane crdb-0 -- cockroach sql --host localhost --insecure --database threeport_api
 
 #TODO: move to kubectl exec command that uses `nats` binary in contianer
 #dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal)
@@ -107,11 +107,11 @@ dev-debug-api:
 
 #dev-debug-wrk: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
 dev-debug-wrk:
-	dlv debug cmd/workload-controller/main_gen.go -- -api-server http://localhost:1323 -msg-broker-host localhost -msg-broker-port 4222
+	dlv debug cmd/workload-controller/main_gen.go -- -auth-enabled=false -api-server=localhost:1323 -msg-broker-host=localhost -msg-broker-port=4222
 
 #dev-debug-gateway: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
 dev-debug-gateway:
-	dlv debug cmd/gateway-controller/main_gen.go -- -api-server http://localhost:1323 -msg-broker-host localhost -msg-broker-port 4222
+	dlv debug --build-flags cmd/gateway-controller/main_gen.go -- -auth-enabled=false -api-server=localhost:1323 -msg-broker-host=localhost -msg-broker-port=4222
 
 ## container image builds
 
