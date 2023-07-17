@@ -72,11 +72,6 @@ func gatewayDefinitionUpdated(
 	log *logr.Logger,
 ) error {
 
-	// only reconcile if gateway definition needs to be reconciled
-	if gatewayDefinition.Reconciled != nil && !*gatewayDefinition.Reconciled {
-		return nil
-	}
-
 	// create Gloo virtual service definition
 	virtualService := CreateVirtualService(gatewayDefinition)
 
