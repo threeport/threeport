@@ -22,6 +22,7 @@ const (
 	ThreeportImageRepo               = "ghcr.io/threeport"
 	ThreeportAPIImage                = "threeport-rest-api"
 	ThreeportWorkloadControllerImage = "threeport-workload-controller"
+	ThreeportGatewayControllerImage  = "threeport-gateway-controller"
 	ThreeportAgentImage              = "threeport-agent"
 	ThreeportAPIServiceResourceName  = "threeport-api-server"
 	ThreeportAPIIngressResourceName  = "threeport-api-ingress"
@@ -34,6 +35,7 @@ func ThreeportDevImages() map[string]string {
 	return map[string]string{
 		"rest-api":            fmt.Sprintf("%s-dev:latest", ThreeportAPIImage),
 		"workload-controller": fmt.Sprintf("%s-dev:latest", ThreeportWorkloadControllerImage),
+		"gateway-controller":  fmt.Sprintf("%s-dev:latest", ThreeportGatewayControllerImage),
 		"agent":               fmt.Sprintf("%s-dev:latest", ThreeportAgentImage),
 	}
 }
@@ -250,94 +252,73 @@ func InstallThreeportControllers(
 	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
 ) error {
-	workloadControllerImage := getWorkloadControllerImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
-	workloadControllerVols, workloadControllerVolMounts := getWorkloadControllerVolumes(devEnvironment, authConfig)
-	workloadArgs := getWorkloadArgs(devEnvironment, authConfig)
-
-	// if auth is enabled on API, generate client cert and key and store in
-	// secrets
-	if authConfig != nil {
-		workloadCertificate, workloadPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
-		if err != nil {
-			return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
-		}
-
-		var workloadCa = getTLSSecret("workload-ca", authConfig.CAPemEncoded, "")
-		if _, err := kube.CreateResource(workloadCa, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret for workload controller: %w", err)
-		}
-
-		var workloadCert = getTLSSecret("workload-cert", workloadCertificate, workloadPrivateKey)
-		if _, err := kube.CreateResource(workloadCert, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret for workload controller: %w", err)
-		}
-	}
-
-	var workloadControllerSecret = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"metadata": map[string]interface{}{
-				"name":      "workload-controller-config",
-				"namespace": ControlPlaneNamespace,
-			},
-			"type": "Opaque",
-			"stringData": map[string]interface{}{
-				"API_SERVER":      "threeport-api-server",
-				"MSG_BROKER_HOST": "nats-js",
-				"MSG_BROKER_PORT": "4222",
-			},
-		},
-	}
+	workloadControllerSecret := getControllerSecret("controller", ControlPlaneNamespace)
 	if _, err := kube.CreateResource(workloadControllerSecret, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller secret: %w", err)
 	}
 
-	var workloadControllerDeployment = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "apps/v1",
-			"kind":       "Deployment",
-			"metadata": map[string]interface{}{
-				"name":      "threeport-workload-controller",
-				"namespace": ControlPlaneNamespace,
-			},
-			"spec": map[string]interface{}{
-				"replicas": 1,
-				"selector": map[string]interface{}{
-					"matchLabels": map[string]interface{}{
-						"app.kubernetes.io/name": "threeport-workload-controller",
-					},
-				},
-				"template": map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"labels": map[string]interface{}{
-							"app.kubernetes.io/name": "threeport-workload-controller",
-						},
-					},
-					"spec": map[string]interface{}{
-						"containers": []interface{}{
-							map[string]interface{}{
-								"name":            "workload-controller",
-								"image":           workloadControllerImage,
-								"imagePullPolicy": "IfNotPresent",
-								"args":            workloadArgs,
-								"envFrom": []interface{}{
-									map[string]interface{}{
-										"secretRef": map[string]interface{}{
-											"name": "workload-controller-config",
-										},
-									},
-								},
-								"volumeMounts": workloadControllerVolMounts,
-							},
-						},
-						"volumes": workloadControllerVols,
-					},
-				},
-			},
-		},
+	if err := InstallController(
+		"workload-controller",
+		kubeClient,
+		mapper,
+		devEnvironment,
+		customThreeportImageRepo,
+		customThreeportImageTag,
+		authConfig,
+	); err != nil {
+		return fmt.Errorf("failed to install workload controller: %w", err)
 	}
-	if _, err := kube.CreateResource(workloadControllerDeployment, kubeClient, *mapper); err != nil {
+
+	if err := InstallController(
+		"gateway-controller",
+		kubeClient,
+		mapper,
+		devEnvironment,
+		customThreeportImageRepo,
+		customThreeportImageTag,
+		authConfig,
+	); err != nil {
+		return fmt.Errorf("failed to install gateway controller: %w", err)
+	}
+
+	return nil
+}
+
+func InstallController(
+	name string,
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	devEnvironment bool,
+	customThreeportImageRepo string,
+	customThreeportImageTag string,
+	authConfig *auth.AuthConfig,
+) error {
+	controllerImage := getImage(name, devEnvironment, customThreeportImageRepo, customThreeportImageTag)
+	controllerVols, controllerVolMounts := getControllerVolumes(name, devEnvironment, authConfig)
+	workloadArgs := getControllerArgs(devEnvironment, authConfig)
+
+	// if auth is enabled on API, generate client cert and key and store in
+	// secrets
+	if authConfig != nil {
+
+		certificate, privateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		if err != nil {
+			return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
+		}
+
+		ca := getTLSSecret(fmt.Sprintf("%s-ca", name), authConfig.CAPemEncoded, "")
+		if _, err := kube.CreateResource(ca, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret for workload controller: %w", err)
+		}
+
+		cert := getTLSSecret(fmt.Sprintf("%s-cert", name), certificate, privateKey)
+		if _, err := kube.CreateResource(cert, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret for workload controller: %w", err)
+		}
+	}
+
+	var controllerDeployment = getControllerDeployment(name, ControlPlaneNamespace, controllerImage, workloadArgs, controllerVols, controllerVolMounts)
+	if _, err := kube.CreateResource(controllerDeployment, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
 	}
 
@@ -1246,8 +1227,8 @@ func getAPIArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} 
 	return args
 }
 
-// getWorkloadArgs returns the args that are passed to the workload controller.
-func getWorkloadArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
+// getControllerArgs returns the args that are passed to a controller.
+func getControllerArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
 
 	// in devEnvironment, auth is disabled by default
 	// in tptctl, auth is enabled by default
@@ -1320,12 +1301,12 @@ func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interfac
 	return vols, volMounts
 }
 
-// getWorkloadControllerImage returns the proper container image to use for the
-// workload controller.
-func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
+// getImage returns the proper container image to use for the
+func getImage(name string, devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
 	if devEnvironment {
-		devImages := ThreeportDevImages()
-		return devImages["workload-controller"]
+		// devImages := ThreeportDevImages()
+		// return devImages["workload-controller"]
+		return fmt.Sprintf("threeport-%s-dev:latest", name)
 	}
 
 	imageRepo := ThreeportImageRepo
@@ -1341,22 +1322,22 @@ func getWorkloadControllerImage(devEnvironment bool, customThreeportImageRepo, c
 	workloadControllerImage := fmt.Sprintf(
 		"%s/%s:%s",
 		imageRepo,
-		ThreeportWorkloadControllerImage,
+		fmt.Sprintf("threeport-%s", name),
 		imageTag,
 	)
 
 	return workloadControllerImage
 }
 
-// getWorkloadControllerVolumes returns the volumes and volume mounts for the workload
+// getControllerVolumes returns the volumes and volume mounts for the workload
 // controller.
-func getWorkloadControllerVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
+func getControllerVolumes(name string, devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
 	vols := []interface{}{}
 	volMounts := []interface{}{}
 
 	if authConfig != nil {
-		caVol, caVolMount := getSecretVols("workload-ca", "/etc/threeport/ca")
-		certVol, certVolMount := getSecretVols("workload-cert", "/etc/threeport/cert")
+		caVol, caVolMount := getSecretVols(fmt.Sprintf("%s-ca", name), "/etc/threeport/ca")
+		certVol, certVolMount := getSecretVols(fmt.Sprintf("%s-cert", name), "/etc/threeport/cert")
 
 		vols = append(vols, caVol)
 		vols = append(vols, certVol)
@@ -1553,4 +1534,70 @@ func getAgentVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interf
 	}
 
 	return vols, volMounts
+}
+
+func getControllerSecret(name, namespace string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      fmt.Sprintf("%s-config", name),
+				"namespace": namespace,
+			},
+			"type": "Opaque",
+			"stringData": map[string]interface{}{
+				"API_SERVER":      "threeport-api-server",
+				"MSG_BROKER_HOST": "nats-js",
+				"MSG_BROKER_PORT": "4222",
+			},
+		},
+	}
+}
+
+func getControllerDeployment(name, namespace, image string, args, volumes, volumeMounts []interface{}) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+			"spec": map[string]interface{}{
+				"replicas": 1,
+				"selector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"app.kubernetes.io/name": "threeport-workload-controller",
+					},
+				},
+				"template": map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{
+							"app.kubernetes.io/name": "threeport-workload-controller",
+						},
+					},
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								"name":            "workload-controller",
+								"image":           image,
+								"imagePullPolicy": "IfNotPresent",
+								"args":            args,
+								"envFrom": []interface{}{
+									map[string]interface{}{
+										"secretRef": map[string]interface{}{
+											"name": "controller-config",
+										},
+									},
+								},
+								"volumeMounts": volumeMounts,
+							},
+						},
+						"volumes": volumes,
+					},
+				},
+			},
+		},
+	}
 }

@@ -7,7 +7,7 @@ RUN mkdir /threeport
 WORKDIR /threeport
 
 ENTRYPOINT ["air", \
-    "-c", "/threeport/cmd/workload-controller/image/air.toml", \
-    "-build.cmd", "go build -o bin/threeport-workload-controller cmd/workload-controller/main_gen.go", \
-    "-build.bin", "./bin/threeport-workload-controller"]
+    "-c", "/threeport/cmd/gateway-controller/image/air.toml", \
+    "-build.cmd", "go build -o bin/threeport-gateway-controller cmd/gateway-controller/main_gen.go", \
+    "-build.bin", "./bin/threeport-gateway-controller"]
 

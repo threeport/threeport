@@ -1,4 +1,4 @@
 FROM scratch
-COPY threeport-workload-controller /threeport-workload-controller
-ENTRYPOINT ["/threeport-workload-controller"]
+COPY threeport-gateway-controller /threeport-gateway-controller
+ENTRYPOINT ["/threeport-gateway-controller"]
 
