@@ -326,9 +326,9 @@ func confirmWorkloadInstanceReconciled(
 	return true, nil
 }
 
-// getUnstructuredObjectsFromWorkloadResourceInstances returns a list of
+// filterObjects returns a list of
 // unstructured kubernetes objects from a list of workload resource instances.
-func getUnstructuredObjectsFromWorkloadResourceInstances(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) ([]unstructured.Unstructured, error) {
+func filterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) ([]unstructured.Unstructured, error) {
 
 	var objects []unstructured.Unstructured
 	for _, wri := range *workloadResourceInstances {
@@ -455,7 +455,7 @@ func confirmGatewayPortExposed(
 		return fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
-	gatewayObjects, err := getUnstructuredObjectsFromWorkloadResourceInstances(workloadResourceInstances, "Gateway")
+	gatewayObjects, err := filterObjects(workloadResourceInstances, "Gateway")
 	if err != nil {
 		return fmt.Errorf("failed to get service objects from workload instance: %w", err)
 	}
@@ -514,7 +514,7 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
-	serviceObjects, err := getUnstructuredObjectsFromWorkloadResourceInstances(workloadResourceInstances, "Service")
+	serviceObjects, err := filterObjects(workloadResourceInstances, "Service")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service objects from workload instance: %w", err)
 	}
