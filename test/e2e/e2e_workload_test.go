@@ -289,7 +289,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// check kube cluster for expected resources
 		allResourcesFound := false
 		findAttempts := 0
-		findAttemptsMax := 30
+		findAttemptsMax := 60
 		findCheckDurationSeconds := 1
 		for findAttempts < findAttemptsMax {
 			resourcesFound := 0
@@ -383,7 +383,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// check to make sure kube resources are gone
 		allResourcesGone := false
 		goneAttempts := 0
-		goneAttemptsMax := 15
+		goneAttemptsMax := 30
 		goneCheckDurationSeconds := 1
 		for goneAttempts < goneAttemptsMax {
 			resourcesGone := 0

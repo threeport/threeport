@@ -1,7 +1,6 @@
 name: Test
 
 on:
-  push:
   pull_request:
     types:
       - opened
@@ -26,10 +25,6 @@ jobs:
 
       - name: Create development environment
         run: make dev-up
-
-      - uses: actions-hub/kubectl@master
-        with:
-          args: describe pod -n threeport-control-plane -l app.kubernetes.io/name=threeport-workload-controller
 
       - name: Run tests
         run: make tests
