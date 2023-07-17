@@ -50,7 +50,7 @@ func gatewayInstanceCreated(
 		Reconciled:         &workloadResourceInstanceReconciled,
 	}
 
-	// update the workload instance with the new workload resource instance
+	// create the new workload resource instance
 	createdWorkloadResourceInstance, err := client.CreateWorkloadResourceInstance(
 		r.APIClient,
 		r.APIServer,
@@ -60,8 +60,9 @@ func gatewayInstanceCreated(
 		return fmt.Errorf("failed to create workload resource instance: %w", err)
 	}
 
-	// trigger a reconciliation of the workload instance by setting Reconciled to false
-	workloadInstance.Reconciled = &workloadResourceInstanceReconciled
+	// trigger a reconciliation of the workload instance
+	workloadInstanceReconciled := false
+	workloadInstance.Reconciled = &workloadInstanceReconciled
 	_, err = client.UpdateWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
@@ -73,8 +74,8 @@ func gatewayInstanceCreated(
 
 	// update gateway instance
 	gatewayInstanceReconciled := true
-	gatewayInstance.WorkloadResourceInstanceID = createdWorkloadResourceInstance.ID
 	gatewayInstance.Reconciled = &gatewayInstanceReconciled
+	gatewayInstance.WorkloadResourceInstanceID = createdWorkloadResourceInstance.ID
 	_, err = client.UpdateGatewayInstance(
 		r.APIClient,
 		r.APIServer,
@@ -92,7 +93,7 @@ func gatewayInstanceCreated(
 	return nil
 }
 
-// gatewayInstanceDeleted performs reconciliation when a gateway instance
+// gatewayInstanceUpdated performs reconciliation when a gateway instance
 // has been updated
 func gatewayInstanceUpdated(
 	r *controller.Reconciler,
@@ -119,6 +120,9 @@ func gatewayInstanceUpdated(
 	}
 
 	// get workload resource instance
+	if gatewayInstance.WorkloadResourceInstanceID == nil {
+		return fmt.Errorf("failed to update gateway instance, workload resource instance ID is nil")
+	}
 	workloadResourceInstance, err := client.GetWorkloadResourceInstanceByID(
 		r.APIClient,
 		r.APIServer,
@@ -140,7 +144,7 @@ func gatewayInstanceUpdated(
 		return fmt.Errorf("failed to update workload resource instance: %w", err)
 	}
 
-	// trigger a reconciliation of the workload instance by setting Reconciled to false
+	// trigger a reconciliation of the workload instance
 	workloadInstance.Reconciled = &workloadResourceInstanceReconciled
 	_, err = client.UpdateWorkloadInstance(
 		r.APIClient,
@@ -180,11 +184,10 @@ func gatewayInstanceDeleted(
 	log *logr.Logger,
 ) error {
 
+	// get workload resource instance
 	if gatewayInstance.WorkloadResourceInstanceID == nil {
 		return fmt.Errorf("failed to delete workload resource instance, workloadResourceInstanceID is nil")
 	}
-
-	// get workload resource instance
 	_, err := client.GetWorkloadResourceInstanceByID(
 		r.APIClient,
 		r.APIServer,
@@ -229,7 +232,10 @@ func gatewayInstanceDeleted(
 		return fmt.Errorf("failed to get workload resource instance: %w", err)
 	}
 
-	// trigger a reconciliation of the workload instance by setting Reconciled to false
+	// trigger a reconciliation of the workload instance
+	if gatewayInstance.WorkloadInstanceID == nil {
+		return fmt.Errorf("failed to delete workload instance, workloadInstanceID is nil")
+	}
 	reconciled := false
 	workloadInstance := &v0.WorkloadInstance{
 		Common: v0.Common{
