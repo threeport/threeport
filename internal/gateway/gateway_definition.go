@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"gopkg.in/yaml.v2"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -20,21 +19,17 @@ func gatewayDefinitionCreated(
 ) error {
 
 	// create Gloo virtual service definition
-	virtualService := CreateVirtualService(gatewayDefinition)
-
-	// marshal virtual service definition into YAML
-	virtualServiceBytes, err := yaml.Marshal(virtualService.Object)
+	virtualService, err := CreateVirtualService(gatewayDefinition)
 	if err != nil {
-		return fmt.Errorf("error marshaling YAML: %w", err)
+		return fmt.Errorf("failed to create virtual service: %w", err)
 	}
-	virtualServiceManifest := string(virtualServiceBytes)
 
 	// construct workload definition object
 	workloadDefinition := v0.WorkloadDefinition{
 		Definition: v0.Definition{
 			Name: gatewayDefinition.Name,
 		},
-		YAMLDocument: &virtualServiceManifest,
+		YAMLDocument: &virtualService,
 	}
 
 	// create workload definition
@@ -45,8 +40,8 @@ func gatewayDefinitionCreated(
 
 	// update gateway definition
 	gatewayDefinitionReconciled := true
-	gatewayDefinition.WorkloadDefinitionID = createdWorkloadDefinition.ID
 	gatewayDefinition.Reconciled = &gatewayDefinitionReconciled
+	gatewayDefinition.WorkloadDefinitionID = createdWorkloadDefinition.ID
 	_, err = client.UpdateGatewayDefinition(
 		r.APIClient,
 		r.APIServer,
@@ -64,8 +59,8 @@ func gatewayDefinitionCreated(
 	return nil
 }
 
-// gatewayDefinitionDeleted performs reconciliation when a gateway definition
-// has been deleted.
+// gatewayDefinitionUpdated performs reconciliation when a gateway definition
+// has been updated.
 func gatewayDefinitionUpdated(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
@@ -73,16 +68,15 @@ func gatewayDefinitionUpdated(
 ) error {
 
 	// create Gloo virtual service definition
-	virtualService := CreateVirtualService(gatewayDefinition)
-
-	// marshal virtual service definition into YAML
-	virtualServiceBytes, err := yaml.Marshal(virtualService)
+	virtualService, err := CreateVirtualService(gatewayDefinition)
 	if err != nil {
-		return fmt.Errorf("error marshaling YAML: %w", err)
+		return fmt.Errorf("failed to create virtual service: %w", err)
 	}
-	virtualServiceManifest := string(virtualServiceBytes)
 
 	// get workload definition
+	if gatewayDefinition.WorkloadDefinitionID == nil {
+		return fmt.Errorf("failed to update workload definition, workload definition ID is nil")
+	}
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
 		r.APIClient,
 		r.APIServer,
@@ -93,7 +87,7 @@ func gatewayDefinitionUpdated(
 	}
 
 	// update workload definition
-	workloadDefinition.YAMLDocument = &virtualServiceManifest
+	workloadDefinition.YAMLDocument = &virtualService
 	_, err = client.UpdateWorkloadDefinition(r.APIClient, r.APIServer, workloadDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to create workload definition in threeport API: %w", err)
@@ -128,11 +122,10 @@ func gatewayDefinitionDeleted(
 	log *logr.Logger,
 ) error {
 
+	// delete workload definition
 	if gatewayDefinition.WorkloadDefinitionID == nil {
 		return fmt.Errorf("failed to delete workload definition, workload definition ID is nil")
 	}
-
-	// delete workload definition
 	_, err := client.DeleteWorkloadDefinition(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
 	if err != nil {
 		return fmt.Errorf("failed to delete workload definition with ID %d: %w", *gatewayDefinition.WorkloadDefinitionID, err)

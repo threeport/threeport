@@ -1,7 +1,10 @@
 package gateway
 
 import (
+	"fmt"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -102,7 +105,7 @@ func CreateGatewaySSL() *unstructured.Unstructured {
 	return gatewaySSL
 }
 
-func CreateVirtualService(gatewayDefinition *v0.GatewayDefinition) *unstructured.Unstructured {
+func CreateVirtualService(gatewayDefinition *v0.GatewayDefinition) (string, error) {
 
 	var virtualService = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -139,5 +142,15 @@ func CreateVirtualService(gatewayDefinition *v0.GatewayDefinition) *unstructured
 		},
 	}
 
-	return virtualService
+	return unstructuredToYAMLString(virtualService)
+}
+
+// unstructuredToYAMLString converts an unstructured object into a YAML string.
+func unstructuredToYAMLString(unstructuredManifest *unstructured.Unstructured) (string, error) {
+	bytes, err := yaml.Marshal(unstructuredManifest)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling YAML: %w", err)
+	}
+	stringManifest := string(bytes)
+	return stringManifest, nil
 }
