@@ -263,6 +263,9 @@ func confirmDefinitionsReconciled(
 ) (bool, error) {
 
 	// get gateway definition
+	if gatewayInstance.GatewayDefinitionID == nil {
+		return false, fmt.Errorf("failed to get gateway definition from gateway instance, gateway definition ID is nil")
+	}
 	gatewayDefinition, err := client.GetGatewayDefinitionByID(
 		r.APIClient,
 		r.APIServer,
@@ -364,20 +367,18 @@ func confirmGatewayControllerDeployed(
 
 	// if cluster instance has no gateway controller, deploy one
 	if clusterInstance.GatewayControllerInstanceID == nil {
-		workloadDefName := "gloo-edge"
 
-		glooEdgeBytes, err := yaml.Marshal(CreateGlooEdge())
+		glooEdge, err := CreateGlooEdge()
 		if err != nil {
-			return fmt.Errorf("error marshaling to YAML: %v", err)
+			return fmt.Errorf("failed to create gloo edge resource: %w", err)
 		}
 
-		glooEdgeString := string(glooEdgeBytes)
-
+		workloadDefName := "gloo-edge"
 		glooEdgeWorkloadDefinition := v0.WorkloadDefinition{
 			Definition: v0.Definition{
 				Name: &workloadDefName,
 			},
-			YAMLDocument: &glooEdgeString,
+			YAMLDocument: &glooEdge,
 		}
 
 		// create gateway controller workload definition
@@ -431,25 +432,17 @@ func confirmGatewayPortExposed(
 	gatewayDefinition *v0.GatewayDefinition,
 ) error {
 
-	// ensure gateway controller has requested port exposed
-
-	// get gateway controller workload instance
-	gatewayControllerInstance, err := client.GetWorkloadInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*clusterInstance.GatewayControllerInstanceID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get gateway controller instance: %w", err)
-	}
-
 	// check existing gateways for requested port
 	var portFound = false
 
+	// get gateway controller workload resource instances
+	if clusterInstance.GatewayControllerInstanceID == nil {
+		return fmt.Errorf("gateway controller instance ID is nil")
+	}
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
 		r.APIClient,
 		r.APIServer,
-		*gatewayControllerInstance.ID,
+		*clusterInstance.GatewayControllerInstanceID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource instances: %w", err)
@@ -458,6 +451,9 @@ func confirmGatewayPortExposed(
 	gatewayObjects, err := filterObjects(workloadResourceInstances, "Gateway")
 	if err != nil {
 		return fmt.Errorf("failed to get service objects from workload instance: %w", err)
+	}
+	if len(gatewayObjects) == 0 {
+		return fmt.Errorf("no gateway objects found")
 	}
 	gatewayObject := gatewayObjects[0]
 
@@ -489,22 +485,7 @@ func configureVirtualService(
 	workloadInstance *v0.WorkloadInstance,
 ) (*datatypes.JSON, error) {
 
-	// get gateway workload definition
-	gatewayWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayDefinition.WorkloadDefinitionID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get gateway workload definition: %w", err)
-	}
-
-	var virtualService map[string]interface{}
-	err = yaml.Unmarshal([]byte(*gatewayWorkloadDefinition.YAMLDocument), &virtualService)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing YAML: %v", err)
-	}
-
+	// get workload resource instances
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
 		r.APIClient,
 		r.APIServer,
@@ -514,6 +495,7 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
+	// filter out service objects
 	serviceObjects, err := filterObjects(workloadResourceInstances, "Service")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service objects from workload instance: %w", err)
@@ -539,26 +521,47 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to unmarshal kubernetes service object's name field: %w", err)
 	}
 
+	// get gateway workload definition
+	gatewayWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayDefinition.WorkloadDefinitionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway workload definition: %w", err)
+	}
+
+	// unmarshal YAML document into map
+	var virtualService map[string]interface{}
+	err = yaml.Unmarshal([]byte(*gatewayWorkloadDefinition.YAMLDocument), &virtualService)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing YAML: %v", err)
+	}
+
 	// get route array object
 	routes, found, err := unstructured.NestedSlice(virtualService, "spec", "virtualHost", "routes")
 	if err != nil || !found {
 		return nil, fmt.Errorf("failed to get virtualservice route: %w", err)
 	}
+	if len(routes) == 0 {
+		return nil, fmt.Errorf("no routes found")
+	}
+	route := routes[0]
 
 	// set virtual service upstream field
-	err = unstructured.SetNestedField(routes[0].(map[string]interface{}), fmt.Sprintf("%s-%s", namespace, name), "routeAction", "single", "upstream", "name")
+	err = unstructured.SetNestedField(route.(map[string]interface{}), fmt.Sprintf("%s-%s", namespace, name), "routeAction", "single", "upstream", "name")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(virtualService)
+	virtualServiceBytes, err := json.Marshal(virtualService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal json to datatypes.JSON: %w", err)
 	}
 
-	jsonManifest := datatypes.JSON(jsonBytes)
+	virtualServiceJSON := datatypes.JSON(virtualServiceBytes)
 
-	return &jsonManifest, nil
+	return &virtualServiceJSON, nil
 
 }
 
@@ -568,7 +571,11 @@ func getThreeportObjects(
 	r *controller.Reconciler,
 	gatewayInstance *v0.GatewayInstance,
 ) (*v0.ClusterInstance, *v0.GatewayDefinition, *v0.WorkloadInstance, error) {
-	// get cluster instance info
+
+	// get cluster instance
+	if gatewayInstance.ClusterInstanceID == nil {
+		return nil, nil, nil, fmt.Errorf("cluster instance ID is nil")
+	}
 	clusterInstance, err := client.GetClusterInstanceByID(
 		r.APIClient,
 		r.APIServer,
@@ -579,6 +586,9 @@ func getThreeportObjects(
 	}
 
 	// get gateway definition
+	if gatewayInstance.GatewayDefinitionID == nil {
+		return nil, nil, nil, fmt.Errorf("gateway definition ID is nil")
+	}
 	gatewayDefinition, err := client.GetGatewayDefinitionByID(
 		r.APIClient,
 		r.APIServer,
@@ -588,7 +598,10 @@ func getThreeportObjects(
 		return nil, nil, nil, fmt.Errorf("failed to get gateway controller workload definition: %w", err)
 	}
 
-	// get workload instance that we're configuring this gateway instance for
+	// get workload instance
+	if gatewayInstance.WorkloadInstanceID == nil {
+		return nil, nil, nil, fmt.Errorf("workload instance ID is nil")
+	}
 	workloadInstance, err := client.GetWorkloadInstanceByID(
 		r.APIClient,
 		r.APIServer,
