@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
@@ -188,6 +189,20 @@ func gatewayInstanceDeleted(
 		return fmt.Errorf("failed to delete workload resource instance, workloadResourceInstanceID is nil")
 	}
 
+	// get workload resource instance
+	_, err := client.GetWorkloadResourceInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayInstance.WorkloadResourceInstanceID,
+	)
+	if err != nil {
+		if strings.Contains(err.Error(), "object not found") {
+			// workload resource instance has already been deleted
+			return nil
+		}
+		return fmt.Errorf("failed to get workload resource instance: %w", err)
+	}
+
 	// schedule workload resource instance for deletion
 	scheduledForDeletion := true
 	workloadResourceInstance := &v0.WorkloadResourceInstance{
@@ -196,13 +211,27 @@ func gatewayInstanceDeleted(
 		},
 		ScheduledForDeletion: &scheduledForDeletion,
 	}
-	_, err := client.UpdateWorkloadResourceInstance(
+	_, err = client.UpdateWorkloadResourceInstance(
 		r.APIClient,
 		r.APIServer,
 		workloadResourceInstance,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update workload resource instance: %w", err)
+	}
+
+	// get workload resource instance
+	_, err = client.GetWorkloadInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*gatewayInstance.WorkloadResourceInstanceID,
+	)
+	if err != nil {
+		if strings.Contains(err.Error(), "object not found") {
+			// workload instance has already been deleted
+			return nil
+		}
+		return fmt.Errorf("failed to get workload resource instance: %w", err)
 	}
 
 	// trigger a reconciliation of the workload instance by setting Reconciled to false
@@ -276,7 +305,6 @@ func confirmWorkloadInstReconciled(
 
 	return true, nil
 }
-
 
 // TODO: refactor this into generic reconcile check function for instances
 // confirmGatewayDefReconciled confirms the gateway definition related to a
