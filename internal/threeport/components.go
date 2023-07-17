@@ -332,9 +332,9 @@ func InstallThreeportAgent(
 	args *cli.ControlPlaneCLIArgs,
 	authConfig *auth.AuthConfig,
 ) error {
-	agentImage := getAgentImage(args.DevEnvironment, args.ControlPlaneImageRepo, args.ControlPlaneImageTag)
+	agentImage := getImage("agent", args.DevEnvironment, args.ControlPlaneImageRepo, args.ControlPlaneImageTag)
 	agentArgs := getAgentArgs(args.DevEnvironment, authConfig)
-	agentVols, agentVolMounts := getAgentVolumes(args.DevEnvironment, authConfig)
+	agentVols, agentVolMounts := getControllerVolumes("agent", args.DevEnvironment, authConfig)
 
 	// if auth is enabled on API, generate client cert and key and store in
 	// secrets
@@ -1304,8 +1304,6 @@ func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interfac
 // getImage returns the proper container image to use for the
 func getImage(name string, devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
 	if devEnvironment {
-		// devImages := ThreeportDevImages()
-		// return devImages["workload-controller"]
 		return fmt.Sprintf("threeport-%s-dev:latest", name)
 	}
 
@@ -1449,34 +1447,6 @@ func getAPIServicePort(infraProvider string, authConfig *auth.AuthConfig) (strin
 	return "https", 443
 }
 
-// getAgentImage returns the proper container image to use for the
-// threeport agent.
-func getAgentImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
-	if devEnvironment {
-		devImages := ThreeportDevImages()
-		return devImages["agent"]
-	}
-
-	imageRepo := ThreeportImageRepo
-	if customThreeportImageRepo != "" {
-		imageRepo = customThreeportImageRepo
-	}
-
-	imageTag := version.GetVersion()
-	if customThreeportImageTag != "" {
-		imageTag = customThreeportImageTag
-	}
-
-	agentImage := fmt.Sprintf(
-		"%s/%s:%s",
-		imageRepo,
-		ThreeportAgentImage,
-		imageTag,
-	)
-
-	return agentImage
-}
-
 // getAgentArgs returns the args that are passed to the threeport agent.  In
 // devEnvironment, auth is disabled by default.  In tptctl auth is enabled by
 // default.
@@ -1509,31 +1479,6 @@ func getAgentArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{
 		"--metrics-bind-address=127.0.0.1:8080",
 		"--leader-elect",
 	}
-}
-
-// getAgentVolumes returns the volumes and volume mounts for the workload
-// controller.
-func getAgentVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
-	vols := []interface{}{}
-	volMounts := []interface{}{}
-
-	if authConfig != nil {
-		caVol, caVolMount := getSecretVols("workload-ca", "/etc/threeport/ca")
-		certVol, certVolMount := getSecretVols("workload-cert", "/etc/threeport/cert")
-
-		vols = append(vols, caVol)
-		vols = append(vols, certVol)
-		volMounts = append(volMounts, caVolMount)
-		volMounts = append(volMounts, certVolMount)
-	}
-
-	if devEnvironment {
-		codePathVol, codePathVolMount := getCodePathVols()
-		vols = append(vols, codePathVol)
-		volMounts = append(volMounts, codePathVolMount)
-	}
-
-	return vols, volMounts
 }
 
 func getControllerSecret(name, namespace string) *unstructured.Unstructured {
