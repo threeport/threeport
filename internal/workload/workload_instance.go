@@ -274,7 +274,7 @@ func workloadInstanceUpdated(
 			if _, err := kube.CreateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
 				return fmt.Errorf("failed to create Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
 			}
-		} else if *wri.ScheduledForDeletion {
+		} else if wri.ScheduledForDeletion != nil && *wri.ScheduledForDeletion {
 
 			// delete kube resource
 			if err := kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
@@ -290,12 +290,25 @@ func workloadInstanceUpdated(
 			if err != nil {
 				return fmt.Errorf("failed to delete workload resource instance with ID %d: %w", wri.ID, err)
 			}
-		// otherwise, it is an existing resource and we may update it
+			continue
+			// otherwise, it is an existing resource and we may update it
 		} else {
 			// update kube resource
 			if _, err := kube.UpdateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
 				return fmt.Errorf("failed to update Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
 			}
+		}
+
+		// update the workload resource instance
+		reconciled := true
+		wri.Reconciled = &reconciled
+		_, err = client.UpdateWorkloadResourceInstance(
+			r.APIClient,
+			r.APIServer,
+			&wri,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update workload resource instance with ID %d: %w", wri.ID, err)
 		}
 
 		log.V(1).Info(
