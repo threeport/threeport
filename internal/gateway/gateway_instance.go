@@ -255,22 +255,32 @@ func gatewayInstanceDeleted(
 	return nil
 }
 
-// TODO: refactor this into generic reconcile check function for definitions
-// confirmWorkloadDefReconciled confirms the gateway definition related to a
+// confirmDefinitionsReconciled confirms the gateway definition related to a
 // gateway instance is reconciled.
-func confirmWorkloadDefReconciled(
+func confirmDefinitionsReconciled(
 	r *controller.Reconciler,
 	gatewayInstance *v0.GatewayInstance,
 ) (bool, error) {
+
+	// get gateway definition
 	gatewayDefinition, err := client.GetGatewayDefinitionByID(
 		r.APIClient,
 		r.APIServer,
 		*gatewayInstance.GatewayDefinitionID,
 	)
 	if err != nil {
-		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
+		return false, fmt.Errorf("failed to get gateway definition by workload definition ID: %w", err)
 	}
 
+	// if the gateway definition is not reconciled, return false
+	if gatewayDefinition.Reconciled != nil && !*gatewayDefinition.Reconciled {
+		return false, nil
+	}
+
+	// get workload definition
+	if gatewayDefinition.WorkloadDefinitionID == nil {
+		return false, fmt.Errorf("failed to get workload definition from gateway definition, workload definition ID is nil")
+	}
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
 		r.APIClient,
 		r.APIServer,
@@ -280,6 +290,7 @@ func confirmWorkloadDefReconciled(
 		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
 	}
 
+	// if the workload definition is not reconciled, return false
 	if workloadDefinition.Reconciled != nil && !*workloadDefinition.Reconciled {
 		return false, nil
 	}
@@ -287,42 +298,28 @@ func confirmWorkloadDefReconciled(
 	return true, nil
 }
 
-func confirmWorkloadInstReconciled(
+// confirmWorkloadInstanceReconciled confirms the workload instance related to a
+// gateway instance is reconciled.
+func confirmWorkloadInstanceReconciled(
 	r *controller.Reconciler,
-	gatewayInstance *v0.GatewayInstance,
+	instanceID *uint,
 ) (bool, error) {
+
+	// get workloadinstanceIDinstance
+	if instanceID == nil {
+		return false, fmt.Errorf("failed to get workload instance from gateway instance, workload instance ID is nil")
+	}
 	workloadInstance, err := client.GetWorkloadInstanceByID(
 		r.APIClient,
 		r.APIServer,
-		*gatewayInstance.WorkloadInstanceID,
+		*instanceID,
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to get workload instance by workload instance ID: %w", err)
 	}
 
+	// if the workload instance is not reconciled, return false
 	if workloadInstance.Reconciled != nil && !*workloadInstance.Reconciled {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-// TODO: refactor this into generic reconcile check function for instances
-// confirmGatewayDefReconciled confirms the gateway definition related to a
-// gateway instance is reconciled.
-func confirmGatewayControllerInstanceReconciled(
-	r *controller.Reconciler,
-	workloadInstanceID uint,
-) (bool, error) {
-	gatewayControllerInstance, err := client.GetWorkloadInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		workloadInstanceID,
-	)
-	if err != nil {
-		return false, fmt.Errorf("failed to get gateway definition by gateway definition ID: %w", err)
-	}
-	if gatewayControllerInstance.Reconciled != nil && !*gatewayControllerInstance.Reconciled {
 		return false, nil
 	}
 
@@ -614,17 +611,17 @@ func validateThreeportState(
 	clusterInstance *v0.ClusterInstance,
 ) error {
 
-	// ensure workload definition is reconciled
-	workloadDefinitionReconciled, err := confirmWorkloadDefReconciled(r, gatewayInstance)
+	// ensure gateway and workload definition are reconciled
+	definitionsReconciled, err := confirmDefinitionsReconciled(r, gatewayInstance)
 	if err != nil {
 		return fmt.Errorf("failed to determine if workload definition is reconciled: %w", err)
 	}
-	if !workloadDefinitionReconciled {
+	if !definitionsReconciled {
 		return errors.New("workload definition not reconciled")
 	}
 
 	// ensure workload instance is reconciled
-	workloadInstanceReconciled, err := confirmWorkloadInstReconciled(r, gatewayInstance)
+	workloadInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, gatewayInstance.WorkloadInstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to determine if workload instance is reconciled: %w", err)
 	}
@@ -639,7 +636,7 @@ func validateThreeportState(
 	// }
 
 	// // ensure gateway controller instance is reconciled
-	// gatewayControllerInstanceReconciled, err := confirmGatewayControllerInstanceReconciled(r, *clusterInstance.GatewayControllerInstanceID)
+	// gatewayControllerInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, clusterInstance.GatewayControllerInstanceID)
 	// if err != nil {
 	// 	return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
 	// }
