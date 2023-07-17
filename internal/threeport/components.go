@@ -252,33 +252,25 @@ func InstallThreeportControllers(
 	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
 ) error {
-	workloadControllerSecret := getControllerSecret("controller", ControlPlaneNamespace)
-	if _, err := kube.CreateResource(workloadControllerSecret, kubeClient, *mapper); err != nil {
+	controllerSecret := getControllerSecret("controller", ControlPlaneNamespace)
+	if _, err := kube.CreateResource(controllerSecret, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller secret: %w", err)
 	}
 
-	if err := InstallController(
-		"workload-controller",
-		kubeClient,
-		mapper,
-		devEnvironment,
-		customThreeportImageRepo,
-		customThreeportImageTag,
-		authConfig,
-	); err != nil {
-		return fmt.Errorf("failed to install workload controller: %w", err)
-	}
+	controllers := []string{"workload-controller", "gateway-controller"}
 
-	if err := InstallController(
-		"gateway-controller",
-		kubeClient,
-		mapper,
-		devEnvironment,
-		customThreeportImageRepo,
-		customThreeportImageTag,
-		authConfig,
-	); err != nil {
-		return fmt.Errorf("failed to install gateway controller: %w", err)
+	for _, controller := range controllers {
+		if err := InstallController(
+			controller,
+			kubeClient,
+			mapper,
+			devEnvironment,
+			customThreeportImageRepo,
+			customThreeportImageTag,
+			authConfig,
+		); err != nil {
+			return fmt.Errorf("failed to install %s: %w", controller, err)
+		}
 	}
 
 	return nil
