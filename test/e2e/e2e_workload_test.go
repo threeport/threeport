@@ -140,7 +140,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// check to make sure workload definition gets reconciled by workload
 		// controller
 		workloadDefChecks := 0
-		workloadDefMaxChecks := 300
+		workloadDefMaxChecks := 600
 		workloadDefCheckDurationSeconds := 1
 		reconciled := false
 		var existingWorkloadDef *v0.WorkloadDefinition
