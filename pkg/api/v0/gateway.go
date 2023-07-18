@@ -39,7 +39,7 @@ type GatewayDefinition struct {
 	Paths []*string `json:"Paths,omitempty" query:"paths" gorm:"default:'['/']'" validate:"optional"`
 
 	// The workload definition that belongs to this resource.
-	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"constraint:OnDelete:CASCADE;omitempty" validate:"optional"`
+	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" validate:"optional"`
 
 	// The associated gateway instances that are deployed from this definition.
 	GatewayInstances []*GatewayInstance `json:"GatewayInstances,omitempty" validate:"optional,association"`
