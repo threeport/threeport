@@ -452,7 +452,7 @@ func filterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kin
 
 		// search for service resource
 		manifestKind, found, err := unstructured.NestedString(kubeObject.Object, "kind")
-		if err != nil || found && manifestKind == kind {
+		if err != nil && found && manifestKind == kind {
 			objects = append(objects, *kubeObject)
 		}
 	}
