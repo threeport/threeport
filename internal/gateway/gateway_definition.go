@@ -90,7 +90,7 @@ func gatewayDefinitionUpdated(
 	workloadDefinition.YAMLDocument = &virtualService
 	_, err = client.UpdateWorkloadDefinition(r.APIClient, r.APIServer, workloadDefinition)
 	if err != nil {
-		return fmt.Errorf("failed to create workload definition in threeport API: %w", err)
+		return fmt.Errorf("failed to update workload definition in threeport API: %w", err)
 	}
 
 	// update gateway definition
