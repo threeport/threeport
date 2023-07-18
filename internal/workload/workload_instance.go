@@ -75,7 +75,6 @@ func workloadInstanceCreated(
 		wri := v0.WorkloadResourceInstance{
 			JSONDefinition:     wrd.JSONDefinition,
 			WorkloadInstanceID: workloadInstance.ID,
-			// Reconciled:         &reconciled,
 		}
 		workloadResourceInstances = append(workloadResourceInstances, wri)
 	}
@@ -164,11 +163,9 @@ func workloadInstanceCreated(
 			return fmt.Errorf("failed to create Kubernetes resource: %w", err)
 		}
 
-		// set workload resource instance reconciled to true
-		// reconciled := true
-		// wri.Reconciled = &reconciled
-
 		// create object in threeport API
+		reconciled := true
+		wri.Reconciled = &reconciled
 		createdWRI, err := client.CreateWorkloadResourceInstance(
 			r.APIClient,
 			r.APIServer,
