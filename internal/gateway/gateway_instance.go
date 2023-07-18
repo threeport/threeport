@@ -552,12 +552,12 @@ func confirmGatewayPortExposed(
 		return fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
-	gatewayObjects, err := filterObjects(workloadResourceInstances, "Gateway")
+	gatewayObjects, err := filterObjects(workloadResourceInstances, "GlooEdge")
 	if err != nil {
-		return fmt.Errorf("failed to get service objects from workload instance: %w", err)
+		return fmt.Errorf("failed to get gloo edge objects from workload instance: %w", err)
 	}
 	if len(gatewayObjects) == 0 {
-		return fmt.Errorf("no gateway objects found")
+		return fmt.Errorf("no gloo edge objects found")
 	}
 	gatewayObject := gatewayObjects[0]
 
@@ -573,7 +573,7 @@ func confirmGatewayPortExposed(
 		}
 	}
 
-	// TODO: if port not found, update gateway controller workload definition with the requested port
+	// TODO: if port not found, update gloo edge CRD with the requested port
 	if !portFound {
 		return errors.New("gateway controller instance does not have requested port exposed")
 	}
