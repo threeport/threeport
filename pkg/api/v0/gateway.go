@@ -12,24 +12,31 @@ type GatewayDefinition struct {
 	// TCP Port to expose to outside network.
 	TCPPort *int `json:"TCPPort,omitempty" query:"tcpport" validate:"optional"`
 
-	// Expose port 443 with TLS termination.
-	HTTPSPort *bool `json:"HTTPSPort,omitempty" query:"httpsport" gorm:"default:true" validate:"optional"`
+	// // Expose port 443 with TLS termination.
+	// HTTPSPort *bool `json:"HTTPSPort,omitempty" query:"httpsport" gorm:"default:true" validate:"optional"`
 
-	// Expose port 80.
-	HTTPPort *bool `json:"HTTPPort,omitempty" query:"httpport" gorm:"default:true" validate:"optional"`
+	// // Expose port 80.
+	// HTTPPort *bool `json:"HTTPPort,omitempty" query:"httpport" gorm:"default:true" validate:"optional"`
 
 	// Redirect all requests to HTTP port to HTTPS.
 	HTTPSRedirct *bool `json:"HTTPSRedirect,omitempty" query:"httpsredirect" gorm:"default:true" validate:"optional"`
 
-	// Allow requests from the public internet.
-	Public *bool `json:"Public,omitempty" query:"public" gorm:"default:true" validate:"optional"`
+	// // Allow requests from the public internet.
+	// Public *bool `json:"Public,omitempty" query:"public" gorm:"default:true" validate:"optional"`
 
-	// Allow requests from the private network outside the workload cluster but
-	// not from the public internet.
-	Private *bool `json:"Private,omitempty" query:"private" gorm:"default:false" validate:"optional"`
+	// // Allow requests from the private network outside the workload cluster but
+	// // not from the public internet.
+	// Private *bool `json:"Private,omitempty" query:"private" gorm:"default:false"
+	// validate:"optional"`
+
+	// Indicates if TLS is enabled.
+	TLSEnabled *bool `json:"TLSEnabled,omitempty" query:"tlsenabled" gorm:"default:false" validate:"optional"`
 
 	// The domain name to serve requests for.
 	DomainNameID *uint `json:"DomainNameID,omitempty" query:"domainname" validate:"optional"`
+
+	// The request paths to serve requests for.
+	Paths []*string `json:"Paths,omitempty" query:"paths" gorm:"default:'['/']'" validate:"optional,association"`
 
 	// The workload definition that belongs to this resource.
 	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"constraint:OnDelete:CASCADE;omitempty" validate:"optional"`
