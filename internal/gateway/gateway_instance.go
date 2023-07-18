@@ -145,7 +145,8 @@ func gatewayInstanceUpdated(
 	}
 
 	// trigger a reconciliation of the workload instance
-	workloadInstance.Reconciled = &workloadResourceInstanceReconciled
+	workloadInstanceReconciled := true
+	workloadInstance.Reconciled = &workloadInstanceReconciled
 	_, err = client.UpdateWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
