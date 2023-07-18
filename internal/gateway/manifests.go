@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func CreateGlooEdge() (string, error) {
+func createGlooEdge() (string, error) {
 
 	var glooEdge = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -24,7 +24,7 @@ func CreateGlooEdge() (string, error) {
 	return unstructuredToYAMLString(glooEdge)
 }
 
-func CreateVirtualService(gatewayDefinition *v0.GatewayDefinition) (string, error) {
+func createVirtualService(gatewayDefinition *v0.GatewayDefinition) (string, error) {
 
 	var virtualService = &unstructured.Unstructured{
 		Object: map[string]interface{}{

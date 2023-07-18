@@ -473,7 +473,7 @@ func confirmGatewayControllerDeployed(
 		return nil
 	}
 
-	glooEdge, err := CreateGlooEdge()
+	glooEdge, err := createGlooEdge()
 	if err != nil {
 		return fmt.Errorf("failed to create gloo edge resource: %w", err)
 	}

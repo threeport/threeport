@@ -19,7 +19,7 @@ func gatewayDefinitionCreated(
 ) error {
 
 	// create Gloo virtual service definition
-	virtualService, err := CreateVirtualService(gatewayDefinition)
+	virtualService, err := createVirtualService(gatewayDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to create virtual service: %w", err)
 	}
@@ -68,7 +68,7 @@ func gatewayDefinitionUpdated(
 ) error {
 
 	// create Gloo virtual service definition
-	virtualService, err := CreateVirtualService(gatewayDefinition)
+	virtualService, err := createVirtualService(gatewayDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to create virtual service: %w", err)
 	}
