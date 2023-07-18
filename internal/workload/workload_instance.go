@@ -265,13 +265,8 @@ func workloadInstanceUpdated(
 			return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object workload resource instance with ID %d: %w", wri.ID, err)
 		}
 
-		// if the resource instance does not have a last operation, it must be new and we
-		// must create it
-		if wri.LastOperation == nil {
-			if _, err := kube.CreateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
-				return fmt.Errorf("failed to create Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
-			}
-		} else if wri.ScheduledForDeletion != nil && *wri.ScheduledForDeletion {
+		// if the resource instance is scheduled for deletion, delete it
+		if wri.ScheduledForDeletion != nil && *wri.ScheduledForDeletion {
 
 			// delete kube resource
 			if err := kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
@@ -288,11 +283,11 @@ func workloadInstanceUpdated(
 				return fmt.Errorf("failed to delete workload resource instance with ID %d: %w", wri.ID, err)
 			}
 			continue
-			// otherwise, it is an existing resource and we may update it
+
+		// otherwise, it needs to be created or updated
 		} else {
-			// update kube resource
-			if _, err := kube.UpdateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
-				return fmt.Errorf("failed to update Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
+			if _, err := kube.CreateOrUpdateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
+				return fmt.Errorf("failed to create or update Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
 			}
 		}
 

@@ -85,9 +85,9 @@ func CreateResource(
 
 }
 
-// UpdateResource takes an unstructured object, dynamic client interface and rest
-// mapper and updates the resource in the target Kubernetes cluster.
-func UpdateResource(
+// CreateResource takes an unstructured object, dynamic client interface and rest
+// mapper and creates the resource in the target Kubernetes cluster.
+func CreateOrUpdateResource(
 	kubeObject *unstructured.Unstructured,
 	kubeClient dynamic.Interface,
 	mapper meta.RESTMapper,
@@ -95,19 +95,34 @@ func UpdateResource(
 	// get the mapping for resource from kube object's group, kind
 	mapping, err := getResourceMapping(kubeObject, mapper)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get REST mapping for kubernetes resource: %w", err)
 	}
 
 	// create the kube resource
 	result, err := kubeClient.
 		Resource(mapping.Resource).
 		Namespace(kubeObject.GetNamespace()).
-		Update(context.TODO(), kubeObject, kubemetav1.UpdateOptions{})
+		Create(context.TODO(), kubeObject, kubemetav1.CreateOptions{})
 	if err != nil {
-		return nil, err
+
+		// If the resource already exists, update it
+		if errors.IsAlreadyExists(err) {
+			result, err := kubeClient.
+				Resource(mapping.Resource).
+				Namespace(kubeObject.GetNamespace()).
+				Update(context.TODO(), kubeObject, kubemetav1.UpdateOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to update kubernetes resource:%w", err)
+			}
+
+			return result, nil
+		} else {
+			return nil, fmt.Errorf("failed to create kubernetes resource:%w", err)
+		}
 	}
 
 	return result, nil
+
 }
 
 // DeleteResource takes an unstructured object, dynamic client interface and rest
