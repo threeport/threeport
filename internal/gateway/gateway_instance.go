@@ -203,11 +203,13 @@ func gatewayInstanceDeleted(
 
 	// schedule workload resource instance for deletion
 	scheduledForDeletion := true
+	reconciledWorkloadResourceInstance := false
 	workloadResourceInstance := &v0.WorkloadResourceInstance{
 		Common: v0.Common{
 			ID: gatewayInstance.WorkloadResourceInstanceID,
 		},
 		ScheduledForDeletion: &scheduledForDeletion,
+		Reconciled:           &reconciledWorkloadResourceInstance,
 	}
 	_, err = client.UpdateWorkloadResourceInstance(
 		r.APIClient,
@@ -236,12 +238,12 @@ func gatewayInstanceDeleted(
 	if gatewayInstance.WorkloadInstanceID == nil {
 		return fmt.Errorf("failed to delete workload instance, workloadInstanceID is nil")
 	}
-	reconciled := false
+	reconciledWorkloadInstance := false
 	workloadInstance := &v0.WorkloadInstance{
 		Common: v0.Common{
 			ID: gatewayInstance.WorkloadInstanceID,
 		},
-		Reconciled: &reconciled,
+		Reconciled: &reconciledWorkloadInstance,
 	}
 	_, err = client.UpdateWorkloadInstance(
 		r.APIClient,
