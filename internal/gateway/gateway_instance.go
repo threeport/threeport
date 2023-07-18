@@ -468,61 +468,62 @@ func confirmGatewayControllerDeployed(
 	clusterInstance *v0.ClusterInstance,
 ) error {
 
-	// if cluster instance has no gateway controller, deploy one
-	if clusterInstance.GatewayControllerInstanceID == nil {
-
-		glooEdge, err := CreateGlooEdge()
-		if err != nil {
-			return fmt.Errorf("failed to create gloo edge resource: %w", err)
-		}
-
-		workloadDefName := "gloo-edge"
-		glooEdgeWorkloadDefinition := v0.WorkloadDefinition{
-			Definition: v0.Definition{
-				Name: &workloadDefName,
-			},
-			YAMLDocument: &glooEdge,
-		}
-
-		// create gateway controller workload definition
-		createdWorkloadDef, err := client.CreateWorkloadDefinition(
-			r.APIClient,
-			r.APIServer,
-			&glooEdgeWorkloadDefinition,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create gateway controller workload definition: %w", err)
-		}
-
-		// create gateway workload instance
-		glooEdgeWorkloadInstance := v0.WorkloadInstance{
-			Instance: v0.Instance{
-				Name: &workloadDefName,
-			},
-			ClusterInstanceID:    gatewayInstance.ClusterInstanceID,
-			WorkloadDefinitionID: createdWorkloadDef.ID,
-		}
-		createdGlooEdgeWorkloadInstance, err := client.CreateWorkloadInstance(
-			r.APIClient,
-			r.APIServer,
-			&glooEdgeWorkloadInstance,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create gateway controller workload instance: %w", err)
-		}
-
-		// update cluster instance with gateway controller instance id
-		clusterInstance.GatewayControllerInstanceID = createdGlooEdgeWorkloadInstance.ID
-		_, err = client.UpdateClusterInstance(
-			r.APIClient,
-			r.APIServer,
-			clusterInstance,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to update gateway controller workload instance: %w", err)
-		}
-
+	// return if cluster instance already has a gateway controller instance
+	if clusterInstance.GatewayControllerInstanceID != nil {
+		return nil
 	}
+
+	glooEdge, err := CreateGlooEdge()
+	if err != nil {
+		return fmt.Errorf("failed to create gloo edge resource: %w", err)
+	}
+
+	workloadDefName := "gloo-edge"
+	glooEdgeWorkloadDefinition := v0.WorkloadDefinition{
+		Definition: v0.Definition{
+			Name: &workloadDefName,
+		},
+		YAMLDocument: &glooEdge,
+	}
+
+	// create gateway controller workload definition
+	createdWorkloadDef, err := client.CreateWorkloadDefinition(
+		r.APIClient,
+		r.APIServer,
+		&glooEdgeWorkloadDefinition,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create gateway controller workload definition: %w", err)
+	}
+
+	// create gateway workload instance
+	glooEdgeWorkloadInstance := v0.WorkloadInstance{
+		Instance: v0.Instance{
+			Name: &workloadDefName,
+		},
+		ClusterInstanceID:    gatewayInstance.ClusterInstanceID,
+		WorkloadDefinitionID: createdWorkloadDef.ID,
+	}
+	createdGlooEdgeWorkloadInstance, err := client.CreateWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		&glooEdgeWorkloadInstance,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create gateway controller workload instance: %w", err)
+	}
+
+	// update cluster instance with gateway controller instance id
+	clusterInstance.GatewayControllerInstanceID = createdGlooEdgeWorkloadInstance.ID
+	_, err = client.UpdateClusterInstance(
+		r.APIClient,
+		r.APIServer,
+		clusterInstance,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update gateway controller workload instance: %w", err)
+	}
+
 	return nil
 }
 
