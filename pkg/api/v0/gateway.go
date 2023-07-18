@@ -36,7 +36,7 @@ type GatewayDefinition struct {
 	DomainNameID *uint `json:"DomainNameID,omitempty" query:"domainname" validate:"optional"`
 
 	// The request paths to serve requests for.
-	Paths []*string `json:"Paths,omitempty" query:"paths" gorm:"default:'['/']'" validate:"optional,association"`
+	Paths []*string `json:"Paths,omitempty" query:"paths" gorm:"default:'['/']'" validate:"optional"`
 
 	// The workload definition that belongs to this resource.
 	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"constraint:OnDelete:CASCADE;omitempty" validate:"optional"`
