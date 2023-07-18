@@ -653,7 +653,14 @@ func configureVirtualService(
 	route := routes[0]
 
 	// set virtual service upstream field
-	err = unstructured.SetNestedField(route.(map[string]interface{}), fmt.Sprintf("%s-%s", namespace, name), "routeAction", "single", "upstream", "name")
+	err = unstructured.SetNestedField(
+		route.(map[string]interface{}),
+		fmt.Sprintf("%s-%s", namespace, name), // $namespace-$name is convention for gloo edge upstream names
+		"routeAction",
+		"single",
+		"upstream",
+		"name",
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
 	}
