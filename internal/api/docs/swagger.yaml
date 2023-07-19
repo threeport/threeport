@@ -16,6 +16,18 @@ definitions:
     type: object
   datatypes.JSON:
     type: object
+  v0.AttachedObjectReference:
+    properties:
+      ObjectID:
+        type: integer
+      Type:
+        type: string
+      WorkloadInstanceID:
+        description: The workload definition this resource belongs to.
+        type: integer
+    required:
+    - WorkloadInstanceID
+    type: object
   v0.AwsAccount:
     properties:
       AccessKeyID:
@@ -415,54 +427,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - GatewayDefinition
+    - GatewayInstance
+    - Profile
+    - Tier
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - ClusterDefinition
+    - ClusterInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - DomainNameDefinition
-    - DomainNameInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - ClusterDefinition
-    - ClusterInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - Profile
-    - Tier
+    - DomainNameDefinition
+    - DomainNameInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeProfile
-    - ObjectTypeTier
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       Name:
@@ -632,6 +646,19 @@ info:
   title: Threeport RESTful API
   version: v0.1.2
 paths:
+  /attached-object-references/versions:
+    get:
+      description: Get the supported API versions for attached object references.
+      operationId: attachedObjectReference-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetAttachedObjectReferenceVersions gets the supported versions for
+        the attached object reference API.
   /aws-accounts/versions:
     get:
       description: Get the supported API versions for aws accounts.
@@ -864,6 +891,206 @@ paths:
           schema:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetTierVersions gets the supported versions for the tier API.
+  /v0/attached-object-references:
+    get:
+      consumes:
+      - application/json
+      description: Get all attached object references from the Threeport database.
+      operationId: get-attachedObjectReferences
+      parameters:
+      - description: attached object reference search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all attached object references.
+    post:
+      consumes:
+      - application/json
+      description: Add a new attached object reference to the Threeport database.
+      operationId: add-attachedObjectReference
+      parameters:
+      - description: AttachedObjectReference object
+        in: body
+        name: attachedObjectReference
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AttachedObjectReference'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new attached object reference.
+  /v0/attached-object-references/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a attached object reference by ID from the database.
+      operationId: delete-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a attached object reference.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular attached object reference from the database.
+      operationId: get-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a attached object reference.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a attached object reference in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating attached object reference objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AttachedObjectReference object
+        in: body
+        name: attachedObjectReference
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AttachedObjectReference'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing attached object reference.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a attached object reference in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating attached object reference objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AttachedObjectReference object
+        in: body
+        name: attachedObjectReference
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AttachedObjectReference'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing attached object reference by replacing the entire
+        object.
   /v0/aws-accounts:
     get:
       consumes:
