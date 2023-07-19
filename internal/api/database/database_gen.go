@@ -70,6 +70,7 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 			&v0.WorkloadDefinition{},
 			&v0.WorkloadResourceDefinition{},
 			&v0.WorkloadInstance{},
+			&v0.AttachedObjectReference{},
 			&v0.WorkloadResourceInstance{},
 			&v0.WorkloadEvent{},
 		); err != nil {

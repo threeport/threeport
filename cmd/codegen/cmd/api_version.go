@@ -135,7 +135,7 @@ for all the models in the supplied version/s.  The generated code includes:
 		}
 
 		// generate client type switch functions
-		if err := globalVersionConf.DeleteSwitch(); err != nil {
+		if err := globalVersionConf.DeleteObjects(); err != nil {
 			return fmt.Errorf("failed to generate model type switch functions: %w", err)
 		}
 

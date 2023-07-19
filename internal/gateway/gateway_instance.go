@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -70,6 +71,21 @@ func gatewayInstanceCreated(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update workload instance: %w", err)
+	}
+
+	gatewayInstanceType := reflect.TypeOf(*gatewayInstance).String()
+	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
+		Type:               &gatewayInstanceType,
+		ObjectID:           gatewayInstance.ID,
+		WorkloadInstanceID: workloadInstance.ID,
+	}
+	_, err = client.CreateAttachedObjectReference(
+		r.APIClient,
+		r.APIServer,
+		workloadInstanceAttachedObjectReference,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create attached object reference: %w", err)
 	}
 
 	// update gateway instance
@@ -453,7 +469,7 @@ func filterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kin
 
 		// search for service resource
 		manifestKind, found, err := unstructured.NestedString(kubeObject.Object, "kind")
-		if err != nil && found && manifestKind == kind {
+		if err == nil && found && manifestKind == kind {
 			objects = append(objects, *kubeObject)
 		}
 	}

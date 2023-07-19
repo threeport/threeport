@@ -352,14 +352,6 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.NotNil(err, "should have an error returned when trying to delete workload definition with workload instance still in place")
 
-		// delete gateway instance
-		_, err = client.DeleteGatewayInstance(
-			apiClient,
-			apiAddr(),
-			*gatewayInstance.ID,
-		)
-		assert.Nil(err, "should have no error deleting gateway instance")
-
 		// delete workload instance
 		deletedWorkloadInst, err := client.DeleteWorkloadInstance(
 			apiClient,

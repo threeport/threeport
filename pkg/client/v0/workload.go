@@ -196,3 +196,33 @@ func DeleteWorkloadEventsByWorkloadInstanceID(apiClient *http.Client, apiAddr st
 
 	return &workloadEvents, nil
 }
+
+// GetAttachedObjectReferencesByWorkloadInstanceID fetches an attached object reference
+// by object ID.
+func GetAttachedObjectReferencesByWorkloadInstanceID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.AttachedObjectReference, error) {
+	var attachedObjectReferences []v0.AttachedObjectReference
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?workloadinstanceid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&attachedObjectReferences); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &attachedObjectReferences, nil
+}

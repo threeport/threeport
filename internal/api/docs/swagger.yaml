@@ -270,31 +270,20 @@ definitions:
         items:
           $ref: '#/definitions/v0.GatewayInstance'
         type: array
-      HTTPPort:
-        description: Expose port 80.
-        type: boolean
-      HTTPSPort:
-        description: Expose port 443 with TLS termination.
-        type: boolean
       HTTPSRedirect:
         description: Redirect all requests to HTTP port to HTTPS.
         type: boolean
       Name:
         description: An arbitrary name for the definition.
         type: string
-      Private:
-        description: |-
-          Allow requests from the private network outside the workload cluster but
-          not from the public internet.
-        type: boolean
+      Paths:
+        description: The request paths to serve requests for.
+        type: string
       ProfileID:
         description: |-
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
-      Public:
-        description: Allow requests from the public internet.
-        type: boolean
       Reconciled:
         description: Indicates if object is considered to be reconciled by gateway
           controller.
@@ -302,6 +291,9 @@ definitions:
       TCPPort:
         description: TCP Port to expose to outside network.
         type: integer
+      TLSEnabled:
+        description: Indicates if TLS is enabled.
+        type: boolean
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
@@ -423,54 +415,54 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - GatewayDefinition
-    - GatewayInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - GatewayDefinition
+    - GatewayInstance
     - DomainNameDefinition
     - DomainNameInstance
-    - Profile
-    - Tier
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - ClusterDefinition
     - ClusterInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - Profile
+    - Tier
     type: string
     x-enum-varnames:
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeClusterDefinition
     - ObjectTypeClusterInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeProfile
+    - ObjectTypeTier
   v0.Profile:
     properties:
       Name:

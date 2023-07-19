@@ -335,6 +335,26 @@ func workloadInstanceDeleted(
 		return fmt.Errorf("failed to create kube API client object: %w", err)
 	}
 
+	// We need to query the Threeport API for the attached object references
+	// even though the WorkloadInstance table has a relation to AttachedObjectReferences.
+	// This is because the AttachedObjectReferences relation is deleted when the
+	// WorkloadInstance is deleted, so we can't use those references anymore in
+	// the deletion handler.
+	attachedObjectReferences, err := client.GetAttachedObjectReferencesByWorkloadInstanceID(r.APIClient, r.APIServer, *workloadInstance.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
+	}
+	for _, object := range *attachedObjectReferences {
+		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.Type, *object.ObjectID)
+		if err != nil {
+			return fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.Type, *object.ID, err)
+		}
+		_, err = client.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *object.ID)
+		if err != nil {
+			return fmt.Errorf("failed to delete attached object reference with ID %d: %w", *object.ID, err)
+		}
+	}
+
 	// delete each workload resource instance and resource in the target kube cluster
 	for _, wri := range *workloadResourceInstances {
 		// marshal the resource instance json

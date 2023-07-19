@@ -66,7 +66,7 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition) (string, erro
 
 // unstructuredToYAMLString converts an unstructured object into a YAML string.
 func unstructuredToYAMLString(unstructuredManifest *unstructured.Unstructured) (string, error) {
-	bytes, err := yaml.Marshal(unstructuredManifest)
+	bytes, err := yaml.Marshal(unstructuredManifest.Object)
 	if err != nil {
 		return "", fmt.Errorf("error marshaling YAML: %w", err)
 	}

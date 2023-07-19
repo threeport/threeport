@@ -49,6 +49,8 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = WorkloadResourceDefinition{}
 	case ObjectTypeWorkloadInstance:
 		objStruct = WorkloadInstance{}
+	case ObjectTypeAttachedObjectReference:
+		objStruct = AttachedObjectReference{}
 	case ObjectTypeWorkloadResourceInstance:
 		objStruct = WorkloadResourceInstance{}
 	case ObjectTypeWorkloadEvent:
@@ -104,6 +106,8 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeWorkloadResourceDefinition
 	case PathWorkloadInstances:
 		return ObjectTypeWorkloadInstance
+	case PathAttachedObjectReferences:
+		return ObjectTypeAttachedObjectReference
 	case PathWorkloadResourceInstances:
 		return ObjectTypeWorkloadResourceInstance
 	case PathWorkloadEvents:
@@ -159,6 +163,8 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeWorkloadResourceDefinition
 	case WorkloadInstance, *WorkloadInstance, []WorkloadInstance:
 		return ObjectTypeWorkloadInstance
+	case AttachedObjectReference, *AttachedObjectReference, []AttachedObjectReference:
+		return ObjectTypeAttachedObjectReference
 	case WorkloadResourceInstance, *WorkloadResourceInstance, []WorkloadResourceInstance:
 		return ObjectTypeWorkloadResourceInstance
 	case WorkloadEvent, *WorkloadEvent, []WorkloadEvent:
