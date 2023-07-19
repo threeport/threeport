@@ -216,19 +216,6 @@ func workloadInstanceUpdated(
 	workloadInstance *v0.WorkloadInstance,
 	log *logr.Logger,
 ) error {
-	// get workload resource instances
-	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
-		r.APIClient,
-		r.APIServer,
-		*workloadInstance.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
-	}
-	if len(*workloadResourceInstances) == 0 {
-		return errors.New("zero workload resource instances to update")
-	}
-
 	// get cluster instance info
 	clusterInstance, err := client.GetClusterInstanceByID(
 		r.APIClient,
@@ -246,7 +233,7 @@ func workloadInstanceUpdated(
 	}
 
 	// update each workload resource instance and resource in the target kube cluster
-	for _, wri := range *workloadResourceInstances {
+	for _, wri := range workloadInstance.WorkloadResourceInstances {
 
 		// only update resource instances that have not been reconciled
 		if *wri.Reconciled {
@@ -284,8 +271,8 @@ func workloadInstanceUpdated(
 			}
 			continue
 
-		// otherwise, it needs to be created or updated
 		} else {
+			// otherwise, it needs to be created or updated
 			if _, err := kube.CreateOrUpdateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
 				return fmt.Errorf("failed to create or update Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
 			}
@@ -297,7 +284,7 @@ func workloadInstanceUpdated(
 		_, err = client.UpdateWorkloadResourceInstance(
 			r.APIClient,
 			r.APIServer,
-			&wri,
+			wri,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to update workload resource instance with ID %d: %w", wri.ID, err)
