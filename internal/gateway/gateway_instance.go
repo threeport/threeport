@@ -200,7 +200,6 @@ func gatewayInstanceDeleted(
 	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) error {
-
 	// get workload resource instance
 	if gatewayInstance.WorkloadResourceInstanceID == nil {
 		return fmt.Errorf("failed to delete workload resource instance, workloadResourceInstanceID is nil")
@@ -211,7 +210,8 @@ func gatewayInstanceDeleted(
 		*gatewayInstance.WorkloadResourceInstanceID,
 	)
 	if err != nil {
-		if strings.Contains(err.Error(), "object not found") {
+
+		if errors.Is(err, client.ErrorObjectNotFound) {
 			// workload resource instance has already been deleted
 			return nil
 		}
@@ -235,20 +235,6 @@ func gatewayInstanceDeleted(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update workload resource instance: %w", err)
-	}
-
-	// get workload resource instance
-	_, err = client.GetWorkloadInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.WorkloadResourceInstanceID,
-	)
-	if err != nil {
-		if strings.Contains(err.Error(), "object not found") {
-			// workload instance has already been deleted
-			return nil
-		}
-		return fmt.Errorf("failed to get workload resource instance: %w", err)
 	}
 
 	// trigger a reconciliation of the workload instance
