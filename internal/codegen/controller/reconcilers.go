@@ -310,11 +310,11 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 								).Else().Block(
 									Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj))),
+									Id("log").Dot("Info").Call(Lit(fmt.Sprintf(
+										"%s successfully reconciled",
+										strcase.ToDelimited(obj, ' '),
+									))),
 								),
-								Id("log").Dot("Info").Call(Lit(fmt.Sprintf(
-									"%s successfully reconciled",
-									strcase.ToDelimited(obj, ' '),
-								))),
 								Continue(),
 							),
 							Default().Block(

@@ -152,8 +152,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 				} else {
 					r.ReleaseLock(&workloadInstance)
+					log.Info("workload instance successfully reconciled")
 				}
-				log.Info("workload instance successfully reconciled")
 				continue
 			default:
 				log.Error(

@@ -152,8 +152,8 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 				} else {
 					r.ReleaseLock(&workloadDefinition)
+					log.Info("workload definition successfully reconciled")
 				}
-				log.Info("workload definition successfully reconciled")
 				continue
 			default:
 				log.Error(
