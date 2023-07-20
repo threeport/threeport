@@ -84,6 +84,11 @@ controllers each time 'make generate' is called.`,
 			return fmt.Errorf("failed to generate code for controller's reconcilers: %w", err)
 		}
 
+		// generate the controller's reconcile functions
+		if err := controllerConfig.NotificationHelper(); err != nil {
+			return fmt.Errorf("failed to generate notification helper for controller's reconcilers: %w", err)
+		}
+
 		return nil
 
 	},

@@ -19,9 +19,9 @@ func deletionInstanceCheckTypeNames() []string {
 	return []string{"WorkloadDefinition", "GatewayDefinition"}
 }
 
-// setReconcileCheckTypeNames returns the definition objects that need to
+// SetReconcileCheckTypeNames returns the definition objects that need to
 // have their Reconcile field set to false by their handler
-func setReconcileCheckTypeNames() []string {
+func SetReconcileCheckTypeNames() []string {
 	return []string{"WorkloadDefinition", "WorkloadInstance", "WorkloadResourceInstance", "GatewayDefinition", "GatewayInstance"}
 }
 
@@ -87,7 +87,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 		}
 
 		reconcileCheck := false
-		for _, typeName := range setReconcileCheckTypeNames() {
+		for _, typeName := range SetReconcileCheckTypeNames() {
 			if mc.TypeName == typeName {
 				reconcileCheck = true
 			}
