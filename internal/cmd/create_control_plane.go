@@ -359,6 +359,18 @@ func CreateControlPlane(args *cli.ControlPlaneCLIArgs) error {
 		}
 	}
 
+	// install support services CRDs
+	err = threeport.InstallThreeportCRDs(dynamicKubeClient, mapper)
+	if err != nil {
+		return fmt.Errorf("failed to install threeport support services CRDs: %w", err)
+	}
+
+	// install the support services operator
+	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper, args.DevEnvironment, args.CreateAdminEmail)
+	if err != nil {
+		return fmt.Errorf("failed to install threeport support services operator: %w", err)
+	}
+
 	//  the threeport API's endpoint
 	if args.InfraProvider == "eks" {
 		tpapiEndpoint, err := threeport.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
