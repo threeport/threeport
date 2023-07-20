@@ -253,7 +253,7 @@ func workloadInstanceUpdated(
 		}
 
 		// if the resource instance is scheduled for deletion, delete it
-		if wri.ScheduledForDeletion != nil && *wri.ScheduledForDeletion {
+		if wri.ScheduledForDeletion != nil {
 
 			// delete kube resource
 			if err := kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper); err != nil {

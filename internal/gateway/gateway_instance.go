@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
@@ -219,7 +219,7 @@ func gatewayInstanceDeleted(
 	}
 
 	// schedule workload resource instance for deletion
-	scheduledForDeletion := true
+	scheduledForDeletion := time.Now().UTC()
 	reconciledWorkloadResourceInstance := false
 	workloadResourceInstance := &v0.WorkloadResourceInstance{
 		Common: v0.Common{
