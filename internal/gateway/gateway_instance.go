@@ -352,11 +352,11 @@ func validateThreeportState(
 		return errors.New("gateway controller instance not reconciled")
 	}
 
-	// // confirm requested port exposed
-	// err = confirmGatewayPortExposed(r, gatewayInstance, clusterInstance, gatewayDefinition)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to confirm requested port is exposed: %w", err)
-	// }
+	// confirm requested port exposed
+	err = confirmGatewayPortExposed(r, gatewayInstance, clusterInstance, gatewayDefinition)
+	if err != nil {
+		return fmt.Errorf("failed to confirm requested port is exposed: %w", err)
+	}
 
 	return nil
 }
@@ -552,9 +552,6 @@ func confirmGatewayPortExposed(
 	gatewayDefinition *v0.GatewayDefinition,
 ) error {
 
-	// check existing gateways for requested port
-	var portFound = false
-
 	// get gateway controller workload resource instances
 	if clusterInstance.GatewayControllerInstanceID == nil {
 		return fmt.Errorf("gateway controller instance ID is nil")
@@ -577,13 +574,29 @@ func confirmGatewayPortExposed(
 	}
 	gatewayObject := gatewayObjects[0]
 
-	bindPorts, found, err := unstructured.NestedSlice(gatewayObject.Object, "spec", "tcpPorts")
-	if err != nil {
+	ports, found, err := unstructured.NestedSlice(gatewayObject.Object, "spec", "ports")
+	if err != nil || !found {
 		return fmt.Errorf("failed to get tcp ports from from gloo edge custom resource: %v", err)
 	}
-	for _, bindPort := range bindPorts {
-		bindPortInt := bindPort.(int)
-		if found && bindPortInt == *gatewayDefinition.TCPPort {
+
+	// check existing gateways for requested port
+	var portFound = false
+	for _, portSpec := range ports {
+		spec := portSpec.(map[string]interface{})
+		portNumber, portNumberFound, err := unstructured.NestedInt64(spec, "port")
+		if err != nil {
+			return fmt.Errorf("failed to get port from from gloo edge custom resource: %v", err)
+		}
+
+		ssl, sslFound, err := unstructured.NestedBool(spec, "ssl")
+		if err != nil {
+			return fmt.Errorf("failed to get ssl from from gloo edge custom resource: %v", err)
+		}
+
+		if portNumberFound &&
+			sslFound &&
+			ssl == *gatewayDefinition.TLSEnabled &&
+			int(portNumber) == *gatewayDefinition.TCPPort {
 			portFound = true
 			break
 		}

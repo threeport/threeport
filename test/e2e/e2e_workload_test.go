@@ -88,10 +88,14 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error creating http client")
 
 		gatewayDefinitionName := "gatewayDefinition"
+		tcpPort := 443
+		tlsEnabled := true
 		gatewayDefinition := &v0.GatewayDefinition{
 			Definition: v0.Definition{
 				Name: &gatewayDefinitionName,
 			},
+			TCPPort: &tcpPort,
+			TLSEnabled: &tlsEnabled,
 		}
 
 		// create gateway definition
