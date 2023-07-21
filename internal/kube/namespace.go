@@ -49,7 +49,7 @@ func SetNamespaces(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new workload resource instance for namespace: %w", err)
 	}
-	processedWRIs := []v0.WorkloadResourceInstance{*namespaceWRI}
+	processedWRIs := []v0.WorkloadResourceInstance{}
 
 	namespacedObjectCount := 0
 	for _, wri := range *workloadResourceInstances {
@@ -83,9 +83,11 @@ func SetNamespaces(
 		processedWRIs = append(processedWRIs, wri)
 	}
 
-	// only add the namespace resource if there are namespaced resources
+	// only prepend the namespace resource if there are namespaced resources that require it
 	if namespacedObjectCount > 0 {
-		processedWRIs = append(processedWRIs, *namespaceWRI)
+		// move first resource to the back of the array, then prepend the namespace
+		processedWRIs = append(processedWRIs, processedWRIs[0])
+		processedWRIs[0] = *namespaceWRI
 	}
 	return &processedWRIs, nil
 }
