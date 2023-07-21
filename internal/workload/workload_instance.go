@@ -226,12 +226,6 @@ func workloadInstanceUpdated(
 		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
 	}
 
-	// create a client to connect to kube API
-	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
-	if err != nil {
-		return fmt.Errorf("failed to create kube API client object: %w", err)
-	}
-
 	// get workload resource instances
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
 		r.APIClient,
@@ -249,8 +243,31 @@ func workloadInstanceUpdated(
 		return nil
 	}
 
+	// get a kube discovery client for the cluster
+	discoveryClient, err := kube.GetDiscoveryClient(clusterInstance, true)
+	if err != nil {
+		return fmt.Errorf("failed to get kube discovery client for cluster: %w", err)
+	}
+
+	// manipulate namespace on kube resources as needed
+	processedWRIs, err := kube.SetNamespaces(
+		workloadResourceInstances,
+		workloadInstance,
+		discoveryClient,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to set namespaces for workload resource instances: %w", err)
+	}
+
+
+	// create a client to connect to kube API
+	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
+	if err != nil {
+		return fmt.Errorf("failed to create kube API client object: %w", err)
+	}
+
 	// update each workload resource instance and resource in the target kube cluster
-	for _, wri := range *workloadResourceInstances {
+	for _, wri := range *processedWRIs {
 
 		// only update resource instances that have not been reconciled
 		if *wri.Reconciled {
