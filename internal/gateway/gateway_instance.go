@@ -343,14 +343,14 @@ func validateThreeportState(
 		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
 	}
 
-	// // ensure gateway controller instance is reconciled
-	// gatewayControllerInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, clusterInstance.GatewayControllerInstanceID)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
-	// }
-	// if !gatewayControllerInstanceReconciled {
-	// 	return errors.New("gateway controller instance not reconciled")
-	// }
+	// ensure gateway controller instance is reconciled
+	gatewayControllerInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, clusterInstance.GatewayControllerInstanceID)
+	if err != nil {
+		return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
+	}
+	if !gatewayControllerInstanceReconciled {
+		return errors.New("gateway controller instance not reconciled")
+	}
 
 	// // confirm requested port exposed
 	// err = confirmGatewayPortExposed(r, gatewayInstance, clusterInstance, gatewayDefinition)
@@ -414,7 +414,7 @@ func confirmWorkloadInstanceReconciled(
 	instanceID *uint,
 ) (bool, error) {
 
-	// get workloadinstanceIDinstance
+	// get workload instance id
 	if instanceID == nil {
 		return false, fmt.Errorf("failed to get workload instance from gateway instance, workload instance ID is nil")
 	}
