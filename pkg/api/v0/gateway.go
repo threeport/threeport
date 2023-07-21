@@ -10,7 +10,7 @@ type GatewayDefinition struct {
 	Definition `mapstructure:",squash"`
 
 	// TCP Port to expose to outside network.
-	TCPPort *int `json:"TCPPort,omitempty" query:"tcpport" validate:"optional"`
+	TCPPort *int `json:"TCPPort,omitempty" query:"tcpport" gorm:"not null" validate:"optional"`
 
 	// // Expose port 443 with TLS termination.
 	// HTTPSPort *bool `json:"HTTPSPort,omitempty" query:"httpsport" gorm:"default:true" validate:"optional"`
