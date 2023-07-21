@@ -12,7 +12,7 @@ func createGlooEdge() (string, error) {
 
 	var glooEdge = &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "ingress.support-services.nukleros.io/v1alpha1",
+			"apiVersion": "gateway.support-services.nukleros.io/v1alpha1",
 			"kind":       "GlooEdge",
 			"metadata": map[string]interface{}{
 				"name": "glooedge",
@@ -22,6 +22,57 @@ func createGlooEdge() (string, error) {
 	}
 
 	return unstructuredToYAMLString(glooEdge)
+}
+
+func createSupportServicesCollection() (string, error) {
+
+	var supportServicesCollection = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "orchestration.support-services.nukleros.io/v1alpha1",
+			"kind":       "SupportServices",
+			"metadata": map[string]interface{}{
+				"name": "supportservices-sample",
+			},
+			"spec": map[string]interface{}{
+				"tier":                     "development",
+				"defaultIngressController": "kong",
+			},
+		},
+	}
+
+	return unstructuredToYAMLString(supportServicesCollection)
+}
+
+func createCertManager() (string, error) {
+
+	var certManager = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "certificates.support-services.nukleros.io/v1alpha1",
+			"kind":       "CertManager",
+			"metadata": map[string]interface{}{
+				"name": "certmanager-sample",
+			},
+			"spec": map[string]interface{}{
+				"namespace": "nukleros-certs-system",
+				"cainjector": map[string]interface{}{
+					"replicas": 1,
+					"image":    "quay.io/jetstack/cert-manager-cainjector",
+				},
+				"version": "v1.9.1",
+				"controller": map[string]interface{}{
+					"replicas": 1,
+					"image":    "quay.io/jetstack/cert-manager-controller",
+				},
+				"webhook": map[string]interface{}{
+					"replicas": 1,
+					"image":    "quay.io/jetstack/cert-manager-webhook",
+				},
+				"contactEmail": "admin@nukleros.io",
+			},
+		},
+	}
+
+	return unstructuredToYAMLString(certManager)
 }
 
 func createVirtualService(gatewayDefinition *v0.GatewayDefinition) (string, error) {

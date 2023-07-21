@@ -337,11 +337,11 @@ func validateThreeportState(
 		return errors.New("workload instance not reconciled")
 	}
 
-	// // ensure gateway controller is deployed
-	// err = confirmGatewayControllerDeployed(r, gatewayInstance, clusterInstance)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to reconcile gateway controller: %w", err)
-	// }
+	// ensure gateway controller is deployed
+	err = confirmGatewayControllerDeployed(r, gatewayInstance, clusterInstance)
+	if err != nil {
+		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
+	}
 
 	// // ensure gateway controller instance is reconciled
 	// gatewayControllerInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, clusterInstance.GatewayControllerInstanceID)
@@ -481,12 +481,25 @@ func confirmGatewayControllerDeployed(
 		return fmt.Errorf("failed to create gloo edge resource: %w", err)
 	}
 
+	supportServicesCollection, err := createSupportServicesCollection()
+	if err != nil {
+		return fmt.Errorf("failed to create support services collection resource: %w", err)
+	}
+
+	certManager, err := createCertManager()
+	if err != nil {
+		return fmt.Errorf("failed to create cert manager resource: %w", err)
+	}
+
+	// concatenate gloo edge and support services collection
+	manifest := fmt.Sprintf("---\n%s\n---\n%s\n---\n%s\n", glooEdge, supportServicesCollection, certManager)
+
 	workloadDefName := "gloo-edge"
 	glooEdgeWorkloadDefinition := v0.WorkloadDefinition{
 		Definition: v0.Definition{
 			Name: &workloadDefName,
 		},
-		YAMLDocument: &glooEdge,
+		YAMLDocument: &manifest,
 	}
 
 	// create gateway controller workload definition
@@ -524,7 +537,7 @@ func confirmGatewayControllerDeployed(
 		clusterInstance,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to update gateway controller workload instance: %w", err)
+		return fmt.Errorf("failed to update cluster instance with gateway controller instance id: %w", err)
 	}
 
 	return nil

@@ -51,6 +51,7 @@ func SetNamespaces(
 	}
 	processedWRIs := []v0.WorkloadResourceInstance{*namespaceWRI}
 
+	namespacedObjectCount := 0
 	for _, wri := range *workloadResourceInstances {
 		// check to see if this is a namespaced resource
 		namespaced, err := isNamespaced(
@@ -62,8 +63,10 @@ func SetNamespaces(
 		}
 		if !namespaced {
 			// skip non-namespaced resources
+			processedWRIs = append(processedWRIs, wri)
 			continue
 		}
+		namespacedObjectCount++
 
 		// update the resource to set the namespace
 		updatedJSONDef, err := updateNamespace([]byte(*wri.JSONDefinition), managedNSName)
@@ -80,6 +83,10 @@ func SetNamespaces(
 		processedWRIs = append(processedWRIs, wri)
 	}
 
+	// only add the namespace resource if there are namespaced resources
+	if namespacedObjectCount > 0 {
+		processedWRIs = append(processedWRIs, *namespaceWRI)
+	}
 	return &processedWRIs, nil
 }
 
