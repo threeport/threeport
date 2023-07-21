@@ -666,11 +666,10 @@ func configureVirtualService(
 	if len(routes) == 0 {
 		return nil, fmt.Errorf("no routes found")
 	}
-	route := routes[0]
 
-	// set virtual service upstream field
+	// set virtual service upstream name field
 	err = unstructured.SetNestedField(
-		route.(map[string]interface{}),
+		routes[0].(map[string]interface{}),
 		fmt.Sprintf("%s-%s", namespace, name), // $namespace-$name is convention for gloo edge upstream names
 		"routeAction",
 		"single",
@@ -679,6 +678,25 @@ func configureVirtualService(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
+	}
+
+	// set virtual service upstream namespace field
+	err = unstructured.SetNestedField(
+		routes[0].(map[string]interface{}),
+		"nukleros-gateway-system",
+		"routeAction",
+		"single",
+		"upstream",
+		"namespace",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
+	}
+
+	// set route field
+	err = unstructured.SetNestedSlice(virtualService, routes, "spec", "virtualHost", "routes")
+	if err != nil {
+		return nil, fmt.Errorf("failed to set route on virtual service: %w", err)
 	}
 
 	virtualServiceBytes, err := json.Marshal(virtualService)
