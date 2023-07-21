@@ -511,7 +511,7 @@ func InstallThreeportCRDs(
 		},
 	}
 	if _, err := kube.CreateResource(externalDNSCRD, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create cert manager crd: %w", err)
+		return fmt.Errorf("failed to create external dns crd: %w", err)
 	}
 
 	var glooEdgeCRD = &unstructured.Unstructured{
@@ -713,9 +713,8 @@ func InstallThreeportCRDs(
 			},
 		},
 	}
-
 	if _, err := kube.CreateResource(glooEdgeCRD, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create cert manager crd: %w", err)
+		return fmt.Errorf("failed to create gloo edge crd: %w", err)
 	}
 
 	var supportServicesCRD = &unstructured.Unstructured{
@@ -902,7 +901,7 @@ func InstallThreeportCRDs(
 		},
 	}
 	if _, err := kube.CreateResource(supportServicesCRD, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create cert manager crd: %w", err)
+		return fmt.Errorf("failed to create support services crd: %w", err)
 	}
 
 	return nil
