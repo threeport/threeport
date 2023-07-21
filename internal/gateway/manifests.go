@@ -17,7 +17,20 @@ func createGlooEdge() (string, error) {
 			"metadata": map[string]interface{}{
 				"name": "glooedge",
 			},
-			"spec": nil,
+			"spec": map[string]interface{}{
+				"ports": []interface{}{
+					map[string]interface{}{
+						"name": "http",
+						"port": 80,
+						"ssl":  false,
+					},
+					map[string]interface{}{
+						"name": "https",
+						"port": 443,
+						"ssl":  true,
+					},
+				},
+			},
 		},
 	}
 

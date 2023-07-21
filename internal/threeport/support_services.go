@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	SupportServicesNamespace     = "support-services-system"
+	SupportServicesNamespace = "support-services-system"
 	// SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.1.12"
 	SupportServicesOperatorImage = "nukleros/support-services-operator:dev"
 	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
@@ -572,6 +572,24 @@ func InstallThreeportCRDs(
 												},
 												"type": "object",
 											},
+											"ports": map[string]interface{}{
+												"items": map[string]interface{}{
+													"properties": map[string]interface{}{
+														"name": map[string]interface{}{
+															"type": "string",
+														},
+														"port": map[string]interface{}{
+															"format": "int64",
+															"type":   "integer",
+														},
+														"ssl": map[string]interface{}{
+															"type": "boolean",
+														},
+													},
+													"type": "object",
+												},
+												"type": "array",
+											},
 										},
 										"type": "object",
 									},
@@ -695,6 +713,7 @@ func InstallThreeportCRDs(
 			},
 		},
 	}
+
 	if _, err := kube.CreateResource(glooEdgeCRD, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create cert manager crd: %w", err)
 	}
