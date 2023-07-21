@@ -96,6 +96,20 @@ dev-forward-nats:
 dev-query-crdb:
 	kubectl exec -it -n threeport-control-plane crdb-0 -- cockroach sql --host localhost --insecure --database threeport_api
 
+dev-reset-crdb:
+	kubectl exec -it -n threeport-control-plane crdb-0 -- cockroach sql --host localhost --insecure --database threeport_api \
+															--execute "TRUNCATE attached_object_references, \
+																				workload_events, \
+																				workload_definitions, \
+																				workload_resource_definitions, \
+																				workload_instances, \
+																				workload_resource_instances, \
+																				gateway_instances, \
+																				gateway_definitions; \
+																				set sql_safe_updates = false; \
+																				update cluster_instances set gateway_controller_instance_id = NULL; \
+																				set sql_safe_updates = true;"
+
 #TODO: move to kubectl exec command that uses `nats` binary in contianer
 #dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal)
 dev-sub-nats:
