@@ -18,23 +18,23 @@ func createGlooEdge() (string, error) {
 				"name": "glooedge",
 			},
 			"spec": map[string]interface{}{
-				"ports": []interface{}{
-					map[string]interface{}{
-						"name": "http",
-						"port": 80,
-						"ssl":  false,
-					},
-					map[string]interface{}{
-						"name": "https",
-						"port": 443,
-						"ssl":  true,
-					},
-				},
+				"ports": []interface{}{},
 			},
 		},
 	}
 
 	return unstructuredToYAMLString(glooEdge)
+}
+
+func createGlooEdgePort(name string, port int64, ssl bool) map[string]interface{} {
+
+	var portObject = map[string]interface{}{
+		"name": name,
+		"port": port,
+		"ssl":  ssl,
+	}
+
+	return portObject
 }
 
 func createSupportServicesCollection() (string, error) {

@@ -437,30 +437,39 @@ func confirmWorkloadInstanceReconciled(
 
 // filterObjects returns a list of
 // unstructured kubernetes objects from a list of workload resource instances.
-func filterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) ([]unstructured.Unstructured, error) {
+func filterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) (*[]v0.WorkloadResourceInstance, error) {
 
-	var objects []unstructured.Unstructured
+	var objects []v0.WorkloadResourceInstance
 	for _, wri := range *workloadResourceInstances {
-		// marshal the resource definition json
-		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
+
+		var mapDef map[string]interface{}
+		err := json.Unmarshal([]byte(*wri.JSONDefinition), &mapDef)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal json for workload resource instance: %w", err)
+			return &objects, fmt.Errorf("failed to unmarshal json: %w", err)
 		}
 
-		// build kube unstructured object from json
-		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
-		}
-
-		// search for service resource
-		manifestKind, found, err := unstructured.NestedString(kubeObject.Object, "kind")
-		if err == nil && found && manifestKind == kind {
-			objects = append(objects, *kubeObject)
+		if mapDef["kind"] == kind {
+			objects = append(objects, wri)
 		}
 	}
 
-	return objects, nil
+	return &objects, nil
+}
+
+// toUnstructured converts JSON into an unstructured yaml object
+func toUnstructured(json datatypes.JSON) (*unstructured.Unstructured, error) {
+	marshaledJson, err := json.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal json: %w", err)
+	}
+
+	// build kube unstructured object from json
+	kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
+	if err := kubeObject.UnmarshalJSON(marshaledJson); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
+	}
+
+	return kubeObject, nil
 }
 
 // confirmGatewayControllerDeployed confirms the gateway controller is deployed,
@@ -569,12 +578,24 @@ func confirmGatewayPortExposed(
 	if err != nil {
 		return fmt.Errorf("failed to get gloo edge objects from workload instance: %w", err)
 	}
-	if len(gatewayObjects) == 0 {
+	if len(*gatewayObjects) == 0 {
 		return fmt.Errorf("no gloo edge objects found")
 	}
-	gatewayObject := gatewayObjects[0]
+	// check for more than one gloo edge installation
+	if len(*gatewayObjects) > 1 {
+		return fmt.Errorf("multiple gloo edge installations found")
+	}
 
-	ports, found, err := unstructured.NestedSlice(gatewayObject.Object, "spec", "ports")
+	// unwrap gateway object
+	gatewayObject := (*gatewayObjects)[0]
+
+	// convert to unstructured object
+	gatewayObjectUnstructured, err := toUnstructured(*gatewayObject.JSONDefinition)
+	if err != nil {
+		return fmt.Errorf("failed to convert gloo edge object to unstructured object: %w", err)
+	}
+
+	ports, found, err := unstructured.NestedSlice(gatewayObjectUnstructured.Object, "spec", "ports")
 	if err != nil || !found {
 		return fmt.Errorf("failed to get tcp ports from from gloo edge custom resource: %v", err)
 	}
@@ -602,9 +623,61 @@ func confirmGatewayPortExposed(
 		}
 	}
 
-	// TODO: if port not found, update gloo edge CRD with the requested port
 	if !portFound {
-		return errors.New("gateway controller instance does not have requested port exposed")
+
+		// create a new gloo edge port object
+		glooEdgePort := createGlooEdgePort(string(*gatewayDefinition.TCPPort), int64(*gatewayDefinition.TCPPort), *gatewayDefinition.TLSEnabled)
+
+		// append the new port to the ports slice
+		ports = append(ports, glooEdgePort)
+
+		// set the ports slice on the gloo edge object
+		err = unstructured.SetNestedSlice(gatewayObjectUnstructured.Object, ports, "spec", "ports")
+		if err != nil {
+			return fmt.Errorf("failed to set ports on gloo edge custom resource: %v", err)
+		}
+
+		// unmarshal the json into the type used by API
+		jsonContent, err := json.Marshal(gatewayObjectUnstructured.Object)
+		if err != nil {
+			return fmt.Errorf("failed to marshal json: %w", err)
+		}
+		var jsonDefinition datatypes.JSON
+		if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
+			return fmt.Errorf("failed to unmarshal json to datatypes.JSON: %w", err)
+		}
+
+		// update the gloo edge workload resource object
+		gatewayObjectWorkloadResourceObjectReconciled := false
+		gatewayObject.Reconciled = &gatewayObjectWorkloadResourceObjectReconciled
+		gatewayObject.JSONDefinition = &jsonDefinition
+		_, err = client.UpdateWorkloadResourceInstance(
+			r.APIClient,
+			r.APIServer,
+			&gatewayObject,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update gloo edge workload resource instance: %w", err)
+		}
+
+		// trigger a reconciliation of the gateway controller workload instance
+		glooEdgeReconciled := false
+		updatedGatewayControllerWorkloadInstance := v0.WorkloadInstance{
+			Common: v0.Common{
+				ID: clusterInstance.GatewayControllerInstanceID,
+			},
+			Reconciled: &glooEdgeReconciled,
+		}
+		_, err = client.UpdateWorkloadInstance(
+			r.APIClient,
+			r.APIServer,
+			&updatedGatewayControllerWorkloadInstance,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update gateway controller workload instance: %w", err)
+		}
+
+		return errors.New("gateway controller instance does not have requested port exposed, updating gloo edge configuration")
 	}
 
 	return nil
@@ -633,23 +706,27 @@ func configureVirtualService(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service objects from workload instance: %w", err)
 	}
-	if len(serviceObjects) == 0 {
+	if len(*serviceObjects) == 0 {
 		return nil, fmt.Errorf("no service objects found")
 	}
-	serviceObject := serviceObjects[0]
 
-	// // TODO: handle multiple services
-	// if len(serviceObjects) > 1 {
-	// }
+	//unwrap service object
+	serviceObject := (*serviceObjects)[0]
+
+	// convert to unstructured object
+	serviceObjectUnstructured, err := toUnstructured(*serviceObject.JSONDefinition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert service object to unstructured object: %w", err)
+	}
 
 	// unmarshal service namespace
-	namespace, found, err := unstructured.NestedString(serviceObject.Object, "metadata", "namespace")
+	namespace, found, err := unstructured.NestedString(serviceObjectUnstructured.Object, "metadata", "namespace")
 	if err != nil || !found {
 		return nil, fmt.Errorf("failed to unmarshal kubernetes service object's namespace field: %w", err)
 	}
 
 	// unmarshal service name
-	name, found, err := unstructured.NestedString(serviceObject.Object, "metadata", "name")
+	name, found, err := unstructured.NestedString(serviceObjectUnstructured.Object, "metadata", "name")
 	if err != nil || !found {
 		return nil, fmt.Errorf("failed to unmarshal kubernetes service object's name field: %w", err)
 	}
