@@ -415,11 +415,25 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Equal(allResourcesGone, true, fmt.Sprintf("should have found that all resources are gone from Kubernetes after %d seconds", goneAttemptsMax*goneCheckDurationSeconds))
 
 		// delete gateway definition
-		_, err = client.DeleteGatewayDefinition(
-			apiClient,
-			apiAddr(),
-			*gatewayDefinition.ID,
-		)
+		deletedAttempts := 0
+		deletedAttemptsMax := 3
+		deletedCheckDurationSeconds := 1
+		for deletedAttempts < deletedAttemptsMax {
+			_, err = client.DeleteGatewayDefinition(
+				apiClient,
+				apiAddr(),
+				*gatewayDefinition.ID,
+			)
+
+			// workload controller may not have deleted the gateway
+			// instance yet. If so, wait and try again
+			if err != nil {
+				deletedAttempts += 1
+				time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
+				continue
+			}
+			break
+		}
 		assert.Nil(err, "should have no error deleting gateway definition")
 
 		// delete workload definition
