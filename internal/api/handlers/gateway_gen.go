@@ -213,9 +213,8 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	}
 
 	// notify controllers if reconciliation is required
-	if !*updatedGatewayDefinition.Reconciled {
-		updatedGatewayDefinition.ID = existingGatewayDefinition.ID
-		notifPayload, err := updatedGatewayDefinition.NotificationPayload(
+	if !*existingGatewayDefinition.Reconciled {
+		notifPayload, err := existingGatewayDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
 			0,
@@ -551,9 +550,8 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	}
 
 	// notify controllers if reconciliation is required
-	if !*updatedGatewayInstance.Reconciled {
-		updatedGatewayInstance.ID = existingGatewayInstance.ID
-		notifPayload, err := updatedGatewayInstance.NotificationPayload(
+	if !*existingGatewayInstance.Reconciled {
+		notifPayload, err := existingGatewayInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
 			0,

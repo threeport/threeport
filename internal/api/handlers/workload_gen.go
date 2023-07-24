@@ -213,9 +213,8 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controllers if reconciliation is required
-	if !*updatedWorkloadDefinition.Reconciled {
-		updatedWorkloadDefinition.ID = existingWorkloadDefinition.ID
-		notifPayload, err := updatedWorkloadDefinition.NotificationPayload(
+	if !*existingWorkloadDefinition.Reconciled {
+		notifPayload, err := existingWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
 			0,
@@ -848,9 +847,8 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controllers if reconciliation is required
-	if !*updatedWorkloadInstance.Reconciled {
-		updatedWorkloadInstance.ID = existingWorkloadInstance.ID
-		notifPayload, err := updatedWorkloadInstance.NotificationPayload(
+	if !*existingWorkloadInstance.Reconciled {
+		notifPayload, err := existingWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
 			0,
@@ -1462,9 +1460,8 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 	}
 
 	// notify controllers if reconciliation is required
-	if !*updatedWorkloadResourceInstance.Reconciled {
-		updatedWorkloadResourceInstance.ID = existingWorkloadResourceInstance.ID
-		notifPayload, err := updatedWorkloadResourceInstance.NotificationPayload(
+	if !*existingWorkloadResourceInstance.Reconciled {
+		notifPayload, err := existingWorkloadResourceInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
 			0,

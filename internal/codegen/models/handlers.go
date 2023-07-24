@@ -111,9 +111,8 @@ func (cc *ControllerConfig) ModelHandlers() error {
 
 			notifyControllersHandler = Comment("notify controllers if reconciliation is required")
 			notifyControllersHandler.Line()
-			notifyControllersHandler.If(Op("!*").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Block(
-				Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("ID"),
-				Id("notifPayload").Op(",").Id("err").Op(":=").Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("NotificationPayload").Call(
+			notifyControllersHandler.If(Op("!*").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("Reconciled").Block(
+				Id("notifPayload").Op(",").Id("err").Op(":=").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("NotificationPayload").Call(
 					Line().Qual(
 						"github.com/threeport/threeport/pkg/notifications/v0",
 						"NotificationOperationUpdated",

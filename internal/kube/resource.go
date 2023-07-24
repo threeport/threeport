@@ -105,8 +105,27 @@ func CreateOrUpdateResource(
 		Create(context.TODO(), kubeObject, kubemetav1.CreateOptions{})
 	if err != nil {
 
-		// If the resource already exists, update it
+		// if the resource already exists, update it
 		if errors.IsAlreadyExists(err) {
+
+			// get the existing resource
+			existingResource, err := GetResource(
+				kubeObject.GroupVersionKind().Group,
+				kubeObject.GroupVersionKind().Version,
+				kubeObject.GroupVersionKind().Kind,
+				kubeObject.GetNamespace(),
+				kubeObject.GetName(),
+				kubeClient,
+				mapper,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get existing resource: %w", err)
+			}
+
+			// set the resource version
+			kubeObject.SetResourceVersion(existingResource.GetResourceVersion())
+
+			// update the resource
 			result, err := kubeClient.
 				Resource(mapping.Resource).
 				Namespace(kubeObject.GetNamespace()).

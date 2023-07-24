@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -626,7 +627,9 @@ func confirmGatewayPortExposed(
 	if !portFound {
 
 		// create a new gloo edge port object
-		glooEdgePort := createGlooEdgePort(string(*gatewayDefinition.TCPPort), int64(*gatewayDefinition.TCPPort), *gatewayDefinition.TLSEnabled)
+		portNumber := int64(*gatewayDefinition.TCPPort)
+		portString := strconv.Itoa(int(*gatewayDefinition.TCPPort))
+		glooEdgePort := createGlooEdgePort(portString, portNumber, *gatewayDefinition.TLSEnabled)
 
 		// append the new port to the ports slice
 		ports = append(ports, glooEdgePort)
