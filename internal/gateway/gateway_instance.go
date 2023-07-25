@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -515,14 +514,9 @@ func confirmGatewayPortExposed(
 		return fmt.Errorf("failed to set ports on gloo edge custom resource: %v", err)
 	}
 
-	// unmarshal the json into the type used by API
-	jsonContent, err := json.Marshal(gateway)
+	jsonDefinition, err := util.MarshalJSON(gateway)
 	if err != nil {
 		return fmt.Errorf("failed to marshal json: %w", err)
-	}
-	var jsonDefinition datatypes.JSON
-	if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
-		return fmt.Errorf("failed to unmarshal json to datatypes.JSON: %w", err)
 	}
 
 	// update the gloo edge workload resource object

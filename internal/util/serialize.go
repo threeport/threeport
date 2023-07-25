@@ -11,11 +11,19 @@ import (
 
 // MarshalJSON marshals a map[string]interface{} into a datatypes.JSON object
 func MarshalJSON(mapDef map[string]interface{}) (datatypes.JSON, error) {
+
 	jsonDef, err := json.Marshal(mapDef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal json: %w", err)
 	}
-	return datatypes.JSON(jsonDef), nil
+
+	var jsonDatatype datatypes.JSON
+	err = jsonDatatype.UnmarshalJSON(jsonDef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
+	}
+
+	return jsonDatatype, nil
 }
 
 // UnmarshalJSON unmarshals a datatypes.JSON object into a map[string]interface{}
