@@ -11,8 +11,8 @@ import (
 	"github.com/go-logr/logr"
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/yaml"
 
+	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -39,7 +39,7 @@ func gatewayInstanceCreated(
 	}
 
 	// configure virtual service
-	jsonManifest, err := configureVirtualService(r, gatewayDefinition, workloadInstance)
+	jsonManifest, err := configureVirtualService(r, gatewayDefinition, workloadInstance, clusterInstance)
 	if err != nil {
 		return fmt.Errorf("failed to configure virtual service: %w", err)
 	}
@@ -116,7 +116,7 @@ func gatewayInstanceUpdated(
 	}
 
 	// configure virtual service
-	jsonManifest, err := configureVirtualService(r, gatewayDefinition, workloadInstance)
+	jsonManifest, err := configureVirtualService(r, gatewayDefinition, workloadInstance, clusterInstance)
 	if err != nil {
 		return fmt.Errorf("failed to configure virtual service: %w", err)
 	}
@@ -387,26 +387,6 @@ func filterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kin
 	return &objects, nil
 }
 
-// UnmarshalJSON unmarshals a datatypes.JSON object into a map[string]interface{}
-func UnmarshalJSON(marshaledJson datatypes.JSON) (map[string]interface{}, error) {
-	var mapDef map[string]interface{}
-	err := json.Unmarshal([]byte(marshaledJson), &mapDef)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
-	}
-	return mapDef, nil
-}
-
-// UnmarshalYAML unmarshals a YAML string into a map[string]interface{}
-func UnmarshalYAML(marshaledYaml string) (map[string]interface{}, error) {
-	var mapDef map[string]interface{}
-	err := yaml.Unmarshal([]byte(marshaledYaml), &mapDef)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing YAML: %v", err)
-	}
-	return mapDef, nil
-}
-
 // confirmGatewayControllerDeployed confirms the gateway controller is deployed,
 // and if not, deploys it.
 func confirmGatewayControllerDeployed(
@@ -505,7 +485,7 @@ func confirmGatewayPortExposed(
 	gatewayObject := (*gatewayObjects)[0]
 
 	// convert to unstructured object
-	gatewayUnmarshaled, err := UnmarshalJSON(*gatewayObject.JSONDefinition)
+	gatewayUnmarshaled, err := util.UnmarshalJSON(*gatewayObject.JSONDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to convert gloo edge object to unstructured object: %w", err)
 	}
@@ -519,7 +499,7 @@ func confirmGatewayPortExposed(
 	var portFound = false
 	for _, portSpec := range ports {
 		spec := portSpec.(map[string]interface{})
-		portNumber, portNumberFound, err := unstructured.NestedInt64(spec, "port")
+		portNumber, portNumberFound, err := unstructured.NestedFloat64(spec, "port")
 		if err != nil {
 			return fmt.Errorf("failed to get port from from gloo edge custom resource: %v", err)
 		}
@@ -599,6 +579,7 @@ func configureVirtualService(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
+	clusterInstance *v0.ClusterInstance,
 ) (*datatypes.JSON, error) {
 
 	// get workload resource instances
@@ -617,7 +598,7 @@ func configureVirtualService(
 	}
 
 	// unmarshal service object
-	service, err := UnmarshalJSON(*((*serviceObjects)[0]).JSONDefinition)
+	service, err := util.UnmarshalJSON(*((*serviceObjects)[0]).JSONDefinition)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal service object: %w", err)
 	}
@@ -641,7 +622,7 @@ func configureVirtualService(
 	}
 
 	// unmarshal YAML document into map
-	virtualService, err := UnmarshalYAML(*gatewayWorkloadDefinition.YAMLDocument)
+	virtualService, err := util.UnmarshalYAML(*gatewayWorkloadDefinition.YAMLDocument)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal YAML: %v", err)
 	}
@@ -668,24 +649,14 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
 	}
 
-	gatewayWorkloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(r.APIClient, r.APIServer, *gatewayWorkloadDefinition.ID)
+	// unmarshal gloo edge custom resource
+	glooEdge, err := UnmarshalWorkloadResourceInstance(r, *clusterInstance.GatewayControllerInstanceID, "GlooEdge")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gateway workload resource definitions: %w", err)
-	}
-	if len(*gatewayWorkloadResourceDefinitions) == 0 {
-		return nil, fmt.Errorf("no gateway workload resource definitions found")
-	}
-	if len(*gatewayWorkloadResourceDefinitions) > 1 {
-		return nil, fmt.Errorf("multiple gateway workload resource definitions found")
+		return nil, fmt.Errorf("failed to unmarshal gateway workload resource instance: %w", err)
 	}
 
-	// unwrap gateway workload resource definition
-	gatewayWorkloadResourceDefinition, err := UnmarshalJSON(*(*gatewayWorkloadResourceDefinitions)[0].JSONDefinition)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal gateway workload resource definition: %w", err)
-	}
-
-	gatewayNamespace, found, err := unstructured.NestedString(gatewayWorkloadResourceDefinition, "spec", "namespace")
+	// get gateway namespace
+	glooEdgeNamespace, found, err := unstructured.NestedString(glooEdge, "spec", "namespace")
 	if err != nil || !found {
 		return nil, fmt.Errorf("failed to get namespace from gateway workload resource definition: %w", err)
 	}
@@ -693,7 +664,7 @@ func configureVirtualService(
 	// set virtual service upstream namespace field
 	err = unstructured.SetNestedField(
 		routes[0].(map[string]interface{}),
-		gatewayNamespace,
+		glooEdgeNamespace,
 		"routeAction",
 		"single",
 		"upstream",
@@ -718,4 +689,34 @@ func configureVirtualService(
 
 	return &virtualServiceJSON, nil
 
+}
+
+
+func UnmarshalWorkloadResourceInstance(r *controller.Reconciler, workloadInstanceID uint, kind string) (map[string]interface{}, error) {
+
+	// get workload resource instances
+	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, workloadInstanceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workload resource instances: %w", err)
+	}
+
+	// filter out service objects
+	filteredObjects, err := filterObjects(workloadResourceInstances, kind)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service objects from workload instance: %w", err)
+	}
+	if len(*filteredObjects) == 0 {
+		return nil, fmt.Errorf("no service objects found")
+	}
+	if len(*filteredObjects) > 1 {
+		return nil, fmt.Errorf("multiple service objects found")
+	}
+
+	// unmarshal service object
+	service, err := util.UnmarshalJSON(*((*filteredObjects)[0]).JSONDefinition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal service object: %w", err)
+	}
+
+	return service, nil
 }
