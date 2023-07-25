@@ -30,6 +30,8 @@ func UnmarshalYAML(marshaledYaml string) (map[string]interface{}, error) {
 	return mapDef, nil
 }
 
+// UnmarshalWorkloadResourceInstance unmarshals a workload resource instance given
+// a kind to filter on.
 func UnmarshalWorkloadResourceInstance(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) (map[string]interface{}, error) {
 
 	// filter out service objects
