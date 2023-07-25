@@ -636,8 +636,14 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
 	}
 
+	// get gloo edge workload resource instance
+	glooEdgeWorkloadResourceInstance, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *clusterInstance.GatewayControllerInstanceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gloo edge workload resource instance: %w", err)
+	}
+
 	// unmarshal gloo edge custom resource
-	glooEdge, err := util.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
+	glooEdge, err := util.UnmarshalWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
 	}

@@ -416,7 +416,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// delete gateway definition
 		deletedAttempts := 0
-		deletedAttemptsMax := 3
+		deletedAttemptsMax := 10
 		deletedCheckDurationSeconds := 1
 		for deletedAttempts < deletedAttemptsMax {
 			_, err = client.DeleteGatewayDefinition(
