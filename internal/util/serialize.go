@@ -9,6 +9,15 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// MarshalJSON marshals a map[string]interface{} into a datatypes.JSON object
+func MarshalJSON(mapDef map[string]interface{}) (datatypes.JSON, error) {
+	jsonDef, err := json.Marshal(mapDef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal json: %w", err)
+	}
+	return datatypes.JSON(jsonDef), nil
+}
+
 // UnmarshalJSON unmarshals a datatypes.JSON object into a map[string]interface{}
 func UnmarshalJSON(marshaledJson datatypes.JSON) (map[string]interface{}, error) {
 	var mapDef map[string]interface{}

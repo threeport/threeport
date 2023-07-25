@@ -673,13 +673,11 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to set route on virtual service: %w", err)
 	}
 
-	virtualServiceBytes, err := json.Marshal(virtualService)
+	virtualServiceMarshaled, err := util.MarshalJSON(virtualService)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal json to datatypes.JSON: %w", err)
+		return nil, fmt.Errorf("failed to marshal virtual service: %w", err)
 	}
 
-	virtualServiceJSON := datatypes.JSON(virtualServiceBytes)
-
-	return &virtualServiceJSON, nil
+	return &virtualServiceMarshaled, nil
 
 }
