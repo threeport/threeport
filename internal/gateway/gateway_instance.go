@@ -584,7 +584,7 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
-	// unmarshal gloo edge custom resource
+	// unmarshal service
 	service, err := util.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "Service")
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
