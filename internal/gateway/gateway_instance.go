@@ -387,20 +387,24 @@ func filterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kin
 	return &objects, nil
 }
 
-// toUnstructured converts JSON into an unstructured yaml object
-func toUnstructured(json datatypes.JSON) (*unstructured.Unstructured, error) {
-	marshaledJson, err := json.MarshalJSON()
+// UnmarshalJSON unmarshals a datatypes.JSON object into a map[string]interface{}
+func UnmarshalJSON(marshaledJson datatypes.JSON) (map[string]interface{}, error) {
+	var mapDef map[string]interface{}
+	err := json.Unmarshal([]byte(marshaledJson), &mapDef)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal json: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
 	}
+	return mapDef, nil
+}
 
-	// build kube unstructured object from json
-	kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-	if err := kubeObject.UnmarshalJSON(marshaledJson); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
+// UnmarshalYAML unmarshals a YAML string into a map[string]interface{}
+func UnmarshalYAML(marshaledYaml string) (map[string]interface{}, error) {
+	var mapDef map[string]interface{}
+	err := yaml.Unmarshal([]byte(marshaledYaml), &mapDef)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing YAML: %v", err)
 	}
-
-	return kubeObject, nil
+	return mapDef, nil
 }
 
 // confirmGatewayControllerDeployed confirms the gateway controller is deployed,
@@ -501,12 +505,12 @@ func confirmGatewayPortExposed(
 	gatewayObject := (*gatewayObjects)[0]
 
 	// convert to unstructured object
-	gatewayObjectUnstructured, err := toUnstructured(*gatewayObject.JSONDefinition)
+	gatewayUnmarshaled, err := UnmarshalJSON(*gatewayObject.JSONDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to convert gloo edge object to unstructured object: %w", err)
 	}
 
-	ports, found, err := unstructured.NestedSlice(gatewayObjectUnstructured.Object, "spec", "ports")
+	ports, found, err := unstructured.NestedSlice(gatewayUnmarshaled, "spec", "ports")
 	if err != nil || !found {
 		return fmt.Errorf("failed to get tcp ports from from gloo edge custom resource: %v", err)
 	}
@@ -550,13 +554,13 @@ func confirmGatewayPortExposed(
 	ports = append(ports, glooEdgePort)
 
 	// set the ports slice on the gloo edge object
-	err = unstructured.SetNestedSlice(gatewayObjectUnstructured.Object, ports, "spec", "ports")
+	err = unstructured.SetNestedSlice(gatewayUnmarshaled, ports, "spec", "ports")
 	if err != nil {
 		return fmt.Errorf("failed to set ports on gloo edge custom resource: %v", err)
 	}
 
 	// unmarshal the json into the type used by API
-	jsonContent, err := json.Marshal(gatewayObjectUnstructured.Object)
+	jsonContent, err := json.Marshal(gatewayUnmarshaled)
 	if err != nil {
 		return fmt.Errorf("failed to marshal json: %w", err)
 	}
@@ -612,23 +616,20 @@ func configureVirtualService(
 		return nil, fmt.Errorf("no service objects found")
 	}
 
-	//unwrap service object
-	serviceObject := (*serviceObjects)[0]
-
-	// convert to unstructured object
-	serviceObjectUnstructured, err := toUnstructured(*serviceObject.JSONDefinition)
+	// unmarshal service object
+	service, err := UnmarshalJSON(*((*serviceObjects)[0]).JSONDefinition)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert service object to unstructured object: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal service object: %w", err)
 	}
 
 	// unmarshal service namespace
-	namespace, found, err := unstructured.NestedString(serviceObjectUnstructured.Object, "metadata", "namespace")
+	namespace, found, err := unstructured.NestedString(service, "metadata", "namespace")
 	if err != nil || !found {
 		return nil, fmt.Errorf("failed to unmarshal kubernetes service object's namespace field: %w", err)
 	}
 
 	// unmarshal service name
-	name, found, err := unstructured.NestedString(serviceObjectUnstructured.Object, "metadata", "name")
+	name, found, err := unstructured.NestedString(service, "metadata", "name")
 	if err != nil || !found {
 		return nil, fmt.Errorf("failed to unmarshal kubernetes service object's name field: %w", err)
 	}
@@ -640,10 +641,9 @@ func configureVirtualService(
 	}
 
 	// unmarshal YAML document into map
-	var virtualService map[string]interface{}
-	err = yaml.Unmarshal([]byte(*gatewayWorkloadDefinition.YAMLDocument), &virtualService)
+	virtualService, err := UnmarshalYAML(*gatewayWorkloadDefinition.YAMLDocument)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing YAML: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal YAML: %v", err)
 	}
 
 	// get route array object
@@ -680,15 +680,12 @@ func configureVirtualService(
 	}
 
 	// unwrap gateway workload resource definition
-	gatewayWorkloadResourceDefinition := (*gatewayWorkloadResourceDefinitions)[0]
-
-	// convert to unstructured object
-	gatewayWorkloadResourceDefinitionUnstructured, err := toUnstructured(*gatewayWorkloadResourceDefinition.JSONDefinition)
+	gatewayWorkloadResourceDefinition, err := UnmarshalJSON(*(*gatewayWorkloadResourceDefinitions)[0].JSONDefinition)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert gateway workload resource definition to unstructured object: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal gateway workload resource definition: %w", err)
 	}
 
-	gatewayNamespace, found, err := unstructured.NestedString(gatewayWorkloadResourceDefinitionUnstructured.Object, "spec", "namespace")
+	gatewayNamespace, found, err := unstructured.NestedString(gatewayWorkloadResourceDefinition, "spec", "namespace")
 	if err != nil || !found {
 		return nil, fmt.Errorf("failed to get namespace from gateway workload resource definition: %w", err)
 	}
