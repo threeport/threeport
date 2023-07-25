@@ -457,7 +457,7 @@ func confirmGatewayPortExposed(
 	}
 
 	// unmarshal gloo edge custom resource
-	gateway, err := util.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
+	gateway, err := util.UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
 	}
@@ -526,25 +526,14 @@ func confirmGatewayPortExposed(
 	}
 
 	// update the gloo edge workload resource object
-
-	filteredObjects, err := util.FilterObjects(workloadResourceInstances, "GlooEdge")
+	glooEdgeObject, err := util.GetUniqueWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
 	if err != nil {
-		return fmt.Errorf("failed to filter gloo edge objects from workload instance: %w", err)
+		return fmt.Errorf("failed to get gloo edge workload resource instance: %w", err)
 	}
-	if len(*filteredObjects) == 0 {
-		return fmt.Errorf("no gloo edge objects found")
-	}
-	if len(*filteredObjects) > 1 {
-		return fmt.Errorf("multiple gloo edge objects found")
-	}
-
-	// unwrap gateay object
-	gatewayObject := (*filteredObjects)[0]
-
 	gatewayObjectWorkloadResourceObjectReconciled := false
-	gatewayObject.Reconciled = &gatewayObjectWorkloadResourceObjectReconciled
-	gatewayObject.JSONDefinition = &jsonDefinition
-	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, &gatewayObject)
+	glooEdgeObject.Reconciled = &gatewayObjectWorkloadResourceObjectReconciled
+	glooEdgeObject.JSONDefinition = &jsonDefinition
+	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, glooEdgeObject)
 	if err != nil {
 		return fmt.Errorf("failed to update gloo edge workload resource instance: %w", err)
 	}
@@ -585,7 +574,7 @@ func configureVirtualService(
 	}
 
 	// unmarshal service
-	service, err := util.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "Service")
+	service, err := util.UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances, "Service")
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
 	}
@@ -643,7 +632,7 @@ func configureVirtualService(
 	}
 
 	// unmarshal gloo edge custom resource
-	glooEdge, err := util.UnmarshalWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
+	glooEdge, err := util.UnmarshalUniqueWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
 	}

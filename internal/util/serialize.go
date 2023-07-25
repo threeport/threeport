@@ -39,34 +39,27 @@ func UnmarshalYAML(marshaledYaml string) (map[string]interface{}, error) {
 	return mapDef, nil
 }
 
-// UnmarshalWorkloadResourceInstance unmarshals a workload resource instance given
-// a kind to filter on.
-func UnmarshalWorkloadResourceInstance(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) (map[string]interface{}, error) {
+// UnmarshalUniqueWorkloadResourceInstance gets a unique workload resource instance
+// and unmarshals it.
+func UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) (map[string]interface{}, error) {
 
 	// filter out service objects
-	filteredObjects, err := FilterObjects(workloadResourceInstances, kind)
+	workloadResourceInstance, err := GetUniqueWorkloadResourceInstance(workloadResourceInstances, kind)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get service objects from workload instance: %w", err)
-	}
-	if len(*filteredObjects) == 0 {
-		return nil, fmt.Errorf("no service objects found")
-	}
-	if len(*filteredObjects) > 1 {
-		return nil, fmt.Errorf("multiple service objects found")
+		return nil, fmt.Errorf("failed to get workload resource instances from workload instance: %w", err)
 	}
 
 	// unmarshal service object
-	service, err := UnmarshalJSON(*((*filteredObjects)[0]).JSONDefinition)
+	service, err := UnmarshalJSON(*workloadResourceInstance.JSONDefinition)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal service object: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal workload resource instance object: %w", err)
 	}
 
 	return service, nil
 }
 
-// filterObjects returns a list of
-// unstructured kubernetes objects from a list of workload resource instances.
-func FilterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) (*[]v0.WorkloadResourceInstance, error) {
+// GetUniqueWorkloadResourceInstnace gets a unique workload resource instance.
+func GetUniqueWorkloadResourceInstance(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) (*v0.WorkloadResourceInstance, error) {
 
 	var objects []v0.WorkloadResourceInstance
 	for _, wri := range *workloadResourceInstances {
@@ -74,7 +67,7 @@ func FilterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kin
 		var mapDef map[string]interface{}
 		err := json.Unmarshal([]byte(*wri.JSONDefinition), &mapDef)
 		if err != nil {
-			return &objects, fmt.Errorf("failed to unmarshal json: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal json: %w", err)
 		}
 
 		if mapDef["kind"] == kind {
@@ -82,6 +75,13 @@ func FilterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kin
 		}
 	}
 
-	return &objects, nil
-}
+	if len(objects) == 0 {
+		return nil, fmt.Errorf("workload resource instance not found")
+	}
+	if len(objects) > 1 {
+		return nil, fmt.Errorf("multiple workload resource instances found")
+	}
 
+	return &objects[0], nil
+
+}
