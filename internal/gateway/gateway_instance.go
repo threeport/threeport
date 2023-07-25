@@ -33,7 +33,7 @@ func gatewayInstanceCreated(
 	}
 
 	// validate threeport state before deploying virtual service
-	err = validateThreeportState(r, gatewayDefinition, gatewayInstance, workloadInstance, clusterInstance)
+	err = validateThreeportState(r, gatewayDefinition, gatewayInstance, workloadInstance, clusterInstance, log)
 	if err != nil {
 		return fmt.Errorf("failed to validate threeport state: %w", err)
 	}
@@ -110,7 +110,7 @@ func gatewayInstanceUpdated(
 	}
 
 	// validate threeport state before deploying virtual service
-	err = validateThreeportState(r, gatewayDefinition, gatewayInstance, workloadInstance, clusterInstance)
+	err = validateThreeportState(r, gatewayDefinition, gatewayInstance, workloadInstance, clusterInstance, log)
 	if err != nil {
 		return fmt.Errorf("failed to validate threeport state: %w", err)
 	}
@@ -260,6 +260,7 @@ func validateThreeportState(
 	gatewayInstance *v0.GatewayInstance,
 	workloadInstance *v0.WorkloadInstance,
 	clusterInstance *v0.ClusterInstance,
+	log *logr.Logger,
 ) error {
 
 	// ensure gateway and workload definition are reconciled
@@ -281,7 +282,7 @@ func validateThreeportState(
 	}
 
 	// ensure gateway controller is deployed
-	err = confirmGatewayControllerDeployed(r, gatewayInstance, clusterInstance)
+	err = confirmGatewayControllerDeployed(r, gatewayInstance, clusterInstance, log)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
 	}
@@ -296,7 +297,7 @@ func validateThreeportState(
 	}
 
 	// confirm requested port exposed
-	err = confirmGatewayPortExposed(r, gatewayInstance, clusterInstance, gatewayDefinition)
+	err = confirmGatewayPortExposed(r, gatewayInstance, clusterInstance, gatewayDefinition, log)
 	if err != nil {
 		return fmt.Errorf("failed to confirm requested port is exposed: %w", err)
 	}
@@ -372,6 +373,7 @@ func confirmGatewayControllerDeployed(
 	r *controller.Reconciler,
 	gatewayInstance *v0.GatewayInstance,
 	clusterInstance *v0.ClusterInstance,
+	log *logr.Logger,
 ) error {
 
 	// return if cluster instance already has a gateway controller instance
@@ -427,6 +429,11 @@ func confirmGatewayControllerDeployed(
 		return fmt.Errorf("failed to update cluster instance with gateway controller instance id: %w", err)
 	}
 
+	log.V(1).Info(
+		"gloo edge deployed",
+		"workloadInstanceID", glooEdgeWorkloadInstance.ID,
+	)
+
 	return nil
 }
 
@@ -437,6 +444,7 @@ func confirmGatewayPortExposed(
 	gatewayInstance *v0.GatewayInstance,
 	clusterInstance *v0.ClusterInstance,
 	gatewayDefinition *v0.GatewayDefinition,
+	log *logr.Logger,
 ) error {
 
 	// get gateway controller workload resource instances
@@ -484,6 +492,10 @@ func confirmGatewayPortExposed(
 
 	// return if port is found
 	if portFound {
+		log.V(1).Info(
+			"port already exposed",
+			"port", string(*gatewayDefinition.TCPPort),
+		)
 		return nil
 	}
 
@@ -548,7 +560,12 @@ func confirmGatewayPortExposed(
 		return fmt.Errorf("failed to update gateway controller workload instance: %w", err)
 	}
 
-	return errors.New("gateway controller instance does not have requested port exposed, updating gloo edge configuration")
+	log.V(1).Info(
+		"updated gateway controller instance to expose requested port",
+		"port", string(*gatewayDefinition.TCPPort),
+	)
+
+	return nil
 
 }
 
