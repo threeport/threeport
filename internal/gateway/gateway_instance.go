@@ -272,7 +272,10 @@ func validateThreeportState(
 	}
 
 	// ensure workload instance is reconciled
-	workloadInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, gatewayInstance.WorkloadInstanceID)
+	if gatewayInstance.WorkloadInstanceID == nil {
+		return fmt.Errorf("failed to determine if workload instance is reconciled, workload instance ID is nil")
+	}
+	workloadInstanceReconciled, err := client.ConfirmWorkloadInstanceReconciled(r, *gatewayInstance.WorkloadInstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to determine if workload instance is reconciled: %w", err)
 	}
@@ -287,7 +290,10 @@ func validateThreeportState(
 	}
 
 	// ensure gateway controller instance is reconciled
-	gatewayControllerInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, clusterInstance.GatewayControllerInstanceID)
+	if clusterInstance.GatewayControllerInstanceID == nil {
+		return fmt.Errorf("failed to determine if gateway controller instance is reconciled, gateway controller instance ID is nil")
+	}
+	gatewayControllerInstanceReconciled, err := client.ConfirmWorkloadInstanceReconciled(r, *clusterInstance.GatewayControllerInstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
 	}
@@ -336,30 +342,6 @@ func confirmDefinitionsReconciled(
 
 	// if the workload definition is not reconciled, return false
 	if workloadDefinition.Reconciled != nil && !*workloadDefinition.Reconciled {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-// confirmWorkloadInstanceReconciled confirms the workload instance related to a
-// gateway instance is reconciled.
-func confirmWorkloadInstanceReconciled(
-	r *controller.Reconciler,
-	instanceID *uint,
-) (bool, error) {
-
-	// get workload instance id
-	if instanceID == nil {
-		return false, fmt.Errorf("failed to get workload instance from gateway instance, workload instance ID is nil")
-	}
-	workloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *instanceID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get workload instance by workload instance ID: %w", err)
-	}
-
-	// if the workload instance is not reconciled, return false
-	if workloadInstance.Reconciled != nil && !*workloadInstance.Reconciled {
 		return false, nil
 	}
 
@@ -461,6 +443,7 @@ func confirmGatewayPortExposed(
 		return fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
 	}
 
+	// get ports from gloo edge custom resource
 	ports, found, err := unstructured.NestedSlice(gateway, "spec", "ports")
 	if err != nil || !found {
 		return fmt.Errorf("failed to get tcp ports from from gloo edge custom resource: %v", err)
@@ -493,7 +476,7 @@ func confirmGatewayPortExposed(
 	if portFound {
 		log.V(1).Info(
 			"port already exposed",
-			"port", string(*gatewayDefinition.TCPPort),
+			"port", fmt.Sprintf("%d", *gatewayDefinition.TCPPort),
 		)
 		return nil
 	}
@@ -545,7 +528,7 @@ func confirmGatewayPortExposed(
 
 	log.V(1).Info(
 		"updated gateway controller instance to expose requested port",
-		"port", string(*gatewayDefinition.TCPPort),
+		"port", fmt.Sprintf("%d", *gatewayDefinition.TCPPort),
 	)
 
 	return nil
