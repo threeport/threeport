@@ -362,24 +362,28 @@ func confirmGatewayControllerDeployed(
 		return nil
 	}
 
+	// generate gloo edge manifest
 	glooEdge, err := createGlooEdge()
 	if err != nil {
 		return fmt.Errorf("failed to create gloo edge resource: %w", err)
 	}
 
+	// generate support services collection manifest
 	supportServicesCollection, err := createSupportServicesCollection()
 	if err != nil {
 		return fmt.Errorf("failed to create support services collection resource: %w", err)
 	}
 
+	// generate cert manager manifest
 	certManager, err := createCertManager()
 	if err != nil {
 		return fmt.Errorf("failed to create cert manager resource: %w", err)
 	}
 
-	// concatenate gloo edge and support services collection
+	// concatenate gloo edge, support services collection, and cert manager manifests
 	manifest := fmt.Sprintf("---\n%s\n---\n%s\n---\n%s\n", glooEdge, supportServicesCollection, certManager)
 
+	// create gateway controller workload definition
 	workloadDefName := "gloo-edge"
 	glooEdgeWorkloadDefinition := v0.WorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
