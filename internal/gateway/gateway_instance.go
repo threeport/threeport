@@ -366,27 +366,6 @@ func confirmWorkloadInstanceReconciled(
 	return true, nil
 }
 
-// filterObjects returns a list of
-// unstructured kubernetes objects from a list of workload resource instances.
-func filterObjects(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind string) (*[]v0.WorkloadResourceInstance, error) {
-
-	var objects []v0.WorkloadResourceInstance
-	for _, wri := range *workloadResourceInstances {
-
-		var mapDef map[string]interface{}
-		err := json.Unmarshal([]byte(*wri.JSONDefinition), &mapDef)
-		if err != nil {
-			return &objects, fmt.Errorf("failed to unmarshal json: %w", err)
-		}
-
-		if mapDef["kind"] == kind {
-			objects = append(objects, wri)
-		}
-	}
-
-	return &objects, nil
-}
-
 // confirmGatewayControllerDeployed confirms the gateway controller is deployed,
 // and if not, deploys it.
 func confirmGatewayControllerDeployed(
@@ -469,28 +448,13 @@ func confirmGatewayPortExposed(
 		return fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
-	// get gloo edge objects
-	gatewayObjects, err := filterObjects(workloadResourceInstances, "GlooEdge")
+	// unmarshal gloo edge custom resource
+	gateway, err := util.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
 	if err != nil {
-		return fmt.Errorf("failed to get gloo edge objects from workload instance: %w", err)
-	}
-	if len(*gatewayObjects) == 0 {
-		return fmt.Errorf("no gloo edge objects found")
-	}
-	if len(*gatewayObjects) > 1 {
-		return fmt.Errorf("multiple gloo edge installations found")
+		return fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
 	}
 
-	// unwrap gateway object
-	gatewayObject := (*gatewayObjects)[0]
-
-	// convert to unstructured object
-	gatewayUnmarshaled, err := util.UnmarshalJSON(*gatewayObject.JSONDefinition)
-	if err != nil {
-		return fmt.Errorf("failed to convert gloo edge object to unstructured object: %w", err)
-	}
-
-	ports, found, err := unstructured.NestedSlice(gatewayUnmarshaled, "spec", "ports")
+	ports, found, err := unstructured.NestedSlice(gateway, "spec", "ports")
 	if err != nil || !found {
 		return fmt.Errorf("failed to get tcp ports from from gloo edge custom resource: %v", err)
 	}
@@ -534,13 +498,13 @@ func confirmGatewayPortExposed(
 	ports = append(ports, glooEdgePort)
 
 	// set the ports slice on the gloo edge object
-	err = unstructured.SetNestedSlice(gatewayUnmarshaled, ports, "spec", "ports")
+	err = unstructured.SetNestedSlice(gateway, ports, "spec", "ports")
 	if err != nil {
 		return fmt.Errorf("failed to set ports on gloo edge custom resource: %v", err)
 	}
 
 	// unmarshal the json into the type used by API
-	jsonContent, err := json.Marshal(gatewayUnmarshaled)
+	jsonContent, err := json.Marshal(gateway)
 	if err != nil {
 		return fmt.Errorf("failed to marshal json: %w", err)
 	}
@@ -550,6 +514,21 @@ func confirmGatewayPortExposed(
 	}
 
 	// update the gloo edge workload resource object
+
+	filteredObjects, err := util.FilterObjects(workloadResourceInstances, "GlooEdge")
+	if err != nil {
+		return fmt.Errorf("failed to filter gloo edge objects from workload instance: %w", err)
+	}
+	if len(*filteredObjects) == 0 {
+		return fmt.Errorf("no gloo edge objects found")
+	}
+	if len(*filteredObjects) > 1 {
+		return fmt.Errorf("multiple gloo edge objects found")
+	}
+
+	// unwrap gateay object
+	gatewayObject := (*filteredObjects)[0]
+
 	gatewayObjectWorkloadResourceObjectReconciled := false
 	gatewayObject.Reconciled = &gatewayObjectWorkloadResourceObjectReconciled
 	gatewayObject.JSONDefinition = &jsonDefinition
@@ -588,19 +567,10 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
-	// filter out service objects
-	serviceObjects, err := filterObjects(workloadResourceInstances, "Service")
+	// unmarshal gloo edge custom resource
+	service, err := util.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "Service")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get service objects from workload instance: %w", err)
-	}
-	if len(*serviceObjects) == 0 {
-		return nil, fmt.Errorf("no service objects found")
-	}
-
-	// unmarshal service object
-	service, err := util.UnmarshalJSON(*((*serviceObjects)[0]).JSONDefinition)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal service object: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
 	}
 
 	// unmarshal service namespace
@@ -650,9 +620,9 @@ func configureVirtualService(
 	}
 
 	// unmarshal gloo edge custom resource
-	glooEdge, err := UnmarshalWorkloadResourceInstance(r, *clusterInstance.GatewayControllerInstanceID, "GlooEdge")
+	glooEdge, err := util.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal gateway workload resource instance: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
 	}
 
 	// get gateway namespace
@@ -689,34 +659,4 @@ func configureVirtualService(
 
 	return &virtualServiceJSON, nil
 
-}
-
-
-func UnmarshalWorkloadResourceInstance(r *controller.Reconciler, workloadInstanceID uint, kind string) (map[string]interface{}, error) {
-
-	// get workload resource instances
-	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, workloadInstanceID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workload resource instances: %w", err)
-	}
-
-	// filter out service objects
-	filteredObjects, err := filterObjects(workloadResourceInstances, kind)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get service objects from workload instance: %w", err)
-	}
-	if len(*filteredObjects) == 0 {
-		return nil, fmt.Errorf("no service objects found")
-	}
-	if len(*filteredObjects) > 1 {
-		return nil, fmt.Errorf("multiple service objects found")
-	}
-
-	// unmarshal service object
-	service, err := util.UnmarshalJSON(*((*filteredObjects)[0]).JSONDefinition)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal service object: %w", err)
-	}
-
-	return service, nil
 }
