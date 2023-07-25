@@ -53,11 +53,7 @@ func gatewayInstanceCreated(
 	}
 
 	// create the new workload resource instance
-	createdWorkloadResourceInstance, err := client.CreateWorkloadResourceInstance(
-		r.APIClient,
-		r.APIServer,
-		workloadResourceInstance,
-	)
+	createdWorkloadResourceInstance, err := client.CreateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
 	if err != nil {
 		return fmt.Errorf("failed to create workload resource instance: %w", err)
 	}
@@ -65,26 +61,19 @@ func gatewayInstanceCreated(
 	// trigger a reconciliation of the workload instance
 	workloadInstanceReconciled := false
 	workloadInstance.Reconciled = &workloadInstanceReconciled
-	_, err = client.UpdateWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		workloadInstance,
-	)
+	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update workload instance: %w", err)
 	}
 
+	// create attached object reference
 	gatewayInstanceType := reflect.TypeOf(*gatewayInstance).String()
 	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
 		Type:               &gatewayInstanceType,
 		ObjectID:           gatewayInstance.ID,
 		WorkloadInstanceID: workloadInstance.ID,
 	}
-	_, err = client.CreateAttachedObjectReference(
-		r.APIClient,
-		r.APIServer,
-		workloadInstanceAttachedObjectReference,
-	)
+	_, err = client.CreateAttachedObjectReference(r.APIClient, r.APIServer, workloadInstanceAttachedObjectReference)
 	if err != nil {
 		return fmt.Errorf("failed to create attached object reference: %w", err)
 	}
@@ -93,11 +82,7 @@ func gatewayInstanceCreated(
 	gatewayInstanceReconciled := true
 	gatewayInstance.Reconciled = &gatewayInstanceReconciled
 	gatewayInstance.WorkloadResourceInstanceID = createdWorkloadResourceInstance.ID
-	_, err = client.UpdateGatewayInstance(
-		r.APIClient,
-		r.APIServer,
-		gatewayInstance,
-	)
+	_, err = client.UpdateGatewayInstance(r.APIClient, r.APIServer, gatewayInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update gateway instance: %w", err)
 	}
@@ -140,10 +125,7 @@ func gatewayInstanceUpdated(
 	if gatewayInstance.WorkloadResourceInstanceID == nil {
 		return fmt.Errorf("failed to update gateway instance, workload resource instance ID is nil")
 	}
-	workloadResourceInstance, err := client.GetWorkloadResourceInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.WorkloadResourceInstanceID)
+	workloadResourceInstance, err := client.GetWorkloadResourceInstanceByID(r.APIClient, r.APIServer, *gatewayInstance.WorkloadResourceInstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource instance: %w", err)
 	}
@@ -152,11 +134,7 @@ func gatewayInstanceUpdated(
 	workloadResourceInstanceReconciled := false
 	workloadResourceInstance.Reconciled = &workloadResourceInstanceReconciled
 	workloadResourceInstance.JSONDefinition = jsonManifest
-	_, err = client.UpdateWorkloadResourceInstance(
-		r.APIClient,
-		r.APIServer,
-		workloadResourceInstance,
-	)
+	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update workload resource instance: %w", err)
 	}
@@ -164,11 +142,7 @@ func gatewayInstanceUpdated(
 	// trigger a reconciliation of the workload instance
 	workloadInstanceReconciled := true
 	workloadInstance.Reconciled = &workloadInstanceReconciled
-	_, err = client.UpdateWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		workloadInstance,
-	)
+	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update workload instance: %w", err)
 	}
@@ -177,11 +151,7 @@ func gatewayInstanceUpdated(
 	gatewayInstanceReconciled := true
 	gatewayInstance.Reconciled = &gatewayInstanceReconciled
 	gatewayInstance.WorkloadResourceInstanceID = workloadResourceInstance.ID
-	_, err = client.UpdateGatewayInstance(
-		r.APIClient,
-		r.APIServer,
-		gatewayInstance,
-	)
+	_, err = client.UpdateGatewayInstance(r.APIClient, r.APIServer, gatewayInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update gateway instance: %w", err)
 	}
@@ -201,17 +171,13 @@ func gatewayInstanceDeleted(
 	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) error {
+
 	// get workload resource instance
 	if gatewayInstance.WorkloadResourceInstanceID == nil {
 		return fmt.Errorf("failed to delete workload resource instance, workloadResourceInstanceID is nil")
 	}
-	_, err := client.GetWorkloadResourceInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.WorkloadResourceInstanceID,
-	)
+	_, err := client.GetWorkloadResourceInstanceByID(r.APIClient, r.APIServer, *gatewayInstance.WorkloadResourceInstanceID)
 	if err != nil {
-
 		if errors.Is(err, client.ErrorObjectNotFound) {
 			// workload resource instance has already been deleted
 			return nil
@@ -223,17 +189,11 @@ func gatewayInstanceDeleted(
 	scheduledForDeletion := time.Now().UTC()
 	reconciledWorkloadResourceInstance := false
 	workloadResourceInstance := &v0.WorkloadResourceInstance{
-		Common: v0.Common{
-			ID: gatewayInstance.WorkloadResourceInstanceID,
-		},
+		Common:               v0.Common{ID: gatewayInstance.WorkloadResourceInstanceID},
 		ScheduledForDeletion: &scheduledForDeletion,
 		Reconciled:           &reconciledWorkloadResourceInstance,
 	}
-	_, err = client.UpdateWorkloadResourceInstance(
-		r.APIClient,
-		r.APIServer,
-		workloadResourceInstance,
-	)
+	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update workload resource instance: %w", err)
 	}
@@ -244,16 +204,10 @@ func gatewayInstanceDeleted(
 	}
 	reconciledWorkloadInstance := false
 	workloadInstance := &v0.WorkloadInstance{
-		Common: v0.Common{
-			ID: gatewayInstance.WorkloadInstanceID,
-		},
+		Common:     v0.Common{ID: gatewayInstance.WorkloadInstanceID},
 		Reconciled: &reconciledWorkloadInstance,
 	}
-	_, err = client.UpdateWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		workloadInstance,
-	)
+	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update workload instance: %w", err)
 	}
@@ -272,11 +226,7 @@ func getThreeportObjects(
 	if gatewayInstance.ClusterInstanceID == nil {
 		return nil, nil, nil, fmt.Errorf("cluster instance ID is nil")
 	}
-	clusterInstance, err := client.GetClusterInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.ClusterInstanceID,
-	)
+	clusterInstance, err := client.GetClusterInstanceByID(r.APIClient, r.APIServer, *gatewayInstance.ClusterInstanceID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get gateway cluster instance by ID: %w", err)
 	}
@@ -285,11 +235,7 @@ func getThreeportObjects(
 	if gatewayInstance.GatewayDefinitionID == nil {
 		return nil, nil, nil, fmt.Errorf("gateway definition ID is nil")
 	}
-	gatewayDefinition, err := client.GetGatewayDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.GatewayDefinitionID,
-	)
+	gatewayDefinition, err := client.GetGatewayDefinitionByID(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get gateway controller workload definition: %w", err)
 	}
@@ -298,11 +244,7 @@ func getThreeportObjects(
 	if gatewayInstance.WorkloadInstanceID == nil {
 		return nil, nil, nil, fmt.Errorf("workload instance ID is nil")
 	}
-	workloadInstance, err := client.GetWorkloadInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.WorkloadInstanceID,
-	)
+	workloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *gatewayInstance.WorkloadInstanceID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get workload instance: %w", err)
 	}
@@ -373,11 +315,7 @@ func confirmDefinitionsReconciled(
 	if gatewayInstance.GatewayDefinitionID == nil {
 		return false, fmt.Errorf("failed to get gateway definition from gateway instance, gateway definition ID is nil")
 	}
-	gatewayDefinition, err := client.GetGatewayDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.GatewayDefinitionID,
-	)
+	gatewayDefinition, err := client.GetGatewayDefinitionByID(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get gateway definition by workload definition ID: %w", err)
 	}
@@ -391,11 +329,7 @@ func confirmDefinitionsReconciled(
 	if gatewayDefinition.WorkloadDefinitionID == nil {
 		return false, fmt.Errorf("failed to get workload definition from gateway definition, workload definition ID is nil")
 	}
-	workloadDefinition, err := client.GetWorkloadDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayDefinition.WorkloadDefinitionID,
-	)
+	workloadDefinition, err := client.GetWorkloadDefinitionByID(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
 	}
@@ -419,11 +353,7 @@ func confirmWorkloadInstanceReconciled(
 	if instanceID == nil {
 		return false, fmt.Errorf("failed to get workload instance from gateway instance, workload instance ID is nil")
 	}
-	workloadInstance, err := client.GetWorkloadInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*instanceID,
-	)
+	workloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *instanceID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get workload instance by workload instance ID: %w", err)
 	}
@@ -506,46 +436,30 @@ func confirmGatewayControllerDeployed(
 
 	workloadDefName := "gloo-edge"
 	glooEdgeWorkloadDefinition := v0.WorkloadDefinition{
-		Definition: v0.Definition{
-			Name: &workloadDefName,
-		},
+		Definition:   v0.Definition{Name: &workloadDefName},
 		YAMLDocument: &manifest,
 	}
 
 	// create gateway controller workload definition
-	createdWorkloadDef, err := client.CreateWorkloadDefinition(
-		r.APIClient,
-		r.APIServer,
-		&glooEdgeWorkloadDefinition,
-	)
+	createdWorkloadDef, err := client.CreateWorkloadDefinition(r.APIClient, r.APIServer, &glooEdgeWorkloadDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to create gateway controller workload definition: %w", err)
 	}
 
 	// create gateway workload instance
 	glooEdgeWorkloadInstance := v0.WorkloadInstance{
-		Instance: v0.Instance{
-			Name: &workloadDefName,
-		},
+		Instance:             v0.Instance{Name: &workloadDefName},
 		ClusterInstanceID:    gatewayInstance.ClusterInstanceID,
 		WorkloadDefinitionID: createdWorkloadDef.ID,
 	}
-	createdGlooEdgeWorkloadInstance, err := client.CreateWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		&glooEdgeWorkloadInstance,
-	)
+	createdGlooEdgeWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &glooEdgeWorkloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to create gateway controller workload instance: %w", err)
 	}
 
 	// update cluster instance with gateway controller instance id
 	clusterInstance.GatewayControllerInstanceID = createdGlooEdgeWorkloadInstance.ID
-	_, err = client.UpdateClusterInstance(
-		r.APIClient,
-		r.APIServer,
-		clusterInstance,
-	)
+	_, err = client.UpdateClusterInstance(r.APIClient, r.APIServer, clusterInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update cluster instance with gateway controller instance id: %w", err)
 	}
@@ -566,15 +480,12 @@ func confirmGatewayPortExposed(
 	if clusterInstance.GatewayControllerInstanceID == nil {
 		return fmt.Errorf("gateway controller instance ID is nil")
 	}
-	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
-		r.APIClient,
-		r.APIServer,
-		*clusterInstance.GatewayControllerInstanceID,
-	)
+	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *clusterInstance.GatewayControllerInstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
+	// get gloo edge objects
 	gatewayObjects, err := filterObjects(workloadResourceInstances, "GlooEdge")
 	if err != nil {
 		return fmt.Errorf("failed to get gloo edge objects from workload instance: %w", err)
@@ -582,7 +493,6 @@ func confirmGatewayPortExposed(
 	if len(*gatewayObjects) == 0 {
 		return fmt.Errorf("no gloo edge objects found")
 	}
-	// check for more than one gloo edge installation
 	if len(*gatewayObjects) > 1 {
 		return fmt.Errorf("multiple gloo edge installations found")
 	}
@@ -624,66 +534,59 @@ func confirmGatewayPortExposed(
 		}
 	}
 
-	if !portFound {
-
-		// create a new gloo edge port object
-		portNumber := int64(*gatewayDefinition.TCPPort)
-		portString := strconv.Itoa(int(*gatewayDefinition.TCPPort))
-		glooEdgePort := createGlooEdgePort(portString, portNumber, *gatewayDefinition.TLSEnabled)
-
-		// append the new port to the ports slice
-		ports = append(ports, glooEdgePort)
-
-		// set the ports slice on the gloo edge object
-		err = unstructured.SetNestedSlice(gatewayObjectUnstructured.Object, ports, "spec", "ports")
-		if err != nil {
-			return fmt.Errorf("failed to set ports on gloo edge custom resource: %v", err)
-		}
-
-		// unmarshal the json into the type used by API
-		jsonContent, err := json.Marshal(gatewayObjectUnstructured.Object)
-		if err != nil {
-			return fmt.Errorf("failed to marshal json: %w", err)
-		}
-		var jsonDefinition datatypes.JSON
-		if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
-			return fmt.Errorf("failed to unmarshal json to datatypes.JSON: %w", err)
-		}
-
-		// update the gloo edge workload resource object
-		gatewayObjectWorkloadResourceObjectReconciled := false
-		gatewayObject.Reconciled = &gatewayObjectWorkloadResourceObjectReconciled
-		gatewayObject.JSONDefinition = &jsonDefinition
-		_, err = client.UpdateWorkloadResourceInstance(
-			r.APIClient,
-			r.APIServer,
-			&gatewayObject,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to update gloo edge workload resource instance: %w", err)
-		}
-
-		// trigger a reconciliation of the gateway controller workload instance
-		glooEdgeReconciled := false
-		updatedGatewayControllerWorkloadInstance := v0.WorkloadInstance{
-			Common: v0.Common{
-				ID: clusterInstance.GatewayControllerInstanceID,
-			},
-			Reconciled: &glooEdgeReconciled,
-		}
-		_, err = client.UpdateWorkloadInstance(
-			r.APIClient,
-			r.APIServer,
-			&updatedGatewayControllerWorkloadInstance,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to update gateway controller workload instance: %w", err)
-		}
-
-		return errors.New("gateway controller instance does not have requested port exposed, updating gloo edge configuration")
+	// return if port is found
+	if portFound {
+		return nil
 	}
 
-	return nil
+	// otherwise, update gloo edge configuration
+
+	// create a new gloo edge port object
+	portNumber := int64(*gatewayDefinition.TCPPort)
+	portString := strconv.Itoa(int(*gatewayDefinition.TCPPort))
+	glooEdgePort := createGlooEdgePort(portString, portNumber, *gatewayDefinition.TLSEnabled)
+
+	// append the new port to the ports slice
+	ports = append(ports, glooEdgePort)
+
+	// set the ports slice on the gloo edge object
+	err = unstructured.SetNestedSlice(gatewayObjectUnstructured.Object, ports, "spec", "ports")
+	if err != nil {
+		return fmt.Errorf("failed to set ports on gloo edge custom resource: %v", err)
+	}
+
+	// unmarshal the json into the type used by API
+	jsonContent, err := json.Marshal(gatewayObjectUnstructured.Object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal json: %w", err)
+	}
+	var jsonDefinition datatypes.JSON
+	if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
+		return fmt.Errorf("failed to unmarshal json to datatypes.JSON: %w", err)
+	}
+
+	// update the gloo edge workload resource object
+	gatewayObjectWorkloadResourceObjectReconciled := false
+	gatewayObject.Reconciled = &gatewayObjectWorkloadResourceObjectReconciled
+	gatewayObject.JSONDefinition = &jsonDefinition
+	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, &gatewayObject)
+	if err != nil {
+		return fmt.Errorf("failed to update gloo edge workload resource instance: %w", err)
+	}
+
+	// trigger a reconciliation of the gateway controller workload instance
+	glooEdgeReconciled := false
+	updatedGatewayControllerWorkloadInstance := v0.WorkloadInstance{
+		Common:     v0.Common{ID: clusterInstance.GatewayControllerInstanceID},
+		Reconciled: &glooEdgeReconciled,
+	}
+	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, &updatedGatewayControllerWorkloadInstance)
+	if err != nil {
+		return fmt.Errorf("failed to update gateway controller workload instance: %w", err)
+	}
+
+	return errors.New("gateway controller instance does not have requested port exposed, updating gloo edge configuration")
+
 }
 
 // configureVirtualService configures a VirtualService custom resource
@@ -695,11 +598,7 @@ func configureVirtualService(
 ) (*datatypes.JSON, error) {
 
 	// get workload resource instances
-	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
-		r.APIClient,
-		r.APIServer,
-		*workloadInstance.ID,
-	)
+	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *workloadInstance.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
@@ -735,11 +634,7 @@ func configureVirtualService(
 	}
 
 	// get gateway workload definition
-	gatewayWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*gatewayDefinition.WorkloadDefinitionID,
-	)
+	gatewayWorkloadDefinition, err := client.GetWorkloadDefinitionByID(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gateway workload definition: %w", err)
 	}
