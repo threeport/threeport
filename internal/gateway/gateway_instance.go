@@ -773,10 +773,35 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
 	}
 
+	gatewayWorkloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(r.APIClient, r.APIServer, *gatewayWorkloadDefinition.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway workload resource definitions: %w", err)
+	}
+	if len(*gatewayWorkloadResourceDefinitions) == 0 {
+		return nil, fmt.Errorf("no gateway workload resource definitions found")
+	}
+	if len(*gatewayWorkloadResourceDefinitions) > 1 {
+		return nil, fmt.Errorf("multiple gateway workload resource definitions found")
+	}
+
+	// unwrap gateway workload resource definition
+	gatewayWorkloadResourceDefinition := (*gatewayWorkloadResourceDefinitions)[0]
+
+	// convert to unstructured object
+	gatewayWorkloadResourceDefinitionUnstructured, err := toUnstructured(*gatewayWorkloadResourceDefinition.JSONDefinition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert gateway workload resource definition to unstructured object: %w", err)
+	}
+
+	gatewayNamespace, found, err := unstructured.NestedString(gatewayWorkloadResourceDefinitionUnstructured.Object, "spec", "namespace")
+	if err != nil || !found {
+		return nil, fmt.Errorf("failed to get namespace from gateway workload resource definition: %w", err)
+	}
+
 	// set virtual service upstream namespace field
 	err = unstructured.SetNestedField(
 		routes[0].(map[string]interface{}),
-		"nukleros-gateway-system",
+		gatewayNamespace,
 		"routeAction",
 		"single",
 		"upstream",
