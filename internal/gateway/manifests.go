@@ -18,6 +18,7 @@ func createGlooEdge() (string, error) {
 				"name": "glooedge",
 			},
 			"spec": map[string]interface{}{
+				"namespace": "nukleros-gateway-system",
 				"ports": []interface{}{},
 			},
 		},

@@ -572,6 +572,11 @@ func InstallThreeportCRDs(
 												},
 												"type": "object",
 											},
+											"namespace": map[string]interface{}{
+												"default":     "nukleros-gateway-system",
+												"description": "(Default: \"nukleros-gateway-system\") Namespace to use for gateway support services.",
+												"type":        "string",
+											},
 											"ports": map[string]interface{}{
 												"items": map[string]interface{}{
 													"properties": map[string]interface{}{
