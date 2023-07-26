@@ -572,16 +572,16 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to unmarshal kubernetes service object's name field: %w", err)
 	}
 
-	// get gateway workload definition
-	gatewayWorkloadDefinition, err := client.GetWorkloadDefinitionByID(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
+	// get gateway workload resource definitions
+	gatewayWorkloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gateway workload definition: %w", err)
+		return nil, fmt.Errorf("failed to get gateway workload resource definitions: %w", err)
 	}
 
-	// unmarshal YAML document into map
-	virtualService, err := util.UnmarshalYAML(*gatewayWorkloadDefinition.YAMLDocument)
+	// unmarshal virtual service
+	virtualService, err := util.UnmarshalUniqueWorkloadResourceDefinition(gatewayWorkloadResourceDefinitions, "VirtualService")
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal YAML: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
 	}
 
 	// get route array object
