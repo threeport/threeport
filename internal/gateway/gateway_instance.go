@@ -37,24 +37,18 @@ func gatewayInstanceCreated(
 		return fmt.Errorf("failed to validate threeport state: %w", err)
 	}
 
-	// configure virtual service
-	jsonManifest, err := configureVirtualService(r, gatewayDefinition, workloadInstance, clusterInstance)
+	// configure workload resource instances
+	workloadResourceInstances, err := configureWorkloadResourceInstances(r, gatewayDefinition, workloadInstance, clusterInstance)
 	if err != nil {
-		return fmt.Errorf("failed to configure virtual service: %w", err)
+		return fmt.Errorf("failed to configure workload resource instances: %w", err)
 	}
 
-	// build the workload resource instance
-	workloadResourceInstanceReconciled := false
-	workloadResourceInstance := &v0.WorkloadResourceInstance{
-		JSONDefinition:     jsonManifest,
-		WorkloadInstanceID: workloadInstance.ID,
-		Reconciled:         &workloadResourceInstanceReconciled,
-	}
-
-	// create the new workload resource instance
-	createdWorkloadResourceInstance, err := client.CreateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
-	if err != nil {
-		return fmt.Errorf("failed to create workload resource instance: %w", err)
+	// create workload resource instances
+	for _, workloadResourceInstance := range *workloadResourceInstances {
+		_, err := client.CreateWorkloadResourceInstance(r.APIClient, r.APIServer, &workloadResourceInstance)
+		if err != nil {
+			return fmt.Errorf("failed to create workload resource instance: %w", err)
+		}
 	}
 
 	// trigger a reconciliation of the workload instance
@@ -80,7 +74,6 @@ func gatewayInstanceCreated(
 	// update gateway instance
 	gatewayInstanceReconciled := true
 	gatewayInstance.Reconciled = &gatewayInstanceReconciled
-	gatewayInstance.WorkloadResourceInstanceID = createdWorkloadResourceInstance.ID
 	_, err = client.UpdateGatewayInstance(r.APIClient, r.APIServer, gatewayInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update gateway instance: %w", err)
@@ -114,32 +107,50 @@ func gatewayInstanceUpdated(
 		return fmt.Errorf("failed to validate threeport state: %w", err)
 	}
 
-	// configure virtual service
-	jsonManifest, err := configureVirtualService(r, gatewayDefinition, workloadInstance, clusterInstance)
+	// configure workload resource instances
+	updatedWorkloadResourceInstances, err := configureWorkloadResourceInstances(r, gatewayDefinition, workloadInstance, clusterInstance)
 	if err != nil {
-		return fmt.Errorf("failed to configure virtual service: %w", err)
+		return fmt.Errorf("failed to configure workload resource instances: %w", err)
 	}
 
-	// get workload resource instance
-	if gatewayInstance.WorkloadResourceInstanceID == nil {
-		return fmt.Errorf("failed to update gateway instance, workload resource instance ID is nil")
-	}
-	workloadResourceInstance, err := client.GetWorkloadResourceInstanceByID(r.APIClient, r.APIServer, *gatewayInstance.WorkloadResourceInstanceID)
+	// get workload resource instances
+	existingWorkloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *gatewayInstance.WorkloadInstanceID)
 	if err != nil {
-		return fmt.Errorf("failed to get workload resource instance: %w", err)
+		return fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
-	// update the workload resource instance
-	workloadResourceInstanceReconciled := false
-	workloadResourceInstance.Reconciled = &workloadResourceInstanceReconciled
-	workloadResourceInstance.JSONDefinition = jsonManifest
-	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
+	// get gateway instance objects
+	gatewayInstanceObjects, err := getGatewayInstanceObjects(r, gatewayInstance)
 	if err != nil {
-		return fmt.Errorf("failed to update workload resource instance: %w", err)
+		return fmt.Errorf("failed to get gateway instance objects: %w", err)
+	}
+
+	for _, resource := range gatewayInstanceObjects {
+
+		// get workload resource instance for virtual service
+		existingWorkloadResourceInstance, err := util.GetUniqueWorkloadResourceInstance(existingWorkloadResourceInstances, resource)
+		if err != nil {
+			return fmt.Errorf("failed to get workload resource instance: %w", err)
+		}
+
+		// get workload resource instance for virtual service
+		updatedWorkloadResourceInstance, err := util.GetUniqueWorkloadResourceInstance(updatedWorkloadResourceInstances, resource)
+		if err != nil {
+			return fmt.Errorf("failed to get workload resource instance: %w", err)
+		}
+
+		// update the workload resource instance
+		workloadResourceInstanceReconciled := false
+		existingWorkloadResourceInstance.Reconciled = &workloadResourceInstanceReconciled
+		existingWorkloadResourceInstance.JSONDefinition = updatedWorkloadResourceInstance.JSONDefinition
+		_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, existingWorkloadResourceInstance)
+		if err != nil {
+			return fmt.Errorf("failed to update workload resource instance: %w", err)
+		}
 	}
 
 	// trigger a reconciliation of the workload instance
-	workloadInstanceReconciled := true
+	workloadInstanceReconciled := false
 	workloadInstance.Reconciled = &workloadInstanceReconciled
 	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
@@ -149,7 +160,6 @@ func gatewayInstanceUpdated(
 	// update gateway instance
 	gatewayInstanceReconciled := true
 	gatewayInstance.Reconciled = &gatewayInstanceReconciled
-	gatewayInstance.WorkloadResourceInstanceID = workloadResourceInstance.ID
 	_, err = client.UpdateGatewayInstance(r.APIClient, r.APIServer, gatewayInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update gateway instance: %w", err)
@@ -171,30 +181,48 @@ func gatewayInstanceDeleted(
 	log *logr.Logger,
 ) error {
 
-	// get workload resource instance
-	if gatewayInstance.WorkloadResourceInstanceID == nil {
-		return fmt.Errorf("failed to delete workload resource instance, workloadResourceInstanceID is nil")
-	}
-	_, err := client.GetWorkloadResourceInstanceByID(r.APIClient, r.APIServer, *gatewayInstance.WorkloadResourceInstanceID)
+	// get workload resource instances
+	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *gatewayInstance.WorkloadInstanceID)
 	if err != nil {
-		if errors.Is(err, client.ErrorObjectNotFound) {
-			// workload resource instance has already been deleted
-			return nil
-		}
-		return fmt.Errorf("failed to get workload resource instance: %w", err)
+		return fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
-	// schedule workload resource instance for deletion
-	scheduledForDeletion := time.Now().UTC()
-	reconciledWorkloadResourceInstance := false
-	workloadResourceInstance := &v0.WorkloadResourceInstance{
-		Common:               v0.Common{ID: gatewayInstance.WorkloadResourceInstanceID},
-		ScheduledForDeletion: &scheduledForDeletion,
-		Reconciled:           &reconciledWorkloadResourceInstance,
-	}
-	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
+	// get gateway instance objects
+	gatewayInstanceObjects, err := getGatewayInstanceObjects(r, gatewayInstance)
 	if err != nil {
-		return fmt.Errorf("failed to update workload resource instance: %w", err)
+		return fmt.Errorf("failed to get gateway instance objects: %w", err)
+	}
+
+	for _, resource := range gatewayInstanceObjects {
+
+		// get workload resource instance for virtual service
+		workloadResourceInstance, err := util.GetUniqueWorkloadResourceInstance(workloadResourceInstances, resource)
+		if err != nil {
+			return fmt.Errorf("failed to get workload resource instance: %w", err)
+		}
+
+		// get workload resource instance
+		_, err = client.GetWorkloadResourceInstanceByID(r.APIClient, r.APIServer, *workloadResourceInstance.ID)
+		if err != nil {
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				// workload resource instance has already been deleted
+				return nil
+			}
+			return fmt.Errorf("failed to get workload resource instance: %w", err)
+		}
+
+		// schedule workload resource instance for deletion
+		scheduledForDeletion := time.Now().UTC()
+		reconciledWorkloadResourceInstance := false
+		workloadResourceInstance = &v0.WorkloadResourceInstance{
+			Common:               v0.Common{ID: workloadResourceInstance.ID},
+			ScheduledForDeletion: &scheduledForDeletion,
+			Reconciled:           &reconciledWorkloadResourceInstance,
+		}
+		_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
+		if err != nil {
+			return fmt.Errorf("failed to update workload resource instance: %w", err)
+		}
 	}
 
 	// trigger a reconciliation of the workload instance
@@ -650,4 +678,73 @@ func configureVirtualService(
 
 	return &virtualServiceMarshaled, nil
 
+}
+
+func configureIssuer() (*datatypes.JSON, error) {
+	return nil, nil
+}
+
+func configureCertificate() (*datatypes.JSON, error) {
+	return nil, nil
+}
+
+// getGatewayInstanceObjects returns the objects that should be created.
+func getGatewayInstanceObjects(r *controller.Reconciler, gatewayInstance *v0.GatewayInstance) ([]string, error) {
+
+	gatewayDefinition, err := client.GetGatewayDefinitionByID(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway definition: %w", err)
+	}
+
+	if *gatewayDefinition.TLSEnabled {
+		return []string{"VirtualService", "Issuer", "Certificate"}, nil
+	}
+	return []string{"VirtualService"}, nil
+}
+
+func configureWorkloadResourceInstances(
+	r *controller.Reconciler,
+	gatewayDefinition *v0.GatewayDefinition,
+	workloadInstance *v0.WorkloadInstance,
+	clusterInstance *v0.ClusterInstance,
+) (*[]v0.WorkloadResourceInstance, error) {
+
+	var jsonDefinitions []*datatypes.JSON
+
+	// configure virtual service manifest
+	virtualService, err := configureVirtualService(r, gatewayDefinition, workloadInstance, clusterInstance)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure virtual service: %w", err)
+	}
+	jsonDefinitions = append(jsonDefinitions, virtualService)
+
+	if *gatewayDefinition.TLSEnabled {
+
+		// configure issuer manifest
+		issuer, err := configureIssuer()
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure issuer: %w", err)
+		}
+		jsonDefinitions = append(jsonDefinitions, issuer)
+
+		// configure certificate manifest
+		certificate, err := configureCertificate()
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure certificate: %w", err)
+		}
+		jsonDefinitions = append(jsonDefinitions, certificate)
+	}
+
+	var workloadResourceInstances []v0.WorkloadResourceInstance
+	for _, jsonDefinition := range jsonDefinitions {
+		workloadResourceInstanceReconciled := false
+		workloadResourceInstance := v0.WorkloadResourceInstance{
+			JSONDefinition:     jsonDefinition,
+			WorkloadInstanceID: workloadInstance.ID,
+			Reconciled:         &workloadResourceInstanceReconciled,
+		}
+		workloadResourceInstances = append(workloadResourceInstances, workloadResourceInstance)
+	}
+
+	return &workloadResourceInstances, nil
 }

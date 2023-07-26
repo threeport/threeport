@@ -19,7 +19,7 @@ func createGlooEdge() (string, error) {
 			},
 			"spec": map[string]interface{}{
 				"namespace": "nukleros-gateway-system",
-				"ports": []interface{}{},
+				"ports":     []interface{}{},
 			},
 		},
 	}
@@ -127,6 +127,66 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition) (string, erro
 	}
 
 	return unstructuredToYAMLString(virtualService)
+}
+
+func createIssuer(gatewayDefinition *v0.GatewayDefinition) (string, error) {
+	var issuer = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cert-manager.io/v1",
+			"kind":       "Issuer",
+			"metadata": map[string]interface{}{
+				"name":      "workload-123",
+				"namespace": "workload-123",
+			},
+			"spec": map[string]interface{}{
+				"acme": map[string]interface{}{
+					"solvers": []interface{}{
+						map[string]interface{}{
+							"selector": map[string]interface{}{
+								"dnsZones": []interface{}{
+									"corp-domain.com",
+								},
+							},
+							"dns01": map[string]interface{}{
+								"route53": map[string]interface{}{
+									"region": "us-east-1",
+									"role":   "arn:aws:iam::YYYYYYYYYYYY:role/dns-manager",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return unstructuredToYAMLString(issuer)
+}
+
+func createCertificate(gatewayDefinition *v0.GatewayDefinition) (string, error) {
+
+	var certificate = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cert-manager.io/v1",
+			"kind":       "Certificate",
+			"metadata": map[string]interface{}{
+				"name":      "corp-domain",
+				"namespace": "workload-123",
+			},
+			"spec": map[string]interface{}{
+				"secretName": "corp-domain-tls",
+				"dnsNames": []interface{}{
+					"corp-domain.com",
+				},
+				"issuerRef": map[string]interface{}{
+					"name": "workload-123",
+					"kind": "Issuer",
+				},
+			},
+		},
+	}
+
+	return unstructuredToYAMLString(certificate)
 }
 
 // unstructuredToYAMLString converts an unstructured object into a YAML string.

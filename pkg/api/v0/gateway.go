@@ -66,8 +66,10 @@ type GatewayInstance struct {
 	// The workload instance this gateway belongs to.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadresourceinstanceid" gorm:"not null" validate:"optional"`
 
-	// The workload resource instance that belongs to this instance.
-	WorkloadResourceInstanceID *uint `json:"WorkloadResourceInstanceID,omitempty" query:"workloadresourceinstanceid" validate:"optional"`
+	//TODO: implement this in the future so we don't need to
+	// query the workload instance & search for the workload resource instance
+	// The workload resource instances that belong to this instance.
+	// WorkloadResourceInstances *[]WorkloadResourceInstance `json:"WorkloadResourceInstances,omitempty" query:"workloadresourceinstances" validate:"optional,association"`
 
 	// Indicates if object is considered to be reconciled by gateway controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`

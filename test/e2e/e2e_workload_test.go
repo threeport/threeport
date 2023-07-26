@@ -89,7 +89,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		gatewayDefinitionName := "gatewayDefinition"
 		tcpPort := 443
-		tlsEnabled := true
+		tlsEnabled := false
 		gatewayDefinition := &v0.GatewayDefinition{
 			Definition: v0.Definition{
 				Name: &gatewayDefinitionName,

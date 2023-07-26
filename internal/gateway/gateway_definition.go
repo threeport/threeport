@@ -18,10 +18,10 @@ func gatewayDefinitionCreated(
 	log *logr.Logger,
 ) error {
 
-	// create Gloo virtual service definition
-	virtualService, err := createVirtualService(gatewayDefinition)
+	// create gateway kubernetes manifests
+	yamlDocument, err := createYAMLDocument(gatewayDefinition)
 	if err != nil {
-		return fmt.Errorf("failed to create virtual service: %w", err)
+		return fmt.Errorf("failed to create yaml document: %w", err)
 	}
 
 	// construct workload definition object
@@ -29,7 +29,7 @@ func gatewayDefinitionCreated(
 		Definition: v0.Definition{
 			Name: gatewayDefinition.Name,
 		},
-		YAMLDocument: &virtualService,
+		YAMLDocument: &yamlDocument,
 	}
 
 	// create workload definition
@@ -67,10 +67,10 @@ func gatewayDefinitionUpdated(
 	log *logr.Logger,
 ) error {
 
-	// create Gloo virtual service definition
-	virtualService, err := createVirtualService(gatewayDefinition)
+	// create gateway kubernetes manifests
+	yamlDocument, err := createYAMLDocument(gatewayDefinition)
 	if err != nil {
-		return fmt.Errorf("failed to create virtual service: %w", err)
+		return fmt.Errorf("failed to create yaml document: %w", err)
 	}
 
 	// get workload definition
@@ -87,7 +87,7 @@ func gatewayDefinitionUpdated(
 	}
 
 	// update workload definition
-	workloadDefinition.YAMLDocument = &virtualService
+	workloadDefinition.YAMLDocument = &yamlDocument
 	_, err = client.UpdateWorkloadDefinition(r.APIClient, r.APIServer, workloadDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to update workload definition in threeport API: %w", err)
@@ -137,4 +137,42 @@ func gatewayDefinitionDeleted(
 	)
 
 	return nil
+}
+
+func createYAMLDocument(gatewayDefinition *v0.GatewayDefinition) (string, error) {
+	// create Gloo virtual service definition
+
+	manifests := []string{}
+
+	// create Gloo virtual service definition
+	virtualService, err := createVirtualService(gatewayDefinition)
+	if err != nil {
+		return "", fmt.Errorf("failed to create virtual service: %w", err)
+	}
+	manifests = append(manifests, virtualService)
+
+	if *gatewayDefinition.TLSEnabled {
+
+		// create cert manager issuer definition
+		issuer, err := createIssuer(gatewayDefinition)
+		if err != nil {
+			return "", fmt.Errorf("failed to create issuer: %w", err)
+		}
+		manifests = append(manifests, issuer)
+
+		// create cert manager certificate definition
+		certificate, err := createCertificate(gatewayDefinition)
+		if err != nil {
+			return "", fmt.Errorf("failed to create certificate: %w", err)
+		}
+		manifests = append(manifests, certificate)
+	}
+
+	// concatenate manifests into a single YAML document
+	yamlDocument := ""
+	for _, manifest := range manifests {
+		yamlDocument = fmt.Sprintf("%s---\n%s\n", yamlDocument, manifest)
+	}
+
+	return yamlDocument, nil
 }
