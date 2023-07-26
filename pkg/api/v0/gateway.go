@@ -33,7 +33,7 @@ type GatewayDefinition struct {
 	TLSEnabled *bool `json:"TLSEnabled,omitempty" query:"tlsenabled" gorm:"default:false" validate:"optional"`
 
 	// The domain name to serve requests for.
-	DomainNameID *uint `json:"DomainNameID,omitempty" query:"domainname" validate:"optional"`
+	DomainNameDefinitionID *uint `json:"DomainNameDefinitionID,omitempty" query:"domainnamedefinition" validate:"optional"`
 
 	// The request paths to serve requests for.
 	Path *string `json:"Paths,omitempty" query:"paths" gorm:"default:'/'" validate:"optional"`
@@ -56,6 +56,9 @@ type GatewayInstance struct {
 
 	// The cluster where the ingress layer is installed.
 	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
+
+	// The domain name instance to serve requests for.
+	// DomainNameInstanceID *uint `json:"DomainNameInstanceID,omitempty" query:"domainnameinstanceid" validate:"optional"`
 
 	// GatewayDefinitionID is the definition used to configure the workload instance.
 	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" query:"gatewaydefinitionid" gorm:"not null" validate:"required"`
