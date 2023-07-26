@@ -136,7 +136,6 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition) (string, error) {
 			"kind":       "Issuer",
 			"metadata": map[string]interface{}{
 				"name":      "workload-123",
-				"namespace": "workload-123",
 			},
 			"spec": map[string]interface{}{
 				"acme": map[string]interface{}{
@@ -171,7 +170,6 @@ func createCertificate(gatewayDefinition *v0.GatewayDefinition) (string, error) 
 			"kind":       "Certificate",
 			"metadata": map[string]interface{}{
 				"name":      "corp-domain",
-				"namespace": "workload-123",
 			},
 			"spec": map[string]interface{}{
 				"secretName": "corp-domain-tls",

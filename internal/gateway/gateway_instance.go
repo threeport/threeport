@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -680,12 +681,120 @@ func configureVirtualService(
 
 }
 
-func configureIssuer() (*datatypes.JSON, error) {
-	return nil, nil
+// configureIssuer configures an Issuer custom resource.
+func configureIssuer(
+	r *controller.Reconciler,
+	gatewayDefinition *v0.GatewayDefinition,
+	workloadInstance *v0.WorkloadInstance,
+	clusterInstance *v0.ClusterInstance,
+	domainNameDefinition v0.DomainNameDefinition,
+) (*datatypes.JSON, error) {
+
+	// get gateway workload resource definitions
+	gatewayWorkloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway workload resource definitions: %w", err)
+	}
+
+	// unmarshal virtual service
+	issuer, err := util.UnmarshalUniqueWorkloadResourceDefinition(gatewayWorkloadResourceDefinitions, "Issuer")
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
+	}
+
+	// split domain name into parts
+	parts := strings.SplitN(*domainNameDefinition.Domain, ".", 2)
+	domainWithoutSuffix := parts[0]
+
+	// set issuer name
+	err = unstructured.SetNestedField(issuer, domainWithoutSuffix, "metadata", "name")
+	if err != nil {
+		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
+	}
+
+	// set solver
+	solver := []interface{}{
+		map[string]interface{}{
+			"selector": map[string]interface{}{
+				"dnsZones": []interface{}{
+					*domainNameDefinition.Domain,
+				},
+			},
+			"dns01": map[string]interface{}{
+				"route53": map[string]interface{}{
+					"region": "us-east-1",
+					"role":   "arn:aws:iam::YYYYYYYYYYYY:role/dns-manager",
+				},
+			},
+		},
+	}
+
+	err = unstructured.SetNestedSlice(issuer, solver, "spec", "acme", "solvers")
+	if err != nil {
+		return nil, fmt.Errorf("failed to set solvers on issuer: %w", err)
+	}
+
+	// marshal into json
+	issuerMarshaled, err := util.MarshalJSON(issuer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal issuer: %w", err)
+	}
+
+	return &issuerMarshaled, nil
 }
 
-func configureCertificate() (*datatypes.JSON, error) {
-	return nil, nil
+// configureCertificate configures a Certificate custom resource.
+func configureCertificate(
+	r *controller.Reconciler,
+	gatewayDefinition *v0.GatewayDefinition,
+	workloadInstance *v0.WorkloadInstance,
+	clusterInstance *v0.ClusterInstance,
+	domainNameDefinition v0.DomainNameDefinition,
+) (*datatypes.JSON, error) {
+
+	// get gateway workload resource definitions
+	gatewayWorkloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway workload resource definitions: %w", err)
+	}
+
+	// unmarshal virtual service
+	certificate, err := util.UnmarshalUniqueWorkloadResourceDefinition(gatewayWorkloadResourceDefinitions, "Certificate")
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
+	}
+
+	// split domain name into parts
+	parts := strings.SplitN(*domainNameDefinition.Domain, ".", 2)
+	domainWithoutSuffix := parts[0]
+
+	// set certificate name
+	err = unstructured.SetNestedField(certificate, domainWithoutSuffix, "metadata", "name")
+	if err != nil {
+		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
+	}
+
+	dnsNames := []interface{}{*domainNameDefinition.Domain}
+
+	// set dns names
+	err = unstructured.SetNestedSlice(certificate, dnsNames, "spec", "dnsNames")
+	if err != nil {
+		return nil, fmt.Errorf("failed to set dns names on certificate: %w", err)
+	}
+
+	// set issuerRef name
+	err = unstructured.SetNestedField(certificate, domainWithoutSuffix, "spec", "issuerRef", "name")
+	if err != nil {
+		return nil, fmt.Errorf("failed to set issuerRef on certificate: %w", err)
+	}
+
+	// marshal into json
+	certificateMarshaled, err := util.MarshalJSON(certificate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal certificate: %w", err)
+	}
+
+	return &certificateMarshaled, nil
 }
 
 // getGatewayInstanceObjects returns the objects that should be created.
@@ -720,15 +829,25 @@ func configureWorkloadResourceInstances(
 
 	if *gatewayDefinition.TLSEnabled {
 
+		if gatewayDefinition.DomainNameDefinitionID == nil {
+			return nil, fmt.Errorf("failed to create certificate, domain name definition ID is nil")
+		}
+
+		// get domain name definition
+		domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *gatewayDefinition.DomainNameDefinitionID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get domain name definition: %w", err)
+		}
+
 		// configure issuer manifest
-		issuer, err := configureIssuer()
+		issuer, err := configureIssuer(r, gatewayDefinition, workloadInstance, clusterInstance, *domainNameDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure issuer: %w", err)
 		}
 		jsonDefinitions = append(jsonDefinitions, issuer)
 
 		// configure certificate manifest
-		certificate, err := configureCertificate()
+		certificate, err := configureCertificate(r, gatewayDefinition, workloadInstance, clusterInstance, *domainNameDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure certificate: %w", err)
 		}
