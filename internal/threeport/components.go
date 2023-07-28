@@ -30,14 +30,34 @@ const (
 	ThreeportLocalAPIPort            = "443"
 )
 
-// ThreeportDevImages returns a map of main package dirs to image names
+// ThreeportDevImages returns a map of main package dirs to dev image names
 func ThreeportDevImages() map[string]string {
-	return map[string]string{
-		"rest-api":            fmt.Sprintf("%s-dev:latest", ThreeportAPIImage),
-		"workload-controller": fmt.Sprintf("%s-dev:latest", ThreeportWorkloadControllerImage),
-		"gateway-controller":  fmt.Sprintf("%s-dev:latest", ThreeportGatewayControllerImage),
-		"agent":               fmt.Sprintf("%s-dev:latest", ThreeportAgentImage),
+	return getImages(true)
+}
+
+// ThreeportImages returns a map of main package dirs to image names
+func ThreeportImages() map[string]string {
+	return getImages(false)
+}
+
+// getImages returns an image map depending on the dev environment flag
+func getImages(devEnvironment bool) map[string]string {
+
+	imageSuffix := ""
+
+	// set image suffix for dev environment
+	if devEnvironment {
+		imageSuffix = "-dev"
 	}
+
+	images := map[string]string{
+		"rest-api":            fmt.Sprintf("%s%s:latest", ThreeportAPIImage, imageSuffix),
+		"workload-controller": fmt.Sprintf("%s%s:latest", ThreeportWorkloadControllerImage, imageSuffix),
+		"gateway-controller":  fmt.Sprintf("%s%s:latest", ThreeportGatewayControllerImage, imageSuffix),
+		"agent":               fmt.Sprintf("%s%s:latest", ThreeportAgentImage, imageSuffix),
+	}
+
+	return images
 }
 
 // GetThreeportControllerNames returns a list of all threeport controllers
