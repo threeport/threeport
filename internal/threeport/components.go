@@ -276,6 +276,7 @@ func InstallThreeportControllers(
 	return nil
 }
 
+// InstallController installs a threeport controller by name.
 func InstallController(
 	name string,
 	kubeClient dynamic.Interface,
