@@ -1305,7 +1305,7 @@ func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interfac
 // getImage returns the proper container image to use for the
 func getImage(name string, devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
 	if devEnvironment {
-		return fmt.Sprintf("threeport-%s-dev:latest", name)
+		return ThreeportDevImages()[name]
 	}
 
 	imageRepo := ThreeportImageRepo
