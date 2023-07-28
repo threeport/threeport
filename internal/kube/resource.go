@@ -86,7 +86,8 @@ func CreateResource(
 }
 
 // CreateResource takes an unstructured object, dynamic client interface and rest
-// mapper and creates the resource in the target Kubernetes cluster.
+// mapper and creates the resource in the target Kubernetes cluster if it doesn't already
+// exist.  If the resource exists, it is updated.
 func CreateOrUpdateResource(
 	kubeObject *unstructured.Unstructured,
 	kubeClient dynamic.Interface,
