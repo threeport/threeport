@@ -288,7 +288,7 @@ func InstallController(
 ) error {
 	controllerImage := getImage(name, devEnvironment, customThreeportImageRepo, customThreeportImageTag)
 	controllerVols, controllerVolMounts := getControllerVolumes(name, devEnvironment, authConfig)
-	workloadArgs := getControllerArgs(devEnvironment, authConfig)
+	controllerArgs := getControllerArgs(devEnvironment, authConfig)
 
 	// if auth is enabled on API, generate client cert and key and store in
 	// secrets
