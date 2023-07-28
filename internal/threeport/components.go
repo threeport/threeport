@@ -40,6 +40,14 @@ func ThreeportDevImages() map[string]string {
 	}
 }
 
+// GetThreeportControllerNames returns a list of all threeport controllers
+func GetThreeportControllerNames() []string {
+	return []string{
+		"workload-controller",
+		"gateway-controller",
+	}
+}
+
 // InstallThreeportControlPlaneAPI installs the threeport API in a Kubernetes
 // cluster.
 func InstallThreeportAPI(
