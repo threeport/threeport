@@ -22,7 +22,7 @@ func deletionInstanceCheckTypeNames() []string {
 // SetReconcileCheckTypeNames returns the definition objects that need to
 // have their Reconcile field set to false by their handler
 func SetReconcileCheckTypeNames() []string {
-	return []string{"WorkloadDefinition", "WorkloadInstance", "WorkloadResourceInstance", "GatewayDefinition", "GatewayInstance"}
+	return []string{"WorkloadDefinition", "WorkloadInstance", "GatewayDefinition", "GatewayInstance"}
 }
 
 // apiHandlersPath returns the path from the models to the API's internal handlers
