@@ -318,7 +318,7 @@ func InstallController(
 		}
 	}
 
-	var controllerDeployment = getControllerDeployment(name, ControlPlaneNamespace, controllerImage, workloadArgs, controllerVols, controllerVolMounts)
+	var controllerDeployment = getControllerDeployment(name, ControlPlaneNamespace, controllerImage, controllerArgs, controllerVols, controllerVolMounts)
 	if _, err := kube.CreateResource(controllerDeployment, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
 	}
