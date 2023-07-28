@@ -65,6 +65,18 @@ type WorkloadInstance struct {
 	Status *string `json:"Status,omitempty" query:"status" validate:"optional"`
 
 	Events []*WorkloadEvent `json:"Events,omitempty" query:"events" validate:"optional"`
+
+	AttachedObjectReferences []*AttachedObjectReference `json:"AttachedObjectReferences,omitempty" query:"attachedobjectreferences" validate:"optional,association"`
+}
+
+// AttachedObjectReference is a reference to an attached object.
+type AttachedObjectReference struct {
+	Common   `swaggerignore:"true" mapstructure:",squash"`
+	ObjectID *uint   `json:"ObjectID,omitempty" query:"objectid" gorm:"not null" validate:"optional"`
+	Type     *string `json:"Type,omitempty" query:"type" gorm:"not null" validate:"optional"`
+
+	// The workload definition this resource belongs to.
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 }
 
 // WorkloadResourceInstance is a Kubernetes resource instance.
@@ -80,9 +92,12 @@ type WorkloadResourceInstance struct {
 	// The workload definition this resource belongs to.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 
-	// The most recent operation performed on a Kubernete resource in the
+	// The most recent operation performed on a Kubernetes resource in the
 	// cluster.
 	LastOperation *string `json:"LastOperation,omitempty" query:"lastoperation" validate:"optional"`
+
+	// Indicates if object is considered to be reconciled by workload controller.
+	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 
 	// The JSON definition of a Kubernetes resource as stored in etcd in the
 	// cluster.
@@ -90,6 +105,9 @@ type WorkloadResourceInstance struct {
 
 	// All events that have occured related to this object.
 	Events []*WorkloadEvent `json:"Events,omitempty" query:"events" validate:"optional"`
+
+	// Whether another controller has scheduled this resource for deletion
+	ScheduledForDeletion *time.Time `json:"ScheduledForDeletion,omitempty" query:"scheduledfordeletion" validate:"optional"`
 }
 
 // WorkloadEvent is a summary of a Kubernetes Event that is associated with a

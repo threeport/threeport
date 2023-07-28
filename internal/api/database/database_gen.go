@@ -46,32 +46,36 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 	}
 
 	if autoMigrate {
-		db.AutoMigrate(&v0.Profile{})
-		db.AutoMigrate(&v0.Tier{})
-		db.AutoMigrate(&v0.AwsAccount{})
-		db.AutoMigrate(&v0.AwsEksClusterDefinition{})
-		db.AutoMigrate(&v0.AwsEksClusterInstance{})
-		db.AutoMigrate(&v0.AwsRelationalDatabaseDefinition{})
-		db.AutoMigrate(&v0.AwsRelationalDatabaseInstance{})
-		db.AutoMigrate(&v0.Definition{})
-		db.AutoMigrate(&v0.Instance{})
-		db.AutoMigrate(&v0.ClusterDefinition{})
-		db.AutoMigrate(&v0.ClusterInstance{})
-		db.AutoMigrate(&v0.DomainNameDefinition{})
-		db.AutoMigrate(&v0.DomainNameInstance{})
-		db.AutoMigrate(&v0.ForwardProxyDefinition{})
-		db.AutoMigrate(&v0.ForwardProxyInstance{})
-		db.AutoMigrate(&v0.LogBackend{})
-		db.AutoMigrate(&v0.LogStorageDefinition{})
-		db.AutoMigrate(&v0.LogStorageInstance{})
-		db.AutoMigrate(&v0.NetworkIngressDefinition{})
-		db.AutoMigrate(&v0.NetworkIngressInstance{})
-		db.AutoMigrate(&v0.WorkloadDefinition{})
-		db.AutoMigrate(&v0.WorkloadResourceDefinition{})
-		db.AutoMigrate(&v0.WorkloadInstance{})
-		db.AutoMigrate(&v0.WorkloadResourceInstance{})
-		db.AutoMigrate(&v0.WorkloadEvent{})
-
+		if err := db.AutoMigrate(
+			&v0.Profile{},
+			&v0.Tier{},
+			&v0.AwsAccount{},
+			&v0.AwsEksClusterDefinition{},
+			&v0.AwsEksClusterInstance{},
+			&v0.AwsRelationalDatabaseDefinition{},
+			&v0.AwsRelationalDatabaseInstance{},
+			&v0.Definition{},
+			&v0.Instance{},
+			&v0.ClusterDefinition{},
+			&v0.ClusterInstance{},
+			&v0.DomainNameDefinition{},
+			&v0.DomainNameInstance{},
+			&v0.ForwardProxyDefinition{},
+			&v0.ForwardProxyInstance{},
+			&v0.GatewayDefinition{},
+			&v0.GatewayInstance{},
+			&v0.LogBackend{},
+			&v0.LogStorageDefinition{},
+			&v0.LogStorageInstance{},
+			&v0.WorkloadDefinition{},
+			&v0.WorkloadResourceDefinition{},
+			&v0.WorkloadInstance{},
+			&v0.AttachedObjectReference{},
+			&v0.WorkloadResourceInstance{},
+			&v0.WorkloadEvent{},
+		); err != nil {
+			return nil, err
+		}
 	}
 
 	return db, nil

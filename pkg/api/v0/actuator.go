@@ -23,5 +23,5 @@ type Tier struct {
 	// the greater the criticality.  For example, a development tier could have
 	// a criticality value of 10 while production could be 100.  Access control
 	// can then use this criticality value to determine user access.
-	Criticality *int32 `json:"Criticality,omitempty" query:"criticality" gorm:"not null" validate:"required"`
+	Criticality *int `json:"Criticality,omitempty" query:"criticality" gorm:"not null" validate:"required"`
 }

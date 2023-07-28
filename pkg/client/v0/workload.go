@@ -8,6 +8,7 @@ import (
 
 	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	"github.com/threeport/threeport/pkg/controller/v0"
 )
 
 // CreateWorkloadResourceDefinitions creates a new set of workload resource
@@ -195,4 +196,76 @@ func DeleteWorkloadEventsByWorkloadInstanceID(apiClient *http.Client, apiAddr st
 	}
 
 	return &workloadEvents, nil
+}
+
+// GetAttachedObjectReferencesByWorkloadInstanceID fetches an attached object reference
+// by object ID.
+func GetAttachedObjectReferencesByWorkloadInstanceID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.AttachedObjectReference, error) {
+	var attachedObjectReferences []v0.AttachedObjectReference
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?workloadinstanceid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&attachedObjectReferences); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &attachedObjectReferences, nil
+}
+
+// ConfirmWorkloadInstanceReconciled confirms whether a workload instance
+// is reconciled.
+func ConfirmWorkloadInstanceReconciled(
+	r *controller.Reconciler,
+	instanceID uint,
+) (bool, error) {
+
+	// get workload instance id
+	workloadInstance, err := GetWorkloadInstanceByID(r.APIClient, r.APIServer, instanceID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get workload instance by workload instance ID: %w", err)
+	}
+
+	// if the workload instance is not reconciled, return false
+	if workloadInstance.Reconciled != nil && !*workloadInstance.Reconciled {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// ConfirmWorkloadDefinitionReconciled confirms whether a workload definition
+// is reconciled.
+func ConfirmWorkloadDefinitionReconciled(
+	r *controller.Reconciler,
+	definitionID uint,
+) (bool, error) {
+
+	// get workload definition id
+	workloadDefinition, err := GetWorkloadDefinitionByID(r.APIClient, r.APIServer, definitionID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
+	}
+
+	// if the workload instance is not reconciled, return false
+	if workloadDefinition.Reconciled != nil && !*workloadDefinition.Reconciled {
+		return false, nil
+	}
+
+	return true, nil
 }

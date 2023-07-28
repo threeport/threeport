@@ -12,16 +12,16 @@ type ClusterDefinition struct {
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
 	// The number of zones the cluster should span for availability.
-	ZoneCount *int32 `json:"ZoneCount,omitempty" query:"zonecount" validate:"optional"`
+	ZoneCount *int `json:"ZoneCount,omitempty" query:"zonecount" validate:"optional"`
 
 	// TODO: move these values to the AWS EKS cluster definition object.
 	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" query:"defaultnodegroupinstancetype" validate:"optional"`
 
-	DefaultNodeGroupInitialSize *int32 `json:"DefaultNodeGroupInitialSize,omitempty" query:"defaultnodegroupinitialsize" validate:"optional"`
+	DefaultNodeGroupInitialSize *int `json:"DefaultNodeGroupInitialSize,omitempty" query:"defaultnodegroupinitialsize" validate:"optional"`
 
-	DefaultNodeGroupMinimumSize *int32 `json:"DefaultNodeGroupMinimumSize,omitempty" query:"defaultnodegroupminimumsize" validate:"optional"`
+	DefaultNodeGroupMinimumSize *int `json:"DefaultNodeGroupMinimumSize,omitempty" query:"defaultnodegroupminimumsize" validate:"optional"`
 
-	DefaultNodeGroupMaximumSize *int32 `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" validate:"optional"`
+	DefaultNodeGroupMaximumSize *int `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" validate:"optional"`
 }
 
 type ClusterInstance struct {
@@ -69,4 +69,7 @@ type ClusterInstance struct {
 
 	// The associated workload instances running on this cluster.
 	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstance,omitempty" validate:"optional,association"`
+
+	// The WorkloadInstanceID of the gateway support service
+	GatewayControllerInstanceID *uint `json:"GatewayWorkloadInstanceID,omitempty" validate:"optional"`
 }

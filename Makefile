@@ -1,5 +1,6 @@
 REST_API_IMG ?= threeport-rest-api:latest
 WORKLOAD_CONTROLLER_IMG ?= threeport-workload-controller:latest
+GATEWAY_IMG ?= threeport-gateway:latest
 
 #help: @ List available make targets
 help:
@@ -60,7 +61,7 @@ endif
 
 #dev-up: @ Run a local development environment
 dev-up: build-tptdev
-	./bin/tptdev up --auth-enabled=true
+	./bin/tptdev up --auth-enabled=false
 
 #dev-down: @ Delete the local development environment
 dev-down: build-tptdev
@@ -93,7 +94,22 @@ dev-forward-nats:
 #TODO: move to kubectl exec command that uses `cockroach` binary in contianer
 #dev-query-crdb: @ Open a terminal connection to the dev cockroach database (must first run `make dev-forward-crdb` in another terminal)
 dev-query-crdb:
-	cockroach sql --host localhost --insecure --database threeport_api
+	kubectl exec -it -n threeport-control-plane crdb-0 -- cockroach sql --host localhost --insecure --database threeport_api
+
+#dev-reset-crdb: @ Reset the dev cockroach database
+dev-reset-crdb:
+	kubectl exec -it -n threeport-control-plane crdb-0 -- cockroach sql --host localhost --insecure --database threeport_api \
+	--execute "TRUNCATE attached_object_references, \
+		workload_events, \
+		workload_definitions, \
+		workload_resource_definitions, \
+		workload_instances, \
+		workload_resource_instances, \
+		gateway_instances, \
+		gateway_definitions; \
+		set sql_safe_updates = false; \
+		update cluster_instances set gateway_controller_instance_id = NULL; \
+		set sql_safe_updates = true;"
 
 #TODO: move to kubectl exec command that uses `nats` binary in contianer
 #dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal)
@@ -106,7 +122,11 @@ dev-debug-api:
 
 #dev-debug-wrk: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
 dev-debug-wrk:
-	dlv debug cmd/workload-controller/main_gen.go -- -api-server http://localhost:1323 -msg-broker-host localhost -msg-broker-port 4222
+	dlv debug cmd/workload-controller/main_gen.go -- -auth-enabled=false -api-server=localhost:1323 -msg-broker-host=localhost -msg-broker-port=4222
+
+#dev-debug-gateway: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
+dev-debug-gateway:
+	dlv debug --build-flags cmd/gateway-controller/main_gen.go -- -auth-enabled=false -api-server=localhost:1323 -msg-broker-host=localhost -msg-broker-port=4222
 
 ## container image builds
 
@@ -121,6 +141,10 @@ workload-controller-image-build:
 #agent-image-build: @ Build agent container image
 agent-image-build:
 	docker build -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile .
+
+#gateway-image-build: @ Build agent container image
+gateway-image-build:
+	docker build -t $(GATEWAY_IMG) -f cmd/gateway-controller/image/Dockerfile .
 
 #rest-api-image: @ Build and push REST API container image
 rest-api-image: rest-api-image-build

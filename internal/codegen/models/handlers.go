@@ -16,7 +16,13 @@ import (
 // deletionInstanceCheckTypeNames returns the definition objects that need to
 // have related instances checked when deleting
 func deletionInstanceCheckTypeNames() []string {
-	return []string{"WorkloadDefinition"}
+	return []string{"WorkloadDefinition", "GatewayDefinition"}
+}
+
+// SetReconcileCheckTypeNames returns the definition objects that need to
+// have their Reconcile field set to false by their handler
+func SetReconcileCheckTypeNames() []string {
+	return []string{"WorkloadDefinition", "WorkloadInstance", "GatewayDefinition", "GatewayInstance"}
 }
 
 // apiHandlersPath returns the path from the models to the API's internal handlers
@@ -78,6 +84,57 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					),
 				),
 			).Line()
+		}
+
+		reconcileCheck := false
+		for _, typeName := range SetReconcileCheckTypeNames() {
+			if mc.TypeName == typeName {
+				reconcileCheck = true
+			}
+		}
+
+		reconcileCheckHandler := &Statement{}
+		notifyControllersHandler := &Statement{}
+
+		if reconcileCheck {
+
+			// configure reconcileCheckHandler
+			reconcileCheckHandler = Comment("if client doesn't specify reconciled, set it to false")
+			reconcileCheckHandler.Line()
+			reconcileCheckHandler.If(
+				Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("==").Nil().Block(
+					Id("reconciled").Op(":=").False(),
+					Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("=").Op("&").Id("reconciled"),
+				),
+			)
+			// confiugre notifyControllersHandler
+
+			notifyControllersHandler = Comment("notify controllers if reconciliation is required")
+			notifyControllersHandler.Line()
+			notifyControllersHandler.If(Op("!*").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("Reconciled").Block(
+				Id("notifPayload").Op(",").Id("err").Op(":=").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("NotificationPayload").Call(
+					Line().Qual(
+						"github.com/threeport/threeport/pkg/notifications/v0",
+						"NotificationOperationUpdated",
+					),
+					Line().Lit(false),
+					Line().Lit(0),
+					Line(),
+				),
+				If(Id("err").Op("!=").Nil().Block(
+					Return(Qual(
+						"github.com/threeport/threeport/internal/api",
+						"ResponseStatus500",
+					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
+				),
+				Id("h").Dot("JS").Dot("Publish").Call(Qual(
+					fmt.Sprintf(
+						"github.com/threeport/threeport/pkg/api/%s",
+						cc.ParsedModelFile.Name.Name,
+					),
+					mc.UpdateSubject,
+				).Op(",").Op("*").Id("notifPayload")),
+			))
 		}
 
 		// delete handler includes instance check for definition objects to ensure
@@ -756,6 +813,9 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 			),
 			Line(),
+			reconcileCheckHandler,
+			Line(),
+			Comment("update object in database"),
 			If(
 				Id("result").Op(":=").Id("h").Dot("DB").Dot("Model").Call(
 					Op("&").Id(fmt.Sprintf("existing%s", mc.TypeName)),
@@ -768,6 +828,8 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 				),
 			),
+			Line(),
+			notifyControllersHandler,
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(

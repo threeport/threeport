@@ -14,51 +14,51 @@ import (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// NetworkIngressDefinition
+// GatewayDefinition
 ///////////////////////////////////////////////////////////////////////////////
 
-// @Summary GetNetworkIngressDefinitionVersions gets the supported versions for the network ingress definition API.
-// @Description Get the supported API versions for network ingress definitions.
-// @ID networkIngressDefinition-get-versions
+// @Summary GetGatewayDefinitionVersions gets the supported versions for the gateway definition API.
+// @Description Get the supported API versions for gateway definitions.
+// @ID gatewayDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /network-ingress-definitions/versions [get]
-func (h Handler) GetNetworkIngressDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeNetworkIngressDefinition)])
+// @Router /gateway-definitions/versions [get]
+func (h Handler) GetGatewayDefinitionVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeGatewayDefinition)])
 }
 
-// @Summary adds a new network ingress definition.
-// @Description Add a new network ingress definition to the Threeport database.
-// @ID add-networkIngressDefinition
+// @Summary adds a new gateway definition.
+// @Description Add a new gateway definition to the Threeport database.
+// @ID add-gatewayDefinition
 // @Accept json
 // @Produce json
-// @Param networkIngressDefinition body v0.NetworkIngressDefinition true "NetworkIngressDefinition object"
+// @Param gatewayDefinition body v0.GatewayDefinition true "GatewayDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-definitions [post]
-func (h Handler) AddNetworkIngressDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressDefinition
-	var networkIngressDefinition v0.NetworkIngressDefinition
+// @Router /v0/gateway-definitions [post]
+func (h Handler) AddGatewayDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayDefinition
+	var gatewayDefinition v0.GatewayDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	if err := c.Bind(&networkIngressDefinition); err != nil {
+	if err := c.Bind(&gatewayDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, networkIngressDefinition, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, gatewayDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// check for duplicate names
-	var existingNetworkIngressDefinition v0.NetworkIngressDefinition
+	var existingGatewayDefinition v0.GatewayDefinition
 	nameUsed := true
-	result := h.DB.Where("name = ?", networkIngressDefinition.Name).First(&existingNetworkIngressDefinition)
+	result := h.DB.Where("name = ?", gatewayDefinition.Name).First(&existingGatewayDefinition)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
@@ -71,12 +71,12 @@ func (h Handler) AddNetworkIngressDefinition(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.DB.Create(&networkIngressDefinition); result.Error != nil {
+	if result := h.DB.Create(&gatewayDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller
-	notifPayload, err := networkIngressDefinition.NotificationPayload(
+	notifPayload, err := gatewayDefinition.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
 		0,
@@ -84,9 +84,9 @@ func (h Handler) AddNetworkIngressDefinition(c echo.Context) error {
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.NetworkIngressDefinitionCreateSubject, *notifPayload)
+	h.JS.Publish(v0.GatewayDefinitionCreateSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, networkIngressDefinition)
+	response, err := v0.CreateResponse(nil, gatewayDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -94,34 +94,34 @@ func (h Handler) AddNetworkIngressDefinition(c echo.Context) error {
 	return iapi.ResponseStatus201(c, *response)
 }
 
-// @Summary gets all network ingress definitions.
-// @Description Get all network ingress definitions from the Threeport database.
-// @ID get-networkIngressDefinitions
+// @Summary gets all gateway definitions.
+// @Description Get all gateway definitions from the Threeport database.
+// @ID get-gatewayDefinitions
 // @Accept json
 // @Produce json
-// @Param name query string false "network ingress definition search by name"
+// @Param name query string false "gateway definition search by name"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-definitions [get]
-func (h Handler) GetNetworkIngressDefinitions(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressDefinition
+// @Router /v0/gateway-definitions [get]
+func (h Handler) GetGatewayDefinitions(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
 	if err != nil {
 		return iapi.ResponseStatus400(c, &params, err, objectType)
 	}
 
-	var filter v0.NetworkIngressDefinition
+	var filter v0.GatewayDefinition
 	if err := c.Bind(&filter); err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&v0.NetworkIngressDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.GatewayDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	records := &[]v0.NetworkIngressDefinition{}
+	records := &[]v0.GatewayDefinition{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
@@ -134,28 +134,28 @@ func (h Handler) GetNetworkIngressDefinitions(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary gets a network ingress definition.
-// @Description Get a particular network ingress definition from the database.
-// @ID get-networkIngressDefinition
+// @Summary gets a gateway definition.
+// @Description Get a particular gateway definition from the database.
+// @ID get-gatewayDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-definitions/{id} [get]
-func (h Handler) GetNetworkIngressDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressDefinition
-	networkIngressDefinitionID := c.Param("id")
-	var networkIngressDefinition v0.NetworkIngressDefinition
-	if result := h.DB.First(&networkIngressDefinition, networkIngressDefinitionID); result.Error != nil {
+// @Router /v0/gateway-definitions/{id} [get]
+func (h Handler) GetGatewayDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayDefinition
+	gatewayDefinitionID := c.Param("id")
+	var gatewayDefinition v0.GatewayDefinition
+	if result := h.DB.First(&gatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, networkIngressDefinition)
+	response, err := v0.CreateResponse(nil, gatewayDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -163,27 +163,27 @@ func (h Handler) GetNetworkIngressDefinition(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates specific fields for an existing network ingress definition.
-// @Description Update a network ingress definition in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating network ingress definition objects only.
+// @Summary updates specific fields for an existing gateway definition.
+// @Description Update a gateway definition in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating gateway definition objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-networkIngressDefinition
+// @ID update-gatewayDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param networkIngressDefinition body v0.NetworkIngressDefinition true "NetworkIngressDefinition object"
+// @Param gatewayDefinition body v0.GatewayDefinition true "GatewayDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-definitions/{id} [patch]
-func (h Handler) UpdateNetworkIngressDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressDefinition
-	networkIngressDefinitionID := c.Param("id")
-	var existingNetworkIngressDefinition v0.NetworkIngressDefinition
-	if result := h.DB.First(&existingNetworkIngressDefinition, networkIngressDefinitionID); result.Error != nil {
+// @Router /v0/gateway-definitions/{id} [patch]
+func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayDefinition
+	gatewayDefinitionID := c.Param("id")
+	var existingGatewayDefinition v0.GatewayDefinition
+	if result := h.DB.First(&existingGatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -196,16 +196,36 @@ func (h Handler) UpdateNetworkIngressDefinition(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedNetworkIngressDefinition v0.NetworkIngressDefinition
-	if err := c.Bind(&updatedNetworkIngressDefinition); err != nil {
+	var updatedGatewayDefinition v0.GatewayDefinition
+	if err := c.Bind(&updatedGatewayDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	if result := h.DB.Model(&existingNetworkIngressDefinition).Updates(updatedNetworkIngressDefinition); result.Error != nil {
+	// if client doesn't specify reconciled, set it to false
+	if updatedGatewayDefinition.Reconciled == nil {
+		reconciled := false
+		updatedGatewayDefinition.Reconciled = &reconciled
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingGatewayDefinition).Updates(updatedGatewayDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingNetworkIngressDefinition)
+	// notify controllers if reconciliation is required
+	if !*existingGatewayDefinition.Reconciled {
+		notifPayload, err := existingGatewayDefinition.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			0,
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.GatewayDefinitionUpdateSubject, *notifPayload)
+	}
+
+	response, err := v0.CreateResponse(nil, existingGatewayDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -213,28 +233,28 @@ func (h Handler) UpdateNetworkIngressDefinition(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates an existing network ingress definition by replacing the entire object.
-// @Description Replace a network ingress definition in the database.  All required fields must be provided.
+// @Summary updates an existing gateway definition by replacing the entire object.
+// @Description Replace a gateway definition in the database.  All required fields must be provided.
 // @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating network ingress definition objects only.
+// @Description Note: This API endpint is for updating gateway definition objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-networkIngressDefinition
+// @ID replace-gatewayDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param networkIngressDefinition body v0.NetworkIngressDefinition true "NetworkIngressDefinition object"
+// @Param gatewayDefinition body v0.GatewayDefinition true "GatewayDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-definitions/{id} [put]
-func (h Handler) ReplaceNetworkIngressDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressDefinition
-	networkIngressDefinitionID := c.Param("id")
-	var existingNetworkIngressDefinition v0.NetworkIngressDefinition
-	if result := h.DB.First(&existingNetworkIngressDefinition, networkIngressDefinitionID); result.Error != nil {
+// @Router /v0/gateway-definitions/{id} [put]
+func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayDefinition
+	gatewayDefinitionID := c.Param("id")
+	var existingGatewayDefinition v0.GatewayDefinition
+	if result := h.DB.First(&existingGatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -247,31 +267,31 @@ func (h Handler) ReplaceNetworkIngressDefinition(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedNetworkIngressDefinition v0.NetworkIngressDefinition
-	if err := c.Bind(&updatedNetworkIngressDefinition); err != nil {
+	var updatedGatewayDefinition v0.GatewayDefinition
+	if err := c.Bind(&updatedGatewayDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, updatedNetworkIngressDefinition, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, updatedGatewayDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
-	updatedNetworkIngressDefinition.ID = existingNetworkIngressDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedNetworkIngressDefinition); result.Error != nil {
+	updatedGatewayDefinition.ID = existingGatewayDefinition.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGatewayDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// reload updated data from DB
-	if result := h.DB.First(&existingNetworkIngressDefinition, networkIngressDefinitionID); result.Error != nil {
+	if result := h.DB.First(&existingGatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingNetworkIngressDefinition)
+	response, err := v0.CreateResponse(nil, existingGatewayDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -279,9 +299,9 @@ func (h Handler) ReplaceNetworkIngressDefinition(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary deletes a network ingress definition.
-// @Description Delete a network ingress definition by ID from the database.
-// @ID delete-networkIngressDefinition
+// @Summary deletes a gateway definition.
+// @Description Delete a gateway definition by ID from the database.
+// @ID delete-gatewayDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -289,24 +309,30 @@ func (h Handler) ReplaceNetworkIngressDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-definitions/{id} [delete]
-func (h Handler) DeleteNetworkIngressDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressDefinition
-	networkIngressDefinitionID := c.Param("id")
-	var networkIngressDefinition v0.NetworkIngressDefinition
-	if result := h.DB.First(&networkIngressDefinition, networkIngressDefinitionID); result.Error != nil {
+// @Router /v0/gateway-definitions/{id} [delete]
+func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayDefinition
+	gatewayDefinitionID := c.Param("id")
+	var gatewayDefinition v0.GatewayDefinition
+	if result := h.DB.Preload("GatewayInstances").First(&gatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	if result := h.DB.Delete(&networkIngressDefinition); result.Error != nil {
+	// check to make sure no dependent instances exist for this definition
+	if len(gatewayDefinition.GatewayInstances) != 0 {
+		err := errors.New("gateway definition has related gateway instances - cannot be deleted")
+		return iapi.ResponseStatus409(c, nil, err, objectType)
+	}
+
+	if result := h.DB.Delete(&gatewayDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller
-	notifPayload, err := networkIngressDefinition.NotificationPayload(
+	notifPayload, err := gatewayDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
 		0,
@@ -314,9 +340,9 @@ func (h Handler) DeleteNetworkIngressDefinition(c echo.Context) error {
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.NetworkIngressDefinitionDeleteSubject, *notifPayload)
+	h.JS.Publish(v0.GatewayDefinitionDeleteSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, networkIngressDefinition)
+	response, err := v0.CreateResponse(nil, gatewayDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -325,51 +351,51 @@ func (h Handler) DeleteNetworkIngressDefinition(c echo.Context) error {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// NetworkIngressInstance
+// GatewayInstance
 ///////////////////////////////////////////////////////////////////////////////
 
-// @Summary GetNetworkIngressInstanceVersions gets the supported versions for the network ingress instance API.
-// @Description Get the supported API versions for network ingress instances.
-// @ID networkIngressInstance-get-versions
+// @Summary GetGatewayInstanceVersions gets the supported versions for the gateway instance API.
+// @Description Get the supported API versions for gateway instances.
+// @ID gatewayInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /network-ingress-instances/versions [get]
-func (h Handler) GetNetworkIngressInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeNetworkIngressInstance)])
+// @Router /gateway-instances/versions [get]
+func (h Handler) GetGatewayInstanceVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeGatewayInstance)])
 }
 
-// @Summary adds a new network ingress instance.
-// @Description Add a new network ingress instance to the Threeport database.
-// @ID add-networkIngressInstance
+// @Summary adds a new gateway instance.
+// @Description Add a new gateway instance to the Threeport database.
+// @ID add-gatewayInstance
 // @Accept json
 // @Produce json
-// @Param networkIngressInstance body v0.NetworkIngressInstance true "NetworkIngressInstance object"
+// @Param gatewayInstance body v0.GatewayInstance true "GatewayInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-instances [post]
-func (h Handler) AddNetworkIngressInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressInstance
-	var networkIngressInstance v0.NetworkIngressInstance
+// @Router /v0/gateway-instances [post]
+func (h Handler) AddGatewayInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayInstance
+	var gatewayInstance v0.GatewayInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	if err := c.Bind(&networkIngressInstance); err != nil {
+	if err := c.Bind(&gatewayInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, networkIngressInstance, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, gatewayInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// check for duplicate names
-	var existingNetworkIngressInstance v0.NetworkIngressInstance
+	var existingGatewayInstance v0.GatewayInstance
 	nameUsed := true
-	result := h.DB.Where("name = ?", networkIngressInstance.Name).First(&existingNetworkIngressInstance)
+	result := h.DB.Where("name = ?", gatewayInstance.Name).First(&existingGatewayInstance)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
@@ -382,12 +408,12 @@ func (h Handler) AddNetworkIngressInstance(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.DB.Create(&networkIngressInstance); result.Error != nil {
+	if result := h.DB.Create(&gatewayInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller
-	notifPayload, err := networkIngressInstance.NotificationPayload(
+	notifPayload, err := gatewayInstance.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
 		0,
@@ -395,9 +421,9 @@ func (h Handler) AddNetworkIngressInstance(c echo.Context) error {
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.NetworkIngressInstanceCreateSubject, *notifPayload)
+	h.JS.Publish(v0.GatewayInstanceCreateSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, networkIngressInstance)
+	response, err := v0.CreateResponse(nil, gatewayInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -405,34 +431,34 @@ func (h Handler) AddNetworkIngressInstance(c echo.Context) error {
 	return iapi.ResponseStatus201(c, *response)
 }
 
-// @Summary gets all network ingress instances.
-// @Description Get all network ingress instances from the Threeport database.
-// @ID get-networkIngressInstances
+// @Summary gets all gateway instances.
+// @Description Get all gateway instances from the Threeport database.
+// @ID get-gatewayInstances
 // @Accept json
 // @Produce json
-// @Param name query string false "network ingress instance search by name"
+// @Param name query string false "gateway instance search by name"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-instances [get]
-func (h Handler) GetNetworkIngressInstances(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressInstance
+// @Router /v0/gateway-instances [get]
+func (h Handler) GetGatewayInstances(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
 	if err != nil {
 		return iapi.ResponseStatus400(c, &params, err, objectType)
 	}
 
-	var filter v0.NetworkIngressInstance
+	var filter v0.GatewayInstance
 	if err := c.Bind(&filter); err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&v0.NetworkIngressInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.GatewayInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	records := &[]v0.NetworkIngressInstance{}
+	records := &[]v0.GatewayInstance{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
@@ -445,28 +471,28 @@ func (h Handler) GetNetworkIngressInstances(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary gets a network ingress instance.
-// @Description Get a particular network ingress instance from the database.
-// @ID get-networkIngressInstance
+// @Summary gets a gateway instance.
+// @Description Get a particular gateway instance from the database.
+// @ID get-gatewayInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-instances/{id} [get]
-func (h Handler) GetNetworkIngressInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressInstance
-	networkIngressInstanceID := c.Param("id")
-	var networkIngressInstance v0.NetworkIngressInstance
-	if result := h.DB.First(&networkIngressInstance, networkIngressInstanceID); result.Error != nil {
+// @Router /v0/gateway-instances/{id} [get]
+func (h Handler) GetGatewayInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayInstance
+	gatewayInstanceID := c.Param("id")
+	var gatewayInstance v0.GatewayInstance
+	if result := h.DB.First(&gatewayInstance, gatewayInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, networkIngressInstance)
+	response, err := v0.CreateResponse(nil, gatewayInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -474,27 +500,27 @@ func (h Handler) GetNetworkIngressInstance(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates specific fields for an existing network ingress instance.
-// @Description Update a network ingress instance in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating network ingress instance objects only.
+// @Summary updates specific fields for an existing gateway instance.
+// @Description Update a gateway instance in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating gateway instance objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-networkIngressInstance
+// @ID update-gatewayInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param networkIngressInstance body v0.NetworkIngressInstance true "NetworkIngressInstance object"
+// @Param gatewayInstance body v0.GatewayInstance true "GatewayInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-instances/{id} [patch]
-func (h Handler) UpdateNetworkIngressInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressInstance
-	networkIngressInstanceID := c.Param("id")
-	var existingNetworkIngressInstance v0.NetworkIngressInstance
-	if result := h.DB.First(&existingNetworkIngressInstance, networkIngressInstanceID); result.Error != nil {
+// @Router /v0/gateway-instances/{id} [patch]
+func (h Handler) UpdateGatewayInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayInstance
+	gatewayInstanceID := c.Param("id")
+	var existingGatewayInstance v0.GatewayInstance
+	if result := h.DB.First(&existingGatewayInstance, gatewayInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -507,16 +533,36 @@ func (h Handler) UpdateNetworkIngressInstance(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedNetworkIngressInstance v0.NetworkIngressInstance
-	if err := c.Bind(&updatedNetworkIngressInstance); err != nil {
+	var updatedGatewayInstance v0.GatewayInstance
+	if err := c.Bind(&updatedGatewayInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	if result := h.DB.Model(&existingNetworkIngressInstance).Updates(updatedNetworkIngressInstance); result.Error != nil {
+	// if client doesn't specify reconciled, set it to false
+	if updatedGatewayInstance.Reconciled == nil {
+		reconciled := false
+		updatedGatewayInstance.Reconciled = &reconciled
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingGatewayInstance).Updates(updatedGatewayInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingNetworkIngressInstance)
+	// notify controllers if reconciliation is required
+	if !*existingGatewayInstance.Reconciled {
+		notifPayload, err := existingGatewayInstance.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			0,
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.GatewayInstanceUpdateSubject, *notifPayload)
+	}
+
+	response, err := v0.CreateResponse(nil, existingGatewayInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -524,28 +570,28 @@ func (h Handler) UpdateNetworkIngressInstance(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates an existing network ingress instance by replacing the entire object.
-// @Description Replace a network ingress instance in the database.  All required fields must be provided.
+// @Summary updates an existing gateway instance by replacing the entire object.
+// @Description Replace a gateway instance in the database.  All required fields must be provided.
 // @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating network ingress instance objects only.
+// @Description Note: This API endpint is for updating gateway instance objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-networkIngressInstance
+// @ID replace-gatewayInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param networkIngressInstance body v0.NetworkIngressInstance true "NetworkIngressInstance object"
+// @Param gatewayInstance body v0.GatewayInstance true "GatewayInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-instances/{id} [put]
-func (h Handler) ReplaceNetworkIngressInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressInstance
-	networkIngressInstanceID := c.Param("id")
-	var existingNetworkIngressInstance v0.NetworkIngressInstance
-	if result := h.DB.First(&existingNetworkIngressInstance, networkIngressInstanceID); result.Error != nil {
+// @Router /v0/gateway-instances/{id} [put]
+func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayInstance
+	gatewayInstanceID := c.Param("id")
+	var existingGatewayInstance v0.GatewayInstance
+	if result := h.DB.First(&existingGatewayInstance, gatewayInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -558,31 +604,31 @@ func (h Handler) ReplaceNetworkIngressInstance(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedNetworkIngressInstance v0.NetworkIngressInstance
-	if err := c.Bind(&updatedNetworkIngressInstance); err != nil {
+	var updatedGatewayInstance v0.GatewayInstance
+	if err := c.Bind(&updatedGatewayInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, updatedNetworkIngressInstance, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, updatedGatewayInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
-	updatedNetworkIngressInstance.ID = existingNetworkIngressInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedNetworkIngressInstance); result.Error != nil {
+	updatedGatewayInstance.ID = existingGatewayInstance.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGatewayInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// reload updated data from DB
-	if result := h.DB.First(&existingNetworkIngressInstance, networkIngressInstanceID); result.Error != nil {
+	if result := h.DB.First(&existingGatewayInstance, gatewayInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingNetworkIngressInstance)
+	response, err := v0.CreateResponse(nil, existingGatewayInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -590,9 +636,9 @@ func (h Handler) ReplaceNetworkIngressInstance(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary deletes a network ingress instance.
-// @Description Delete a network ingress instance by ID from the database.
-// @ID delete-networkIngressInstance
+// @Summary deletes a gateway instance.
+// @Description Delete a gateway instance by ID from the database.
+// @ID delete-gatewayInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -600,24 +646,24 @@ func (h Handler) ReplaceNetworkIngressInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/network-ingress-instances/{id} [delete]
-func (h Handler) DeleteNetworkIngressInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeNetworkIngressInstance
-	networkIngressInstanceID := c.Param("id")
-	var networkIngressInstance v0.NetworkIngressInstance
-	if result := h.DB.First(&networkIngressInstance, networkIngressInstanceID); result.Error != nil {
+// @Router /v0/gateway-instances/{id} [delete]
+func (h Handler) DeleteGatewayInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayInstance
+	gatewayInstanceID := c.Param("id")
+	var gatewayInstance v0.GatewayInstance
+	if result := h.DB.First(&gatewayInstance, gatewayInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	if result := h.DB.Delete(&networkIngressInstance); result.Error != nil {
+	if result := h.DB.Delete(&gatewayInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller
-	notifPayload, err := networkIngressInstance.NotificationPayload(
+	notifPayload, err := gatewayInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
 		0,
@@ -625,9 +671,9 @@ func (h Handler) DeleteNetworkIngressInstance(c echo.Context) error {
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.NetworkIngressInstanceDeleteSubject, *notifPayload)
+	h.JS.Publish(v0.GatewayInstanceDeleteSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, networkIngressInstance)
+	response, err := v0.CreateResponse(nil, gatewayInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}

@@ -257,6 +257,34 @@ func (cc *ControllerConfig) Reconcilers() error {
 							),
 							Case(Qual(
 								"github.com/threeport/threeport/pkg/notifications/v0",
+								"NotificationOperationUpdated",
+							)).Block(
+								If(Err().Op(":=").Id(fmt.Sprintf(
+									"%sUpdated",
+									strcase.ToLowerCamel(obj),
+								)).Call(
+									Id("r"),
+									Op("&").Id(strcase.ToLowerCamel(obj)),
+									Op("&").Id("log"),
+								), Err().Op("!=").Nil()).Block(
+									Id("log").Dot("Error").Call(
+										Err(), Lit(fmt.Sprintf(
+											"failed to reconcile updated %s object",
+											strcase.ToDelimited(obj, ' '),
+										)),
+									),
+									Id("r").Dot("UnlockAndRequeue").Call(
+										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Id("msg").Dot("Subject"),
+										Line().Id("notifPayload"),
+										Line().Id("requeueDelay"),
+										Line(),
+									),
+									Continue(),
+								),
+							),
+							Case(Qual(
+								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationDeleted",
 							)).Block(
 								If(Err().Op(":=").Id(fmt.Sprintf(
@@ -280,8 +308,14 @@ func (cc *ControllerConfig) Reconcilers() error {
 										Line().Id("requeueDelay"),
 										Line(),
 									),
-									Continue(),
+								).Else().Block(
+									Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj))),
+									Id("log").Dot("Info").Call(Lit(fmt.Sprintf(
+										"%s successfully reconciled",
+										strcase.ToDelimited(obj, ' '),
+									))),
 								),
+								Continue(),
 							),
 							Default().Block(
 								Id("log").Dot("Error").Call(

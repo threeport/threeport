@@ -201,6 +201,7 @@ func (h Handler) UpdateForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingForwardProxyDefinition).Updates(updatedForwardProxyDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -512,6 +513,7 @@ func (h Handler) UpdateForwardProxyInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingForwardProxyInstance).Updates(updatedForwardProxyInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}

@@ -94,6 +94,39 @@ func workloadDefinitionCreated(
 	return nil
 }
 
+// workloadDefinitionUpdated performs reconciliation when a workload definition
+// has been updated.
+func workloadDefinitionUpdated(
+	r *controller.Reconciler,
+	workloadDefinition *v0.WorkloadDefinition,
+	log *logr.Logger,
+) error {
+	// // get related workload resource definitions
+	// workloadResourceDefinitions, err := client.GetWorkloadResourceDefinitionsByWorkloadDefinitionID(
+	// 	r.APIClient,
+	// 	r.APIServer,
+	// 	*workloadDefinition.ID,
+	// )
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get workload resource definitions by workload definition ID: %w", err)
+	// }
+
+	// // delete each related workload resource definition
+	// for _, wrd := range *workloadResourceDefinitions {
+	// 	_, err := client.DeleteWorkloadResourceDefinition(r.APIClient, r.APIServer, *wrd.ID)
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to delete workload resource definition with ID %d: %w", wrd.ID, err)
+	// 	}
+	// 	log.V(1).Info(
+	// 		"workload resource definition deleted",
+	// 		"workloadResourceDefinitionID", wrd.ID,
+	// 	)
+	// }
+
+	return nil
+}
+
+
 // workloadDefinitionDeleted performs reconciliation when a workload definition
 // has been deleted.
 func workloadDefinitionDeleted(

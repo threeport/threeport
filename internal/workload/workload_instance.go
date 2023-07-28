@@ -91,6 +91,9 @@ func workloadInstanceCreated(
 
 	// get a kube discovery client for the cluster
 	discoveryClient, err := kube.GetDiscoveryClient(clusterInstance, true)
+	if err != nil {
+		return fmt.Errorf("failed to get kube discovery client for cluster: %w", err)
+	}
 
 	// manipulate namespace on kube resources as needed
 	processedWRIs, err := kube.SetNamespaces(
@@ -161,6 +164,8 @@ func workloadInstanceCreated(
 		}
 
 		// create object in threeport API
+		reconciled := true
+		wri.Reconciled = &reconciled
 		createdWRI, err := client.CreateWorkloadResourceInstance(
 			r.APIClient,
 			r.APIServer,
@@ -204,6 +209,130 @@ func workloadInstanceCreated(
 	return nil
 }
 
+// workloadInstanceUpdated performs reconciliation when a workload instance
+// has been updated
+func workloadInstanceUpdated(
+	r *controller.Reconciler,
+	workloadInstance *v0.WorkloadInstance,
+	log *logr.Logger,
+) error {
+	// get cluster instance info
+	clusterInstance, err := client.GetClusterInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*workloadInstance.ClusterInstanceID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
+	}
+
+	// get workload resource instances
+	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
+		r.APIClient,
+		r.APIServer,
+		*workloadInstance.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
+	}
+	if len(*workloadResourceInstances) == 0 {
+		log.V(1).Info(
+			"zero workload resource instances to update",
+			"workloadInstanceID", workloadInstance.ID,
+		)
+		return nil
+	}
+
+	// get a kube discovery client for the cluster
+	discoveryClient, err := kube.GetDiscoveryClient(clusterInstance, true)
+	if err != nil {
+		return fmt.Errorf("failed to get kube discovery client for cluster: %w", err)
+	}
+
+	// manipulate namespace on kube resources as needed
+	processedWRIs, err := kube.SetNamespaces(
+		workloadResourceInstances,
+		workloadInstance,
+		discoveryClient,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to set namespaces for workload resource instances: %w", err)
+	}
+
+
+	// create a client to connect to kube API
+	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
+	if err != nil {
+		return fmt.Errorf("failed to create kube API client object: %w", err)
+	}
+
+	// update each workload resource instance and resource in the target kube cluster
+	for _, wri := range *processedWRIs {
+
+		// only update resource instances that have not been reconciled
+		if *wri.Reconciled {
+			continue
+		}
+
+		// marshal the resource instance json
+		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
+		if err != nil {
+			return fmt.Errorf("failed to marshal json for workload resource instance with ID %d: %w", wri.ID, err)
+		}
+
+		// build kube unstructured object from json
+		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := kubeObject.UnmarshalJSON(jsonDefinition); err != nil {
+			return fmt.Errorf("failed to unmarshal json to kubernetes unstructured object workload resource instance with ID %d: %w", wri.ID, err)
+		}
+
+		// if the resource instance is scheduled for deletion, delete it
+		if wri.ScheduledForDeletion != nil {
+
+			// delete kube resource
+			if err := kube.DeleteResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
+				return fmt.Errorf("failed to delete Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
+			}
+
+			// delete threeport resource
+			_, err = client.DeleteWorkloadResourceInstance(
+				r.APIClient,
+				r.APIServer,
+				*wri.ID,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to delete workload resource instance with ID %d: %w", wri.ID, err)
+			}
+			continue
+
+		} else {
+			// otherwise, it needs to be created or updated
+			if _, err := kube.CreateOrUpdateResource(kubeObject, dynamicKubeClient, *mapper); err != nil {
+				return fmt.Errorf("failed to create or update Kubernetes resource workload resource instance with ID %d: %w", wri.ID, err)
+			}
+		}
+
+		// update the workload resource instance
+		reconciled := true
+		wri.Reconciled = &reconciled
+		_, err = client.UpdateWorkloadResourceInstance(
+			r.APIClient,
+			r.APIServer,
+			&wri,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update workload resource instance with ID %d: %w", wri.ID, err)
+		}
+
+		log.V(1).Info(
+			"workload resource instance updated",
+			"workloadResourceInstanceID", wri.ID,
+		)
+	}
+
+	return nil
+}
+
 // workloadInstanceDeleted performs reconciliation when a workload instance
 // has been deleted
 func workloadInstanceDeleted(
@@ -237,7 +366,27 @@ func workloadInstanceDeleted(
 	// create a client to connect to kube API
 	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
 	if err != nil {
-		fmt.Errorf("failed to create kube API client object: %w", err)
+		return fmt.Errorf("failed to create kube API client object: %w", err)
+	}
+
+	// We need to query the Threeport API for the attached object references
+	// even though the WorkloadInstance table has a relation to AttachedObjectReferences.
+	// This is because the AttachedObjectReferences relation is deleted when the
+	// WorkloadInstance is deleted, so we can't use those references anymore in
+	// the deletion handler.
+	attachedObjectReferences, err := client.GetAttachedObjectReferencesByWorkloadInstanceID(r.APIClient, r.APIServer, *workloadInstance.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
+	}
+	for _, object := range *attachedObjectReferences {
+		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.Type, *object.ObjectID)
+		if err != nil {
+			return fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.Type, *object.ID, err)
+		}
+		_, err = client.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *object.ID)
+		if err != nil {
+			return fmt.Errorf("failed to delete attached object reference with ID %d: %w", *object.ID, err)
+		}
 	}
 
 	// delete each workload resource instance and resource in the target kube cluster
@@ -308,7 +457,7 @@ func confirmWorkloadDefReconciled(
 	if err != nil {
 		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
 	}
-	if workloadDefinition.Reconciled != nil && *workloadDefinition.Reconciled != true {
+	if workloadDefinition.Reconciled != nil && !*workloadDefinition.Reconciled {
 		return false, nil
 	}
 

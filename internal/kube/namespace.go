@@ -26,7 +26,7 @@ func SetNamespaces(
 ) (*[]v0.WorkloadResourceInstance, error) {
 	// first check to see if any namespaces are included - if so assume
 	// namespaces are managed by client and do nothing
-	clientManagedNS := false
+	clientManagedNS := ""
 	for _, wri := range *workloadResourceInstances {
 		var mapDef map[string]interface{}
 		err := json.Unmarshal([]byte(*wri.JSONDefinition), &mapDef)
@@ -34,23 +34,23 @@ func SetNamespaces(
 			return workloadResourceInstances, fmt.Errorf("failed to unmarshal json: %w", err)
 		}
 		if mapDef["kind"] == "Namespace" {
-			clientManagedNS = true
+			metadata := mapDef["metadata"].(map[string]interface{})
+			clientManagedNS = metadata["name"].(string)
 			break
 		}
 	}
-	if clientManagedNS {
-		return workloadResourceInstances, nil
+
+	namespace := ""
+	if clientManagedNS == "" {
+		// we are managing namespaces for the client - create namespace and add to
+		// array of processed workload resource instances
+		namespace = fmt.Sprintf("%s-%s", *workloadInstance.Name, util.RandomString(10))
+	} else {
+		namespace = clientManagedNS
 	}
 
-	// we are managing namespaces for the client - create namespace and add to
-	// array of processed workload resource instances
-	managedNSName := fmt.Sprintf("%s-%s", *workloadInstance.Name, util.RandomString(10))
-	namespaceWRI, err := createNamespaceWorkloadResourceInstance(managedNSName, *workloadInstance.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new workload resource instance for namespace: %w", err)
-	}
-	processedWRIs := []v0.WorkloadResourceInstance{*namespaceWRI}
-
+	processedWRIs := []v0.WorkloadResourceInstance{}
+	namespacedObjectCount := 0
 	for _, wri := range *workloadResourceInstances {
 		// check to see if this is a namespaced resource
 		namespaced, err := isNamespaced(
@@ -62,11 +62,13 @@ func SetNamespaces(
 		}
 		if !namespaced {
 			// skip non-namespaced resources
+			processedWRIs = append(processedWRIs, wri)
 			continue
 		}
+		namespacedObjectCount++
 
 		// update the resource to set the namespace
-		updatedJSONDef, err := updateNamespace([]byte(*wri.JSONDefinition), managedNSName)
+		updatedJSONDef, err := updateNamespace([]byte(*wri.JSONDefinition), namespace)
 		if err != nil {
 			return &processedWRIs, fmt.Errorf("failed to update JSON definition to set namespace: %w", err)
 		}
@@ -80,6 +82,18 @@ func SetNamespaces(
 		processedWRIs = append(processedWRIs, wri)
 	}
 
+	// only prepend the namespace resource if there are namespaced resources that require it
+	if namespacedObjectCount > 0 && clientManagedNS == "" {
+
+		namespaceWRI, err := createNamespaceWorkloadResourceInstance(namespace, *workloadInstance.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create new workload resource instance for namespace: %w", err)
+		}
+
+		// move first resource to the back of the array, then prepend the namespace
+		processedWRIs = append(processedWRIs, processedWRIs[0])
+		processedWRIs[0] = *namespaceWRI
+	}
 	return &processedWRIs, nil
 }
 

@@ -14,6 +14,20 @@ definitions:
     - API
     - Versions
     type: object
+  datatypes.JSON:
+    type: object
+  v0.AttachedObjectReference:
+    properties:
+      ObjectID:
+        type: integer
+      Type:
+        type: string
+      WorkloadInstanceID:
+        description: The workload definition this resource belongs to.
+        type: integer
+    required:
+    - WorkloadInstanceID
+    type: object
   v0.AwsAccount:
     properties:
       AccessKeyID:
@@ -161,69 +175,6 @@ definitions:
     - Name
     type: object
   v0.ClusterInstance:
-    properties:
-      APIEndpoint:
-        description: The network endpoint at which to reach the kube-api.
-        type: string
-      AWSConfigEnv:
-        type: boolean
-      AWSConfigProfile:
-        type: string
-      AWSRegion:
-        type: string
-      CACertificate:
-        description: |-
-          The CA certificate used to generate the cert and key if
-          self-signed.
-        type: string
-      Certificate:
-        description: The client certificate to use for auth to the kube-api.
-        type: string
-      ClusterDefinitionID:
-        description: The cluster definition for this instance.
-        type: integer
-      DefaultCluster:
-        description: |-
-          If true the cluster instance to use for deployments if not otherwise
-          specified.  Can only have one per account.
-        type: boolean
-      EKSToken:
-        description: |-
-          TODO: pull these EKS and AWS fields into related AWS tables
-          EKSToken is the token used for authentication by AWS EKS clusters.
-        type: string
-      Key:
-        description: The client key to use for auth to the kube-api.
-        type: string
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      Region:
-        description: |-
-          The geographical region for the cluster roughly corresponding to cloud
-          provider regions.  Stored in the instance (as well as definition) since a
-          change to the definition will not move a cluster.
-        type: string
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-      ThreeportControlPlaneCluster:
-        description: |-
-          If true, controllers will connect to the kube API using internal DNS
-          rather than the APIEndpoint.
-        type: boolean
-      WorkloadInstance:
-        description: The associated workload instances running on this cluster.
-        items:
-          $ref: '#/definitions/v0.WorkloadInstance'
-        type: array
-    required:
-    - APIEndpoint
-    - CACertificate
-    - ClusterDefinitionID
-    - Name
     type: object
   v0.DomainNameDefinition:
     properties:
@@ -320,6 +271,84 @@ definitions:
     required:
     - Name
     type: object
+  v0.GatewayDefinition:
+    properties:
+      DomainNameID:
+        description: The domain name to serve requests for.
+        type: integer
+      GatewayInstances:
+        description: The associated gateway instances that are deployed from this
+          definition.
+        items:
+          $ref: '#/definitions/v0.GatewayInstance'
+        type: array
+      HTTPSRedirect:
+        description: Redirect all requests to HTTP port to HTTPS.
+        type: boolean
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      Paths:
+        description: The request paths to serve requests for.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by gateway
+          controller.
+        type: boolean
+      TCPPort:
+        description: TCP Port to expose to outside network.
+        type: integer
+      TLSEnabled:
+        description: Indicates if TLS is enabled.
+        type: boolean
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      WorkloadDefinitionID:
+        description: The workload definition that belongs to this resource.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.GatewayInstance:
+    properties:
+      ClusterInstanceID:
+        description: The cluster where the ingress layer is installed.
+        type: integer
+      GatewayDefinitionID:
+        description: GatewayDefinitionID is the definition used to configure the workload
+          instance.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by gateway
+          controller.
+        type: boolean
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      WorkloadInstanceID:
+        description: The workload instance this gateway belongs to.
+        type: integer
+      WorkloadResourceInstanceID:
+        description: The workload resource instance that belongs to this instance.
+        type: integer
+    required:
+    - ClusterInstanceID
+    - GatewayDefinitionID
+    - Name
+    type: object
   v0.LogBackend:
     properties:
       Destination:
@@ -396,116 +425,58 @@ definitions:
         example: 1
         type: integer
     type: object
-  v0.NetworkIngressDefinition:
-    properties:
-      DomainNameID:
-        description: The domain name to serve requests for.
-        type: integer
-      HTTPPort:
-        description: Expose port 80.
-        type: boolean
-      HTTPSPort:
-        description: Expose port 443 with TLS termination.
-        type: boolean
-      HTTPSRedirect:
-        description: Redirect all requests to HTTP port to HTTPS.
-        type: boolean
-      Name:
-        description: An arbitrary name for the definition.
-        type: string
-      Private:
-        description: |-
-          Allow requests from the private network outside the workload cluster but
-          not from the public internet.
-        type: boolean
-      ProfileID:
-        description: |-
-          The profile to associate with the definition.  Profile is a named
-          standard configuration for a definition object.
-        type: integer
-      Public:
-        description: Allow requests from the public internet.
-        type: boolean
-      TCPPort:
-        description: TCP Port to expose to outside network.
-        type: integer
-      TierID:
-        description: |-
-          The tier to associate with the definition.  Tier is a level of
-          criticality for access control.
-        type: integer
-    required:
-    - Name
-    type: object
-  v0.NetworkIngressInstance:
-    properties:
-      ClusterInstanceID:
-        description: The cluster where the ingress layer is installed.
-        type: integer
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      NetworkIngressDefinitionID:
-        description: The definition used to define the instance.
-        type: integer
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-    required:
-    - Name
-    type: object
   v0.ObjectType:
     enum:
+    - GatewayDefinition
+    - GatewayInstance
     - Profile
     - Tier
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - ClusterDefinition
+    - ClusterInstance
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - WorkloadEvent
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - NetworkIngressDefinition
-    - NetworkIngressInstance
-    - ClusterDefinition
-    - ClusterInstance
-    - DomainNameDefinition
-    - DomainNameInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
     - ObjectTypeProfile
     - ObjectTypeTier
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeClusterDefinition
+    - ObjectTypeClusterInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksClusterDefinition
     - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeNetworkIngressDefinition
-    - ObjectTypeNetworkIngressInstance
-    - ObjectTypeClusterDefinition
-    - ObjectTypeClusterInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       Name:
@@ -615,8 +586,11 @@ definitions:
         type: string
       RuntimeEventUID:
         description: |-
-          The unique ID for the Event obejct in Kubernetes.  This is recorded for
-          de-duplicating purposes.
+          A unique ID for de-duplicating purposes.  It is one of two thing:
+          * The Kubernetes Event resource UID: when the WorkloadEvent is derived
+          directly from a Kubernetes Event.
+          * The workload controller ID: when the WorkloadEvent is emitted by the
+          workload controller.
         type: string
       Timestamp:
         description: The timestamp for the event in the cluster.
@@ -638,45 +612,13 @@ definitions:
     - Type
     type: object
   v0.WorkloadInstance:
-    properties:
-      ClusterInstanceID:
-        description: ClusterID is the cluster to which the workload is deployed.
-        type: integer
-      Events:
-        items:
-          $ref: '#/definitions/v0.WorkloadEvent'
-        type: array
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by workload
-          controller.
-        type: boolean
-      Status:
-        type: string
-      WorkloadDefinitionID:
-        description: |-
-          WorkloadDefinitionID is the definition used to configure the workload
-          instance.
-        type: integer
-      WorkloadResourceInstances:
-        description: The associated workload resource definitions that are derived.
-        items:
-          $ref: '#/definitions/v0.WorkloadResourceInstance'
-        type: array
-    required:
-    - ClusterInstanceID
-    - Name
-    - WorkloadDefinitionID
     type: object
   v0.WorkloadResourceDefinition:
     properties:
       JSONDefinition:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: The individual manifest in JSON format.
-        items:
-          type: integer
-        type: array
       WorkloadDefinitionID:
         description: The workload definition this resource belongs to.
         type: integer
@@ -685,39 +627,6 @@ definitions:
     - WorkloadDefinitionID
     type: object
   v0.WorkloadResourceInstance:
-    properties:
-      Events:
-        description: All events that have occured related to this object.
-        items:
-          $ref: '#/definitions/v0.WorkloadEvent'
-        type: array
-      JSONDefinition:
-        description: |-
-          The individual manifest in JSON format.  This field is a superset of
-          WorkloadResourceDefinition.JSONDefinition in that it has namespace
-          management and other configuration - such as resource allocation
-          management - added.
-        items:
-          type: integer
-        type: array
-      LastOperation:
-        description: |-
-          The most recent operation performed on a Kubernete resource in the
-          cluster.
-        type: string
-      RuntimeDefinition:
-        description: |-
-          The JSON definition of a Kubernetes resource as stored in etcd in the
-          cluster.
-        items:
-          type: integer
-        type: array
-      WorkloadInstanceID:
-        description: The workload definition this resource belongs to.
-        type: integer
-    required:
-    - JSONDefinition
-    - WorkloadInstanceID
     type: object
   version.RESTAPIVersion:
     properties:
@@ -737,6 +646,19 @@ info:
   title: Threeport RESTful API
   version: v0.1.2
 paths:
+  /attached-object-references/versions:
+    get:
+      description: Get the supported API versions for attached object references.
+      operationId: attachedObjectReference-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetAttachedObjectReferenceVersions gets the supported versions for
+        the attached object reference API.
   /aws-accounts/versions:
     get:
       description: Get the supported API versions for aws accounts.
@@ -880,6 +802,32 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetForwardProxyInstanceVersions gets the supported versions for the
         forward proxy instance API.
+  /gateway-definitions/versions:
+    get:
+      description: Get the supported API versions for gateway definitions.
+      operationId: gatewayDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetGatewayDefinitionVersions gets the supported versions for the gateway
+        definition API.
+  /gateway-instances/versions:
+    get:
+      description: Get the supported API versions for gateway instances.
+      operationId: gatewayInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetGatewayInstanceVersions gets the supported versions for the gateway
+        instance API.
   /log-backends/versions:
     get:
       description: Get the supported API versions for log backends.
@@ -919,32 +867,6 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetLogStorageInstanceVersions gets the supported versions for the log
         storage instance API.
-  /network-ingress-definitions/versions:
-    get:
-      description: Get the supported API versions for network ingress definitions.
-      operationId: networkIngressDefinition-get-versions
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
-      summary: GetNetworkIngressDefinitionVersions gets the supported versions for
-        the network ingress definition API.
-  /network-ingress-instances/versions:
-    get:
-      description: Get the supported API versions for network ingress instances.
-      operationId: networkIngressInstance-get-versions
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
-      summary: GetNetworkIngressInstanceVersions gets the supported versions for the
-        network ingress instance API.
   /profiles/versions:
     get:
       description: Get the supported API versions for profiles.
@@ -969,6 +891,206 @@ paths:
           schema:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetTierVersions gets the supported versions for the tier API.
+  /v0/attached-object-references:
+    get:
+      consumes:
+      - application/json
+      description: Get all attached object references from the Threeport database.
+      operationId: get-attachedObjectReferences
+      parameters:
+      - description: attached object reference search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all attached object references.
+    post:
+      consumes:
+      - application/json
+      description: Add a new attached object reference to the Threeport database.
+      operationId: add-attachedObjectReference
+      parameters:
+      - description: AttachedObjectReference object
+        in: body
+        name: attachedObjectReference
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AttachedObjectReference'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new attached object reference.
+  /v0/attached-object-references/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a attached object reference by ID from the database.
+      operationId: delete-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a attached object reference.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular attached object reference from the database.
+      operationId: get-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a attached object reference.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a attached object reference in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating attached object reference objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AttachedObjectReference object
+        in: body
+        name: attachedObjectReference
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AttachedObjectReference'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing attached object reference.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a attached object reference in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating attached object reference objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AttachedObjectReference object
+        in: body
+        name: attachedObjectReference
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AttachedObjectReference'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing attached object reference by replacing the entire
+        object.
   /v0/aws-accounts:
     get:
       consumes:
@@ -1028,7 +1150,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a aws account ID by from the database.
+      description: Delete a aws account by ID from the database.
       operationId: delete-awsAccount
       parameters:
       - description: ID
@@ -1227,7 +1349,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a aws eks cluster definition ID by from the database.
+      description: Delete a aws eks cluster definition by ID from the database.
       operationId: delete-awsEksClusterDefinition
       parameters:
       - description: ID
@@ -1427,7 +1549,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a aws eks cluster instance ID by from the database.
+      description: Delete a aws eks cluster instance by ID from the database.
       operationId: delete-awsEksClusterInstance
       parameters:
       - description: ID
@@ -1628,7 +1750,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a aws relational database definition ID by from the database.
+      description: Delete a aws relational database definition by ID from the database.
       operationId: delete-awsRelationalDatabaseDefinition
       parameters:
       - description: ID
@@ -1828,7 +1950,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a aws relational database instance ID by from the database.
+      description: Delete a aws relational database instance by ID from the database.
       operationId: delete-awsRelationalDatabaseInstance
       parameters:
       - description: ID
@@ -2028,7 +2150,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a cluster definition ID by from the database.
+      description: Delete a cluster definition by ID from the database.
       operationId: delete-clusterDefinition
       parameters:
       - description: ID
@@ -2227,7 +2349,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a cluster instance ID by from the database.
+      description: Delete a cluster instance by ID from the database.
       operationId: delete-clusterInstance
       parameters:
       - description: ID
@@ -2426,7 +2548,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a domain name definition ID by from the database.
+      description: Delete a domain name definition by ID from the database.
       operationId: delete-domainNameDefinition
       parameters:
       - description: ID
@@ -2626,7 +2748,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a domain name instance ID by from the database.
+      description: Delete a domain name instance by ID from the database.
       operationId: delete-domainNameInstance
       parameters:
       - description: ID
@@ -2825,7 +2947,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a forward proxy definition ID by from the database.
+      description: Delete a forward proxy definition by ID from the database.
       operationId: delete-forwardProxyDefinition
       parameters:
       - description: ID
@@ -3025,7 +3147,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a forward proxy instance ID by from the database.
+      description: Delete a forward proxy instance by ID from the database.
       operationId: delete-forwardProxyInstance
       parameters:
       - description: ID
@@ -3166,6 +3288,404 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing forward proxy instance by replacing the entire
         object.
+  /v0/gateway-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all gateway definitions from the Threeport database.
+      operationId: get-gatewayDefinitions
+      parameters:
+      - description: gateway definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all gateway definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new gateway definition to the Threeport database.
+      operationId: add-gatewayDefinition
+      parameters:
+      - description: GatewayDefinition object
+        in: body
+        name: gatewayDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new gateway definition.
+  /v0/gateway-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a gateway definition by ID from the database.
+      operationId: delete-gatewayDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a gateway definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular gateway definition from the database.
+      operationId: get-gatewayDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a gateway definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a gateway definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating gateway definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-gatewayDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayDefinition object
+        in: body
+        name: gatewayDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing gateway definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a gateway definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating gateway definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-gatewayDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayDefinition object
+        in: body
+        name: gatewayDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing gateway definition by replacing the entire object.
+  /v0/gateway-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all gateway instances from the Threeport database.
+      operationId: get-gatewayInstances
+      parameters:
+      - description: gateway instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all gateway instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new gateway instance to the Threeport database.
+      operationId: add-gatewayInstance
+      parameters:
+      - description: GatewayInstance object
+        in: body
+        name: gatewayInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new gateway instance.
+  /v0/gateway-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a gateway instance by ID from the database.
+      operationId: delete-gatewayInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a gateway instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular gateway instance from the database.
+      operationId: get-gatewayInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a gateway instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a gateway instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating gateway instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-gatewayInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayInstance object
+        in: body
+        name: gatewayInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing gateway instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a gateway instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating gateway instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-gatewayInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayInstance object
+        in: body
+        name: gatewayInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing gateway instance by replacing the entire object.
   /v0/log-backends:
     get:
       consumes:
@@ -3225,7 +3745,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a log backend ID by from the database.
+      description: Delete a log backend by ID from the database.
       operationId: delete-logBackend
       parameters:
       - description: ID
@@ -3424,7 +3944,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a log storage definition ID by from the database.
+      description: Delete a log storage definition by ID from the database.
       operationId: delete-logStorageDefinition
       parameters:
       - description: ID
@@ -3624,7 +4144,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a log storage instance ID by from the database.
+      description: Delete a log storage instance by ID from the database.
       operationId: delete-logStorageInstance
       parameters:
       - description: ID
@@ -3764,406 +4284,6 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing log storage instance by replacing the entire object.
-  /v0/network-ingress-definitions:
-    get:
-      consumes:
-      - application/json
-      description: Get all network ingress definitions from the Threeport database.
-      operationId: get-networkIngressDefinitions
-      parameters:
-      - description: network ingress definition search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all network ingress definitions.
-    post:
-      consumes:
-      - application/json
-      description: Add a new network ingress definition to the Threeport database.
-      operationId: add-networkIngressDefinition
-      parameters:
-      - description: NetworkIngressDefinition object
-        in: body
-        name: networkIngressDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressDefinition'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new network ingress definition.
-  /v0/network-ingress-definitions/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a network ingress definition ID by from the database.
-      operationId: delete-networkIngressDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a network ingress definition.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular network ingress definition from the database.
-      operationId: get-networkIngressDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a network ingress definition.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a network ingress definition in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating network ingress definition objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-networkIngressDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: NetworkIngressDefinition object
-        in: body
-        name: networkIngressDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressDefinition'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing network ingress definition.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a network ingress definition in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating network ingress definition objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-networkIngressDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: NetworkIngressDefinition object
-        in: body
-        name: networkIngressDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressDefinition'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing network ingress definition by replacing the entire
-        object.
-  /v0/network-ingress-instances:
-    get:
-      consumes:
-      - application/json
-      description: Get all network ingress instances from the Threeport database.
-      operationId: get-networkIngressInstances
-      parameters:
-      - description: network ingress instance search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all network ingress instances.
-    post:
-      consumes:
-      - application/json
-      description: Add a new network ingress instance to the Threeport database.
-      operationId: add-networkIngressInstance
-      parameters:
-      - description: NetworkIngressInstance object
-        in: body
-        name: networkIngressInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressInstance'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new network ingress instance.
-  /v0/network-ingress-instances/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a network ingress instance ID by from the database.
-      operationId: delete-networkIngressInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a network ingress instance.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular network ingress instance from the database.
-      operationId: get-networkIngressInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a network ingress instance.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a network ingress instance in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating network ingress instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-networkIngressInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: NetworkIngressInstance object
-        in: body
-        name: networkIngressInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressInstance'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing network ingress instance.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a network ingress instance in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating network ingress instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-networkIngressInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: NetworkIngressInstance object
-        in: body
-        name: networkIngressInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressInstance'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing network ingress instance by replacing the entire
-        object.
   /v0/profiles:
     get:
       consumes:
@@ -4223,7 +4343,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a profile ID by from the database.
+      description: Delete a profile by ID from the database.
       operationId: delete-profile
       parameters:
       - description: ID
@@ -4422,7 +4542,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a tier ID by from the database.
+      description: Delete a tier by ID from the database.
       operationId: delete-tier
       parameters:
       - description: ID
@@ -4621,7 +4741,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a workload definition ID by from the database.
+      description: Delete a workload definition by ID from the database.
       operationId: delete-workloadDefinition
       parameters:
       - description: ID
@@ -4794,6 +4914,38 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: deletes a workload event set by workload instance ID.
+    get:
+      consumes:
+      - application/json
+      description: Gets a set of workload events by workload instance ID from the
+        database.
+      operationId: get-workloadEventSet
+      parameters:
+      - description: workloadInstanceID
+        in: path
+        name: workloadInstanceID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a workload event set by workload instance ID.
   /v0/workload-events:
     get:
       consumes:
@@ -4853,7 +5005,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a workload event ID by from the database.
+      description: Delete a workload event by ID from the database.
       operationId: delete-workloadEvent
       parameters:
       - description: ID
@@ -5052,7 +5204,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a workload instance ID by from the database.
+      description: Delete a workload instance by ID from the database.
       operationId: delete-workloadInstance
       parameters:
       - description: ID
@@ -5283,7 +5435,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a workload resource definition ID by from the database.
+      description: Delete a workload resource definition by ID from the database.
       operationId: delete-workloadResourceDefinition
       parameters:
       - description: ID
@@ -5483,7 +5635,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a workload resource instance ID by from the database.
+      description: Delete a workload resource instance by ID from the database.
       operationId: delete-workloadResourceInstance
       parameters:
       - description: ID

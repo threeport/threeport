@@ -42,6 +42,7 @@ func TestWorkloadE2E(t *testing.T) {
 	testWorkloads := testResources()
 
 	for _, testWorkload := range *testWorkloads {
+		fmt.Printf("testing workload: %s\n", testWorkload.Name)
 
 		// create workload definition
 		workloadDefName := testWorkload.Name
@@ -86,6 +87,35 @@ func TestWorkloadE2E(t *testing.T) {
 		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		assert.Nil(err, "should have no error creating http client")
 
+		gatewayDefinitionName := "gatewayDefinition"
+		tcpPort := 443
+		tlsEnabled := false
+		gatewayDefinition := &v0.GatewayDefinition{
+			Definition: v0.Definition{
+				Name: &gatewayDefinitionName,
+			},
+			TCPPort: &tcpPort,
+			TLSEnabled: &tlsEnabled,
+		}
+
+		// create gateway definition
+		_, err = client.CreateGatewayDefinition(
+			apiClient,
+			apiAddr(),
+			gatewayDefinition,
+		)
+		assert.Nil(err, "should have no error creating gateway definition")
+
+		// update gateway definition
+		gatewayPort := 8443
+		gatewayDefinition.TCPPort = &gatewayPort
+		_, err = client.UpdateGatewayDefinition(
+			apiClient,
+			apiAddr(),
+			gatewayDefinition,
+		)
+		assert.Nil(err, "should have no error updating gateway definition")
+
 		// create test workload definition
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			apiClient,
@@ -114,7 +144,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// check to make sure workload definition gets reconciled by workload
 		// controller
 		workloadDefChecks := 0
-		workloadDefMaxChecks := 300
+		workloadDefMaxChecks := 600
 		workloadDefCheckDurationSeconds := 1
 		reconciled := false
 		var existingWorkloadDef *v0.WorkloadDefinition
@@ -206,6 +236,23 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.NotNil(err, "duplicate workload instance should throw error")
 
+		// create a gateway instance
+		gatewayInstanceName := "gatewayInstance"
+		gatewayInstance := &v0.GatewayInstance{
+			Instance: v0.Instance{
+				Name: &gatewayInstanceName,
+			},
+			ClusterInstanceID:   testClusterInst.ID,
+			GatewayDefinitionID: gatewayDefinition.ID,
+			WorkloadInstanceID:  createdWorkloadInst.ID,
+		}
+		_, err = client.CreateGatewayInstance(
+			apiClient,
+			apiAddr(),
+			gatewayInstance,
+		)
+		assert.Nil(err, "should have no error creating gateway instance")
+
 		// get the cluster instance from the threeport API so we can connect to it
 		clusterInstance, err := client.GetClusterInstanceByID(
 			apiClient,
@@ -246,7 +293,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// check kube cluster for expected resources
 		allResourcesFound := false
 		findAttempts := 0
-		findAttemptsMax := 30
+		findAttemptsMax := 60
 		findCheckDurationSeconds := 1
 		for findAttempts < findAttemptsMax {
 			resourcesFound := 0
@@ -332,7 +379,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// check to make sure kube resources are gone
 		allResourcesGone := false
 		goneAttempts := 0
-		goneAttemptsMax := 15
+		goneAttemptsMax := 30
 		goneCheckDurationSeconds := 1
 		for goneAttempts < goneAttemptsMax {
 			resourcesGone := 0
@@ -366,6 +413,28 @@ func TestWorkloadE2E(t *testing.T) {
 			time.Sleep(time.Duration(goneCheckDurationSeconds * 1000000000))
 		}
 		assert.Equal(allResourcesGone, true, fmt.Sprintf("should have found that all resources are gone from Kubernetes after %d seconds", goneAttemptsMax*goneCheckDurationSeconds))
+
+		// delete gateway definition
+		deletedAttempts := 0
+		deletedAttemptsMax := 10
+		deletedCheckDurationSeconds := 1
+		for deletedAttempts < deletedAttemptsMax {
+			_, err = client.DeleteGatewayDefinition(
+				apiClient,
+				apiAddr(),
+				*gatewayDefinition.ID,
+			)
+
+			// workload controller may not have deleted the gateway
+			// instance yet. If so, wait and try again
+			if err != nil {
+				deletedAttempts += 1
+				time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
+				continue
+			}
+			break
+		}
+		assert.Nil(err, "should have no error deleting gateway definition")
 
 		// delete workload definition
 		deletedWorkloadDef, err := client.DeleteWorkloadDefinition(

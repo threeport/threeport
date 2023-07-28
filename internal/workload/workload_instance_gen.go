@@ -5,7 +5,6 @@ package workload
 import (
 	"errors"
 	"fmt"
-
 	mapstructure "github.com/mitchellh/mapstructure"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -131,6 +130,17 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+			case notifications.NotificationOperationUpdated:
+				if err := workloadInstanceUpdated(r, &workloadInstance, &log); err != nil {
+					log.Error(err, "failed to reconcile updated workload instance object")
+					r.UnlockAndRequeue(
+						&workloadInstance,
+						msg.Subject,
+						notifPayload,
+						requeueDelay,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
 				if err := workloadInstanceDeleted(r, &workloadInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted workload instance object")
@@ -140,8 +150,11 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						notifPayload,
 						requeueDelay,
 					)
-					continue
+				} else {
+					r.ReleaseLock(&workloadInstance)
+					log.Info("workload instance successfully reconciled")
 				}
+				continue
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),

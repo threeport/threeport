@@ -130,6 +130,17 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+			case notifications.NotificationOperationUpdated:
+				if err := workloadDefinitionUpdated(r, &workloadDefinition, &log); err != nil {
+					log.Error(err, "failed to reconcile updated workload definition object")
+					r.UnlockAndRequeue(
+						&workloadDefinition,
+						msg.Subject,
+						notifPayload,
+						requeueDelay,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
 				if err := workloadDefinitionDeleted(r, &workloadDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted workload definition object")
@@ -139,8 +150,11 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 						notifPayload,
 						requeueDelay,
 					)
-					continue
+				} else {
+					r.ReleaseLock(&workloadDefinition)
+					log.Info("workload definition successfully reconciled")
 				}
+				continue
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),

@@ -33,22 +33,24 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = ForwardProxyDefinition{}
 	case ObjectTypeForwardProxyInstance:
 		objStruct = ForwardProxyInstance{}
+	case ObjectTypeGatewayDefinition:
+		objStruct = GatewayDefinition{}
+	case ObjectTypeGatewayInstance:
+		objStruct = GatewayInstance{}
 	case ObjectTypeLogBackend:
 		objStruct = LogBackend{}
 	case ObjectTypeLogStorageDefinition:
 		objStruct = LogStorageDefinition{}
 	case ObjectTypeLogStorageInstance:
 		objStruct = LogStorageInstance{}
-	case ObjectTypeNetworkIngressDefinition:
-		objStruct = NetworkIngressDefinition{}
-	case ObjectTypeNetworkIngressInstance:
-		objStruct = NetworkIngressInstance{}
 	case ObjectTypeWorkloadDefinition:
 		objStruct = WorkloadDefinition{}
 	case ObjectTypeWorkloadResourceDefinition:
 		objStruct = WorkloadResourceDefinition{}
 	case ObjectTypeWorkloadInstance:
 		objStruct = WorkloadInstance{}
+	case ObjectTypeAttachedObjectReference:
+		objStruct = AttachedObjectReference{}
 	case ObjectTypeWorkloadResourceInstance:
 		objStruct = WorkloadResourceInstance{}
 	case ObjectTypeWorkloadEvent:
@@ -88,22 +90,24 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeForwardProxyDefinition
 	case PathForwardProxyInstances:
 		return ObjectTypeForwardProxyInstance
+	case PathGatewayDefinitions:
+		return ObjectTypeGatewayDefinition
+	case PathGatewayInstances:
+		return ObjectTypeGatewayInstance
 	case PathLogBackends:
 		return ObjectTypeLogBackend
 	case PathLogStorageDefinitions:
 		return ObjectTypeLogStorageDefinition
 	case PathLogStorageInstances:
 		return ObjectTypeLogStorageInstance
-	case PathNetworkIngressDefinitions:
-		return ObjectTypeNetworkIngressDefinition
-	case PathNetworkIngressInstances:
-		return ObjectTypeNetworkIngressInstance
 	case PathWorkloadDefinitions:
 		return ObjectTypeWorkloadDefinition
 	case PathWorkloadResourceDefinitions:
 		return ObjectTypeWorkloadResourceDefinition
 	case PathWorkloadInstances:
 		return ObjectTypeWorkloadInstance
+	case PathAttachedObjectReferences:
+		return ObjectTypeAttachedObjectReference
 	case PathWorkloadResourceInstances:
 		return ObjectTypeWorkloadResourceInstance
 	case PathWorkloadEvents:
@@ -143,22 +147,24 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeForwardProxyDefinition
 	case ForwardProxyInstance, *ForwardProxyInstance, []ForwardProxyInstance:
 		return ObjectTypeForwardProxyInstance
+	case GatewayDefinition, *GatewayDefinition, []GatewayDefinition:
+		return ObjectTypeGatewayDefinition
+	case GatewayInstance, *GatewayInstance, []GatewayInstance:
+		return ObjectTypeGatewayInstance
 	case LogBackend, *LogBackend, []LogBackend:
 		return ObjectTypeLogBackend
 	case LogStorageDefinition, *LogStorageDefinition, []LogStorageDefinition:
 		return ObjectTypeLogStorageDefinition
 	case LogStorageInstance, *LogStorageInstance, []LogStorageInstance:
 		return ObjectTypeLogStorageInstance
-	case NetworkIngressDefinition, *NetworkIngressDefinition, []NetworkIngressDefinition:
-		return ObjectTypeNetworkIngressDefinition
-	case NetworkIngressInstance, *NetworkIngressInstance, []NetworkIngressInstance:
-		return ObjectTypeNetworkIngressInstance
 	case WorkloadDefinition, *WorkloadDefinition, []WorkloadDefinition:
 		return ObjectTypeWorkloadDefinition
 	case WorkloadResourceDefinition, *WorkloadResourceDefinition, []WorkloadResourceDefinition:
 		return ObjectTypeWorkloadResourceDefinition
 	case WorkloadInstance, *WorkloadInstance, []WorkloadInstance:
 		return ObjectTypeWorkloadInstance
+	case AttachedObjectReference, *AttachedObjectReference, []AttachedObjectReference:
+		return ObjectTypeAttachedObjectReference
 	case WorkloadResourceInstance, *WorkloadResourceInstance, []WorkloadResourceInstance:
 		return ObjectTypeWorkloadResourceInstance
 	case WorkloadEvent, *WorkloadEvent, []WorkloadEvent:
