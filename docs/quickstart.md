@@ -11,8 +11,6 @@ The following will also need to be installed locally for the relevant developmen
 operations and make targets:
 
 * [swag CLI](https://github.com/swaggo/swag) for generating API docs.
-* [cockroachDB](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux.html)
-  for interacting directly with dev database instance.
 * [NATS CLI](https://github.com/nats-io/natscli) for interacting with NATS
   messages used by the control plane.
 * [delve](https://github.com/go-delve/delve) for running debug sessions.
