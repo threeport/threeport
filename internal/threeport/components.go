@@ -257,7 +257,7 @@ func InstallThreeportControllers(
 		return fmt.Errorf("failed to create workload controller secret: %w", err)
 	}
 
-	controllers := []string{"workload-controller", "gateway-controller"}
+	controllers := GetThreeportControllerNames()
 
 	for _, controller := range controllers {
 		if err := InstallController(
