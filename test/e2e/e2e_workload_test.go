@@ -198,19 +198,19 @@ func TestWorkloadE2E(t *testing.T) {
 			}
 		}
 
-		// check cluster instance
-		clusterInsts, err := client.GetKubernetesRuntimeInstances(apiClient, apiAddr())
+		// check kubernetes runtime instance
+		kubernetesRuntimeInsts, err := client.GetKubernetesRuntimeInstances(apiClient, apiAddr())
 		assert.Nil(err, "should have no error getting workload resource definitions")
 		var testKubernetesRuntimeInst v0.KubernetesRuntimeInstance
-		if assert.NotNil(clusterInsts, "should have an array of cluster instances returned") {
-			assert.NotEqual(len(*clusterInsts), 0, "should get back at least one cluster instance")
-			for _, c := range *clusterInsts {
+		if assert.NotNil(kubernetesRuntimeInsts, "should have an array of kubernetes runtime instances returned") {
+			assert.NotEqual(len(*kubernetesRuntimeInsts), 0, "should get back at least one kubernetes runtime instance")
+			for _, c := range *kubernetesRuntimeInsts {
 				if *c.ThreeportControlPlaneKubernetesRuntime {
 					testKubernetesRuntimeInst = c
 				}
 			}
 		}
-		assert.NotNil(testKubernetesRuntimeInst, "should have a cluster instance being used by threeport control plane")
+		assert.NotNil(testKubernetesRuntimeInst, "should have a kubernetes runtime instance being used by threeport control plane")
 
 		// create workload instance
 		workloadInstName := fmt.Sprintf("%s-0", testWorkload.Name)
@@ -262,8 +262,8 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.Nil(err, "should have no error creating gateway instance")
 
-		// get the cluster instance from the threeport API so we can connect to it
-		clusterInstance, err := client.GetKubernetesRuntimeInstanceByID(
+		// get the kubernetes runtime instance from the threeport API so we can connect to it
+		kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 			apiClient,
 			apiAddr(),
 			*testKubernetesRuntimeInst.ID,
@@ -272,12 +272,7 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.NotNil(kubernetesRuntimeInstance, "should have a kubernetes runtime instance returned")
 
 		// create a client to connect to kube API
-		dynamicKubeClient, mapper, err := kube.GetClient(
-			kubernetesRuntimeInstance,
-			false,
-			apiClient,
-			apiAddr(),
-		)
+		dynamicKubeClient, mapper, err := kube.GetClient(kubernetesRuntimeInstance, false)
 		assert.Nil(err, "should have no error creating a client and REST mapper for Kubernetes cluster API")
 
 		// for the managed namespace test, get the namespace name

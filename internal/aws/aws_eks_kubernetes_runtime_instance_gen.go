@@ -135,6 +135,17 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+			case notifications.NotificationOperationUpdated:
+				if err := awsEksKubernetesRuntimeInstanceUpdated(r, &awsEksKubernetesRuntimeInstance, &log); err != nil {
+					log.Error(err, "failed to reconcile updated aws eks kubernetes runtime instance object")
+					r.UnlockAndRequeue(
+						&awsEksKubernetesRuntimeInstance,
+						msg.Subject,
+						notifPayload,
+						requeueDelay,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
 				if err := awsEksKubernetesRuntimeInstanceDeleted(r, &awsEksKubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted aws eks kubernetes runtime instance object")
@@ -144,8 +155,11 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						notifPayload,
 						requeueDelay,
 					)
-					continue
+				} else {
+					r.ReleaseLock(&awsEksKubernetesRuntimeInstance)
+					log.Info("aws eks kubernetes runtime instance successfully reconciled")
 				}
+				continue
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),

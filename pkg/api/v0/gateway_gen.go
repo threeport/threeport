@@ -90,10 +90,10 @@ func (gd *GatewayDefinition) NotificationPayload(
 func (gd *GatewayDefinition) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
 	}
 	if err := json.Unmarshal(jsonObject, &gd); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
 	}
 	return nil
 }
@@ -139,10 +139,10 @@ func (gi *GatewayInstance) NotificationPayload(
 func (gi *GatewayInstance) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
 	}
 	if err := json.Unmarshal(jsonObject, &gi); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
 	}
 	return nil
 }

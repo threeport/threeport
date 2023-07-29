@@ -513,12 +513,8 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-<<<<<<< HEAD
 	// update object in database
-	if result := h.DB.Model(&existingAwsEksClusterDefinition).Updates(updatedAwsEksClusterDefinition); result.Error != nil {
-=======
 	if result := h.DB.Model(&existingAwsEksKubernetesRuntimeDefinition).Updates(updatedAwsEksKubernetesRuntimeDefinition); result.Error != nil {
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -829,12 +825,8 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-<<<<<<< HEAD
 	// update object in database
-	if result := h.DB.Model(&existingAwsEksClusterInstance).Updates(updatedAwsEksClusterInstance); result.Error != nil {
-=======
 	if result := h.DB.Model(&existingAwsEksKubernetesRuntimeInstance).Updates(updatedAwsEksKubernetesRuntimeInstance); result.Error != nil {
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 

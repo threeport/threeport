@@ -14,13 +14,10 @@ func AddVersions() {
 	AddDomainNameInstanceVersions()
 	AddForwardProxyDefinitionVersions()
 	AddForwardProxyInstanceVersions()
-<<<<<<< HEAD
 	AddGatewayDefinitionVersions()
 	AddGatewayInstanceVersions()
-=======
 	AddKubernetesRuntimeDefinitionVersions()
 	AddKubernetesRuntimeInstanceVersions()
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 	AddLogBackendVersions()
 	AddLogStorageDefinitionVersions()
 	AddLogStorageInstanceVersions()
