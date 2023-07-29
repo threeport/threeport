@@ -49,9 +49,6 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-			fmt.Println(string(msg.Data))
-
 			// consume message data to capture notification from API
 			notif, err := notifications.ConsumeMessage(msg.Data)
 			if err != nil {
@@ -73,9 +70,6 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 			log = log.WithValues("awsEksKubernetesRuntimeInstanceID", awsEksKubernetesRuntimeInstance.ID)
-
-			fmt.Println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-			fmt.Println(*awsEksKubernetesRuntimeInstance.ID)
 
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
