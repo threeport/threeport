@@ -46,7 +46,6 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 	}
 
 	if autoMigrate {
-<<<<<<< HEAD
 		if err := db.AutoMigrate(
 			&v0.Profile{},
 			&v0.Tier{},
@@ -77,34 +76,6 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 		); err != nil {
 			return nil, err
 		}
-=======
-		db.AutoMigrate(&v0.Profile{})
-		db.AutoMigrate(&v0.Tier{})
-		db.AutoMigrate(&v0.AwsAccount{})
-		db.AutoMigrate(&v0.AwsEksKubernetesRuntimeDefinition{})
-		db.AutoMigrate(&v0.AwsEksKubernetesRuntimeInstance{})
-		db.AutoMigrate(&v0.AwsRelationalDatabaseDefinition{})
-		db.AutoMigrate(&v0.AwsRelationalDatabaseInstance{})
-		db.AutoMigrate(&v0.Definition{})
-		db.AutoMigrate(&v0.Instance{})
-		db.AutoMigrate(&v0.DomainNameDefinition{})
-		db.AutoMigrate(&v0.DomainNameInstance{})
-		db.AutoMigrate(&v0.ForwardProxyDefinition{})
-		db.AutoMigrate(&v0.ForwardProxyInstance{})
-		db.AutoMigrate(&v0.KubernetesRuntimeDefinition{})
-		db.AutoMigrate(&v0.KubernetesRuntimeInstance{})
-		db.AutoMigrate(&v0.LogBackend{})
-		db.AutoMigrate(&v0.LogStorageDefinition{})
-		db.AutoMigrate(&v0.LogStorageInstance{})
-		db.AutoMigrate(&v0.NetworkIngressDefinition{})
-		db.AutoMigrate(&v0.NetworkIngressInstance{})
-		db.AutoMigrate(&v0.WorkloadDefinition{})
-		db.AutoMigrate(&v0.WorkloadResourceDefinition{})
-		db.AutoMigrate(&v0.WorkloadInstance{})
-		db.AutoMigrate(&v0.WorkloadResourceInstance{})
-		db.AutoMigrate(&v0.WorkloadEvent{})
-
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 	}
 
 	return db, nil
