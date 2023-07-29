@@ -17,13 +17,10 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	AwsRelationalDatabaseInstanceRoutes(e, h)
 	ForwardProxyDefinitionRoutes(e, h)
 	ForwardProxyInstanceRoutes(e, h)
-<<<<<<< HEAD
 	GatewayDefinitionRoutes(e, h)
 	GatewayInstanceRoutes(e, h)
-=======
 	KubernetesRuntimeDefinitionRoutes(e, h)
 	KubernetesRuntimeInstanceRoutes(e, h)
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 	LogBackendRoutes(e, h)
 	LogStorageDefinitionRoutes(e, h)
 	LogStorageInstanceRoutes(e, h)

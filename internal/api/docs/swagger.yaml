@@ -286,255 +286,6 @@ definitions:
     required:
     - Name
     type: object
-  v0.KubernetesRuntimeDefinition:
-    properties:
-      HighAvailability:
-        description: |-
-          If true, will be deployed in a highly available configuration across
-          multiple zones within a region and with multiple replicas of Kubernetes
-          control plane components.
-        type: boolean
-      InfraProvider:
-        description: |-
-          The infrastructure provider running the compute infrastructure for the
-          cluster.
-        type: string
-      InfraProviderAccountName:
-        description: |-
-          The infra provider account ID.  Determines which account the infra is
-          deployed on.
-        type: string
-      KubernetesRuntimeInstances:
-        description: |-
-          The associated kubernetes runtime instances that are deployed from this
-          definition.
-        items:
-          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
-        type: array
-      Name:
-        description: An arbitrary name for the definition.
-        type: string
-      ProfileID:
-        description: |-
-          The profile to associate with the definition.  Profile is a named
-          standard configuration for a definition object.
-        type: integer
-      Reconciled:
-        description: |-
-          Indicates if object is considered to be reconciled by the kubernetes
-          runtime controller.
-        type: boolean
-      TierID:
-        description: |-
-          The tier to associate with the definition.  Tier is a level of
-          criticality for access control.
-        type: integer
-    required:
-    - InfraProvider
-    - Name
-    type: object
-<<<<<<< HEAD
-  v0.ClusterInstance:
-<<<<<<< HEAD
-=======
-=======
-  v0.KubernetesRuntimeInstance:
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
-    properties:
-      APIEndpoint:
-        description: The network endpoint at which to reach the kube-api.
-        type: string
-      CACertificate:
-        description: |-
-          The CA certificate used to generate the cert and key if
-          self-signed.
-        type: string
-      Certificate:
-        description: The client certificate to use for auth to the kube-api.
-        type: string
-      ConnectionToken:
-        description: |-
-          ConnectionToken is used to authenticate with a OIDC provider that
-          implements auth for a Kubernetes cluster.  It is an alternative to client
-          certficate and key authenticaion.
-        type: string
-      DefaultRuntime:
-        description: |-
-          If true, this Kubernetes cluster will be used for all workloads if not
-          otherwise assigned.
-        type: boolean
-      Key:
-        description: The client key to use for auth to the kube-api.
-        type: string
-      KubernetesRuntimeDefinitionID:
-        description: The kubernetes runtime definition for this instance.
-        type: integer
-      Location:
-        description: |-
-          The geographical location for the runtime cluster.  This is an
-          abstraction for the cloud provider regions that is mapped into the
-          regions used by providers.
-        type: string
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      Reconciled:
-        description: |-
-          Indicates if object is considered to be reconciled by the kubernetes
-          runtime controller.
-        type: boolean
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-      ThreeportAgentImage:
-        description: |-
-          An alternate threeport image to use when deploying threeport agent to
-          managed Kubernetes runtime clusters.  If not supplied, the official image
-          with the correct version will be used.
-        type: string
-      ThreeportControlPlaneHost:
-        description: |-
-          If true, the Kubernetes cluster is hosting a threeport control plane and
-          any controllers that connect to the kube API will use internal cluster
-          DNS rather than the external APIEndpoint.
-        type: boolean
-      WorkloadInstance:
-        description: The associated workload instances running on this kubernetes
-          runtime.
-        items:
-          $ref: '#/definitions/v0.WorkloadInstance'
-        type: array
-    required:
-<<<<<<< HEAD
-    - APIEndpoint
-    - CACertificate
-<<<<<<< HEAD
-    - ClusterDefinitionID
-    - Name
->>>>>>> 68c94e3 (feat: add aws controller)
-    type: object
-  v0.DomainNameDefinition:
-    properties:
-      Domain:
-        description: |-
-          The base domain upon which the subdomain will be added to give a workload
-          a unique domain name.
-        type: string
-      DomainNameInstances:
-        description: The associated domain name instances that are deployed from this
-          definition.
-        items:
-          $ref: '#/definitions/v0.DomainNameInstance'
-        type: array
-      Name:
-        description: An arbitrary name for the definition.
-        type: string
-      ProfileID:
-        description: |-
-          The profile to associate with the definition.  Profile is a named
-          standard configuration for a definition object.
-        type: integer
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by gateway
-          controller.
-        type: boolean
-      TierID:
-        description: |-
-          The tier to associate with the definition.  Tier is a level of
-          criticality for access control.
-        type: integer
-      WorkloadDefinitionID:
-        description: The workload definition that belongs to this resource.
-        type: integer
-      Zone:
-        description: The name of the zone in which the domain is managed.
-        type: string
-    required:
-    - Domain
-    - Name
-    - Zone
-    type: object
-  v0.DomainNameInstance:
-    properties:
-      DomainNameDefinitionID:
-        description: The definition used to define the instance.
-        type: integer
-      KubernetesRuntimeInstanceID:
-        description: The cluster where the workload that is using the domain name
-          is running.
-        type: integer
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by gateway
-          controller.
-        type: boolean
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-      WorkloadInstanceID:
-        description: The workload instance this gateway belongs to.
-        type: integer
-    required:
-    - DomainNameDefinitionID
-    - KubernetesRuntimeInstanceID
-    - Name
-    type: object
-  v0.ForwardProxyDefinition:
-    properties:
-      Name:
-        description: An arbitrary name for the definition.
-        type: string
-      ProfileID:
-        description: |-
-          The profile to associate with the definition.  Profile is a named
-          standard configuration for a definition object.
-        type: integer
-      TierID:
-        description: |-
-          The tier to associate with the definition.  Tier is a level of
-          criticality for access control.
-        type: integer
-      UpstreamHost:
-        description: The hostname of the upstream service.
-        type: string
-      UpstreamPath:
-        description: The path for the upstream service.
-        type: string
-    required:
-    - Name
-    - UpstreamHost
-    - UpstreamPath
-    type: object
-  v0.ForwardProxyInstance:
-    properties:
-      ForwardProxyDefinitionID:
-        description: The definition used to define the instance.
-        type: integer
-      KubernetesRuntimeInstanceID:
-        description: The kubernetes runtime where the forward proxy is deployed.
-        type: integer
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-    required:
-=======
-=======
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
-    - KubernetesRuntimeDefinitionID
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
-    - Name
-    type: object
   v0.GatewayDefinition:
     properties:
       DomainNameDefinitionID:
@@ -1004,9 +755,11 @@ definitions:
     - Type
     type: object
   v0.WorkloadInstance:
-<<<<<<< HEAD
-=======
     properties:
+      AttachedObjectReferences:
+        items:
+          $ref: '#/definitions/v0.AttachedObjectReference'
+        type: array
       Events:
         items:
           $ref: '#/definitions/v0.WorkloadEvent'
@@ -1035,7 +788,6 @@ definitions:
     - KubernetesRuntimeInstanceID
     - Name
     - WorkloadDefinitionID
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     type: object
   v0.WorkloadResourceDefinition:
     properties:
@@ -1051,8 +803,6 @@ definitions:
     - WorkloadDefinitionID
     type: object
   v0.WorkloadResourceInstance:
-<<<<<<< HEAD
-=======
     properties:
       Events:
         description: All events that have occured related to this object.
@@ -1072,6 +822,10 @@ definitions:
           The most recent operation performed on a Kubernete resource in the
           kubernetes runtime.
         type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by workload
+          controller.
+        type: boolean
       RuntimeDefinition:
         allOf:
         - $ref: '#/definitions/datatypes.JSON'
@@ -1081,13 +835,15 @@ definitions:
         items:
           type: integer
         type: array
+      ScheduledForDeletion:
+        description: Whether another controller has scheduled this resource for deletion
+        type: string
       WorkloadInstanceID:
         description: The workload definition this resource belongs to.
         type: integer
     required:
     - JSONDefinition
     - WorkloadInstanceID
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     type: object
   version.RESTAPIVersion:
     properties:
@@ -1237,17 +993,10 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetForwardProxyInstanceVersions gets the supported versions for the
         forward proxy instance API.
-<<<<<<< HEAD
   /gateway-definitions/versions:
     get:
       description: Get the supported API versions for gateway definitions.
       operationId: gatewayDefinition-get-versions
-=======
-  /kubernetes-runtime-definitions/versions:
-    get:
-      description: Get the supported API versions for kubernetes runtime definitions.
-      operationId: kubernetesRuntimeDefinition-get-versions
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -1255,21 +1004,12 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/api.RESTAPIVersions'
-<<<<<<< HEAD
       summary: GetGatewayDefinitionVersions gets the supported versions for the gateway
         definition API.
   /gateway-instances/versions:
     get:
       description: Get the supported API versions for gateway instances.
       operationId: gatewayInstance-get-versions
-=======
-      summary: GetKubernetesRuntimeDefinitionVersions gets the supported versions
-        for the kubernetes runtime definition API.
-  /kubernetes-runtime-instances/versions:
-    get:
-      description: Get the supported API versions for kubernetes runtime instances.
-      operationId: kubernetesRuntimeInstance-get-versions
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -1277,13 +1017,34 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/api.RESTAPIVersions'
-<<<<<<< HEAD
       summary: GetGatewayInstanceVersions gets the supported versions for the gateway
         instance API.
-=======
+  /kubernetes-runtime-definitions/versions:
+    get:
+      description: Get the supported API versions for kubernetes runtime definitions.
+      operationId: kubernetesRuntimeDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetKubernetesRuntimeDefinitionVersions gets the supported versions
+        for the kubernetes runtime definition API.
+  /kubernetes-runtime-instances/versions:
+    get:
+      description: Get the supported API versions for kubernetes runtime instances.
+      operationId: kubernetesRuntimeInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetKubernetesRuntimeInstanceVersions gets the supported versions for
         the kubernetes runtime instance API.
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
   /log-backends/versions:
     get:
       description: Get the supported API versions for log backends.
@@ -3353,7 +3114,6 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing forward proxy instance by replacing the entire
         object.
-<<<<<<< HEAD
   /v0/gateway-definitions:
     get:
       consumes:
@@ -3362,16 +3122,6 @@ paths:
       operationId: get-gatewayDefinitions
       parameters:
       - description: gateway definition search by name
-=======
-  /v0/kubernetes-runtime-definitions:
-    get:
-      consumes:
-      - application/json
-      description: Get all kubernetes runtime definitions from the Threeport database.
-      operationId: get-kubernetesRuntimeDefinitions
-      parameters:
-      - description: kubernetes runtime definition search by name
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
         in: query
         name: name
         type: string
@@ -3390,7 +3140,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: gets all gateway definitions.
     post:
       consumes:
@@ -3404,21 +3153,6 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayDefinition'
-=======
-      summary: gets all kubernetes runtime definitions.
-    post:
-      consumes:
-      - application/json
-      description: Add a new kubernetes runtime definition to the Threeport database.
-      operationId: add-kubernetesRuntimeDefinition
-      parameters:
-      - description: KubernetesRuntimeDefinition object
-        in: body
-        name: kubernetesRuntimeDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.KubernetesRuntimeDefinition'
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3434,7 +3168,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: adds a new gateway definition.
   /v0/gateway-definitions/{id}:
     delete:
@@ -3442,15 +3175,6 @@ paths:
       - application/json
       description: Delete a gateway definition by ID from the database.
       operationId: delete-gatewayDefinition
-=======
-      summary: adds a new kubernetes runtime definition.
-  /v0/kubernetes-runtime-definitions/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a kubernetes runtime definition by ID from the database.
-      operationId: delete-kubernetesRuntimeDefinition
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
@@ -3476,21 +3200,12 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: deletes a gateway definition.
     get:
       consumes:
       - application/json
       description: Get a particular gateway definition from the database.
       operationId: get-gatewayDefinition
-=======
-      summary: deletes a kubernetes runtime definition.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular kubernetes runtime definition from the database.
-      operationId: get-kubernetesRuntimeDefinition
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
@@ -3512,51 +3227,29 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: gets a gateway definition.
-=======
-      summary: gets a kubernetes runtime definition.
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     patch:
       consumes:
       - application/json
       description: |-
-<<<<<<< HEAD
         Update a gateway definition in the database.  Provide one or more fields to update.
         Note: This API endpint is for updating gateway definition objects only.
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
       operationId: update-gatewayDefinition
-=======
-        Update a kubernetes runtime definition in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating kubernetes runtime definition objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-kubernetesRuntimeDefinition
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
         name: id
         required: true
         type: integer
-<<<<<<< HEAD
       - description: GatewayDefinition object
         in: body
         name: gatewayDefinition
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayDefinition'
-=======
-      - description: KubernetesRuntimeDefinition object
-        in: body
-        name: kubernetesRuntimeDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.KubernetesRuntimeDefinition'
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3576,16 +3269,11 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: updates specific fields for an existing gateway definition.
-=======
-      summary: updates specific fields for an existing kubernetes runtime definition.
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     put:
       consumes:
       - application/json
       description: |-
-<<<<<<< HEAD
         Replace a gateway definition in the database.  All required fields must be provided.
         If any optional fields are not provided, they will be null post-update.
         Note: This API endpint is for updating gateway definition objects only.
@@ -3593,36 +3281,18 @@ paths:
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
       operationId: replace-gatewayDefinition
-=======
-        Replace a kubernetes runtime definition in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating kubernetes runtime definition objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-kubernetesRuntimeDefinition
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
         name: id
         required: true
         type: integer
-<<<<<<< HEAD
       - description: GatewayDefinition object
         in: body
         name: gatewayDefinition
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayDefinition'
-=======
-      - description: KubernetesRuntimeDefinition object
-        in: body
-        name: kubernetesRuntimeDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.KubernetesRuntimeDefinition'
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3642,7 +3312,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: updates an existing gateway definition by replacing the entire object.
   /v0/gateway-instances:
     get:
@@ -3652,18 +3321,6 @@ paths:
       operationId: get-gatewayInstances
       parameters:
       - description: gateway instance search by name
-=======
-      summary: updates an existing kubernetes runtime definition by replacing the
-        entire object.
-  /v0/kubernetes-runtime-instances:
-    get:
-      consumes:
-      - application/json
-      description: Get all kubernetes runtime instances from the Threeport database.
-      operationId: get-kubernetesRuntimeInstances
-      parameters:
-      - description: kubernetes runtime instance search by name
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
         in: query
         name: name
         type: string
@@ -3682,7 +3339,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: gets all gateway instances.
     post:
       consumes:
@@ -3696,21 +3352,6 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayInstance'
-=======
-      summary: gets all kubernetes runtime instances.
-    post:
-      consumes:
-      - application/json
-      description: Add a new kubernetes runtime instance to the Threeport database.
-      operationId: add-kubernetesRuntimeInstance
-      parameters:
-      - description: KubernetesRuntimeInstance object
-        in: body
-        name: kubernetesRuntimeInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3726,7 +3367,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: adds a new gateway instance.
   /v0/gateway-instances/{id}:
     delete:
@@ -3734,15 +3374,6 @@ paths:
       - application/json
       description: Delete a gateway instance by ID from the database.
       operationId: delete-gatewayInstance
-=======
-      summary: adds a new kubernetes runtime instance.
-  /v0/kubernetes-runtime-instances/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a kubernetes runtime instance by ID from the database.
-      operationId: delete-kubernetesRuntimeInstance
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
@@ -3768,21 +3399,12 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: deletes a gateway instance.
     get:
       consumes:
       - application/json
       description: Get a particular gateway instance from the database.
       operationId: get-gatewayInstance
-=======
-      summary: deletes a kubernetes runtime instance.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular kubernetes runtime instance from the database.
-      operationId: get-kubernetesRuntimeInstance
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
@@ -3804,51 +3426,29 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: gets a gateway instance.
-=======
-      summary: gets a kubernetes runtime instance.
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     patch:
       consumes:
       - application/json
       description: |-
-<<<<<<< HEAD
         Update a gateway instance in the database.  Provide one or more fields to update.
         Note: This API endpint is for updating gateway instance objects only.
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
       operationId: update-gatewayInstance
-=======
-        Update a kubernetes runtime instance in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating kubernetes runtime instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-kubernetesRuntimeInstance
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
         name: id
         required: true
         type: integer
-<<<<<<< HEAD
       - description: GatewayInstance object
         in: body
         name: gatewayInstance
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayInstance'
-=======
-      - description: KubernetesRuntimeInstance object
-        in: body
-        name: kubernetesRuntimeInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3868,16 +3468,11 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: updates specific fields for an existing gateway instance.
-=======
-      summary: updates specific fields for an existing kubernetes runtime instance.
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
     put:
       consumes:
       - application/json
       description: |-
-<<<<<<< HEAD
         Replace a gateway instance in the database.  All required fields must be provided.
         If any optional fields are not provided, they will be null post-update.
         Note: This API endpint is for updating gateway instance objects only.
@@ -3885,36 +3480,18 @@ paths:
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
       operationId: replace-gatewayInstance
-=======
-        Replace a kubernetes runtime instance in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating kubernetes runtime instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-kubernetesRuntimeInstance
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       parameters:
       - description: ID
         in: path
         name: id
         required: true
         type: integer
-<<<<<<< HEAD
       - description: GatewayInstance object
         in: body
         name: gatewayInstance
         required: true
         schema:
           $ref: '#/definitions/v0.GatewayInstance'
-=======
-      - description: KubernetesRuntimeInstance object
-        in: body
-        name: kubernetesRuntimeInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
       produces:
       - application/json
       responses:
@@ -3934,12 +3511,407 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-<<<<<<< HEAD
       summary: updates an existing gateway instance by replacing the entire object.
-=======
+  /v0/kubernetes-runtime-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all kubernetes runtime definitions from the Threeport database.
+      operationId: get-kubernetesRuntimeDefinitions
+      parameters:
+      - description: kubernetes runtime definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all kubernetes runtime definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new kubernetes runtime definition to the Threeport database.
+      operationId: add-kubernetesRuntimeDefinition
+      parameters:
+      - description: KubernetesRuntimeDefinition object
+        in: body
+        name: kubernetesRuntimeDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new kubernetes runtime definition.
+  /v0/kubernetes-runtime-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a kubernetes runtime definition by ID from the database.
+      operationId: delete-kubernetesRuntimeDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a kubernetes runtime definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular kubernetes runtime definition from the database.
+      operationId: get-kubernetesRuntimeDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a kubernetes runtime definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a kubernetes runtime definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating kubernetes runtime definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-kubernetesRuntimeDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: KubernetesRuntimeDefinition object
+        in: body
+        name: kubernetesRuntimeDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing kubernetes runtime definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a kubernetes runtime definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating kubernetes runtime definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-kubernetesRuntimeDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: KubernetesRuntimeDefinition object
+        in: body
+        name: kubernetesRuntimeDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing kubernetes runtime definition by replacing the
+        entire object.
+  /v0/kubernetes-runtime-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all kubernetes runtime instances from the Threeport database.
+      operationId: get-kubernetesRuntimeInstances
+      parameters:
+      - description: kubernetes runtime instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all kubernetes runtime instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new kubernetes runtime instance to the Threeport database.
+      operationId: add-kubernetesRuntimeInstance
+      parameters:
+      - description: KubernetesRuntimeInstance object
+        in: body
+        name: kubernetesRuntimeInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new kubernetes runtime instance.
+  /v0/kubernetes-runtime-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a kubernetes runtime instance by ID from the database.
+      operationId: delete-kubernetesRuntimeInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a kubernetes runtime instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular kubernetes runtime instance from the database.
+      operationId: get-kubernetesRuntimeInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a kubernetes runtime instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a kubernetes runtime instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating kubernetes runtime instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-kubernetesRuntimeInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: KubernetesRuntimeInstance object
+        in: body
+        name: kubernetesRuntimeInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing kubernetes runtime instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a kubernetes runtime instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating kubernetes runtime instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-kubernetesRuntimeInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: KubernetesRuntimeInstance object
+        in: body
+        name: kubernetesRuntimeInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.KubernetesRuntimeInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
       summary: updates an existing kubernetes runtime instance by replacing the entire
         object.
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
   /v0/log-backends:
     get:
       consumes:
@@ -4538,409 +4510,6 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing log storage instance by replacing the entire object.
-<<<<<<< HEAD
-=======
-  /v0/network-ingress-definitions:
-    get:
-      consumes:
-      - application/json
-      description: Get all network ingress definitions from the Threeport database.
-      operationId: get-networkIngressDefinitions
-      parameters:
-      - description: network ingress definition search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all network ingress definitions.
-    post:
-      consumes:
-      - application/json
-      description: Add a new network ingress definition to the Threeport database.
-      operationId: add-networkIngressDefinition
-      parameters:
-      - description: NetworkIngressDefinition object
-        in: body
-        name: networkIngressDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressDefinition'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new network ingress definition.
-  /v0/network-ingress-definitions/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a network ingress definition by ID from the database.
-      operationId: delete-networkIngressDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a network ingress definition.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular network ingress definition from the database.
-      operationId: get-networkIngressDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a network ingress definition.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a network ingress definition in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating network ingress definition objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-networkIngressDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: NetworkIngressDefinition object
-        in: body
-        name: networkIngressDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressDefinition'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing network ingress definition.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a network ingress definition in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating network ingress definition objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-networkIngressDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: NetworkIngressDefinition object
-        in: body
-        name: networkIngressDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressDefinition'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing network ingress definition by replacing the entire
-        object.
-  /v0/network-ingress-instances:
-    get:
-      consumes:
-      - application/json
-      description: Get all network ingress instances from the Threeport database.
-      operationId: get-networkIngressInstances
-      parameters:
-      - description: network ingress instance search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all network ingress instances.
-    post:
-      consumes:
-      - application/json
-      description: Add a new network ingress instance to the Threeport database.
-      operationId: add-networkIngressInstance
-      parameters:
-      - description: NetworkIngressInstance object
-        in: body
-        name: networkIngressInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressInstance'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new network ingress instance.
-  /v0/network-ingress-instances/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a network ingress instance by ID from the database.
-      operationId: delete-networkIngressInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a network ingress instance.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular network ingress instance from the database.
-      operationId: get-networkIngressInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a network ingress instance.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a network ingress instance in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating network ingress instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-networkIngressInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: NetworkIngressInstance object
-        in: body
-        name: networkIngressInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressInstance'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing network ingress instance.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a network ingress instance in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating network ingress instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-networkIngressInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: NetworkIngressInstance object
-        in: body
-        name: networkIngressInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.NetworkIngressInstance'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing network ingress instance by replacing the entire
-        object.
->>>>>>> 68c94e3 (feat: add aws controller)
   /v0/profiles:
     get:
       consumes:
