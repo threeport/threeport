@@ -27,19 +27,19 @@ func gatewayInstanceCreated(
 ) error {
 
 	// initialize threeport object references
-	clusterInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
+	kubernetesRuntimeInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
 	if err != nil {
 		return fmt.Errorf("failed to get threeport objects: %w", err)
 	}
 
 	// validate threeport state before deploying virtual service
-	err = validateThreeportState(r, gatewayDefinition, gatewayInstance, workloadInstance, clusterInstance, log)
+	err = validateThreeportState(r, gatewayDefinition, gatewayInstance, workloadInstance, kubernetesRuntimeInstance, log)
 	if err != nil {
 		return fmt.Errorf("failed to validate threeport state: %w", err)
 	}
 
 	// configure workload resource instances
-	workloadResourceInstances, err := configureWorkloadResourceInstances(r, gatewayDefinition, workloadInstance, clusterInstance)
+	workloadResourceInstances, err := configureWorkloadResourceInstances(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
 	if err != nil {
 		return fmt.Errorf("failed to configure workload resource instances: %w", err)
 	}
@@ -97,19 +97,19 @@ func gatewayInstanceUpdated(
 ) error {
 
 	// initialize threeport object references
-	clusterInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
+	kubernetesRuntimeInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
 	if err != nil {
 		return fmt.Errorf("failed to get threeport objects: %w", err)
 	}
 
 	// validate threeport state before deploying virtual service
-	err = validateThreeportState(r, gatewayDefinition, gatewayInstance, workloadInstance, clusterInstance, log)
+	err = validateThreeportState(r, gatewayDefinition, gatewayInstance, workloadInstance, kubernetesRuntimeInstance, log)
 	if err != nil {
 		return fmt.Errorf("failed to validate threeport state: %w", err)
 	}
 
 	// configure workload resource instances
-	updatedWorkloadResourceInstances, err := configureWorkloadResourceInstances(r, gatewayDefinition, workloadInstance, clusterInstance)
+	updatedWorkloadResourceInstances, err := configureWorkloadResourceInstances(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
 	if err != nil {
 		return fmt.Errorf("failed to configure workload resource instances: %w", err)
 	}
@@ -248,15 +248,15 @@ func gatewayInstanceDeleted(
 func getThreeportObjects(
 	r *controller.Reconciler,
 	gatewayInstance *v0.GatewayInstance,
-) (*v0.ClusterInstance, *v0.GatewayDefinition, *v0.WorkloadInstance, error) {
+) (*v0.KubernetesRuntimeInstance, *v0.GatewayDefinition, *v0.WorkloadInstance, error) {
 
-	// get cluster instance
-	if gatewayInstance.ClusterInstanceID == nil {
-		return nil, nil, nil, fmt.Errorf("cluster instance ID is nil")
+	// get kubernetes runtime instance
+	if gatewayInstance.KubernetesRuntimeInstanceID == nil {
+		return nil, nil, nil, errors.New("kubernetes runtime instance ID is nil")
 	}
-	clusterInstance, err := client.GetClusterInstanceByID(r.APIClient, r.APIServer, *gatewayInstance.ClusterInstanceID)
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(r.APIClient, r.APIServer, *gatewayInstance.KubernetesRuntimeInstanceID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get gateway cluster instance by ID: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to get gateway kubernetes runtime instance by ID: %w", err)
 	}
 
 	// get gateway definition
@@ -277,7 +277,7 @@ func getThreeportObjects(
 		return nil, nil, nil, fmt.Errorf("failed to get workload instance: %w", err)
 	}
 
-	return clusterInstance, gatewayDefinition, workloadInstance, nil
+	return kubernetesRuntimeInstance, gatewayDefinition, workloadInstance, nil
 }
 
 // validateThreeportState validates the state of the threeport API
@@ -287,7 +287,7 @@ func validateThreeportState(
 	gatewayDefinition *v0.GatewayDefinition,
 	gatewayInstance *v0.GatewayInstance,
 	workloadInstance *v0.WorkloadInstance,
-	clusterInstance *v0.ClusterInstance,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	log *logr.Logger,
 ) error {
 
@@ -313,16 +313,16 @@ func validateThreeportState(
 	}
 
 	// ensure gateway controller is deployed
-	err = confirmGatewayControllerDeployed(r, gatewayInstance, clusterInstance, log)
+	err = confirmGatewayControllerDeployed(r, gatewayInstance, kubernetesRuntimeInstance, log)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
 	}
 
 	// ensure gateway controller instance is reconciled
-	if clusterInstance.GatewayControllerInstanceID == nil {
+	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
 		return fmt.Errorf("failed to determine if gateway controller instance is reconciled, gateway controller instance ID is nil")
 	}
-	gatewayControllerInstanceReconciled, err := client.ConfirmWorkloadInstanceReconciled(r, *clusterInstance.GatewayControllerInstanceID)
+	gatewayControllerInstanceReconciled, err := client.ConfirmWorkloadInstanceReconciled(r, *kubernetesRuntimeInstance.GatewayControllerInstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to determine if gateway controller instance is reconciled: %w", err)
 	}
@@ -331,7 +331,7 @@ func validateThreeportState(
 	}
 
 	// confirm requested port exposed
-	err = confirmGatewayPortExposed(r, gatewayInstance, clusterInstance, gatewayDefinition, log)
+	err = confirmGatewayPortExposed(r, gatewayInstance, kubernetesRuntimeInstance, gatewayDefinition, log)
 	if err != nil {
 		return fmt.Errorf("failed to confirm requested port is exposed: %w", err)
 	}
@@ -382,12 +382,12 @@ func confirmDefinitionsReconciled(
 func confirmGatewayControllerDeployed(
 	r *controller.Reconciler,
 	gatewayInstance *v0.GatewayInstance,
-	clusterInstance *v0.ClusterInstance,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	log *logr.Logger,
 ) error {
 
-	// return if cluster instance already has a gateway controller instance
-	if clusterInstance.GatewayControllerInstanceID != nil {
+	// return if kubernetes runtime instance already has a gateway controller instance
+	if kubernetesRuntimeInstance.GatewayControllerInstanceID != nil {
 		return nil
 	}
 
@@ -427,20 +427,20 @@ func confirmGatewayControllerDeployed(
 
 	// create gateway workload instance
 	glooEdgeWorkloadInstance := v0.WorkloadInstance{
-		Instance:             v0.Instance{Name: &workloadDefName},
-		ClusterInstanceID:    gatewayInstance.ClusterInstanceID,
-		WorkloadDefinitionID: createdWorkloadDef.ID,
+		Instance:                    v0.Instance{Name: &workloadDefName},
+		KubernetesRuntimeInstanceID: gatewayInstance.KubernetesRuntimeInstanceID,
+		WorkloadDefinitionID:        createdWorkloadDef.ID,
 	}
 	createdGlooEdgeWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &glooEdgeWorkloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to create gateway controller workload instance: %w", err)
 	}
 
-	// update cluster instance with gateway controller instance id
-	clusterInstance.GatewayControllerInstanceID = createdGlooEdgeWorkloadInstance.ID
-	_, err = client.UpdateClusterInstance(r.APIClient, r.APIServer, clusterInstance)
+	// update kubernetes runtime instance with gateway controller instance id
+	kubernetesRuntimeInstance.GatewayControllerInstanceID = createdGlooEdgeWorkloadInstance.ID
+	_, err = client.UpdateKubernetesRuntimeInstance(r.APIClient, r.APIServer, kubernetesRuntimeInstance)
 	if err != nil {
-		return fmt.Errorf("failed to update cluster instance with gateway controller instance id: %w", err)
+		return fmt.Errorf("failed to update kubernetes runtime instance with gateway controller instance id: %w", err)
 	}
 
 	log.V(1).Info(
@@ -456,16 +456,16 @@ func confirmGatewayControllerDeployed(
 func confirmGatewayPortExposed(
 	r *controller.Reconciler,
 	gatewayInstance *v0.GatewayInstance,
-	clusterInstance *v0.ClusterInstance,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	gatewayDefinition *v0.GatewayDefinition,
 	log *logr.Logger,
 ) error {
 
 	// get gateway controller workload resource instances
-	if clusterInstance.GatewayControllerInstanceID == nil {
+	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
 		return fmt.Errorf("gateway controller instance ID is nil")
 	}
-	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *clusterInstance.GatewayControllerInstanceID)
+	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.GatewayControllerInstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
@@ -551,7 +551,7 @@ func confirmGatewayPortExposed(
 	// trigger a reconciliation of the gateway controller workload instance
 	glooEdgeReconciled := false
 	updatedGatewayControllerWorkloadInstance := v0.WorkloadInstance{
-		Common:     v0.Common{ID: clusterInstance.GatewayControllerInstanceID},
+		Common:     v0.Common{ID: kubernetesRuntimeInstance.GatewayControllerInstanceID},
 		Reconciled: &glooEdgeReconciled,
 	}
 	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, &updatedGatewayControllerWorkloadInstance)
@@ -574,7 +574,7 @@ func configureVirtualService(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
-	clusterInstance *v0.ClusterInstance,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 ) (*datatypes.JSON, error) {
 
 	// get workload resource instances
@@ -636,7 +636,7 @@ func configureVirtualService(
 	}
 
 	// get gloo edge workload resource instance
-	glooEdgeWorkloadResourceInstance, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *clusterInstance.GatewayControllerInstanceID)
+	glooEdgeWorkloadResourceInstance, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.GatewayControllerInstanceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gloo edge workload resource instance: %w", err)
 	}
@@ -686,7 +686,7 @@ func configureIssuer(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
-	clusterInstance *v0.ClusterInstance,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	domainNameDefinition v0.DomainNameDefinition,
 ) (*datatypes.JSON, error) {
 
@@ -748,7 +748,7 @@ func configureCertificate(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
-	clusterInstance *v0.ClusterInstance,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	domainNameDefinition v0.DomainNameDefinition,
 ) (*datatypes.JSON, error) {
 
@@ -815,13 +815,13 @@ func configureWorkloadResourceInstances(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
-	clusterInstance *v0.ClusterInstance,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 ) (*[]v0.WorkloadResourceInstance, error) {
 
 	var jsonDefinitions []*datatypes.JSON
 
 	// configure virtual service manifest
-	virtualService, err := configureVirtualService(r, gatewayDefinition, workloadInstance, clusterInstance)
+	virtualService, err := configureVirtualService(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure virtual service: %w", err)
 	}
@@ -840,14 +840,14 @@ func configureWorkloadResourceInstances(
 		}
 
 		// configure issuer manifest
-		issuer, err := configureIssuer(r, gatewayDefinition, workloadInstance, clusterInstance, *domainNameDefinition)
+		issuer, err := configureIssuer(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, *domainNameDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure issuer: %w", err)
 		}
 		jsonDefinitions = append(jsonDefinitions, issuer)
 
 		// configure certificate manifest
-		certificate, err := configureCertificate(r, gatewayDefinition, workloadInstance, clusterInstance, *domainNameDefinition)
+		certificate, err := configureCertificate(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, *domainNameDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure certificate: %w", err)
 		}

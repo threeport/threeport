@@ -1448,28 +1448,9 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// if client doesn't specify reconciled, set it to false
-	if updatedWorkloadResourceInstance.Reconciled == nil {
-		reconciled := false
-		updatedWorkloadResourceInstance.Reconciled = &reconciled
-	}
-
 	// update object in database
 	if result := h.DB.Model(&existingWorkloadResourceInstance).Updates(updatedWorkloadResourceInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// notify controllers if reconciliation is required
-	if !*existingWorkloadResourceInstance.Reconciled {
-		notifPayload, err := existingWorkloadResourceInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			0,
-		)
-		if err != nil {
-			return iapi.ResponseStatus500(c, nil, err, objectType)
-		}
-		h.JS.Publish(v0.WorkloadResourceInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := v0.CreateResponse(nil, existingWorkloadResourceInstance)

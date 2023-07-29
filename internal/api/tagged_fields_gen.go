@@ -15,13 +15,10 @@ var DomainNameDefinitionTaggedFields = make(map[string]*FieldsByTag)
 var DomainNameInstanceTaggedFields = make(map[string]*FieldsByTag)
 var ForwardProxyDefinitionTaggedFields = make(map[string]*FieldsByTag)
 var ForwardProxyInstanceTaggedFields = make(map[string]*FieldsByTag)
-<<<<<<< HEAD
 var GatewayDefinitionTaggedFields = make(map[string]*FieldsByTag)
 var GatewayInstanceTaggedFields = make(map[string]*FieldsByTag)
-=======
 var KubernetesRuntimeDefinitionTaggedFields = make(map[string]*FieldsByTag)
 var KubernetesRuntimeInstanceTaggedFields = make(map[string]*FieldsByTag)
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 var LogBackendTaggedFields = make(map[string]*FieldsByTag)
 var LogStorageDefinitionTaggedFields = make(map[string]*FieldsByTag)
 var LogStorageInstanceTaggedFields = make(map[string]*FieldsByTag)

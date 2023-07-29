@@ -201,7 +201,6 @@ const docTemplate = `{
                 }
             }
         },
-<<<<<<< HEAD
         "/gateway-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for gateway definitions.",
@@ -210,16 +209,6 @@ const docTemplate = `{
                 ],
                 "summary": "GetGatewayDefinitionVersions gets the supported versions for the gateway definition API.",
                 "operationId": "gatewayDefinition-get-versions",
-=======
-        "/kubernetes-runtime-definitions/versions": {
-            "get": {
-                "description": "Get the supported API versions for kubernetes runtime definitions.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "GetKubernetesRuntimeDefinitionVersions gets the supported versions for the kubernetes runtime definition API.",
-                "operationId": "kubernetesRuntimeDefinition-get-versions",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -230,7 +219,6 @@ const docTemplate = `{
                 }
             }
         },
-<<<<<<< HEAD
         "/gateway-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for gateway instances.",
@@ -239,7 +227,34 @@ const docTemplate = `{
                 ],
                 "summary": "GetGatewayInstanceVersions gets the supported versions for the gateway instance API.",
                 "operationId": "gatewayInstance-get-versions",
-=======
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/kubernetes-runtime-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for kubernetes runtime definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetKubernetesRuntimeDefinitionVersions gets the supported versions for the kubernetes runtime definition API.",
+                "operationId": "kubernetesRuntimeDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/kubernetes-runtime-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for kubernetes runtime instances.",
@@ -248,7 +263,6 @@ const docTemplate = `{
                 ],
                 "summary": "GetKubernetesRuntimeInstanceVersions gets the supported versions for the kubernetes runtime instance API.",
                 "operationId": "kubernetesRuntimeInstance-get-versions",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3159,36 +3173,21 @@ const docTemplate = `{
                 }
             }
         },
-<<<<<<< HEAD
         "/v0/gateway-definitions": {
             "get": {
                 "description": "Get all gateway definitions from the Threeport database.",
-=======
-        "/v0/kubernetes-runtime-definitions": {
-            "get": {
-                "description": "Get all kubernetes runtime definitions from the Threeport database.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "gets all gateway definitions.",
                 "operationId": "get-gatewayDefinitions",
                 "parameters": [
                     {
                         "type": "string",
                         "description": "gateway definition search by name",
-=======
-                "summary": "gets all kubernetes runtime definitions.",
-                "operationId": "get-kubernetesRuntimeDefinitions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "kubernetes runtime definition search by name",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         "name": "name",
                         "in": "query"
                     }
@@ -3215,18 +3214,13 @@ const docTemplate = `{
                 }
             },
             "post": {
-<<<<<<< HEAD
                 "description": "Add a new gateway definition to the Threeport database.",
-=======
-                "description": "Add a new kubernetes runtime definition to the Threeport database.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "adds a new gateway definition.",
                 "operationId": "add-gatewayDefinition",
                 "parameters": [
@@ -3237,18 +3231,6 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayDefinition"
-=======
-                "summary": "adds a new kubernetes runtime definition.",
-                "operationId": "add-kubernetesRuntimeDefinition",
-                "parameters": [
-                    {
-                        "description": "KubernetesRuntimeDefinition object",
-                        "name": "kubernetesRuntimeDefinition",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.KubernetesRuntimeDefinition"
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -3274,28 +3256,17 @@ const docTemplate = `{
                 }
             }
         },
-<<<<<<< HEAD
         "/v0/gateway-definitions/{id}": {
             "get": {
                 "description": "Get a particular gateway definition from the database.",
-=======
-        "/v0/kubernetes-runtime-definitions/{id}": {
-            "get": {
-                "description": "Get a particular kubernetes runtime definition from the database.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "gets a gateway definition.",
                 "operationId": "get-gatewayDefinition",
-=======
-                "summary": "gets a kubernetes runtime definition.",
-                "operationId": "get-kubernetesRuntimeDefinition",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3327,24 +3298,15 @@ const docTemplate = `{
                 }
             },
             "put": {
-<<<<<<< HEAD
                 "description": "Replace a gateway definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gateway definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-=======
-                "description": "Replace a kubernetes runtime definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating kubernetes runtime definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "updates an existing gateway definition by replacing the entire object.",
                 "operationId": "replace-gatewayDefinition",
-=======
-                "summary": "updates an existing kubernetes runtime definition by replacing the entire object.",
-                "operationId": "replace-kubernetesRuntimeDefinition",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3354,21 +3316,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-<<<<<<< HEAD
                         "description": "GatewayDefinition object",
                         "name": "gatewayDefinition",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayDefinition"
-=======
-                        "description": "KubernetesRuntimeDefinition object",
-                        "name": "kubernetesRuntimeDefinition",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.KubernetesRuntimeDefinition"
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -3400,24 +3353,15 @@ const docTemplate = `{
                 }
             },
             "delete": {
-<<<<<<< HEAD
                 "description": "Delete a gateway definition by ID from the database.",
-=======
-                "description": "Delete a kubernetes runtime definition by ID from the database.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "deletes a gateway definition.",
                 "operationId": "delete-gatewayDefinition",
-=======
-                "summary": "deletes a kubernetes runtime definition.",
-                "operationId": "delete-kubernetesRuntimeDefinition",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3455,24 +3399,15 @@ const docTemplate = `{
                 }
             },
             "patch": {
-<<<<<<< HEAD
                 "description": "Update a gateway definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gateway definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-=======
-                "description": "Update a kubernetes runtime definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating kubernetes runtime definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "updates specific fields for an existing gateway definition.",
                 "operationId": "update-gatewayDefinition",
-=======
-                "summary": "updates specific fields for an existing kubernetes runtime definition.",
-                "operationId": "update-kubernetesRuntimeDefinition",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3482,21 +3417,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-<<<<<<< HEAD
                         "description": "GatewayDefinition object",
                         "name": "gatewayDefinition",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayDefinition"
-=======
-                        "description": "KubernetesRuntimeDefinition object",
-                        "name": "kubernetesRuntimeDefinition",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.KubernetesRuntimeDefinition"
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -3528,36 +3454,21 @@ const docTemplate = `{
                 }
             }
         },
-<<<<<<< HEAD
         "/v0/gateway-instances": {
             "get": {
                 "description": "Get all gateway instances from the Threeport database.",
-=======
-        "/v0/kubernetes-runtime-instances": {
-            "get": {
-                "description": "Get all kubernetes runtime instances from the Threeport database.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "gets all gateway instances.",
                 "operationId": "get-gatewayInstances",
                 "parameters": [
                     {
                         "type": "string",
                         "description": "gateway instance search by name",
-=======
-                "summary": "gets all kubernetes runtime instances.",
-                "operationId": "get-kubernetesRuntimeInstances",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "kubernetes runtime instance search by name",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         "name": "name",
                         "in": "query"
                     }
@@ -3584,18 +3495,13 @@ const docTemplate = `{
                 }
             },
             "post": {
-<<<<<<< HEAD
                 "description": "Add a new gateway instance to the Threeport database.",
-=======
-                "description": "Add a new kubernetes runtime instance to the Threeport database.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "adds a new gateway instance.",
                 "operationId": "add-gatewayInstance",
                 "parameters": [
@@ -3606,18 +3512,6 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayInstance"
-=======
-                "summary": "adds a new kubernetes runtime instance.",
-                "operationId": "add-kubernetesRuntimeInstance",
-                "parameters": [
-                    {
-                        "description": "KubernetesRuntimeInstance object",
-                        "name": "kubernetesRuntimeInstance",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -3643,28 +3537,17 @@ const docTemplate = `{
                 }
             }
         },
-<<<<<<< HEAD
         "/v0/gateway-instances/{id}": {
             "get": {
                 "description": "Get a particular gateway instance from the database.",
-=======
-        "/v0/kubernetes-runtime-instances/{id}": {
-            "get": {
-                "description": "Get a particular kubernetes runtime instance from the database.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "gets a gateway instance.",
                 "operationId": "get-gatewayInstance",
-=======
-                "summary": "gets a kubernetes runtime instance.",
-                "operationId": "get-kubernetesRuntimeInstance",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3696,24 +3579,15 @@ const docTemplate = `{
                 }
             },
             "put": {
-<<<<<<< HEAD
                 "description": "Replace a gateway instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gateway instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-=======
-                "description": "Replace a kubernetes runtime instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating kubernetes runtime instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "updates an existing gateway instance by replacing the entire object.",
                 "operationId": "replace-gatewayInstance",
-=======
-                "summary": "updates an existing kubernetes runtime instance by replacing the entire object.",
-                "operationId": "replace-kubernetesRuntimeInstance",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3723,21 +3597,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-<<<<<<< HEAD
                         "description": "GatewayInstance object",
                         "name": "gatewayInstance",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayInstance"
-=======
-                        "description": "KubernetesRuntimeInstance object",
-                        "name": "kubernetesRuntimeInstance",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -3769,24 +3634,15 @@ const docTemplate = `{
                 }
             },
             "delete": {
-<<<<<<< HEAD
                 "description": "Delete a gateway instance by ID from the database.",
-=======
-                "description": "Delete a kubernetes runtime instance by ID from the database.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "deletes a gateway instance.",
                 "operationId": "delete-gatewayInstance",
-=======
-                "summary": "deletes a kubernetes runtime instance.",
-                "operationId": "delete-kubernetesRuntimeInstance",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3824,24 +3680,15 @@ const docTemplate = `{
                 }
             },
             "patch": {
-<<<<<<< HEAD
                 "description": "Update a gateway instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gateway instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-=======
-                "description": "Update a kubernetes runtime instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating kubernetes runtime instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-<<<<<<< HEAD
                 "summary": "updates specific fields for an existing gateway instance.",
                 "operationId": "update-gatewayInstance",
-=======
-                "summary": "updates specific fields for an existing kubernetes runtime instance.",
-                "operationId": "update-kubernetesRuntimeInstance",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3851,21 +3698,574 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-<<<<<<< HEAD
                         "description": "GatewayInstance object",
                         "name": "gatewayInstance",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayInstance"
-=======
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/kubernetes-runtime-definitions": {
+            "get": {
+                "description": "Get all kubernetes runtime definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all kubernetes runtime definitions.",
+                "operationId": "get-kubernetesRuntimeDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "kubernetes runtime definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new kubernetes runtime definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new kubernetes runtime definition.",
+                "operationId": "add-kubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "description": "KubernetesRuntimeDefinition object",
+                        "name": "kubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/kubernetes-runtime-definitions/{id}": {
+            "get": {
+                "description": "Get a particular kubernetes runtime definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a kubernetes runtime definition.",
+                "operationId": "get-kubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a kubernetes runtime definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating kubernetes runtime definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing kubernetes runtime definition by replacing the entire object.",
+                "operationId": "replace-kubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "KubernetesRuntimeDefinition object",
+                        "name": "kubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a kubernetes runtime definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a kubernetes runtime definition.",
+                "operationId": "delete-kubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a kubernetes runtime definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating kubernetes runtime definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing kubernetes runtime definition.",
+                "operationId": "update-kubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "KubernetesRuntimeDefinition object",
+                        "name": "kubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/kubernetes-runtime-instances": {
+            "get": {
+                "description": "Get all kubernetes runtime instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all kubernetes runtime instances.",
+                "operationId": "get-kubernetesRuntimeInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "kubernetes runtime instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new kubernetes runtime instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new kubernetes runtime instance.",
+                "operationId": "add-kubernetesRuntimeInstance",
+                "parameters": [
+                    {
                         "description": "KubernetesRuntimeInstance object",
                         "name": "kubernetesRuntimeInstance",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/kubernetes-runtime-instances/{id}": {
+            "get": {
+                "description": "Get a particular kubernetes runtime instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a kubernetes runtime instance.",
+                "operationId": "get-kubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a kubernetes runtime instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating kubernetes runtime instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing kubernetes runtime instance by replacing the entire object.",
+                "operationId": "replace-kubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "KubernetesRuntimeInstance object",
+                        "name": "kubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a kubernetes runtime instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a kubernetes runtime instance.",
+                "operationId": "delete-kubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a kubernetes runtime instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating kubernetes runtime instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing kubernetes runtime instance.",
+                "operationId": "update-kubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "KubernetesRuntimeInstance object",
+                        "name": "kubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
                         }
                     }
                 ],
@@ -4740,571 +5140,6 @@ const docTemplate = `{
                 }
             }
         },
-<<<<<<< HEAD
-=======
-        "/v0/network-ingress-definitions": {
-            "get": {
-                "description": "Get all network ingress definitions from the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets all network ingress definitions.",
-                "operationId": "get-networkIngressDefinitions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "network ingress definition search by name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new network ingress definition to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new network ingress definition.",
-                "operationId": "add-networkIngressDefinition",
-                "parameters": [
-                    {
-                        "description": "NetworkIngressDefinition object",
-                        "name": "networkIngressDefinition",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.NetworkIngressDefinition"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/network-ingress-definitions/{id}": {
-            "get": {
-                "description": "Get a particular network ingress definition from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a network ingress definition.",
-                "operationId": "get-networkIngressDefinition",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Replace a network ingress definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating network ingress definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates an existing network ingress definition by replacing the entire object.",
-                "operationId": "replace-networkIngressDefinition",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "NetworkIngressDefinition object",
-                        "name": "networkIngressDefinition",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.NetworkIngressDefinition"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a network ingress definition by ID from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a network ingress definition.",
-                "operationId": "delete-networkIngressDefinition",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Update a network ingress definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating network ingress definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates specific fields for an existing network ingress definition.",
-                "operationId": "update-networkIngressDefinition",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "NetworkIngressDefinition object",
-                        "name": "networkIngressDefinition",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.NetworkIngressDefinition"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/network-ingress-instances": {
-            "get": {
-                "description": "Get all network ingress instances from the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets all network ingress instances.",
-                "operationId": "get-networkIngressInstances",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "network ingress instance search by name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new network ingress instance to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new network ingress instance.",
-                "operationId": "add-networkIngressInstance",
-                "parameters": [
-                    {
-                        "description": "NetworkIngressInstance object",
-                        "name": "networkIngressInstance",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.NetworkIngressInstance"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/network-ingress-instances/{id}": {
-            "get": {
-                "description": "Get a particular network ingress instance from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a network ingress instance.",
-                "operationId": "get-networkIngressInstance",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Replace a network ingress instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating network ingress instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates an existing network ingress instance by replacing the entire object.",
-                "operationId": "replace-networkIngressInstance",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "NetworkIngressInstance object",
-                        "name": "networkIngressInstance",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.NetworkIngressInstance"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a network ingress instance by ID from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a network ingress instance.",
-                "operationId": "delete-networkIngressInstance",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Update a network ingress instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating network ingress instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates specific fields for an existing network ingress instance.",
-                "operationId": "update-networkIngressInstance",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "NetworkIngressInstance object",
-                        "name": "networkIngressInstance",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.NetworkIngressInstance"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
->>>>>>> 68c94e3 (feat: add aws controller)
         "/v0/profiles": {
             "get": {
                 "description": "Get all profiles from the Threeport database.",
@@ -7549,9 +7384,6 @@ const docTemplate = `{
                 }
             }
         },
-        "datatypes.JSON": {
-            "type": "object"
-        },
         "v0.AttachedObjectReference": {
             "type": "object",
             "required": [
@@ -7766,116 +7598,6 @@ const docTemplate = `{
                 }
             }
         },
-<<<<<<< HEAD
-        "v0.ClusterDefinition": {
-            "type": "object",
-            "required": [
-                "Name"
-            ],
-            "properties": {
-                "DefaultNodeGroupInitialSize": {
-                    "type": "integer"
-                },
-                "DefaultNodeGroupInstanceType": {
-                    "description": "TODO: move these values to the AWS EKS cluster definition object.",
-                    "type": "string"
-                },
-                "DefaultNodeGroupMaximumSize": {
-                    "type": "integer"
-                },
-                "DefaultNodeGroupMinimumSize": {
-                    "type": "integer"
-                },
-                "Name": {
-                    "description": "An arbitrary name for the definition.",
-                    "type": "string"
-                },
-                "ProfileID": {
-                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
-                    "type": "integer"
-                },
-                "Region": {
-                    "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.  Note: changes to this value will not alter the derived\ninstances which is an immutable characteristic on instances.  It will\nonly affect new instances derived from this definition.",
-                    "type": "string"
-                },
-                "TierID": {
-                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
-                    "type": "integer"
-                },
-                "ZoneCount": {
-                    "description": "The number of zones the cluster should span for availability.",
-                    "type": "integer"
-                }
-            }
-        },
-        "v0.ClusterInstance": {
-<<<<<<< HEAD
-            "type": "object"
-=======
-            "type": "object",
-            "required": [
-                "APIEndpoint",
-                "CACertificate",
-                "ClusterDefinitionID",
-                "Name"
-            ],
-            "properties": {
-                "APIEndpoint": {
-                    "description": "The network endpoint at which to reach the kube-api.",
-                    "type": "string"
-                },
-                "CACertificate": {
-                    "description": "The CA certificate used to generate the cert and key if\nself-signed.",
-                    "type": "string"
-                },
-                "Certificate": {
-                    "description": "The client certificate to use for auth to the kube-api.",
-                    "type": "string"
-                },
-                "ClusterDefinitionID": {
-                    "description": "The cluster definition for this instance.",
-                    "type": "integer"
-                },
-                "ConnectionToken": {
-                    "description": "ConnectionToken is used to authenticate with a OIDC provider that\nimplements auth for a Kubernetes cluster.  It is an alternative to client\ncertficate and key authenticaion.",
-                    "type": "string"
-                },
-                "DefaultCluster": {
-                    "description": "If true the cluster instance to use for deployments if not otherwise\nspecified.  Can only have one per account.",
-                    "type": "boolean"
-                },
-                "Key": {
-                    "description": "The client key to use for auth to the kube-api.",
-                    "type": "string"
-                },
-                "Name": {
-                    "description": "An arbitrary name the instance",
-                    "type": "string"
-                },
-                "Region": {
-                    "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.  Stored in the instance (as well as definition) since a\nchange to the definition will not move a cluster.",
-                    "type": "string"
-                },
-                "Status": {
-                    "description": "The status of the instance.\nTODO: use a custom type",
-                    "type": "string"
-                },
-                "ThreeportControlPlaneCluster": {
-                    "description": "If true, controllers will connect to the kube API using internal DNS\nrather than the APIEndpoint.",
-                    "type": "boolean"
-                },
-                "WorkloadInstance": {
-                    "description": "The associated workload instances running on this cluster.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.WorkloadInstance"
-                    }
-                }
-            }
->>>>>>> 68c94e3 (feat: add aws controller)
-        },
-=======
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
         "v0.DomainNameDefinition": {
             "type": "object",
             "required": [
@@ -7986,20 +7708,13 @@ const docTemplate = `{
                 }
             }
         },
-<<<<<<< HEAD
         "v0.GatewayDefinition": {
-=======
-        "v0.KubernetesRuntimeDefinition": {
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
             "type": "object",
             "required": [
-                "InfraProvider",
                 "Name"
             ],
             "properties": {
-<<<<<<< HEAD
-<<<<<<< HEAD
-                "DomainNameID": {
+                "DomainNameDefinitionID": {
                     "description": "The domain name to serve requests for.",
                     "type": "integer"
                 },
@@ -8013,60 +7728,19 @@ const docTemplate = `{
                 "HTTPSRedirect": {
                     "description": "Redirect all requests to HTTP port to HTTPS.",
                     "type": "boolean"
-=======
-                "DefaultNodeGroupInitialSize": {
-                    "type": "integer"
-=======
-                "HighAvailability": {
-                    "description": "If true, will be deployed in a highly available configuration across\nmultiple zones within a region and with multiple replicas of Kubernetes\ncontrol plane components.",
-                    "type": "boolean"
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
-                },
-                "InfraProvider": {
-                    "description": "The infrastructure provider running the compute infrastructure for the\ncluster.",
-                    "type": "string"
-                },
-<<<<<<< HEAD
-<<<<<<< HEAD
-                "DefaultNodeGroupMaximumSize": {
-                    "type": "integer"
-                },
-                "DefaultNodeGroupMinimumSize": {
-                    "type": "integer"
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
-=======
-=======
-                "InfraProviderAccountName": {
-                    "description": "The infra provider account ID.  Determines which account the infra is\ndeployed on.",
-                    "type": "string"
-                },
->>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
-                "KubernetesRuntimeInstances": {
-                    "description": "The associated kubernetes runtime instances that are deployed from this\ndefinition.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
-                    }
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
                 },
-<<<<<<< HEAD
                 "Paths": {
                     "description": "The request paths to serve requests for.",
                     "type": "string"
                 },
-=======
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
                 },
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by gateway controller.",
                     "type": "boolean"
@@ -8078,18 +7752,85 @@ const docTemplate = `{
                 "TLSEnabled": {
                     "description": "Indicates if TLS is enabled.",
                     "type": "boolean"
-=======
-                "Region": {
-                    "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.  Note: changes to this value will not alter the derived\ninstances which is an immutable characteristic on instances.  It will\nonly affect new instances derived from this definition.",
-=======
-                "ProviderAccountID": {
-                    "description": "The infra provider account ID.  Determines which account the infra is\ndeployed on.",
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
-                    "type": "string"
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 },
-=======
->>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
+                "TierID": {
+                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                },
+                "WorkloadDefinitionID": {
+                    "description": "The workload definition that belongs to this resource.",
+                    "type": "integer"
+                }
+            }
+        },
+        "v0.GatewayInstance": {
+            "type": "object",
+            "required": [
+                "GatewayDefinitionID",
+                "KubernetesRuntimeInstanceID",
+                "Name"
+            ],
+            "properties": {
+                "GatewayDefinitionID": {
+                    "description": "GatewayDefinitionID is the definition used to configure the workload instance.",
+                    "type": "integer"
+                },
+                "KubernetesRuntimeInstanceID": {
+                    "description": "The kubernetes runtime where the ingress layer is installed.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "type": "boolean"
+                },
+                "Status": {
+                    "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                },
+                "WorkloadInstanceID": {
+                    "description": "The workload instance this gateway belongs to.",
+                    "type": "integer"
+                }
+            }
+        },
+        "v0.KubernetesRuntimeDefinition": {
+            "type": "object",
+            "required": [
+                "InfraProvider",
+                "Name"
+            ],
+            "properties": {
+                "HighAvailability": {
+                    "description": "If true, will be deployed in a highly available configuration across\nmultiple zones within a region and with multiple replicas of Kubernetes\ncontrol plane components.",
+                    "type": "boolean"
+                },
+                "InfraProvider": {
+                    "description": "The infrastructure provider running the compute infrastructure for the\ncluster.",
+                    "type": "string"
+                },
+                "InfraProviderAccountName": {
+                    "description": "The infra provider account ID.  Determines which account the infra is\ndeployed on.",
+                    "type": "string"
+                },
+                "KubernetesRuntimeInstances": {
+                    "description": "The associated kubernetes runtime instances that are deployed from this\ndefinition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
+                    }
+                },
+                "Name": {
+                    "description": "An arbitrary name for the definition.",
+                    "type": "string"
+                },
+                "ProfileID": {
+                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
+                    "type": "integer"
+                },
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the kubernetes\nruntime controller.",
                     "type": "boolean"
@@ -8097,37 +7838,9 @@ const docTemplate = `{
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
-<<<<<<< HEAD
-                },
-<<<<<<< HEAD
-                "WorkloadDefinitionID": {
-                    "description": "The workload definition that belongs to this resource.",
-=======
-                "ZoneCount": {
-                    "description": "The number of zones the cluster should span for availability.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
-                    "type": "integer"
-=======
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 }
             }
         },
-<<<<<<< HEAD
-        "v0.GatewayInstance": {
-            "type": "object",
-            "required": [
-                "ClusterInstanceID",
-                "GatewayDefinitionID",
-                "Name"
-            ],
-            "properties": {
-                "ClusterInstanceID": {
-                    "description": "The cluster where the ingress layer is installed.",
-                    "type": "integer"
-                },
-                "GatewayDefinitionID": {
-                    "description": "GatewayDefinitionID is the definition used to configure the workload instance.",
-=======
         "v0.KubernetesRuntimeInstance": {
             "type": "object",
             "required": [
@@ -8155,13 +7868,16 @@ const docTemplate = `{
                     "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
                     "type": "boolean"
                 },
+                "GatewayWorkloadInstanceID": {
+                    "description": "The WorkloadInstanceID of the gateway support service",
+                    "type": "integer"
+                },
                 "Key": {
                     "description": "The client key to use for auth to the kube-api.",
                     "type": "string"
                 },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for this instance.",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                     "type": "integer"
                 },
                 "Location": {
@@ -8172,42 +7888,18 @@ const docTemplate = `{
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
-<<<<<<< HEAD
-<<<<<<< HEAD
-                "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
-                    "type": "boolean"
-=======
-                "Region": {
-                    "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.  Stored in the instance (as well as definition) since a\nchange to the definition will not move a cluster.",
-                    "type": "string"
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
-=======
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the kubernetes\nruntime controller.",
                     "type": "boolean"
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
                 },
-<<<<<<< HEAD
-<<<<<<< HEAD
-                "WorkloadInstanceID": {
-                    "description": "The workload instance this gateway belongs to.",
-                    "type": "integer"
-                },
-                "WorkloadResourceInstanceID": {
-                    "description": "The workload resource instance that belongs to this instance.",
-                    "type": "integer"
-=======
-=======
                 "ThreeportAgentImage": {
                     "description": "An alternate threeport image to use when deploying threeport agent to\nmanaged Kubernetes runtime clusters.  If not supplied, the official image\nwith the correct version will be used.",
                     "type": "string"
                 },
->>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
                 "ThreeportControlPlaneHost": {
                     "description": "If true, the Kubernetes cluster is hosting a threeport control plane and\nany controllers that connect to the kube API will use internal cluster\nDNS rather than the external APIEndpoint.",
                     "type": "boolean"
@@ -8218,7 +7910,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/v0.WorkloadInstance"
                     }
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 }
             }
         },
@@ -8320,105 +8011,14 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-                "GatewayDefinition",
-                "GatewayInstance",
-                "Profile",
-                "Tier",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "ClusterDefinition",
-                "ClusterInstance",
-=======
->>>>>>> 68c94e3 (feat: add aws controller)
-=======
->>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
-=======
-                "DomainNameDefinition",
-                "DomainNameInstance",
->>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
-=======
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
-=======
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance"
-            ],
-            "x-enum-varnames": [
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-=======
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-=======
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
->>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
-=======
-                "Profile",
-                "Tier",
->>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
-=======
->>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
-=======
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
-=======
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "Profile",
-                "Tier",
-                "NetworkIngressDefinition",
-                "NetworkIngressInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
                 "LogBackend",
@@ -8426,12 +8026,10 @@ const docTemplate = `{
                 "LogStorageInstance",
                 "KubernetesRuntimeDefinition",
                 "KubernetesRuntimeInstance",
->>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
-                "WorkloadEvent",
+                "Profile",
+                "Tier",
+                "GatewayDefinition",
+                "GatewayInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -8439,152 +8037,30 @@ const docTemplate = `{
                 "AwsRelationalDatabaseInstance"
             ],
             "x-enum-varnames": [
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 68c94e3 (feat: add aws controller)
-=======
->>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
-=======
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
->>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
-=======
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
-=======
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance"
-=======
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-=======
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
->>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
-=======
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
->>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
-=======
->>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
-=======
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
-=======
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
->>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
+                "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-<<<<<<< HEAD
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance"
->>>>>>> 68c94e3 (feat: add aws controller)
-=======
-=======
->>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeClusterDefinition",
-                "ObjectTypeClusterInstance",
-<<<<<<< HEAD
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
-<<<<<<< HEAD
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksClusterDefinition",
-                "ObjectTypeAwsEksClusterInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance"
->>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
-=======
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance"
->>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
-=======
-=======
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
-                "ObjectTypeNetworkIngressDefinition",
-                "ObjectTypeNetworkIngressInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeKubernetesRuntimeDefinition",
                 "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeProfile",
-                "ObjectTypeTier"
->>>>>>> b784e75 (feat: add create cluster functionality to AWS EKS create reconciler)
-=======
-                "ObjectTypeProfile",
                 "ObjectTypeTier",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance"
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
-=======
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance"
->>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
             ]
         },
         "v0.Profile": {
@@ -8756,9 +8232,6 @@ const docTemplate = `{
             }
         },
         "v0.WorkloadInstance": {
-<<<<<<< HEAD
-            "type": "object"
-=======
             "type": "object",
             "required": [
                 "KubernetesRuntimeInstanceID",
@@ -8766,6 +8239,12 @@ const docTemplate = `{
                 "WorkloadDefinitionID"
             ],
             "properties": {
+                "AttachedObjectReferences": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.AttachedObjectReference"
+                    }
+                },
                 "Events": {
                     "type": "array",
                     "items": {
@@ -8799,7 +8278,6 @@ const docTemplate = `{
                     }
                 }
             }
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
         },
         "v0.WorkloadResourceDefinition": {
             "type": "object",
@@ -8810,11 +8288,10 @@ const docTemplate = `{
             "properties": {
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "WorkloadDefinitionID": {
                     "description": "The workload definition this resource belongs to.",
@@ -8823,9 +8300,6 @@ const docTemplate = `{
             }
         },
         "v0.WorkloadResourceInstance": {
-<<<<<<< HEAD
-            "type": "object"
-=======
             "type": "object",
             "required": [
                 "JSONDefinition",
@@ -8850,6 +8324,10 @@ const docTemplate = `{
                     "description": "The most recent operation performed on a Kubernete resource in the\nkubernetes runtime.",
                     "type": "string"
                 },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by workload controller.",
+                    "type": "boolean"
+                },
                 "RuntimeDefinition": {
                     "description": "The JSON definition of a Kubernetes resource as stored in etcd in the\nkubernetes runtime.",
                     "type": "array",
@@ -8857,12 +8335,15 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "ScheduledForDeletion": {
+                    "description": "Whether another controller has scheduled this resource for deletion",
+                    "type": "string"
+                },
                 "WorkloadInstanceID": {
                     "description": "The workload definition this resource belongs to.",
                     "type": "integer"
                 }
             }
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
         },
         "version.RESTAPIVersion": {
             "type": "object",

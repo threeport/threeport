@@ -226,14 +226,14 @@ func workloadInstanceUpdated(
 	workloadInstance *v0.WorkloadInstance,
 	log *logr.Logger,
 ) error {
-	// get cluster instance info
-	clusterInstance, err := client.GetClusterInstanceByID(
+	// get kubernetes runtime instance info
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
 		r.APIServer,
-		*workloadInstance.ClusterInstanceID,
+		*workloadInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
+		return fmt.Errorf("failed to get workload kubernetes runtime instance by ID: %w", err)
 	}
 
 	// get workload resource instances
@@ -254,7 +254,7 @@ func workloadInstanceUpdated(
 	}
 
 	// get a kube discovery client for the cluster
-	discoveryClient, err := kube.GetDiscoveryClient(clusterInstance, true)
+	discoveryClient, err := kube.GetDiscoveryClient(kubernetesRuntimeInstance, true)
 	if err != nil {
 		return fmt.Errorf("failed to get kube discovery client for cluster: %w", err)
 	}
@@ -270,7 +270,7 @@ func workloadInstanceUpdated(
 	}
 
 	// create a client to connect to kube API
-	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
+	dynamicKubeClient, mapper, err := kube.GetClient(kubernetesRuntimeInstance, true)
 	if err != nil {
 		return fmt.Errorf("failed to create kube API client object: %w", err)
 	}

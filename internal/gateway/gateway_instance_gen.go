@@ -5,7 +5,6 @@ package gateway
 import (
 	"errors"
 	"fmt"
-	mapstructure "github.com/mitchellh/mapstructure"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -53,9 +52,14 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// decode the object that was created
+			// decode the object that was sent in the notification
 			var gatewayInstance v0.GatewayInstance
-			mapstructure.Decode(notif.Object, &gatewayInstance)
+			if err := gatewayInstance.DecodeNotifObject(notif.Object); err != nil {
+				log.Error(err, "failed to marshal object map from consumed notification message")
+				go r.RequeueRaw(msg.Subject, msg.Data)
+				log.V(1).Info("gateway instance reconciliation requeued with identical payload and fixed delay")
+				continue
+			}
 			log = log.WithValues("gatewayInstanceID", gatewayInstance.ID)
 
 			// back off the requeue delay as needed
@@ -93,8 +97,9 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// retrieve latest version of object if requeued
-			if notif.Requeue {
+			// retrieve latest version of object if requeued unless object was
+			// deleted (in which case we have the latest version)
+			if notif.Requeue && notif.Operation != notifications.NotificationOperationDeleted {
 				latestGatewayInstance, err := client.GetGatewayInstanceByID(
 					r.APIClient,
 					r.APIServer,
@@ -170,26 +175,28 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 
 			}
 
-			// set the object's Reconciled field to true
-			objectReconciled := true
-			reconciledGatewayInstance := v0.GatewayInstance{
-				Common:     v0.Common{ID: gatewayInstance.ID},
-				Reconciled: &objectReconciled,
+			// set the object's Reconciled field to true if not deleted
+			if notif.Operation != notifications.NotificationOperationDeleted {
+				objectReconciled := true
+				reconciledGatewayInstance := v0.GatewayInstance{
+					Common:     v0.Common{ID: gatewayInstance.ID},
+					Reconciled: &objectReconciled,
+				}
+				updatedGatewayInstance, err := client.UpdateGatewayInstance(
+					r.APIClient,
+					r.APIServer,
+					&reconciledGatewayInstance,
+				)
+				if err != nil {
+					log.Error(err, "failed to update gateway instance to mark as reconciled")
+					r.UnlockAndRequeue(&gatewayInstance, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+				log.V(1).Info(
+					"gateway instance marked as reconciled in API",
+					"gateway instanceName", updatedGatewayInstance.Name,
+				)
 			}
-			updatedGatewayInstance, err := client.UpdateGatewayInstance(
-				r.APIClient,
-				r.APIServer,
-				&reconciledGatewayInstance,
-			)
-			if err != nil {
-				log.Error(err, "failed to update gateway instance to mark as reconciled")
-				r.UnlockAndRequeue(&gatewayInstance, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-			log.V(1).Info(
-				"gateway instance marked as reconciled in API",
-				"gateway instanceName", updatedGatewayInstance.Name,
-			)
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&gatewayInstance); !ok {

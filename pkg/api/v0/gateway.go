@@ -4,7 +4,7 @@ package v0
 
 // +threeport-codegen:reconciler
 // Gateway is a route for requests to a workload from clients outside the
-// private network of a workload cluster.  This
+// private network of a workload kubernetes runtime.  This
 type GatewayDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
@@ -54,8 +54,8 @@ type GatewayInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
 
-	// The cluster where the ingress layer is installed.
-	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
+	// The kubernetes runtime where the ingress layer is installed.
+	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
 	// The domain name instance to serve requests for.
 	// DomainNameInstanceID *uint `json:"DomainNameInstanceID,omitempty" query:"domainnameinstanceid" validate:"optional"`

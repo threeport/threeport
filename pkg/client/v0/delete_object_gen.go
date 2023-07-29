@@ -23,13 +23,13 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteAwsAccount(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete AwsAccount: %w", err)
 		}
-	case "v0.AwsEksClusterDefinition":
-		if _, err := DeleteAwsEksClusterDefinition(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete AwsEksClusterDefinition: %w", err)
+	case "v0.AwsEksKubernetesRuntimeDefinition":
+		if _, err := DeleteAwsEksKubernetesRuntimeDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete AwsEksKubernetesRuntimeDefinition: %w", err)
 		}
-	case "v0.AwsEksClusterInstance":
-		if _, err := DeleteAwsEksClusterInstance(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete AwsEksClusterInstance: %w", err)
+	case "v0.AwsEksKubernetesRuntimeInstance":
+		if _, err := DeleteAwsEksKubernetesRuntimeInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete AwsEksKubernetesRuntimeInstance: %w", err)
 		}
 	case "v0.AwsRelationalDatabaseDefinition":
 		if _, err := DeleteAwsRelationalDatabaseDefinition(apiClient, apiAddr, id); err != nil {
@@ -38,14 +38,6 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 	case "v0.AwsRelationalDatabaseInstance":
 		if _, err := DeleteAwsRelationalDatabaseInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete AwsRelationalDatabaseInstance: %w", err)
-		}
-	case "v0.ClusterDefinition":
-		if _, err := DeleteClusterDefinition(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete ClusterDefinition: %w", err)
-		}
-	case "v0.ClusterInstance":
-		if _, err := DeleteClusterInstance(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete ClusterInstance: %w", err)
 		}
 	case "v0.DomainNameDefinition":
 		if _, err := DeleteDomainNameDefinition(apiClient, apiAddr, id); err != nil {
@@ -70,6 +62,14 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 	case "v0.GatewayInstance":
 		if _, err := DeleteGatewayInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete GatewayInstance: %w", err)
+		}
+	case "v0.KubernetesRuntimeDefinition":
+		if _, err := DeleteKubernetesRuntimeDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete KubernetesRuntimeDefinition: %w", err)
+		}
+	case "v0.KubernetesRuntimeInstance":
+		if _, err := DeleteKubernetesRuntimeInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete KubernetesRuntimeInstance: %w", err)
 		}
 	case "v0.LogBackend":
 		if _, err := DeleteLogBackend(apiClient, apiAddr, id); err != nil {
