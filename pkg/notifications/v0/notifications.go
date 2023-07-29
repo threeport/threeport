@@ -41,6 +41,8 @@ type Notification struct {
 	Object interface{}
 }
 
+// ConsumeMessage generates a Notificatiion object from a json notification from
+// NATS to a controller.
 func ConsumeMessage(msgData []byte) (*Notification, error) {
 	var notif Notification
 	decoder := json.NewDecoder(bytes.NewReader(msgData))

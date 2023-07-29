@@ -24,6 +24,7 @@ const (
 	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
 	ThreeportAwsControllerImage               = "threeport-aws-controller"
 	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
+	ThreeportAgentDeployName                  = "threeport-agent"
 	ThreeportAgentImage                       = "threeport-agent"
 	ThreeportAPIServiceResourceName           = "threeport-api-server"
 	ThreeportAPIIngressResourceName           = "threeport-api-ingress"
@@ -71,6 +72,36 @@ func GetThreeportControllerNames() []string {
 		"aws-controller",
 		"gateway-controller",
 	}
+}
+
+// InstallComputeSpaceControlPlaneComponents
+func InstallComputeSpaceControlPlaneComponents(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	runtimeInstanceName string,
+) error {
+	// threeport control plane namespace
+	if err := CreateThreeportControlPlaneNamespace(
+		kubeClient,
+		mapper,
+	); err != nil {
+		return fmt.Errorf("failed to create threeport control plane namespace: %w", err)
+	}
+
+	// threeport agent
+	if err := InstallThreeportAgent(
+		kubeClient,
+		mapper,
+		runtimeInstanceName,
+		false,
+		"lander2k2",
+		"latest",
+		nil,
+	); err != nil {
+		return fmt.Errorf("failed to install threeport agent: %w", err)
+	}
+
+	return nil
 }
 
 // InstallThreeportControlPlaneAPI installs the threeport API in a Kubernetes
@@ -1077,7 +1108,7 @@ func InstallThreeportAgent(
 					"app.kubernetes.io/part-of":    "threeport-control-plane",
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name":      "threeport-agent",
+				"name":      ThreeportAgentDeployName,
 				"namespace": ControlPlaneNamespace,
 			},
 			"spec": map[string]interface{}{

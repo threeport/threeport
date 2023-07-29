@@ -10,6 +10,28 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 )
 
+// CreateThreeportControlPlaneNamespace creates the threeport control plane
+// namespace in a Kubernetes cluster.
+func CreateThreeportControlPlaneNamespace(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	var namespace = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata": map[string]interface{}{
+				"name": ControlPlaneNamespace,
+			},
+		},
+	}
+	if _, err := kube.CreateResource(namespace, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create namespace: %w", err)
+	}
+
+	return nil
+}
+
 // InstallThreeportControlPlaneDependencies installs the necessary components
 // for the threeport REST API and controllers to operate.  It includes the
 // database and message broker.
@@ -19,6 +41,10 @@ func InstallThreeportControlPlaneDependencies(
 	infraProvider string,
 ) error {
 	crdbVolClaimTemplateSpec := getCRDBVolClaimTemplateSpec(infraProvider)
+
+	if err := CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
+	}
 
 	var namespace = &unstructured.Unstructured{
 		Object: map[string]interface{}{

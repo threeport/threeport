@@ -117,6 +117,4 @@ func init() {
 
 	controllerCmd.Flags().StringVarP(&modelFilenameForController, "filename", "f", "", "The filename for the file containing the API models")
 	controllerCmd.MarkFlagRequired("filename")
-	//controllerCmd.Flags().StringVarP(&packageName, "package", "p", "", "The package name of the the API model")
-	//controllerCmd.MarkFlagRequired("package")
 }

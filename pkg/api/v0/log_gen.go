@@ -100,6 +100,22 @@ func (lb *LogBackend) NotificationPayload(
 	return &payload, nil
 }
 
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (lb *LogBackend) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+	}
+	if err := json.Unmarshal(jsonObject, &lb); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+	}
+	return nil
+}
+
 // GetID returns the unique ID for the object.
 func (lb *LogBackend) GetID() uint {
 	return *lb.ID
@@ -133,6 +149,22 @@ func (lsd *LogStorageDefinition) NotificationPayload(
 	return &payload, nil
 }
 
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (lsd *LogStorageDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+	}
+	if err := json.Unmarshal(jsonObject, &lsd); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+	}
+	return nil
+}
+
 // GetID returns the unique ID for the object.
 func (lsd *LogStorageDefinition) GetID() uint {
 	return *lsd.ID
@@ -164,6 +196,22 @@ func (lsi *LogStorageInstance) NotificationPayload(
 	}
 
 	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (lsi *LogStorageInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+	}
+	if err := json.Unmarshal(jsonObject, &lsi); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+	}
+	return nil
 }
 
 // GetID returns the unique ID for the object.

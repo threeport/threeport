@@ -13,8 +13,8 @@ type KubernetesRuntimeInfra interface {
 	Delete() error
 }
 
-// ThreeportRuntimeName returns a name to use for a Kubernetes cluster where the
-// threeport control plane runs.
+// ThreeportRuntimeName returns the name for a Kubernetes runtime that hosts the
+// threeport control plane.
 func ThreeportRuntimeName(threeportInstanceName string) string {
 	return fmt.Sprintf("threeport-%s", threeportInstanceName)
 }

@@ -5,7 +5,6 @@ package kubernetesruntime
 import (
 	"errors"
 	"fmt"
-	mapstructure "github.com/mitchellh/mapstructure"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -53,9 +52,14 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// decode the object that was created
+			// decode the object that was sent in the notification
 			var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
-			mapstructure.Decode(notif.Object, &kubernetesRuntimeInstance)
+			if err := kubernetesRuntimeInstance.DecodeNotifObject(notif.Object); err != nil {
+				log.Error(err, "failed to marshal object map from consumed notification message")
+				go r.RequeueRaw(msg.Subject, msg.Data)
+				log.V(1).Info("kubernetes runtime instance reconciliation requeued with identical payload and fixed delay")
+				continue
+			}
 			log = log.WithValues("kubernetesRuntimeInstanceID", kubernetesRuntimeInstance.ID)
 
 			// back off the requeue delay as needed
@@ -93,8 +97,9 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// retrieve latest version of object if requeued
-			if notif.Requeue {
+			// retrieve latest version of object if requeued unless object was
+			// deleted (in which case we have the latest version)
+			if notif.Requeue && notif.Operation != notifications.NotificationOperationDeleted {
 				latestKubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 					r.APIClient,
 					r.APIServer,
@@ -156,26 +161,28 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 
 			}
 
-			// set the object's Reconciled field to true
-			objectReconciled := true
-			reconciledKubernetesRuntimeInstance := v0.KubernetesRuntimeInstance{
-				Common:     v0.Common{ID: kubernetesRuntimeInstance.ID},
-				Reconciled: &objectReconciled,
+			// set the object's Reconciled field to true if not deleted
+			if notif.Operation != notifications.NotificationOperationDeleted {
+				objectReconciled := true
+				reconciledKubernetesRuntimeInstance := v0.KubernetesRuntimeInstance{
+					Common:     v0.Common{ID: kubernetesRuntimeInstance.ID},
+					Reconciled: &objectReconciled,
+				}
+				updatedKubernetesRuntimeInstance, err := client.UpdateKubernetesRuntimeInstance(
+					r.APIClient,
+					r.APIServer,
+					&reconciledKubernetesRuntimeInstance,
+				)
+				if err != nil {
+					log.Error(err, "failed to update kubernetes runtime instance to mark as reconciled")
+					r.UnlockAndRequeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+				log.V(1).Info(
+					"kubernetes runtime instance marked as reconciled in API",
+					"kubernetes runtime instanceName", updatedKubernetesRuntimeInstance.Name,
+				)
 			}
-			updatedKubernetesRuntimeInstance, err := client.UpdateKubernetesRuntimeInstance(
-				r.APIClient,
-				r.APIServer,
-				&reconciledKubernetesRuntimeInstance,
-			)
-			if err != nil {
-				log.Error(err, "failed to update kubernetes runtime instance to mark as reconciled")
-				r.UnlockAndRequeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-			log.V(1).Info(
-				"kubernetes runtime instance marked as reconciled in API",
-				"kubernetes runtime instanceName", updatedKubernetesRuntimeInstance.Name,
-			)
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&kubernetesRuntimeInstance); !ok {

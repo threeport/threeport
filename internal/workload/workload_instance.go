@@ -79,20 +79,25 @@ func workloadInstanceCreated(
 		workloadResourceInstances = append(workloadResourceInstances, wri)
 	}
 
-	// get cluster instance info
-	clusterInstance, err := client.GetKubernetesRuntimeInstanceByID(
+	// get kubernetes runtime instance info
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
 		r.APIServer,
 		*workloadInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
+		return fmt.Errorf("failed to get workload kubernetesRuntime instance by ID: %w", err)
 	}
 
-	// get a kube discovery client for the cluster
-	discoveryClient, err := kube.GetDiscoveryClient(clusterInstance, true)
+	// get a kube discovery client for the kubernetes runtime
+	discoveryClient, err := kube.GetDiscoveryClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to get kube discovery client for cluster: %w", err)
+		return fmt.Errorf("failed to get kubernetes API discovery client for kubernetes runtime instance: %w", err)
 	}
 
 	// manipulate namespace on kube resources as needed
@@ -106,12 +111,17 @@ func workloadInstanceCreated(
 	}
 
 	// create a dynamic client to connect to kube API
-	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
+	dynamicKubeClient, mapper, err := kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create dynamic kube API client: %w", err)
 	}
 
-	// create each resource in the target kube cluster
+	// create each resource in the target kubernetes runtime instance
 	for _, wri := range *processedWRIs {
 		// marshal the resource definition json
 		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()
@@ -199,7 +209,7 @@ func workloadInstanceCreated(
 	resourceClient := dynamicKubeClient.Resource(agentapi.ThreeportWorkloadGVR)
 	unstructured, err := agentapi.UnstructuredThreeportWorkload(&threeportWorkload)
 	if err != nil {
-		return fmt.Errorf("failed to generate unstructured object for ThreeportWorkload resource for creation in run time cluster")
+		return fmt.Errorf("failed to generate unstructured object for ThreeportWorkload resource for creation in runtime kubernetes runtime")
 	}
 	_, err = resourceClient.Create(context.Background(), unstructured, metav1.CreateOptions{})
 	if err != nil {
@@ -258,7 +268,6 @@ func workloadInstanceUpdated(
 	if err != nil {
 		return fmt.Errorf("failed to set namespaces for workload resource instances: %w", err)
 	}
-
 
 	// create a client to connect to kube API
 	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
@@ -353,18 +362,27 @@ func workloadInstanceDeleted(
 		return errors.New("zero workload resource instances to delete")
 	}
 
-	// get cluster instance info
-	clusterInstance, err := client.GetKubernetesRuntimeInstanceByID(
+	// get kubernetes runtime instance info
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
 		r.APIServer,
 		*workloadInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get workload cluster instance by ID: %w", err)
+		log.Error(
+			errors.New("failed to get kubernetes runtime instance by ID"),
+			"kubernetesRuntimeInstance", *workloadInstance.KubernetesRuntimeInstanceID,
+		)
+		return fmt.Errorf("failed to get kubernetes runtime instance by ID: %w", err)
 	}
 
 	// create a client to connect to kube API
-	dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, true)
+	dynamicKubeClient, mapper, err := kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create kube API client object: %w", err)
 	}
@@ -389,7 +407,7 @@ func workloadInstanceDeleted(
 		}
 	}
 
-	// delete each workload resource instance and resource in the target kube cluster
+	// delete each workload resource instance and resource in the target kubernetes runtime instance
 	for _, wri := range *workloadResourceInstances {
 		// marshal the resource instance json
 		jsonDefinition, err := wri.JSONDefinition.MarshalJSON()

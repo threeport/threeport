@@ -82,6 +82,22 @@ func (fpd *ForwardProxyDefinition) NotificationPayload(
 	return &payload, nil
 }
 
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (fpd *ForwardProxyDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+	}
+	if err := json.Unmarshal(jsonObject, &fpd); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+	}
+	return nil
+}
+
 // GetID returns the unique ID for the object.
 func (fpd *ForwardProxyDefinition) GetID() uint {
 	return *fpd.ID
@@ -113,6 +129,22 @@ func (fpi *ForwardProxyInstance) NotificationPayload(
 	}
 
 	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (fpi *ForwardProxyInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+	}
+	if err := json.Unmarshal(jsonObject, &fpi); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+	}
+	return nil
 }
 
 // GetID returns the unique ID for the object.

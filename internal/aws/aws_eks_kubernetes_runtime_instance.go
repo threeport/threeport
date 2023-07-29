@@ -137,10 +137,10 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	}()
 
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
-		ThreeportInstanceName: *awsEksKubernetesRuntimeInstance.Name,
-		AwsAccountID:          *awsAccount.AccountID,
-		AwsConfig:             awsConfig,
-		ResourceClient:        *resourceClient,
+		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
+		AwsAccountID:        *awsAccount.AccountID,
+		AwsConfig:           awsConfig,
+		ResourceClient:      *resourceClient,
 	}
 
 	// create control plane infra
@@ -148,7 +148,9 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	if err != nil {
 		// since we failed to complete cluster creation, delete it to remove any
 		// dangling AWS resources
-		_ = clusterInfra.Delete()
+		if deleteErr := clusterInfra.Delete(); deleteErr != nil {
+			return fmt.Errorf("failed to create new threeport cluster: %w and failed to delete created infra: %w", err, deleteErr)
+		}
 		return fmt.Errorf("failed to create new threeport cluster: %w", err)
 	}
 
@@ -163,9 +165,11 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	}
 
 	// update kube connection info
+	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
 	kubernetesRuntimeInstance.ConnectionToken = &kubeConnectionInfo.EKSToken
+	kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
 	_, err = client.UpdateKubernetesRuntimeInstance(
 		r.APIClient,
 		r.APIServer,
@@ -178,6 +182,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	return nil
 }
 
+// awsEksKubernetesRuntimeInstanceDeleted removes an AWS EKS cluster.
 func awsEksKubernetesRuntimeInstanceDeleted(
 	r *controller.Reconciler,
 	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
@@ -204,7 +209,6 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 	// add log metadata
 	reconLog := log.WithValues(
 		"awsEksClsuterInstsanceRegion", *awsEksKubernetesRuntimeInstance.Region,
-		"awsEksClsuterInstsanceResourceInventory", *awsEksKubernetesRuntimeInstance.ResourceInventory,
 		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
 		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 		"awsAccountAccessKeyID", *awsAccount.AccessKeyID,
@@ -229,6 +233,10 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 	// create resource client
 	resourceClient := resource.CreateResourceClient(&awsConfig)
 
+	// set inventory channel to nil since we will not be updating the resource
+	// inventory in the database - that object has been deleted
+	resourceClient.InventoryChan = nil
+
 	// log messages from channel in resource client on goroutine
 	go func() {
 		for msg := range *resourceClient.MessageChan {
@@ -236,31 +244,28 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 		}
 	}()
 
-	// not storing inventory in database as the AwsEKSKubernetesRuntimeInstance
-	// object has been deleted.
-
 	// TODO: add a wait group that prevents the AWS controller from terminating
 	// until all resources are deleted
 
-	// unmarshal inventory into resource inventory object for eks-cluster lib
 	var resourceInventory resource.ResourceInventory
-	fmt.Printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-	reconLog.Info("wat")
-
-	inventoryBytes := []byte(*awsEksKubernetesRuntimeInstance.ResourceInventory)
-	if err := resource.UnmarshalInventory(inventoryBytes, &resourceInventory); err != nil {
-		return fmt.Errorf("failed to unmarshal resource inventory from aws eks kubernetes runtime instance: %w", err)
+	if awsEksKubernetesRuntimeInstance.ResourceInventory != nil {
+		if err := resource.UnmarshalInventory(
+			*awsEksKubernetesRuntimeInstance.ResourceInventory,
+			&resourceInventory,
+		); err != nil {
+			return fmt.Errorf("failed to unmarshal resource inventory: %w", err)
+		}
 	}
 
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
-		ThreeportInstanceName: *awsEksKubernetesRuntimeInstance.Name,
-		AwsAccountID:          *awsAccount.AccountID,
-		AwsConfig:             awsConfig,
-		ResourceClient:        *resourceClient,
-		ResourceInventory:     resourceInventory,
+		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
+		AwsAccountID:        *awsAccount.AccountID,
+		AwsConfig:           awsConfig,
+		ResourceClient:      *resourceClient,
+		ResourceInventory:   resourceInventory,
 	}
 
-	// create control plane infra
+	// delete control plane infra
 	if err := clusterInfra.Delete(); err != nil {
 		return fmt.Errorf("failed to delete new threeport cluster: %w", err)
 	}

@@ -5,8 +5,6 @@ package aws
 import (
 	"errors"
 	"fmt"
-
-	"github.com/mitchellh/mapstructure"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -41,9 +39,6 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-			fmt.Println(string(msg.Data))
-
 			// consume message data to capture notification from API
 			notif, err := notifications.ConsumeMessage(msg.Data)
 			if err != nil {
@@ -57,13 +52,15 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// decode the object that was sent
+			// decode the object that was sent in the notification
 			var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
-			mapstructure.Decode(notif.Object, &awsEksKubernetesRuntimeInstance)
+			if err := awsEksKubernetesRuntimeInstance.DecodeNotifObject(notif.Object); err != nil {
+				log.Error(err, "failed to marshal object map from consumed notification message")
+				go r.RequeueRaw(msg.Subject, msg.Data)
+				log.V(1).Info("aws eks kubernetes runtime instance reconciliation requeued with identical payload and fixed delay")
+				continue
+			}
 			log = log.WithValues("awsEksKubernetesRuntimeInstanceID", awsEksKubernetesRuntimeInstance.ID)
-
-			fmt.Println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-			fmt.Println(*awsEksKubernetesRuntimeInstance.ID)
 
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
@@ -164,26 +161,28 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 
 			}
 
-			// set the object's Reconciled field to true
-			objectReconciled := true
-			reconciledAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
-				Common:     v0.Common{ID: awsEksKubernetesRuntimeInstance.ID},
-				Reconciled: &objectReconciled,
+			// set the object's Reconciled field to true if not deleted
+			if notif.Operation != notifications.NotificationOperationDeleted {
+				objectReconciled := true
+				reconciledAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
+					Common:     v0.Common{ID: awsEksKubernetesRuntimeInstance.ID},
+					Reconciled: &objectReconciled,
+				}
+				updatedAwsEksKubernetesRuntimeInstance, err := client.UpdateAwsEksKubernetesRuntimeInstance(
+					r.APIClient,
+					r.APIServer,
+					&reconciledAwsEksKubernetesRuntimeInstance,
+				)
+				if err != nil {
+					log.Error(err, "failed to update aws eks kubernetes runtime instance to mark as reconciled")
+					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
+					continue
+				}
+				log.V(1).Info(
+					"aws eks kubernetes runtime instance marked as reconciled in API",
+					"aws eks kubernetes runtime instanceName", updatedAwsEksKubernetesRuntimeInstance.Name,
+				)
 			}
-			updatedAwsEksKubernetesRuntimeInstance, err := client.UpdateAwsEksKubernetesRuntimeInstance(
-				r.APIClient,
-				r.APIServer,
-				&reconciledAwsEksKubernetesRuntimeInstance,
-			)
-			if err != nil {
-				log.Error(err, "failed to update aws eks kubernetes runtime instance to mark as reconciled")
-				r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-			log.V(1).Info(
-				"aws eks kubernetes runtime instance marked as reconciled in API",
-				"aws eks kubernetes runtime instanceName", updatedAwsEksKubernetesRuntimeInstance.Name,
-			)
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&awsEksKubernetesRuntimeInstance); !ok {

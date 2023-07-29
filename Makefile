@@ -146,6 +146,14 @@ rest-api-image-build:
 workload-controller-image-build:
 	docker build -t $(WORKLOAD_CONTROLLER_IMG) -f cmd/workload-controller/image/Dockerfile .
 
+#kubernetes-runtime-controller-image-build: @ Build kubernetes runtime controller container image
+kubernetes-runtime-controller-image-build:
+	docker build -t $(KUBERNETES_RUNTIME_CONTROLLER_IMG) -f cmd/kubernetes-runtime-controller/image/Dockerfile .
+
+#aws-controller-image-build: @ Build aws controller container image
+aws-controller-image-build:
+	docker build -t $(AWS_CONTROLLER_IMG) -f cmd/aws-controller/image/Dockerfile .
+
 #agent-image-build: @ Build agent container image
 agent-image-build:
 	docker build -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile .
@@ -161,6 +169,14 @@ rest-api-image: rest-api-image-build
 #workload-controller-image: @ Build and push workload controller container image
 workload-controller-image: workload-controller-image-build
 	docker push $(WORKLOAD_CONTROLLER_IMG)
+
+#kubernetes-runtime-controller-image: @ Build and push kubernetes runtime controller container image
+kubernetes-runtime-controller-image: kubernetes-runtime-controller-image-build
+	docker push $(KUBERNETES_RUNTIME_CONTROLLER_IMG)
+
+#aws-controller-image: @ Build and push aws controller container image
+aws-controller-image: aws-controller-image-build
+	docker push $(AWS_CONTROLLER_IMG)
 
 #agent-image: @ Build and push agent container image
 agent-image: agent-image-build

@@ -209,6 +209,7 @@ func (r *Reconciler) Lock(object v0.APIObject) bool {
 		"objectType", r.ObjectType,
 		"objectID", object.GetID(),
 	)
+
 	return true
 }
 

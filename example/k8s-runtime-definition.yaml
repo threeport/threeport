@@ -1,6 +1,6 @@
 KubernetesRuntimeDefinition:
-  Name: aws-remote-compute-space-0
-  KubernetesRuntimeDefinitionID: 0
-  DefaultRuntime: false
-  Location: NorthAmericaEast
+  Name: aws-remote-compute-space
+  InfraProvider: eks
+  HighAvailability: false
+  ProviderAccountID: "555555555555"
 

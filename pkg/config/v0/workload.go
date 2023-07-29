@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path"
+	"path/filepath"
 
 	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -28,6 +30,7 @@ type WorkloadConfig struct {
 type WorkloadValues struct {
 	Name                      string                          `yaml:"Name"`
 	YAMLDocument              string                          `yaml:"YAMLDocument"`
+	WorkloadConfigPath        string                          `yaml:"WorkloadConfigPath"`
 	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 }
 
@@ -39,8 +42,9 @@ type WorkloadDefinitionConfig struct {
 // WorkloadDefinitionValues contains the attributes needed to manage a workload
 // definition.
 type WorkloadDefinitionValues struct {
-	Name         string `yaml:"Name"`
-	YAMLDocument string `yaml:"YAMLDocument"`
+	Name               string `yaml:"Name"`
+	YAMLDocument       string `yaml:"YAMLDocument"`
+	WorkloadConfigPath string `yaml:"WorkloadConfigPath"`
 }
 
 // WorkloadInstanceConfig contains the config for a workload instance.
@@ -60,8 +64,9 @@ type WorkloadInstanceValues struct {
 func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 	// create the workload definition
 	workloadDefinition := WorkloadDefinitionValues{
-		Name:         w.Name,
-		YAMLDocument: w.YAMLDocument,
+		Name:               w.Name,
+		YAMLDocument:       w.YAMLDocument,
+		WorkloadConfigPath: w.WorkloadConfigPath,
 	}
 	createdWorkloadDefinition, err := workloadDefinition.Create(apiClient, apiEndpoint)
 	if err != nil {
@@ -126,8 +131,14 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 
 // Create creates a workload definition in the Threeport API.
 func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, error) {
+	// build the path to the YAML document relative to the user's working
+	// directory
+	configPath, _ := filepath.Split(wd.WorkloadConfigPath)
+	relativeYamlPath := path.Join(configPath, wd.YAMLDocument)
+
 	// load YAML document
-	definitionContent, err := ioutil.ReadFile(wd.YAMLDocument)
+	//definitionContent, err := ioutil.ReadFile(wd.YAMLDocument)
+	definitionContent, err := ioutil.ReadFile(relativeYamlPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read definition YAMLDocument file %s: %w", wd.YAMLDocument, err)
 	}

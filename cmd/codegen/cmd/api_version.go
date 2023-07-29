@@ -145,14 +145,4 @@ for all the models in the supplied version/s.  The generated code includes:
 
 func init() {
 	rootCmd.AddCommand(apiVersionCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// apiVersionCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// apiVersionCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
