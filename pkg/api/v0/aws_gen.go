@@ -144,10 +144,10 @@ func (aa *AwsAccount) NotificationPayload(
 func (aa *AwsAccount) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
 	}
 	if err := json.Unmarshal(jsonObject, &aa); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
 	}
 	return nil
 }
@@ -193,10 +193,10 @@ func (aekrd *AwsEksKubernetesRuntimeDefinition) NotificationPayload(
 func (aekrd *AwsEksKubernetesRuntimeDefinition) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
 	}
 	if err := json.Unmarshal(jsonObject, &aekrd); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
 	}
 	return nil
 }
@@ -242,10 +242,10 @@ func (aekri *AwsEksKubernetesRuntimeInstance) NotificationPayload(
 func (aekri *AwsEksKubernetesRuntimeInstance) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
 	}
 	if err := json.Unmarshal(jsonObject, &aekri); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
 	}
 	return nil
 }
@@ -291,10 +291,10 @@ func (ardd *AwsRelationalDatabaseDefinition) NotificationPayload(
 func (ardd *AwsRelationalDatabaseDefinition) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
 	}
 	if err := json.Unmarshal(jsonObject, &ardd); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
 	}
 	return nil
 }
@@ -340,10 +340,10 @@ func (ardi *AwsRelationalDatabaseInstance) NotificationPayload(
 func (ardi *AwsRelationalDatabaseInstance) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
 	}
 	if err := json.Unmarshal(jsonObject, &ardi); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object", err)
 	}
 	return nil
 }

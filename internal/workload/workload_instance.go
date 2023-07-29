@@ -79,8 +79,8 @@ func workloadInstanceCreated(
 		workloadResourceInstances = append(workloadResourceInstances, wri)
 	}
 
-	// get cluster instance info
-	clusterInstance, err := client.GetKubernetesRuntimeInstanceByID(
+	// get kubernetes runtime instance info
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
 		r.APIServer,
 		*workloadInstance.KubernetesRuntimeInstanceID,
@@ -372,8 +372,8 @@ func workloadInstanceDeleted(
 		return errors.New("zero workload resource instances to delete")
 	}
 
-	// get cluster instance info
-	clusterInstance, err := client.GetKubernetesRuntimeInstanceByID(
+	// get kubernetes runtime instance info
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
 		r.APIServer,
 		*workloadInstance.KubernetesRuntimeInstanceID,

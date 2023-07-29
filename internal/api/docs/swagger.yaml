@@ -297,6 +297,11 @@ definitions:
           The infrastructure provider running the compute infrastructure for the
           cluster.
         type: string
+      InfraProviderAccountName:
+        description: |-
+          The infra provider account ID.  Determines which account the infra is
+          deployed on.
+        type: string
       KubernetesRuntimeInstances:
         description: |-
           The associated kubernetes runtime instances that are deployed from this
@@ -312,11 +317,6 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
-      ProviderAccountID:
-        description: |-
-          The infra provider account ID.  Determines which account the infra is
-          deployed on.
-        type: string
       Reconciled:
         description: |-
           Indicates if object is considered to be reconciled by the kubernetes
@@ -385,6 +385,12 @@ definitions:
         description: |-
           The status of the instance.
           TODO: use a custom type
+        type: string
+      ThreeportAgentImage:
+        description: |-
+          An alternate threeport image to use when deploying threeport agent to
+          managed Kubernetes runtime clusters.  If not supplied, the official image
+          with the correct version will be used.
         type: string
       ThreeportControlPlaneHost:
         description: |-
@@ -787,6 +793,7 @@ definitions:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     - GatewayDefinition
     - GatewayInstance
     - Profile
@@ -901,20 +908,34 @@ definitions:
     - AwsRelationalDatabaseInstance
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
+=======
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - Profile
+    - Tier
+    - NetworkIngressDefinition
+    - NetworkIngressInstance
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
     - DomainNameDefinition
     - DomainNameInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
     - WorkloadEvent
-    - Profile
-    - Tier
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
     type: string
     x-enum-varnames:
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -963,11 +984,27 @@ definitions:
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
 >>>>>>> 0631ed7 (feat: enable auth with AWS via API keys)
+=======
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeNetworkIngressDefinition
+    - ObjectTypeNetworkIngressInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
+<<<<<<< HEAD
     - ObjectTypeClusterDefinition
     - ObjectTypeClusterInstance
 <<<<<<< HEAD
@@ -1032,6 +1069,13 @@ definitions:
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
 >>>>>>> 355d969 (feat: add kubernetes runtime controller)
+=======
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
   v0.Profile:
     properties:
       Name:

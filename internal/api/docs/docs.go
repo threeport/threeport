@@ -8622,6 +8622,7 @@ const docTemplate = `{
                     "type": "string"
                 },
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "DefaultNodeGroupMaximumSize": {
                     "type": "integer"
                 },
@@ -8629,6 +8630,12 @@ const docTemplate = `{
                     "type": "integer"
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 =======
+=======
+                "InfraProviderAccountName": {
+                    "description": "The infra provider account ID.  Determines which account the infra is\ndeployed on.",
+                    "type": "string"
+                },
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
                 "KubernetesRuntimeInstances": {
                     "description": "The associated kubernetes runtime instances that are deployed from this\ndefinition.",
                     "type": "array",
@@ -8654,6 +8661,7 @@ const docTemplate = `{
                 },
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by gateway controller.",
                     "type": "boolean"
@@ -8675,6 +8683,8 @@ const docTemplate = `{
                     "type": "string"
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 },
+=======
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the kubernetes\nruntime controller.",
                     "type": "boolean"
@@ -8774,6 +8784,7 @@ const docTemplate = `{
                     "type": "string"
                 },
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "WorkloadInstanceID": {
                     "description": "The workload instance this gateway belongs to.",
                     "type": "integer"
@@ -8814,6 +8825,12 @@ const docTemplate = `{
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
 =======
+=======
+                "ThreeportAgentImage": {
+                    "description": "An alternate threeport image to use when deploying threeport agent to\nmanaged Kubernetes runtime clusters.  If not supplied, the official image\nwith the correct version will be used.",
+                    "type": "string"
+                },
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
                 "ThreeportControlPlaneHost": {
                     "description": "If true, the Kubernetes cluster is hosting a threeport control plane and\nany controllers that connect to the kube API will use internal cluster\nDNS rather than the external APIEndpoint.",
                     "type": "boolean"
@@ -8932,6 +8949,7 @@ const docTemplate = `{
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "GatewayDefinition",
                 "GatewayInstance",
                 "Profile",
@@ -9041,18 +9059,34 @@ const docTemplate = `{
                 "DomainNameDefinition",
                 "DomainNameInstance",
 >>>>>>> 355d969 (feat: add kubernetes runtime controller)
+=======
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "Profile",
+                "Tier",
+                "NetworkIngressDefinition",
+                "NetworkIngressInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "Profile",
-                "Tier",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance"
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance"
             ],
             "x-enum-varnames": [
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -9116,11 +9150,27 @@ const docTemplate = `{
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
 >>>>>>> 355d969 (feat: add kubernetes runtime controller)
+=======
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeNetworkIngressDefinition",
+                "ObjectTypeNetworkIngressInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -9175,6 +9225,13 @@ const docTemplate = `{
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance"
 >>>>>>> 355d969 (feat: add kubernetes runtime controller)
+=======
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance"
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
             ]
         },
         "v0.Profile": {

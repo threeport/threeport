@@ -30,15 +30,15 @@ func kubernetesRuntimeDefinitionCreated(
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// look up AWS account
 		var awsAccount v0.AwsAccount
-		if kubernetesRuntimeDefinition.ProviderAccountID != nil {
-			// look up account by account ID
-			account, err := client.GetAwsAccountByAccountID(
+		if kubernetesRuntimeDefinition.InfraProviderAccountName != nil {
+			// look up account by account name
+			account, err := client.GetAwsAccountByName(
 				r.APIClient,
 				r.APIServer,
-				*kubernetesRuntimeDefinition.ProviderAccountID,
+				*kubernetesRuntimeDefinition.InfraProviderAccountName,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to get AWS account by account ID: %w", err)
+				return fmt.Errorf("failed to get AWS account by account name: %w", err)
 			}
 			awsAccount = *account
 		} else {

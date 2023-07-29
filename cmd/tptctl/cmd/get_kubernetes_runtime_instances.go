@@ -92,8 +92,6 @@ var GetKubernetesRuntimeInstancesCmd = &cobra.Command{
 				kubernetesRuntimeDef = *kubernetesRuntimeDefinition.Name
 				infraProvider = *kubernetesRuntimeDefinition.InfraProvider
 			}
-			fmt.Println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-			fmt.Println(*kri.Location)
 			fmt.Fprintln(
 				writer, *kri.Name, "\t", kubernetesRuntimeDef, "\t", *kri.Location, "\t",
 				*kri.DefaultRuntime, "\t", infraProvider, "\t", util.GetAge(kri.CreatedAt),
