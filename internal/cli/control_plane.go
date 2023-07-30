@@ -491,7 +491,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	}
 
 	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper, args.DevEnvironment, args.CreateAdminEmail)
+	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper, a.DevEnvironment, a.CreateAdminEmail)
 	if err != nil {
 		return fmt.Errorf("failed to install threeport support services operator: %w", err)
 	}

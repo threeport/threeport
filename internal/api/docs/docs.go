@@ -8113,6 +8113,10 @@ const docTemplate = `{
                     "description": "The definition that configures this instance.",
                     "type": "integer"
                 },
+                "InterruptReconcile": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
                 "KubernetesRuntimeInstanceID": {
                     "description": "The kubernetes runtime instance associated with the AWS EKS cluster.",
                     "type": "integer"
@@ -8693,7 +8697,13 @@ const docTemplate = `{
                 "ObjectTypeAwsEksClusterDefinition",
                 "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance"
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance"
             ]
         },
         "v0.Profile": {

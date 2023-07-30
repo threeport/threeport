@@ -77,7 +77,7 @@ func kubernetesRuntimeDefinitionCreated(
 			&awsEksKubernetesRuntimeDefinition,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to create new AWS EKS Kubernetes runtime: %w", err)
+			return fmt.Errorf("failed to create new AWS EKS kubernetes runtime: %w", err)
 		}
 	}
 

@@ -1,14 +1,12 @@
 package aws
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/go-logr/logr"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gorm.io/datatypes"
@@ -19,13 +17,27 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
-// awsEksKubernetesRuntimeInstanceCreated reconciles state for created AWS EKS clusters by
-// creating a new EKS cluster.
+// awsEksKubernetesRuntimeInstanceCreated reconciles state for created AWS EKS
+// runtimes by creating a new EKS cluster.
 func awsEksKubernetesRuntimeInstanceCreated(
 	r *controller.Reconciler,
 	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) error {
+	// add log metadata
+	reconLog := log.WithValues(
+		"awsEksKubernetesRuntimeInstance", *awsEksKubernetesRuntimeInstance.ID,
+		"awsEksKubernetesRuntimeInstance", *awsEksKubernetesRuntimeInstance.Name,
+	)
+
+	// check to make sure reconciliation is not being interrupted - if it is
+	// return without error to exit reconciliation loop
+	// TDOO: add alerts for interrupted reconciliation so humans can intervene
+	if awsEksKubernetesRuntimeInstance.InterruptReconciliation != nil && *awsEksKubernetesRuntimeInstance.InterruptReconciliation {
+		reconLog.Info("reconciliation interrupted")
+		return nil
+	}
+
 	// get cluster definition and aws account info
 	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
 		r.APIClient,
@@ -45,7 +57,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	}
 
 	// add log metadata
-	reconLog := log.WithValues(
+	reconLog = log.WithValues(
 		"awsEksClsuterDefinitionRegion", *awsEksKubernetesRuntimeInstance.Region,
 		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
 		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
@@ -53,23 +65,18 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	)
 
 	// create AWS config
-	awsConfig, err := config.LoadDefaultConfig(
-		context.Background(),
-		config.WithRegion(*awsEksKubernetesRuntimeInstance.Region),
-		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(
-				*awsAccount.AccessKeyID,
-				*awsAccount.SecretAccessKey,
-				"",
-			),
-		),
+	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+		*awsAccount.AccessKeyID,
+		*awsAccount.SecretAccessKey,
+		"",
+		*awsEksKubernetesRuntimeInstance.Region,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
 
 	// create resource client
-	resourceClient := resource.CreateResourceClient(&awsConfig)
+	resourceClient := resource.CreateResourceClient(awsConfig)
 
 	// log messages from channel in resource client on goroutine
 	go func() {
@@ -139,7 +146,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:        *awsAccount.AccountID,
-		AwsConfig:           awsConfig,
+		AwsConfig:           *awsConfig,
 		ResourceClient:      *resourceClient,
 	}
 
@@ -149,7 +156,21 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		// since we failed to complete cluster creation, delete it to remove any
 		// dangling AWS resources
 		if deleteErr := clusterInfra.Delete(); deleteErr != nil {
-			return fmt.Errorf("failed to create new threeport cluster: %w and failed to delete created infra: %w", err, deleteErr)
+			// the infra creation AND deletion failed - there is some situation
+			// that likely requires human intervention so we will stop
+			// reconciliation here to prevent egregious infra creation on an
+			// infinite loop
+			interrupt := true
+			awsEksKubernetesRuntimeInstance.InterruptReconciliation = &interrupt
+			_, err := client.UpdateAwsEksKubernetesRuntimeInstance(
+				r.APIClient,
+				r.APIServer,
+				awsEksKubernetesRuntimeInstance,
+			)
+			if err != nil {
+				reconLog.Error(errors.New("failed to update eks runtime instance to interrupt reconciliation"), "")
+			}
+			return fmt.Errorf("failed to create new threeport cluster: %w and failed to delete created infra: %v", err, deleteErr)
 		}
 		return fmt.Errorf("failed to create new threeport cluster: %w", err)
 	}
@@ -182,7 +203,17 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	return nil
 }
 
-// awsEksKubernetesRuntimeInstanceDeleted removes an AWS EKS cluster.
+// awsEksKubernetesRuntimeInstanceUpdated reconciles state for updated AWS EKS
+// runtimes.
+func awsEksKubernetesRuntimeInstanceUpdated(
+	r *controller.Reconciler,
+	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
+	log *logr.Logger,
+) error {
+	return nil
+}
+
+// awsEksKubernetesRuntimeInstanceDeleted removes an AWS EKS runtime.
 func awsEksKubernetesRuntimeInstanceDeleted(
 	r *controller.Reconciler,
 	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
@@ -215,23 +246,18 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 	)
 
 	// create AWS config
-	awsConfig, err := config.LoadDefaultConfig(
-		context.Background(),
-		config.WithRegion(*awsEksKubernetesRuntimeInstance.Region),
-		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(
-				*awsAccount.AccessKeyID,
-				*awsAccount.SecretAccessKey,
-				"",
-			),
-		),
+	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+		*awsAccount.AccessKeyID,
+		*awsAccount.SecretAccessKey,
+		"",
+		*awsEksKubernetesRuntimeInstance.Region,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
 
 	// create resource client
-	resourceClient := resource.CreateResourceClient(&awsConfig)
+	resourceClient := resource.CreateResourceClient(awsConfig)
 
 	// set inventory channel to nil since we will not be updating the resource
 	// inventory in the database - that object has been deleted
@@ -260,7 +286,7 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:        *awsAccount.AccountID,
-		AwsConfig:           awsConfig,
+		AwsConfig:           *awsConfig,
 		ResourceClient:      *resourceClient,
 		ResourceInventory:   resourceInventory,
 	}

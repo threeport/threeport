@@ -68,7 +68,7 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 	// get kubernetes API connection info
 	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: i.RuntimeInstanceName}
 	if err := eksClusterConn.Get(&i.AwsConfig); err != nil {
-		return nil, fmt.Errorf("failed to EKS cluster connection info: %w", err)
+		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
 	}
 	kubeConnInfo := kube.KubeConnectionInfo{
 		APIEndpoint:   eksClusterConn.APIEndpoint,

@@ -36,7 +36,7 @@ func kubernetesRuntimeInstanceCreated(
 		*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to kubernetes runtime definition by ID: %w", err)
+		return fmt.Errorf("failed to get kubernetes runtime definition by ID: %w", err)
 	}
 
 	// create the provider-specific instance
