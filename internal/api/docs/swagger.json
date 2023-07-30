@@ -8640,6 +8640,17 @@
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "GatewayDefinition",
+                "GatewayInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "Profile",
+                "Tier",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
@@ -8666,6 +8677,17 @@
                 "Tier"
             ],
             "x-enum-varnames": [
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
@@ -8694,9 +8716,7 @@
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
                 "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance"
+                "ObjectTypeKubernetesRuntimeInstance"
             ]
         },
         "v0.Profile": {

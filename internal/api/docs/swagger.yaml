@@ -575,6 +575,17 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - GatewayDefinition
+    - GatewayInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - Profile
+    - Tier
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
@@ -603,10 +614,19 @@ definitions:
     - DomainNameInstance
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
-    - GatewayDefinition
-    - GatewayInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
@@ -637,8 +657,6 @@ definitions:
     - ObjectTypeDomainNameInstance
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
   v0.Profile:
     properties:
       Name:

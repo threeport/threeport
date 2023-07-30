@@ -89,10 +89,10 @@ func (krd *KubernetesRuntimeDefinition) NotificationPayload(
 func (krd *KubernetesRuntimeDefinition) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
 	}
 	if err := json.Unmarshal(jsonObject, &krd); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
 	}
 	return nil
 }
@@ -137,10 +137,10 @@ func (kri *KubernetesRuntimeInstance) NotificationPayload(
 func (kri *KubernetesRuntimeInstance) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
 	}
 	if err := json.Unmarshal(jsonObject, &kri); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
 	}
 	return nil
 }

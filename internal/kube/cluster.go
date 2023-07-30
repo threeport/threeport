@@ -162,7 +162,7 @@ func getRESTConfig(
 				restConfig = *config
 			default:
 				return nil, errors.New(
-					fmt.Sprintf("unable to refresh connection token for unsupported infra provider %s:", definition.InfraProvider),
+					fmt.Sprintf("unable to refresh connection token for unsupported infra provider %s:", *definition.InfraProvider),
 				)
 			}
 		}

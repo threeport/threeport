@@ -226,7 +226,7 @@ func TestWorkloadE2E(t *testing.T) {
 		if assert.NotNil(kubernetesRuntimeInsts, "should have an array of kubernetes runtime instances returned") {
 			assert.NotEqual(len(*kubernetesRuntimeInsts), 0, "should get back at least one kubernetes runtime instance")
 			for _, c := range *kubernetesRuntimeInsts {
-				if *c.ThreeportControlPlaneKubernetesRuntime {
+				if *c.ThreeportControlPlaneHost {
 					testKubernetesRuntimeInst = c
 				}
 			}
@@ -293,7 +293,12 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.NotNil(kubernetesRuntimeInstance, "should have a kubernetes runtime instance returned")
 
 		// create a client to connect to kube API
-		dynamicKubeClient, mapper, err := kube.GetClient(kubernetesRuntimeInstance, false)
+		dynamicKubeClient, mapper, err := kube.GetClient(
+			kubernetesRuntimeInstance,
+			false,
+			apiClient,
+			apiAddr(),
+		)
 		assert.Nil(err, "should have no error creating a client and REST mapper for Kubernetes cluster API")
 
 		// for the managed namespace test, get the namespace name

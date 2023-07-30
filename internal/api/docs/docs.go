@@ -8647,6 +8647,17 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "GatewayDefinition",
+                "GatewayInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "Profile",
+                "Tier",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
@@ -8673,6 +8684,17 @@ const docTemplate = `{
                 "Tier"
             ],
             "x-enum-varnames": [
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
@@ -8701,9 +8723,7 @@ const docTemplate = `{
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
                 "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance"
+                "ObjectTypeKubernetesRuntimeInstance"
             ]
         },
         "v0.Profile": {
