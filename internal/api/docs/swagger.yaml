@@ -110,6 +110,13 @@ definitions:
       AwsEksKubernetesRuntimeDefinitionID:
         description: The definition that configures this instance.
         type: integer
+      InterruptReconcile:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime instance associated with the AWS EKS cluster.
         type: integer
@@ -558,56 +565,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - Profile
+    - Tier
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
-    - DomainNameDefinition
-    - DomainNameInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - Profile
-    - Tier
-    - GatewayDefinition
-    - GatewayInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - GatewayDefinition
+    - GatewayInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
   v0.Profile:
     properties:
       Name:

@@ -374,7 +374,14 @@ func InstallController(
 		}
 	}
 
-	var controllerDeployment = getControllerDeployment(name, ControlPlaneNamespace, controllerImage, controllerArgs, controllerVols, controllerVolMounts)
+	var controllerDeployment = getControllerDeployment(
+		name,
+		ControlPlaneNamespace,
+		controllerImage,
+		controllerArgs,
+		controllerVols,
+		controllerVolMounts,
+	)
 	if _, err := kube.CreateResource(controllerDeployment, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
 	}
@@ -601,9 +608,9 @@ func InstallThreeportAgent(
 	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
 ) error {
-	agentImage := getImage("agent", args.DevEnvironment, args.ControlPlaneImageRepo, args.ControlPlaneImageTag)
-	agentArgs := getAgentArgs(args.DevEnvironment, authConfig)
-	agentVols, agentVolMounts := getControllerVolumes("agent", args.DevEnvironment, authConfig)
+	agentImage := getImage("agent", devEnvironment, customThreeportImageRepo, customThreeportImageTag)
+	agentArgs := getAgentArgs(devEnvironment, authConfig)
+	agentVols, agentVolMounts := getControllerVolumes("agent", devEnvironment, authConfig)
 
 	// if auth is enabled on API, generate client cert and key and store in
 	// secrets
@@ -1951,31 +1958,32 @@ func getControllerSecret(name, namespace string) *unstructured.Unstructured {
 }
 
 func getControllerDeployment(name, namespace, image string, args, volumes, volumeMounts []interface{}) *unstructured.Unstructured {
+	deployName := fmt.Sprintf("threeport-%s", name)
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
 			"kind":       "Deployment",
 			"metadata": map[string]interface{}{
-				"name":      name,
+				"name":      deployName,
 				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
 				"replicas": 1,
 				"selector": map[string]interface{}{
 					"matchLabels": map[string]interface{}{
-						"app.kubernetes.io/name": "threeport-workload-controller",
+						"app.kubernetes.io/name": deployName,
 					},
 				},
 				"template": map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"labels": map[string]interface{}{
-							"app.kubernetes.io/name": "threeport-workload-controller",
+							"app.kubernetes.io/name": deployName,
 						},
 					},
 					"spec": map[string]interface{}{
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "workload-controller",
+								"name":            name,
 								"image":           image,
 								"imagePullPolicy": "IfNotPresent",
 								"args":            args,

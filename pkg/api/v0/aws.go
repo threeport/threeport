@@ -76,7 +76,7 @@ type AwsEksKubernetesRuntimeInstance struct {
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
 	// The kubernetes runtime instance associated with the AWS EKS cluster.
-	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" validate:"optional,association"`
+	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" validate:"optional,association"`
 
 	// The definition that configures this instance.
 	AwsEksKubernetesRuntimeDefinitionID *uint `json:"AwsEksKubernetesRuntimeDefinitionID,omitempty" query:"awsekskubernetesruntimedefinitionid" gorm:"not null" validate:"required"`
@@ -86,6 +86,12 @@ type AwsEksKubernetesRuntimeInstance struct {
 
 	// An inventory of all AWS resources for the EKS cluster.
 	ResourceInventory *datatypes.JSON `json:"ResourceInventory,omitempty" validate:"optional"`
+
+	// InterruptReconciliation is used by the controller to indicated that future
+	// reconcilation should be interrupted.  Useful in cases where there is a
+	// situation where future reconciliation could be descructive such as
+	// spinning up more infrastructure when there is a unresolved problem.
+	InterruptReconciliation *bool `json:"InterruptReconcile,omitempty" query:"interruptreconcile" gorm:"default:false" validate:"optional`
 }
 
 // AwsRelationalDatabaseDefinition is the configuration for an RDS instance
