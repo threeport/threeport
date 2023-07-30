@@ -237,23 +237,18 @@ func awsEksKubernetesRuntimeInstanceUpdated(
 	)
 
 	// create AWS config
-	awsConfig, err := config.LoadDefaultConfig(
-		context.Background(),
-		config.WithRegion(*awsEksKubernetesRuntimeInstance.Region),
-		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(
-				*awsAccount.AccessKeyID,
-				*awsAccount.SecretAccessKey,
-				"",
-			),
-		),
+	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+		*awsAccount.AccessKeyID,
+		*awsAccount.SecretAccessKey,
+		"",
+		*awsEksKubernetesRuntimeInstance.Region,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
 
 	// create resource client
-	resourceClient := resource.CreateResourceClient(&awsConfig)
+	resourceClient := resource.CreateResourceClient(awsConfig)
 
 	// set inventory channel to nil since we will not be updating the resource
 	// inventory in the database - that object has been deleted
@@ -282,7 +277,7 @@ func awsEksKubernetesRuntimeInstanceUpdated(
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:        *awsAccount.AccountID,
-		AwsConfig:           awsConfig,
+		AwsConfig:           *awsConfig,
 		ResourceClient:      *resourceClient,
 		ResourceInventory:   resourceInventory,
 	}
