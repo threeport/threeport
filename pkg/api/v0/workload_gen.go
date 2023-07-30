@@ -162,10 +162,10 @@ func (wd *WorkloadDefinition) NotificationPayload(
 func (wd *WorkloadDefinition) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
 	}
 	if err := json.Unmarshal(jsonObject, &wd); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
 	}
 	return nil
 }
@@ -211,10 +211,10 @@ func (wrd *WorkloadResourceDefinition) NotificationPayload(
 func (wrd *WorkloadResourceDefinition) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
 	}
 	if err := json.Unmarshal(jsonObject, &wrd); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
 	}
 	return nil
 }
@@ -260,10 +260,10 @@ func (wi *WorkloadInstance) NotificationPayload(
 func (wi *WorkloadInstance) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
 	}
 	if err := json.Unmarshal(jsonObject, &wi); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
 	}
 	return nil
 }
@@ -309,10 +309,10 @@ func (aor *AttachedObjectReference) NotificationPayload(
 func (aor *AttachedObjectReference) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
 	}
 	if err := json.Unmarshal(jsonObject, &aor); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
 	}
 	return nil
 }
@@ -358,10 +358,10 @@ func (wri *WorkloadResourceInstance) NotificationPayload(
 func (wri *WorkloadResourceInstance) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
 	}
 	if err := json.Unmarshal(jsonObject, &wri); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
 	}
 	return nil
 }
@@ -407,10 +407,10 @@ func (we *WorkloadEvent) NotificationPayload(
 func (we *WorkloadEvent) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message", err)
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
 	}
 	if err := json.Unmarshal(jsonObject, &we); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object", err)
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
 	}
 	return nil
 }

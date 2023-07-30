@@ -172,14 +172,14 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 			List(Id("jsonObject"), Id("err")).Op(":=").Qual("encoding/json", "Marshal").Call(Id("object")),
 			If(Id("err").Op("!=").Nil()).Block(
 				Return(Qual("fmt", "Errorf").Call(
-					Lit("failed to marshal object map from consumed notification message"), Id("err")),
+					Lit("failed to marshal object map from consumed notification message: %w"), Id("err")),
 				),
 			),
 			If(Err().Op(":=").Qual("encoding/json", "Unmarshal").Call(
 				Id("jsonObject"), Op("&").Id(codegen.TypeAbbrev(mc.TypeName)),
 			).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return(Qual("fmt", "Errorf").Call(
-					Lit("failed to unmarshal json object to typed object"), Id("err"),
+					Lit("failed to unmarshal json object to typed object: %w"), Id("err"),
 				)),
 			),
 			Return(Nil()),
