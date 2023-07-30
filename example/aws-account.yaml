@@ -1,6 +1,7 @@
 AwsAccount:
   Name: default-account
   AccountID: "555555555555"
+  DefaultAccount: true
 
   # option 1: provide explicit configs/credentials
   #DefaultRegion: some-region
