@@ -11,7 +11,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -29,4 +29,5 @@ jobs:
 
       - name: Run tests
         run: make tests
+        timeout-minutes: 30
 
