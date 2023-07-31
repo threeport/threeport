@@ -82,6 +82,7 @@ func createCertManager() (string, error) {
 					"image":    "quay.io/jetstack/cert-manager-webhook",
 				},
 				"contactEmail": "admin@nukleros.io",
+				"iamRoleArn":   "iam_role_arn",
 			},
 		},
 	}
@@ -135,7 +136,7 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition) (string, error) {
 			"apiVersion": "cert-manager.io/v1",
 			"kind":       "Issuer",
 			"metadata": map[string]interface{}{
-				"name":      "workload-123",
+				"name": "workload-123",
 			},
 			"spec": map[string]interface{}{
 				"acme": map[string]interface{}{
@@ -169,7 +170,7 @@ func createCertificate(gatewayDefinition *v0.GatewayDefinition) (string, error) 
 			"apiVersion": "cert-manager.io/v1",
 			"kind":       "Certificate",
 			"metadata": map[string]interface{}{
-				"name":      "corp-domain",
+				"name": "corp-domain",
 			},
 			"spec": map[string]interface{}{
 				"secretName": "corp-domain-tls",

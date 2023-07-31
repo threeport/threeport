@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	SupportServicesNamespace = "support-services-system"
-	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.2.0"
+	SupportServicesNamespace     = "support-services-system"
+	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.3.0"
 	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
 
 	// links the service account delcared in the IngressComponent resource to the
@@ -129,6 +129,10 @@ func InstallThreeportCRDs(
 													},
 												},
 												"type": "object",
+											},
+											"iamRoleArn": map[string]interface{}{
+												"description": "On AWS, the IAM Role ARN that gives cert-manager access to Route53",
+												"type":        "string",
 											},
 											"namespace": map[string]interface{}{
 												"default":     "nukleros-certs-system",
