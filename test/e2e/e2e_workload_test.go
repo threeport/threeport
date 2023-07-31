@@ -88,6 +88,10 @@ func TestWorkloadE2E(t *testing.T) {
 		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		assert.Nil(err, "should have no error creating http client")
 
+		// wait for threeport API to be ready
+		err = threeport.WaitForThreeportAPI(apiClient, apiAddr())
+		assert.Nil(err, "threeport API should be ready to serve requests")
+
 		gatewayDefinitionName := "gatewayDefinition"
 		tcpPort := 443
 		tlsEnabled := false
