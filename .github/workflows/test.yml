@@ -39,7 +39,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test:
-    needs: images
     runs-on: ubuntu-22.04
     steps:
 
@@ -51,39 +50,17 @@ jobs:
       with:
         go-version: '1.20'
 
-    - name: Build tptctl
-      run: make build-tptctl
-
-    - name: Create test control plane
-      run: bin/tptctl create control-plane -t ${{ github.sha }} -n dev-0
-
-    - name: Run tests
-      run: make tests
-
-  clean:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v3
-
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: 1.19
-
     - name: Build tptdev
       run: make build-tptdev
 
     - name: Create test control plane
       run: bin/tptctl create control-plane -t ${{ github.sha }} -n dev-0
 
-    //- name: Create development environment
-    //  run: make build-tptdev
+    #- name: Create development environment
+    #  run: make build-tptdev
 
-    //- name: Create development environment
-    //  run: make dev-up
+    #- name: Create development environment
+    #  run: make dev-up
 
     - name: Run tests
       run: make tests
