@@ -77,8 +77,8 @@ jobs:
       with:
         go-version: 1.19
 
-    - name: Build tptdev
-      run: make build-tptdev
+    - name: Build tptctl
+      run: make build-tptctl
 
     - name: Create test control plane
       run: bin/tptctl create control-plane -t ${{ github.sha }} -n dev-0
