@@ -28,7 +28,6 @@ and kubernetes runtime instance based on the kubernetes runtime config.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config and extract threeport API endpoint
-
 		threeportConfig, err := config.GetThreeportConfig()
 		if err != nil {
 			cli.Error("failed to get threeport config", err)

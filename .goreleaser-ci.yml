@@ -45,7 +45,7 @@ builds:
     binary: threeport-agent
 dockers:
   - image_templates:
-      - 'ghcr.io/threeport/threeport-rest-api:{{ .Env.IMAGE_TAG }}'
+      - 'ghcr.io/threeport/threeport-rest-api:{{ .Commit }}'
     dockerfile: cmd/rest-api/image/Dockerfile-goreleaser
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -55,7 +55,7 @@ dockers:
       - "--label=org.opencontainers.image.licenses=MIT"
       - "--platform=linux/amd64"
   - image_templates:
-      - 'ghcr.io/threeport/threeport-workload-controller:{{ .Env.IMAGE_TAG }}'
+      - 'ghcr.io/threeport/threeport-workload-controller:{{ .Commit }}'
     dockerfile: cmd/workload-controller/image/Dockerfile-goreleaser
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -65,7 +65,7 @@ dockers:
       - "--label=org.opencontainers.image.licenses=MIT"
       - "--platform=linux/amd64"
   - image_templates:
-      - 'ghcr.io/threeport/threeport-kubernetes-runtime-controller:{{ .Env.IMAGE_TAG }}'
+      - 'ghcr.io/threeport/threeport-kubernetes-runtime-controller:{{ .Commit }}'
     dockerfile: cmd/kubernetes-runtime-controller/image/Dockerfile-goreleaser
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -75,7 +75,7 @@ dockers:
       - "--label=org.opencontainers.image.licenses=MIT"
       - "--platform=linux/amd64"
   - image_templates:
-      - 'ghcr.io/threeport/threeport-aws-controller:{{ .Env.IMAGE_TAG }}'
+      - 'ghcr.io/threeport/threeport-aws-controller:{{ .Commit }}'
     dockerfile: cmd/aws-controller/image/Dockerfile-goreleaser
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -85,7 +85,7 @@ dockers:
       - "--label=org.opencontainers.image.licenses=MIT"
       - "--platform=linux/amd64"
   - image_templates:
-      - 'ghcr.io/threeport/threeport-gateway-controller:{{ .Env.IMAGE_TAG }}'
+      - 'ghcr.io/threeport/threeport-gateway-controller:{{ .Commit }}'
     dockerfile: cmd/gateway-controller/image/Dockerfile-goreleaser
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -95,7 +95,7 @@ dockers:
       - "--label=org.opencontainers.image.licenses=MIT"
       - "--platform=linux/amd64"
   - image_templates:
-      - 'ghcr.io/threeport/threeport-agent:{{ .Env.IMAGE_TAG }}'
+      - 'ghcr.io/threeport/threeport-agent:{{ .Commit }}'
     dockerfile: cmd/agent/image/Dockerfile-goreleaser
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"

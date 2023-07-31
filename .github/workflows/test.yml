@@ -9,60 +9,34 @@ on:
       - reopened
 
 jobs:
-  images:
+  goreleaser:
     runs-on: ubuntu-22.04
     steps:
 
-    - name: Check out code
+    - name: Checkout
       uses: actions/checkout@v3
-
-    - name: Build threeport API
-      uses: macbre/push-to-ghcr@master
       with:
-        image_name: threeport/threeport-rest-api
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/rest-api/image/Dockerfile
-        image_tag: ${{ github.sha }}
+        fetch-depth: 0
 
-    - name: Build workload-controller
-      uses: macbre/push-to-ghcr@master
+    - name: Set up Go
+      uses: actions/setup-go@v4
       with:
-        image_name: threeport/threeport-workload-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/workload-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
+        go-version: 1.19
 
-    - name: Build kubernetes-runtime-controller
-      uses: macbre/push-to-ghcr@master
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
       with:
-        image_name: threeport/threeport-kubernetes-runtime-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/kubernetes-runtime-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GH_ACCESS_TOKEN }}
 
-    - name: Build aws-controller
-      uses: macbre/push-to-ghcr@master
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v4.2.0
       with:
-        image_name: threeport/threeport-aws-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/aws-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-    - name: Build gateway-controller
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-gateway-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/gateway-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-    - name: Build threeport-agent
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-agent
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/agent/image/Dockerfile
-        image_tag: ${{ github.sha }}
+        version: latest
+        args: release --clean -f ./.goreleaser-ci.yml
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test:
     needs: images
@@ -89,7 +63,33 @@ jobs:
   clean:
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+
+    - name: Build tptdev
+      run: make build-tptdev
+
+    - name: Create test control plane
+      run: bin/tptctl create control-plane -t ${{ github.sha }} -n dev-0
+
+    //- name: Create development environment
+    //  run: make build-tptdev
+
+    //- name: Create development environment
+    //  run: make dev-up
+
+    - name: Run tests
+      run: make tests
+
+  clean:
+    runs-on: ubuntu-latest
     steps:
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v2
@@ -98,31 +98,13 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GH_ACCESS_TOKEN }}
 
-    - name: Delete threeport API image
+    - name: Delete image
       uses: bots-house/ghcr-delete-image-action@v1.1.0
       with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-rest-api
-        token: ${{ secrets.PACKAGES_PAT }}
+        ## NOTE: at now only orgs is supported
+        #owner: bots-house
+        #name: some-web-service
+        ## NOTE: using Personal Access Token
+        #token: ${{ secrets.PAT }}
         tag: ${{ github.sha }}
-
-    - name: Delete workload controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-workload-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
-
-    - name: Delete kubernetes runtime controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-kubernetes-runtime-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
-
-      - name: Run tests
-        run: make tests
-        timeout-minutes: 30
 
