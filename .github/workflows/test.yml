@@ -9,25 +9,79 @@ on:
       - reopened
 
 jobs:
+  goreleaser:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GH_ACCESS_TOKEN }}
+
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v4.2.0
+      with:
+        version: latest
+        args: release --clean -f ./.goreleaser-ci.yml
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
     steps:
-      - name: Check out code
-        uses: actions/checkout@v3
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: 1.19
+    - name: Check out code
+      uses: actions/checkout@v3
 
-      - name: Create development environment
-        run: make build-tptdev
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
 
-      - name: Create development environment
-        run: make dev-up
+    - name: Build tptdev
+      run: make build-tptdev
 
-      - name: Run tests
-        run: make tests
-        timeout-minutes: 30
+    - name: Create test control plane
+      run: bin/tptctl create control-plane -t ${{ github.sha }} -n dev-0
+
+    //- name: Create development environment
+    //  run: make build-tptdev
+
+    //- name: Create development environment
+    //  run: make dev-up
+
+    - name: Run tests
+      run: make tests
+
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GH_ACCESS_TOKEN }}
+
+    - name: Delete image
+      uses: bots-house/ghcr-delete-image-action@v1.1.0
+      with:
+        ## NOTE: at now only orgs is supported
+        #owner: bots-house
+        #name: some-web-service
+        ## NOTE: using Personal Access Token
+        #token: ${{ secrets.PAT }}
+        tag: ${{ github.sha }}
 

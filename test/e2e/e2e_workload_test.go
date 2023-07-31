@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -8,7 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
@@ -43,7 +44,9 @@ func TestWorkloadE2E(t *testing.T) {
 	testWorkloads := testResources()
 
 	for _, testWorkload := range *testWorkloads {
-		fmt.Printf("testing workload: %s\n", testWorkload.Name)
+		t.Log(fmt.Sprintf(
+			"testing workload: %s\n", testWorkload.Name,
+		))
 
 		// create workload definition
 		workloadDefName := testWorkload.Name
@@ -69,13 +72,20 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// determine if the API is serving HTTPS or HTTP
 		var authEnabled bool
-		_, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
-		cli.InitConfig("", "")
-		if strings.Contains(err.Error(), "signed by unknown authority") {
+		var respCodeErr error
+		resp, err := http.Get(fmt.Sprintf("http://%s/version", apiAddr()))
+		assert.Nil(err, "should not get an error when calling threeport API version endpoint")
+		switch resp.StatusCode {
+		case 400:
 			authEnabled = true
-		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
+			t.Log("auth enabled")
+		case 200:
 			authEnabled = false
+			t.Log("auth not enabled")
+		default:
+			respCodeErr = errors.New("unexpected response from API (not 200 or 400)")
 		}
+		assert.Nil(respCodeErr, "should not get an get an unexpected response from API version endpoint")
 
 		// initialize config so we can pull credentials from it
 		cli.InitConfig("", "")
@@ -87,10 +97,6 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error getting credentials for threeport API")
 		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		assert.Nil(err, "should have no error creating http client")
-
-		// wait for threeport API to be ready
-		err = threeport.WaitForThreeportAPI(apiClient, apiAddr())
-		assert.Nil(err, "threeport API should be ready to serve requests")
 
 		gatewayDefinitionName := "gatewayDefinition"
 		tcpPort := 443
@@ -409,7 +415,7 @@ func TestWorkloadE2E(t *testing.T) {
 				}
 				// if we get an error that is NOT a "not found" error we have a
 				// problem - log rather than exit in case it resolves
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !kubeerrors.IsNotFound(err) {
 					t.Log(fmt.Errorf("an error occured that was NOT a \"not found\" error: %w", err))
 					break
 				}

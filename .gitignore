@@ -2,3 +2,4 @@ bin
 tmp
 example/draft
 __debug_bin
+.envrc
