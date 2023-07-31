@@ -89,7 +89,7 @@ jobs:
   clean:
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v2
@@ -122,27 +122,7 @@ jobs:
         token: ${{ secrets.PACKAGES_PAT }}
         tag: ${{ github.sha }}
 
-    - name: Delete aws controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-aws-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
-
-    - name: Delete gateway controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-gateway-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
-
-    - name: Delete threeport agent image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-agent
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+      - name: Run tests
+        run: make tests
+        timeout-minutes: 30
 
