@@ -39,7 +39,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
 
     - name: Check out code
@@ -56,11 +56,11 @@ jobs:
     - name: Create test control plane
       run: bin/tptctl create control-plane -t ${{ github.sha }} -n dev-0
 
-    //- name: Create development environment
-    //  run: make build-tptdev
+    #- name: Create development environment
+    #  run: make build-tptdev
 
-    //- name: Create development environment
-    //  run: make dev-up
+    #- name: Create development environment
+    #  run: make dev-up
 
     - name: Run tests
       run: make tests
