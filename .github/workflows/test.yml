@@ -9,37 +9,63 @@ on:
       - reopened
 
 jobs:
-  goreleaser:
+  images:
     runs-on: ubuntu-22.04
     steps:
 
-    - name: Checkout
+    - name: Check out code
       uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
+    - name: Build threeport API
+      uses: macbre/push-to-ghcr@master
       with:
-        go-version: 1.19
+        image_name: threeport-rest-api
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/rest-api/image/Dockerfile
+        image_tag: ${{ github.sha }}
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v2
+    - name: Build workload-controller
+      uses: macbre/push-to-ghcr@master
       with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GH_ACCESS_TOKEN }}
+        image_name: threeport-workload-controller
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/workload-controller/image/Dockerfile
+        image_tag: ${{ github.sha }}
 
-    - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v4.2.0
+    - name: Build kubernetes-runtime-controller
+      uses: macbre/push-to-ghcr@master
       with:
-        version: latest
-        args: release --clean -f ./.goreleaser-ci.yml
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        IMAGE_TAG: ${{ github.sha }}
+        image_name: threeport-kubernetes-runtime-controller
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/kubernetes-runtime-controller/image/Dockerfile
+        image_tag: ${{ github.sha }}
+
+    - name: Build aws-controller
+      uses: macbre/push-to-ghcr@master
+      with:
+        image_name: threeport-aws-controller
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/aws-controller/image/Dockerfile
+        image_tag: ${{ github.sha }}
+
+    - name: Build gateway-controller
+      uses: macbre/push-to-ghcr@master
+      with:
+        image_name: threeport-gateway-controller
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/gateway-controller/image/Dockerfile
+        image_tag: ${{ github.sha }}
+
+    - name: Build threeport-agent
+      uses: macbre/push-to-ghcr@master
+      with:
+        image_name: threeport-agent
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/agent/image/Dockerfile
+        image_tag: ${{ github.sha }}
 
   test:
+    needs: images
     runs-on: ubuntu-22.04
     steps:
 
@@ -67,6 +93,7 @@ jobs:
       run: make tests
 
   clean:
+    needs: test
     runs-on: ubuntu-latest
     steps:
     - name: Login to GitHub Container Registry
