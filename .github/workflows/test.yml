@@ -37,6 +37,7 @@ jobs:
         args: release --clean -f ./.goreleaser-ci.yml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        IMAGE_TAG: ${{ github.sha }}
 
   test:
     runs-on: ubuntu-22.04
@@ -79,7 +80,7 @@ jobs:
       uses: bots-house/ghcr-delete-image-action@v1.1.0
       with:
         ## NOTE: at now only orgs is supported
-        #owner: bots-house
+        owner: ${{ github.repository_owner }}
         #name: some-web-service
         ## NOTE: using Personal Access Token
         #token: ${{ secrets.PAT }}
