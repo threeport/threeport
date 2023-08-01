@@ -108,7 +108,7 @@ jobs:
       with:
         ## NOTE: at now only orgs is supported
         owner: ${{ github.repository_owner }}
-        #name: some-web-service
+        name: threeport/threeport-rest-api
         ## NOTE: using Personal Access Token
         #token: ${{ secrets.PAT }}
         tag: ${{ github.sha }}
