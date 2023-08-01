@@ -671,6 +671,7 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to set route on virtual service: %w", err)
 	}
 
+	// marshal virtual service
 	virtualServiceMarshaled, err := util.MarshalJSON(virtualService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal virtual service: %w", err)
