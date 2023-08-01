@@ -110,6 +110,6 @@ jobs:
         owner: ${{ github.repository_owner }}
         name: threeport/threeport-rest-api
         ## NOTE: using Personal Access Token
-        #token: ${{ secrets.PAT }}
+        token: ${{ secrets.PACKAGES_PAT }}
         tag: ${{ github.sha }}
 
