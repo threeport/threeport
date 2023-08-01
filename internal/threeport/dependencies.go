@@ -46,19 +46,6 @@ func InstallThreeportControlPlaneDependencies(
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
 	}
 
-	var namespace = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Namespace",
-			"metadata": map[string]interface{}{
-				"name": ControlPlaneNamespace,
-			},
-		},
-	}
-	if _, err := kube.CreateResource(namespace, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create namespace: %w", err)
-	}
-
 	var natsPDB = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "policy/v1",
