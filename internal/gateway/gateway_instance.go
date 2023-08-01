@@ -312,7 +312,7 @@ func validateThreeportState(
 	}
 
 	// ensure gateway controller is deployed
-	err = confirmGatewayControllerDeployed(r, gatewayInstance, kubernetesRuntimeInstance, log)
+	err = confirmGatewayControllerDeployed(r, kubernetesRuntimeInstance, log)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
 	}
@@ -380,7 +380,6 @@ func confirmDefinitionsReconciled(
 // and if not, deploys it.
 func confirmGatewayControllerDeployed(
 	r *controller.Reconciler,
-	gatewayInstance *v0.GatewayInstance,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	log *logr.Logger,
 ) error {
@@ -427,7 +426,7 @@ func confirmGatewayControllerDeployed(
 	// create gateway workload instance
 	glooEdgeWorkloadInstance := v0.WorkloadInstance{
 		Instance:                    v0.Instance{Name: &workloadDefName},
-		KubernetesRuntimeInstanceID: gatewayInstance.KubernetesRuntimeInstanceID,
+		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadDefinitionID:        createdWorkloadDef.ID,
 	}
 	createdGlooEdgeWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &glooEdgeWorkloadInstance)

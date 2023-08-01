@@ -27,6 +27,34 @@ func createGlooEdge() (string, error) {
 	return unstructuredToYAMLString(glooEdge)
 }
 
+func createExternalDns(iamRoleArn string) (string, error) {
+
+	var resourceObj = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "gateway.support-services.nukleros.io/v1alpha1",
+			"kind":       "ExternalDNS",
+			"metadata": map[string]interface{}{
+				"name": "externaldns-sample",
+			},
+			"spec": map[string]interface{}{
+				//collection:
+				//name: "supportservices-sample"
+				//namespace: ""
+				"namespace":          "nukleros-gateway-system",
+				"zoneType":           "private",
+				"domainName":         "nukleros.io",
+				"image":              "k8s.gcr.io/external-dns/external-dns",
+				"version":            "v0.12.2",
+				"provider":           "none",
+				"serviceAccountName": "external-dns",
+				"iamRoleArn":         iamRoleArn,
+			},
+		},
+	}
+
+	return unstructuredToYAMLString(resourceObj)
+}
+
 func createGlooEdgePort(name string, port int64, ssl bool) map[string]interface{} {
 
 	var portObject = map[string]interface{}{
