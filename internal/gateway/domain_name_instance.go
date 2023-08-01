@@ -9,7 +9,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -55,7 +54,7 @@ func domainNameInstanceCreated(
 			return fmt.Errorf("failed to unmarshal resource inventory: %w", err)
 		}
 
-		iamRoleArn := inventory.DNSManagementRole.RoleARN
+		// iamRoleArn := inventory.DNSManagementRole.RoleARN
 
 	default:
 		break
@@ -166,16 +165,5 @@ func configureWorkloadResourceInstance(
 	workloadResourceInstance.JSONDefinition = &virtualServiceMarshaled
 
 	return workloadResourceInstance, nil
-
-	// endpoints := []interface{}{
-	// 	map[string]interface{}{
-	// 		"dnsName":    domainNameDefinition.Domain,
-	// 		"recordTTL":  180,
-	// 		"recordType": "A",
-	// 		"targets": []interface{}{
-	// 			"192.168.99.216",
-	// 		},
-	// 	},
-	// }
 
 }

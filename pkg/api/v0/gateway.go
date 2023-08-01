@@ -75,7 +75,6 @@ type GatewayInstance struct {
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
-// +threeport-codegen:reconciler
 // DomainNameDefinition the definition for domain name management for a
 // particular DNS zone.
 type DomainNameDefinition struct {
