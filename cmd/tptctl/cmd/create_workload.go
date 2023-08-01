@@ -53,6 +53,10 @@ and workload instance based on the workload config.`,
 			os.Exit(1)
 		}
 
+		// add path to workload config - used to determine relative path from
+		// user's working directory to YAML document
+		workloadConfig.Workload.WorkloadConfigPath = createWorkloadConfigPath
+
 		// get threeport API client
 		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled()
 		if err != nil {

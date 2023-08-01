@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -8,8 +9,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/threeport"
 	"github.com/threeport/threeport/internal/tptdev"
@@ -42,7 +44,9 @@ func TestWorkloadE2E(t *testing.T) {
 	testWorkloads := testResources()
 
 	for _, testWorkload := range *testWorkloads {
-		fmt.Printf("testing workload: %s\n", testWorkload.Name)
+		t.Log(fmt.Sprintf(
+			"testing workload: %s\n", testWorkload.Name,
+		))
 
 		// create workload definition
 		workloadDefName := testWorkload.Name
@@ -68,16 +72,23 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// determine if the API is serving HTTPS or HTTP
 		var authEnabled bool
-		_, err := http.Get(fmt.Sprintf("https://%s", apiAddr()))
-		config.InitConfig("", "")
-		if strings.Contains(err.Error(), "signed by unknown authority") {
+		var respCodeErr error
+		resp, err := http.Get(fmt.Sprintf("http://%s/version", apiAddr()))
+		assert.Nil(err, "should not get an error when calling threeport API version endpoint")
+		switch resp.StatusCode {
+		case 400:
 			authEnabled = true
-		} else if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
+			t.Log("auth enabled")
+		case 200:
 			authEnabled = false
+			t.Log("auth not enabled")
+		default:
+			respCodeErr = errors.New("unexpected response from API (not 200 or 400)")
 		}
+		assert.Nil(respCodeErr, "should not get an get an unexpected response from API version endpoint")
 
 		// initialize config so we can pull credentials from it
-		config.InitConfig("", "")
+		cli.InitConfig("", "")
 
 		// get threeport config and configure http client for calls to threeport API
 		threeportConfig, err := config.GetThreeportConfig()
@@ -94,7 +105,7 @@ func TestWorkloadE2E(t *testing.T) {
 			Definition: v0.Definition{
 				Name: &gatewayDefinitionName,
 			},
-			TCPPort: &tcpPort,
+			TCPPort:    &tcpPort,
 			TLSEnabled: &tlsEnabled,
 		}
 
@@ -189,19 +200,19 @@ func TestWorkloadE2E(t *testing.T) {
 			}
 		}
 
-		// check cluster instance
-		clusterInsts, err := client.GetClusterInstances(apiClient, apiAddr())
+		// check kubernetes runtime instance
+		kubernetesRuntimeInsts, err := client.GetKubernetesRuntimeInstances(apiClient, apiAddr())
 		assert.Nil(err, "should have no error getting workload resource definitions")
-		var testClusterInst v0.ClusterInstance
-		if assert.NotNil(clusterInsts, "should have an array of cluster instances returned") {
-			assert.NotEqual(len(*clusterInsts), 0, "should get back at least one cluster instance")
-			for _, c := range *clusterInsts {
-				if *c.ThreeportControlPlaneCluster {
-					testClusterInst = c
+		var testKubernetesRuntimeInst v0.KubernetesRuntimeInstance
+		if assert.NotNil(kubernetesRuntimeInsts, "should have an array of kubernetes runtime instances returned") {
+			assert.NotEqual(len(*kubernetesRuntimeInsts), 0, "should get back at least one kubernetes runtime instance")
+			for _, c := range *kubernetesRuntimeInsts {
+				if *c.ThreeportControlPlaneHost {
+					testKubernetesRuntimeInst = c
 				}
 			}
 		}
-		assert.NotNil(testClusterInst, "should have a cluster instance being used by threeport control plane")
+		assert.NotNil(testKubernetesRuntimeInst, "should have a kubernetes runtime instance being used by threeport control plane")
 
 		// create workload instance
 		workloadInstName := fmt.Sprintf("%s-0", testWorkload.Name)
@@ -209,8 +220,8 @@ func TestWorkloadE2E(t *testing.T) {
 			Instance: v0.Instance{
 				Name: &workloadInstName,
 			},
-			ClusterInstanceID:    testClusterInst.ID,
-			WorkloadDefinitionID: createdWorkloadDef.ID,
+			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
+			WorkloadDefinitionID:        createdWorkloadDef.ID,
 		}
 		createdWorkloadInst, err := client.CreateWorkloadInstance(
 			apiClient,
@@ -225,8 +236,8 @@ func TestWorkloadE2E(t *testing.T) {
 			Instance: v0.Instance{
 				Name: &workloadInstName,
 			},
-			ClusterInstanceID:    testClusterInst.ID,
-			WorkloadDefinitionID: createdWorkloadDef.ID,
+			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
+			WorkloadDefinitionID:        createdWorkloadDef.ID,
 		}
 
 		_, err = client.CreateWorkloadInstance(
@@ -242,9 +253,9 @@ func TestWorkloadE2E(t *testing.T) {
 			Instance: v0.Instance{
 				Name: &gatewayInstanceName,
 			},
-			ClusterInstanceID:   testClusterInst.ID,
-			GatewayDefinitionID: gatewayDefinition.ID,
-			WorkloadInstanceID:  createdWorkloadInst.ID,
+			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
+			GatewayDefinitionID:         gatewayDefinition.ID,
+			WorkloadInstanceID:          createdWorkloadInst.ID,
 		}
 		_, err = client.CreateGatewayInstance(
 			apiClient,
@@ -253,17 +264,22 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.Nil(err, "should have no error creating gateway instance")
 
-		// get the cluster instance from the threeport API so we can connect to it
-		clusterInstance, err := client.GetClusterInstanceByID(
+		// get the kubernetes runtime instance from the threeport API so we can connect to it
+		kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 			apiClient,
 			apiAddr(),
-			*testClusterInst.ID,
+			*testKubernetesRuntimeInst.ID,
 		)
-		assert.Nil(err, "should have no error getting cluster instance")
-		assert.NotNil(clusterInstance, "should have a cluster instance returned")
+		assert.Nil(err, "should have no error getting kubernetes runtime instance")
+		assert.NotNil(kubernetesRuntimeInstance, "should have a kubernetes runtime instance returned")
 
 		// create a client to connect to kube API
-		dynamicKubeClient, mapper, err := kube.GetClient(clusterInstance, false)
+		dynamicKubeClient, mapper, err := kube.GetClient(
+			kubernetesRuntimeInstance,
+			false,
+			apiClient,
+			apiAddr(),
+		)
 		assert.Nil(err, "should have no error creating a client and REST mapper for Kubernetes cluster API")
 
 		// for the managed namespace test, get the namespace name
@@ -399,7 +415,7 @@ func TestWorkloadE2E(t *testing.T) {
 				}
 				// if we get an error that is NOT a "not found" error we have a
 				// problem - log rather than exit in case it resolves
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !kubeerrors.IsNotFound(err) {
 					t.Log(fmt.Errorf("an error occured that was NOT a \"not found\" error: %w", err))
 					break
 				}

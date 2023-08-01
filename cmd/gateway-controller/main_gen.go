@@ -132,12 +132,14 @@ func main() {
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
 		ConcurrentReconciles: *gatewayDefinitionConcurrentReconciles,
 		Name:                 "GatewayDefinitionReconciler",
+		NotifSubject:         v0.GatewayDefinitionSubject,
 		ObjectType:           v0.ObjectTypeGatewayDefinition,
 		ReconcileFunc:        gateway.GatewayDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
 		ConcurrentReconciles: *gatewayInstanceConcurrentReconciles,
 		Name:                 "GatewayInstanceReconciler",
+		NotifSubject:         v0.GatewayInstanceSubject,
 		ObjectType:           v0.ObjectTypeGatewayInstance,
 		ReconcileFunc:        gateway.GatewayInstanceReconciler,
 	})
@@ -146,19 +148,18 @@ func main() {
 
 		// create JetStream consumer
 		consumer := r.Name + "Consumer"
-		subject, err := v0.GetSubjectByReconcilerName(r.Name)
-		if err != nil {
-			log.Error(err, "failed to get notification subject by reconciler name", "reconcilerName", r.Name)
-			os.Exit(1)
-		}
 		js.AddConsumer(v0.GatewayStreamName, &natsgo.ConsumerConfig{
 			AckPolicy:     natsgo.AckExplicitPolicy,
 			Durable:       consumer,
-			FilterSubject: subject,
+			FilterSubject: r.NotifSubject,
 		})
 
 		// create durable pull subscription
-		sub, err := js.PullSubscribe(subject, consumer, natsgo.BindStream(v0.GatewayStreamName))
+		sub, err := js.PullSubscribe(r.NotifSubject, consumer, natsgo.BindStream(v0.GatewayStreamName))
+		if err != nil {
+			log.Error(err, "failed to create pull subscription for reconciler notifications", "reconcilerName", r.Name)
+			os.Exit(1)
+		}
 
 		// create exit channel
 		shutdownChan := make(chan bool, 1)

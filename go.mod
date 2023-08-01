@@ -3,9 +3,9 @@ module github.com/threeport/threeport
 go 1.19
 
 require (
-	github.com/aws/aws-sdk-go v1.44.284
 	github.com/aws/aws-sdk-go-v2 v1.18.1
-	github.com/aws/aws-sdk-go-v2/service/eks v1.27.14
+	github.com/aws/aws-sdk-go-v2/config v1.18.8
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.8
 	github.com/dave/jennifer v1.6.1
 	github.com/docker/docker v24.0.2+incompatible
 	github.com/gertd/go-pluralize v0.2.1
@@ -19,10 +19,9 @@ require (
 	github.com/labstack/gommon v0.4.0
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/namsral/flag v1.7.4-pre
 	github.com/nats-io/nats.go v1.27.0
-	github.com/nukleros/eks-cluster v0.8.0
+	github.com/nukleros/eks-cluster v0.10.0
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
 	github.com/spf13/cobra v1.7.0
@@ -31,6 +30,7 @@ require (
 	github.com/swaggo/echo-swagger v1.4.0
 	github.com/swaggo/swag v1.16.1
 	go.uber.org/zap v1.24.0
+	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.0
@@ -39,24 +39,23 @@ require (
 	k8s.io/api v0.27.3
 	k8s.io/apimachinery v0.27.3
 	k8s.io/client-go v0.27.3
-	sigs.k8s.io/aws-iam-authenticator v0.6.10
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/kind v0.20.0
 	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
-	github.com/BurntSushi/toml v1.0.0 // indirect
+	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.18.8 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.8 // indirect
+	github.com/aws/aws-sdk-go v1.44.307 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.21 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.34 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.28 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.28 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.77.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/eks v1.27.14 // indirect
 	github.com/aws/aws-sdk-go-v2/service/iam v1.19.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.21 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.12.0 // indirect
@@ -110,6 +109,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/patternmatcher v0.5.0 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -141,20 +141,19 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/crypto v0.9.0 // indirect
-	golang.org/x/mod v0.10.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/crypto v0.10.0 // indirect
+	golang.org/x/mod v0.11.0 // indirect
+	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/sys v0.9.0 // indirect
-	golang.org/x/term v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/term v0.9.0 // indirect
+	golang.org/x/text v0.10.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.9.3 // indirect
+	golang.org/x/tools v0.10.1-0.20230622221742-0622ad2359a7 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/ini.v1 v1.67.0 // indirect
 	gorm.io/driver/mysql v1.4.7 // indirect
 	gotest.tools/v3 v3.4.0 // indirect
 	k8s.io/apiextensions-apiserver v0.27.2 // indirect
@@ -162,6 +161,7 @@ require (
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5 // indirect
+	sigs.k8s.io/aws-iam-authenticator v0.6.10 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )

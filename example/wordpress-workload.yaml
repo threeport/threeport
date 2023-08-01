@@ -1,0 +1,4 @@
+Workload:
+  Name: "wordpress"
+  YAMLDocument: "wordpress-manifest.yaml"
+

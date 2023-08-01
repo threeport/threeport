@@ -154,6 +154,22 @@ func (wd *WorkloadDefinition) NotificationPayload(
 	return &payload, nil
 }
 
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (wd *WorkloadDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &wd); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
 // GetID returns the unique ID for the object.
 func (wd *WorkloadDefinition) GetID() uint {
 	return *wd.ID
@@ -185,6 +201,22 @@ func (wrd *WorkloadResourceDefinition) NotificationPayload(
 	}
 
 	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (wrd *WorkloadResourceDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &wrd); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
 }
 
 // GetID returns the unique ID for the object.
@@ -220,6 +252,22 @@ func (wi *WorkloadInstance) NotificationPayload(
 	return &payload, nil
 }
 
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (wi *WorkloadInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &wi); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
 // GetID returns the unique ID for the object.
 func (wi *WorkloadInstance) GetID() uint {
 	return *wi.ID
@@ -251,6 +299,22 @@ func (aor *AttachedObjectReference) NotificationPayload(
 	}
 
 	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (aor *AttachedObjectReference) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &aor); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
 }
 
 // GetID returns the unique ID for the object.
@@ -286,6 +350,22 @@ func (wri *WorkloadResourceInstance) NotificationPayload(
 	return &payload, nil
 }
 
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (wri *WorkloadResourceInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &wri); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
 // GetID returns the unique ID for the object.
 func (wri *WorkloadResourceInstance) GetID() uint {
 	return *wri.ID
@@ -317,6 +397,22 @@ func (we *WorkloadEvent) NotificationPayload(
 	}
 
 	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (we *WorkloadEvent) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &we); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
 }
 
 // GetID returns the unique ID for the object.

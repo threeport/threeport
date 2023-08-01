@@ -47,7 +47,7 @@ func GetResource(
 	}
 
 	// get the resource
-	resource, err := resourceClient.Get(context.TODO(), resourceName, kubemetav1.GetOptions{})
+	resource, err := resourceClient.Get(context.Background(), resourceName, kubemetav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource from kubernetes API: %w", err)
 	}
@@ -56,7 +56,8 @@ func GetResource(
 }
 
 // CreateResource takes an unstructured object, dynamic client interface and rest
-// mapper and creates the resource in the target Kubernetes cluster.
+// mapper and creates the resource in the target Kubernetes cluster.  If the
+// object already exists, it returns the object.
 func CreateResource(
 	kubeObject *unstructured.Unstructured,
 	kubeClient dynamic.Interface,
@@ -72,7 +73,7 @@ func CreateResource(
 	result, err := kubeClient.
 		Resource(mapping.Resource).
 		Namespace(kubeObject.GetNamespace()).
-		Create(context.TODO(), kubeObject, kubemetav1.CreateOptions{})
+		Create(context.Background(), kubeObject, kubemetav1.CreateOptions{})
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
 			return kubeObject, nil
@@ -162,7 +163,7 @@ func DeleteResource(
 	err = kubeClient.
 		Resource(mapping.Resource).
 		Namespace(kubeObject.GetNamespace()).
-		Delete(context.TODO(), kubeObject.GetName(), kubemetav1.DeleteOptions{})
+		Delete(context.Background(), kubeObject.GetName(), kubemetav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete kubernetes resource:%w", err)
 	}

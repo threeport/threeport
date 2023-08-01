@@ -4,14 +4,15 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/cli"
-	internalCmd "github.com/threeport/threeport/internal/cmd"
 	"github.com/threeport/threeport/internal/threeport"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // TODO: will become a variable once production-ready control plane instances are
@@ -26,9 +27,13 @@ var CreateControlPlaneCmd = &cobra.Command{
 	Long:         `Create a new instance of the Threeport control plane.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := internalCmd.CreateControlPlane(cliArgs)
+		err := cliArgs.CreateControlPlane()
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
+			if errors.Is(cli.ThreeportConfigAlreadyExistsErr, err) {
+				cli.Info("if you wish to overwrite the existing config use --force-overwrite-config flag")
+				cli.Warning("you will lose the ability to connect to the existing threeport instance if it is still running")
+			}
 			os.Exit(1)
 		}
 	},
@@ -46,7 +51,7 @@ func init() {
 	CreateControlPlaneCmd.MarkFlagRequired("name")
 	CreateControlPlaneCmd.Flags().StringVarP(
 		&cliArgs.InfraProvider,
-		"provider", "p", "kind", fmt.Sprintf("The infrasture provider to install upon. Supported infra providers: %s", threeport.SupportedInfraProviders()),
+		"provider", "p", "kind", fmt.Sprintf("The infrasture provider to install upon. Supported infra providers: %s", v0.SupportedInfraProviders()),
 	)
 	// this flag will be enabled once production-ready control plane instances
 	// are available.

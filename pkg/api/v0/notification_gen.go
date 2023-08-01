@@ -13,8 +13,6 @@ func GetSubjectByReconcilerName(name string) (string, error) {
 		return WorkloadDefinitionSubject, nil
 	case "WorkloadInstanceReconciler":
 		return WorkloadInstanceSubject, nil
-	case "WorkloadResourceInstanceReconciler":
-		return WorkloadResourceInstanceSubject, nil
 	case "GatewayDefinitionReconciler":
 		return GatewayDefinitionSubject, nil
 	case "GatewayInstanceReconciler":

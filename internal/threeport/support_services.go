@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/kube"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 const (
@@ -2515,7 +2516,7 @@ func InstallThreeportSystemServices(
 	infraProvider string,
 	clusterName string,
 ) error {
-	if infraProvider == ControlPlaneInfraProviderEKS {
+	if infraProvider == v0.KubernetesRuntimeInfraProviderEKS {
 		var clusterAutoscalerServiceAcct = &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",

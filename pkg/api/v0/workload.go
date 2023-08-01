@@ -49,11 +49,10 @@ type WorkloadResourceDefinition struct {
 type WorkloadInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
-	// ClusterID is the cluster to which the workload is deployed.
-	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" query:"clusterinstanceid" gorm:"not null" validate:"required"`
+	// The kubernetes runtime to which the workload is deployed.
+	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
-	// WorkloadDefinitionID is the definition used to configure the workload
-	// instance.
+	// The definition used to configure the workload instance.
 	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"not null" validate:"required"`
 
 	// The associated workload resource definitions that are derived.
@@ -92,15 +91,15 @@ type WorkloadResourceInstance struct {
 	// The workload definition this resource belongs to.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 
-	// The most recent operation performed on a Kubernetes resource in the
-	// cluster.
+	// The most recent operation performed on a Kubernete resource in the
+	// kubernetes runtime.
 	LastOperation *string `json:"LastOperation,omitempty" query:"lastoperation" validate:"optional"`
 
 	// Indicates if object is considered to be reconciled by workload controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 
 	// The JSON definition of a Kubernetes resource as stored in etcd in the
-	// cluster.
+	// kubernetes runtime.
 	RuntimeDefinition *datatypes.JSON `json:"RuntimeDefinition,omitempty" query:"runtimedefinition" validate:"optional"`
 
 	// All events that have occured related to this object.
@@ -131,7 +130,7 @@ type WorkloadEvent struct {
 	// The message associated with the event.
 	Message *string `json:"Message,omitempty" query:"message" gorm:"not null" validate:"required"`
 
-	// The timestamp for the event in the cluster.
+	// The timestamp for the event in the kubernetes runtime.
 	Timestamp *time.Time `json:"Timestamp,omitempty" query:"timestamp" gorm:"not null" validate:"required"`
 
 	// The related workload instance.

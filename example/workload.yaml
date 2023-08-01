@@ -1,6 +1,6 @@
 Workload:
   Name: "go-web3-sample-app"
   YAMLDocument: "example/go-web3-sample-app-manifest-0.yaml"
-  #ClusterInstance:
-  #  Name: "non-default-cluster"
+  KubernetesRuntimeInstance:
+    Name: "aws-remote-compute-space-1"
 

@@ -32,6 +32,9 @@ type ReconcilerConfig struct {
 	// consumption at a reasonable level for each individual controller.  The
 	// proportion of activity among reconcilers within a controller is the key.
 	ConcurrentReconciles int
+
+	// The NATS Jetstream subject used for notifications to a reconciler
+	NotifSubject string
 }
 
 // Reconciler contains the assets needed by reconcilers to recieve subscription
@@ -206,6 +209,7 @@ func (r *Reconciler) Lock(object v0.APIObject) bool {
 		"objectType", r.ObjectType,
 		"objectID", object.GetID(),
 	)
+
 	return true
 }
 

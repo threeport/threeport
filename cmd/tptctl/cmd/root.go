@@ -8,8 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/threeport/threeport/internal/cli"
-	internalCmd "github.com/threeport/threeport/internal/cmd"
-	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 var cliArgs = &cli.ControlPlaneCLIArgs{}
@@ -43,7 +41,7 @@ func init() {
 	)
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	cobra.OnInitialize(func() {
-		config.InitConfig(cliArgs.CfgFile, cliArgs.ProviderConfigDir)
-		internalCmd.InitArgs(cliArgs)
+		cli.InitConfig(cliArgs.CfgFile, cliArgs.ProviderConfigDir)
+		cli.InitArgs(cliArgs)
 	})
 }

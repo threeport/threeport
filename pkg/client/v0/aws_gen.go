@@ -206,392 +206,392 @@ func DeleteAwsAccount(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsA
 	return &awsAccount, nil
 }
 
-// GetAwsEksClusterDefinitions fetches all aws eks cluster definitions.
+// GetAwsEksKubernetesRuntimeDefinitions fetches all aws eks kubernetes runtime definitions.
 // TODO: implement pagination
-func GetAwsEksClusterDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.AwsEksClusterDefinition, error) {
-	var awsEksClusterDefinitions []v0.AwsEksClusterDefinition
+func GetAwsEksKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.AwsEksKubernetesRuntimeDefinition, error) {
+	var awsEksKubernetesRuntimeDefinitions []v0.AwsEksKubernetesRuntimeDefinition
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsEksClusterDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsEksKubernetesRuntimeDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &awsEksClusterDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsEksKubernetesRuntimeDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterDefinitions); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinitions); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsEksClusterDefinitions, nil
+	return &awsEksKubernetesRuntimeDefinitions, nil
 }
 
-// GetAwsEksClusterDefinitionByID fetches a aws eks cluster definition by ID.
-func GetAwsEksClusterDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksClusterDefinition, error) {
-	var awsEksClusterDefinition v0.AwsEksClusterDefinition
+// GetAwsEksKubernetesRuntimeDefinitionByID fetches a aws eks kubernetes runtime definition by ID.
+func GetAwsEksKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsEksClusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsEksClusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterDefinition); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsEksClusterDefinition, nil
+	return &awsEksKubernetesRuntimeDefinition, nil
 }
 
-// GetAwsEksClusterDefinitionByName fetches a aws eks cluster definition by name.
-func GetAwsEksClusterDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksClusterDefinition, error) {
-	var awsEksClusterDefinitions []v0.AwsEksClusterDefinition
+// GetAwsEksKubernetesRuntimeDefinitionByName fetches a aws eks kubernetes runtime definition by name.
+func GetAwsEksKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	var awsEksKubernetesRuntimeDefinitions []v0.AwsEksKubernetesRuntimeDefinition
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.AwsEksClusterDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &v0.AwsEksKubernetesRuntimeDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.AwsEksClusterDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &v0.AwsEksKubernetesRuntimeDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterDefinitions); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinitions); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
-	case len(awsEksClusterDefinitions) < 1:
-		return &v0.AwsEksClusterDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
-	case len(awsEksClusterDefinitions) > 1:
-		return &v0.AwsEksClusterDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+	case len(awsEksKubernetesRuntimeDefinitions) < 1:
+		return &v0.AwsEksKubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+	case len(awsEksKubernetesRuntimeDefinitions) > 1:
+		return &v0.AwsEksKubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
 	}
 
-	return &awsEksClusterDefinitions[0], nil
+	return &awsEksKubernetesRuntimeDefinitions[0], nil
 }
 
-// CreateAwsEksClusterDefinition creates a new aws eks cluster definition.
-func CreateAwsEksClusterDefinition(apiClient *http.Client, apiAddr string, awsEksClusterDefinition *v0.AwsEksClusterDefinition) (*v0.AwsEksClusterDefinition, error) {
-	jsonAwsEksClusterDefinition, err := util.MarshalObject(awsEksClusterDefinition)
+// CreateAwsEksKubernetesRuntimeDefinition creates a new aws eks kubernetes runtime definition.
+func CreateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	jsonAwsEksKubernetesRuntimeDefinition, err := util.MarshalObject(awsEksKubernetesRuntimeDefinition)
 	if err != nil {
-		return awsEksClusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
-		bytes.NewBuffer(jsonAwsEksClusterDefinition),
+		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeDefinition),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return awsEksClusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return awsEksClusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterDefinition); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return awsEksClusterDefinition, nil
+	return awsEksKubernetesRuntimeDefinition, nil
 }
 
-// UpdateAwsEksClusterDefinition updates a aws eks cluster definition.
-func UpdateAwsEksClusterDefinition(apiClient *http.Client, apiAddr string, awsEksClusterDefinition *v0.AwsEksClusterDefinition) (*v0.AwsEksClusterDefinition, error) {
+// UpdateAwsEksKubernetesRuntimeDefinition updates a aws eks kubernetes runtime definition.
+func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
 	// capture the object ID then remove fields that cannot be updated in the API
-	awsEksClusterDefinitionID := *awsEksClusterDefinition.ID
-	awsEksClusterDefinition.ID = nil
-	awsEksClusterDefinition.CreatedAt = nil
-	awsEksClusterDefinition.UpdatedAt = nil
+	awsEksKubernetesRuntimeDefinitionID := *awsEksKubernetesRuntimeDefinition.ID
+	awsEksKubernetesRuntimeDefinition.ID = nil
+	awsEksKubernetesRuntimeDefinition.CreatedAt = nil
+	awsEksKubernetesRuntimeDefinition.UpdatedAt = nil
 
-	jsonAwsEksClusterDefinition, err := util.MarshalObject(awsEksClusterDefinition)
+	jsonAwsEksKubernetesRuntimeDefinition, err := util.MarshalObject(awsEksKubernetesRuntimeDefinition)
 	if err != nil {
-		return awsEksClusterDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions/%d", apiAddr, ApiVersion, awsEksClusterDefinitionID),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, awsEksKubernetesRuntimeDefinitionID),
 		http.MethodPatch,
-		bytes.NewBuffer(jsonAwsEksClusterDefinition),
+		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeDefinition),
 		http.StatusOK,
 	)
 	if err != nil {
-		return awsEksClusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return awsEksClusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterDefinition); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return awsEksClusterDefinition, nil
+	return awsEksKubernetesRuntimeDefinition, nil
 }
 
-// DeleteAwsEksClusterDefinition deletes a aws eks cluster definition by ID.
-func DeleteAwsEksClusterDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksClusterDefinition, error) {
-	var awsEksClusterDefinition v0.AwsEksClusterDefinition
+// DeleteAwsEksKubernetesRuntimeDefinition deletes a aws eks kubernetes runtime definition by ID.
+func DeleteAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-definitions/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsEksClusterDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsEksClusterDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterDefinition); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsEksClusterDefinition, nil
+	return &awsEksKubernetesRuntimeDefinition, nil
 }
 
-// GetAwsEksClusterInstances fetches all aws eks cluster instances.
+// GetAwsEksKubernetesRuntimeInstances fetches all aws eks kubernetes runtime instances.
 // TODO: implement pagination
-func GetAwsEksClusterInstances(apiClient *http.Client, apiAddr string) (*[]v0.AwsEksClusterInstance, error) {
-	var awsEksClusterInstances []v0.AwsEksClusterInstance
+func GetAwsEksKubernetesRuntimeInstances(apiClient *http.Client, apiAddr string) (*[]v0.AwsEksKubernetesRuntimeInstance, error) {
+	var awsEksKubernetesRuntimeInstances []v0.AwsEksKubernetesRuntimeInstance
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsEksClusterInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsEksKubernetesRuntimeInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &awsEksClusterInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsEksKubernetesRuntimeInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterInstances); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeInstances); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsEksClusterInstances, nil
+	return &awsEksKubernetesRuntimeInstances, nil
 }
 
-// GetAwsEksClusterInstanceByID fetches a aws eks cluster instance by ID.
-func GetAwsEksClusterInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksClusterInstance, error) {
-	var awsEksClusterInstance v0.AwsEksClusterInstance
+// GetAwsEksKubernetesRuntimeInstanceByID fetches a aws eks kubernetes runtime instance by ID.
+func GetAwsEksKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsEksClusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsEksClusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterInstance); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsEksClusterInstance, nil
+	return &awsEksKubernetesRuntimeInstance, nil
 }
 
-// GetAwsEksClusterInstanceByName fetches a aws eks cluster instance by name.
-func GetAwsEksClusterInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksClusterInstance, error) {
-	var awsEksClusterInstances []v0.AwsEksClusterInstance
+// GetAwsEksKubernetesRuntimeInstanceByName fetches a aws eks kubernetes runtime instance by name.
+func GetAwsEksKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	var awsEksKubernetesRuntimeInstances []v0.AwsEksKubernetesRuntimeInstance
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-instances?name=%s", apiAddr, ApiVersion, name),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &v0.AwsEksClusterInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &v0.AwsEksKubernetesRuntimeInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return &v0.AwsEksClusterInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &v0.AwsEksKubernetesRuntimeInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterInstances); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeInstances); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
 	switch {
-	case len(awsEksClusterInstances) < 1:
-		return &v0.AwsEksClusterInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
-	case len(awsEksClusterInstances) > 1:
-		return &v0.AwsEksClusterInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+	case len(awsEksKubernetesRuntimeInstances) < 1:
+		return &v0.AwsEksKubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+	case len(awsEksKubernetesRuntimeInstances) > 1:
+		return &v0.AwsEksKubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
 	}
 
-	return &awsEksClusterInstances[0], nil
+	return &awsEksKubernetesRuntimeInstances[0], nil
 }
 
-// CreateAwsEksClusterInstance creates a new aws eks cluster instance.
-func CreateAwsEksClusterInstance(apiClient *http.Client, apiAddr string, awsEksClusterInstance *v0.AwsEksClusterInstance) (*v0.AwsEksClusterInstance, error) {
-	jsonAwsEksClusterInstance, err := util.MarshalObject(awsEksClusterInstance)
+// CreateAwsEksKubernetesRuntimeInstance creates a new aws eks kubernetes runtime instance.
+func CreateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	jsonAwsEksKubernetesRuntimeInstance, err := util.MarshalObject(awsEksKubernetesRuntimeInstance)
 	if err != nil {
-		return awsEksClusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-instances", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances", apiAddr, ApiVersion),
 		http.MethodPost,
-		bytes.NewBuffer(jsonAwsEksClusterInstance),
+		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeInstance),
 		http.StatusCreated,
 	)
 	if err != nil {
-		return awsEksClusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return awsEksClusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterInstance); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return awsEksClusterInstance, nil
+	return awsEksKubernetesRuntimeInstance, nil
 }
 
-// UpdateAwsEksClusterInstance updates a aws eks cluster instance.
-func UpdateAwsEksClusterInstance(apiClient *http.Client, apiAddr string, awsEksClusterInstance *v0.AwsEksClusterInstance) (*v0.AwsEksClusterInstance, error) {
+// UpdateAwsEksKubernetesRuntimeInstance updates a aws eks kubernetes runtime instance.
+func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance) (*v0.AwsEksKubernetesRuntimeInstance, error) {
 	// capture the object ID then remove fields that cannot be updated in the API
-	awsEksClusterInstanceID := *awsEksClusterInstance.ID
-	awsEksClusterInstance.ID = nil
-	awsEksClusterInstance.CreatedAt = nil
-	awsEksClusterInstance.UpdatedAt = nil
+	awsEksKubernetesRuntimeInstanceID := *awsEksKubernetesRuntimeInstance.ID
+	awsEksKubernetesRuntimeInstance.ID = nil
+	awsEksKubernetesRuntimeInstance.CreatedAt = nil
+	awsEksKubernetesRuntimeInstance.UpdatedAt = nil
 
-	jsonAwsEksClusterInstance, err := util.MarshalObject(awsEksClusterInstance)
+	jsonAwsEksKubernetesRuntimeInstance, err := util.MarshalObject(awsEksKubernetesRuntimeInstance)
 	if err != nil {
-		return awsEksClusterInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-instances/%d", apiAddr, ApiVersion, awsEksClusterInstanceID),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances/%d", apiAddr, ApiVersion, awsEksKubernetesRuntimeInstanceID),
 		http.MethodPatch,
-		bytes.NewBuffer(jsonAwsEksClusterInstance),
+		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeInstance),
 		http.StatusOK,
 	)
 	if err != nil {
-		return awsEksClusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return awsEksClusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterInstance); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return awsEksClusterInstance, nil
+	return awsEksKubernetesRuntimeInstance, nil
 }
 
-// DeleteAwsEksClusterInstance deletes a aws eks cluster instance by ID.
-func DeleteAwsEksClusterInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksClusterInstance, error) {
-	var awsEksClusterInstance v0.AwsEksClusterInstance
+// DeleteAwsEksKubernetesRuntimeInstance deletes a aws eks kubernetes runtime instance by ID.
+func DeleteAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-eks-cluster-instances/%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsEksClusterInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsEksClusterInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksClusterInstance); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsEksClusterInstance, nil
+	return &awsEksKubernetesRuntimeInstance, nil
 }
 
 // GetAwsRelationalDatabaseDefinitions fetches all aws relational database definitions.

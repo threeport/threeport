@@ -13,18 +13,14 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = Tier{}
 	case ObjectTypeAwsAccount:
 		objStruct = AwsAccount{}
-	case ObjectTypeAwsEksClusterDefinition:
-		objStruct = AwsEksClusterDefinition{}
-	case ObjectTypeAwsEksClusterInstance:
-		objStruct = AwsEksClusterInstance{}
+	case ObjectTypeAwsEksKubernetesRuntimeDefinition:
+		objStruct = AwsEksKubernetesRuntimeDefinition{}
+	case ObjectTypeAwsEksKubernetesRuntimeInstance:
+		objStruct = AwsEksKubernetesRuntimeInstance{}
 	case ObjectTypeAwsRelationalDatabaseDefinition:
 		objStruct = AwsRelationalDatabaseDefinition{}
 	case ObjectTypeAwsRelationalDatabaseInstance:
 		objStruct = AwsRelationalDatabaseInstance{}
-	case ObjectTypeClusterDefinition:
-		objStruct = ClusterDefinition{}
-	case ObjectTypeClusterInstance:
-		objStruct = ClusterInstance{}
 	case ObjectTypeDomainNameDefinition:
 		objStruct = DomainNameDefinition{}
 	case ObjectTypeDomainNameInstance:
@@ -37,6 +33,10 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = GatewayDefinition{}
 	case ObjectTypeGatewayInstance:
 		objStruct = GatewayInstance{}
+	case ObjectTypeKubernetesRuntimeDefinition:
+		objStruct = KubernetesRuntimeDefinition{}
+	case ObjectTypeKubernetesRuntimeInstance:
+		objStruct = KubernetesRuntimeInstance{}
 	case ObjectTypeLogBackend:
 		objStruct = LogBackend{}
 	case ObjectTypeLogStorageDefinition:
@@ -70,18 +70,14 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeTier
 	case PathAwsAccounts:
 		return ObjectTypeAwsAccount
-	case PathAwsEksClusterDefinitions:
-		return ObjectTypeAwsEksClusterDefinition
-	case PathAwsEksClusterInstances:
-		return ObjectTypeAwsEksClusterInstance
+	case PathAwsEksKubernetesRuntimeDefinitions:
+		return ObjectTypeAwsEksKubernetesRuntimeDefinition
+	case PathAwsEksKubernetesRuntimeInstances:
+		return ObjectTypeAwsEksKubernetesRuntimeInstance
 	case PathAwsRelationalDatabaseDefinitions:
 		return ObjectTypeAwsRelationalDatabaseDefinition
 	case PathAwsRelationalDatabaseInstances:
 		return ObjectTypeAwsRelationalDatabaseInstance
-	case PathClusterDefinitions:
-		return ObjectTypeClusterDefinition
-	case PathClusterInstances:
-		return ObjectTypeClusterInstance
 	case PathDomainNameDefinitions:
 		return ObjectTypeDomainNameDefinition
 	case PathDomainNameInstances:
@@ -94,6 +90,10 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeGatewayDefinition
 	case PathGatewayInstances:
 		return ObjectTypeGatewayInstance
+	case PathKubernetesRuntimeDefinitions:
+		return ObjectTypeKubernetesRuntimeDefinition
+	case PathKubernetesRuntimeInstances:
+		return ObjectTypeKubernetesRuntimeInstance
 	case PathLogBackends:
 		return ObjectTypeLogBackend
 	case PathLogStorageDefinitions:
@@ -127,18 +127,14 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeTier
 	case AwsAccount, *AwsAccount, []AwsAccount:
 		return ObjectTypeAwsAccount
-	case AwsEksClusterDefinition, *AwsEksClusterDefinition, []AwsEksClusterDefinition:
-		return ObjectTypeAwsEksClusterDefinition
-	case AwsEksClusterInstance, *AwsEksClusterInstance, []AwsEksClusterInstance:
-		return ObjectTypeAwsEksClusterInstance
+	case AwsEksKubernetesRuntimeDefinition, *AwsEksKubernetesRuntimeDefinition, []AwsEksKubernetesRuntimeDefinition:
+		return ObjectTypeAwsEksKubernetesRuntimeDefinition
+	case AwsEksKubernetesRuntimeInstance, *AwsEksKubernetesRuntimeInstance, []AwsEksKubernetesRuntimeInstance:
+		return ObjectTypeAwsEksKubernetesRuntimeInstance
 	case AwsRelationalDatabaseDefinition, *AwsRelationalDatabaseDefinition, []AwsRelationalDatabaseDefinition:
 		return ObjectTypeAwsRelationalDatabaseDefinition
 	case AwsRelationalDatabaseInstance, *AwsRelationalDatabaseInstance, []AwsRelationalDatabaseInstance:
 		return ObjectTypeAwsRelationalDatabaseInstance
-	case ClusterDefinition, *ClusterDefinition, []ClusterDefinition:
-		return ObjectTypeClusterDefinition
-	case ClusterInstance, *ClusterInstance, []ClusterInstance:
-		return ObjectTypeClusterInstance
 	case DomainNameDefinition, *DomainNameDefinition, []DomainNameDefinition:
 		return ObjectTypeDomainNameDefinition
 	case DomainNameInstance, *DomainNameInstance, []DomainNameInstance:
@@ -151,6 +147,10 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeGatewayDefinition
 	case GatewayInstance, *GatewayInstance, []GatewayInstance:
 		return ObjectTypeGatewayInstance
+	case KubernetesRuntimeDefinition, *KubernetesRuntimeDefinition, []KubernetesRuntimeDefinition:
+		return ObjectTypeKubernetesRuntimeDefinition
+	case KubernetesRuntimeInstance, *KubernetesRuntimeInstance, []KubernetesRuntimeInstance:
+		return ObjectTypeKubernetesRuntimeInstance
 	case LogBackend, *LogBackend, []LogBackend:
 		return ObjectTypeLogBackend
 	case LogStorageDefinition, *LogStorageDefinition, []LogStorageDefinition:

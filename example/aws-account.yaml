@@ -1,0 +1,15 @@
+AwsAccount:
+  Name: default-account
+  AccountID: "555555555555"
+  DefaultAccount: true
+
+  # option 1: provide explicit configs/credentials
+  #DefaultRegion: some-region
+  #AccessKeyID: "ASDF"
+  #SecretAccessKey: "asdf"
+
+  # option 2: use local AWS configs/credentials
+  LocalConfig: /path/to/local/.aws/config
+  LocalCredentials: /path/to/local/.aws/credentials
+  LocalProfile: default
+

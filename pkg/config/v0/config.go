@@ -8,13 +8,12 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
-	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/util"
 )
 
 const (
-	configName = "config"
-	configType = "yaml"
+	ThreeportConfigName = "config"
+	ThreeportConfigType = "yaml"
 )
 
 // ThreeportConfig is the client's configuration for connecting to Threeport instances
@@ -66,10 +65,10 @@ type KubeAPI struct {
 // EKSProviderConfig is the set of provider config information needed to manage
 // EKS clusters on AWs.
 type EKSProviderConfig struct {
-	AWSConfigEnv     bool   `yaml:"AWSConfigEnv"`
-	AWSConfigProfile string `yaml:"AWSConfigProfile"`
-	AWSRegion        string `yaml:"AWSRegion"`
-	AWSAccountID     string `yaml:"AWSAccountID"`
+	AwsConfigEnv     bool   `yaml:"AWSConfigEnv"`
+	AwsConfigProfile string `yaml:"AWSConfigProfile"`
+	AwsRegion        string `yaml:"AWSRegion"`
+	AwsAccountID     string `yaml:"AWSAccountID"`
 }
 
 // Credential is a client certificate and key pair for authenticating to a Threeport instance.
@@ -77,6 +76,7 @@ type Credential struct {
 	Name       string `yaml:"Name"`
 	ClientCert string `yaml:"ClientCert"`
 	ClientKey  string `yaml:"ClientKey"`
+	Token      string ``
 }
 
 // GetAllInstanceNames returns all instance names in a threeport config.
@@ -90,19 +90,16 @@ func (cfg *ThreeportConfig) GetAllInstanceNames() []string {
 }
 
 // CheckThreeportConfigExists checks if a Threeport instance config exists.
-func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceName string, forceOverwriteConfig bool) (bool, error) {
-	// check threeport config for existing instance
+func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceName string) bool {
 	threeportInstanceConfigExists := false
 	for _, instance := range cfg.Instances {
 		if instance.Name == createThreeportInstanceName {
 			threeportInstanceConfigExists = true
-			if !forceOverwriteConfig {
-				return threeportInstanceConfigExists, errors.New(fmt.Sprintf("instance of threeport with name %s already exists", instance.Name))
-			}
+			break
 		}
 	}
 
-	return threeportInstanceConfigExists, nil
+	return threeportInstanceConfigExists
 }
 
 // GetThreeportAPIEndpoint returns the threeport API endpoint from threeport
@@ -196,49 +193,6 @@ func (cfg *ThreeportConfig) SetCurrentInstance(instanceName string) {
 	viper.WriteConfig()
 }
 
-func InitConfig(cfgFile, providerConfigDir string) {
-	// determine user home dir
-	home, err := homedir.Dir()
-	if err != nil {
-		cli.Error("failed to determine user home directory", err)
-		os.Exit(1)
-	}
-
-	// set default threeport config path if not set by user
-	if cfgFile == "" {
-		viper.AddConfigPath(DefaultThreeportConfigPath(home))
-		viper.SetConfigName(configName)
-		viper.SetConfigType(configType)
-		cfgFile = filepath.Join(DefaultThreeportConfigPath(home), fmt.Sprintf("%s.%s", configName, configType))
-	}
-
-	// create file if it doesn't exit
-	if _, err := os.Stat(cfgFile); errors.Is(err, os.ErrNotExist) {
-		if err := os.MkdirAll(DefaultThreeportConfigPath(home), os.ModePerm); err != nil {
-			cli.Error("failed to create config directory", err)
-			os.Exit(1)
-		}
-		if err := viper.WriteConfigAs(cfgFile); err != nil {
-			cli.Error("failed to write config to disk", err)
-			os.Exit(1)
-		}
-	}
-
-	viper.SetConfigFile(cfgFile)
-
-	// ensure config permissions are read/write for user only
-	if err := os.Chmod(cfgFile, 0600); err != nil {
-		cli.Error("failed to set permissions to read/write only", err)
-		os.Exit(1)
-	}
-
-	if err := viper.ReadInConfig(); err != nil {
-		cli.Error("failed to read config", err)
-		os.Exit(1)
-
-	}
-}
-
 // GetThreeportConfig retrieves the threeport config
 func GetThreeportConfig() (*ThreeportConfig, error) {
 	threeportConfig := &ThreeportConfig{}
@@ -249,20 +203,23 @@ func GetThreeportConfig() (*ThreeportConfig, error) {
 	return threeportConfig, nil
 }
 
-// UpdateThreeportConfig updates a threeport config to add a new instance and
-// set it as the current instance.
-func UpdateThreeportConfig(threeportInstanceConfigExists bool, threeportConfig *ThreeportConfig, createThreeportInstanceName string, newThreeportInstance *Instance) {
-	if threeportInstanceConfigExists {
+// UpdateThreeportConfig updates a threeport config to add or update a config
+// for a threeport instance and set it as the current instance.
+func UpdateThreeportConfig(
+	threeportConfig *ThreeportConfig,
+	threeportInstanceConfig *Instance,
+) {
+	if threeportConfig.CheckThreeportConfigExists(threeportInstanceConfig.Name) {
 		for n, instance := range threeportConfig.Instances {
-			if instance.Name == createThreeportInstanceName {
-				threeportConfig.Instances[n] = *newThreeportInstance
+			if instance.Name == threeportInstanceConfig.Name {
+				threeportConfig.Instances[n] = *threeportInstanceConfig
 			}
 		}
 	} else {
-		threeportConfig.Instances = append(threeportConfig.Instances, *newThreeportInstance)
+		threeportConfig.Instances = append(threeportConfig.Instances, *threeportInstanceConfig)
 	}
 	viper.Set("Instances", threeportConfig.Instances)
-	viper.Set("CurrentInstance", createThreeportInstanceName)
+	viper.Set("CurrentInstance", threeportInstanceConfig.Name)
 	viper.WriteConfig()
 }
 

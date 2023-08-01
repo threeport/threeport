@@ -1,6 +1,12 @@
 REST_API_IMG ?= threeport-rest-api:latest
 WORKLOAD_CONTROLLER_IMG ?= threeport-workload-controller:latest
-GATEWAY_IMG ?= threeport-gateway:latest
+KUBERNETES_RUNTIME_CONTROLLER_IMG ?= threeport-kubernetes-runtime-controller:latest
+AWS_CONTROLLER_IMG ?= threeport-aws-controller:latest
+GATEWAY_CONTROLLER_IMG ?= threeport-gateway-controller:latest
+AGENT_IMG ?= threeport-agent:latest
+
+IMG_REPO ?= ""
+IMG_TAG ?= dev
 
 #help: @ List available make targets
 help:
@@ -75,6 +81,14 @@ dev-logs-api:
 dev-logs-wrk:
 	kubectl logs deploy/threeport-workload-controller -n threeport-control-plane -f
 
+#dev-logs-wrk: @ Follow log output from the local dev kubernetes runtime controller
+dev-logs-kr:
+	kubectl logs deploy/threeport-kubernetes-runtime-controller -n threeport-control-plane -f
+
+#dev-logs-aws: @ Follow log output from the local dev aws controller
+dev-logs-aws:
+	kubectl logs deploy/threeport-aws-controller -n threeport-control-plane -f
+
 #dev-logs-agent: @ Follow log output from the local dev agent
 dev-logs-agent:
 	kubectl logs deploy/threeport-agent -n threeport-control-plane -f
@@ -138,13 +152,21 @@ rest-api-image-build:
 workload-controller-image-build:
 	docker build -t $(WORKLOAD_CONTROLLER_IMG) -f cmd/workload-controller/image/Dockerfile .
 
+#kubernetes-runtime-controller-image-build: @ Build kubernetes runtime controller container image
+kubernetes-runtime-controller-image-build:
+	docker build -t $(KUBERNETES_RUNTIME_CONTROLLER_IMG) -f cmd/kubernetes-runtime-controller/image/Dockerfile .
+
+#aws-controller-image-build: @ Build aws controller container image
+aws-controller-image-build:
+	docker build -t $(AWS_CONTROLLER_IMG) -f cmd/aws-controller/image/Dockerfile .
+
+#gateway-image-build: @ Build gateway controller container image
+gateway-controller-image-build:
+	docker build -t $(GATEWAY_CONTROLLER_IMG) -f cmd/gateway-controller/image/Dockerfile .
+
 #agent-image-build: @ Build agent container image
 agent-image-build:
 	docker build -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile .
-
-#gateway-image-build: @ Build agent container image
-gateway-image-build:
-	docker build -t $(GATEWAY_IMG) -f cmd/gateway-controller/image/Dockerfile .
 
 #rest-api-image: @ Build and push REST API container image
 rest-api-image: rest-api-image-build
@@ -154,7 +176,22 @@ rest-api-image: rest-api-image-build
 workload-controller-image: workload-controller-image-build
 	docker push $(WORKLOAD_CONTROLLER_IMG)
 
+#kubernetes-runtime-controller-image: @ Build and push kubernetes runtime controller container image
+kubernetes-runtime-controller-image: kubernetes-runtime-controller-image-build
+	docker push $(KUBERNETES_RUNTIME_CONTROLLER_IMG)
+
+#aws-controller-image: @ Build and push aws controller container image
+aws-controller-image: aws-controller-image-build
+	docker push $(AWS_CONTROLLER_IMG)
+
+#gateway-controller-image: @ Build and push gateway controller container image
+gateway-controller-image: gateway-controller-image-build
+	docker push $(GATEWAY_CONTROLLER_IMG)
+
 #agent-image: @ Build and push agent container image
 agent-image: agent-image-build
 	docker push $(AGENT_IMG)
+
+#control-plane-images: @ Build and push all control plane images
+control-plane-images: rest-api-image workload-controller-image kubernetes-runtime-controller-image aws-controller-image gateway-controller-image agent-image
 

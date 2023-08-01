@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	ObjectTypeAwsAccount                      ObjectType = "AwsAccount"
-	ObjectTypeAwsEksClusterDefinition         ObjectType = "AwsEksClusterDefinition"
-	ObjectTypeAwsEksClusterInstance           ObjectType = "AwsEksClusterInstance"
-	ObjectTypeAwsRelationalDatabaseDefinition ObjectType = "AwsRelationalDatabaseDefinition"
-	ObjectTypeAwsRelationalDatabaseInstance   ObjectType = "AwsRelationalDatabaseInstance"
+	ObjectTypeAwsAccount                        ObjectType = "AwsAccount"
+	ObjectTypeAwsEksKubernetesRuntimeDefinition ObjectType = "AwsEksKubernetesRuntimeDefinition"
+	ObjectTypeAwsEksKubernetesRuntimeInstance   ObjectType = "AwsEksKubernetesRuntimeInstance"
+	ObjectTypeAwsRelationalDatabaseDefinition   ObjectType = "AwsRelationalDatabaseDefinition"
+	ObjectTypeAwsRelationalDatabaseInstance     ObjectType = "AwsRelationalDatabaseInstance"
 
 	AwsStreamName = "awsStream"
 
@@ -22,15 +22,15 @@ const (
 	AwsAccountUpdateSubject = "awsAccount.update"
 	AwsAccountDeleteSubject = "awsAccount.delete"
 
-	AwsEksClusterDefinitionSubject       = "awsEksClusterDefinition.*"
-	AwsEksClusterDefinitionCreateSubject = "awsEksClusterDefinition.create"
-	AwsEksClusterDefinitionUpdateSubject = "awsEksClusterDefinition.update"
-	AwsEksClusterDefinitionDeleteSubject = "awsEksClusterDefinition.delete"
+	AwsEksKubernetesRuntimeDefinitionSubject       = "awsEksKubernetesRuntimeDefinition.*"
+	AwsEksKubernetesRuntimeDefinitionCreateSubject = "awsEksKubernetesRuntimeDefinition.create"
+	AwsEksKubernetesRuntimeDefinitionUpdateSubject = "awsEksKubernetesRuntimeDefinition.update"
+	AwsEksKubernetesRuntimeDefinitionDeleteSubject = "awsEksKubernetesRuntimeDefinition.delete"
 
-	AwsEksClusterInstanceSubject       = "awsEksClusterInstance.*"
-	AwsEksClusterInstanceCreateSubject = "awsEksClusterInstance.create"
-	AwsEksClusterInstanceUpdateSubject = "awsEksClusterInstance.update"
-	AwsEksClusterInstanceDeleteSubject = "awsEksClusterInstance.delete"
+	AwsEksKubernetesRuntimeInstanceSubject       = "awsEksKubernetesRuntimeInstance.*"
+	AwsEksKubernetesRuntimeInstanceCreateSubject = "awsEksKubernetesRuntimeInstance.create"
+	AwsEksKubernetesRuntimeInstanceUpdateSubject = "awsEksKubernetesRuntimeInstance.update"
+	AwsEksKubernetesRuntimeInstanceDeleteSubject = "awsEksKubernetesRuntimeInstance.delete"
 
 	AwsRelationalDatabaseDefinitionSubject       = "awsRelationalDatabaseDefinition.*"
 	AwsRelationalDatabaseDefinitionCreateSubject = "awsRelationalDatabaseDefinition.create"
@@ -42,11 +42,11 @@ const (
 	AwsRelationalDatabaseInstanceUpdateSubject = "awsRelationalDatabaseInstance.update"
 	AwsRelationalDatabaseInstanceDeleteSubject = "awsRelationalDatabaseInstance.delete"
 
-	PathAwsAccounts                      = "/v0/aws-accounts"
-	PathAwsEksClusterDefinitions         = "/v0/aws-eks-cluster-definitions"
-	PathAwsEksClusterInstances           = "/v0/aws-eks-cluster-instances"
-	PathAwsRelationalDatabaseDefinitions = "/v0/aws-relational-database-definitions"
-	PathAwsRelationalDatabaseInstances   = "/v0/aws-relational-database-instances"
+	PathAwsAccounts                        = "/v0/aws-accounts"
+	PathAwsEksKubernetesRuntimeDefinitions = "/v0/aws-eks-kubernetes-runtime-definitions"
+	PathAwsEksKubernetesRuntimeInstances   = "/v0/aws-eks-kubernetes-runtime-instances"
+	PathAwsRelationalDatabaseDefinitions   = "/v0/aws-relational-database-definitions"
+	PathAwsRelationalDatabaseInstances     = "/v0/aws-relational-database-instances"
 )
 
 // GetAwsAccountSubjects returns the NATS subjects
@@ -59,23 +59,23 @@ func GetAwsAccountSubjects() []string {
 	}
 }
 
-// GetAwsEksClusterDefinitionSubjects returns the NATS subjects
-// for aws eks cluster definitions.
-func GetAwsEksClusterDefinitionSubjects() []string {
+// GetAwsEksKubernetesRuntimeDefinitionSubjects returns the NATS subjects
+// for aws eks kubernetes runtime definitions.
+func GetAwsEksKubernetesRuntimeDefinitionSubjects() []string {
 	return []string{
-		AwsEksClusterDefinitionCreateSubject,
-		AwsEksClusterDefinitionUpdateSubject,
-		AwsEksClusterDefinitionDeleteSubject,
+		AwsEksKubernetesRuntimeDefinitionCreateSubject,
+		AwsEksKubernetesRuntimeDefinitionUpdateSubject,
+		AwsEksKubernetesRuntimeDefinitionDeleteSubject,
 	}
 }
 
-// GetAwsEksClusterInstanceSubjects returns the NATS subjects
-// for aws eks cluster instances.
-func GetAwsEksClusterInstanceSubjects() []string {
+// GetAwsEksKubernetesRuntimeInstanceSubjects returns the NATS subjects
+// for aws eks kubernetes runtime instances.
+func GetAwsEksKubernetesRuntimeInstanceSubjects() []string {
 	return []string{
-		AwsEksClusterInstanceCreateSubject,
-		AwsEksClusterInstanceUpdateSubject,
-		AwsEksClusterInstanceDeleteSubject,
+		AwsEksKubernetesRuntimeInstanceCreateSubject,
+		AwsEksKubernetesRuntimeInstanceUpdateSubject,
+		AwsEksKubernetesRuntimeInstanceDeleteSubject,
 	}
 }
 
@@ -105,8 +105,8 @@ func GetAwsSubjects() []string {
 	var awsSubjects []string
 
 	awsSubjects = append(awsSubjects, GetAwsAccountSubjects()...)
-	awsSubjects = append(awsSubjects, GetAwsEksClusterDefinitionSubjects()...)
-	awsSubjects = append(awsSubjects, GetAwsEksClusterInstanceSubjects()...)
+	awsSubjects = append(awsSubjects, GetAwsEksKubernetesRuntimeDefinitionSubjects()...)
+	awsSubjects = append(awsSubjects, GetAwsEksKubernetesRuntimeInstanceSubjects()...)
 	awsSubjects = append(awsSubjects, GetAwsRelationalDatabaseDefinitionSubjects()...)
 	awsSubjects = append(awsSubjects, GetAwsRelationalDatabaseInstanceSubjects()...)
 
@@ -136,6 +136,22 @@ func (aa *AwsAccount) NotificationPayload(
 	return &payload, nil
 }
 
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (aa *AwsAccount) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &aa); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
 // GetID returns the unique ID for the object.
 func (aa *AwsAccount) GetID() uint {
 	return *aa.ID
@@ -149,67 +165,99 @@ func (aa AwsAccount) String() string {
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (aecd *AwsEksClusterDefinition) NotificationPayload(
+func (aekrd *AwsEksKubernetesRuntimeDefinition) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
 	lastDelay int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
-		Object:           aecd,
+		Object:           aekrd,
 		Operation:        operation,
 		Requeue:          requeue,
 	}
 
 	payload, err := json.Marshal(notif)
 	if err != nil {
-		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", aecd, err)
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", aekrd, err)
 	}
 
 	return &payload, nil
 }
 
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (aekrd *AwsEksKubernetesRuntimeDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &aekrd); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
 // GetID returns the unique ID for the object.
-func (aecd *AwsEksClusterDefinition) GetID() uint {
-	return *aecd.ID
+func (aekrd *AwsEksKubernetesRuntimeDefinition) GetID() uint {
+	return *aekrd.ID
 }
 
 // String returns a string representation of the ojbect.
-func (aecd AwsEksClusterDefinition) String() string {
-	return fmt.Sprintf("v0.AwsEksClusterDefinition")
+func (aekrd AwsEksKubernetesRuntimeDefinition) String() string {
+	return fmt.Sprintf("v0.AwsEksKubernetesRuntimeDefinition")
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (aeci *AwsEksClusterInstance) NotificationPayload(
+func (aekri *AwsEksKubernetesRuntimeInstance) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
 	lastDelay int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
 		LastRequeueDelay: &lastDelay,
-		Object:           aeci,
+		Object:           aekri,
 		Operation:        operation,
 		Requeue:          requeue,
 	}
 
 	payload, err := json.Marshal(notif)
 	if err != nil {
-		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", aeci, err)
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", aekri, err)
 	}
 
 	return &payload, nil
 }
 
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (aekri *AwsEksKubernetesRuntimeInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &aekri); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
 // GetID returns the unique ID for the object.
-func (aeci *AwsEksClusterInstance) GetID() uint {
-	return *aeci.ID
+func (aekri *AwsEksKubernetesRuntimeInstance) GetID() uint {
+	return *aekri.ID
 }
 
 // String returns a string representation of the ojbect.
-func (aeci AwsEksClusterInstance) String() string {
-	return fmt.Sprintf("v0.AwsEksClusterInstance")
+func (aekri AwsEksKubernetesRuntimeInstance) String() string {
+	return fmt.Sprintf("v0.AwsEksKubernetesRuntimeInstance")
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -233,6 +281,22 @@ func (ardd *AwsRelationalDatabaseDefinition) NotificationPayload(
 	}
 
 	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (ardd *AwsRelationalDatabaseDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &ardd); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
 }
 
 // GetID returns the unique ID for the object.
@@ -266,6 +330,22 @@ func (ardi *AwsRelationalDatabaseInstance) NotificationPayload(
 	}
 
 	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (ardi *AwsRelationalDatabaseInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &ardi); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
 }
 
 // GetID returns the unique ID for the object.
