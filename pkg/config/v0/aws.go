@@ -64,7 +64,7 @@ type AwsEksKubernetesRuntimeInstanceValues struct {
 // Create creates an AWS account in the Threeport API.
 func (aa *AwsAccountValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsAccount, error) {
 	// validate required fields
-	if a.Name == "" || a.AccountID == "" {
+	if aa.Name == "" || aa.AccountID == "" {
 		return nil, errors.New("missing required field/s in config - required fields: Name, AccountID")
 	}
 
