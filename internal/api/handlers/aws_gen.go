@@ -607,11 +607,17 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
 	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
-	if result := h.DB.First(&awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
+	if result := h.DB.Preload("AwsEksKubernetesRuntimeInstances").First(&awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check to make sure no dependent instances exist for this definition
+	if len(awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeInstances) != 0 {
+		err := errors.New("aws eks kubernetes runtime definition has related aws eks kubernetes runtime instances - cannot be deleted")
+		return iapi.ResponseStatus409(c, nil, err, objectType)
 	}
 
 	if result := h.DB.Delete(&awsEksKubernetesRuntimeDefinition); result.Error != nil {
