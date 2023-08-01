@@ -21,7 +21,6 @@ func deletionInstanceCheckTypeNames() []string {
 		"GatewayDefinition",
 		"KubernetesRuntimeDefinition",
 		"WorkloadDefinition",
-		"DomainNameDefinition",
 	}
 }
 

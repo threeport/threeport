@@ -617,6 +617,15 @@ definitions:
     - DomainNameInstance
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - Profile
+    - Tier
     type: string
     x-enum-varnames:
     - ObjectTypeForwardProxyDefinition
@@ -663,6 +672,15 @@ definitions:
     - ObjectTypeDomainNameInstance
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
   v0.Profile:
     properties:
       Name:
