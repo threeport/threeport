@@ -19,7 +19,7 @@ jobs:
     - name: Build threeport API
       uses: macbre/push-to-ghcr@master
       with:
-        image_name: threeport-rest-api
+        image_name: threeport/threeport-rest-api
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dockerfile: cmd/rest-api/image/Dockerfile
         image_tag: ${{ github.sha }}
@@ -27,7 +27,7 @@ jobs:
     - name: Build workload-controller
       uses: macbre/push-to-ghcr@master
       with:
-        image_name: threeport-workload-controller
+        image_name: threeport/threeport-workload-controller
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dockerfile: cmd/workload-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
@@ -35,7 +35,7 @@ jobs:
     - name: Build kubernetes-runtime-controller
       uses: macbre/push-to-ghcr@master
       with:
-        image_name: threeport-kubernetes-runtime-controller
+        image_name: threeport/threeport-kubernetes-runtime-controller
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dockerfile: cmd/kubernetes-runtime-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
@@ -43,7 +43,7 @@ jobs:
     - name: Build aws-controller
       uses: macbre/push-to-ghcr@master
       with:
-        image_name: threeport-aws-controller
+        image_name: threeport/threeport-aws-controller
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dockerfile: cmd/aws-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
@@ -51,7 +51,7 @@ jobs:
     - name: Build gateway-controller
       uses: macbre/push-to-ghcr@master
       with:
-        image_name: threeport-gateway-controller
+        image_name: threeport/threeport-gateway-controller
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dockerfile: cmd/gateway-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
@@ -59,7 +59,7 @@ jobs:
     - name: Build threeport-agent
       uses: macbre/push-to-ghcr@master
       with:
-        image_name: threeport-agent
+        image_name: threeport/threeport-agent
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dockerfile: cmd/agent/image/Dockerfile
         image_tag: ${{ github.sha }}
