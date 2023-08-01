@@ -17,6 +17,9 @@ type AwsAccount struct {
 	// If true is the AWS Account used if none specified in a definition.
 	DefaultAccount *bool `json:"DefaultAccount,omitempty" query:"defaultaccount" gorm:"default:false" validate:"optional"`
 
+	// The region to use for AWS managed services if not specified.
+	DefaultRegion *string `json:"DefaultRegion,omitempty" query:"defaultregion" gorm:"not null" validate:"required"`
+
 	// The key ID credentials for the AWS account.
 	AccessKeyID *string `json:"AccessKeyID,omitempty" query:"accesskeyid" gorm:"not null" validate:"required"`
 
