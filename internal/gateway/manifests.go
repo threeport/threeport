@@ -8,6 +8,24 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+func createSupportServicesCollection() (string, error) {
+	var supportServicesCollection = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "orchestration.support-services.nukleros.io/v1alpha1",
+			"kind":       "SupportServices",
+			"metadata": map[string]interface{}{
+				"name": "supportservices-sample",
+			},
+			"spec": map[string]interface{}{
+				"tier":                     "development",
+				"defaultIngressController": "kong",
+			},
+		},
+	}
+
+	return unstructuredToYAMLString(supportServicesCollection)
+}
+
 func createGlooEdge() (string, error) {
 
 	var glooEdge = &unstructured.Unstructured{
@@ -27,7 +45,7 @@ func createGlooEdge() (string, error) {
 	return unstructuredToYAMLString(glooEdge)
 }
 
-func createExternalDns(iamRoleArn string) (string, error) {
+func createExternalDns(provider, iamRoleArn string) (string, error) {
 
 	var resourceObj = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -45,7 +63,7 @@ func createExternalDns(iamRoleArn string) (string, error) {
 				"domainName":         "nukleros.io",
 				"image":              "k8s.gcr.io/external-dns/external-dns",
 				"version":            "v0.12.2",
-				"provider":           "none",
+				"provider":           provider,
 				"serviceAccountName": "external-dns",
 				"iamRoleArn":         iamRoleArn,
 			},
@@ -66,26 +84,7 @@ func createGlooEdgePort(name string, port int64, ssl bool) map[string]interface{
 	return portObject
 }
 
-func createSupportServicesCollection() (string, error) {
-
-	var supportServicesCollection = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "orchestration.support-services.nukleros.io/v1alpha1",
-			"kind":       "SupportServices",
-			"metadata": map[string]interface{}{
-				"name": "supportservices-sample",
-			},
-			"spec": map[string]interface{}{
-				"tier":                     "development",
-				"defaultIngressController": "kong",
-			},
-		},
-	}
-
-	return unstructuredToYAMLString(supportServicesCollection)
-}
-
-func createCertManager() (string, error) {
+func createCertManager(iamRoleArn string) (string, error) {
 
 	var certManager = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -110,7 +109,7 @@ func createCertManager() (string, error) {
 					"image":    "quay.io/jetstack/cert-manager-webhook",
 				},
 				"contactEmail": "admin@nukleros.io",
-				"iamRoleArn":   "iam_role_arn",
+				"iamRoleArn":   iamRoleArn,
 			},
 		},
 	}

@@ -28,9 +28,9 @@ func domainNameInstanceCreated(
 	}
 
 	// create attached object reference
-	gatewayInstanceType := reflect.TypeOf(*domainNameInstance).String()
+	domainNameInstanceType := reflect.TypeOf(*domainNameInstance).String()
 	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
-		Type:               &gatewayInstanceType,
+		Type:               &domainNameInstanceType,
 		ObjectID:           domainNameInstance.ID,
 		WorkloadInstanceID: domainNameInstance.WorkloadInstanceID,
 	}
@@ -145,13 +145,13 @@ func reconcileCreatedOrUpdatedDomainNameInstance(
 	}
 
 	// configure virtual service
-	virtualService, err := configureWorkloadResourceInstance(r, domainNameDefinition, workloadInstance)
+	workloadResourceInstance, err := configureWorkloadResourceInstance(r, domainNameDefinition, workloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to configure virtual service: %w", err)
 	}
 
 	// update workload resource instance
-	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, virtualService)
+	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
 	if err != nil {
 		return fmt.Errorf("failed to create workload resource instance: %w", err)
 	}
@@ -251,6 +251,7 @@ func confirmDnsControllerDeployed(
 		return fmt.Errorf("failed to get infra provider: %w", err)
 	}
 
+	// generate external dns manifest based on infra provider
 	var externalDnsManifest string
 	switch *infraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
@@ -260,14 +261,14 @@ func confirmDnsControllerDeployed(
 			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 		}
 
-		externalDnsManifest, err = createExternalDns(*iamRoleArn)
+		externalDnsManifest, err = createExternalDns("route53", *iamRoleArn)
 		if err != nil {
 			return fmt.Errorf("failed to create external dns: %w", err)
 		}
 
 	case v0.KubernetesRuntimeInfraProviderKind:
 
-		externalDnsManifest, err = createExternalDns("")
+		externalDnsManifest, err = createExternalDns("none", "")
 		if err != nil {
 			return fmt.Errorf("failed to create external dns: %w", err)
 		}
@@ -316,7 +317,8 @@ func confirmDnsControllerDeployed(
 
 }
 
-// configureWorkloadResourceInstance configures the dns endpoint for a domain name instance.
+// configureWorkloadResourceInstance configures the target workload
+// resource instance for a domain name instance.
 func configureWorkloadResourceInstance(
 	r *controller.Reconciler,
 	domainNameDefinition *v0.DomainNameDefinition,
@@ -371,6 +373,7 @@ func configureWorkloadResourceInstance(
 		return nil, fmt.Errorf("failed to marshal virtual service: %w", err)
 	}
 
+	// mark workload resource instance as not reconciled
 	workloadResourceInstanceReconciled := false
 	workloadResourceInstance.Reconciled = &workloadResourceInstanceReconciled
 	workloadResourceInstance.JSONDefinition = &virtualServiceMarshaled

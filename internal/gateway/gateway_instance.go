@@ -401,14 +401,40 @@ func confirmGatewayControllerDeployed(
 		return fmt.Errorf("failed to create support services collection resource: %w", err)
 	}
 
-	// generate cert manager manifest
-	certManager, err := createCertManager()
+	// get infra provider
+	infraProvider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
 	if err != nil {
-		return fmt.Errorf("failed to create cert manager resource: %w", err)
+		return fmt.Errorf("failed to get infra provider: %w", err)
+	}
+
+	// generate cert manager manifest based on infra provider
+	var certManager string
+	switch *infraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+
+		iamRoleArn, err := client.GetDnsManagementIamRoleArnByK8sRuntimeInst(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
+		}
+
+		certManager, err = createCertManager(*iamRoleArn)
+		if err != nil {
+			return fmt.Errorf("failed to create cert manager resource: %w", err)
+		}
+
+	case v0.KubernetesRuntimeInfraProviderKind:
+
+		certManager, err = createCertManager("")
+		if err != nil {
+			return fmt.Errorf("failed to create cert manager resource: %w", err)
+		}
+
+	default:
+		break
 	}
 
 	// concatenate gloo edge, support services collection, and cert manager manifests
-	manifest := fmt.Sprintf("---\n%s\n---\n%s\n---\n%s\n", glooEdge, supportServicesCollection, certManager)
+	manifest := fmt.Sprintf("---\n%s\n---\n%s\n---\n%s\n", supportServicesCollection, certManager, glooEdge)
 
 	// create gateway controller workload definition
 	workloadDefName := "gloo-edge"
