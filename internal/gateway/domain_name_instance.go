@@ -3,6 +3,7 @@ package gateway
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	"github.com/threeport/threeport/internal/util"
@@ -24,6 +25,18 @@ func domainNameInstanceCreated(
 	err := reconcileCreatedOrUpdatedDomainNameInstance(r, domainNameInstance, log)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile created domain name instance: %w", err)
+	}
+
+	// create attached object reference
+	gatewayInstanceType := reflect.TypeOf(*domainNameInstance).String()
+	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
+		Type:               &gatewayInstanceType,
+		ObjectID:           domainNameInstance.ID,
+		WorkloadInstanceID: domainNameInstance.WorkloadInstanceID,
+	}
+	_, err = client.CreateAttachedObjectReference(r.APIClient, r.APIServer, workloadInstanceAttachedObjectReference)
+	if err != nil {
+		return fmt.Errorf("failed to create attached object reference: %w", err)
 	}
 
 	return nil
@@ -151,6 +164,14 @@ func reconcileCreatedOrUpdatedDomainNameInstance(
 		return fmt.Errorf("failed to update workload instance: %w", err)
 	}
 
+	// mark domain name instance as reconciled
+	domainNameInstanceReconciled := false
+	domainNameInstance.Reconciled = &domainNameInstanceReconciled
+	_, err = client.UpdateDomainNameInstance(r.APIClient, r.APIServer, domainNameInstance)
+	if err != nil {
+		return fmt.Errorf("failed to update domain name instance: %w", err)
+	}
+
 	return nil
 }
 
@@ -230,7 +251,7 @@ func confirmDnsControllerDeployed(
 		return fmt.Errorf("failed to get infra provider: %w", err)
 	}
 
-	var externalDns string
+	var externalDnsManifest string
 	switch *infraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 
@@ -239,7 +260,14 @@ func confirmDnsControllerDeployed(
 			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 		}
 
-		externalDns, err = createExternalDns(*iamRoleArn)
+		externalDnsManifest, err = createExternalDns(*iamRoleArn)
+		if err != nil {
+			return fmt.Errorf("failed to create external dns: %w", err)
+		}
+
+	case v0.KubernetesRuntimeInfraProviderKind:
+
+		externalDnsManifest, err = createExternalDns("")
 		if err != nil {
 			return fmt.Errorf("failed to create external dns: %w", err)
 		}
@@ -252,7 +280,7 @@ func confirmDnsControllerDeployed(
 	workloadDefName := "external-dns"
 	externalDnsWorkloadDefinition := v0.WorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
-		YAMLDocument: &externalDns,
+		YAMLDocument: &externalDnsManifest,
 	}
 
 	// create external dns controller workload definition
@@ -327,7 +355,7 @@ func configureWorkloadResourceInstance(
 		// unmarshal service name
 		err = unstructured.SetNestedField(
 			virtualServiceUnmarshaled,
-			domainNameDefinition.Domain,
+			*domainNameDefinition.Domain,
 			"metadata",
 			"annotations",
 			"external-dns.alpha.kubernetes.io/hostname",

@@ -98,6 +98,7 @@ func TestWorkloadE2E(t *testing.T) {
 		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		assert.Nil(err, "should have no error creating http client")
 
+		// configure gateway definition object
 		gatewayDefinitionName := "gatewayDefinition"
 		tcpPort := 443
 		tlsEnabled := false
@@ -142,6 +143,26 @@ func TestWorkloadE2E(t *testing.T) {
 			&duplicateWorkload,
 		)
 		assert.NotNil(err, "duplicate workload definition should throw error")
+
+		// configure domain name definition object
+		domainNameDefinitionName := "domainNameDefinition"
+		domainNameDefinitionDomain := "test.threeport.io"
+		domainNameDefinitionZone := "testZone"
+		domainNameDefinition := &v0.DomainNameDefinition{
+			Definition: v0.Definition{
+				Name: &domainNameDefinitionName,
+			},
+			Domain: &domainNameDefinitionDomain,
+			Zone:   &domainNameDefinitionZone,
+		}
+
+		// create domain name definition
+		_, err = client.CreateDomainNameDefinition(
+			apiClient,
+			apiAddr(),
+			domainNameDefinition,
+		)
+		assert.Nil(err, "should have no error creating domain name definition")
 
 		if assert.NotNil(createdWorkloadDef, "should have a workload definition returned") {
 			assert.NotNil(createdWorkloadDef.ID, "created workload definition should contain unique ID")
@@ -263,6 +284,23 @@ func TestWorkloadE2E(t *testing.T) {
 			gatewayInstance,
 		)
 		assert.Nil(err, "should have no error creating gateway instance")
+
+		// create domain name instance
+		domainNameInstanceName := "domainNameInstance"
+		domainNameInstance := &v0.DomainNameInstance{
+			Instance: v0.Instance{
+				Name: &domainNameInstanceName,
+			},
+			DomainNameDefinitionID:      domainNameDefinition.ID,
+			WorkloadInstanceID:          createdWorkloadInst.ID,
+			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
+		}
+		_, err = client.CreateDomainNameInstance(
+			apiClient,
+			apiAddr(),
+			domainNameInstance,
+		)
+		assert.Nil(err, "should have no error creating domain name instance")
 
 		// get the kubernetes runtime instance from the threeport API so we can connect to it
 		kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
@@ -451,6 +489,27 @@ func TestWorkloadE2E(t *testing.T) {
 			break
 		}
 		assert.Nil(err, "should have no error deleting gateway definition")
+
+		// delete gateway definition
+		deleteDomainNameDefinitionAttempts := 0
+		deleteDomainNameDefinitionAttemptsMax := 10
+		for deleteDomainNameDefinitionAttempts < deleteDomainNameDefinitionAttemptsMax {
+			_, err = client.DeleteDomainNameDefinition(
+				apiClient,
+				apiAddr(),
+				*domainNameDefinition.ID,
+			)
+
+			// workload controller may not have deleted the gateway
+			// instance yet. If so, wait and try again
+			if err != nil {
+				deletedAttempts += 1
+				time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
+				continue
+			}
+			break
+		}
+		assert.Nil(err, "should have no error deleting domain name definition")
 
 		// delete workload definition
 		deletedWorkloadDef, err := client.DeleteWorkloadDefinition(
