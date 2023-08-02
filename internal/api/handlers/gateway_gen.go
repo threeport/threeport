@@ -870,28 +870,9 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// if client doesn't specify reconciled, set it to false
-	if updatedDomainNameDefinition.Reconciled == nil {
-		reconciled := false
-		updatedDomainNameDefinition.Reconciled = &reconciled
-	}
-
 	// update object in database
 	if result := h.DB.Model(&existingDomainNameDefinition).Updates(updatedDomainNameDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// notify controllers if reconciliation is required
-	if !*existingDomainNameDefinition.Reconciled {
-		notifPayload, err := existingDomainNameDefinition.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			0,
-		)
-		if err != nil {
-			return iapi.ResponseStatus500(c, nil, err, objectType)
-		}
-		h.JS.Publish(v0.DomainNameDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := v0.CreateResponse(nil, existingDomainNameDefinition)
