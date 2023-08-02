@@ -1204,6 +1204,7 @@ func InstallThreeportAgent(
 								"args":            agentArgs,
 								"image":           agentImage,
 								"imagePullPolicy": "IfNotPresent",
+								"name": "manager",
 								// TODO: configure liveness & readiness to be
 								// consistent across develoment controller deployments
 								// "livenessProbe": map[string]interface{}{
@@ -1214,7 +1215,6 @@ func InstallThreeportAgent(
 								// 	"initialDelaySeconds": 5,
 								// 	"periodSeconds":       20,
 								// },
-								// "name": "manager",
 								// "readinessProbe": map[string]interface{}{
 								// 	"httpGet": map[string]interface{}{
 								// 		"path": "/readyz",
