@@ -1204,23 +1204,25 @@ func InstallThreeportAgent(
 								"args":            agentArgs,
 								"image":           agentImage,
 								"imagePullPolicy": "IfNotPresent",
-								//"livenessProbe": map[string]interface{}{
-								//	"httpGet": map[string]interface{}{
-								//		"path": "/healthz",
-								//		"port": 8081,
-								//	},
-								//	"initialDelaySeconds": 5,
-								//	"periodSeconds":       20,
-								//},
-								"name": "manager",
-								//"readinessProbe": map[string]interface{}{
-								//	"httpGet": map[string]interface{}{
-								//		"path": "/readyz",
-								//		"port": 8081,
-								//	},
-								//	"initialDelaySeconds": 5,
-								//	"periodSeconds":       10,
-								//},
+								// TODO: configure liveness & readiness to be
+								// consistent across develoment controller deployments
+								// "livenessProbe": map[string]interface{}{
+								// 	"httpGet": map[string]interface{}{
+								// 		"path": "/healthz",
+								// 		"port": 8081,
+								// 	},
+								// 	"initialDelaySeconds": 5,
+								// 	"periodSeconds":       20,
+								// },
+								// "name": "manager",
+								// "readinessProbe": map[string]interface{}{
+								// 	"httpGet": map[string]interface{}{
+								// 		"path": "/readyz",
+								// 		"port": 8081,
+								// 	},
+								// 	"initialDelaySeconds": 5,
+								// 	"periodSeconds":       10,
+								// },
 								//"resources": map[string]interface{}{
 								//	"limits": map[string]interface{}{
 								//		"cpu":    "500m",
