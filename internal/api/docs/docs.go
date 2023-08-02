@@ -8047,7 +8047,13 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "AWSAccountID",
-                "Name"
+                "DefaultNodeGroupInitialSize",
+                "DefaultNodeGroupInstanceType",
+                "DefaultNodeGroupMaximumSize",
+                "DefaultNodeGroupMinimumSize",
+                "KubernetesRuntimeDefinitionID",
+                "Name",
+                "ZoneCount"
             ],
             "properties": {
                 "AWSAccountID": {

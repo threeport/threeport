@@ -103,6 +103,11 @@ definitions:
         type: integer
     required:
     - AWSAccountID
+    - DefaultNodeGroupInitialSize
+    - DefaultNodeGroupInstanceType
+    - DefaultNodeGroupMaximumSize
+    - DefaultNodeGroupMinimumSize
+    - KubernetesRuntimeDefinitionID
     - Name
     - ZoneCount
     type: object
