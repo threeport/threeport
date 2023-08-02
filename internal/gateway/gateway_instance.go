@@ -26,6 +26,18 @@ func gatewayInstanceCreated(
 	log *logr.Logger,
 ) error {
 
+	// ensure attached object reference exists
+	err := client.EnsureAttachedObjectReferenceExists(
+		r.APIClient,
+		r.APIServer,
+		reflect.TypeOf(*gatewayInstance).String(),
+		gatewayInstance.ID,
+		gatewayInstance.WorkloadInstanceID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
+	}
+
 	// initialize threeport object references
 	kubernetesRuntimeInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
 	if err != nil {
@@ -58,18 +70,6 @@ func gatewayInstanceCreated(
 	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update workload instance: %w", err)
-	}
-
-	// create attached object reference
-	gatewayInstanceType := reflect.TypeOf(*gatewayInstance).String()
-	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
-		Type:               &gatewayInstanceType,
-		ObjectID:           gatewayInstance.ID,
-		WorkloadInstanceID: workloadInstance.ID,
-	}
-	_, err = client.CreateAttachedObjectReference(r.APIClient, r.APIServer, workloadInstanceAttachedObjectReference)
-	if err != nil {
-		return fmt.Errorf("failed to create attached object reference: %w", err)
 	}
 
 	// update gateway instance
@@ -221,6 +221,10 @@ func gatewayInstanceDeleted(
 		}
 		_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
 		if err != nil {
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				// workload resource instance has already been deleted
+				return nil
+			}
 			return fmt.Errorf("failed to update workload resource instance: %w", err)
 		}
 	}
@@ -236,6 +240,10 @@ func gatewayInstanceDeleted(
 	}
 	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
+		if errors.Is(err, client.ErrorObjectNotFound) {
+			// workload resource instance has already been deleted
+			return nil
+		}
 		return fmt.Errorf("failed to update workload instance: %w", err)
 	}
 

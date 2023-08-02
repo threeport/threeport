@@ -470,7 +470,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// delete gateway definition
 		deletedAttempts := 0
-		deletedAttemptsMax := 10
+		deletedAttemptsMax := 3
 		deletedCheckDurationSeconds := 1
 		for deletedAttempts < deletedAttemptsMax {
 			_, err = client.DeleteGatewayDefinition(
@@ -490,10 +490,9 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 		assert.Nil(err, "should have no error deleting gateway definition")
 
-		// delete gateway definition
-		deleteDomainNameDefinitionAttempts := 0
-		deleteDomainNameDefinitionAttemptsMax := 10
-		for deleteDomainNameDefinitionAttempts < deleteDomainNameDefinitionAttemptsMax {
+		// delete domain name definition
+		deletedAttempts = 0
+		for deletedAttempts < deletedAttemptsMax {
 			_, err = client.DeleteDomainNameDefinition(
 				apiClient,
 				apiAddr(),

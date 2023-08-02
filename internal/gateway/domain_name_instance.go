@@ -21,22 +21,22 @@ func domainNameInstanceCreated(
 	log *logr.Logger,
 ) error {
 
-	// reconcile created domain name instance
-	err := reconcileCreatedOrUpdatedDomainNameInstance(r, domainNameInstance, log)
+	// ensure attached object reference exists
+	err := client.EnsureAttachedObjectReferenceExists(
+		r.APIClient,
+		r.APIServer,
+		reflect.TypeOf(*domainNameInstance).String(),
+		domainNameInstance.ID,
+		domainNameInstance.WorkloadInstanceID,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to reconcile created domain name instance: %w", err)
+		return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
 	}
 
-	// create attached object reference
-	domainNameInstanceType := reflect.TypeOf(*domainNameInstance).String()
-	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
-		Type:               &domainNameInstanceType,
-		ObjectID:           domainNameInstance.ID,
-		WorkloadInstanceID: domainNameInstance.WorkloadInstanceID,
-	}
-	_, err = client.CreateAttachedObjectReference(r.APIClient, r.APIServer, workloadInstanceAttachedObjectReference)
+	// reconcile created domain name instance
+	err = reconcileCreatedOrUpdatedDomainNameInstance(r, domainNameInstance, log)
 	if err != nil {
-		return fmt.Errorf("failed to create attached object reference: %w", err)
+		return fmt.Errorf("failed to reconcile created domain name instance: %w", err)
 	}
 
 	return nil
@@ -165,7 +165,7 @@ func reconcileCreatedOrUpdatedDomainNameInstance(
 	}
 
 	// mark domain name instance as reconciled
-	domainNameInstanceReconciled := false
+	domainNameInstanceReconciled := true
 	domainNameInstance.Reconciled = &domainNameInstanceReconciled
 	_, err = client.UpdateDomainNameInstance(r.APIClient, r.APIServer, domainNameInstance)
 	if err != nil {
