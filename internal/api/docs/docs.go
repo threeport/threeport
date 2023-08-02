@@ -8050,7 +8050,13 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "AWSAccountID",
-                "Name"
+                "DefaultNodeGroupInitialSize",
+                "DefaultNodeGroupInstanceType",
+                "DefaultNodeGroupMaximumSize",
+                "DefaultNodeGroupMinimumSize",
+                "KubernetesRuntimeDefinitionID",
+                "Name",
+                "ZoneCount"
             ],
             "properties": {
                 "AWSAccountID": {
@@ -8106,6 +8112,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "AwsEksKubernetesRuntimeDefinitionID",
+                "KubernetesRuntimeInstanceID",
                 "Name"
             ],
             "properties": {
@@ -8113,7 +8120,7 @@ const docTemplate = `{
                     "description": "The definition that configures this instance.",
                     "type": "integer"
                 },
-                "InterruptReconcile": {
+                "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
                 },
@@ -8736,9 +8743,7 @@ const docTemplate = `{
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
                 "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier"
+                "ObjectTypeGatewayInstance"
             ]
         },
         "v0.Profile": {

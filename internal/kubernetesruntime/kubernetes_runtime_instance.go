@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 
 	"github.com/threeport/threeport/internal/kube"
+	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
 	"github.com/threeport/threeport/internal/threeport"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -56,7 +57,7 @@ func kubernetesRuntimeInstanceCreated(
 		}
 
 		// add AWS EKS runtime instance
-		region, err := mapping.GetRegionForLocation("aws", *kubernetesRuntimeInstance.Location)
+		region, err := mapping.GetProviderRegionForLocation("aws", *kubernetesRuntimeInstance.Location)
 		if err != nil {
 			return fmt.Errorf("failed to map threeport location to AWS region: %w", err)
 		}
