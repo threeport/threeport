@@ -58,7 +58,9 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 	resourceConfig.Tags = map[string]string{"ProvisionedBy": "tptctl"}
 
 	// create EKS cluster resource stack in AWS
-	i.ResourceClient.CreateResourceStack(resourceConfig)
+	if err := i.ResourceClient.CreateResourceStack(resourceConfig); err != nil {
+		return nil, fmt.Errorf("failed to create eks resource stack: %w", err)
+	}
 
 	// get kubernetes API connection info
 	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: i.RuntimeInstanceName}

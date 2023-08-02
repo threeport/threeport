@@ -8047,7 +8047,13 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "AWSAccountID",
-                "Name"
+                "DefaultNodeGroupInitialSize",
+                "DefaultNodeGroupInstanceType",
+                "DefaultNodeGroupMaximumSize",
+                "DefaultNodeGroupMinimumSize",
+                "KubernetesRuntimeDefinitionID",
+                "Name",
+                "ZoneCount"
             ],
             "properties": {
                 "AWSAccountID": {
@@ -8103,6 +8109,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "AwsEksKubernetesRuntimeDefinitionID",
+                "KubernetesRuntimeInstanceID",
                 "Name"
             ],
             "properties": {
@@ -8110,7 +8117,7 @@ const docTemplate = `{
                     "description": "The definition that configures this instance.",
                     "type": "integer"
                 },
-                "InterruptReconcile": {
+                "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
                 },
@@ -8613,6 +8620,10 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -8621,24 +8632,24 @@ const docTemplate = `{
                 "WorkloadEvent",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
+                "Profile",
+                "Tier",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "GatewayDefinition",
-                "GatewayInstance",
-                "Profile",
-                "Tier"
+                "GatewayInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
@@ -8647,22 +8658,18 @@ const docTemplate = `{
                 "ObjectTypeWorkloadEvent",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
                 "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier"
+                "ObjectTypeGatewayInstance"
             ]
         },
         "v0.Profile": {

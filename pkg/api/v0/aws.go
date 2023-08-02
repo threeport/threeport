@@ -43,25 +43,25 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// RegionsForbidden
 
 	// The number of zones the cluster should span for availability.
-	ZoneCount *int `json:"ZoneCount,omitempty" query:"zonecount" validate:"optional"`
+	ZoneCount *int `json:"ZoneCount,omitempty" query:"zonecount" gorm:"not null" validate:"required"`
 
 	// The AWS instance type for the default initial node group.
-	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" query:"defaultnodegroupinstancetype" validate:"optional"`
+	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" query:"defaultnodegroupinstancetype" gorm:"not null" validate:"required"`
 
 	// The number of nodes in the default initial node group.
-	DefaultNodeGroupInitialSize *int `json:"DefaultNodeGroupInitialSize,omitempty" query:"defaultnodegroupinitialsize" validate:"optional"`
+	DefaultNodeGroupInitialSize *int `json:"DefaultNodeGroupInitialSize,omitempty" query:"defaultnodegroupinitialsize" gorm:"not null" validate:"required"`
 
 	// The minimum number of nodes the default initial node group should have.
-	DefaultNodeGroupMinimumSize *int `json:"DefaultNodeGroupMinimumSize,omitempty" query:"defaultnodegroupminimumsize" validate:"optional"`
+	DefaultNodeGroupMinimumSize *int `json:"DefaultNodeGroupMinimumSize,omitempty" query:"defaultnodegroupminimumsize" gorm:"not null" validate:"required"`
 
 	// The maximum number of nodes the default initial node group should have.
-	DefaultNodeGroupMaximumSize *int `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" validate:"optional"`
+	DefaultNodeGroupMaximumSize *int `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" gorm:"not null" validate:"required"`
 
 	// The AWS EKS kubernetes runtime instances derived from this definition.
 	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `json:"AwsEksKubernetesRuntimeInstances,omitempty" validate:"optional,association"`
 
 	// The kubernetes runtime definition for an EKS cluster in AWS.
-	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" query:"kubernetesruntimedefinitionid" validate:"optional,association"`
+	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" query:"kubernetesruntimedefinitionid" gorm:"not null" validate:"required"`
 }
 
 // +threeport-codegen:reconciler
@@ -75,9 +75,6 @@ type AwsEksKubernetesRuntimeInstance struct {
 	// definition will not move a cluster.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
-	// The kubernetes runtime instance associated with the AWS EKS cluster.
-	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" validate:"optional,association"`
-
 	// The definition that configures this instance.
 	AwsEksKubernetesRuntimeDefinitionID *uint `json:"AwsEksKubernetesRuntimeDefinitionID,omitempty" query:"awsekskubernetesruntimedefinitionid" gorm:"not null" validate:"required"`
 
@@ -87,11 +84,14 @@ type AwsEksKubernetesRuntimeInstance struct {
 	// An inventory of all AWS resources for the EKS cluster.
 	ResourceInventory *datatypes.JSON `json:"ResourceInventory,omitempty" validate:"optional"`
 
+	// The kubernetes runtime instance associated with the AWS EKS cluster.
+	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
+
 	// InterruptReconciliation is used by the controller to indicated that future
 	// reconcilation should be interrupted.  Useful in cases where there is a
 	// situation where future reconciliation could be descructive such as
 	// spinning up more infrastructure when there is a unresolved problem.
-	InterruptReconciliation *bool `json:"InterruptReconcile,omitempty" query:"interruptreconcile" gorm:"default:false" validate:"optional`
+	InterruptReconciliation *bool `json:"InterruptReconciliation,omitempty" query:"interruptreconciliation" gorm:"default:false" validate:"optional"`
 }
 
 // AwsRelationalDatabaseDefinition is the configuration for an RDS instance

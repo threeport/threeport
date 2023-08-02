@@ -103,14 +103,20 @@ definitions:
         type: integer
     required:
     - AWSAccountID
+    - DefaultNodeGroupInitialSize
+    - DefaultNodeGroupInstanceType
+    - DefaultNodeGroupMaximumSize
+    - DefaultNodeGroupMinimumSize
+    - KubernetesRuntimeDefinitionID
     - Name
+    - ZoneCount
     type: object
   v0.AwsEksKubernetesRuntimeInstance:
     properties:
       AwsEksKubernetesRuntimeDefinitionID:
         description: The definition that configures this instance.
         type: integer
-      InterruptReconcile:
+      InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
           reconcilation should be interrupted.  Useful in cases where there is a
@@ -145,6 +151,7 @@ definitions:
         type: string
     required:
     - AwsEksKubernetesRuntimeDefinitionID
+    - KubernetesRuntimeInstanceID
     - Name
     type: object
   v0.AwsRelationalDatabaseDefinition:
@@ -565,6 +572,10 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -573,24 +584,24 @@ definitions:
     - WorkloadEvent
     - ForwardProxyDefinition
     - ForwardProxyInstance
+    - Profile
+    - Tier
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - GatewayDefinition
     - GatewayInstance
-    - Profile
-    - Tier
     type: string
     x-enum-varnames:
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -599,22 +610,18 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
   v0.Profile:
     properties:
       Name:

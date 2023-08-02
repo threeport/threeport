@@ -162,12 +162,12 @@ func awsEksKubernetesRuntimeInstanceCreated(
 			// infinite loop
 			interrupt := true
 			awsEksKubernetesRuntimeInstance.InterruptReconciliation = &interrupt
-			_, err := client.UpdateAwsEksKubernetesRuntimeInstance(
+			_, updateErr := client.UpdateAwsEksKubernetesRuntimeInstance(
 				r.APIClient,
 				r.APIServer,
 				awsEksKubernetesRuntimeInstance,
 			)
-			if err != nil {
+			if updateErr != nil {
 				reconLog.Error(errors.New("failed to update eks runtime instance to interrupt reconciliation"), "")
 			}
 			return fmt.Errorf("failed to create new threeport cluster: %w and failed to delete created infra: %v", err, deleteErr)
