@@ -69,9 +69,9 @@ var GetAwsAccountsCmd = &cobra.Command{
 			os.Exit(0)
 		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "NAME\t DEFAULT REGION\t ACCOUNT ID\t AGE")
+		fmt.Fprintln(writer, "NAME\t DEFAULT ACCOUNT\t DEFAULT REGION\t ACCOUNT ID\t AGE")
 		for _, aa := range *awsAccounts {
-			fmt.Fprintln(writer, *aa.Name, "\t", *aa.DefaultRegion, "\t", *aa.AccountID, "\t", util.GetAge(aa.CreatedAt))
+			fmt.Fprintln(writer, *aa.Name, "\t", *aa.DefaultAccount, "\t", *aa.DefaultRegion, "\t", *aa.AccountID, "\t", util.GetAge(aa.CreatedAt))
 		}
 		writer.Flush()
 	},
