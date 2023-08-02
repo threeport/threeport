@@ -121,9 +121,12 @@ dev-reset-crdb:
 		workload_instances, \
 		workload_resource_instances, \
 		gateway_instances, \
-		gateway_definitions; \
+		gateway_definitions, \
+		domain_name_definitions, \
+		domain_name_instances; \
 		set sql_safe_updates = false; \
 		update kubernetes_runtime_instances set gateway_controller_instance_id = NULL; \
+		update kubernetes_runtime_instances set dns_controller_instance_id = NULL; \
 		set sql_safe_updates = true;"
 
 #TODO: move to kubectl exec command that uses `nats` binary in contianer
