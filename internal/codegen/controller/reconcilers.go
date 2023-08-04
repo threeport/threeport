@@ -41,7 +41,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 			Id("shutdown").Op(":=").Lit(false),
 			Line(),
 
-			Comment("Create a channel to receive OS signals"),
+			Comment("create a channel to receive OS signals"),
 			Id("osSignals").Op(":=").Make(
 				Chan().Qual("os", "Signal"),
 				Lit(1),
@@ -51,7 +51,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 				Lit(1),
 			),
 			Line(),
-			Comment("Register the os signals channel to receive SIGINT and SIGTERM signals"),
+			Comment("register the os signals channel to receive SIGINT and SIGTERM signals"),
 			Qual("os/signal", "Notify").Call(
 				Id("osSignals"),
 				Qual("syscall", "SIGINT"),
