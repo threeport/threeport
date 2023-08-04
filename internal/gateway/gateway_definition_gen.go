@@ -5,14 +5,13 @@ package gateway
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // GatewayDefinitionReconciler reconciles system state when a GatewayDefinition
@@ -101,12 +100,12 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
+			// set up handler to unlock and requeue on termination signal
 			go func() {
 				select {
 				case <-osSignals:
-					log.V(1).Info("received termination signal, attempting to unlock and requeue gateway definition")
+					log.V(1).Info("received termination signal, performing unlock and requeue of gateway definition")
 					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased)
-					log.V(1).Info("successfully unlocked and requeued gateway definition")
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for gateway definition, closing out signal handler")
 				}

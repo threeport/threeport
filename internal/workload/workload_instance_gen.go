@@ -5,14 +5,13 @@ package workload
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -101,12 +100,12 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
+			// set up handler to unlock and requeue on termination signal
 			go func() {
 				select {
 				case <-osSignals:
-					log.V(1).Info("received termination signal, attempting to unlock and requeue workload instance")
+					log.V(1).Info("received termination signal, performing unlock and requeue of workload instance")
 					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
-					log.V(1).Info("successfully unlocked and requeued workload instance")
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for workload instance, closing out signal handler")
 				}

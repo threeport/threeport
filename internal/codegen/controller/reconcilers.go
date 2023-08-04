@@ -191,14 +191,10 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Select().Block(
 								Case(Op("<-").Id("osSignals")).Block(
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
-										"received termination signal, attempting to unlock and requeue %s",
+										"received termination signal, performing unlock and requeue of %s",
 										strcase.ToDelimited(obj, ' '),
 									))),
 									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("msg").Dot("Subject"), Id("notifPayload"), Id("requeueDelay"), Id("lockReleased")),
-									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
-										"successfully unlocked and requeued %s",
-										strcase.ToDelimited(obj, ' '),
-									))),
 								),
 								Case(Op("<-").Id("lockReleased")).Block(
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
