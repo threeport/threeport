@@ -22,13 +22,13 @@ type KubernetesRuntimeInfraEKS struct {
 	AwsAccountID string
 
 	// The configuration containing credentials to connect to an AWS account.
-	AwsConfig aws.Config
+	AwsConfig *aws.Config
 
 	// The eks-clutser client used to create AWS EKS resources.
-	ResourceClient resource.ResourceClient
+	ResourceClient *resource.ResourceClient
 
 	// The inventory of AWS resources used to run an EKS cluster.
-	ResourceInventory resource.ResourceInventory
+	ResourceInventory *resource.ResourceInventory
 }
 
 // Create installs a Kubernetes cluster using AWS EKS for threeport workloads.
@@ -64,7 +64,7 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 
 	// get kubernetes API connection info
 	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: i.RuntimeInstanceName}
-	if err := eksClusterConn.Get(&i.AwsConfig); err != nil {
+	if err := eksClusterConn.Get(i.AwsConfig); err != nil {
 		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
 	}
 	kubeConnInfo := kube.KubeConnectionInfo{
@@ -79,7 +79,7 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 // Delete deletes an AWS EKS cluster.
 func (i *KubernetesRuntimeInfraEKS) Delete() error {
 	// delete EKS cluster resources
-	if err := i.ResourceClient.DeleteResourceStack(&i.ResourceInventory); err != nil {
+	if err := i.ResourceClient.DeleteResourceStack(i.ResourceInventory); err != nil {
 		return fmt.Errorf("failed to delete eks cluster resource stack: %w", err)
 	}
 
@@ -92,7 +92,7 @@ func (i *KubernetesRuntimeInfraEKS) RefreshConnection() (*kube.KubeConnectionInf
 	eksClusterConn := connection.EKSClusterConnectionInfo{
 		ClusterName: i.RuntimeInstanceName,
 	}
-	if err := eksClusterConn.Get(&i.AwsConfig); err != nil {
+	if err := eksClusterConn.Get(i.AwsConfig); err != nil {
 		return nil, fmt.Errorf("failed to retrieve EKS cluster connection info for token refresh: %w", err)
 	}
 

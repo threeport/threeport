@@ -110,7 +110,6 @@ func InstallThreeportAPI(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
-	apiHostname string,
 	customThreeportImageRepo string,
 	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
@@ -1202,7 +1201,7 @@ func getThreeportAPIService(
 		mapper,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to Kubernetes service resource for threeport API: %w", err)
+		return nil, fmt.Errorf("failed to get Kubernetes service resource for threeport API: %w", err)
 	}
 
 	return apiService, nil
@@ -1233,32 +1232,6 @@ func getAPIImage(devEnvironment bool, customThreeportImageRepo, customThreeportI
 	)
 
 	return apiImage
-}
-
-// getAPIIngressAnnotations returns the annotaions for the API ingress resource.
-func getAPIIngressAnnotations(devEnvironment bool) map[string]interface{} {
-	if devEnvironment {
-		return map[string]interface{}{}
-	}
-
-	return map[string]interface{}{
-		"cert-manager.io/cluster-issuer": "letsencrypt-staging",
-	}
-}
-
-// getAPIIngressTLS returns the proper API ingress TLS object.
-func getAPIIngressTLS(devEnvironment bool, apiHostname string) []interface{} {
-	if devEnvironment {
-		return []interface{}{}
-	}
-
-	return []interface{}{
-		map[string]interface{}{
-			"hosts": []interface{}{
-				apiHostname,
-			},
-		},
-	}
 }
 
 // getAPIArgs returns the args that are passed to the API server.

@@ -146,8 +146,8 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:        *awsAccount.AccountID,
-		AwsConfig:           *awsConfig,
-		ResourceClient:      *resourceClient,
+		AwsConfig:           awsConfig,
+		ResourceClient:      resourceClient,
 	}
 
 	// create control plane infra
@@ -286,9 +286,9 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:        *awsAccount.AccountID,
-		AwsConfig:           *awsConfig,
-		ResourceClient:      *resourceClient,
-		ResourceInventory:   resourceInventory,
+		AwsConfig:           awsConfig,
+		ResourceClient:      resourceClient,
+		ResourceInventory:   &resourceInventory,
 	}
 
 	// delete control plane infra
