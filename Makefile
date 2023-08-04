@@ -166,7 +166,7 @@ aws-controller-image-build:
 
 #gateway-image-build: @ Build gateway controller container image
 gateway-controller-image-build:
-	docker build -t $(GATEWAY_CONTROLLER_IMG) -f cmd/gateway-controller/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(GATEWAY_CONTROLLER_IMG) -f cmd/gateway-controller/image/Dockerfile .
 
 #agent-image-build: @ Build agent container image
 agent-image-build:
