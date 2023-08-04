@@ -31,11 +31,11 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 	var log logr.Logger
 
 	// Create a channel to receive OS signals
-	sigs := make(chan os.Signal, 1)
-	endReconcile := make(chan bool, 1)
+	osSignals := make(chan os.Signal, 1)
+	reconcileTerminated := make(chan bool, 1)
 
-	// Register the channel to receive SIGINT signals
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	// Register the os signals channel to receive SIGINT and SIGTERM signals
+	signal.Notify(osSignals, syscall.SIGINT, syscall.SIGTERM)
 
 	for {
 		// create a fresh log object per reconciliation loop so we don't
@@ -108,11 +108,10 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// Run a goroutine to handle the signal. It will block until it receives a signal
-
+			// Run a goroutine to handle OS signals. It will block until it receives a signal
 			go func() {
 				select {
-				case <-sigs:
+				case <-osSignals:
 					log.Info("Received Ctrl+C, attempting to release lock and requeue...")
 
 					if notifPayload != nil && msg != nil {
@@ -120,7 +119,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						log.Info("workload insstance lock released and requeued")
 					}
 					os.Exit(0)
-				case <-endReconcile:
+				case <-reconcileTerminated:
 					log.Info("Reached end of reconcile, closing out signal handler")
 				}
 			}()
@@ -192,7 +191,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 				} else {
 					r.ReleaseLock(&workloadInstance)
-					endReconcile <- true
 					log.Info("workload instance successfully reconciled")
 				}
 				continue
@@ -240,7 +238,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			} else {
 				log.V(1).Info("workload instance unlocked")
 			}
-			endReconcile <- true
+			reconcileTerminated <- true
 
 			log.Info("workload instance successfully reconciled")
 		}
