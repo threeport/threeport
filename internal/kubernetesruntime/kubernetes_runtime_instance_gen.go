@@ -5,13 +5,14 @@ package kubernetesruntime
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 // KubernetesRuntimeInstanceReconciler reconciles system state when a KubernetesRuntimeInstance
@@ -24,7 +25,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 
 	// Create a channel to receive OS signals
 	osSignals := make(chan os.Signal, 1)
-	reconcileTerminated := make(chan bool, 1)
+	lockReleased := make(chan bool, 1)
 
 	// Register the os signals channel to receive SIGINT and SIGTERM signals
 	signal.Notify(osSignals, syscall.SIGINT, syscall.SIGTERM)
@@ -104,9 +105,9 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, attempting to unlock and requeue kubernetes runtime instance")
-					r.UnlockAndRequeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
+					r.UnlockAndRequeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
 					log.V(1).Info("successfully unlocked and requeued kubernetes runtime instance")
-				case <-reconcileTerminated:
+				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for kubernetes runtime instance, closing out signal handler")
 				}
 			}()
@@ -132,12 +133,12 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*kubernetesRuntimeInstance.ID,
 					))
-					r.ReleaseLock(&kubernetesRuntimeInstance, reconcileTerminated)
+					r.ReleaseLock(&kubernetesRuntimeInstance, lockReleased)
 					continue
 				}
 				if err != nil {
 					log.Error(err, "failed to get kubernetes runtime instance by ID from API")
-					r.UnlockAndRequeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
+					r.UnlockAndRequeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
 					continue
 				}
 				kubernetesRuntimeInstance = *latestKubernetesRuntimeInstance
@@ -153,7 +154,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
-						reconcileTerminated,
+						lockReleased,
 					)
 					continue
 				}
@@ -165,7 +166,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
-						reconcileTerminated,
+						lockReleased,
 					)
 					continue
 				}
@@ -177,10 +178,10 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
-						reconcileTerminated,
+						lockReleased,
 					)
 				} else {
-					r.ReleaseLock(&kubernetesRuntimeInstance, reconcileTerminated)
+					r.ReleaseLock(&kubernetesRuntimeInstance, lockReleased)
 					log.Info("kubernetes runtime instance successfully reconciled")
 				}
 				continue
@@ -194,7 +195,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					msg.Subject,
 					notifPayload,
 					requeueDelay,
-					reconcileTerminated,
+					lockReleased,
 				)
 				continue
 
@@ -214,7 +215,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update kubernetes runtime instance to mark as reconciled")
-					r.UnlockAndRequeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
+					r.UnlockAndRequeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
 					continue
 				}
 				log.V(1).Info(
@@ -224,7 +225,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&kubernetesRuntimeInstance, reconcileTerminated); !ok {
+			if ok := r.ReleaseLock(&kubernetesRuntimeInstance, lockReleased); !ok {
 				log.V(1).Info("kubernetes runtime instance remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("kubernetes runtime instance unlocked")

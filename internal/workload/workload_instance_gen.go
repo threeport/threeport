@@ -5,13 +5,14 @@ package workload
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -24,7 +25,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 
 	// Create a channel to receive OS signals
 	osSignals := make(chan os.Signal, 1)
-	reconcileTerminated := make(chan bool, 1)
+	lockReleased := make(chan bool, 1)
 
 	// Register the os signals channel to receive SIGINT and SIGTERM signals
 	signal.Notify(osSignals, syscall.SIGINT, syscall.SIGTERM)
@@ -104,9 +105,9 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, attempting to unlock and requeue workload instance")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
+					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
 					log.V(1).Info("successfully unlocked and requeued workload instance")
-				case <-reconcileTerminated:
+				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for workload instance, closing out signal handler")
 				}
 			}()
@@ -132,12 +133,12 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*workloadInstance.ID,
 					))
-					r.ReleaseLock(&workloadInstance, reconcileTerminated)
+					r.ReleaseLock(&workloadInstance, lockReleased)
 					continue
 				}
 				if err != nil {
 					log.Error(err, "failed to get workload instance by ID from API")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
+					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
 					continue
 				}
 				workloadInstance = *latestWorkloadInstance
@@ -153,7 +154,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
-						reconcileTerminated,
+						lockReleased,
 					)
 					continue
 				}
@@ -165,7 +166,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
-						reconcileTerminated,
+						lockReleased,
 					)
 					continue
 				}
@@ -177,10 +178,10 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
-						reconcileTerminated,
+						lockReleased,
 					)
 				} else {
-					r.ReleaseLock(&workloadInstance, reconcileTerminated)
+					r.ReleaseLock(&workloadInstance, lockReleased)
 					log.Info("workload instance successfully reconciled")
 				}
 				continue
@@ -194,7 +195,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					msg.Subject,
 					notifPayload,
 					requeueDelay,
-					reconcileTerminated,
+					lockReleased,
 				)
 				continue
 
@@ -214,7 +215,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update workload instance to mark as reconciled")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
+					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
 					continue
 				}
 				log.V(1).Info(
@@ -224,7 +225,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&workloadInstance, reconcileTerminated); !ok {
+			if ok := r.ReleaseLock(&workloadInstance, lockReleased); !ok {
 				log.V(1).Info("workload instance remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("workload instance unlocked")
