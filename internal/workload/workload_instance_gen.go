@@ -5,15 +5,13 @@ package workload
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
-	"github.com/go-logr/logr"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -23,12 +21,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 	reconcilerLog := r.Log.WithValues("reconcilerName", r.Name)
 	reconcilerLog.Info("reconciler started")
 	shutdown := false
-
-	var requeueDelay int64
-	var notifPayload *[]byte
-	// var workloadDefinition v0.WorkloadDefinition
-	// var msg *nats.Msg
-	var log logr.Logger
 
 	// Create a channel to receive OS signals
 	osSignals := make(chan os.Signal, 1)
@@ -40,7 +32,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 	for {
 		// create a fresh log object per reconciliation loop so we don't
 		// accumulate values across multiple loops
-		log = r.Log.WithValues("reconcilerName", r.Name)
+		log := r.Log.WithValues("reconcilerName", r.Name)
 
 		if shutdown {
 			break
@@ -81,14 +73,14 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			log = log.WithValues("workloadInstanceID", workloadInstance.ID)
 
 			// back off the requeue delay as needed
-			requeueDelay = controller.SetRequeueDelay(
+			requeueDelay := controller.SetRequeueDelay(
 				notif.LastRequeueDelay,
 				controller.DefaultInitialRequeueDelay,
 				controller.DefaultMaxRequeueDelay,
 			)
 
 			// build the notif payload for requeues
-			notifPayload, err = workloadInstance.NotificationPayload(
+			notifPayload, err := workloadInstance.NotificationPayload(
 				notif.Operation,
 				true,
 				requeueDelay,
@@ -108,19 +100,14 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// Run a goroutine to handle OS signals. It will block until it receives a signal
 			go func() {
 				select {
 				case <-osSignals:
-					log.Info("Received Ctrl+C, attempting to release lock and requeue...")
-
-					if notifPayload != nil && msg != nil {
-						r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
-						log.Info("workload insstance lock released and requeued")
-					}
-					os.Exit(0)
+					log.V(1).Info("received termination signal, attempting to unlock and requeue workload instance")
+					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
+					log.V(1).Info("successfully unlocked and requeued workload instance")
 				case <-reconcileTerminated:
-					log.Info("Reached end of reconcile, closing out signal handler")
+					log.V(1).Info("reached end of reconcile loop for workload instance, closing out signal handler")
 				}
 			}()
 
@@ -145,12 +132,12 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*workloadInstance.ID,
 					))
-					r.ReleaseLock(&workloadInstance)
+					r.ReleaseLock(&workloadInstance, reconcileTerminated)
 					continue
 				}
 				if err != nil {
 					log.Error(err, "failed to get workload instance by ID from API")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
+					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
 					continue
 				}
 				workloadInstance = *latestWorkloadInstance
@@ -166,6 +153,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
+						reconcileTerminated,
 					)
 					continue
 				}
@@ -177,6 +165,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
+						reconcileTerminated,
 					)
 					continue
 				}
@@ -188,9 +177,10 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
+						reconcileTerminated,
 					)
 				} else {
-					r.ReleaseLock(&workloadInstance)
+					r.ReleaseLock(&workloadInstance, reconcileTerminated)
 					log.Info("workload instance successfully reconciled")
 				}
 				continue
@@ -204,6 +194,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					msg.Subject,
 					notifPayload,
 					requeueDelay,
+					reconcileTerminated,
 				)
 				continue
 
@@ -223,7 +214,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update workload instance to mark as reconciled")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay)
+					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
 					continue
 				}
 				log.V(1).Info(
@@ -233,12 +224,11 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&workloadInstance); !ok {
+			if ok := r.ReleaseLock(&workloadInstance, reconcileTerminated); !ok {
 				log.V(1).Info("workload instance remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("workload instance unlocked")
 			}
-			reconcileTerminated <- true
 
 			log.Info("workload instance successfully reconciled")
 		}

@@ -9,6 +9,9 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // GatewayDefinitionReconciler reconciles system state when a GatewayDefinition
@@ -18,6 +21,13 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 	reconcilerLog := r.Log.WithValues("reconcilerName", r.Name)
 	reconcilerLog.Info("reconciler started")
 	shutdown := false
+
+	// Create a channel to receive OS signals
+	osSignals := make(chan os.Signal, 1)
+	reconcileTerminated := make(chan bool, 1)
+
+	// Register the os signals channel to receive SIGINT and SIGTERM signals
+	signal.Notify(osSignals, syscall.SIGINT, syscall.SIGTERM)
 
 	for {
 		// create a fresh log object per reconciliation loop so we don't
@@ -90,6 +100,17 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
+			go func() {
+				select {
+				case <-osSignals:
+					log.V(1).Info("received termination signal, attempting to unlock and requeue gateway definition")
+					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
+					log.V(1).Info("successfully unlocked and requeued gateway definition")
+				case <-reconcileTerminated:
+					log.V(1).Info("reached end of reconcile loop for gateway definition, closing out signal handler")
+				}
+			}()
+
 			// put a lock on the reconciliation of the created object
 			if ok := r.Lock(&gatewayDefinition); !ok {
 				go r.Requeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay)
@@ -111,12 +132,12 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*gatewayDefinition.ID,
 					))
-					r.ReleaseLock(&gatewayDefinition)
+					r.ReleaseLock(&gatewayDefinition, reconcileTerminated)
 					continue
 				}
 				if err != nil {
 					log.Error(err, "failed to get gateway definition by ID from API")
-					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay)
+					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
 					continue
 				}
 				gatewayDefinition = *latestGatewayDefinition
@@ -132,6 +153,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
+						reconcileTerminated,
 					)
 					continue
 				}
@@ -143,6 +165,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
+						reconcileTerminated,
 					)
 					continue
 				}
@@ -154,9 +177,10 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
+						reconcileTerminated,
 					)
 				} else {
-					r.ReleaseLock(&gatewayDefinition)
+					r.ReleaseLock(&gatewayDefinition, reconcileTerminated)
 					log.Info("gateway definition successfully reconciled")
 				}
 				continue
@@ -170,6 +194,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					msg.Subject,
 					notifPayload,
 					requeueDelay,
+					reconcileTerminated,
 				)
 				continue
 
@@ -189,7 +214,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update gateway definition to mark as reconciled")
-					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay)
+					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, reconcileTerminated)
 					continue
 				}
 				log.V(1).Info(
@@ -199,7 +224,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&gatewayDefinition); !ok {
+			if ok := r.ReleaseLock(&gatewayDefinition, reconcileTerminated); !ok {
 				log.V(1).Info("gateway definition remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("gateway definition unlocked")
