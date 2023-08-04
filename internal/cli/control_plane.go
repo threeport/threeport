@@ -535,27 +535,6 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		}
 		return err
 	}
-	Info("Threeport API is running")
-
-	// get a new kubernetes API client to ensure the connection token does not
-	// expire
-	dynamicKubeClient, mapper, err = kube.GetClient(
-		&kubernetesRuntimeInstance,
-		false,
-		apiClient,
-		threeportAPIEndpoint,
-	)
-	if err != nil {
-		msg := "failed to get a new Kubernetes client and mapper"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false); err != nil {
-			return err
-		}
-		return err
-	}
 
 	// install the controllers
 	if err := threeport.InstallThreeportControllers(
@@ -967,13 +946,9 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 		return fmt.Errorf("failed to delete control plane infra: %w", err)
 	}
 
-	switch threeportInstanceConfig.Provider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		// remove inventory file
-		invFile := provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName)
-		if err := os.Remove(invFile); err != nil {
-			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
-		}
+	// remove inventory file
+	if err := os.Remove(provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName)); err != nil {
+		Warning("failed to remove inventory file in config dir (default: ~/.config/threeport/")
 	}
 
 	// update threeport config to remove deleted threeport instance
@@ -1060,13 +1035,9 @@ func (a *ControlPlaneCLIArgs) cleanOnCreateError(
 	}
 	Info("Created Threeport infra deleted due to error")
 
-	switch controlPlane.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		// remove inventory file
-		invFile := provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName)
-		if err := os.Remove(invFile); err != nil {
-			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
-		}
+	// remove inventory file
+	if err := os.Remove(provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName)); err != nil {
+		Warning("failed to remove inventory file in config dir (default: ~/.config/threeport/")
 	}
 
 	if cleanConfig {
