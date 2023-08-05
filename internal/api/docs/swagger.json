@@ -8097,10 +8097,6 @@
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
                 },
-                "WorkloadDefinitionID": {
-                    "description": "The workload definition that belongs to this resource.",
-                    "type": "integer"
-                },
                 "Zone": {
                     "description": "The name of the zone in which the domain is managed.",
                     "type": "string"
