@@ -7975,6 +7975,9 @@
                 }
             }
         },
+        "datatypes.JSON": {
+            "type": "object"
+        },
         "v0.AttachedObjectReference": {
             "type": "object",
             "required": [
@@ -7994,154 +7997,13 @@
             }
         },
         "v0.AwsAccount": {
-            "type": "object",
-            "required": [
-                "AccessKeyID",
-                "AccountID",
-                "DefaultRegion",
-                "Name",
-                "SecretAccessKey"
-            ],
-            "properties": {
-                "AccessKeyID": {
-                    "description": "The key ID credentials for the AWS account.",
-                    "type": "string"
-                },
-                "AccountID": {
-                    "description": "The account ID for the AWS account.",
-                    "type": "string"
-                },
-                "AwsEksKubernetesRuntimeDefinitions": {
-                    "description": "The cluster instances deployed in this AWS account.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeDefinition"
-                    }
-                },
-                "DefaultAccount": {
-                    "description": "If true is the AWS Account used if none specified in a definition.",
-                    "type": "boolean"
-                },
-                "DefaultRegion": {
-                    "description": "The region to use for AWS managed services if not specified.",
-                    "type": "string"
-                },
-                "Name": {
-                    "description": "The unique name of an AWS account.",
-                    "type": "string"
-                },
-                "SecretAccessKey": {
-                    "description": "The secret key credentials for the AWS account.",
-                    "type": "string"
-                }
-            }
+            "type": "object"
         },
         "v0.AwsEksKubernetesRuntimeDefinition": {
-            "type": "object",
-            "required": [
-                "AWSAccountID",
-                "DefaultNodeGroupInitialSize",
-                "DefaultNodeGroupInstanceType",
-                "DefaultNodeGroupMaximumSize",
-                "DefaultNodeGroupMinimumSize",
-                "KubernetesRuntimeDefinitionID",
-                "Name",
-                "ZoneCount"
-            ],
-            "properties": {
-                "AWSAccountID": {
-                    "description": "The AWS account in which the EKS cluster is provisioned.",
-                    "type": "integer"
-                },
-                "AwsEksKubernetesRuntimeInstances": {
-                    "description": "The AWS EKS kubernetes runtime instances derived from this definition.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeInstance"
-                    }
-                },
-                "DefaultNodeGroupInitialSize": {
-                    "description": "The number of nodes in the default initial node group.",
-                    "type": "integer"
-                },
-                "DefaultNodeGroupInstanceType": {
-                    "description": "The AWS instance type for the default initial node group.",
-                    "type": "string"
-                },
-                "DefaultNodeGroupMaximumSize": {
-                    "description": "The maximum number of nodes the default initial node group should have.",
-                    "type": "integer"
-                },
-                "DefaultNodeGroupMinimumSize": {
-                    "description": "The minimum number of nodes the default initial node group should have.",
-                    "type": "integer"
-                },
-                "KubernetesRuntimeDefinitionID": {
-                    "description": "The kubernetes runtime definition for an EKS cluster in AWS.",
-                    "type": "integer"
-                },
-                "Name": {
-                    "description": "An arbitrary name for the definition.",
-                    "type": "string"
-                },
-                "ProfileID": {
-                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
-                    "type": "integer"
-                },
-                "TierID": {
-                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
-                    "type": "integer"
-                },
-                "ZoneCount": {
-                    "description": "The number of zones the cluster should span for availability.",
-                    "type": "integer"
-                }
-            }
+            "type": "object"
         },
         "v0.AwsEksKubernetesRuntimeInstance": {
-            "type": "object",
-            "required": [
-                "AwsEksKubernetesRuntimeDefinitionID",
-                "KubernetesRuntimeInstanceID",
-                "Name"
-            ],
-            "properties": {
-                "AwsEksKubernetesRuntimeDefinitionID": {
-                    "description": "The definition that configures this instance.",
-                    "type": "integer"
-                },
-                "InterruptReconciliation": {
-                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
-                    "type": "boolean"
-                },
-                "KubernetesRuntimeInstanceID": {
-                    "description": "The kubernetes runtime instance associated with the AWS EKS cluster.",
-                    "type": "integer"
-                },
-                "Name": {
-                    "description": "An arbitrary name the instance",
-                    "type": "string"
-                },
-                "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by workload controller.",
-                    "type": "boolean"
-                },
-                "Region": {
-                    "description": "The AWS Region in which the cluster is provisioned.  This field is\nstored in the instance (as well as definition) since a change to the\ndefinition will not move a cluster.",
-                    "type": "string"
-                },
-                "ResourceInventory": {
-                    "description": "An inventory of all AWS resources for the EKS cluster.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "Status": {
-                    "description": "The status of the instance.\nTODO: use a custom type",
-                    "type": "string"
-                }
-            }
+            "type": "object"
         },
         "v0.AwsRelationalDatabaseDefinition": {
             "type": "object",
@@ -8212,6 +8074,13 @@
                     "description": "The base domain upon which the subdomain will be added to give a workload\na unique domain name.",
                     "type": "string"
                 },
+                "DomainNameInstances": {
+                    "description": "The associated domain name instances that are deployed from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.DomainNameInstance"
+                    }
+                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -8220,8 +8089,16 @@
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
                 },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "type": "boolean"
+                },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                },
+                "WorkloadDefinitionID": {
+                    "description": "The workload definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Zone": {
@@ -8243,16 +8120,24 @@
                     "type": "integer"
                 },
                 "KubernetesRuntimeInstanceID": {
-                    "description": "The kubernetes runtime where the workload that is using the domain name is running.",
+                    "description": "The cluster where the workload that is using the domain name is running.",
                     "type": "integer"
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "type": "boolean"
+                },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "WorkloadInstanceID": {
+                    "description": "The workload instance this gateway belongs to.",
+                    "type": "integer"
                 }
             }
         },
@@ -8592,6 +8477,10 @@
                 "DefaultRuntime": {
                     "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
                     "type": "boolean"
+                },
+                "DnsWorkloadInstanceID": {
+                    "description": "The WorkloadInstanceID of the dns support service",
+                    "type": "integer"
                 },
                 "GatewayWorkloadInstanceID": {
                     "description": "The WorkloadInstanceID of the gateway support service",
@@ -9013,10 +8902,11 @@
             "properties": {
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "WorkloadDefinitionID": {
                     "description": "The workload definition this resource belongs to.",
@@ -9040,10 +8930,11 @@
                 },
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.  This field is a superset of\nWorkloadResourceDefinition.JSONDefinition in that it has namespace\nmanagement and other configuration - such as resource allocation\nmanagement - added.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "LastOperation": {
                     "description": "The most recent operation performed on a Kubernete resource in the\nkubernetes runtime.",
@@ -9055,10 +8946,11 @@
                 },
                 "RuntimeDefinition": {
                     "description": "The JSON definition of a Kubernetes resource as stored in etcd in the\nkubernetes runtime.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "ScheduledForDeletion": {
                     "description": "Whether another controller has scheduled this resource for deletion",

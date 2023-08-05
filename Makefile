@@ -165,6 +165,18 @@ aws-controller-image-build:
 gateway-controller-image-build:
 	docker buildx build --platform linux/amd64 -t $(GATEWAY_CONTROLLER_IMG) -f cmd/gateway-controller/image/Dockerfile .
 
+#kubernetes-runtime-controller-image-build: @ Build kubernetes runtime controller container image
+kubernetes-runtime-controller-image-build:
+	docker build -t $(KUBERNETES_RUNTIME_CONTROLLER_IMG) -f cmd/kubernetes-runtime-controller/image/Dockerfile .
+
+#aws-controller-image-build: @ Build aws controller container image
+aws-controller-image-build:
+	docker build -t $(AWS_CONTROLLER_IMG) -f cmd/aws-controller/image/Dockerfile .
+
+#gateway-image-build: @ Build gateway controller container image
+gateway-controller-image-build:
+	docker build -t $(GATEWAY_CONTROLLER_IMG) -f cmd/gateway-controller/image/Dockerfile .
+
 #agent-image-build: @ Build agent container image
 agent-image-build:
 	docker buildx build --platform linux/amd64 -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile .
