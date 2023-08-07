@@ -391,17 +391,17 @@ lame_duck_duration: 30s
 								// Healthcheck Probes  #
 								//                     #
 								//######################
-								"livenessProbe": map[string]interface{}{
-									"failureThreshold": 3,
-									"httpGet": map[string]interface{}{
-										"path": "/",
-										"port": 8222,
-									},
-									"initialDelaySeconds": 10,
-									"periodSeconds":       30,
-									"successThreshold":    1,
-									"timeoutSeconds":      5,
-								},
+								//"livenessProbe": map[string]interface{}{
+								//	"failureThreshold": 3,
+								//	"httpGet": map[string]interface{}{
+								//		"path": "/",
+								//		"port": 8222,
+								//	},
+								//	"initialDelaySeconds": 10,
+								//	"periodSeconds":       30,
+								//	"successThreshold":    1,
+								//	"timeoutSeconds":      5,
+								//},
 								"readinessProbe": map[string]interface{}{
 									"failureThreshold": 3,
 									"httpGet": map[string]interface{}{
