@@ -75,6 +75,7 @@ type GatewayInstance struct {
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
+// +threeport-codegen:reconciler
 // DomainNameDefinition the definition for domain name management for a
 // particular DNS zone.
 type DomainNameDefinition struct {
@@ -98,8 +99,8 @@ type DomainNameDefinition struct {
 	// Type *string `json:"Type,omitempty" query:"type" gorm:"default:'A'"
 	// validate:"optional"`
 
-	// // The workload definition that belongs to this resource.
-	// WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" validate:"optional"`
+	// The workload definition that belongs to this resource.
+	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" validate:"optional"`
 
 	// The associated domain name instances that are deployed from this definition.
 	DomainNameInstances []*DomainNameInstance `json:"DomainNameInstances,omitempty" validate:"optional,association"`

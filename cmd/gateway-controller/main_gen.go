@@ -35,6 +35,11 @@ func main() {
 		1,
 		"Number of concurrent reconcilers to run for gateway instances",
 	)
+	var domainNameDefinitionConcurrentReconciles = flag.Int(
+		"DomainNameDefinition-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for domain name definitions",
+	)
 	var domainNameInstanceConcurrentReconciles = flag.Int(
 		"DomainNameInstance-concurrent-reconciles",
 		1,
@@ -147,6 +152,13 @@ func main() {
 		NotifSubject:         v0.GatewayInstanceSubject,
 		ObjectType:           v0.ObjectTypeGatewayInstance,
 		ReconcileFunc:        gateway.GatewayInstanceReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *domainNameDefinitionConcurrentReconciles,
+		Name:                 "DomainNameDefinitionReconciler",
+		NotifSubject:         v0.DomainNameDefinitionSubject,
+		ObjectType:           v0.ObjectTypeDomainNameDefinition,
+		ReconcileFunc:        gateway.DomainNameDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
 		ConcurrentReconciles: *domainNameInstanceConcurrentReconciles,
