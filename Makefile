@@ -5,9 +5,6 @@ AWS_CONTROLLER_IMG ?= threeport-aws-controller:latest
 GATEWAY_CONTROLLER_IMG ?= threeport-gateway-controller:latest
 AGENT_IMG ?= threeport-agent:latest
 
-IMG_REPO ?= ""
-IMG_TAG ?= dev
-
 #help: @ List available make targets
 help:
 	@clear
