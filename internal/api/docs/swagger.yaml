@@ -93,6 +93,13 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
+      Region:
+        description: |-
+          The AWS region in which EKS clusters will be provisioned.  Note: changes to
+          this value will not alter the derived instances which is an immutable
+          characteristic on instances.  It will only affect new instances derived
+          from this definition.
+        type: string
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
@@ -102,12 +109,6 @@ definitions:
         description: The number of zones the cluster should span for availability.
         type: integer
     required:
-    - AWSAccountID
-    - DefaultNodeGroupInitialSize
-    - DefaultNodeGroupInstanceType
-    - DefaultNodeGroupMaximumSize
-    - DefaultNodeGroupMinimumSize
-    - KubernetesRuntimeDefinitionID
     - Name
     - ZoneCount
     type: object
@@ -4517,6 +4518,409 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing log storage instance by replacing the entire object.
+<<<<<<< HEAD
+=======
+  /v0/network-ingress-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all network ingress definitions from the Threeport database.
+      operationId: get-networkIngressDefinitions
+      parameters:
+      - description: network ingress definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all network ingress definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new network ingress definition to the Threeport database.
+      operationId: add-networkIngressDefinition
+      parameters:
+      - description: NetworkIngressDefinition object
+        in: body
+        name: networkIngressDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new network ingress definition.
+  /v0/network-ingress-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a network ingress definition by ID from the database.
+      operationId: delete-networkIngressDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a network ingress definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular network ingress definition from the database.
+      operationId: get-networkIngressDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a network ingress definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a network ingress definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating network ingress definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-networkIngressDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: NetworkIngressDefinition object
+        in: body
+        name: networkIngressDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing network ingress definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a network ingress definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating network ingress definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-networkIngressDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: NetworkIngressDefinition object
+        in: body
+        name: networkIngressDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing network ingress definition by replacing the entire
+        object.
+  /v0/network-ingress-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all network ingress instances from the Threeport database.
+      operationId: get-networkIngressInstances
+      parameters:
+      - description: network ingress instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all network ingress instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new network ingress instance to the Threeport database.
+      operationId: add-networkIngressInstance
+      parameters:
+      - description: NetworkIngressInstance object
+        in: body
+        name: networkIngressInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new network ingress instance.
+  /v0/network-ingress-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a network ingress instance by ID from the database.
+      operationId: delete-networkIngressInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a network ingress instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular network ingress instance from the database.
+      operationId: get-networkIngressInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a network ingress instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a network ingress instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating network ingress instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-networkIngressInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: NetworkIngressInstance object
+        in: body
+        name: networkIngressInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing network ingress instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a network ingress instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating network ingress instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-networkIngressInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: NetworkIngressInstance object
+        in: body
+        name: networkIngressInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.NetworkIngressInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing network ingress instance by replacing the entire
+        object.
+>>>>>>> 68c94e3 (feat: add aws controller)
   /v0/profiles:
     get:
       consumes:
