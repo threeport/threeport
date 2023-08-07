@@ -136,18 +136,6 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			a.ThreeportLocalAPIPort,
 		)
 
-		// delete kind kubernetes runtime if interrupted
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			<-sigs
-			Warning("received Ctrl+C, removing kind kubernetes runtime...")
-			if err := a.DeleteControlPlane(); err != nil {
-				Error("failed to delete kind kubernetes runtime", err)
-			}
-			os.Exit(1)
-		}()
-
 		// construct kind infra provider object
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(a.InstanceName),
@@ -156,8 +144,24 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			ThreeportPath:       a.ThreeportPath,
 			NumWorkerNodes:      a.NumWorkerNodes,
 		}
+
 		// update threerport config
 		threeportInstanceConfig.APIServer = threeportAPIEndpoint
+
+		// delete kind kubernetes runtime if interrupted
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			<-sigs
+			Warning("received Ctrl+C, removing kind kubernetes runtime...")
+			// first update the threeport config so the Delete method has
+			// something to reference
+			config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
+			if err := a.DeleteControlPlane(); err != nil {
+				Error("failed to delete kind kubernetes runtime", err)
+			}
+			os.Exit(1)
+		}()
 
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
 	case v0.KubernetesRuntimeInfraProviderEKS:
@@ -824,9 +828,13 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 		return fmt.Errorf("failed to delete control plane infra: %w", err)
 	}
 
-	// remove inventory file
-	if err := os.Remove(provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName)); err != nil {
-		Warning("failed to remove inventory file in config dir (default: ~/.config/threeport/")
+	switch threeportInstanceConfig.Provider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		// remove inventory file
+		invFile := provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName)
+		if err := os.Remove(invFile); err != nil {
+			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
+		}
 	}
 
 	// update threeport config to remove deleted threeport instance
@@ -913,9 +921,13 @@ func (a *ControlPlaneCLIArgs) cleanOnCreateError(
 	}
 	Info("Created Threeport infra deleted due to error")
 
-	// remove inventory file
-	if err := os.Remove(provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName)); err != nil {
-		Warning("failed to remove inventory file in config dir (default: ~/.config/threeport/")
+	switch controlPlane.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		// remove inventory file
+		invFile := provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName)
+		if err := os.Remove(invFile); err != nil {
+			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
+		}
 	}
 
 	if cleanConfig {
