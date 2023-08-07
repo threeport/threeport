@@ -19,7 +19,7 @@ const (
 	// links the service account delcared in the IngressComponent resource to the
 	// resource config for eks-cluster to create the attached IAM role.
 	DNSManagerServiceAccountName     = "external-dns"
-	DNSManagerServiceAccountNamepace = "nukleros-ingress-system"
+	DNSManagerServiceAccountNamepace = "nukleros-gateway-system"
 
 	// links the service account used by the EBS CSI driver to the resource
 	// config for eks-cluster to create the attached IAM role.
@@ -357,8 +357,8 @@ func InstallThreeportCRDs(
 												"type":        "string",
 											},
 											"namespace": map[string]interface{}{
-												"default":     "nukleros-ingress-system",
-												"description": "(Default: \"nukleros-ingress-system\") Namespace to use for ingress support services.",
+												"default":     "nukleros-gateway-system",
+												"description": "(Default: \"nukleros-gateway-system\") Namespace to use for ingress support services.",
 												"type":        "string",
 											},
 											"provider": map[string]interface{}{
