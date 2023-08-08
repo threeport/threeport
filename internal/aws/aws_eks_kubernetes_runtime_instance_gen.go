@@ -9,6 +9,9 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // AwsEksKubernetesRuntimeInstanceReconciler reconciles system state when a AwsEksKubernetesRuntimeInstance
@@ -18,6 +21,13 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 	reconcilerLog := r.Log.WithValues("reconcilerName", r.Name)
 	reconcilerLog.Info("reconciler started")
 	shutdown := false
+
+	// Create a channel to receive OS signals
+	osSignals := make(chan os.Signal, 1)
+	lockReleased := make(chan bool, 1)
+
+	// Register the os signals channel to receive SIGINT and SIGTERM signals
+	signal.Notify(osSignals, syscall.SIGINT, syscall.SIGTERM)
 
 	for {
 		// create a fresh log object per reconciliation loop so we don't
@@ -90,6 +100,17 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
+			// set up handler to unlock and requeue on termination signal
+			go func() {
+				select {
+				case <-osSignals:
+					log.V(1).Info("received termination signal, performing unlock and requeue of aws eks kubernetes runtime instance")
+					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
+				case <-lockReleased:
+					log.V(1).Info("reached end of reconcile loop for aws eks kubernetes runtime instance, closing out signal handler")
+				}
+			}()
+
 			// put a lock on the reconciliation of the created object
 			if ok := r.Lock(&awsEksKubernetesRuntimeInstance); !ok {
 				go r.Requeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
@@ -111,12 +132,12 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*awsEksKubernetesRuntimeInstance.ID,
 					))
-					r.ReleaseLock(&awsEksKubernetesRuntimeInstance)
+					r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased)
 					continue
 				}
 				if err != nil {
 					log.Error(err, "failed to get aws eks kubernetes runtime instance by ID from API")
-					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
+					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
 					continue
 				}
 				awsEksKubernetesRuntimeInstance = *latestAwsEksKubernetesRuntimeInstance
@@ -132,6 +153,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
+						lockReleased,
 					)
 					continue
 				}
@@ -143,6 +165,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
+						lockReleased,
 					)
 					continue
 				}
@@ -154,9 +177,10 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
+						lockReleased,
 					)
 				} else {
-					r.ReleaseLock(&awsEksKubernetesRuntimeInstance)
+					r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased)
 					log.Info("aws eks kubernetes runtime instance successfully reconciled")
 				}
 				continue
@@ -170,6 +194,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					msg.Subject,
 					notifPayload,
 					requeueDelay,
+					lockReleased,
 				)
 				continue
 
@@ -189,7 +214,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update aws eks kubernetes runtime instance to mark as reconciled")
-					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
+					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
 					continue
 				}
 				log.V(1).Info(
@@ -199,7 +224,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&awsEksKubernetesRuntimeInstance); !ok {
+			if ok := r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased); !ok {
 				log.V(1).Info("aws eks kubernetes runtime instance remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("aws eks kubernetes runtime instance unlocked")
