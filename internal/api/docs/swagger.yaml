@@ -113,6 +113,9 @@ definitions:
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
+      WorkloadDefinitionID:
+        description: The workload definition that belongs to this resource.
+        type: integer
       Zone:
         description: The name of the zone in which the domain is managed.
         type: string
@@ -193,86 +196,6 @@ definitions:
           TODO: use a custom type
         type: string
     required:
-=======
-=======
->>>>>>> 355d969 (feat: add kubernetes runtime controller)
-    - KubernetesRuntimeDefinitionID
->>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
-    - Name
-    type: object
-  v0.GatewayDefinition:
-    properties:
-      DomainNameDefinitionID:
-        description: The domain name to serve requests for.
-        type: integer
-      GatewayInstances:
-        description: The associated gateway instances that are deployed from this
-          definition.
-        items:
-          $ref: '#/definitions/v0.GatewayInstance'
-        type: array
-      HTTPSRedirect:
-        description: Redirect all requests to HTTP port to HTTPS.
-        type: boolean
-      Name:
-        description: An arbitrary name for the definition.
-        type: string
-      Paths:
-        description: The request paths to serve requests for.
-        type: string
-      ProfileID:
-        description: |-
-          The profile to associate with the definition.  Profile is a named
-          standard configuration for a definition object.
-        type: integer
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by gateway
-          controller.
-        type: boolean
-      TCPPort:
-        description: TCP Port to expose to outside network.
-        type: integer
-      TLSEnabled:
-        description: Indicates if TLS is enabled.
-        type: boolean
-      TierID:
-        description: |-
-          The tier to associate with the definition.  Tier is a level of
-          criticality for access control.
-        type: integer
-      WorkloadDefinitionID:
-        description: The workload definition that belongs to this resource.
-        type: integer
-    required:
-    - Name
-    type: object
-  v0.GatewayInstance:
-    properties:
-      GatewayDefinitionID:
-        description: GatewayDefinitionID is the definition used to configure the workload
-          instance.
-        type: integer
-      KubernetesRuntimeInstanceID:
-        description: The kubernetes runtime where the ingress layer is installed.
-        type: integer
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by gateway
-          controller.
-        type: boolean
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-      WorkloadInstanceID:
-        description: The workload instance this gateway belongs to.
-        type: integer
-    required:
-    - GatewayDefinitionID
-    - KubernetesRuntimeInstanceID
     - Name
     type: object
   v0.GatewayDefinition:

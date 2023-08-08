@@ -76,11 +76,6 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 		EKSToken:           eksClusterConn.Token,
 		EKSTokenExpiration: eksClusterConn.TokenExpiration,
 	}
-	kubeConnInfo := kube.KubeConnectionInfo{
-		APIEndpoint:   eksClusterConn.APIEndpoint,
-		CACertificate: eksClusterConn.CACertificate,
-		EKSToken:      eksClusterConn.Token,
-	}
 
 	return &kubeConnInfo, nil
 }
