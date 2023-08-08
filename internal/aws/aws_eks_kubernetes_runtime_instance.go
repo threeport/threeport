@@ -170,7 +170,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 			if updateErr != nil {
 				reconLog.Error(errors.New("failed to update eks runtime instance to interrupt reconciliation"), "")
 			}
-			return fmt.Errorf("failed to create new threeport cluster: %w and failed to delete created infra: %v", err, deleteErr)
+			return fmt.Errorf("failed to create new threeport cluster: %w and failed to delete created infra: %w", err, deleteErr)
 		}
 		return fmt.Errorf("failed to create new threeport cluster: %w", err)
 	}
