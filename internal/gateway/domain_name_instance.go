@@ -343,24 +343,24 @@ func configureWorkloadResourceInstance(
 		return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
 	}
 
-	// if domainNameDefinition is not passed in, remove hostname annotation
+	// if domainNameDefinition is not passed in, set domains to default value
 	if domainNameDefinition == nil {
-		unstructured.RemoveNestedField(
+		unstructured.SetNestedStringSlice(
 			virtualServiceUnmarshaled,
-			"metadata",
-			"annotations",
-			"external-dns.alpha.kubernetes.io/hostname",
+			[]string{"*"},
+			"spec",
+			"virtualHost",
+			"domains",
 		)
 	} else {
-		// otherwise, set hostname annotation
+		// otherwise, set domain
 
-		// unmarshal service name
-		err = unstructured.SetNestedField(
+		err = unstructured.SetNestedStringSlice(
 			virtualServiceUnmarshaled,
-			*domainNameDefinition.Domain,
-			"metadata",
-			"annotations",
-			"external-dns.alpha.kubernetes.io/hostname",
+			[]string{*domainNameDefinition.Domain},
+			"spec",
+			"virtualHost",
+			"domains",
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to set virtual service name: %w", err)
