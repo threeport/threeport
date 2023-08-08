@@ -30,10 +30,19 @@ func (e *LocationError) Error() string {
 	return e.Message
 }
 
-// GetProviderRegionForLocation returns a cloud provider region for a given
-// threeport location and provider.
-func GetProviderRegionForLocation(provider, location string) (string, error) {
-	regionMapping := []RegionMap{
+// RegionError is an error returned when an unsupported cloud provider region is
+// used.
+type RegionError struct {
+	Message string
+}
+
+// Error returns a customized message for the RegionError.
+func (e *RegionError) Error() string {
+	return e.Message
+}
+
+func regionMap() *[]RegionMap {
+	return &[]RegionMap{
 		{
 			Location:  "NorthAmerica:NewYork",
 			AwsRegion: "us-east-1",
@@ -143,8 +152,12 @@ func GetProviderRegionForLocation(provider, location string) (string, error) {
 			AwsRegion: "af-south-1",
 		},
 	}
+}
 
-	for _, r := range regionMapping {
+// GetProviderRegionForLocation returns a cloud provider region for a given
+// threeport location and provider.
+func GetProviderRegionForLocation(provider, location string) (string, error) {
+	for _, r := range *regionMap() {
 		if r.Location == location {
 			switch provider {
 			case "aws":
@@ -158,4 +171,17 @@ func GetProviderRegionForLocation(provider, location string) (string, error) {
 
 	msg := fmt.Sprintf("location %s not supported", location)
 	return "", &LocationError{Message: msg}
+}
+
+// GetLocationForAwsRegion returns the threeport location for a given AWS
+// region.
+func GetLocationForAwsRegion(awsRegion string) (string, error) {
+	for _, r := range *regionMap() {
+		if r.AwsRegion == awsRegion {
+			return r.Location, nil
+		}
+	}
+
+	msg := fmt.Sprintf("AWS region %s not supported", awsRegion)
+	return "", &RegionError{Message: msg}
 }

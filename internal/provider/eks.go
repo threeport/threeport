@@ -71,9 +71,10 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
 	}
 	kubeConnInfo := kube.KubeConnectionInfo{
-		APIEndpoint:   eksClusterConn.APIEndpoint,
-		CACertificate: eksClusterConn.CACertificate,
-		EKSToken:      eksClusterConn.Token,
+		APIEndpoint:        eksClusterConn.APIEndpoint,
+		CACertificate:      eksClusterConn.CACertificate,
+		EKSToken:           eksClusterConn.Token,
+		EKSTokenExpiration: eksClusterConn.TokenExpiration,
 	}
 
 	return &kubeConnInfo, nil

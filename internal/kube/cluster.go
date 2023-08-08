@@ -84,7 +84,8 @@ func GetDiscoveryClient(
 	return discoveryClient, nil
 }
 
-// getRESTConfig returns a REST config for a cluster instance.
+// getRESTConfig takes a kubernetes runtime instance and returns a REST config
+// for the kubernetes API.
 func getRESTConfig(
 	runtime *v0.KubernetesRuntimeInstance,
 	threeportControlPlane bool,
@@ -159,11 +160,6 @@ func getRESTConfig(
 						fmt.Sprintf("unable to refresh connection token for unsupported infra provider %s:", *definition.InfraProvider),
 					)
 				}
-				restConfig = *config
-			default:
-				return nil, errors.New(
-					fmt.Sprintf("unable to refresh connection token for unsupported infra provider %s:", *definition.InfraProvider),
-				)
 			}
 		}
 	default:

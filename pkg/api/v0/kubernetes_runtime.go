@@ -2,6 +2,8 @@
 //go:generate ../../../bin/threeport-codegen controller --filename $GOFILE
 package v0
 
+import "time"
+
 // +threeport-codegen:reconciler
 // KubernetesRuntimeDefinition is the configuration for a Kubernetes cluster.
 // TODO apply BeforeCreate functions that prevent changes to InfraProvider and
