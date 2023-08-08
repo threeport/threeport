@@ -92,7 +92,7 @@ LocalConfig, LocalCredentials and LocalProfile
 		return nil, errors.New(msg)
 	}
 
-	// validate that default account info
+	// validate that no other default AWS account exists
 	if aa.DefaultAccount {
 		existingAccounts, err := client.GetAwsAccounts(apiClient, apiEndpoint)
 		if err != nil {
