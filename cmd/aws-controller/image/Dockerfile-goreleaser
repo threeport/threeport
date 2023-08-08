@@ -1,0 +1,4 @@
+FROM scratch
+COPY threeport-aws-controller /threeport-aws-controller
+ENTRYPOINT ["/threeport-aws-controller"]
+
