@@ -667,22 +667,10 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
 	}
 
-	// get gloo edge workload resource instance
-	glooEdgeWorkloadResourceInstance, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.GatewayControllerInstanceID)
+	// get gloo edge namespace
+	glooEdgeNamespace, err := getGlooEdgeNamespace(r, kubernetesRuntimeInstance.GatewayControllerInstanceID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gloo edge workload resource instance: %w", err)
-	}
-
-	// unmarshal gloo edge custom resource
-	glooEdge, err := util.UnmarshalUniqueWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
-	}
-
-	// get gateway namespace
-	glooEdgeNamespace, found, err := unstructured.NestedString(glooEdge, "spec", "namespace")
-	if err != nil || !found {
-		return nil, fmt.Errorf("failed to get namespace from gateway workload resource definition: %w", err)
+		return nil, fmt.Errorf("failed to get gloo edge namespace: %w", err)
 	}
 
 	// set virtual service upstream namespace field

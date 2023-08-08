@@ -45,9 +45,22 @@ func createGlooEdge() (string, error) {
 	return unstructuredToYAMLString(glooEdge)
 }
 
-func createExternalDns(provider, iamRoleArn string) (string, error) {
+func createExternalDns(
+		provider,
+		iamRoleArn,
+		glooEdgeNamespace,
+		kubernetesRuntimeInstanceID string,
+	) (string, error) {
 
-	var resourceObj = &unstructured.Unstructured{
+	zoneType := "public"
+	extraArgs := []string{
+		"--source=gloo-proxy",
+		"--gloo-namespace=" + glooEdgeNamespace,
+		"--txt-owner-id=" + kubernetesRuntimeInstanceID + "-",
+		"--txt-prefix=" + kubernetesRuntimeInstanceID + "-",
+	}
+
+	var externalDns = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "gateway.support-services.nukleros.io/v1alpha1",
 			"kind":       "ExternalDNS",
@@ -55,22 +68,20 @@ func createExternalDns(provider, iamRoleArn string) (string, error) {
 				"name": "externaldns-sample",
 			},
 			"spec": map[string]interface{}{
-				//collection:
-				//name: "supportservices-sample"
-				//namespace: ""
 				"namespace":          "nukleros-gateway-system",
-				"zoneType":           "private",
-				"domainName":         "nukleros.io",
-				"image":              "k8s.gcr.io/external-dns/external-dns",
-				"version":            "v0.12.2",
+				"zoneType":           zoneType,
+				"domainName":         "qleet.net",
+				"image":              "registry.k8s.io/external-dns/external-dns",
+				"version":            "v0.13.5",
 				"provider":           provider,
 				"serviceAccountName": "external-dns",
 				"iamRoleArn":         iamRoleArn,
+				"extraArgs":          extraArgs,
 			},
 		},
 	}
 
-	return unstructuredToYAMLString(resourceObj)
+	return unstructuredToYAMLString(externalDns)
 }
 
 func createGlooEdgePort(name string, port int64, ssl bool) map[string]interface{} {

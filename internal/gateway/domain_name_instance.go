@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"strconv"
 	"github.com/go-logr/logr"
 	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -231,6 +232,29 @@ func validateThreeportStateExternalDns(
 	return nil
 }
 
+func getGlooEdgeNamespace(r *controller.Reconciler, workloadInstanceID *uint) (string, error) {
+
+	// get gloo edge workload resource instance
+	glooEdgeWorkloadResourceInstance, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *workloadInstanceID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get gloo edge workload resource instance: %w", err)
+	}
+
+	// unmarshal gloo edge custom resource
+	glooEdge, err := util.UnmarshalUniqueWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
+	}
+
+	// get gateway namespace
+	glooEdgeNamespace, found, err := unstructured.NestedString(glooEdge, "spec", "namespace")
+	if err != nil || !found {
+		return "", fmt.Errorf("failed to get namespace from gateway workload resource definition: %w", err)
+	}
+
+	return glooEdgeNamespace, nil
+}
+
 // confirmDnsControllerDeployed confirms that a dns controller is deployed for
 // the kubernetes runtime instance.
 func confirmDnsControllerDeployed(
@@ -251,8 +275,15 @@ func confirmDnsControllerDeployed(
 		return fmt.Errorf("failed to get infra provider: %w", err)
 	}
 
+	// get gloo edge namespace
+	glooEdgeNamespace, err := getGlooEdgeNamespace(r, kubernetesRuntimeInstance.GatewayControllerInstanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get gloo edge namespace: %w", err)
+	}
+
 	// generate external dns manifest based on infra provider
 	var externalDnsManifest string
+	kubernetesRuntimeInstanceID := strconv.Itoa(int(*domainNameInstance.KubernetesRuntimeInstanceID))
 	switch *infraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 
@@ -261,14 +292,24 @@ func confirmDnsControllerDeployed(
 			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 		}
 
-		externalDnsManifest, err = createExternalDns("route53", *iamRoleArn)
+		externalDnsManifest, err = createExternalDns(
+			"route53",
+			*iamRoleArn,
+			glooEdgeNamespace,
+			kubernetesRuntimeInstanceID,
+		)
 		if err != nil {
 			return fmt.Errorf("failed to create external dns: %w", err)
 		}
 
 	case v0.KubernetesRuntimeInfraProviderKind:
 
-		externalDnsManifest, err = createExternalDns("none", "")
+		externalDnsManifest, err = createExternalDns(
+			"none",
+			"",
+			glooEdgeNamespace,
+			kubernetesRuntimeInstanceID,
+		)
 		if err != nil {
 			return fmt.Errorf("failed to create external dns: %w", err)
 		}
