@@ -99,8 +99,8 @@ and workload instance based on the workload config or name.`,
 			os.Exit(1)
 		}
 
-		cli.Info(fmt.Sprintf("workload definition %s deleted", *wd.Name))
 		cli.Info(fmt.Sprintf("workload instance %s deleted", *wi.Name))
+		cli.Info(fmt.Sprintf("workload definition %s deleted", *wd.Name))
 		cli.Complete(fmt.Sprintf("workload %s deleted", workloadConfig.Workload.Name))
 	},
 }
