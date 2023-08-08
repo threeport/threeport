@@ -20,10 +20,12 @@ var createAwsAccountConfigPath string
 
 // CreateAwsAccountCmd represents the aws-account command
 var CreateAwsAccountCmd = &cobra.Command{
-	Use:          "aws-account",
-	Example:      "tptctl create aws-account --config /path/to/config.yaml",
-	Short:        "Create a new AWS account",
-	Long:         `Create a new AWS account.`,
+	Use:     "aws-account",
+	Example: "tptctl create aws-account --config /path/to/config.yaml",
+	Short:   "Create a new AWS account in Threeport",
+	Long: `Create a new AWS account in Threeport. This does NOT create a new AWS
+account with that provider.  It registers an existing AWS account in the Threeport
+control plane so that it may be used to manage infrastructure.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config and extract threeport API endpoint

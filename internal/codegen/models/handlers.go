@@ -16,7 +16,12 @@ import (
 // deletionInstanceCheckTypeNames returns the definition objects that need to
 // have related instances checked when deleting
 func deletionInstanceCheckTypeNames() []string {
-	return []string{"WorkloadDefinition", "GatewayDefinition"}
+	return []string{
+		"AwsEksKubernetesRuntimeDefinition",
+		"GatewayDefinition",
+		"KubernetesRuntimeDefinition",
+		"WorkloadDefinition",
+	}
 }
 
 // SetReconcileCheckTypeNames returns the definition objects that need to

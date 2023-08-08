@@ -5,9 +5,6 @@ AWS_CONTROLLER_IMG ?= threeport-aws-controller:latest
 GATEWAY_CONTROLLER_IMG ?= threeport-gateway-controller:latest
 AGENT_IMG ?= threeport-agent:latest
 
-IMG_REPO ?= ""
-IMG_TAG ?= dev
-
 #help: @ List available make targets
 help:
 	@clear
@@ -146,27 +143,27 @@ dev-debug-gateway:
 
 #rest-api-image-build: @ Build REST API container image
 rest-api-image-build:
-	docker build -t $(REST_API_IMG) -f cmd/rest-api/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(REST_API_IMG) -f cmd/rest-api/image/Dockerfile .
 
 #workload-controller-image-build: @ Build workload controller container image
 workload-controller-image-build:
-	docker build -t $(WORKLOAD_CONTROLLER_IMG) -f cmd/workload-controller/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(WORKLOAD_CONTROLLER_IMG) -f cmd/workload-controller/image/Dockerfile .
 
 #kubernetes-runtime-controller-image-build: @ Build kubernetes runtime controller container image
 kubernetes-runtime-controller-image-build:
-	docker build -t $(KUBERNETES_RUNTIME_CONTROLLER_IMG) -f cmd/kubernetes-runtime-controller/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(KUBERNETES_RUNTIME_CONTROLLER_IMG) -f cmd/kubernetes-runtime-controller/image/Dockerfile .
 
 #aws-controller-image-build: @ Build aws controller container image
 aws-controller-image-build:
-	docker build -t $(AWS_CONTROLLER_IMG) -f cmd/aws-controller/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(AWS_CONTROLLER_IMG) -f cmd/aws-controller/image/Dockerfile .
 
 #gateway-image-build: @ Build gateway controller container image
 gateway-controller-image-build:
-	docker build -t $(GATEWAY_CONTROLLER_IMG) -f cmd/gateway-controller/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(GATEWAY_CONTROLLER_IMG) -f cmd/gateway-controller/image/Dockerfile .
 
 #agent-image-build: @ Build agent container image
 agent-image-build:
-	docker build -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile .
 
 #rest-api-image: @ Build and push REST API container image
 rest-api-image: rest-api-image-build

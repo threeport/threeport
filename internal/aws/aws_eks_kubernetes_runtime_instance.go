@@ -146,8 +146,8 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:        *awsAccount.AccountID,
-		AwsConfig:           *awsConfig,
-		ResourceClient:      *resourceClient,
+		AwsConfig:           awsConfig,
+		ResourceClient:      resourceClient,
 	}
 
 	// create control plane infra
@@ -162,15 +162,15 @@ func awsEksKubernetesRuntimeInstanceCreated(
 			// infinite loop
 			interrupt := true
 			awsEksKubernetesRuntimeInstance.InterruptReconciliation = &interrupt
-			_, err := client.UpdateAwsEksKubernetesRuntimeInstance(
+			_, updateErr := client.UpdateAwsEksKubernetesRuntimeInstance(
 				r.APIClient,
 				r.APIServer,
 				awsEksKubernetesRuntimeInstance,
 			)
-			if err != nil {
+			if updateErr != nil {
 				reconLog.Error(errors.New("failed to update eks runtime instance to interrupt reconciliation"), "")
 			}
-			return fmt.Errorf("failed to create new threeport cluster: %w and failed to delete created infra: %v", err, deleteErr)
+			return fmt.Errorf("failed to create new threeport cluster: %w and failed to delete created infra: %w", err, deleteErr)
 		}
 		return fmt.Errorf("failed to create new threeport cluster: %w", err)
 	}
@@ -286,9 +286,9 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:        *awsAccount.AccountID,
-		AwsConfig:           *awsConfig,
-		ResourceClient:      *resourceClient,
-		ResourceInventory:   resourceInventory,
+		AwsConfig:           awsConfig,
+		ResourceClient:      resourceClient,
+		ResourceInventory:   &resourceInventory,
 	}
 
 	// delete control plane infra

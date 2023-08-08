@@ -20,6 +20,7 @@ type AwsAccountConfig struct {
 type AwsAccountValues struct {
 	Name             string `yaml:"Name"`
 	AccountID        string `yaml:"AccountID"`
+	DefaultAccount   bool   `yaml:"DefaultAccount"`
 	DefaultRegion    string `yaml:"DefaultRegion"`
 	AccessKeyID      string `yaml:"AccessKeyID"`
 	SecretAccessKey  string `yaml:"SecretAccessKey"`
@@ -62,6 +63,49 @@ type AwsEksKubernetesRuntimeInstanceValues struct {
 
 // Create creates an AWS account in the Threeport API.
 func (aa *AwsAccountValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsAccount, error) {
+	// validate required fields
+	if aa.Name == "" || aa.AccountID == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, AccountID")
+	}
+
+	// validate config and credentials properly provided
+	explain := `
+In order to configure an AWS account provide the fields:
+DefaultRegion, AccessKeyID and SecretAccessKey
+OR
+LocalConfig, LocalCredentials and LocalProfile
+`
+	localConfig := false
+	explicitConfig := false
+	if aa.LocalConfig != "" && aa.LocalCredentials != "" && aa.LocalProfile != "" {
+		localConfig = true
+	}
+	if aa.DefaultRegion != "" && aa.AccessKeyID != "" && aa.SecretAccessKey != "" {
+		explicitConfig = true
+	}
+	switch {
+	case localConfig && explicitConfig:
+		msg := fmt.Sprintf("local and explicit configurations provided %s", explain)
+		return nil, errors.New(msg)
+	case !localConfig && !explicitConfig:
+		msg := fmt.Sprintf("neither local nor explicit configurations provided %s", explain)
+		return nil, errors.New(msg)
+	}
+
+	// validate that no other default AWS account exists
+	if aa.DefaultAccount {
+		existingAccounts, err := client.GetAwsAccounts(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve existing AWS accounts to check default accounts: %w", err)
+		}
+		for _, existing := range *existingAccounts {
+			if *existing.DefaultAccount {
+				msg := fmt.Sprintf("cannot designate new account as default account - %s is already the default account", *existing.Name)
+				return nil, errors.New(msg)
+			}
+		}
+	}
+
 	// establish default region from explicit declaration in config or AWS
 	// config file
 	var region string
@@ -102,6 +146,7 @@ func (aa *AwsAccountValues) Create(apiClient *http.Client, apiEndpoint string) (
 	// construct AWS account object
 	awsAccount := v0.AwsAccount{
 		Name:            &aa.Name,
+		DefaultAccount:  &aa.DefaultAccount,
 		DefaultRegion:   &region,
 		AccountID:       &aa.AccountID,
 		AccessKeyID:     &accessKeyID,

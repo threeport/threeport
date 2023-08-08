@@ -1,19 +1,16 @@
 package kube
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
-	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
@@ -87,7 +84,8 @@ func GetDiscoveryClient(
 	return discoveryClient, nil
 }
 
-// getRESTConfig returns a REST config for a cluster instance.
+// getRESTConfig takes a kubernetes runtime instance and returns a REST config
+// for the kubernetes API.
 func getRESTConfig(
 	runtime *v0.KubernetesRuntimeInstance,
 	threeportControlPlane bool,
@@ -127,59 +125,63 @@ func getRESTConfig(
 			BearerToken:     *runtime.ConnectionToken,
 			TLSClientConfig: tlsConfig,
 		}
-	}
-
-	// ensure rest config is valid
-	if err := testRESTConfig(&restConfig); err != nil {
-		if kubeerrors.IsUnauthorized(err) {
-			// in unauthorized, refresh token
-			definition, err := client.GetKubernetesRuntimeDefinitionByID(
-				threeportAPIClient,
-				threeportAPIEndpoint,
-				*runtime.KubernetesRuntimeDefinitionID,
-			)
+		// if there is a connection token expiration, make sure that token is
+		// not expired nor will it expire within 3 minutes
+		if runtime.ConnectionTokenExpiration != nil {
+			expiring, err := checkTokenExpiring(runtime)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get kubernetes runtime definition by ID %d: %w", runtime.KubernetesRuntimeDefinitionID, err)
+				return nil, fmt.Errorf("failed to check connection token expiration: %w", err)
 			}
 
-			switch *definition.InfraProvider {
-			case v0.KubernetesRuntimeInfraProviderEKS:
-				config, err := refreshEKSConnection(
-					runtime,
+			// if it is expired, or will within 3 minutes, get a new token
+			if expiring {
+				definition, err := client.GetKubernetesRuntimeDefinitionByID(
 					threeportAPIClient,
 					threeportAPIEndpoint,
+					*runtime.KubernetesRuntimeDefinitionID,
 				)
 				if err != nil {
-					return nil, fmt.Errorf("failed to refresh connection token for EKS cluster: %w", err)
+					return nil, fmt.Errorf("failed to get kubernetes runtime definition by ID %d: %w", runtime.KubernetesRuntimeDefinitionID, err)
 				}
-				restConfig = *config
-			default:
-				return nil, errors.New(
-					fmt.Sprintf("unable to refresh connection token for unsupported infra provider %s:", *definition.InfraProvider),
-				)
+
+				switch *definition.InfraProvider {
+				case v0.KubernetesRuntimeInfraProviderEKS:
+					config, err := refreshEKSConnection(
+						runtime,
+						threeportAPIClient,
+						threeportAPIEndpoint,
+					)
+					if err != nil {
+						return nil, fmt.Errorf("failed to refresh connection token for EKS cluster: %w", err)
+					}
+					restConfig = *config
+				default:
+					return nil, errors.New(
+						fmt.Sprintf("unable to refresh connection token for unsupported infra provider %s:", *definition.InfraProvider),
+					)
+				}
 			}
-		} else {
-			return nil, err
 		}
+	default:
+		return nil, errors.New("did not find certificate, key pair or connection token - have no way to authenticate to kubernetes API")
 	}
 
 	return &restConfig, nil
 }
 
-// testRESTConfig calls the target kubernetes API using a rest.Config to ensure
-// it works before use.
-func testRESTConfig(restConfig *rest.Config) error {
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return err
+// checkTokenExpiring checks the expiration datetime for a token.  It returns
+// true if it is expired or will expire within 3 minutes.
+func checkTokenExpiring(
+	runtimeInstance *v0.KubernetesRuntimeInstance,
+) (bool, error) {
+	if runtimeInstance.ConnectionTokenExpiration == nil {
+		return true, errors.New("runtime instance has no token expiration value set")
 	}
-
-	_, err = clientset.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
+	if time.Now().Sub(*runtimeInstance.ConnectionTokenExpiration) > time.Minute*3 {
+		return false, nil
+	} else {
+		return true, nil
 	}
-
-	return nil
 }
 
 // refreshEKSConnection retrieves a new EKS token when it expires.
@@ -238,6 +240,7 @@ func refreshEKSConnection(
 	// update threeport API with new conncetion info
 	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
 	runtimeInstance.ConnectionToken = &eksClusterConn.Token
+	runtimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
 	_, err = client.UpdateKubernetesRuntimeInstance(
 		threeportAPIClient,
 		threeportAPIEndpoint,

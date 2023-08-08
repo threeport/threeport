@@ -110,7 +110,6 @@ func InstallThreeportAPI(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
-	apiHostname string,
 	customThreeportImageRepo string,
 	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
@@ -384,215 +383,6 @@ func InstallController(
 	)
 	if _, err := kube.CreateResource(controllerDeployment, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
-	}
-
-	return nil
-}
-
-// InstallKubernetesRuntimeController installs the threeport kubernetes runtime
-// controller in a Kubernetes cluster.
-func InstallKubernetesRuntimeController(
-	kubeClient dynamic.Interface,
-	mapper *meta.RESTMapper,
-	devEnvironment bool,
-	customThreeportImageRepo string,
-	customThreeportImageTag string,
-	authConfig *auth.AuthConfig,
-) error {
-	kubernetesRuntimeControllerImage := getKubernetesRuntimeControllerImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
-	kubernetesRuntimeControllerVols, kubernetesRuntimeControllerVolMounts := getKubernetesRuntimeControllerVolumes(devEnvironment, authConfig)
-	kubernetesRuntimeControllerArgs := getKubernetesRuntimeControllerArgs(devEnvironment, authConfig)
-
-	// if auth is enabled on API, generate client cert and key and store in
-	// secrets
-	if authConfig != nil {
-		kubernetesRuntimeCertificate, kubernetesRuntimePrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
-		if err != nil {
-			return fmt.Errorf("failed to generate client certificate and private key for kubernetes runtime controller: %w", err)
-		}
-
-		var kubernetesRuntimeCa = getTLSSecret("kubernetes-runtime-ca", authConfig.CAPemEncoded, "")
-		if _, err := kube.CreateResource(kubernetesRuntimeCa, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret for kubernetes runtime controller: %w", err)
-		}
-
-		var kubernetesRuntimeCert = getTLSSecret("kubernetes-runtime-cert", kubernetesRuntimeCertificate, kubernetesRuntimePrivateKey)
-		if _, err := kube.CreateResource(kubernetesRuntimeCert, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret for kubernetes runtime controller: %w", err)
-		}
-	}
-
-	var kubernetesRuntimeControllerSecret = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"metadata": map[string]interface{}{
-				"name":      "kubernetes-runtime-controller-config",
-				"namespace": ControlPlaneNamespace,
-			},
-			"type": "Opaque",
-			"stringData": map[string]interface{}{
-				"API_SERVER":      "threeport-api-server",
-				"MSG_BROKER_HOST": "nats-js",
-				"MSG_BROKER_PORT": "4222",
-			},
-		},
-	}
-	if _, err := kube.CreateResource(kubernetesRuntimeControllerSecret, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create kubernetes runtime controller secret: %w", err)
-	}
-
-	var kubernetesRuntimeControllerDeployment = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "apps/v1",
-			"kind":       "Deployment",
-			"metadata": map[string]interface{}{
-				"name":      "threeport-kubernetes-runtime-controller",
-				"namespace": ControlPlaneNamespace,
-			},
-			"spec": map[string]interface{}{
-				"replicas": 1,
-				"selector": map[string]interface{}{
-					"matchLabels": map[string]interface{}{
-						"app.kubernetes.io/name": "threeport-kubernetes-runtime-controller",
-					},
-				},
-				"template": map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"labels": map[string]interface{}{
-							"app.kubernetes.io/name": "threeport-kubernetes-runtime-controller",
-						},
-					},
-					"spec": map[string]interface{}{
-						"containers": []interface{}{
-							map[string]interface{}{
-								"name":            "kubernetes-runtime-controller",
-								"image":           kubernetesRuntimeControllerImage,
-								"imagePullPolicy": "IfNotPresent",
-								"args":            kubernetesRuntimeControllerArgs,
-								"envFrom": []interface{}{
-									map[string]interface{}{
-										"secretRef": map[string]interface{}{
-											"name": "kubernetes-runtime-controller-config",
-										},
-									},
-								},
-								"volumeMounts": kubernetesRuntimeControllerVolMounts,
-							},
-						},
-						"volumes": kubernetesRuntimeControllerVols,
-					},
-				},
-			},
-		},
-	}
-	if _, err := kube.CreateResource(kubernetesRuntimeControllerDeployment, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create kubernetes runtime controller deployment: %w", err)
-	}
-
-	return nil
-}
-
-// InstallAwsController installs the threeport aws controller in a
-// Kubernetes cluster.
-func InstallAwsController(
-	kubeClient dynamic.Interface,
-	mapper *meta.RESTMapper,
-	devEnvironment bool,
-	customThreeportImageRepo string,
-	customThreeportImageTag string,
-	authConfig *auth.AuthConfig,
-) error {
-	awsControllerImage := getAwsControllerImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
-	awsControllerVols, awsControllerVolMounts := getAwsControllerVolumes(devEnvironment, authConfig)
-	awsControllerArgs := getAwsControllerArgs(devEnvironment, authConfig)
-
-	if authConfig != nil {
-
-		// generate aws certificate
-		awsCertificate, awsPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
-		if err != nil {
-			return fmt.Errorf("failed to generate client certificate and private key: %w", err)
-		}
-
-		var awsCa = getTLSSecret("aws-ca", authConfig.CAPemEncoded, "")
-		if _, err := kube.CreateResource(awsCa, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret: %w", err)
-		}
-
-		var awsCert = getTLSSecret("aws-cert", awsCertificate, awsPrivateKey)
-		if _, err := kube.CreateResource(awsCert, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create API server secret: %w", err)
-		}
-	}
-
-	var awsControllerSecret = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"metadata": map[string]interface{}{
-				"name":      "aws-controller-config",
-				"namespace": ControlPlaneNamespace,
-			},
-			"type": "Opaque",
-			"stringData": map[string]interface{}{
-				"API_SERVER":      "threeport-api-server",
-				"MSG_BROKER_HOST": "nats-js",
-				"MSG_BROKER_PORT": "4222",
-			},
-		},
-	}
-	if _, err := kube.CreateResource(awsControllerSecret, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create aws controller secret: %w", err)
-	}
-
-	var awsControllerDeployment = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "apps/v1",
-			"kind":       "Deployment",
-			"metadata": map[string]interface{}{
-				"name":      "threeport-aws-controller",
-				"namespace": ControlPlaneNamespace,
-			},
-			"spec": map[string]interface{}{
-				"replicas": 1,
-				"selector": map[string]interface{}{
-					"matchLabels": map[string]interface{}{
-						"app.kubernetes.io/name": "threeport-aws-controller",
-					},
-				},
-				"template": map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"labels": map[string]interface{}{
-							"app.kubernetes.io/name": "threeport-aws-controller",
-						},
-					},
-					"spec": map[string]interface{}{
-						"containers": []interface{}{
-							map[string]interface{}{
-								"name":            "aws-controller",
-								"image":           awsControllerImage,
-								"imagePullPolicy": "IfNotPresent",
-								"args":            awsControllerArgs,
-								"envFrom": []interface{}{
-									map[string]interface{}{
-										"secretRef": map[string]interface{}{
-											"name": "aws-controller-config",
-										},
-									},
-								},
-								"volumeMounts": awsControllerVolMounts,
-							},
-						},
-						"terminationGracePeriodSeconds": 900, // 15 min grace period to allow for AWS resource cleanup
-						"volumes":                       awsControllerVols,
-					},
-				},
-			},
-		},
-	}
-	if _, err := kube.CreateResource(awsControllerDeployment, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create aws controller deployment: %w", err)
 	}
 
 	return nil
@@ -1205,23 +995,23 @@ func InstallThreeportAgent(
 								"args":            agentArgs,
 								"image":           agentImage,
 								"imagePullPolicy": "IfNotPresent",
-								"livenessProbe": map[string]interface{}{
-									"httpGet": map[string]interface{}{
-										"path": "/healthz",
-										"port": 8081,
-									},
-									"initialDelaySeconds": 5,
-									"periodSeconds":       20,
-								},
+								//"livenessProbe": map[string]interface{}{
+								//	"httpGet": map[string]interface{}{
+								//		"path": "/healthz",
+								//		"port": 8081,
+								//	},
+								//	"initialDelaySeconds": 5,
+								//	"periodSeconds":       20,
+								//},
 								"name": "manager",
-								"readinessProbe": map[string]interface{}{
-									"httpGet": map[string]interface{}{
-										"path": "/readyz",
-										"port": 8081,
-									},
-									"initialDelaySeconds": 5,
-									"periodSeconds":       10,
-								},
+								//"readinessProbe": map[string]interface{}{
+								//	"httpGet": map[string]interface{}{
+								//		"path": "/readyz",
+								//		"port": 8081,
+								//	},
+								//	"initialDelaySeconds": 5,
+								//	"periodSeconds":       10,
+								//},
 								//"resources": map[string]interface{}{
 								//	"limits": map[string]interface{}{
 								//		"cpu":    "500m",
@@ -1411,7 +1201,7 @@ func getThreeportAPIService(
 		mapper,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to Kubernetes service resource for threeport API: %w", err)
+		return nil, fmt.Errorf("failed to get Kubernetes service resource for threeport API: %w", err)
 	}
 
 	return apiService, nil
@@ -1442,32 +1232,6 @@ func getAPIImage(devEnvironment bool, customThreeportImageRepo, customThreeportI
 	)
 
 	return apiImage
-}
-
-// getAPIIngressAnnotations returns the annotaions for the API ingress resource.
-func getAPIIngressAnnotations(devEnvironment bool) map[string]interface{} {
-	if devEnvironment {
-		return map[string]interface{}{}
-	}
-
-	return map[string]interface{}{
-		"cert-manager.io/cluster-issuer": "letsencrypt-staging",
-	}
-}
-
-// getAPIIngressTLS returns the proper API ingress TLS object.
-func getAPIIngressTLS(devEnvironment bool, apiHostname string) []interface{} {
-	if devEnvironment {
-		return []interface{}{}
-	}
-
-	return []interface{}{
-		map[string]interface{}{
-			"hosts": []interface{}{
-				apiHostname,
-			},
-		},
-	}
 }
 
 // getAPIArgs returns the args that are passed to the API server.

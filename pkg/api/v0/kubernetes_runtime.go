@@ -2,6 +2,8 @@
 //go:generate ../../../bin/threeport-codegen controller --filename $GOFILE
 package v0
 
+import "time"
+
 // +threeport-codegen:reconciler
 // KubernetesRuntimeDefinition is the configuration for a Kubernetes cluster.
 // TODO apply BeforeCreate functions that prevent changes to InfraProvider and
@@ -70,6 +72,10 @@ type KubernetesRuntimeInstance struct {
 	// implements auth for a Kubernetes cluster.  It is an alternative to client
 	// certficate and key authenticaion.
 	ConnectionToken *string `json:"ConnectionToken,omitempty" validate:"optional"`
+
+	// ConnectionTokenExpiration is the time when a ConnectionToken will expire.
+	// Used to ensure a token will not expire before it can be used.
+	ConnectionTokenExpiration *time.Time `json:"ConnectionTokenExpiration,omitempty" validate:"optional"`
 
 	// If true, this Kubernetes cluster will be used for all workloads if not
 	// otherwise assigned.

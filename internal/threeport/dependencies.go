@@ -46,19 +46,6 @@ func InstallThreeportControlPlaneDependencies(
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
 	}
 
-	var namespace = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Namespace",
-			"metadata": map[string]interface{}{
-				"name": ControlPlaneNamespace,
-			},
-		},
-	}
-	if _, err := kube.CreateResource(namespace, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create namespace: %w", err)
-	}
-
 	var natsPDB = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "policy/v1",
@@ -404,17 +391,17 @@ lame_duck_duration: 30s
 								// Healthcheck Probes  #
 								//                     #
 								//######################
-								"livenessProbe": map[string]interface{}{
-									"failureThreshold": 3,
-									"httpGet": map[string]interface{}{
-										"path": "/",
-										"port": 8222,
-									},
-									"initialDelaySeconds": 10,
-									"periodSeconds":       30,
-									"successThreshold":    1,
-									"timeoutSeconds":      5,
-								},
+								//"livenessProbe": map[string]interface{}{
+								//	"failureThreshold": 3,
+								//	"httpGet": map[string]interface{}{
+								//		"path": "/",
+								//		"port": 8222,
+								//	},
+								//	"initialDelaySeconds": 10,
+								//	"periodSeconds":       30,
+								//	"successThreshold":    1,
+								//	"timeoutSeconds":      5,
+								//},
 								"readinessProbe": map[string]interface{}{
 									"failureThreshold": 3,
 									"httpGet": map[string]interface{}{

@@ -295,11 +295,17 @@ func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
 	kubernetesRuntimeDefinitionID := c.Param("id")
 	var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
-	if result := h.DB.First(&kubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
+	if result := h.DB.Preload("KubernetesRuntimeInstances").First(&kubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check to make sure no dependent instances exist for this definition
+	if len(kubernetesRuntimeDefinition.KubernetesRuntimeInstances) != 0 {
+		err := errors.New("kubernetes runtime definition has related kubernetes runtime instances - cannot be deleted")
+		return iapi.ResponseStatus409(c, nil, err, objectType)
 	}
 
 	if result := h.DB.Delete(&kubernetesRuntimeDefinition); result.Error != nil {
