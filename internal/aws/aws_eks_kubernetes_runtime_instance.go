@@ -277,9 +277,9 @@ func awsEksKubernetesRuntimeInstanceUpdated(
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:        *awsAccount.AccountID,
-		AwsConfig:           *awsConfig,
-		ResourceClient:      *resourceClient,
-		ResourceInventory:   resourceInventory,
+		AwsConfig:           awsConfig,
+		ResourceClient:      resourceClient,
+		ResourceInventory:   &resourceInventory,
 	}
 
 	// delete control plane infra
