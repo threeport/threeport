@@ -300,13 +300,15 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
 			},
-			Location:                  &location,
 			ThreeportControlPlaneHost: &controlPlaneHost,
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
-			ConnectionToken:           &kubeConnectionInfo.EKSToken,
+			Certificate:               &kubeConnectionInfo.Certificate,
+			Key:                       &kubeConnectionInfo.Key,
 			DefaultRuntime:            &defaultRuntime,
+			Location:                  &location,
 			Reconciled:                &instReconciled,
+			ConnectionToken:           &kubeConnectionInfo.EKSToken,
 		}
 	}
 
