@@ -14,14 +14,14 @@ type KubernetesRuntimeDefinition struct {
 	// cluster.
 	InfraProvider *string `json:"InfraProvider,omitempty" query:"infraprovider" gorm:"not null" validate:"required"`
 
+	// The infra provider account ID.  Determines which account the infra is
+	// deployed on.
+	InfraProviderAccountName *string `json:"InfraProviderAccountName,omitempty" query:"infraprovideraccountname" validate:"optional"`
+
 	// If true, will be deployed in a highly available configuration across
 	// multiple zones within a region and with multiple replicas of Kubernetes
 	// control plane components.
 	HighAvailability *bool `json:"HighAvailability,omitempty" query:"highavailability" validate:"optional"`
-
-	// The infra provider account ID.  Determines which account the infra is
-	// deployed on.
-	ProviderAccountID *string `json:"ProviderAccountID,omitempty" query:"provideraccountid" validate:"optional"`
 
 	// TODO: add fields for location limitations
 	// LocationsAllowed
@@ -80,13 +80,18 @@ type KubernetesRuntimeInstance struct {
 	DefaultRuntime *bool `json:"DefaultRuntime,omitempty" query:"defaultruntime" gorm:"default:false" validate:"optional"`
 
 	// The kubernetes runtime definition for this instance.
-	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" gorm:"not null" validate:"required"`
+	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" query:"kubernetesruntimedefinitionid" gorm:"not null" validate:"required"`
 
 	// The associated workload instances running on this kubernetes runtime.
 	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstance,omitempty" validate:"optional,association"`
 
 	// The WorkloadInstanceID of the gateway support service
 	GatewayControllerInstanceID *uint `json:"GatewayWorkloadInstanceID,omitempty" validate:"optional"`
+
+	// An alternate threeport image to use when deploying threeport agent to
+	// managed Kubernetes runtime clusters.  If not supplied, the official image
+	// with the correct version will be used.
+	ThreeportAgentImage *string `json:"ThreeportAgentImage,omitempty" validate:"optional"`
 
 	// Indicates if object is considered to be reconciled by the kubernetes
 	// runtime controller.

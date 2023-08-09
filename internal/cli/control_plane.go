@@ -130,7 +130,11 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	var threeportAPIEndpoint string
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
-		threeportAPIEndpoint = threeport.ThreeportLocalAPIEndpoint
+		threeportAPIEndpoint = fmt.Sprintf(
+			"%s:%d",
+			threeport.ThreeportLocalAPIEndpoint,
+			a.ThreeportLocalAPIPort,
+		)
 
 		// delete kind kubernetes runtime if interrupted
 		sigs := make(chan os.Signal, 1)
@@ -146,18 +150,14 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 		// construct kind infra provider object
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
-			ThreeportInstanceName: a.InstanceName,
-			KubeconfigPath:        a.KubeconfigPath,
-			DevEnvironment:        a.DevEnvironment,
-			ThreeportPath:         a.ThreeportPath,
-			NumWorkerNodes:        a.NumWorkerNodes,
+			RuntimeInstanceName: provider.ThreeportRuntimeName(a.InstanceName),
+			KubeconfigPath:      a.KubeconfigPath,
+			DevEnvironment:      a.DevEnvironment,
+			ThreeportPath:       a.ThreeportPath,
+			NumWorkerNodes:      a.NumWorkerNodes,
 		}
 		// update threerport config
-		threeportInstanceConfig.APIServer = fmt.Sprintf(
-			"%s:%d",
-			threeportAPIEndpoint,
-			a.ThreeportLocalAPIPort,
-		)
+		threeportInstanceConfig.APIServer = threeportAPIEndpoint
 
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
 	case v0.KubernetesRuntimeInfraProviderEKS:
@@ -214,10 +214,10 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-			ThreeportInstanceName: a.InstanceName,
-			AwsAccountID:          a.CreateProviderAccountID,
-			AwsConfig:             *awsConfig,
-			ResourceClient:        *resourceClient,
+			RuntimeInstanceName: provider.ThreeportRuntimeName(a.InstanceName),
+			AwsAccountID:        a.CreateProviderAccountID,
+			AwsConfig:           *awsConfig,
+			ResourceClient:      *resourceClient,
 		}
 
 		// update threeport config
@@ -277,8 +277,8 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Certificate:               &kubeConnectionInfo.Certificate,
 			Key:                       &kubeConnectionInfo.Key,
 			DefaultRuntime:            &defaultRuntime,
-			Reconciled:                &instReconciled,
 			Location:                  &location,
+			Reconciled:                &instReconciled,
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		location := a.AwsRegion
@@ -291,11 +291,20 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			CACertificate:             &kubeConnectionInfo.CACertificate,
 			ConnectionToken:           &kubeConnectionInfo.EKSToken,
 			DefaultRuntime:            &defaultRuntime,
-			Reconciled:                &instReconciled,
 			Location:                  &location,
+			Reconciled:                &instReconciled,
 		}
 	}
-	dynamicKubeClient, mapper, err := kube.GetClient(&kubernetesRuntimeInstance, false)
+
+	// get kubernetes client and mapper for use with kube API
+	// we don't have a client or endpoint for threeport API yet - but those are
+	// only used when a token refresh is needed and that should not be necessary
+	dynamicKubeClient, mapper, err := kube.GetClient(
+		&kubernetesRuntimeInstance,
+		false,
+		nil,
+		"",
+	)
 	if err != nil {
 		// delete control plane kubernetes runtime
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
@@ -378,20 +387,6 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		}
 	}
 
-	// install the API
-	if err := threeport.InstallThreeportAPI(
-		dynamicKubeClient,
-		mapper,
-		a.DevEnvironment,
-		threeportAPIEndpoint,
-		a.ControlPlaneImageRepo,
-		a.ControlPlaneImageTag,
-		authConfig,
-		a.InfraProvider,
-	); err != nil {
-		return fmt.Errorf("failed to install threeport API server: %w", err)
-	}
-
 	// for a cloud provider installed control plane, determine the threeport
 	// API's remote endpoint to add to the threeport config and to add to the
 	// server certificate's alt names when TLS assets are installed
@@ -407,6 +402,20 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		}
 		threeportAPIEndpoint = tpapiEndpoint
 		threeportInstanceConfig.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
+	}
+
+	// install the API
+	if err := threeport.InstallThreeportAPI(
+		dynamicKubeClient,
+		mapper,
+		a.DevEnvironment,
+		threeportAPIEndpoint,
+		a.ControlPlaneImageRepo,
+		a.ControlPlaneImageTag,
+		authConfig,
+		a.InfraProvider,
+	); err != nil {
+		return fmt.Errorf("failed to install threeport API server: %w", err)
 	}
 
 	// if auth enabled install the threeport API TLS assets that include the alt
@@ -436,7 +445,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	Info("Waiting for threeport API to start running")
 	if err := threeport.WaitForThreeportAPI(
 		apiClient,
-		fmt.Sprintf("%s:%d", threeportAPIEndpoint, a.ThreeportLocalAPIPort),
+		threeportAPIEndpoint,
 	); err != nil {
 		// print the error when it happens and then again post-deletion
 		Error("threeport API did not come up", err)
@@ -505,7 +514,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	}
 	kubernetesRuntimeDefResult, err := client.CreateKubernetesRuntimeDefinition(
 		apiClient,
-		fmt.Sprintf("%s:%d", threeportAPIEndpoint, a.ThreeportLocalAPIPort),
+		threeportAPIEndpoint,
 		&kubernetesRuntimeDefinition,
 	)
 	if err != nil {
@@ -522,7 +531,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = kubernetesRuntimeDefResult.ID
 	_, err = client.CreateKubernetesRuntimeInstance(
 		apiClient,
-		fmt.Sprintf("%s:%d", threeportAPIEndpoint, a.ThreeportLocalAPIPort),
+		threeportAPIEndpoint,
 		&kubernetesRuntimeInstance,
 	)
 	if err != nil {
@@ -570,8 +579,8 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 	switch threeportInstanceConfig.Provider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
-			ThreeportInstanceName: threeportInstanceConfig.Name,
-			KubeconfigPath:        a.KubeconfigPath,
+			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportInstanceConfig.Name),
+			KubeconfigPath:      a.KubeconfigPath,
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
 	case v0.KubernetesRuntimeInfraProviderEKS:
@@ -615,11 +624,11 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-			ThreeportInstanceName: threeportInstanceConfig.Name,
-			AwsAccountID:          a.CreateProviderAccountID,
-			AwsConfig:             *awsConfig,
-			ResourceClient:        *resourceClient,
-			ResourceInventory:     *inventory,
+			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportInstanceConfig.Name),
+			AwsAccountID:        a.CreateProviderAccountID,
+			AwsConfig:           *awsConfig,
+			ResourceClient:      *resourceClient,
+			ResourceInventory:   *inventory,
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 	}
@@ -663,7 +672,12 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 		// API for deleting resources
 		var dynamicKubeClient dynamic.Interface
 		var mapper *meta.RESTMapper
-		dynamicKubeClient, mapper, err = kube.GetClient(kubernetesRuntimeInstance, false)
+		dynamicKubeClient, mapper, err = kube.GetClient(
+			kubernetesRuntimeInstance,
+			false,
+			apiClient,
+			threeportInstanceConfig.APIServer,
+		)
 		if err != nil {
 			if kubeerrors.IsUnauthorized(err) {
 				// refresh token, save to kubernetes runtime instance and get kube client
@@ -680,7 +694,12 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 				if err != nil {
 					return fmt.Errorf("failed to update EKS token on kubernetes runtime instance: %w", err)
 				}
-				dynamicKubeClient, mapper, err = kube.GetClient(updatedKubernetesRuntimeInst, false)
+				dynamicKubeClient, mapper, err = kube.GetClient(
+					updatedKubernetesRuntimeInst,
+					false,
+					apiClient,
+					threeportInstanceConfig.APIServer,
+				)
 				if err != nil {
 					return fmt.Errorf("failed to get a Kubernetes client and mapper with refreshed token: %w", err)
 				}

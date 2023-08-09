@@ -14,8 +14,8 @@ import (
 
 // KubernetesRuntimeInfraKind represents a kind cluster for local a threeport instance.
 type KubernetesRuntimeInfraKind struct {
-	// The unique name of the threeport instance.
-	ThreeportInstanceName string
+	// The unique name of the kubernetes runtime instance.
+	RuntimeInstanceName string
 
 	// Path to user's kubeconfig file for connecting to Kubernetes API.
 	KubeconfigPath string
@@ -42,7 +42,7 @@ func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) 
 
 	// create the kind cluster
 	if err := prov.Create(
-		ThreeportRuntimeName(i.ThreeportInstanceName),
+		i.RuntimeInstanceName,
 		cluster.CreateWithKubeconfigPath(i.KubeconfigPath),
 		cluster.CreateWithWaitForReady(time.Duration(1000000000*60*5)), // 5 minutes
 		cluster.CreateWithV1Alpha4Config(getKindConfig(i.DevEnvironment, i.ThreeportPath, i.NumWorkerNodes)),
@@ -66,7 +66,7 @@ func (i *KubernetesRuntimeInfraKind) Delete() error {
 		cluster.ProviderWithLogger(logger),
 	)
 
-	if err := prov.Delete(ThreeportRuntimeName(i.ThreeportInstanceName), i.KubeconfigPath); err != nil {
+	if err := prov.Delete(i.RuntimeInstanceName, i.KubeconfigPath); err != nil {
 		return fmt.Errorf("failed to delete kind cluster: %w", err)
 	}
 

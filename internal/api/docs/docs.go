@@ -8648,6 +8648,7 @@ const docTemplate = `{
                     "type": "string"
                 },
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "DefaultNodeGroupMaximumSize": {
                     "type": "integer"
                 },
@@ -8655,6 +8656,12 @@ const docTemplate = `{
                     "type": "integer"
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 =======
+=======
+                "InfraProviderAccountName": {
+                    "description": "The infra provider account ID.  Determines which account the infra is\ndeployed on.",
+                    "type": "string"
+                },
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
                 "KubernetesRuntimeInstances": {
                     "description": "The associated kubernetes runtime instances that are deployed from this\ndefinition.",
                     "type": "array",
@@ -8680,6 +8687,7 @@ const docTemplate = `{
                 },
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by gateway controller.",
                     "type": "boolean"
@@ -8701,6 +8709,8 @@ const docTemplate = `{
                     "type": "string"
 >>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 },
+=======
+>>>>>>> 0fff52f (feat: add CLI functionality for kubernetes runtime mgmt)
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the kubernetes\nruntime controller.",
                     "type": "boolean"
@@ -8799,6 +8809,7 @@ const docTemplate = `{
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
                 },
+<<<<<<< HEAD
 <<<<<<< HEAD
                 "WorkloadInstanceID": {
                     "description": "The workload instance this gateway belongs to.",

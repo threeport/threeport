@@ -1,6 +1,4 @@
 Workload:
   Name: "wordpress"
   YAMLDocument: "wordpress-manifest.yaml"
-  KubernetesRuntimeInstance:
-    Name: "aws-remote-compute-space-1"
 

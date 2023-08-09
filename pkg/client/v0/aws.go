@@ -24,6 +24,7 @@ func GetAwsAccountByDefaultAccount(apiClient *http.Client, apiAddr string) (*v0.
 	if err != nil {
 		return &awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
+	// TODO: check for response.Data len == 0
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
@@ -99,4 +100,37 @@ func GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(apiClient *http.Client,
 	}
 
 	return &awsEksKubernetesRuntimeDefinition, nil
+}
+
+// GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst fetches a aws eks kubernetes runtime instance by ID.
+func GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances?kubernetesruntimeinstanceid=%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) < 1 {
+		return &awsEksKubernetesRuntimeInstance, errors.New(fmt.Sprintf("no object found with ID %d", id))
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksKubernetesRuntimeInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsEksKubernetesRuntimeInstance, nil
 }

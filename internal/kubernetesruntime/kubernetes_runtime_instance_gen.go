@@ -5,7 +5,6 @@ package kubernetesruntime
 import (
 	"errors"
 	"fmt"
-	mapstructure "github.com/mitchellh/mapstructure"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -62,7 +61,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// decode the object that was created
+			// decode the object that was sent in the notification
 			var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
 			if err := kubernetesRuntimeInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
@@ -202,20 +201,6 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					"kubernetes runtime instanceName", updatedKubernetesRuntimeInstance.Name,
 				)
 			}
-			updatedKubernetesRuntimeInstance, err := client.UpdateKubernetesRuntimeInstance(
-				r.APIClient,
-				r.APIServer,
-				&reconciledKubernetesRuntimeInstance,
-			)
-			if err != nil {
-				log.Error(err, "failed to update kubernetes runtime instance to mark as reconciled")
-				r.UnlockAndRequeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
-				continue
-			}
-			log.V(1).Info(
-				"kubernetes runtime instance marked as reconciled in API",
-				"kubernetes runtime instanceName", updatedKubernetesRuntimeInstance.Name,
-			)
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&kubernetesRuntimeInstance, lockReleased, msg, true); !ok {

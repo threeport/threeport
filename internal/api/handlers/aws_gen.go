@@ -4,9 +4,6 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
-	"net/http"
-
 	echo "github.com/labstack/echo/v4"
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
@@ -954,8 +951,6 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		false,
 		time.Now().Unix(),
 	)
-	fmt.Println("########################################################")
-	fmt.Println(string(*notifPayload))
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}

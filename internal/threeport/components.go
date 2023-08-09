@@ -24,6 +24,7 @@ const (
 	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
 	ThreeportAwsControllerImage               = "threeport-aws-controller"
 	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
+	ThreeportAgentDeployName                  = "threeport-agent"
 	ThreeportAgentImage                       = "threeport-agent"
 	ThreeportAPIServiceResourceName           = "threeport-api-server"
 	ThreeportAPIIngressResourceName           = "threeport-api-ingress"
