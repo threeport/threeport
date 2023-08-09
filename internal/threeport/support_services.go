@@ -21,6 +21,9 @@ const (
 	DNSManagerServiceAccountName     = "external-dns"
 	DNSManagerServiceAccountNamepace = "nukleros-gateway-system"
 
+	DNS01ChallengeServiceAccountName     = "cert-manager"
+	DNS01ChallengeServiceAccountNamepace = "nukleros-certs-system"
+
 	// links the service account used by the EBS CSI driver to the resource
 	// config for eks-cluster to create the attached IAM role.
 	StorageManagerServiceAccountName      = "ebs-csi-controller-sa"
