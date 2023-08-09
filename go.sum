@@ -371,8 +371,8 @@ github.com/nats-io/nkeys v0.4.4/go.mod h1:XUkxdLPTufzlihbamfzQ7mw/VGx6ObUs+0bN5s
 github.com/nats-io/nuid v1.0.1 h1:5iA8DT8V7q8WK2EScv2padNa/rTESc1KdnPw4TC2paw=
 github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OSON2c=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
-github.com/nukleros/eks-cluster v0.10.1 h1:4ZiyZiCh503/x380IC/PMvYC9SENlUjqN4B+joczo+U=
-github.com/nukleros/eks-cluster v0.10.1/go.mod h1:tju5bjQ2hDBO/AAXu81IwyaGNo5qxWHQOh1loL/Nj6M=
+github.com/nukleros/eks-cluster v0.11.0 h1:hhHy9E57xgPkJ79ubtG/E6uz29xSEmpg/B6nqZDbkow=
+github.com/nukleros/eks-cluster v0.11.0/go.mod h1:tju5bjQ2hDBO/AAXu81IwyaGNo5qxWHQOh1loL/Nj6M=
 github.com/onsi/ginkgo/v2 v2.11.0 h1:WgqUCUt/lT6yXoQ8Wef0fsNn5cAuMK7+KT9UFRz2tcU=
 github.com/onsi/ginkgo/v2 v2.11.0/go.mod h1:ZhrRA5XmEE3x3rhlzamx/JJvujdZoJ2uvgI7kR0iZvM=
 github.com/onsi/gomega v1.27.8 h1:gegWiwZjBsf2DgiSbf5hpokZ98JVDMcWkUiigk6/KXc=

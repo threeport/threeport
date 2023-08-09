@@ -19,7 +19,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/namsral/flag v1.7.4-pre
 	github.com/nats-io/nats.go v1.27.0
-	github.com/nukleros/eks-cluster v0.10.1
+	github.com/nukleros/eks-cluster v0.11.0
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
 	github.com/spf13/cobra v1.7.0
