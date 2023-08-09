@@ -350,6 +350,13 @@ func InstallThreeportCRDs(
 											"domainName": map[string]interface{}{
 												"type": "string",
 											},
+											"extraArgs": map[string]interface{}{
+												"description": "Extra arguments to be passed into the External DNS container.",
+												"items": map[string]interface{}{
+													"type": "string",
+												},
+												"type": "array",
+											},
 											"iamRoleArn": map[string]interface{}{
 												"description": "On AWS, the IAM Role ARN that gives external-dns access to Route53",
 												"type":        "string",
