@@ -7,8 +7,12 @@ import (
 	"github.com/nukleros/eks-cluster/pkg/resource"
 )
 
-// GetDnsManagementIamRoleArnByK8sRuntimeInst returns the DNS management IAM role arn.
-func GetDnsManagementIamRoleArnByK8sRuntimeInst(apiClient *http.Client, apiAddr string, kubernetesRuntimeInstanceId *uint) (*string, error) {
+// GetResourceInventoryByK8sRuntimeInst returns the DNS management IAM role arn.
+func GetResourceInventoryByK8sRuntimeInst(
+	apiClient *http.Client,
+	apiAddr string,
+	kubernetesRuntimeInstanceId *uint,
+) (*resource.ResourceInventory, error) {
 
 	// get dns management role arn
 	aekri, err := GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient, apiAddr, *kubernetesRuntimeInstanceId)
@@ -26,5 +30,5 @@ func GetDnsManagementIamRoleArnByK8sRuntimeInst(apiClient *http.Client, apiAddr 
 		return nil, fmt.Errorf("failed to unmarshal resource inventory: %w", err)
 	}
 
-	return &inventory.DNSManagementRole.RoleARN, nil
+	return &inventory, nil
 }

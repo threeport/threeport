@@ -420,12 +420,12 @@ func confirmGatewayControllerDeployed(
 	switch *infraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 
-		iamRoleArn, err := client.GetDnsManagementIamRoleArnByK8sRuntimeInst(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
+		resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
 		if err != nil {
 			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 		}
 
-		certManager, err = createCertManager(*iamRoleArn)
+		certManager, err = createCertManager(resourceInventory.DNSManagementRole.RoleARN)
 		if err != nil {
 			return fmt.Errorf("failed to create cert manager resource: %w", err)
 		}

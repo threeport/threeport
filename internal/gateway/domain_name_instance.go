@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"strconv"
+
 	"github.com/go-logr/logr"
 	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -287,14 +288,14 @@ func confirmDnsControllerDeployed(
 	switch *infraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 
-		iamRoleArn, err := client.GetDnsManagementIamRoleArnByK8sRuntimeInst(r.APIClient, r.APIServer, domainNameInstance.KubernetesRuntimeInstanceID)
+		resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(r.APIClient, r.APIServer, domainNameInstance.KubernetesRuntimeInstanceID)
 		if err != nil {
 			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 		}
 
 		externalDnsManifest, err = createExternalDns(
 			"route53",
-			*iamRoleArn,
+			resourceInventory.DNSManagementRole.RoleARN,
 			glooEdgeNamespace,
 			kubernetesRuntimeInstanceID,
 		)
