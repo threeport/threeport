@@ -121,31 +121,31 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 	// configure the control plane
 	controlPlane := threeport.ControlPlane{
-		InfraProvider: threeport.ClusterInfraProvider(a.InfraProvider),
+		InfraProvider: threeport.KubernetesRuntimeInfraProvider(a.InfraProvider),
 		Tier:          tier,
 	}
 
 	// configure the infra provider
-	var clusterInfra provider.ClusterInfra
+	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
 	switch controlPlane.InfraProvider {
-	case threeport.ClusterInfraProviderKind:
+	case threeport.KubernetesRuntimeInfraProviderKind:
 		threeportAPIEndpoint = threeport.ThreeportLocalAPIEndpoint
 
-		// delete kind cluster if interrupted
+		// delete kind kubernetes runtime if interrupted
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 		go func() {
 			<-sigs
-			Warning("received Ctrl+C, removing kind cluster...")
+			Warning("received Ctrl+C, removing kind kubernetes runtime...")
 			if err := a.DeleteControlPlane(); err != nil {
-				Error("failed to delete kind cluster", err)
+				Error("failed to delete kind kubernetes runtime", err)
 			}
 			os.Exit(1)
 		}()
 
 		// construct kind infra provider object
-		clusterInfraKind := provider.ClusterInfraKind{
+		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
 			ThreeportInstanceName: a.InstanceName,
 			KubeconfigPath:        a.KubeconfigPath,
 			DevEnvironment:        a.DevEnvironment,
@@ -159,8 +159,8 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			a.ThreeportLocalAPIPort,
 		)
 
-		clusterInfra = &clusterInfraKind
-	case threeport.ClusterInfraProviderEKS:
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
+	case threeport.KubernetesRuntimeInfraProviderEKS:
 		// create AWS Config
 		awsConfig, err := resource.LoadAWSConfig(
 			a.AwsConfigEnv,
@@ -193,7 +193,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			}
 		}()
 
-		// delete eks cluster resources if interrupted
+		// delete eks kubernetes runtime resources if interrupted
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 		go func() {
@@ -203,17 +203,17 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 				provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName),
 			)
 			if err != nil {
-				Error("failed to read eks cluster inventory", err)
+				Error("failed to read eks kubernetes runtime inventory", err)
 			}
 			os.Exit(1)
 			if err = resourceClient.DeleteResourceStack(inventory); err != nil {
-				Error("failed to delete eks cluster resources", err)
+				Error("failed to delete eks kubernetes runtime resources", err)
 			}
 			os.Exit(1)
 		}()
 
-		// construct eks cluster infra object
-		clusterInfraEKS := provider.ClusterInfraEKS{
+		// construct eks kubernetes runtime infra object
+		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 			ThreeportInstanceName: a.InstanceName,
 			AwsAccountID:          a.CreateProviderAccountID,
 			AwsConfig:             *awsConfig,
@@ -228,15 +228,15 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			AwsAccountID:     a.CreateProviderAccountID,
 		}
 
-		clusterInfra = &clusterInfraEKS
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 	}
 
 	// create control plane infra
-	kubeConnectionInfo, err := clusterInfra.Create()
+	kubeConnectionInfo, err := kubernetesRuntimeInfra.Create()
 	if err != nil {
-		// since we failed to complete cluster creation, delete it in case a
-		// a cluster was created to prevent dangling clusters.
-		_ = clusterInfra.Delete()
+		// since we failed to complete kubernetes runtime creation, delete it to
+		// prevent dangling runtime resources
+		_ = kubernetesRuntimeInfra.Delete()
 		return fmt.Errorf("failed to create control plane infra for threeport: %w", err)
 	}
 	threeportInstanceConfig.KubeAPI = config.KubeAPI{
@@ -250,49 +250,49 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	// create a client and resource mapper to connect to kubernetes cluster
 	// API for installing resources
 	if err != nil {
-		// delete control plane cluster
-		if err := clusterInfra.Delete(); err != nil {
-			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
+		// delete control plane kubernetes runtime
+		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", err)
 		}
 		return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 	}
 
-	// the cluster instance is the default compute space cluster to be added
+	// the kubernetes runtime instance is the default compute space kubernetes runtime to be added
 	// to the API
-	clusterInstName := threeport.BootstrapClusterName(a.InstanceName)
-	controlPlaneCluster := true
-	defaultCluster := true
-	var clusterInstance v0.ClusterInstance
+	kubernetesRuntimeInstName := threeport.BootstrapKubernetesRuntimeName(a.InstanceName)
+	controlPlaneHost := true
+	defaultRuntime := true
+	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
 	switch controlPlane.InfraProvider {
-	case threeport.ClusterInfraProviderKind:
-		clusterInstance = v0.ClusterInstance{
+	case threeport.KubernetesRuntimeInfraProviderKind:
+		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
-				Name: &clusterInstName,
+				Name: &kubernetesRuntimeInstName,
 			},
-			ThreeportControlPlaneCluster: &controlPlaneCluster,
-			APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
-			CACertificate:                &kubeConnectionInfo.CACertificate,
-			Certificate:                  &kubeConnectionInfo.Certificate,
-			Key:                          &kubeConnectionInfo.Key,
-			DefaultCluster:               &defaultCluster,
+			ThreeportControlPlaneHost: &controlPlaneHost,
+			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
+			CACertificate:             &kubeConnectionInfo.CACertificate,
+			Certificate:               &kubeConnectionInfo.Certificate,
+			Key:                       &kubeConnectionInfo.Key,
+			DefaultRuntime:            &defaultRuntime,
 		}
-	case threeport.ClusterInfraProviderEKS:
-		clusterInstance = v0.ClusterInstance{
+	case threeport.KubernetesRuntimeInfraProviderEKS:
+		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
-				Name: &clusterInstName,
+				Name: &kubernetesRuntimeInstName,
 			},
-			ThreeportControlPlaneCluster: &controlPlaneCluster,
-			APIEndpoint:                  &kubeConnectionInfo.APIEndpoint,
-			CACertificate:                &kubeConnectionInfo.CACertificate,
-			ConnectionToken:              &kubeConnectionInfo.EKSToken,
-			DefaultCluster:               &defaultCluster,
+			ThreeportControlPlaneHost: &controlPlaneHost,
+			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
+			CACertificate:             &kubeConnectionInfo.CACertificate,
+			ConnectionToken:           &kubeConnectionInfo.EKSToken,
+			DefaultRuntime:            &defaultRuntime,
 		}
 	}
-	dynamicKubeClient, mapper, err := kube.GetClient(&clusterInstance, false)
+	dynamicKubeClient, mapper, err := kube.GetClient(&kubernetesRuntimeInstance, false)
 	if err != nil {
-		// delete control plane cluster
-		if err := clusterInfra.Delete(); err != nil {
-			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
+		// delete control plane kubernetes runtime
+		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", err)
 		}
 		return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 	}
@@ -305,9 +305,9 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	); err != nil {
 		// print the error when it happens and then again post-deletion
 		Error("failed to install threeport control plane dependencies", err)
-		// delete control plane cluster
-		if err := clusterInfra.Delete(); err != nil {
-			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
+		// delete control plane kubernetes runtime
+		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", err)
 		}
 		return fmt.Errorf("failed to install threeport control plane dependencies: %w", err)
 	}
@@ -363,7 +363,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 	// for dev environment, build and load dev images for API and controllers
 	if a.DevEnvironment {
-		if err := tptdev.PrepareDevImages(a.ThreeportPath, provider.ThreeportClusterName(a.InstanceName)); err != nil {
+		if err := tptdev.PrepareDevImages(a.ThreeportPath, provider.ThreeportRuntimeName(a.InstanceName)); err != nil {
 			return fmt.Errorf("failed to build and load dev control plane images: %w", err)
 		}
 	}
@@ -390,8 +390,8 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		if err != nil {
 			// print the error when it happens and then again post-deletion
 			Error("failed to get threeport API's public endpoint: %w", err)
-			if err := clusterInfra.Delete(); err != nil {
-				return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
+			if err := kubernetesRuntimeInfra.Delete(); err != nil {
+				return fmt.Errorf("failed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", err)
 			}
 			return fmt.Errorf("failed to get threeport API's public endpoint: %w", err)
 		}
@@ -411,8 +411,8 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		); err != nil {
 			// print the error when it happens and then again post-deletion
 			Error("failed to install threeport API TLS assets", err)
-			// delete control plane cluster
-			if err := clusterInfra.Delete(); err != nil {
+			// delete control plane kubernetes runtime
+			if err := kubernetesRuntimeInfra.Delete(); err != nil {
 				return fmt.Errorf("failed to delete control plane infra: %w", err)
 			}
 			return fmt.Errorf("failed to install threeport API TLS assets: %w", err)
@@ -430,9 +430,9 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	); err != nil {
 		// print the error when it happens and then again post-deletion
 		Error("threeport API did not come up", err)
-		// delete control plane cluster
-		if err := clusterInfra.Delete(); err != nil {
-			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
+		// delete control plane kubernetes runtime
+		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", err)
 		}
 		return fmt.Errorf("threeport API did not come up: %w", err)
 	}
@@ -480,43 +480,43 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		return fmt.Errorf("failed to refresh threeport config: %w", err)
 	}
 
-	// create the default compute space cluster definition in threeport API
-	clusterDefName := fmt.Sprintf("compute-space-%s", a.InstanceName)
-	clusterDefinition := v0.ClusterDefinition{
+	// create the default compute space kubernetes runtime definition in threeport API
+	kubernetesRuntimeDefName := fmt.Sprintf("compute-space-%s", a.InstanceName)
+	kubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
 		Definition: v0.Definition{
-			Name: &clusterDefName,
+			Name: &kubernetesRuntimeDefName,
 		},
 	}
-	clusterDefResult, err := client.CreateClusterDefinition(
+	kubernetesRuntimeDefResult, err := client.CreateKubernetesRuntimeDefinition(
 		apiClient,
 		fmt.Sprintf("%s:%d", threeportAPIEndpoint, a.ThreeportLocalAPIPort),
-		&clusterDefinition,
+		&kubernetesRuntimeDefinition,
 	)
 	if err != nil {
 		// print the error when it happens and then again post-deletion
-		Error("failed to create new cluster definition for default compute space", err)
-		// delete control plane cluster
-		if err := clusterInfra.Delete(); err != nil {
-			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
+		Error("failed to create new kubernetes runtime definition for default compute space", err)
+		// delete control plane kubernetes runtime
+		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", err)
 		}
-		return fmt.Errorf("failed to create new cluster definition for default compute space: %w", err)
+		return fmt.Errorf("failed to create new kubernetes runtime definition for default compute space: %w", err)
 	}
 
-	// create default compute space cluster instance in threeport API
-	clusterInstance.ClusterDefinitionID = clusterDefResult.ID
-	_, err = client.CreateClusterInstance(
+	// create default compute space kubernetes runtime instance in threeport API
+	kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = kubernetesRuntimeDefResult.ID
+	_, err = client.CreateKubernetesRuntimeInstance(
 		apiClient,
 		fmt.Sprintf("%s:%d", threeportAPIEndpoint, a.ThreeportLocalAPIPort),
-		&clusterInstance,
+		&kubernetesRuntimeInstance,
 	)
 	if err != nil {
 		// print the error when it happens and then again post-deletion
-		Error("failed to create new cluster instance for default compute space", err)
-		// delete control plane cluster
-		if err := clusterInfra.Delete(); err != nil {
-			return fmt.Errorf("failed to delete control plane infra, you may have dangling cluster infra resources still running: %w", err)
+		Error("failed to create new kubernetes runtime instance for default compute space", err)
+		// delete control plane kubernetes runtime
+		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			return fmt.Errorf("failed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", err)
 		}
-		return fmt.Errorf("failed to create new cluster instance for default compute space: %w", err)
+		return fmt.Errorf("failed to create new kubernetes runtime instance for default compute space: %w", err)
 	}
 
 	Info("Threeport config updated")
@@ -550,15 +550,15 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 		))
 	}
 
-	var clusterInfra provider.ClusterInfra
+	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	switch threeportInstanceConfig.Provider {
-	case threeport.ClusterInfraProviderKind:
-		clusterInfraKind := provider.ClusterInfraKind{
+	case threeport.KubernetesRuntimeInfraProviderKind:
+		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
 			ThreeportInstanceName: threeportInstanceConfig.Name,
 			KubeconfigPath:        a.KubeconfigPath,
 		}
-		clusterInfra = &clusterInfraKind
-	case threeport.ClusterInfraProviderEKS:
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
+	case threeport.KubernetesRuntimeInfraProviderEKS:
 		// create AWS Config
 		awsConfig, err := resource.LoadAWSConfig(
 			a.AwsConfigEnv,
@@ -594,24 +594,24 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 		// read inventory to delete
 		inventory, err := resource.ReadInventory(provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName))
 		if err != nil {
-			return fmt.Errorf("failed to read inventory file for deleting eks cluster resources: %w", err)
+			return fmt.Errorf("failed to read inventory file for deleting eks kubernetes runtime resources: %w", err)
 		}
 
-		// construct eks cluster infra object
-		clusterInfraEKS := provider.ClusterInfraEKS{
+		// construct eks kubernetes runtime infra object
+		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 			ThreeportInstanceName: threeportInstanceConfig.Name,
 			AwsAccountID:          a.CreateProviderAccountID,
 			AwsConfig:             *awsConfig,
 			ResourceClient:        *resourceClient,
 			ResourceInventory:     *inventory,
 		}
-		clusterInfra = &clusterInfraEKS
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 	}
 
 	// if provider is EKS we need to delete the threeport API service to
 	// check for existing workload instances that may prevent deletion and
 	// remove the AWS load balancer before deleting the rest of the infra
-	if threeportInstanceConfig.Provider == threeport.ClusterInfraProviderEKS {
+	if threeportInstanceConfig.Provider == threeport.KubernetesRuntimeInfraProviderEKS {
 		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
 		if err != nil {
 			return fmt.Errorf("failed to get threeport certificates from config: %w", err)
@@ -621,7 +621,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 			return fmt.Errorf("failed to create http client: %w", err)
 		}
 
-		// check for workload instances on non-kind clusters - halt delete if
+		// check for workload instances on non-kind kubernetes runtimes - halt delete if
 		// any are present
 		workloadInstances, err := client.GetWorkloadInstances(
 			apiClient,
@@ -634,37 +634,37 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 			return errors.New("found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane")
 		}
 
-		// get the cluster instance object
-		clusterInstance, err := client.GetThreeportControlPlaneClusterInstance(
+		// get the kubernetes runtime instance object
+		kubernetesRuntimeInstance, err := client.GetThreeportControlPlaneKubernetesRuntimeInstance(
 			apiClient,
 			threeportInstanceConfig.APIServer,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to retrieve cluster instance from threeport API: %w", err)
+			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
 		}
 
 		// create a client and resource mapper to connect to kubernetes cluster
 		// API for deleting resources
 		var dynamicKubeClient dynamic.Interface
 		var mapper *meta.RESTMapper
-		dynamicKubeClient, mapper, err = kube.GetClient(clusterInstance, false)
+		dynamicKubeClient, mapper, err = kube.GetClient(kubernetesRuntimeInstance, false)
 		if err != nil {
 			if kubeerrors.IsUnauthorized(err) {
-				// refresh token, save to cluster instance and get kube client
-				kubeConn, err := clusterInfra.(*provider.ClusterInfraEKS).RefreshConnection()
+				// refresh token, save to kubernetes runtime instance and get kube client
+				kubeConn, err := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).RefreshConnection()
 				if err != nil {
-					return fmt.Errorf("failed to refresh token to connect to EKS cluster: %w", err)
+					return fmt.Errorf("failed to refresh token to connect to EKS kubernetes runtime: %w", err)
 				}
-				clusterInstance.ConnectionToken = &kubeConn.EKSToken
-				updatedClusterInst, err := client.UpdateClusterInstance(
+				kubernetesRuntimeInstance.ConnectionToken = &kubeConn.EKSToken
+				updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
 					apiClient,
 					threeportInstanceConfig.APIServer,
-					clusterInstance,
+					kubernetesRuntimeInstance,
 				)
 				if err != nil {
-					return fmt.Errorf("failed to update EKS token on cluster instance: %w", err)
+					return fmt.Errorf("failed to update EKS token on kubernetes runtime instance: %w", err)
 				}
-				dynamicKubeClient, mapper, err = kube.GetClient(updatedClusterInst, false)
+				dynamicKubeClient, mapper, err = kube.GetClient(updatedKubernetesRuntimeInst, false)
 				if err != nil {
 					return fmt.Errorf("failed to get a Kubernetes client and mapper with refreshed token: %w", err)
 				}
@@ -680,7 +680,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 	}
 
 	// delete control plane infra
-	if err := clusterInfra.Delete(); err != nil {
+	if err := kubernetesRuntimeInfra.Delete(); err != nil {
 		return fmt.Errorf("failed to delete control plane infra: %w", err)
 	}
 
@@ -699,7 +699,7 @@ func validateCreateControlPlaneFlags(infraProvider, createRootDomain, createProv
 	allowedInfraProviders := threeport.SupportedInfraProviders()
 	matched := false
 	for _, prov := range allowedInfraProviders {
-		if threeport.ClusterInfraProvider(infraProvider) == prov {
+		if threeport.KubernetesRuntimeInfraProvider(infraProvider) == prov {
 			matched = true
 			break
 		}
@@ -714,14 +714,14 @@ func validateCreateControlPlaneFlags(infraProvider, createRootDomain, createProv
 	}
 
 	// ensure client cert auth is used on remote installations
-	if infraProvider != threeport.ClusterInfraProviderKind && !authEnabled {
+	if infraProvider != threeport.KubernetesRuntimeInfraProviderKind && !authEnabled {
 		return errors.New(
 			"cannot turn off client certificate authentication unless using the kind provider",
 		)
 	}
 
 	// ensure that AWS account ID is provided if using EKS provider
-	if infraProvider == threeport.ClusterInfraProviderEKS && createProviderAccountID == "" {
+	if infraProvider == threeport.KubernetesRuntimeInfraProviderEKS && createProviderAccountID == "" {
 		return errors.New(
 			"your AWS account ID must be provided if deploying using the eks provider",
 		)

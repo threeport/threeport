@@ -20,16 +20,8 @@ import (
 
 // GetClient creates a dynamic client interface and rest mapper from a
 // kubernetes cluster instance.
-func GetClient(
-	runtime *v0.KubernetesRuntimeInstance,
-	threeportControlPlane bool,
-	threeportAPIClient *http.Client,
-	threeportAPIEndpoint string,
-) (dynamic.Interface, *meta.RESTMapper, error) {
-	restConfig, err := getRESTConfig(runtime, threeportControlPlane, threeportAPIClient, threeportAPIEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get REST config for kubernetes runtime instance: %w", err)
-	}
+func GetClient(runtime *v0.KubernetesRuntimeInstance, threeportControlPlane bool) (dynamic.Interface, *meta.RESTMapper, error) {
+	restConfig := getRESTConfig(runtime, threeportControlPlane)
 
 	// create new dynamic client
 	dynamicKubeClient, err := dynamic.NewForConfig(restConfig)
@@ -38,12 +30,7 @@ func GetClient(
 	}
 
 	// get the discovery client using rest config
-	discoveryClient, err := GetDiscoveryClient(
-		runtime,
-		threeportControlPlane,
-		threeportAPIClient,
-		threeportAPIEndpoint,
-	)
+	discoveryClient, err := GetDiscoveryClient(runtime, threeportControlPlane)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get discovery client for kube API: %w", err)
 	}
@@ -60,22 +47,8 @@ func GetClient(
 
 // GetDiscoveryClient returns a new discovery client for a kubernetes cluster
 // instance.
-func GetDiscoveryClient(
-	runtime *v0.KubernetesRuntimeInstance,
-	threeportControlPlane bool,
-	threeportAPIClient *http.Client,
-	threeportAPIEndpoint string,
-) (*discovery.DiscoveryClient, error) {
-	restConfig, err := getRESTConfig(
-		runtime,
-		threeportControlPlane,
-		threeportAPIClient,
-		threeportAPIEndpoint,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get REST config for kubernetes runtime instance: %w", err)
-	}
-
+func GetDiscoveryClient(runtime *v0.KubernetesRuntimeInstance, threeportControlPlane bool) (*discovery.DiscoveryClient, error) {
+	restConfig := getRESTConfig(runtime, threeportControlPlane)
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new discovery client from rest config: %w", err)
@@ -84,18 +57,8 @@ func GetDiscoveryClient(
 	return discoveryClient, nil
 }
 
-// getRESTConfig takes a kubernetes runtime instance and returns a REST config
-// for the kubernetes API.
-func getRESTConfig(
-	runtime *v0.KubernetesRuntimeInstance,
-	threeportControlPlane bool,
-	threeportAPIClient *http.Client,
-	threeportAPIEndpoint string,
-) (*rest.Config, error) {
-	if runtime.APIEndpoint == nil {
-		return nil, errors.New("cannot get REST config without API endpoint")
-	}
-
+// getRESTConfig returns a REST config for a cluster instance.
+func getRESTConfig(runtime *v0.KubernetesRuntimeInstance, threeportControlPlane bool) *rest.Config {
 	// determine if the client is for a control plane component calling the
 	// local kube API and set endpoint as needed
 	kubeAPIEndpoint := *runtime.APIEndpoint
@@ -116,13 +79,13 @@ func getRESTConfig(
 			Host:            kubeAPIEndpoint,
 			TLSClientConfig: tlsConfig,
 		}
-	case cluster.ConnectionToken != nil:
+	case runtime.ConnectionToken != nil:
 		tlsConfig := rest.TLSClientConfig{
 			CAData: []byte(*runtime.CACertificate),
 		}
 		restConfig = rest.Config{
 			Host:            kubeAPIEndpoint,
-			BearerToken:     *cluster.ConnectionToken,
+			BearerToken:     *runtime.ConnectionToken,
 			TLSClientConfig: tlsConfig,
 		}
 		// if there is a connection token expiration, make sure that token is

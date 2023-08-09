@@ -201,6 +201,7 @@ const docTemplate = `{
                 }
             }
         },
+<<<<<<< HEAD
         "/gateway-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for gateway definitions.",
@@ -209,6 +210,16 @@ const docTemplate = `{
                 ],
                 "summary": "GetGatewayDefinitionVersions gets the supported versions for the gateway definition API.",
                 "operationId": "gatewayDefinition-get-versions",
+=======
+        "/kubernetes-runtime-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for kubernetes runtime definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetKubernetesRuntimeDefinitionVersions gets the supported versions for the kubernetes runtime definition API.",
+                "operationId": "kubernetesRuntimeDefinition-get-versions",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -219,6 +230,7 @@ const docTemplate = `{
                 }
             }
         },
+<<<<<<< HEAD
         "/gateway-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for gateway instances.",
@@ -227,6 +239,16 @@ const docTemplate = `{
                 ],
                 "summary": "GetGatewayInstanceVersions gets the supported versions for the gateway instance API.",
                 "operationId": "gatewayInstance-get-versions",
+=======
+        "/kubernetes-runtime-instances/versions": {
+            "get": {
+                "description": "Get the supported API versions for kubernetes runtime instances.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetKubernetesRuntimeInstanceVersions gets the supported versions for the kubernetes runtime instance API.",
+                "operationId": "kubernetesRuntimeInstance-get-versions",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3173,21 +3195,36 @@ const docTemplate = `{
                 }
             }
         },
+<<<<<<< HEAD
         "/v0/gateway-definitions": {
             "get": {
                 "description": "Get all gateway definitions from the Threeport database.",
+=======
+        "/v0/kubernetes-runtime-definitions": {
+            "get": {
+                "description": "Get all kubernetes runtime definitions from the Threeport database.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "gets all gateway definitions.",
                 "operationId": "get-gatewayDefinitions",
                 "parameters": [
                     {
                         "type": "string",
                         "description": "gateway definition search by name",
+=======
+                "summary": "gets all kubernetes runtime definitions.",
+                "operationId": "get-kubernetesRuntimeDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "kubernetes runtime definition search by name",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         "name": "name",
                         "in": "query"
                     }
@@ -3214,13 +3251,18 @@ const docTemplate = `{
                 }
             },
             "post": {
+<<<<<<< HEAD
                 "description": "Add a new gateway definition to the Threeport database.",
+=======
+                "description": "Add a new kubernetes runtime definition to the Threeport database.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "adds a new gateway definition.",
                 "operationId": "add-gatewayDefinition",
                 "parameters": [
@@ -3231,6 +3273,18 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayDefinition"
+=======
+                "summary": "adds a new kubernetes runtime definition.",
+                "operationId": "add-kubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "description": "KubernetesRuntimeDefinition object",
+                        "name": "kubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeDefinition"
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -3256,17 +3310,28 @@ const docTemplate = `{
                 }
             }
         },
+<<<<<<< HEAD
         "/v0/gateway-definitions/{id}": {
             "get": {
                 "description": "Get a particular gateway definition from the database.",
+=======
+        "/v0/kubernetes-runtime-definitions/{id}": {
+            "get": {
+                "description": "Get a particular kubernetes runtime definition from the database.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "gets a gateway definition.",
                 "operationId": "get-gatewayDefinition",
+=======
+                "summary": "gets a kubernetes runtime definition.",
+                "operationId": "get-kubernetesRuntimeDefinition",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3298,15 +3363,24 @@ const docTemplate = `{
                 }
             },
             "put": {
+<<<<<<< HEAD
                 "description": "Replace a gateway definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gateway definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+=======
+                "description": "Replace a kubernetes runtime definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating kubernetes runtime definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "updates an existing gateway definition by replacing the entire object.",
                 "operationId": "replace-gatewayDefinition",
+=======
+                "summary": "updates an existing kubernetes runtime definition by replacing the entire object.",
+                "operationId": "replace-kubernetesRuntimeDefinition",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3316,12 +3390,21 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+<<<<<<< HEAD
                         "description": "GatewayDefinition object",
                         "name": "gatewayDefinition",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayDefinition"
+=======
+                        "description": "KubernetesRuntimeDefinition object",
+                        "name": "kubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeDefinition"
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -3353,15 +3436,24 @@ const docTemplate = `{
                 }
             },
             "delete": {
+<<<<<<< HEAD
                 "description": "Delete a gateway definition by ID from the database.",
+=======
+                "description": "Delete a kubernetes runtime definition by ID from the database.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "deletes a gateway definition.",
                 "operationId": "delete-gatewayDefinition",
+=======
+                "summary": "deletes a kubernetes runtime definition.",
+                "operationId": "delete-kubernetesRuntimeDefinition",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3399,15 +3491,24 @@ const docTemplate = `{
                 }
             },
             "patch": {
+<<<<<<< HEAD
                 "description": "Update a gateway definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gateway definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+=======
+                "description": "Update a kubernetes runtime definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating kubernetes runtime definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "updates specific fields for an existing gateway definition.",
                 "operationId": "update-gatewayDefinition",
+=======
+                "summary": "updates specific fields for an existing kubernetes runtime definition.",
+                "operationId": "update-kubernetesRuntimeDefinition",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3417,12 +3518,21 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+<<<<<<< HEAD
                         "description": "GatewayDefinition object",
                         "name": "gatewayDefinition",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayDefinition"
+=======
+                        "description": "KubernetesRuntimeDefinition object",
+                        "name": "kubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeDefinition"
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -3454,21 +3564,36 @@ const docTemplate = `{
                 }
             }
         },
+<<<<<<< HEAD
         "/v0/gateway-instances": {
             "get": {
                 "description": "Get all gateway instances from the Threeport database.",
+=======
+        "/v0/kubernetes-runtime-instances": {
+            "get": {
+                "description": "Get all kubernetes runtime instances from the Threeport database.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "gets all gateway instances.",
                 "operationId": "get-gatewayInstances",
                 "parameters": [
                     {
                         "type": "string",
                         "description": "gateway instance search by name",
+=======
+                "summary": "gets all kubernetes runtime instances.",
+                "operationId": "get-kubernetesRuntimeInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "kubernetes runtime instance search by name",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         "name": "name",
                         "in": "query"
                     }
@@ -3495,13 +3620,18 @@ const docTemplate = `{
                 }
             },
             "post": {
+<<<<<<< HEAD
                 "description": "Add a new gateway instance to the Threeport database.",
+=======
+                "description": "Add a new kubernetes runtime instance to the Threeport database.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "adds a new gateway instance.",
                 "operationId": "add-gatewayInstance",
                 "parameters": [
@@ -3512,6 +3642,18 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayInstance"
+=======
+                "summary": "adds a new kubernetes runtime instance.",
+                "operationId": "add-kubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "description": "KubernetesRuntimeInstance object",
+                        "name": "kubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -3537,17 +3679,28 @@ const docTemplate = `{
                 }
             }
         },
+<<<<<<< HEAD
         "/v0/gateway-instances/{id}": {
             "get": {
                 "description": "Get a particular gateway instance from the database.",
+=======
+        "/v0/kubernetes-runtime-instances/{id}": {
+            "get": {
+                "description": "Get a particular kubernetes runtime instance from the database.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "gets a gateway instance.",
                 "operationId": "get-gatewayInstance",
+=======
+                "summary": "gets a kubernetes runtime instance.",
+                "operationId": "get-kubernetesRuntimeInstance",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3579,15 +3732,24 @@ const docTemplate = `{
                 }
             },
             "put": {
+<<<<<<< HEAD
                 "description": "Replace a gateway instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gateway instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+=======
+                "description": "Replace a kubernetes runtime instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating kubernetes runtime instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "updates an existing gateway instance by replacing the entire object.",
                 "operationId": "replace-gatewayInstance",
+=======
+                "summary": "updates an existing kubernetes runtime instance by replacing the entire object.",
+                "operationId": "replace-kubernetesRuntimeInstance",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3597,12 +3759,21 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+<<<<<<< HEAD
                         "description": "GatewayInstance object",
                         "name": "gatewayInstance",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayInstance"
+=======
+                        "description": "KubernetesRuntimeInstance object",
+                        "name": "kubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -3634,15 +3805,24 @@ const docTemplate = `{
                 }
             },
             "delete": {
+<<<<<<< HEAD
                 "description": "Delete a gateway instance by ID from the database.",
+=======
+                "description": "Delete a kubernetes runtime instance by ID from the database.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "deletes a gateway instance.",
                 "operationId": "delete-gatewayInstance",
+=======
+                "summary": "deletes a kubernetes runtime instance.",
+                "operationId": "delete-kubernetesRuntimeInstance",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3680,15 +3860,24 @@ const docTemplate = `{
                 }
             },
             "patch": {
+<<<<<<< HEAD
                 "description": "Update a gateway instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gateway instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+=======
+                "description": "Update a kubernetes runtime instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating kubernetes runtime instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+<<<<<<< HEAD
                 "summary": "updates specific fields for an existing gateway instance.",
                 "operationId": "update-gatewayInstance",
+=======
+                "summary": "updates specific fields for an existing kubernetes runtime instance.",
+                "operationId": "update-kubernetesRuntimeInstance",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "parameters": [
                     {
                         "type": "integer",
@@ -3698,12 +3887,21 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+<<<<<<< HEAD
                         "description": "GatewayInstance object",
                         "name": "gatewayInstance",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayInstance"
+=======
+                        "description": "KubernetesRuntimeInstance object",
+                        "name": "kubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.KubernetesRuntimeInstance"
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                         }
                     }
                 ],
@@ -7988,11 +8186,11 @@ const docTemplate = `{
                     "description": "The account ID for the AWS account.",
                     "type": "string"
                 },
-                "AwsEksClusterInstances": {
+                "AwsEksKubernetesRuntimeInstances": {
                     "description": "The cluster instances deployed in this AWS account.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/v0.AwsEksClusterInstance"
+                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeInstance"
                     }
                 },
                 "DefaultRegion": {
@@ -8015,16 +8213,12 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
-                "AwsEksClusterInstances": {
-                    "description": "The AWS EKS cluster instances derived from this definition.",
+                "AwsEksKubernetesRuntimeInstances": {
+                    "description": "The AWS EKS kubernetes runtime instances derived from this definition.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/v0.AwsEksClusterInstance"
+                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeInstance"
                     }
-                },
-                "ClusterDefinitionID": {
-                    "description": "The cluster definition for an EKS cluster in AWS.",
-                    "type": "integer"
                 },
                 "DefaultNodeGroupInitialSize": {
                     "description": "The number of nodes in the default initial node group.",
@@ -8040,6 +8234,10 @@ const docTemplate = `{
                 },
                 "DefaultNodeGroupMinimumSize": {
                     "description": "The minimum number of nodes the default initial node group should have.",
+                    "type": "integer"
+                },
+                "KubernetesRuntimeDefinitionID": {
+                    "description": "The kubernetes runtime definition for an EKS cluster in AWS.",
                     "type": "integer"
                 },
                 "Name": {
@@ -8068,7 +8266,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "AWSAccountID",
-                "AwsEksClusterDefinitionID",
+                "AwsEksKubernetesRuntimeDefinitionID",
                 "Name"
             ],
             "properties": {
@@ -8076,12 +8274,12 @@ const docTemplate = `{
                     "description": "The AWS account in which the EKS cluster is provisioned.",
                     "type": "integer"
                 },
-                "AwsEksClusterDefinitionID": {
+                "AwsEksKubernetesRuntimeDefinitionID": {
                     "description": "The definition that configures this instance.",
                     "type": "integer"
                 },
-                "ClusterInstanceID": {
-                    "description": "The cluster instance associated with the AWS EKS cluster.",
+                "KubernetesRuntimeInstanceID": {
+                    "description": "The kubernetes runtime instance associated with the AWS EKS cluster.",
                     "type": "integer"
                 },
                 "Name": {
@@ -8097,6 +8295,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ResourceInventory": {
+                    "description": "An inventory of all AWS resources for the EKS cluster.",
                     "type": "array",
                     "items": {
                         "type": "integer"
@@ -8165,6 +8364,7 @@ const docTemplate = `{
                 }
             }
         },
+<<<<<<< HEAD
         "v0.ClusterDefinition": {
             "type": "object",
             "required": [
@@ -8272,6 +8472,8 @@ const docTemplate = `{
             }
 >>>>>>> 68c94e3 (feat: add aws controller)
         },
+=======
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
         "v0.DomainNameDefinition": {
             "type": "object",
             "required": [
@@ -8405,13 +8607,18 @@ const docTemplate = `{
                 }
             }
         },
+<<<<<<< HEAD
         "v0.GatewayDefinition": {
+=======
+        "v0.KubernetesRuntimeDefinition": {
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
             "type": "object",
             "required": [
                 "Name"
             ],
             "properties": {
-                "DomainNameDefinitionID": {
+<<<<<<< HEAD
+                "DomainNameID": {
                     "description": "The domain name to serve requests for.",
                     "type": "integer"
                 },
@@ -8425,19 +8632,37 @@ const docTemplate = `{
                 "HTTPSRedirect": {
                     "description": "Redirect all requests to HTTP port to HTTPS.",
                     "type": "boolean"
+=======
+                "DefaultNodeGroupInitialSize": {
+                    "type": "integer"
+                },
+                "DefaultNodeGroupInstanceType": {
+                    "description": "TODO: move these values to the AWS EKS cluster definition object.",
+                    "type": "string"
+                },
+                "DefaultNodeGroupMaximumSize": {
+                    "type": "integer"
+                },
+                "DefaultNodeGroupMinimumSize": {
+                    "type": "integer"
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
                 },
+<<<<<<< HEAD
                 "Paths": {
                     "description": "The request paths to serve requests for.",
                     "type": "string"
                 },
+=======
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
                 },
+<<<<<<< HEAD
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by gateway controller.",
                     "type": "boolean"
@@ -8449,17 +8674,28 @@ const docTemplate = `{
                 "TLSEnabled": {
                     "description": "Indicates if TLS is enabled.",
                     "type": "boolean"
+=======
+                "Region": {
+                    "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.  Note: changes to this value will not alter the derived\ninstances which is an immutable characteristic on instances.  It will\nonly affect new instances derived from this definition.",
+                    "type": "string"
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
                 },
+<<<<<<< HEAD
                 "WorkloadDefinitionID": {
                     "description": "The workload definition that belongs to this resource.",
+=======
+                "ZoneCount": {
+                    "description": "The number of zones the cluster should span for availability.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                     "type": "integer"
                 }
             }
         },
+<<<<<<< HEAD
         "v0.GatewayInstance": {
             "type": "object",
             "required": [
@@ -8470,6 +8706,43 @@ const docTemplate = `{
             "properties": {
                 "GatewayDefinitionID": {
                     "description": "GatewayDefinitionID is the definition used to configure the workload instance.",
+=======
+        "v0.KubernetesRuntimeInstance": {
+            "type": "object",
+            "required": [
+                "APIEndpoint",
+                "CACertificate",
+                "KubernetesRuntimeDefinitionID",
+                "Name"
+            ],
+            "properties": {
+                "APIEndpoint": {
+                    "description": "The network endpoint at which to reach the kube-api.",
+                    "type": "string"
+                },
+                "CACertificate": {
+                    "description": "The CA certificate used to generate the cert and key if\nself-signed.",
+                    "type": "string"
+                },
+                "Certificate": {
+                    "description": "The client certificate to use for auth to the kube-api.",
+                    "type": "string"
+                },
+                "ConnectionToken": {
+                    "description": "ConnectionToken is used to authenticate with a OIDC provider that\nimplements auth for a Kubernetes cluster.  It is an alternative to client\ncertficate and key authenticaion.",
+                    "type": "string"
+                },
+                "DefaultRuntime": {
+                    "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
+                    "type": "boolean"
+                },
+                "Key": {
+                    "description": "The client key to use for auth to the kube-api.",
+                    "type": "string"
+                },
+                "KubernetesRuntimeDefinitionID": {
+                    "description": "The kubernetes runtime definition for this instance.",
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                     "type": "integer"
                 },
                 "KubernetesRuntimeInstanceID": {
@@ -8480,14 +8753,21 @@ const docTemplate = `{
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
+<<<<<<< HEAD
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by gateway controller.",
                     "type": "boolean"
+=======
+                "Region": {
+                    "description": "The geographical region for the cluster roughly corresponding to cloud\nprovider regions.  Stored in the instance (as well as definition) since a\nchange to the definition will not move a cluster.",
+                    "type": "string"
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
                 },
+<<<<<<< HEAD
                 "WorkloadInstanceID": {
                     "description": "The workload instance this gateway belongs to.",
                     "type": "integer"
@@ -8615,6 +8895,7 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/v0.WorkloadInstance"
                     }
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
                 }
             }
         },
@@ -8938,6 +9219,9 @@ const docTemplate = `{
             }
         },
         "v0.WorkloadInstance": {
+<<<<<<< HEAD
+            "type": "object"
+=======
             "type": "object",
             "required": [
                 "KubernetesRuntimeInstanceID",
@@ -8945,12 +9229,6 @@ const docTemplate = `{
                 "WorkloadDefinitionID"
             ],
             "properties": {
-                "AttachedObjectReferences": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.AttachedObjectReference"
-                    }
-                },
                 "Events": {
                     "type": "array",
                     "items": {
@@ -8984,6 +9262,7 @@ const docTemplate = `{
                     }
                 }
             }
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
         },
         "v0.WorkloadResourceDefinition": {
             "type": "object",
@@ -9007,6 +9286,9 @@ const docTemplate = `{
             }
         },
         "v0.WorkloadResourceInstance": {
+<<<<<<< HEAD
+            "type": "object"
+=======
             "type": "object",
             "required": [
                 "JSONDefinition",
@@ -9032,10 +9314,6 @@ const docTemplate = `{
                     "description": "The most recent operation performed on a Kubernete resource in the\nkubernetes runtime.",
                     "type": "string"
                 },
-                "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by workload controller.",
-                    "type": "boolean"
-                },
                 "RuntimeDefinition": {
                     "description": "The JSON definition of a Kubernetes resource as stored in etcd in the\nkubernetes runtime.",
                     "allOf": [
@@ -9044,15 +9322,12 @@ const docTemplate = `{
                         }
                     ]
                 },
-                "ScheduledForDeletion": {
-                    "description": "Whether another controller has scheduled this resource for deletion",
-                    "type": "string"
-                },
                 "WorkloadInstanceID": {
                     "description": "The workload definition this resource belongs to.",
                     "type": "integer"
                 }
             }
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
         },
         "version.RESTAPIVersion": {
             "type": "object",

@@ -219,19 +219,19 @@ func TestWorkloadE2E(t *testing.T) {
 			}
 		}
 
-		// check kubernetes runtime instance
-		kubernetesRuntimeInsts, err := client.GetKubernetesRuntimeInstances(apiClient, apiAddr())
+		// check cluster instance
+		clusterInsts, err := client.GetKubernetesRuntimeInstances(apiClient, apiAddr())
 		assert.Nil(err, "should have no error getting workload resource definitions")
 		var testKubernetesRuntimeInst v0.KubernetesRuntimeInstance
-		if assert.NotNil(kubernetesRuntimeInsts, "should have an array of kubernetes runtime instances returned") {
-			assert.NotEqual(len(*kubernetesRuntimeInsts), 0, "should get back at least one kubernetes runtime instance")
-			for _, c := range *kubernetesRuntimeInsts {
-				if *c.ThreeportControlPlaneHost {
+		if assert.NotNil(clusterInsts, "should have an array of cluster instances returned") {
+			assert.NotEqual(len(*clusterInsts), 0, "should get back at least one cluster instance")
+			for _, c := range *clusterInsts {
+				if *c.ThreeportControlPlaneKubernetesRuntime {
 					testKubernetesRuntimeInst = c
 				}
 			}
 		}
-		assert.NotNil(testKubernetesRuntimeInst, "should have a kubernetes runtime instance being used by threeport control plane")
+		assert.NotNil(testKubernetesRuntimeInst, "should have a cluster instance being used by threeport control plane")
 
 		// create workload instance
 		workloadInstName := fmt.Sprintf("%s-0", testWorkload.Name)
@@ -283,25 +283,8 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.Nil(err, "should have no error creating gateway instance")
 
-		// create domain name instance
-		domainNameInstanceName := "domainNameInstance"
-		domainNameInstance := &v0.DomainNameInstance{
-			Instance: v0.Instance{
-				Name: &domainNameInstanceName,
-			},
-			DomainNameDefinitionID:      domainNameDefinition.ID,
-			WorkloadInstanceID:          createdWorkloadInst.ID,
-			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
-		}
-		_, err = client.CreateDomainNameInstance(
-			apiClient,
-			apiAddr(),
-			domainNameInstance,
-		)
-		assert.Nil(err, "should have no error creating domain name instance")
-
-		// get the kubernetes runtime instance from the threeport API so we can connect to it
-		kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+		// get the cluster instance from the threeport API so we can connect to it
+		clusterInstance, err := client.GetKubernetesRuntimeInstanceByID(
 			apiClient,
 			apiAddr(),
 			*testKubernetesRuntimeInst.ID,

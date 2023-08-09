@@ -5,6 +5,7 @@ package aws
 import (
 	"errors"
 	"fmt"
+	mapstructure "github.com/mitchellh/mapstructure"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -61,7 +62,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// decode the object that was sent in the notification
+			// decode the object that was created
 			var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
 			if err := awsEksKubernetesRuntimeInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
@@ -164,7 +165,6 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased, msg, true)
 					log.Info("aws eks kubernetes runtime instance successfully reconciled")
 				}
-				continue
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),
@@ -202,6 +202,20 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					"aws eks kubernetes runtime instanceName", updatedAwsEksKubernetesRuntimeInstance.Name,
 				)
 			}
+			updatedAwsEksKubernetesRuntimeInstance, err := client.UpdateAwsEksKubernetesRuntimeInstance(
+				r.APIClient,
+				r.APIServer,
+				&reconciledAwsEksKubernetesRuntimeInstance,
+			)
+			if err != nil {
+				log.Error(err, "failed to update aws eks kubernetes runtime instance to mark as reconciled")
+				r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
+				continue
+			}
+			log.V(1).Info(
+				"aws eks kubernetes runtime instance marked as reconciled in API",
+				"aws eks kubernetes runtime instanceName", updatedAwsEksKubernetesRuntimeInstance.Name,
+			)
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased, msg, true); !ok {

@@ -21,7 +21,7 @@ type AwsAccount struct {
 	SecretAccessKey *string `json:"SecretAccessKey,omitempty" query:"secretaccesskey" gorm:"not null" validate:"required"`
 
 	// The cluster instances deployed in this AWS account.
-	AwsEksClusterInstances []*AwsEksClusterInstance `json:"AwsEksClusterInstances,omitempty" validate:"optional,association"`
+	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `json:"AwsEksKubernetesRuntimeInstances,omitempty" validate:"optional,association"`
 }
 
 // AwsEksKubernetesRuntimeDefinition provides the configuration for EKS cluster instances.
@@ -50,16 +50,16 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	// The maximum number of nodes the default initial node group should have.
 	DefaultNodeGroupMaximumSize *int `json:"DefaultNodeGroupMaximumSize,omitempty" query:"defaultnodegroupmaximumsize" gorm:"not null" validate:"required"`
 
-	// The AWS EKS cluster instances derived from this definition.
-	AwsEksClusterInstances []*AwsEksClusterInstance `json:"AwsEksClusterInstances,omitempty" validate:"optional,association"`
+	// The AWS EKS kubernetes runtime instances derived from this definition.
+	AwsEksKubernetesRuntimeInstances []*AwsEksKubernetesRuntimeInstance `json:"AwsEksKubernetesRuntimeInstances,omitempty" validate:"optional,association"`
 
-	// The cluster definition for an EKS cluster in AWS.
-	ClusterDefinitionID *uint `json:"ClusterDefinitionID,omitempty" validate:"optional,association"`
+	// The kubernetes runtime definition for an EKS cluster in AWS.
+	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" validate:"optional,association"`
 }
 
 // +threeport-codegen:reconciler
-// AwsEksClusterInstance is a deployed instance of an EKS cluster.
-type AwsEksClusterInstance struct {
+// AwsEksKubernetesRuntimeInstance is a deployed instance of an EKS cluster.
+type AwsEksKubernetesRuntimeInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
 
@@ -68,14 +68,14 @@ type AwsEksClusterInstance struct {
 	// definition will not move a cluster.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
-	// The cluster instance associated with the AWS EKS cluster.
-	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" validate:"optional,association"`
+	// The kubernetes runtime instance associated with the AWS EKS cluster.
+	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" validate:"optional,association"`
 
 	// The AWS account in which the EKS cluster is provisioned.
 	AwsAccountID *uint `json:"AWSAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
 
 	// The definition that configures this instance.
-	AwsEksClusterDefinitionID *uint `json:"AwsEksClusterDefinitionID,omitempty" query:"awseksclusterdefinitionid" gorm:"not null" validate:"required"`
+	AwsEksKubernetesRuntimeDefinitionID *uint `json:"AwsEksKubernetesRuntimeDefinitionID,omitempty" query:"awsekskubernetesruntimedefinitionid" gorm:"not null" validate:"required"`
 
 	// Indicates if object is considered to be reconciled by workload controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`

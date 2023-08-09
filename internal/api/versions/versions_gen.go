@@ -12,12 +12,13 @@ func AddVersions() {
 	AddAwsRelationalDatabaseInstanceVersions()
 	AddForwardProxyDefinitionVersions()
 	AddForwardProxyInstanceVersions()
+<<<<<<< HEAD
 	AddGatewayDefinitionVersions()
 	AddGatewayInstanceVersions()
-	AddDomainNameDefinitionVersions()
-	AddDomainNameInstanceVersions()
+=======
 	AddKubernetesRuntimeDefinitionVersions()
 	AddKubernetesRuntimeInstanceVersions()
+>>>>>>> c0a22ac (refactor: change cluster object name to kubernetes runtime)
 	AddLogBackendVersions()
 	AddLogStorageDefinitionVersions()
 	AddLogStorageInstanceVersions()

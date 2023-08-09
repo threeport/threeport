@@ -19,9 +19,9 @@ import (
 	"github.com/threeport/threeport/internal/threeport"
 )
 
-// ClusterInfraEKS represents the infrastructure for a threeport-managed EKS
+// KubernetesRuntimeInfraEKS represents the infrastructure for a threeport-managed EKS
 // cluster.
-type ClusterInfraEKS struct {
+type KubernetesRuntimeInfraEKS struct {
 	// The unique name of the threeport instance.
 	ThreeportInstanceName string
 
@@ -39,10 +39,10 @@ type ClusterInfraEKS struct {
 }
 
 // Create installs a Kubernetes cluster using AWS EKS for threeport workloads.
-func (i *ClusterInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
+func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 	// create a new resource config to configure Kubernetes cluster
 	resourceConfig := resource.NewResourceConfig()
-	resourceConfig.Name = ThreeportClusterName(i.ThreeportInstanceName)
+	resourceConfig.Name = ThreeportRuntimeName(i.ThreeportInstanceName)
 	resourceConfig.AWSAccountID = i.AwsAccountID
 	resourceConfig.InstanceTypes = []string{"t2.medium"}
 	resourceConfig.InitialNodes = int32(2)
@@ -72,7 +72,7 @@ func (i *ClusterInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 	// get kubernetes API connection info
 	kubeConnInfo, err := getEKSConnectionInfo(
 		&i.AwsConfig,
-		ThreeportClusterName(i.ThreeportInstanceName),
+		ThreeportRuntimeName(i.ThreeportInstanceName),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to EKS cluster connection info: %w", err)
@@ -83,7 +83,7 @@ func (i *ClusterInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 
 // Delete deletes an AWS EKS cluster.
 // func (i *ControlPlaneInfraEKS) Delete(providerConfigDir string) error {
-func (i *ClusterInfraEKS) Delete() error {
+func (i *KubernetesRuntimeInfraEKS) Delete() error {
 	// delete EKS cluster resources
 	if err := i.ResourceClient.DeleteResourceStack(i.ResourceInventory); err != nil {
 		return fmt.Errorf("failed to delete eks cluster resource stack: %w", err)
@@ -93,10 +93,10 @@ func (i *ClusterInfraEKS) Delete() error {
 }
 
 // RefreshConnection gets a new token for authentication to an EKS cluster.
-func (i *ClusterInfraEKS) RefreshConnection() (*kube.KubeConnectionInfo, error) {
+func (i *KubernetesRuntimeInfraEKS) RefreshConnection() (*kube.KubeConnectionInfo, error) {
 	return getEKSConnectionInfo(
 		&i.AwsConfig,
-		ThreeportClusterName(i.ThreeportInstanceName),
+		ThreeportRuntimeName(i.ThreeportInstanceName),
 	)
 }
 
