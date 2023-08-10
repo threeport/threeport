@@ -132,7 +132,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if err := gatewayInstanceCreated(r, &gatewayInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile created gateway instance object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&gatewayInstance,
 						requeueDelay,
 						lockReleased,
@@ -143,7 +143,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if err := gatewayInstanceUpdated(r, &gatewayInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile updated gateway instance object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&gatewayInstance,
 						requeueDelay,
 						lockReleased,
@@ -154,7 +154,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				if err := gatewayInstanceDeleted(r, &gatewayInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted gateway instance object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&gatewayInstance,
 						requeueDelay,
 						lockReleased,
@@ -170,7 +170,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					errors.New("unrecognized notifcation operation"),
 					"notification included an invalid operation",
 				)
-				r.UnlockAndRequeueMsg(
+				r.UnlockAndRequeue(
 					&gatewayInstance,
 					requeueDelay,
 					lockReleased,

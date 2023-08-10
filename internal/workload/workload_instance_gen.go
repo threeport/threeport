@@ -132,7 +132,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if err := workloadInstanceCreated(r, &workloadInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile created workload instance object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&workloadInstance,
 						requeueDelay,
 						lockReleased,
@@ -143,7 +143,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if err := workloadInstanceUpdated(r, &workloadInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile updated workload instance object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&workloadInstance,
 						requeueDelay,
 						lockReleased,
@@ -154,7 +154,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				if err := workloadInstanceDeleted(r, &workloadInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted workload instance object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&workloadInstance,
 						requeueDelay,
 						lockReleased,
@@ -170,7 +170,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					errors.New("unrecognized notifcation operation"),
 					"notification included an invalid operation",
 				)
-				r.UnlockAndRequeueMsg(
+				r.UnlockAndRequeue(
 					&workloadInstance,
 					requeueDelay,
 					lockReleased,
