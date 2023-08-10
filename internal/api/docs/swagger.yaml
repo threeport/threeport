@@ -439,6 +439,11 @@ definitions:
           implements auth for a Kubernetes cluster.  It is an alternative to client
           certficate and key authenticaion.
         type: string
+      ConnectionTokenExpiration:
+        description: |-
+          ConnectionTokenExpiration is the time when a ConnectionToken will expire.
+          Used to ensure a token will not expire before it can be used.
+        type: string
       DefaultRuntime:
         description: |-
           If true, this Kubernetes cluster will be used for all workloads if not
@@ -572,18 +577,9 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - DomainNameDefinition
-    - DomainNameInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -592,24 +588,24 @@ definitions:
     - WorkloadEvent
     - Profile
     - Tier
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - GatewayDefinition
     - GatewayInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -618,10 +614,19 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
   v0.Profile:
     properties:
       Name:

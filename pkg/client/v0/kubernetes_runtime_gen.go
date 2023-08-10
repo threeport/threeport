@@ -141,13 +141,15 @@ func CreateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 
 // UpdateKubernetesRuntimeDefinition updates a kubernetes runtime definition.
 func UpdateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition) (*v0.KubernetesRuntimeDefinition, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	kubernetesRuntimeDefinitionID := *kubernetesRuntimeDefinition.ID
-	kubernetesRuntimeDefinition.ID = nil
-	kubernetesRuntimeDefinition.CreatedAt = nil
-	kubernetesRuntimeDefinition.UpdatedAt = nil
+	payloadKubernetesRuntimeDefinition := *kubernetesRuntimeDefinition
+	payloadKubernetesRuntimeDefinition.ID = nil
+	payloadKubernetesRuntimeDefinition.CreatedAt = nil
+	payloadKubernetesRuntimeDefinition.UpdatedAt = nil
 
-	jsonKubernetesRuntimeDefinition, err := util.MarshalObject(kubernetesRuntimeDefinition)
+	jsonKubernetesRuntimeDefinition, err := util.MarshalObject(payloadKubernetesRuntimeDefinition)
 	if err != nil {
 		return kubernetesRuntimeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -170,11 +172,11 @@ func UpdateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&kubernetesRuntimeDefinition); err != nil {
+	if err := decoder.Decode(&payloadKubernetesRuntimeDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return kubernetesRuntimeDefinition, nil
+	return &payloadKubernetesRuntimeDefinition, nil
 }
 
 // DeleteKubernetesRuntimeDefinition deletes a kubernetes runtime definition by ID.
@@ -335,13 +337,15 @@ func CreateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 
 // UpdateKubernetesRuntimeInstance updates a kubernetes runtime instance.
 func UpdateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) (*v0.KubernetesRuntimeInstance, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	kubernetesRuntimeInstanceID := *kubernetesRuntimeInstance.ID
-	kubernetesRuntimeInstance.ID = nil
-	kubernetesRuntimeInstance.CreatedAt = nil
-	kubernetesRuntimeInstance.UpdatedAt = nil
+	payloadKubernetesRuntimeInstance := *kubernetesRuntimeInstance
+	payloadKubernetesRuntimeInstance.ID = nil
+	payloadKubernetesRuntimeInstance.CreatedAt = nil
+	payloadKubernetesRuntimeInstance.UpdatedAt = nil
 
-	jsonKubernetesRuntimeInstance, err := util.MarshalObject(kubernetesRuntimeInstance)
+	jsonKubernetesRuntimeInstance, err := util.MarshalObject(payloadKubernetesRuntimeInstance)
 	if err != nil {
 		return kubernetesRuntimeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -364,11 +368,11 @@ func UpdateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&kubernetesRuntimeInstance); err != nil {
+	if err := decoder.Decode(&payloadKubernetesRuntimeInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return kubernetesRuntimeInstance, nil
+	return &payloadKubernetesRuntimeInstance, nil
 }
 
 // DeleteKubernetesRuntimeInstance deletes a kubernetes runtime instance by ID.

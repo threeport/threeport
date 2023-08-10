@@ -141,13 +141,15 @@ func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 
 // UpdateAwsAccount updates a aws account.
 func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	awsAccountID := *awsAccount.ID
-	awsAccount.ID = nil
-	awsAccount.CreatedAt = nil
-	awsAccount.UpdatedAt = nil
+	payloadAwsAccount := *awsAccount
+	payloadAwsAccount.ID = nil
+	payloadAwsAccount.CreatedAt = nil
+	payloadAwsAccount.UpdatedAt = nil
 
-	jsonAwsAccount, err := util.MarshalObject(awsAccount)
+	jsonAwsAccount, err := util.MarshalObject(payloadAwsAccount)
 	if err != nil {
 		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -170,11 +172,11 @@ func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsAccount); err != nil {
+	if err := decoder.Decode(&payloadAwsAccount); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return awsAccount, nil
+	return &payloadAwsAccount, nil
 }
 
 // DeleteAwsAccount deletes a aws account by ID.
@@ -335,13 +337,15 @@ func CreateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 
 // UpdateAwsEksKubernetesRuntimeDefinition updates a aws eks kubernetes runtime definition.
 func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	awsEksKubernetesRuntimeDefinitionID := *awsEksKubernetesRuntimeDefinition.ID
-	awsEksKubernetesRuntimeDefinition.ID = nil
-	awsEksKubernetesRuntimeDefinition.CreatedAt = nil
-	awsEksKubernetesRuntimeDefinition.UpdatedAt = nil
+	payloadAwsEksKubernetesRuntimeDefinition := *awsEksKubernetesRuntimeDefinition
+	payloadAwsEksKubernetesRuntimeDefinition.ID = nil
+	payloadAwsEksKubernetesRuntimeDefinition.CreatedAt = nil
+	payloadAwsEksKubernetesRuntimeDefinition.UpdatedAt = nil
 
-	jsonAwsEksKubernetesRuntimeDefinition, err := util.MarshalObject(awsEksKubernetesRuntimeDefinition)
+	jsonAwsEksKubernetesRuntimeDefinition, err := util.MarshalObject(payloadAwsEksKubernetesRuntimeDefinition)
 	if err != nil {
 		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -364,11 +368,11 @@ func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinition); err != nil {
+	if err := decoder.Decode(&payloadAwsEksKubernetesRuntimeDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return awsEksKubernetesRuntimeDefinition, nil
+	return &payloadAwsEksKubernetesRuntimeDefinition, nil
 }
 
 // DeleteAwsEksKubernetesRuntimeDefinition deletes a aws eks kubernetes runtime definition by ID.
@@ -529,13 +533,15 @@ func CreateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 
 // UpdateAwsEksKubernetesRuntimeInstance updates a aws eks kubernetes runtime instance.
 func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance) (*v0.AwsEksKubernetesRuntimeInstance, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	awsEksKubernetesRuntimeInstanceID := *awsEksKubernetesRuntimeInstance.ID
-	awsEksKubernetesRuntimeInstance.ID = nil
-	awsEksKubernetesRuntimeInstance.CreatedAt = nil
-	awsEksKubernetesRuntimeInstance.UpdatedAt = nil
+	payloadAwsEksKubernetesRuntimeInstance := *awsEksKubernetesRuntimeInstance
+	payloadAwsEksKubernetesRuntimeInstance.ID = nil
+	payloadAwsEksKubernetesRuntimeInstance.CreatedAt = nil
+	payloadAwsEksKubernetesRuntimeInstance.UpdatedAt = nil
 
-	jsonAwsEksKubernetesRuntimeInstance, err := util.MarshalObject(awsEksKubernetesRuntimeInstance)
+	jsonAwsEksKubernetesRuntimeInstance, err := util.MarshalObject(payloadAwsEksKubernetesRuntimeInstance)
 	if err != nil {
 		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -558,11 +564,11 @@ func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksKubernetesRuntimeInstance); err != nil {
+	if err := decoder.Decode(&payloadAwsEksKubernetesRuntimeInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return awsEksKubernetesRuntimeInstance, nil
+	return &payloadAwsEksKubernetesRuntimeInstance, nil
 }
 
 // DeleteAwsEksKubernetesRuntimeInstance deletes a aws eks kubernetes runtime instance by ID.
@@ -723,13 +729,15 @@ func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 
 // UpdateAwsRelationalDatabaseDefinition updates a aws relational database definition.
 func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition) (*v0.AwsRelationalDatabaseDefinition, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	awsRelationalDatabaseDefinitionID := *awsRelationalDatabaseDefinition.ID
-	awsRelationalDatabaseDefinition.ID = nil
-	awsRelationalDatabaseDefinition.CreatedAt = nil
-	awsRelationalDatabaseDefinition.UpdatedAt = nil
+	payloadAwsRelationalDatabaseDefinition := *awsRelationalDatabaseDefinition
+	payloadAwsRelationalDatabaseDefinition.ID = nil
+	payloadAwsRelationalDatabaseDefinition.CreatedAt = nil
+	payloadAwsRelationalDatabaseDefinition.UpdatedAt = nil
 
-	jsonAwsRelationalDatabaseDefinition, err := util.MarshalObject(awsRelationalDatabaseDefinition)
+	jsonAwsRelationalDatabaseDefinition, err := util.MarshalObject(payloadAwsRelationalDatabaseDefinition)
 	if err != nil {
 		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -752,11 +760,11 @@ func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsRelationalDatabaseDefinition); err != nil {
+	if err := decoder.Decode(&payloadAwsRelationalDatabaseDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return awsRelationalDatabaseDefinition, nil
+	return &payloadAwsRelationalDatabaseDefinition, nil
 }
 
 // DeleteAwsRelationalDatabaseDefinition deletes a aws relational database definition by ID.
@@ -917,13 +925,15 @@ func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 
 // UpdateAwsRelationalDatabaseInstance updates a aws relational database instance.
 func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance) (*v0.AwsRelationalDatabaseInstance, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	awsRelationalDatabaseInstanceID := *awsRelationalDatabaseInstance.ID
-	awsRelationalDatabaseInstance.ID = nil
-	awsRelationalDatabaseInstance.CreatedAt = nil
-	awsRelationalDatabaseInstance.UpdatedAt = nil
+	payloadAwsRelationalDatabaseInstance := *awsRelationalDatabaseInstance
+	payloadAwsRelationalDatabaseInstance.ID = nil
+	payloadAwsRelationalDatabaseInstance.CreatedAt = nil
+	payloadAwsRelationalDatabaseInstance.UpdatedAt = nil
 
-	jsonAwsRelationalDatabaseInstance, err := util.MarshalObject(awsRelationalDatabaseInstance)
+	jsonAwsRelationalDatabaseInstance, err := util.MarshalObject(payloadAwsRelationalDatabaseInstance)
 	if err != nil {
 		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -946,11 +956,11 @@ func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsRelationalDatabaseInstance); err != nil {
+	if err := decoder.Decode(&payloadAwsRelationalDatabaseInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return awsRelationalDatabaseInstance, nil
+	return &payloadAwsRelationalDatabaseInstance, nil
 }
 
 // DeleteAwsRelationalDatabaseInstance deletes a aws relational database instance by ID.
