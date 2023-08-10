@@ -11,12 +11,15 @@ type ControllerConfig struct {
 	ControllerDomain      string
 	ControllerDomainLower string
 	ModelConfigs          []ModelConfig
+	ReconcilerModels      []string
 }
 
 // ModelConfig contains the values for a particular model.
 type ModelConfig struct {
-	TypeName  string
-	NameField bool
+	TypeName        string
+	NameField       bool
+	Reconciler      bool
+	ReconciledField bool
 
 	// notification subjects
 	CreateSubject string

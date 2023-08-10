@@ -3,5 +3,5 @@ WorkloadInstance:
   WorkloadDefinition:
     Name: "wordpress"
   KubernetesRuntimeInstance:
-    Name: "aws-remote-compute-space-0"
+    Name: "aws-compute-space-0"
 

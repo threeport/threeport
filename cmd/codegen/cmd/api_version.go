@@ -14,10 +14,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/threeport/threeport/internal/codegen"
 	"github.com/threeport/threeport/internal/codegen/versions"
 )
 
-// const versionExcludeMarker = "+threeport-codegen version-exclude"
 const (
 	routeExcludeMarker    = "+threeport-codegen route-exclude"
 	databaseExcludeMarker = "+threeport-codegen database-exclude"
@@ -44,6 +44,7 @@ for all the models in the supplied version/s.  The generated code includes:
 			versionConf := versions.VersionConfig{VersionName: version}
 			var routeNames []string
 			var dbInitNames []string
+			var reconciledNames []string
 
 			modelFiles, err := os.ReadDir(filepath.Join("..", "..", "pkg", "api", version))
 			if err != nil {
@@ -57,7 +58,7 @@ for all the models in the supplied version/s.  The generated code includes:
 				// parse source code
 				modelFilepath := filepath.Join("..", "..", "pkg", "api", version, mf.Name())
 				fset := token.NewFileSet()
-				pf, err := parser.ParseFile(fset, modelFilepath, nil, parser.ParseComments)
+				pf, err := parser.ParseFile(fset, modelFilepath, nil, parser.ParseComments|parser.AllErrors)
 				if err != nil {
 					return fmt.Errorf("failed to parse source code file: %w", err)
 				}
@@ -67,7 +68,6 @@ for all the models in the supplied version/s.  The generated code includes:
 
 				comments := pf.Doc
 				if comments != nil {
-					//exclude := false
 					for _, c := range comments.List {
 						if strings.Contains(c.Text, routeExcludeMarker) {
 							// exclude files with route exclude marker
@@ -82,11 +82,13 @@ for all the models in the supplied version/s.  The generated code includes:
 				for _, node := range pf.Decls {
 					switch node.(type) {
 					case *ast.GenDecl:
+						var objectName string
 						genDecl := node.(*ast.GenDecl)
 						for _, spec := range genDecl.Specs {
 							switch spec.(type) {
 							case *ast.TypeSpec:
 								typeSpec := spec.(*ast.TypeSpec)
+								objectName = typeSpec.Name.Name
 								if includeRoutes {
 									routeNames = append(
 										routeNames,
@@ -101,11 +103,19 @@ for all the models in the supplied version/s.  The generated code includes:
 								}
 							}
 						}
+						if genDecl.Doc != nil {
+							for _, comment := range genDecl.Doc.List {
+								if strings.Contains(comment.Text, codegen.ReconclierMarkerText) {
+									reconciledNames = append(reconciledNames, objectName)
+								}
+							}
+						}
 					}
 				}
 			}
 			versionConf.RouteNames = routeNames
 			versionConf.DatabaseInitNames = dbInitNames
+			versionConf.ReconciledNames = reconciledNames
 			globalVersionConf.Versions = append(globalVersionConf.Versions, versionConf)
 		}
 
@@ -137,6 +147,11 @@ for all the models in the supplied version/s.  The generated code includes:
 		// generate client type switch functions
 		if err := globalVersionConf.DeleteObjects(); err != nil {
 			return fmt.Errorf("failed to generate model type switch functions: %w", err)
+		}
+
+		// generate the notifications helper
+		if err := globalVersionConf.NotificationHelper(); err != nil {
+			return fmt.Errorf("failed to generate notification helper for controller's reconcilers: %w", err)
 		}
 
 		return nil

@@ -1,7 +1,6 @@
 package aws
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -119,26 +118,13 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	go func() {
 		<-sigs
 		reconLog.Info("controller terminated mid resource creation, removing resources...")
-		// retrieve eks cluster instance
-		latestAwsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByID(
-			r.APIClient,
-			r.APIServer,
-			*awsEksKubernetesRuntimeInstance.ID,
-		)
+
+		inventory, err := getInventory(r, awsEksKubernetesRuntimeInstance)
 		if err != nil {
-			reconLog.Error(err, "failed to get EKS cluster instance inventory from threeport API")
+			reconLog.Error(err, "aws controller interrupted and failed to retrieve AWS resource inventory")
 		}
 
-		// unmarshal the inventory into an ResourceInventory object
-		var inventory resource.ResourceInventory
-		if err := resource.UnmarshalInventory(
-			[]byte(*latestAwsEksKubernetesRuntimeInstance.ResourceInventory),
-			&inventory,
-		); err != nil {
-			reconLog.Error(err, "failed to unmarshal resource inventory")
-		}
-
-		if err = resourceClient.DeleteResourceStack(&inventory); err != nil {
+		if err = resourceClient.DeleteResourceStack(inventory); err != nil {
 			reconLog.Error(err, "failed to delete eks cluster resources")
 		}
 	}()
@@ -155,24 +141,32 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	if err != nil {
 		// since we failed to complete cluster creation, delete it to remove any
 		// dangling AWS resources
-		if deleteErr := clusterInfra.Delete(); deleteErr != nil {
-			// the infra creation AND deletion failed - there is some situation
-			// that likely requires human intervention so we will stop
-			// reconciliation here to prevent egregious infra creation on an
-			// infinite loop
-			interrupt := true
-			awsEksKubernetesRuntimeInstance.InterruptReconciliation = &interrupt
-			_, updateErr := client.UpdateAwsEksKubernetesRuntimeInstance(
-				r.APIClient,
-				r.APIServer,
-				awsEksKubernetesRuntimeInstance,
-			)
-			if updateErr != nil {
-				reconLog.Error(errors.New("failed to update eks runtime instance to interrupt reconciliation"), "")
-			}
-			return fmt.Errorf("failed to create new threeport cluster: %w and failed to delete created infra: %w", err, deleteErr)
+		createErr := fmt.Errorf("failed to create new threeport cluster: %w", err)
+		inventory, invErr := getInventory(r, awsEksKubernetesRuntimeInstance)
+		if err != nil {
+			return fmt.Errorf("%w and failed to retrieve AWS resource inventory: %w", createErr, invErr)
 		}
-		return fmt.Errorf("failed to create new threeport cluster: %w", err)
+		if inventory != nil {
+			clusterInfra.ResourceInventory = inventory
+			if deleteErr := clusterInfra.Delete(); deleteErr != nil {
+				// the infra creation AND deletion failed - there is some situation
+				// that likely requires human intervention so we will stop
+				// reconciliation here to prevent egregious infra creation on an
+				// infinite loop
+				interrupt := true
+				awsEksKubernetesRuntimeInstance.InterruptReconciliation = &interrupt
+				_, updateErr := client.UpdateAwsEksKubernetesRuntimeInstance(
+					r.APIClient,
+					r.APIServer,
+					awsEksKubernetesRuntimeInstance,
+				)
+				if updateErr != nil {
+					return fmt.Errorf("%w and failed to update eks runtime instance to interrupt reconciliation: %w", createErr, updateErr)
+				}
+				return fmt.Errorf("%w and failed to delete created infra: %w", createErr, deleteErr)
+			}
+		}
+		return createErr
 	}
 
 	// get kubernetes runtime instance to update kube connection info
@@ -190,6 +184,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
 	kubernetesRuntimeInstance.ConnectionToken = &kubeConnectionInfo.EKSToken
+	kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnectionInfo.EKSTokenExpiration
 	kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
 	_, err = client.UpdateKubernetesRuntimeInstance(
 		r.APIClient,
@@ -297,4 +292,34 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 	}
 
 	return nil
+}
+
+// getInventory takes an aws eks kubernetes runtime instance and retrieves the
+// latest resource inventory from the threeport API then returns the inventory.
+func getInventory(
+	r *controller.Reconciler,
+	eksRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
+) (*resource.ResourceInventory, error) {
+	// retrieve eks cluster instance
+	latestAwsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*eksRuntimeInstance.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get EKS cluster instance inventory from threeport API: %w", err)
+	}
+
+	// unmarshal the inventory into a ResourceInventory object
+	var inventory resource.ResourceInventory
+	if latestAwsEksKubernetesRuntimeInstance.ResourceInventory != nil {
+		if err := resource.UnmarshalInventory(
+			[]byte(*latestAwsEksKubernetesRuntimeInstance.ResourceInventory),
+			&inventory,
+		); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal resource inventory: %w", err)
+		}
+	}
+
+	return &inventory, nil
 }

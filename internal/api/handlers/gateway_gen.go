@@ -76,16 +76,18 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := gatewayDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*gatewayDefinition.Reconciled {
+		notifPayload, err := gatewayDefinition.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			0,
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.GatewayDefinitionCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.GatewayDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, gatewayDefinition)
 	if err != nil {
@@ -202,18 +204,12 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// if client doesn't specify reconciled, set it to false
-	if updatedGatewayDefinition.Reconciled == nil {
-		reconciled := false
-		updatedGatewayDefinition.Reconciled = &reconciled
-	}
-
 	// update object in database
 	if result := h.DB.Model(&existingGatewayDefinition).Updates(updatedGatewayDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controllers if reconciliation is required
+	// notify controller if reconciliation is required
 	if !*existingGatewayDefinition.Reconciled {
 		notifPayload, err := existingGatewayDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
@@ -336,7 +332,7 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 	notifPayload, err := gatewayDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		time.Now().Unix(),
+		0,
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -413,16 +409,18 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := gatewayInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*gatewayInstance.Reconciled {
+		notifPayload, err := gatewayInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			0,
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.GatewayInstanceCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.GatewayInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, gatewayInstance)
 	if err != nil {
@@ -539,18 +537,12 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// if client doesn't specify reconciled, set it to false
-	if updatedGatewayInstance.Reconciled == nil {
-		reconciled := false
-		updatedGatewayInstance.Reconciled = &reconciled
-	}
-
 	// update object in database
 	if result := h.DB.Model(&existingGatewayInstance).Updates(updatedGatewayInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controllers if reconciliation is required
+	// notify controller if reconciliation is required
 	if !*existingGatewayInstance.Reconciled {
 		notifPayload, err := existingGatewayInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
@@ -667,7 +659,7 @@ func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 	notifPayload, err := gatewayInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		time.Now().Unix(),
+		0,
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

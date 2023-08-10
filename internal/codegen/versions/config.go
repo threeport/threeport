@@ -11,4 +11,5 @@ type VersionConfig struct {
 	VersionName       string
 	RouteNames        []string
 	DatabaseInitNames []string
+	ReconciledNames   []string
 }

@@ -7909,9 +7909,15 @@ const docTemplate = `{
                     "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
                     "type": "boolean"
                 },
+<<<<<<< HEAD
                 "DnsWorkloadInstanceID": {
                     "description": "The WorkloadInstanceID of the dns support service",
                     "type": "integer"
+=======
+                "ForceDelete": {
+                    "description": "If true, delete the runtime even if there are workloads present.",
+                    "type": "boolean"
+>>>>>>> 542e194 (feat: improve notification handling)
                 },
                 "GatewayWorkloadInstanceID": {
                     "description": "The WorkloadInstanceID of the gateway support service",
@@ -8056,6 +8062,7 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+<<<<<<< HEAD
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
                 "Profile",
@@ -8065,30 +8072,32 @@ const docTemplate = `{
                 "LogStorageInstance",
                 "GatewayDefinition",
                 "GatewayInstance",
+=======
+                "Profile",
+                "Tier",
+>>>>>>> 542e194 (feat: improve notification handling)
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
+<<<<<<< HEAD
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
+=======
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+>>>>>>> 542e194 (feat: improve notification handling)
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "Profile",
-                "Tier",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
+<<<<<<< HEAD
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
@@ -8105,30 +8114,41 @@ const docTemplate = `{
                 "ObjectTypeLogStorageInstance",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
+=======
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "GatewayDefinition",
+                "GatewayInstance"
+            ],
+            "x-enum-varnames": [
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+>>>>>>> 542e194 (feat: improve notification handling)
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
+<<<<<<< HEAD
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
+=======
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+>>>>>>> 542e194 (feat: improve notification handling)
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
+<<<<<<< HEAD
 <<<<<<< HEAD
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksClusterDefinition",
@@ -8141,6 +8161,10 @@ const docTemplate = `{
                 "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
+=======
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+>>>>>>> 542e194 (feat: improve notification handling)
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",

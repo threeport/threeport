@@ -76,16 +76,18 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := kubernetesRuntimeDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*kubernetesRuntimeDefinition.Reconciled {
+		notifPayload, err := kubernetesRuntimeDefinition.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			0,
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.KubernetesRuntimeDefinitionCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.KubernetesRuntimeDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, kubernetesRuntimeDefinition)
 	if err != nil {
@@ -207,6 +209,19 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller if reconciliation is required
+	if !*existingKubernetesRuntimeDefinition.Reconciled {
+		notifPayload, err := existingKubernetesRuntimeDefinition.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.KubernetesRuntimeDefinitionUpdateSubject, *notifPayload)
+	}
+
 	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -317,7 +332,7 @@ func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 	notifPayload, err := kubernetesRuntimeDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		time.Now().Unix(),
+		0,
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -394,16 +409,18 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := kubernetesRuntimeInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*kubernetesRuntimeInstance.Reconciled {
+		notifPayload, err := kubernetesRuntimeInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			0,
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.KubernetesRuntimeInstanceCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.KubernetesRuntimeInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, kubernetesRuntimeInstance)
 	if err != nil {
@@ -525,6 +542,19 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller if reconciliation is required
+	if !*existingKubernetesRuntimeInstance.Reconciled {
+		notifPayload, err := existingKubernetesRuntimeInstance.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.KubernetesRuntimeInstanceUpdateSubject, *notifPayload)
+	}
+
 	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -629,7 +659,7 @@ func (h Handler) DeleteKubernetesRuntimeInstance(c echo.Context) error {
 	notifPayload, err := kubernetesRuntimeInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		time.Now().Unix(),
+		0,
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
