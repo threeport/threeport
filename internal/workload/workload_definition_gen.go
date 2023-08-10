@@ -105,7 +105,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of workload definition")
-					r.UnlockAndRequeueMsg(&workloadDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for workload definition, closing out signal handler")
 				}
@@ -137,7 +137,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				}
 				if err != nil {
 					log.Error(err, "failed to get workload definition by ID from API")
-					r.UnlockAndRequeueMsg(&workloadDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 					continue
 				}
 				workloadDefinition = *latestWorkloadDefinition
@@ -148,7 +148,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if err := workloadDefinitionCreated(r, &workloadDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile created workload definition object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&workloadDefinition,
 						msg.Subject,
 						notifPayload,
@@ -161,7 +161,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if err := workloadDefinitionUpdated(r, &workloadDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile updated workload definition object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&workloadDefinition,
 						msg.Subject,
 						notifPayload,
@@ -174,7 +174,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				if err := workloadDefinitionDeleted(r, &workloadDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted workload definition object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&workloadDefinition,
 						msg.Subject,
 						notifPayload,
@@ -192,7 +192,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					errors.New("unrecognized notifcation operation"),
 					"notification included an invalid operation",
 				)
-				r.UnlockAndRequeueMsg(
+				r.UnlockAndRequeue(
 					&workloadDefinition,
 					msg.Subject,
 					notifPayload,
@@ -218,7 +218,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update workload definition to mark as reconciled")
-					r.UnlockAndRequeueMsg(&workloadDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(

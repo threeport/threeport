@@ -119,36 +119,9 @@ func (r *Reconciler) RequeueRawMsg(msg *nats.Msg) {
 	)
 }
 
-
 // UnlockAndRequeue releases the lock on the object and requeues reconciliation
 // for that object.
 func (r *Reconciler) UnlockAndRequeue(
-	object v0.APIObject,
-	subject string,
-	notifPayload *[]byte,
-	requeueDelay int64,
-	lockReleased chan bool,
-) {
-	if ok := r.ReleaseLock(object, lockReleased); !ok {
-		r.Log.V(1).Info(
-			"object remains locked - will unlock when TTL expires",
-			"objectType", r.ObjectType,
-			"objectID", object.GetID(),
-		)
-	} else {
-		r.Log.V(1).Info(
-			"object unlocked",
-			"objectType", r.ObjectType,
-			"objectID", object.GetID(),
-		)
-	}
-
-	go r.Requeue(object, subject, notifPayload, requeueDelay)
-}
-
-// UnlockAndRequeue releases the lock on the object and requeues reconciliation
-// for that object.
-func (r *Reconciler) UnlockAndRequeueMsg(
 	object v0.APIObject,
 	subject string,
 	notifPayload *[]byte,
