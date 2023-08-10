@@ -132,7 +132,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if err := kubernetesRuntimeInstanceCreated(r, &kubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile created kubernetes runtime instance object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&kubernetesRuntimeInstance,
 						requeueDelay,
 						lockReleased,
@@ -143,7 +143,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if err := kubernetesRuntimeInstanceUpdated(r, &kubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile updated kubernetes runtime instance object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&kubernetesRuntimeInstance,
 						requeueDelay,
 						lockReleased,
@@ -154,7 +154,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				if err := kubernetesRuntimeInstanceDeleted(r, &kubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted kubernetes runtime instance object")
-					r.UnlockAndRequeueMsg(
+					r.UnlockAndRequeue(
 						&kubernetesRuntimeInstance,
 						requeueDelay,
 						lockReleased,
@@ -170,7 +170,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					errors.New("unrecognized notifcation operation"),
 					"notification included an invalid operation",
 				)
-				r.UnlockAndRequeueMsg(
+				r.UnlockAndRequeue(
 					&kubernetesRuntimeInstance,
 					requeueDelay,
 					lockReleased,

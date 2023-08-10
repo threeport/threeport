@@ -266,7 +266,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 											strcase.ToDelimited(obj, ' '),
 										)),
 									),
-									Id("r").Dot("UnlockAndRequeueMsg").Call(
+									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
@@ -294,7 +294,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 											strcase.ToDelimited(obj, ' '),
 										)),
 									),
-									Id("r").Dot("UnlockAndRequeueMsg").Call(
+									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
@@ -322,7 +322,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 											strcase.ToDelimited(obj, ' '),
 										)),
 									),
-									Id("r").Dot("UnlockAndRequeueMsg").Call(
+									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
@@ -344,7 +344,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Line().Lit("notification included an invalid operation"),
 									Line(),
 								),
-								Id("r").Dot("UnlockAndRequeueMsg").Call(
+								Id("r").Dot("UnlockAndRequeue").Call(
 									Line().Op("&").Id(strcase.ToLowerCamel(obj)),
 									Line().Id("requeueDelay"),
 									Line().Id("lockReleased"),

@@ -117,7 +117,6 @@ func (r *Reconciler) RequeueRawMsg(msg *nats.Msg) {
 	)
 }
 
-
 // UnlockAndRequeue releases the lock on the object and requeues reconciliation
 // for that object.
 func (r *Reconciler) UnlockAndRequeue(
