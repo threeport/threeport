@@ -114,7 +114,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				if errors.Is(err, client.ErrorObjectNotFound) {
 					log.Info(fmt.Sprintf(
 						"object with ID %d no longer exists - halting reconciliation",
-						*awsEksKubernetesRuntimeInstance.ID,
+						*awsEksKubernetesRuntimeInstance.ID, msg.Ack(),
 					))
 					r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased, msg, true)
 					continue
