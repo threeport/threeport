@@ -74,12 +74,22 @@ func main() {
 		panic(err)
 	}
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogURI:    true,
-		LogStatus: true,
+		LogMethod:   true,
+		LogURI:      true,
+		LogStatus:   true,
+		LogRemoteIP: true,
+		LogHost:     true,
+		LogLatency:  true,
+		LogError:    true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
 			logger.Info("request",
-				zap.String("URI", v.URI),
+				zap.String("method", v.Method),
+				zap.String("uri", v.URI),
 				zap.Int("status", v.Status),
+				zap.String("remoteIP", v.RemoteIP),
+				zap.String("host", v.Host),
+				zap.Duration("latency", v.Latency),
+				zap.Error(v.Error),
 			)
 			return nil
 		},
