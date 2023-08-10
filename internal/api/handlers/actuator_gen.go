@@ -311,7 +311,7 @@ func (h Handler) DeleteProfile(c echo.Context) error {
 	notifPayload, err := profile.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -623,7 +623,7 @@ func (h Handler) DeleteTier(c echo.Context) error {
 	notifPayload, err := tier.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

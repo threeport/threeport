@@ -218,7 +218,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 		notifPayload, err := existingGatewayDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
-			0,
+			time.Now().Unix(),
 		)
 		if err != nil {
 			return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -336,7 +336,7 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 	notifPayload, err := gatewayDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -555,7 +555,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 		notifPayload, err := existingGatewayInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
-			0,
+			time.Now().Unix(),
 		)
 		if err != nil {
 			return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -667,7 +667,7 @@ func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 	notifPayload, err := gatewayInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

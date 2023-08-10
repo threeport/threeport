@@ -218,7 +218,7 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 		notifPayload, err := existingWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
-			0,
+			time.Now().Unix(),
 		)
 		if err != nil {
 			return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -336,7 +336,7 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 	notifPayload, err := workloadDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -633,7 +633,7 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 	notifPayload, err := workloadResourceDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -852,7 +852,7 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 		notifPayload, err := existingWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
-			0,
+			time.Now().Unix(),
 		)
 		if err != nil {
 			return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -964,7 +964,7 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 	notifPayload, err := workloadInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1261,7 +1261,7 @@ func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 	notifPayload, err := attachedObjectReference.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1558,7 +1558,7 @@ func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 	notifPayload, err := workloadResourceInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1855,7 +1855,7 @@ func (h Handler) DeleteWorkloadEvent(c echo.Context) error {
 	notifPayload, err := workloadEvent.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

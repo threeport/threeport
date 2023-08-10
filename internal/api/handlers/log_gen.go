@@ -311,7 +311,7 @@ func (h Handler) DeleteLogBackend(c echo.Context) error {
 	notifPayload, err := logBackend.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -623,7 +623,7 @@ func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 	notifPayload, err := logStorageDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -935,7 +935,7 @@ func (h Handler) DeleteLogStorageInstance(c echo.Context) error {
 	notifPayload, err := logStorageInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

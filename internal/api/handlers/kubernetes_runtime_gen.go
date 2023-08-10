@@ -317,7 +317,7 @@ func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 	notifPayload, err := kubernetesRuntimeDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -629,7 +629,7 @@ func (h Handler) DeleteKubernetesRuntimeInstance(c echo.Context) error {
 	notifPayload, err := kubernetesRuntimeInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

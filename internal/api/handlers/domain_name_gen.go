@@ -311,7 +311,7 @@ func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 	notifPayload, err := domainNameDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -623,7 +623,7 @@ func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 	notifPayload, err := domainNameInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

@@ -5,14 +5,13 @@ package gateway
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // GatewayInstanceReconciler reconciles system state when a GatewayInstance

@@ -311,7 +311,7 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 	notifPayload, err := awsAccount.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -629,7 +629,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	notifPayload, err := awsEksKubernetesRuntimeDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -941,7 +941,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	notifPayload, err := awsEksKubernetesRuntimeInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1253,7 +1253,7 @@ func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 	notifPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1565,7 +1565,7 @@ func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 	notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

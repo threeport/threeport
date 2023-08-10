@@ -311,7 +311,7 @@ func (h Handler) DeleteForwardProxyDefinition(c echo.Context) error {
 	notifPayload, err := forwardProxyDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -623,7 +623,7 @@ func (h Handler) DeleteForwardProxyInstance(c echo.Context) error {
 	notifPayload, err := forwardProxyInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
