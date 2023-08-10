@@ -5,13 +5,14 @@ package gateway
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 // GatewayInstanceReconciler reconciles system state when a GatewayInstance
@@ -57,7 +58,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
-				go r.RequeueRawMsg(msg)
+				go r.RequeueRaw(msg)
 				log.V(1).Info("gateway instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -66,7 +67,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			var gatewayInstance v0.GatewayInstance
 			if err := gatewayInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
-				go r.RequeueRawMsg(msg)
+				go r.RequeueRaw(msg)
 				log.V(1).Info("gateway instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -87,7 +88,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			)
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
-				go r.RequeueRawMsg(msg)
+				go r.RequeueRaw(msg)
 				log.V(1).Info("gateway instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}

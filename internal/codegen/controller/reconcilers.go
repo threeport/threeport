@@ -97,7 +97,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 								Line().Lit("msgData"), Id("string").Call(Id("msg").Dot("Data")),
 								Line(),
 							),
-							Go().Id("r").Dot("RequeueRawMsg").Call(Id("msg")),
+							Go().Id("r").Dot("RequeueRaw").Call(Id("msg")),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
 								Lit(fmt.Sprintf(
 									"%s reconciliation requeued with identical payload and fixed delay",
@@ -119,7 +119,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Id("log").Dot("Error").Call(
 								Id("err"), Lit("failed to marshal object map from consumed notification message"),
 							),
-							Go().Id("r").Dot("RequeueRawMsg").Call(Id("msg")),
+							Go().Id("r").Dot("RequeueRaw").Call(Id("msg")),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
 								Lit(fmt.Sprintf(
 									"%s reconciliation requeued with identical payload and fixed delay",
@@ -156,7 +156,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Id("log").Dot("Error").Call(
 								Id("err").Op(",").Lit("failed to build notification payload for requeue"),
 							),
-							Go().Id("r").Dot("RequeueRawMsg").Call(
+							Go().Id("r").Dot("RequeueRaw").Call(
 								Id("msg"),
 							),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(

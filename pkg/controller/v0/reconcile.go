@@ -101,18 +101,8 @@ func (r *Reconciler) PullMessage() *nats.Msg {
 // unmarshalled properly or when a new notification payload could not be
 // properly constructed.  Since a backoff cannot be properly calculated we
 // requeue after 10 sec.
-func (r *Reconciler) RequeueRaw(subject string, payload []byte) {
-	time.Sleep(time.Second * 10)
-	r.JetStreamContext.Publish(subject, payload)
-	r.Log.V(1).Info("raw message requeued",
-		"messageSubject", subject,
-		"messagePayload", string(payload),
-	)
-}
-
-
-func (r *Reconciler) RequeueRawMsg(msg *nats.Msg) {
-	msg.NakWithDelay(time.Duration(1))
+func (r *Reconciler) RequeueRaw(msg *nats.Msg) {
+	msg.NakWithDelay(time.Duration(time.Duration(10).Seconds()))
 	r.Log.V(1).Info("raw message requeued",
 		"messageSubject", msg.Subject,
 		"messagePayload", string(msg.Data),
@@ -152,7 +142,6 @@ func (r *Reconciler) UnlockAndRequeue(
 		)
 	}
 }
-
 
 // Requeue waits for the delay duration and then sends the notifcation to the
 // NATS server to trigger reconciliation.
