@@ -114,7 +114,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 				if errors.Is(err, client.ErrorObjectNotFound) {
 					log.Info(fmt.Sprintf(
 						"object with ID %d no longer exists - halting reconciliation",
-						*kubernetesRuntimeDefinition.ID,
+						*kubernetesRuntimeDefinition.ID, msg.Ack(),
 					))
 					r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased, msg, true)
 					continue
