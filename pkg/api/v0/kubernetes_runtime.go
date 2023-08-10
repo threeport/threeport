@@ -87,6 +87,9 @@ type KubernetesRuntimeInstance struct {
 	// The associated workload instances running on this kubernetes runtime.
 	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstance,omitempty" validate:"optional,association"`
 
+	// If true, delete the runtime even if there are workloads present.
+	ForceDelete *bool `json:"ForceDelete,omitempty" query:"forcedelete" gorm:"default:false" validate:"optional"`
+
 	// The WorkloadInstanceID of the gateway support service
 	GatewayControllerInstanceID *uint `json:"GatewayWorkloadInstanceID,omitempty" validate:"optional"`
 
