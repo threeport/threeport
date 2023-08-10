@@ -108,6 +108,16 @@ func (r *Reconciler) RequeueRaw(msg *nats.Msg) {
 	)
 }
 
+
+func (r *Reconciler) RequeueRawMsg(msg *nats.Msg) {
+	msg.NakWithDelay(time.Duration(1))
+	r.Log.V(1).Info("raw message requeued",
+		"messageSubject", msg.Subject,
+		"messagePayload", string(msg.Data),
+	)
+}
+
+
 // UnlockAndRequeue releases the lock on the object and requeues reconciliation
 // for that object.
 func (r *Reconciler) UnlockAndRequeue(
@@ -132,6 +142,41 @@ func (r *Reconciler) UnlockAndRequeue(
 
 	r.Requeue(object,requeueDelay, msg)
 }
+
+// UnlockAndRequeue releases the lock on the object and requeues reconciliation
+// for that object.
+func (r *Reconciler) UnlockAndRequeueMsg(
+	object v0.APIObject,
+	subject string,
+	notifPayload *[]byte,
+	requeueDelay int64,
+	lockReleased chan bool,
+	msg *nats.Msg,
+) {
+	if ok := r.ReleaseLock(object, lockReleased); !ok {
+		r.Log.V(1).Info(
+			"object remains locked - will unlock when TTL expires",
+			"objectType", r.ObjectType,
+			"objectID", object.GetID(),
+		)
+	} else {
+		r.Log.V(1).Info(
+			"object unlocked",
+			"objectType", r.ObjectType,
+			"objectID", object.GetID(),
+		)
+	}
+
+	err := msg.NakWithDelay(time.Duration(requeueDelay) * time.Second)
+	if err != nil {
+		r.Log.V(1).Info(
+			"failed to perform negative acknowledgement with delay",
+			"objectType", r.ObjectType,
+			"objectID", object.GetID(),
+		)
+	}
+}
+
 
 // Requeue waits for the delay duration and then sends the notifcation to the
 // NATS server to trigger reconciliation.
