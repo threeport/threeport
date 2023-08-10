@@ -141,13 +141,15 @@ func CreateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwar
 
 // UpdateForwardProxyDefinition updates a forward proxy definition.
 func UpdateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwardProxyDefinition *v0.ForwardProxyDefinition) (*v0.ForwardProxyDefinition, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	forwardProxyDefinitionID := *forwardProxyDefinition.ID
-	forwardProxyDefinition.ID = nil
-	forwardProxyDefinition.CreatedAt = nil
-	forwardProxyDefinition.UpdatedAt = nil
+	payloadForwardProxyDefinition := *forwardProxyDefinition
+	payloadForwardProxyDefinition.ID = nil
+	payloadForwardProxyDefinition.CreatedAt = nil
+	payloadForwardProxyDefinition.UpdatedAt = nil
 
-	jsonForwardProxyDefinition, err := util.MarshalObject(forwardProxyDefinition)
+	jsonForwardProxyDefinition, err := util.MarshalObject(payloadForwardProxyDefinition)
 	if err != nil {
 		return forwardProxyDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -170,11 +172,11 @@ func UpdateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwar
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&forwardProxyDefinition); err != nil {
+	if err := decoder.Decode(&payloadForwardProxyDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return forwardProxyDefinition, nil
+	return &payloadForwardProxyDefinition, nil
 }
 
 // DeleteForwardProxyDefinition deletes a forward proxy definition by ID.
@@ -335,13 +337,15 @@ func CreateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardP
 
 // UpdateForwardProxyInstance updates a forward proxy instance.
 func UpdateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardProxyInstance *v0.ForwardProxyInstance) (*v0.ForwardProxyInstance, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	forwardProxyInstanceID := *forwardProxyInstance.ID
-	forwardProxyInstance.ID = nil
-	forwardProxyInstance.CreatedAt = nil
-	forwardProxyInstance.UpdatedAt = nil
+	payloadForwardProxyInstance := *forwardProxyInstance
+	payloadForwardProxyInstance.ID = nil
+	payloadForwardProxyInstance.CreatedAt = nil
+	payloadForwardProxyInstance.UpdatedAt = nil
 
-	jsonForwardProxyInstance, err := util.MarshalObject(forwardProxyInstance)
+	jsonForwardProxyInstance, err := util.MarshalObject(payloadForwardProxyInstance)
 	if err != nil {
 		return forwardProxyInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -364,11 +368,11 @@ func UpdateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardP
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&forwardProxyInstance); err != nil {
+	if err := decoder.Decode(&payloadForwardProxyInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return forwardProxyInstance, nil
+	return &payloadForwardProxyInstance, nil
 }
 
 // DeleteForwardProxyInstance deletes a forward proxy instance by ID.

@@ -364,18 +364,20 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Error(),
 		)).Block(
-			Comment("capture the object ID then remove fields that cannot be updated in the API"),
+			Comment("capture the object ID, make a copy of the object, then remove fields that"),
+			Comment("cannot be updated in the API"),
 			Id(
 				fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName)),
 			).Op(":=").Op("*").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID"),
-			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID").Op("=").Nil(),
-			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("CreatedAt").Op("=").Nil(),
-			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("UpdatedAt").Op("=").Nil(),
+			Id(fmt.Sprintf("payload%s", mc.TypeName)).Op(":=").Op("*").Id(strcase.ToLowerCamel(mc.TypeName)),
+			Id(fmt.Sprintf("payload%s", mc.TypeName)).Dot("ID").Op("=").Nil(),
+			Id(fmt.Sprintf("payload%s", mc.TypeName)).Dot("CreatedAt").Op("=").Nil(),
+			Id(fmt.Sprintf("payload%s", mc.TypeName)).Dot("UpdatedAt").Op("=").Nil(),
 			Line(),
 			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
 				"github.com/threeport/threeport/internal/util",
 				"MarshalObject",
-			).Call(Id(strcase.ToLowerCamel(mc.TypeName))),
+			).Call(Id(fmt.Sprintf("payload%s", mc.TypeName))),
 			If(Id("err").Op("!=").Nil().Block(
 				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
 					"fmt", "Errorf",
@@ -421,14 +423,14 @@ func (cc *ControllerConfig) ClientLib() error {
 			).Call(Id("jsonData"))),
 			Id("decoder").Dot("UseNumber").Call(),
 			If(Id("err").Op(":=").Id("decoder").Dot("Decode").Call(
-				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
+				Op("&").Id(fmt.Sprintf("payload%s", mc.TypeName)),
 			).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return().Nil().Op(",").Qual(
 					"fmt", "Errorf",
 				).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
 			),
 			Line(),
-			Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
+			Return().Op("&").Id(fmt.Sprintf("payload%s", mc.TypeName)).Op(",").Nil(),
 		)
 		f.Line()
 		// delete object

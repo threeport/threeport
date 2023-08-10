@@ -141,13 +141,15 @@ func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 
 // UpdateWorkloadDefinition updates a workload definition.
 func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	workloadDefinitionID := *workloadDefinition.ID
-	workloadDefinition.ID = nil
-	workloadDefinition.CreatedAt = nil
-	workloadDefinition.UpdatedAt = nil
+	payloadWorkloadDefinition := *workloadDefinition
+	payloadWorkloadDefinition.ID = nil
+	payloadWorkloadDefinition.CreatedAt = nil
+	payloadWorkloadDefinition.UpdatedAt = nil
 
-	jsonWorkloadDefinition, err := util.MarshalObject(workloadDefinition)
+	jsonWorkloadDefinition, err := util.MarshalObject(payloadWorkloadDefinition)
 	if err != nil {
 		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -170,11 +172,11 @@ func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&workloadDefinition); err != nil {
+	if err := decoder.Decode(&payloadWorkloadDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return workloadDefinition, nil
+	return &payloadWorkloadDefinition, nil
 }
 
 // DeleteWorkloadDefinition deletes a workload definition by ID.
@@ -335,13 +337,15 @@ func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 
 // UpdateWorkloadResourceDefinition updates a workload resource definition.
 func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	workloadResourceDefinitionID := *workloadResourceDefinition.ID
-	workloadResourceDefinition.ID = nil
-	workloadResourceDefinition.CreatedAt = nil
-	workloadResourceDefinition.UpdatedAt = nil
+	payloadWorkloadResourceDefinition := *workloadResourceDefinition
+	payloadWorkloadResourceDefinition.ID = nil
+	payloadWorkloadResourceDefinition.CreatedAt = nil
+	payloadWorkloadResourceDefinition.UpdatedAt = nil
 
-	jsonWorkloadResourceDefinition, err := util.MarshalObject(workloadResourceDefinition)
+	jsonWorkloadResourceDefinition, err := util.MarshalObject(payloadWorkloadResourceDefinition)
 	if err != nil {
 		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -364,11 +368,11 @@ func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&workloadResourceDefinition); err != nil {
+	if err := decoder.Decode(&payloadWorkloadResourceDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return workloadResourceDefinition, nil
+	return &payloadWorkloadResourceDefinition, nil
 }
 
 // DeleteWorkloadResourceDefinition deletes a workload resource definition by ID.
@@ -529,13 +533,15 @@ func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 
 // UpdateWorkloadInstance updates a workload instance.
 func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	workloadInstanceID := *workloadInstance.ID
-	workloadInstance.ID = nil
-	workloadInstance.CreatedAt = nil
-	workloadInstance.UpdatedAt = nil
+	payloadWorkloadInstance := *workloadInstance
+	payloadWorkloadInstance.ID = nil
+	payloadWorkloadInstance.CreatedAt = nil
+	payloadWorkloadInstance.UpdatedAt = nil
 
-	jsonWorkloadInstance, err := util.MarshalObject(workloadInstance)
+	jsonWorkloadInstance, err := util.MarshalObject(payloadWorkloadInstance)
 	if err != nil {
 		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -558,11 +564,11 @@ func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&workloadInstance); err != nil {
+	if err := decoder.Decode(&payloadWorkloadInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return workloadInstance, nil
+	return &payloadWorkloadInstance, nil
 }
 
 // DeleteWorkloadInstance deletes a workload instance by ID.
@@ -723,13 +729,15 @@ func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 
 // UpdateAttachedObjectReference updates a attached object reference.
 func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attachedObjectReference *v0.AttachedObjectReference) (*v0.AttachedObjectReference, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	attachedObjectReferenceID := *attachedObjectReference.ID
-	attachedObjectReference.ID = nil
-	attachedObjectReference.CreatedAt = nil
-	attachedObjectReference.UpdatedAt = nil
+	payloadAttachedObjectReference := *attachedObjectReference
+	payloadAttachedObjectReference.ID = nil
+	payloadAttachedObjectReference.CreatedAt = nil
+	payloadAttachedObjectReference.UpdatedAt = nil
 
-	jsonAttachedObjectReference, err := util.MarshalObject(attachedObjectReference)
+	jsonAttachedObjectReference, err := util.MarshalObject(payloadAttachedObjectReference)
 	if err != nil {
 		return attachedObjectReference, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -752,11 +760,11 @@ func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&attachedObjectReference); err != nil {
+	if err := decoder.Decode(&payloadAttachedObjectReference); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return attachedObjectReference, nil
+	return &payloadAttachedObjectReference, nil
 }
 
 // DeleteAttachedObjectReference deletes a attached object reference by ID.
@@ -917,13 +925,15 @@ func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 
 // UpdateWorkloadResourceInstance updates a workload resource instance.
 func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	workloadResourceInstanceID := *workloadResourceInstance.ID
-	workloadResourceInstance.ID = nil
-	workloadResourceInstance.CreatedAt = nil
-	workloadResourceInstance.UpdatedAt = nil
+	payloadWorkloadResourceInstance := *workloadResourceInstance
+	payloadWorkloadResourceInstance.ID = nil
+	payloadWorkloadResourceInstance.CreatedAt = nil
+	payloadWorkloadResourceInstance.UpdatedAt = nil
 
-	jsonWorkloadResourceInstance, err := util.MarshalObject(workloadResourceInstance)
+	jsonWorkloadResourceInstance, err := util.MarshalObject(payloadWorkloadResourceInstance)
 	if err != nil {
 		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -946,11 +956,11 @@ func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&workloadResourceInstance); err != nil {
+	if err := decoder.Decode(&payloadWorkloadResourceInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return workloadResourceInstance, nil
+	return &payloadWorkloadResourceInstance, nil
 }
 
 // DeleteWorkloadResourceInstance deletes a workload resource instance by ID.
@@ -1111,13 +1121,15 @@ func CreateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 
 // UpdateWorkloadEvent updates a workload event.
 func UpdateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *v0.WorkloadEvent) (*v0.WorkloadEvent, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	workloadEventID := *workloadEvent.ID
-	workloadEvent.ID = nil
-	workloadEvent.CreatedAt = nil
-	workloadEvent.UpdatedAt = nil
+	payloadWorkloadEvent := *workloadEvent
+	payloadWorkloadEvent.ID = nil
+	payloadWorkloadEvent.CreatedAt = nil
+	payloadWorkloadEvent.UpdatedAt = nil
 
-	jsonWorkloadEvent, err := util.MarshalObject(workloadEvent)
+	jsonWorkloadEvent, err := util.MarshalObject(payloadWorkloadEvent)
 	if err != nil {
 		return workloadEvent, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -1140,11 +1152,11 @@ func UpdateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&workloadEvent); err != nil {
+	if err := decoder.Decode(&payloadWorkloadEvent); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return workloadEvent, nil
+	return &payloadWorkloadEvent, nil
 }
 
 // DeleteWorkloadEvent deletes a workload event by ID.

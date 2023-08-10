@@ -141,13 +141,15 @@ func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 
 // UpdateDomainNameDefinition updates a domain name definition.
 func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	domainNameDefinitionID := *domainNameDefinition.ID
-	domainNameDefinition.ID = nil
-	domainNameDefinition.CreatedAt = nil
-	domainNameDefinition.UpdatedAt = nil
+	payloadDomainNameDefinition := *domainNameDefinition
+	payloadDomainNameDefinition.ID = nil
+	payloadDomainNameDefinition.CreatedAt = nil
+	payloadDomainNameDefinition.UpdatedAt = nil
 
-	jsonDomainNameDefinition, err := util.MarshalObject(domainNameDefinition)
+	jsonDomainNameDefinition, err := util.MarshalObject(payloadDomainNameDefinition)
 	if err != nil {
 		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -170,11 +172,11 @@ func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&domainNameDefinition); err != nil {
+	if err := decoder.Decode(&payloadDomainNameDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return domainNameDefinition, nil
+	return &payloadDomainNameDefinition, nil
 }
 
 // DeleteDomainNameDefinition deletes a domain name definition by ID.
@@ -335,13 +337,15 @@ func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 
 // UpdateDomainNameInstance updates a domain name instance.
 func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	domainNameInstanceID := *domainNameInstance.ID
-	domainNameInstance.ID = nil
-	domainNameInstance.CreatedAt = nil
-	domainNameInstance.UpdatedAt = nil
+	payloadDomainNameInstance := *domainNameInstance
+	payloadDomainNameInstance.ID = nil
+	payloadDomainNameInstance.CreatedAt = nil
+	payloadDomainNameInstance.UpdatedAt = nil
 
-	jsonDomainNameInstance, err := util.MarshalObject(domainNameInstance)
+	jsonDomainNameInstance, err := util.MarshalObject(payloadDomainNameInstance)
 	if err != nil {
 		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -364,11 +368,11 @@ func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&domainNameInstance); err != nil {
+	if err := decoder.Decode(&payloadDomainNameInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return domainNameInstance, nil
+	return &payloadDomainNameInstance, nil
 }
 
 // DeleteDomainNameInstance deletes a domain name instance by ID.

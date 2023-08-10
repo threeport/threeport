@@ -141,13 +141,15 @@ func CreateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 
 // UpdateGatewayDefinition updates a gateway definition.
 func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefinition *v0.GatewayDefinition) (*v0.GatewayDefinition, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	gatewayDefinitionID := *gatewayDefinition.ID
-	gatewayDefinition.ID = nil
-	gatewayDefinition.CreatedAt = nil
-	gatewayDefinition.UpdatedAt = nil
+	payloadGatewayDefinition := *gatewayDefinition
+	payloadGatewayDefinition.ID = nil
+	payloadGatewayDefinition.CreatedAt = nil
+	payloadGatewayDefinition.UpdatedAt = nil
 
-	jsonGatewayDefinition, err := util.MarshalObject(gatewayDefinition)
+	jsonGatewayDefinition, err := util.MarshalObject(payloadGatewayDefinition)
 	if err != nil {
 		return gatewayDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -170,11 +172,11 @@ func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&gatewayDefinition); err != nil {
+	if err := decoder.Decode(&payloadGatewayDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return gatewayDefinition, nil
+	return &payloadGatewayDefinition, nil
 }
 
 // DeleteGatewayDefinition deletes a gateway definition by ID.
@@ -335,13 +337,15 @@ func CreateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 
 // UpdateGatewayInstance updates a gateway instance.
 func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstance *v0.GatewayInstance) (*v0.GatewayInstance, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	gatewayInstanceID := *gatewayInstance.ID
-	gatewayInstance.ID = nil
-	gatewayInstance.CreatedAt = nil
-	gatewayInstance.UpdatedAt = nil
+	payloadGatewayInstance := *gatewayInstance
+	payloadGatewayInstance.ID = nil
+	payloadGatewayInstance.CreatedAt = nil
+	payloadGatewayInstance.UpdatedAt = nil
 
-	jsonGatewayInstance, err := util.MarshalObject(gatewayInstance)
+	jsonGatewayInstance, err := util.MarshalObject(payloadGatewayInstance)
 	if err != nil {
 		return gatewayInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -364,11 +368,11 @@ func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&gatewayInstance); err != nil {
+	if err := decoder.Decode(&payloadGatewayInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return gatewayInstance, nil
+	return &payloadGatewayInstance, nil
 }
 
 // DeleteGatewayInstance deletes a gateway instance by ID.

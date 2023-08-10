@@ -22,11 +22,11 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 	reconcilerLog.Info("reconciler started")
 	shutdown := false
 
-	// Create a channel to receive OS signals
+	// create a channel to receive OS signals
 	osSignals := make(chan os.Signal, 1)
 	lockReleased := make(chan bool, 1)
 
-	// Register the os signals channel to receive SIGINT and SIGTERM signals
+	// register the os signals channel to receive SIGINT and SIGTERM signals
 	signal.Notify(osSignals, syscall.SIGINT, syscall.SIGTERM)
 
 	for {

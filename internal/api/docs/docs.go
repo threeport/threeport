@@ -7875,6 +7875,10 @@ const docTemplate = `{
                     "description": "ConnectionToken is used to authenticate with a OIDC provider that\nimplements auth for a Kubernetes cluster.  It is an alternative to client\ncertficate and key authenticaion.",
                     "type": "string"
                 },
+                "ConnectionTokenExpiration": {
+                    "description": "ConnectionTokenExpiration is the time when a ConnectionToken will expire.\nUsed to ensure a token will not expire before it can be used.",
+                    "type": "string"
+                },
                 "DefaultRuntime": {
                     "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
                     "type": "boolean"
@@ -8022,18 +8026,9 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -8042,24 +8037,24 @@ const docTemplate = `{
                 "WorkloadEvent",
                 "Profile",
                 "Tier",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
                 "KubernetesRuntimeDefinition",
                 "KubernetesRuntimeInstance",
-                "GatewayDefinition",
-                "GatewayInstance"
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
@@ -8068,10 +8063,19 @@ const docTemplate = `{
                 "ObjectTypeWorkloadEvent",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
                 "ObjectTypeKubernetesRuntimeDefinition",
                 "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance"
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance"
             ]
         },
         "v0.Profile": {
