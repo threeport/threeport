@@ -132,7 +132,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if err := awsEksKubernetesRuntimeInstanceCreated(r, &awsEksKubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile created aws eks kubernetes runtime instance object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&awsEksKubernetesRuntimeInstance,
 						requeueDelay,
 						lockReleased,
@@ -143,7 +143,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				if err := awsEksKubernetesRuntimeInstanceUpdated(r, &awsEksKubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile updated aws eks kubernetes runtime instance object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&awsEksKubernetesRuntimeInstance,
 						requeueDelay,
 						lockReleased,
@@ -154,7 +154,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				if err := awsEksKubernetesRuntimeInstanceDeleted(r, &awsEksKubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted aws eks kubernetes runtime instance object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&awsEksKubernetesRuntimeInstance,
 						requeueDelay,
 						lockReleased,
@@ -170,7 +170,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					errors.New("unrecognized notifcation operation"),
 					"notification included an invalid operation",
 				)
-				r.UnlockAndRequeue(
+				r.UnlockAndRequeueMsg(
 					&awsEksKubernetesRuntimeInstance,
 					requeueDelay,
 					lockReleased,
