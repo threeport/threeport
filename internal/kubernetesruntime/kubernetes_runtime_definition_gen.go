@@ -185,6 +185,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 				} else {
 					r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased)
 					log.Info("kubernetes runtime definition successfully reconciled")
+					msg.Ack()
 				}
 				continue
 			default:
@@ -235,6 +236,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			log.Info("kubernetes runtime definition successfully reconciled")
+			msg.Ack()
 		}
 	}
 

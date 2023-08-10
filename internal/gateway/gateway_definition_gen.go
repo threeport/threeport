@@ -185,6 +185,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				} else {
 					r.ReleaseLock(&gatewayDefinition, lockReleased)
 					log.Info("gateway definition successfully reconciled")
+					msg.Ack()
 				}
 				continue
 			default:
@@ -235,6 +236,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			log.Info("gateway definition successfully reconciled")
+			msg.Ack()
 		}
 	}
 

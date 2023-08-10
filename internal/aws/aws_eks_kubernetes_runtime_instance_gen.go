@@ -185,6 +185,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				} else {
 					r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased)
 					log.Info("aws eks kubernetes runtime instance successfully reconciled")
+					msg.Ack()
 				}
 				continue
 			default:
@@ -235,6 +236,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			log.Info("aws eks kubernetes runtime instance successfully reconciled")
+			msg.Ack()
 		}
 	}
 

@@ -185,6 +185,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				} else {
 					r.ReleaseLock(&workloadInstance, lockReleased)
 					log.Info("workload instance successfully reconciled")
+					msg.Ack()
 				}
 				continue
 			default:
@@ -235,6 +236,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			log.Info("workload instance successfully reconciled")
+			msg.Ack()
 		}
 	}
 

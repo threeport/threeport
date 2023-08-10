@@ -185,6 +185,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				} else {
 					r.ReleaseLock(&gatewayInstance, lockReleased)
 					log.Info("gateway instance successfully reconciled")
+					msg.Ack()
 				}
 				continue
 			default:
@@ -235,6 +236,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			log.Info("gateway instance successfully reconciled")
+			msg.Ack()
 		}
 	}
 

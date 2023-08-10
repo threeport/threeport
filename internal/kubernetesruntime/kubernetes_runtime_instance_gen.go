@@ -185,6 +185,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				} else {
 					r.ReleaseLock(&kubernetesRuntimeInstance, lockReleased)
 					log.Info("kubernetes runtime instance successfully reconciled")
+					msg.Ack()
 				}
 				continue
 			default:
@@ -235,6 +236,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			log.Info("kubernetes runtime instance successfully reconciled")
+			msg.Ack()
 		}
 	}
 
