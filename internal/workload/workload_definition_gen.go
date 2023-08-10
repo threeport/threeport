@@ -163,6 +163,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				} else {
 					r.ReleaseLock(&workloadDefinition, lockReleased, msg, true)
 					log.Info("workload definition successfully reconciled")
+					msg.Ack()
 				}
 				continue
 			default:
@@ -211,6 +212,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			log.Info("workload definition successfully reconciled")
+			msg.Ack()
 		}
 	}
 
