@@ -20,6 +20,10 @@ func GetResourceInventoryByK8sRuntimeInst(
 		return nil, fmt.Errorf("failed to get aws eks kubernetes runtime instance: %w", err)
 	}
 
+	if aekri.ResourceInventory == nil {
+		return nil, fmt.Errorf("aws eks kubernetes runtime instance does not have a resource inventory")
+	}
+
 	// unmarshal the inventory into an ResourceInventory object
 	var inventory resource.ResourceInventory
 	err = resource.UnmarshalInventory(
