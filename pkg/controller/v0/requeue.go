@@ -22,18 +22,5 @@ func SetRequeueDelay(creationTime *int64, initialDelay, maxDelay int64) int64 {
 		requeueDelay = elapsedTime * 2
 	}
 
-	// switch {
-	// case *creationTime == 0:
-	// 	requeueDelay = initialDelay
-	// case creationTime != nil:
-	// 	requeueDelay = *creationTime * 2
-	// default:
-	// 	requeueDelay = initialDelay
-	// }
-
-	// if requeueDelay > maxDelay {
-	// 	requeueDelay = maxDelay
-	// }
-
 	return requeueDelay
 }
