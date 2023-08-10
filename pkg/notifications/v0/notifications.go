@@ -35,7 +35,7 @@ type Notification struct {
 
 	// Tracks the backoff delay last used in a requeue so that it may
 	// incremented or repeated (when at max delay) as appropriate.
-	LastRequeueDelay *int64
+	CreationTime *int64
 
 	// The API object that has been changed.
 	Object interface{}

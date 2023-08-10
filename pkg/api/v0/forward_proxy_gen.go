@@ -65,13 +65,13 @@ func GetForwardProxySubjects() []string {
 func (fpd *ForwardProxyDefinition) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           fpd,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       fpd,
+		Operation:    operation,
+		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -114,13 +114,13 @@ func (fpd ForwardProxyDefinition) String() string {
 func (fpi *ForwardProxyInstance) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           fpi,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       fpi,
+		Operation:    operation,
+		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)

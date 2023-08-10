@@ -11,6 +11,7 @@ import (
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -79,7 +80,7 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 	notifPayload, err := logBackend.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -391,7 +392,7 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 	notifPayload, err := logStorageDefinition.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -703,7 +704,7 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 	notifPayload, err := logStorageInstance.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

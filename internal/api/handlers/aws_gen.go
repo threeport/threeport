@@ -11,6 +11,7 @@ import (
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -79,7 +80,7 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 	notifPayload, err := awsAccount.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -391,7 +392,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	notifPayload, err := awsEksKubernetesRuntimeDefinition.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -709,7 +710,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	notifPayload, err := awsEksKubernetesRuntimeInstance.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1021,7 +1022,7 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 	notifPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1333,7 +1334,7 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

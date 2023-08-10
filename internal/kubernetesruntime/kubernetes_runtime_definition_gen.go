@@ -57,7 +57,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("kubernetes runtime definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -66,7 +66,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
 			if err := kubernetesRuntimeDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("kubernetes runtime definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -74,7 +74,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
-				notif.LastRequeueDelay,
+				notif.CreationTime,
 				controller.DefaultInitialRequeueDelay,
 				controller.DefaultMaxRequeueDelay,
 			)
@@ -87,7 +87,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			)
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("kubernetes runtime definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -105,7 +105,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of kubernetes runtime definition")
-					r.UnlockAndRequeue(&kubernetesRuntimeDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&kubernetesRuntimeDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for kubernetes runtime definition, closing out signal handler")
 				}
@@ -137,7 +137,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 				}
 				if err != nil {
 					log.Error(err, "failed to get kubernetes runtime definition by ID from API")
-					r.UnlockAndRequeue(&kubernetesRuntimeDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&kubernetesRuntimeDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 					continue
 				}
 				kubernetesRuntimeDefinition = *latestKubernetesRuntimeDefinition
@@ -148,36 +148,39 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if err := kubernetesRuntimeDefinitionCreated(r, &kubernetesRuntimeDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile created kubernetes runtime definition object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&kubernetesRuntimeDefinition,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
 				if err := kubernetesRuntimeDefinitionUpdated(r, &kubernetesRuntimeDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile updated kubernetes runtime definition object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&kubernetesRuntimeDefinition,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
 				if err := kubernetesRuntimeDefinitionDeleted(r, &kubernetesRuntimeDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted kubernetes runtime definition object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&kubernetesRuntimeDefinition,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 				} else {
 					r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased)
@@ -189,12 +192,13 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					errors.New("unrecognized notifcation operation"),
 					"notification included an invalid operation",
 				)
-				r.UnlockAndRequeue(
+				r.UnlockAndRequeueMsg(
 					&kubernetesRuntimeDefinition,
 					msg.Subject,
 					notifPayload,
 					requeueDelay,
 					lockReleased,
+					msg,
 				)
 				continue
 
@@ -214,7 +218,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update kubernetes runtime definition to mark as reconciled")
-					r.UnlockAndRequeue(&kubernetesRuntimeDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&kubernetesRuntimeDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(

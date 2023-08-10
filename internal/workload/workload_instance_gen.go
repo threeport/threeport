@@ -57,7 +57,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("workload instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -66,7 +66,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			var workloadInstance v0.WorkloadInstance
 			if err := workloadInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("workload instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -74,7 +74,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
-				notif.LastRequeueDelay,
+				notif.CreationTime,
 				controller.DefaultInitialRequeueDelay,
 				controller.DefaultMaxRequeueDelay,
 			)
@@ -87,7 +87,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			)
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("workload instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -105,7 +105,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of workload instance")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&workloadInstance, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for workload instance, closing out signal handler")
 				}
@@ -137,7 +137,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				}
 				if err != nil {
 					log.Error(err, "failed to get workload instance by ID from API")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&workloadInstance, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 					continue
 				}
 				workloadInstance = *latestWorkloadInstance
@@ -148,36 +148,39 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if err := workloadInstanceCreated(r, &workloadInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile created workload instance object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&workloadInstance,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
 				if err := workloadInstanceUpdated(r, &workloadInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile updated workload instance object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&workloadInstance,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
 				if err := workloadInstanceDeleted(r, &workloadInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted workload instance object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&workloadInstance,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 				} else {
 					r.ReleaseLock(&workloadInstance, lockReleased)
@@ -189,12 +192,13 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					errors.New("unrecognized notifcation operation"),
 					"notification included an invalid operation",
 				)
-				r.UnlockAndRequeue(
+				r.UnlockAndRequeueMsg(
 					&workloadInstance,
 					msg.Subject,
 					notifPayload,
 					requeueDelay,
 					lockReleased,
+					msg,
 				)
 				continue
 
@@ -214,7 +218,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update workload instance to mark as reconciled")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&workloadInstance, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(

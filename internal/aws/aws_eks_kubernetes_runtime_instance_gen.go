@@ -57,7 +57,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("aws eks kubernetes runtime instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -66,7 +66,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
 			if err := awsEksKubernetesRuntimeInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("aws eks kubernetes runtime instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -74,7 +74,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
-				notif.LastRequeueDelay,
+				notif.CreationTime,
 				controller.DefaultInitialRequeueDelay,
 				controller.DefaultMaxRequeueDelay,
 			)
@@ -87,7 +87,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			)
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("aws eks kubernetes runtime instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -105,7 +105,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of aws eks kubernetes runtime instance")
-					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for aws eks kubernetes runtime instance, closing out signal handler")
 				}
@@ -137,7 +137,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				}
 				if err != nil {
 					log.Error(err, "failed to get aws eks kubernetes runtime instance by ID from API")
-					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 					continue
 				}
 				awsEksKubernetesRuntimeInstance = *latestAwsEksKubernetesRuntimeInstance
@@ -148,36 +148,39 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if err := awsEksKubernetesRuntimeInstanceCreated(r, &awsEksKubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile created aws eks kubernetes runtime instance object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&awsEksKubernetesRuntimeInstance,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
 				if err := awsEksKubernetesRuntimeInstanceUpdated(r, &awsEksKubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile updated aws eks kubernetes runtime instance object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&awsEksKubernetesRuntimeInstance,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
 				if err := awsEksKubernetesRuntimeInstanceDeleted(r, &awsEksKubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted aws eks kubernetes runtime instance object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&awsEksKubernetesRuntimeInstance,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 				} else {
 					r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased)
@@ -189,12 +192,13 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					errors.New("unrecognized notifcation operation"),
 					"notification included an invalid operation",
 				)
-				r.UnlockAndRequeue(
+				r.UnlockAndRequeueMsg(
 					&awsEksKubernetesRuntimeInstance,
 					msg.Subject,
 					notifPayload,
 					requeueDelay,
 					lockReleased,
+					msg,
 				)
 				continue
 
@@ -214,7 +218,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update aws eks kubernetes runtime instance to mark as reconciled")
-					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&awsEksKubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(

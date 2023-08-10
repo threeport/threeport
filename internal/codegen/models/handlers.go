@@ -397,7 +397,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					"NotificationOperationCreated",
 				),
 				Line().Lit(false),
-				Line().Lit(0),
+				Line().Qual("time", "Now").Call().Dot("Unix").Call(),
 				Line(),
 			),
 			If(Id("err").Op("!=").Nil().Block(

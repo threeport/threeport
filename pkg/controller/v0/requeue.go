@@ -1,28 +1,39 @@
 package controller
 
+import "time"
+
 const (
 	DefaultInitialRequeueDelay = 1
-	DefaultMaxRequeueDelay     = 300
+	DefaultMaxRequeueDelay     = 3
 )
 
 // SetRequeueDelay sets the requeue delay.  It will be set to the initial delay
 // value if the first requeue for the object.  It will be set to double the
 // previous delay if not the first, or the max delay if reached.
-func SetRequeueDelay(lastDelay *int64, initialDelay, maxDelay int64) int64 {
+func SetRequeueDelay(creationTime *int64, initialDelay, maxDelay int64) int64 {
 	var requeueDelay int64
 
-	switch {
-	case *lastDelay == 0:
-		requeueDelay = initialDelay
-	case lastDelay != nil:
-		requeueDelay = *lastDelay * 2
-	default:
-		requeueDelay = initialDelay
+	currentTime := time.Now().Unix()
+	elapsedTime := currentTime - *creationTime
+
+	if elapsedTime > maxDelay {
+		requeueDelay = maxDelay
+	} else {
+		requeueDelay = elapsedTime * 2
 	}
 
-	if requeueDelay > maxDelay {
-		requeueDelay = maxDelay
-	}
+	// switch {
+	// case *creationTime == 0:
+	// 	requeueDelay = initialDelay
+	// case creationTime != nil:
+	// 	requeueDelay = *creationTime * 2
+	// default:
+	// 	requeueDelay = initialDelay
+	// }
+
+	// if requeueDelay > maxDelay {
+	// 	requeueDelay = maxDelay
+	// }
 
 	return requeueDelay
 }

@@ -57,7 +57,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("gateway definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -66,7 +66,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			var gatewayDefinition v0.GatewayDefinition
 			if err := gatewayDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("gateway definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -74,7 +74,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
-				notif.LastRequeueDelay,
+				notif.CreationTime,
 				controller.DefaultInitialRequeueDelay,
 				controller.DefaultMaxRequeueDelay,
 			)
@@ -87,7 +87,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			)
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				go r.RequeueRawMsg(msg)
 				log.V(1).Info("gateway definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -105,7 +105,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of gateway definition")
-					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for gateway definition, closing out signal handler")
 				}
@@ -137,7 +137,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				}
 				if err != nil {
 					log.Error(err, "failed to get gateway definition by ID from API")
-					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 					continue
 				}
 				gatewayDefinition = *latestGatewayDefinition
@@ -148,36 +148,39 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationCreated:
 				if err := gatewayDefinitionCreated(r, &gatewayDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile created gateway definition object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&gatewayDefinition,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
 				if err := gatewayDefinitionUpdated(r, &gatewayDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile updated gateway definition object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&gatewayDefinition,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
 				if err := gatewayDefinitionDeleted(r, &gatewayDefinition, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted gateway definition object")
-					r.UnlockAndRequeue(
+					r.UnlockAndRequeueMsg(
 						&gatewayDefinition,
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 				} else {
 					r.ReleaseLock(&gatewayDefinition, lockReleased)
@@ -189,12 +192,13 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					errors.New("unrecognized notifcation operation"),
 					"notification included an invalid operation",
 				)
-				r.UnlockAndRequeue(
+				r.UnlockAndRequeueMsg(
 					&gatewayDefinition,
 					msg.Subject,
 					notifPayload,
 					requeueDelay,
 					lockReleased,
+					msg,
 				)
 				continue
 
@@ -214,7 +218,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update gateway definition to mark as reconciled")
-					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeueMsg(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(
