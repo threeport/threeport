@@ -130,9 +130,10 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				if errors.Is(err, client.ErrorObjectNotFound) {
 					log.Info(fmt.Sprintf(
 						"object with ID %d no longer exists - halting reconciliation",
-						*gatewayInstance.ID,
+						*gatewayInstance.ID, msg.Ack(),
 					))
 					r.ReleaseLock(&gatewayInstance, lockReleased)
+					msg.Ack()
 					continue
 				}
 				if err != nil {

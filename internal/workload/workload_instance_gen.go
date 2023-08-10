@@ -130,9 +130,10 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				if errors.Is(err, client.ErrorObjectNotFound) {
 					log.Info(fmt.Sprintf(
 						"object with ID %d no longer exists - halting reconciliation",
-						*workloadInstance.ID,
+						*workloadInstance.ID, msg.Ack(),
 					))
 					r.ReleaseLock(&workloadInstance, lockReleased)
+					msg.Ack()
 					continue
 				}
 				if err != nil {

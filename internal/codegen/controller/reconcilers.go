@@ -253,9 +253,11 @@ func (cc *ControllerConfig) Reconcilers() error {
 										"%s",
 										strcase.ToLowerCamel(obj),
 									)).Dot("ID"),
+									Id("msg").Dot("Ack").Call(),
 									Line(),
 								)),
 								Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased")),
+								Id("msg").Dot("Ack").Call(),
 								Continue(),
 							),
 							If(Id("err").Op("!=").Nil()).Block(
