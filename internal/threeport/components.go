@@ -1336,6 +1336,10 @@ func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interfac
 		codePathVol, codePathVolMount := getCodePathVols()
 		vols = append(vols, codePathVol)
 		volMounts = append(volMounts, codePathVolMount)
+
+		goPathVol, goPathVolMount := getGoPathVols()
+		vols = append(vols, goPathVol)
+		volMounts = append(volMounts, goPathVolMount)
 	}
 
 	return vols, volMounts
@@ -1387,6 +1391,10 @@ func getControllerVolumes(name string, devEnvironment bool, authConfig *auth.Aut
 		codePathVol, codePathVolMount := getCodePathVols()
 		vols = append(vols, codePathVol)
 		volMounts = append(volMounts, codePathVolMount)
+
+		goPathVol, goPathVolMount := getGoPathVols()
+		vols = append(vols, goPathVol)
+		volMounts = append(volMounts, goPathVolMount)
 	}
 
 	return vols, volMounts
@@ -1465,6 +1473,10 @@ func getKubernetesRuntimeControllerVolumes(devEnvironment bool, authConfig *auth
 		codePathVol, codePathVolMount := getCodePathVols()
 		vols = append(vols, codePathVol)
 		volMounts = append(volMounts, codePathVolMount)
+
+		goPathVol, goPathVolMount := getGoPathVols()
+		vols = append(vols, goPathVol)
+		volMounts = append(volMounts, goPathVolMount)
 	}
 
 	return vols, volMounts
@@ -1543,6 +1555,10 @@ func getAwsControllerVolumes(devEnvironment bool, authConfig *auth.AuthConfig) (
 		codePathVol, codePathVolMount := getCodePathVols()
 		vols = append(vols, codePathVol)
 		volMounts = append(volMounts, codePathVolMount)
+
+		goPathVol, goPathVolMount := getGoPathVols()
+		vols = append(vols, goPathVol)
+		volMounts = append(volMounts, goPathVolMount)
 	}
 
 	return vols, volMounts
@@ -1579,13 +1595,31 @@ func getCodePathVols() (map[string]interface{}, map[string]interface{}) {
 	codePathVol := map[string]interface{}{
 		"name": "code-path",
 		"hostPath": map[string]interface{}{
-			"path": "/threeport",
 			"type": "Directory",
+			"path": "/threeport",
 		},
 	}
 	codePathVolMount := map[string]interface{}{
 		"name":      "code-path",
 		"mountPath": "/threeport",
+	}
+
+	return codePathVol, codePathVolMount
+}
+
+// getGoPathVols returns the volume and volume mount for dev environments to
+// mount local codebase for live reloads.
+func getGoPathVols() (map[string]interface{}, map[string]interface{}) {
+	codePathVol := map[string]interface{}{
+		"name": "go-path",
+		"hostPath": map[string]interface{}{
+			"type": "Directory",
+			"path": "/go",
+		},
+	}
+	codePathVolMount := map[string]interface{}{
+		"name":      "go-path",
+		"mountPath": "/go",
 	}
 
 	return codePathVol, codePathVolMount
