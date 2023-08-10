@@ -16,7 +16,9 @@ func SetRequeueDelay(creationTime *int64, initialDelay, maxDelay int64) int64 {
 	currentTime := time.Now().Unix()
 	elapsedTime := currentTime - *creationTime
 
-	if elapsedTime > maxDelay {
+	if elapsedTime < initialDelay {
+		requeueDelay = initialDelay
+	} else if elapsedTime > maxDelay {
 		requeueDelay = maxDelay
 	} else {
 		requeueDelay = elapsedTime * 2
