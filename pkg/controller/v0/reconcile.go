@@ -176,7 +176,6 @@ func (r *Reconciler) UnlockAndRequeueMsg(
 	}
 }
 
-
 // Requeue waits for the delay duration and then sends the notifcation to the
 // NATS server to trigger reconciliation.
 func (r *Reconciler) Requeue(
