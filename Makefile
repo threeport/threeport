@@ -26,6 +26,33 @@ build-tptdev:
 build-tptctl:
 	go build -o bin/tptctl cmd/tptctl/main.go
 
+#test-build-agent: @ Build threeport agent for container build
+test-build-agent:
+	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-agent cmd/agent/main.go
+
+#test-build-aws-controller: @ Build threeport aws controller for container build
+test-build-aws-controller:
+	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-aws-controller cmd/aws-controller/main_gen.go
+
+#test-build-gateway-controller: @ Build threeport gateway controller for container build
+test-build-gateway-controller:
+	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-gateway-controller cmd/gateway-controller/main_gen.go
+
+#test-build-kubernetes-runtime-controller: @ Build threeport kubernetes runtime controller for container build
+test-build-kubernetes-runtime-controller:
+	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-kubernetes-runtime-controller cmd/kubernetes-runtime-controller/main_gen.go
+
+#test-build-rest-api: @ Build threeport REST API for container build
+test-build-rest-api:
+	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-rest-api cmd/rest-api/main.go
+
+#test-build-workload-controller: @ Build threeport workload controller for container build
+test-build-workload-controller:
+	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-workload-controller cmd/workload-controller/main_gen.go
+
+#test-build-control-plane: @ Build all control plane images for container builds
+test-build-control-plane: test-build-agent test-build-aws-controller test-build-gateway-controller test-build-kubernetes-runtime-controller test-build-rest-api test-build-workload-controller
+
 ## code generation
 
 #generate: @ Run code generation
@@ -153,56 +180,80 @@ dev-debug-wrk:
 dev-debug-gateway:
 	dlv debug --build-flags cmd/gateway-controller/main_gen.go -- -auth-enabled=false -api-server=localhost:1323 -msg-broker-host=localhost -msg-broker-port=4222
 
-## container image builds
+## container image builds and pushes
 
 #rest-api-image-build: @ Build REST API container image
 rest-api-image-build:
-	docker buildx build --platform linux/amd64 -t $(REST_API_IMG) -f cmd/rest-api/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(REST_API_IMG) -f cmd/rest-api/image/Dockerfile-test .
 
 #workload-controller-image-build: @ Build workload controller container image
 workload-controller-image-build:
-	docker buildx build --platform linux/amd64 -t $(WORKLOAD_CONTROLLER_IMG) -f cmd/workload-controller/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(WORKLOAD_CONTROLLER_IMG) -f cmd/workload-controller/image/Dockerfile-test .
 
 #kubernetes-runtime-controller-image-build: @ Build kubernetes runtime controller container image
 kubernetes-runtime-controller-image-build:
-	docker buildx build --platform linux/amd64 -t $(KUBERNETES_RUNTIME_CONTROLLER_IMG) -f cmd/kubernetes-runtime-controller/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(KUBERNETES_RUNTIME_CONTROLLER_IMG) -f cmd/kubernetes-runtime-controller/image/Dockerfile-test .
 
 #aws-controller-image-build: @ Build aws controller container image
 aws-controller-image-build:
-	docker buildx build --platform linux/amd64 -t $(AWS_CONTROLLER_IMG) -f cmd/aws-controller/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(AWS_CONTROLLER_IMG) -f cmd/aws-controller/image/Dockerfile-test .
 
 #gateway-image-build: @ Build gateway controller container image
 gateway-controller-image-build:
-	docker buildx build --platform linux/amd64 -t $(GATEWAY_CONTROLLER_IMG) -f cmd/gateway-controller/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(GATEWAY_CONTROLLER_IMG) -f cmd/gateway-controller/image/Dockerfile-test .
 
 #agent-image-build: @ Build agent container image
 agent-image-build:
-	docker buildx build --platform linux/amd64 -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile .
+	docker buildx build --platform linux/amd64 -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile-test .
 
-#rest-api-image: @ Build and push REST API container image
-rest-api-image: rest-api-image-build
+#control-plane-images-build: @ Build all control plane images
+control-plane-images-build: rest-api-image-build workload-controller-image-build kubernetes-runtime-controller-image-build aws-controller-image-build gateway-controller-image-build agent-image-build
+
+#rest-api-image-push: @ Push REST API container image
+rest-api-image-push:
 	docker push $(REST_API_IMG)
 
-#workload-controller-image: @ Build and push workload controller container image
-workload-controller-image: workload-controller-image-build
+#workload-controller-image-push: @ Push workload controller container image
+workload-controller-image-push:
 	docker push $(WORKLOAD_CONTROLLER_IMG)
 
-#kubernetes-runtime-controller-image: @ Build and push kubernetes runtime controller container image
-kubernetes-runtime-controller-image: kubernetes-runtime-controller-image-build
+#kubernetes-runtime-controller-image-push: @ Push kubernetes runtime controller container image
+kubernetes-runtime-controller-image-push:
 	docker push $(KUBERNETES_RUNTIME_CONTROLLER_IMG)
 
-#aws-controller-image: @ Build and push aws controller container image
-aws-controller-image: aws-controller-image-build
+#aws-controller-image-push: @ Push aws controller container image
+aws-controller-image-push:
 	docker push $(AWS_CONTROLLER_IMG)
 
-#gateway-controller-image: @ Build and push gateway controller container image
-gateway-controller-image: gateway-controller-image-build
+#gateway-controller-image-push: @ Push gateway controller container image
+gateway-controller-image-push:
 	docker push $(GATEWAY_CONTROLLER_IMG)
 
-#agent-image: @ Build and push agent container image
-agent-image: agent-image-build
+#agent-image-push: @ Push agent container image
+agent-image-push:
 	docker push $(AGENT_IMG)
 
+#control-plane-images-push: @ Push all control plane images
+control-plane-images-push: rest-api-image-push workload-controller-image-push kubernetes-runtime-controller-image-push aws-controller-image-push gateway-controller-image-push agent-image-push
+
+#rest-api-image: @ Build and push REST API container image
+rest-api-image: rest-api-image-build rest-api-image-push
+
+#workload-controller-image: @ Build and push workload controller container image
+workload-controller-image: workload-controller-image-build workload-controller-image-push
+
+#kubernetes-runtime-controller-image: @ Build and push kubernetes runtime controller container image
+kubernetes-runtime-controller-image: kubernetes-runtime-controller-image-build kubernetes-runtime-controller-image-push
+
+#aws-controller-image: @ Build and push aws controller container image
+aws-controller-image: aws-controller-image-build aws-controller-image-push
+
+#gateway-controller-image: @ Build and push gateway controller container image
+gateway-controller-image: gateway-controller-image-build gateway-controller-image-push
+
+#agent-image: @ Build and push agent container image
+agent-image: agent-image-build agent-image-push
+
 #control-plane-images: @ Build and push all control plane images
-control-plane-images: rest-api-image workload-controller-image kubernetes-runtime-controller-image aws-controller-image gateway-controller-image agent-image
+control-plane-images: control-plane-images-build control-plane-images-push
 

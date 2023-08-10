@@ -5,7 +5,8 @@ ADD . /build
 WORKDIR /build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} go build -a -o threeport-kubernetes-runtime-controller cmd/kubernetes-runtime-controller/main_gen.go
 
-FROM scratch
+FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /build/threeport-kubernetes-runtime-controller /
-ENTRYPOINT ["/threeport-kubernetes-runtime-controller"]
+USER 65532:65532
 
+ENTRYPOINT ["/threeport-kubernetes-runtime-controller"]

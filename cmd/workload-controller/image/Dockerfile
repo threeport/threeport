@@ -5,7 +5,8 @@ ADD . /build
 WORKDIR /build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} go build -a -o threeport-workload-controller cmd/workload-controller/main_gen.go
 
-FROM scratch
+FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /build/threeport-workload-controller /
-ENTRYPOINT ["/threeport-workload-controller"]
+USER 65532:65532
 
+ENTRYPOINT ["/threeport-workload-controller"]
