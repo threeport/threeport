@@ -54,7 +54,6 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			if err != nil {
 				log.Error(
 					err, "failed to consume message data from NATS",
-					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
 				r.RequeueRaw(msg)
@@ -80,7 +79,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			// check for lock on object
 			locked, ok := r.CheckLock(&workloadDefinition)
 			if locked || ok == false {
-				r.Requeue(&workloadDefinition, msg.Subject, requeueDelay, msg)
+				r.Requeue(&workloadDefinition, requeueDelay, msg)
 				log.V(1).Info("workload definition reconciliation requeued")
 				continue
 			}
@@ -90,7 +89,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of workload definition")
-					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for workload definition, closing out signal handler")
 				}
@@ -98,7 +97,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 
 			// put a lock on the reconciliation of the created object
 			if ok := r.Lock(&workloadDefinition); !ok {
-				r.Requeue(&workloadDefinition, msg.Subject, requeueDelay, msg)
+				r.Requeue(&workloadDefinition, requeueDelay, msg)
 				log.V(1).Info("workload definition reconciliation requeued")
 				continue
 			}
@@ -122,7 +121,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				}
 				if err != nil {
 					log.Error(err, "failed to get workload definition by ID from API")
-					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
 					continue
 				}
 				workloadDefinition = *latestWorkloadDefinition
@@ -135,7 +134,6 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile created workload definition object")
 					r.UnlockAndRequeue(
 						&workloadDefinition,
-						msg.Subject,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -147,7 +145,6 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile updated workload definition object")
 					r.UnlockAndRequeue(
 						&workloadDefinition,
-						msg.Subject,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -159,7 +156,6 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile deleted workload definition object")
 					r.UnlockAndRequeue(
 						&workloadDefinition,
-						msg.Subject,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -176,7 +172,6 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				)
 				r.UnlockAndRequeue(
 					&workloadDefinition,
-					msg.Subject,
 					requeueDelay,
 					lockReleased,
 					msg,
@@ -199,7 +194,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update workload definition to mark as reconciled")
-					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(

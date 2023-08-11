@@ -93,7 +93,6 @@ func (cc *ControllerConfig) Reconcilers() error {
 						If(Id("err").Op("!=").Nil()).Block(
 							Id("log").Dot("Error").Call(
 								Line().Id("err"), Lit("failed to consume message data from NATS"),
-								Line().Lit("msgSubject"), Id("msg").Dot("Subject"),
 								Line().Lit("msgData"), Id("string").Call(Id("msg").Dot("Data")),
 								Line(),
 							),
@@ -149,7 +148,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 						),
 						If(Id("locked").Op("||").Id("ok").Op("==").Id("false")).Block(
 							Id("r").Dot("Requeue").Call(
-								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("msg").Dot("Subject").Op(",").Id("requeueDelay").Op(",").Id("msg"),
+								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
 							),
 							Id("log").Dot("V").Call(
 								Lit(1),
@@ -168,7 +167,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 										"received termination signal, performing unlock and requeue of %s",
 										strcase.ToDelimited(obj, ' '),
 									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("msg").Dot("Subject"), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 								),
 								Case(Op("<-").Id("lockReleased")).Block(
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
@@ -184,7 +183,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Op("&").Id(strcase.ToLowerCamel(obj))).Op(";").Op("!").Id("ok"),
 						).Block(
 							Id("r").Dot("Requeue").Call(
-								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("msg").Dot("Subject").Op(",").Id("requeueDelay").Op(",").Id("msg"),
+								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
 							),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 								"%s reconciliation requeued",
@@ -237,7 +236,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									"failed to get %s by ID from API",
 									strcase.ToDelimited(obj, ' '),
 								))),
-								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("msg").Dot("Subject"), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 								Continue(),
 							),
 							Id(strcase.ToLowerCamel(obj)).Op("=").Op("*").Id(fmt.Sprintf(
@@ -269,7 +268,6 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-										Line().Id("msg").Dot("Subject"),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -298,7 +296,6 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-										Line().Id("msg").Dot("Subject"),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -327,7 +324,6 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-										Line().Id("msg").Dot("Subject"),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -350,7 +346,6 @@ func (cc *ControllerConfig) Reconcilers() error {
 								),
 								Id("r").Dot("UnlockAndRequeue").Call(
 									Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-									Line().Id("msg").Dot("Subject"),
 									Line().Id("requeueDelay"),
 									Line().Id("lockReleased"),
 									Line().Id("msg"),
@@ -403,7 +398,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									"failed to update %s to mark as reconciled",
 									strcase.ToDelimited(obj, ' '),
 								))),
-								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("msg").Dot("Subject"), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 								Continue(),
 							),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(

@@ -54,7 +54,6 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			if err != nil {
 				log.Error(
 					err, "failed to consume message data from NATS",
-					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
 				r.RequeueRaw(msg)
@@ -80,7 +79,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			// check for lock on object
 			locked, ok := r.CheckLock(&gatewayInstance)
 			if locked || ok == false {
-				r.Requeue(&gatewayInstance, msg.Subject, requeueDelay, msg)
+				r.Requeue(&gatewayInstance, requeueDelay, msg)
 				log.V(1).Info("gateway instance reconciliation requeued")
 				continue
 			}
@@ -90,7 +89,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of gateway instance")
-					r.UnlockAndRequeue(&gatewayInstance, msg.Subject, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&gatewayInstance, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for gateway instance, closing out signal handler")
 				}
@@ -98,7 +97,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 
 			// put a lock on the reconciliation of the created object
 			if ok := r.Lock(&gatewayInstance); !ok {
-				r.Requeue(&gatewayInstance, msg.Subject, requeueDelay, msg)
+				r.Requeue(&gatewayInstance, requeueDelay, msg)
 				log.V(1).Info("gateway instance reconciliation requeued")
 				continue
 			}
@@ -122,7 +121,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				}
 				if err != nil {
 					log.Error(err, "failed to get gateway instance by ID from API")
-					r.UnlockAndRequeue(&gatewayInstance, msg.Subject, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&gatewayInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 				gatewayInstance = *latestGatewayInstance
@@ -135,7 +134,6 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile created gateway instance object")
 					r.UnlockAndRequeue(
 						&gatewayInstance,
-						msg.Subject,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -147,7 +145,6 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile updated gateway instance object")
 					r.UnlockAndRequeue(
 						&gatewayInstance,
-						msg.Subject,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -159,7 +156,6 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile deleted gateway instance object")
 					r.UnlockAndRequeue(
 						&gatewayInstance,
-						msg.Subject,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -176,7 +172,6 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				)
 				r.UnlockAndRequeue(
 					&gatewayInstance,
-					msg.Subject,
 					requeueDelay,
 					lockReleased,
 					msg,
@@ -199,7 +194,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update gateway instance to mark as reconciled")
-					r.UnlockAndRequeue(&gatewayInstance, msg.Subject, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&gatewayInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(

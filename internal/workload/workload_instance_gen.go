@@ -54,7 +54,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			if err != nil {
 				log.Error(
 					err, "failed to consume message data from NATS",
-					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
 				r.RequeueRaw(msg)
@@ -80,7 +79,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			// check for lock on object
 			locked, ok := r.CheckLock(&workloadInstance)
 			if locked || ok == false {
-				r.Requeue(&workloadInstance, msg.Subject, requeueDelay, msg)
+				r.Requeue(&workloadInstance, requeueDelay, msg)
 				log.V(1).Info("workload instance reconciliation requeued")
 				continue
 			}
@@ -90,7 +89,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of workload instance")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&workloadInstance, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for workload instance, closing out signal handler")
 				}
@@ -98,7 +97,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 
 			// put a lock on the reconciliation of the created object
 			if ok := r.Lock(&workloadInstance); !ok {
-				r.Requeue(&workloadInstance, msg.Subject, requeueDelay, msg)
+				r.Requeue(&workloadInstance, requeueDelay, msg)
 				log.V(1).Info("workload instance reconciliation requeued")
 				continue
 			}
@@ -122,7 +121,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				}
 				if err != nil {
 					log.Error(err, "failed to get workload instance by ID from API")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&workloadInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 				workloadInstance = *latestWorkloadInstance
@@ -135,7 +134,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile created workload instance object")
 					r.UnlockAndRequeue(
 						&workloadInstance,
-						msg.Subject,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -147,7 +145,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile updated workload instance object")
 					r.UnlockAndRequeue(
 						&workloadInstance,
-						msg.Subject,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -159,7 +156,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile deleted workload instance object")
 					r.UnlockAndRequeue(
 						&workloadInstance,
-						msg.Subject,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -176,7 +172,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				)
 				r.UnlockAndRequeue(
 					&workloadInstance,
-					msg.Subject,
 					requeueDelay,
 					lockReleased,
 					msg,
@@ -199,7 +194,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update workload instance to mark as reconciled")
-					r.UnlockAndRequeue(&workloadInstance, msg.Subject, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&workloadInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(

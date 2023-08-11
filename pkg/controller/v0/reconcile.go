@@ -112,7 +112,6 @@ func (r *Reconciler) RequeueRaw(msg *nats.Msg) {
 // for that object.
 func (r *Reconciler) UnlockAndRequeue(
 	object v0.APIObject,
-	subject string,
 	requeueDelay int64,
 	lockReleased chan bool,
 	msg *nats.Msg,
@@ -131,14 +130,13 @@ func (r *Reconciler) UnlockAndRequeue(
 		)
 	}
 
-	r.Requeue(object, subject, requeueDelay, msg)
+	r.Requeue(object,requeueDelay, msg)
 }
 
 // Requeue waits for the delay duration and then sends the notifcation to the
 // NATS server to trigger reconciliation.
 func (r *Reconciler) Requeue(
 	object v0.APIObject,
-	subject string,
 	requeueDelay int64,
 	msg *nats.Msg,
 ) {
