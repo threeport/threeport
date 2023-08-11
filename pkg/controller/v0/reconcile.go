@@ -152,7 +152,7 @@ func (r *Reconciler) UnlockAndRequeueMsg(
 	lockReleased chan bool,
 	msg *nats.Msg,
 ) {
-	if ok := r.ReleaseLock(object, lockReleased); !ok {
+	if ok := r.ReleaseLock(object, lockReleased, msg, false); !ok {
 		r.Log.V(1).Info(
 			"object remains locked - will unlock when TTL expires",
 			"objectType", r.ObjectType,
