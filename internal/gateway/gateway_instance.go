@@ -185,12 +185,20 @@ func gatewayInstanceDeleted(
 	// get workload resource instances
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *gatewayInstance.WorkloadInstanceID)
 	if err != nil {
+		if errors.Is(err, client.ErrorObjectNotFound) {
+			// workload instance has already been deleted
+			return nil
+		}
 		return fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
 	// get gateway instance objects
 	gatewayInstanceObjects, err := getGatewayInstanceObjects(r, gatewayInstance)
 	if err != nil {
+		if errors.Is(err, client.ErrorObjectNotFound) {
+			// workload instance has already been deleted
+			return nil
+		}
 		return fmt.Errorf("failed to get gateway instance objects: %w", err)
 	}
 
@@ -199,17 +207,8 @@ func gatewayInstanceDeleted(
 		// get workload resource instance for virtual service
 		workloadResourceInstance, err := util.GetUniqueWorkloadResourceInstance(workloadResourceInstances, resource)
 		if err != nil {
-			return fmt.Errorf("failed to get workload resource instance: %w", err)
-		}
-
-		// get workload resource instance
-		_, err = client.GetWorkloadResourceInstanceByID(r.APIClient, r.APIServer, *workloadResourceInstance.ID)
-		if err != nil {
-			if errors.Is(err, client.ErrorObjectNotFound) {
-				// workload resource instance has already been deleted
-				return nil
-			}
-			return fmt.Errorf("failed to get workload resource instance: %w", err)
+			// workload instance has already been deleted
+			return nil
 		}
 
 		// schedule workload resource instance for deletion
