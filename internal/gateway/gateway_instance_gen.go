@@ -79,23 +79,10 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				controller.DefaultMaxRequeueDelay,
 			)
 
-			// build the notif payload for requeues
-			notifPayload, err := gatewayInstance.NotificationPayload(
-				notif.Operation,
-				true,
-				requeueDelay,
-			)
-			if err != nil {
-				log.Error(err, "failed to build notification payload for requeue")
-				r.RequeueRaw(msg)
-				log.V(1).Info("gateway instance reconciliation requeued with identical payload and fixed delay")
-				continue
-			}
-
 			// check for lock on object
 			locked, ok := r.CheckLock(&gatewayInstance)
 			if locked || ok == false {
-				r.Requeue(&gatewayInstance, msg.Subject, notifPayload, requeueDelay)
+				r.Requeue(&gatewayInstance, msg.Subject, requeueDelay, msg)
 				log.V(1).Info("gateway instance reconciliation requeued")
 				continue
 			}
@@ -105,7 +92,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of gateway instance")
-					r.UnlockAndRequeue(&gatewayInstance, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&gatewayInstance, msg.Subject, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for gateway instance, closing out signal handler")
 				}
@@ -113,14 +100,14 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 
 			// put a lock on the reconciliation of the created object
 			if ok := r.Lock(&gatewayInstance); !ok {
-				r.Requeue(&gatewayInstance, msg.Subject, notifPayload, requeueDelay)
+				r.Requeue(&gatewayInstance, msg.Subject, requeueDelay, msg)
 				log.V(1).Info("gateway instance reconciliation requeued")
 				continue
 			}
 
-			// retrieve latest version of object if requeued unless object was
+			// retrieve latest version of object unless object was
 			// deleted (in which case we have the latest version)
-			if notif.Requeue && notif.Operation != notifications.NotificationOperationDeleted {
+			if notif.Operation != notifications.NotificationOperationDeleted {
 				latestGatewayInstance, err := client.GetGatewayInstanceByID(
 					r.APIClient,
 					r.APIServer,
@@ -137,7 +124,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				}
 				if err != nil {
 					log.Error(err, "failed to get gateway instance by ID from API")
-					r.UnlockAndRequeue(&gatewayInstance, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&gatewayInstance, msg.Subject, requeueDelay, lockReleased, msg)
 					continue
 				}
 				gatewayInstance = *latestGatewayInstance
@@ -151,7 +138,6 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					r.UnlockAndRequeue(
 						&gatewayInstance,
 						msg.Subject,
-						notifPayload,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -164,7 +150,6 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					r.UnlockAndRequeue(
 						&gatewayInstance,
 						msg.Subject,
-						notifPayload,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -177,7 +162,6 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					r.UnlockAndRequeue(
 						&gatewayInstance,
 						msg.Subject,
-						notifPayload,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -195,7 +179,6 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				r.UnlockAndRequeue(
 					&gatewayInstance,
 					msg.Subject,
-					notifPayload,
 					requeueDelay,
 					lockReleased,
 					msg,
@@ -218,7 +201,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update gateway instance to mark as reconciled")
-					r.UnlockAndRequeue(&gatewayInstance, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&gatewayInstance, msg.Subject, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(

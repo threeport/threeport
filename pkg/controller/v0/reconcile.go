@@ -113,7 +113,6 @@ func (r *Reconciler) RequeueRaw(msg *nats.Msg) {
 func (r *Reconciler) UnlockAndRequeue(
 	object v0.APIObject,
 	subject string,
-	notifPayload *[]byte,
 	requeueDelay int64,
 	lockReleased chan bool,
 	msg *nats.Msg,
@@ -132,14 +131,7 @@ func (r *Reconciler) UnlockAndRequeue(
 		)
 	}
 
-	err := msg.NakWithDelay(time.Duration(requeueDelay) * time.Second)
-	if err != nil {
-		r.Log.V(1).Info(
-			"failed to perform negative acknowledgement with delay",
-			"objectType", r.ObjectType,
-			"objectID", object.GetID(),
-		)
-	}
+	r.Requeue(object, subject, requeueDelay, msg)
 }
 
 // Requeue waits for the delay duration and then sends the notifcation to the
@@ -147,18 +139,25 @@ func (r *Reconciler) UnlockAndRequeue(
 func (r *Reconciler) Requeue(
 	object v0.APIObject,
 	subject string,
-	notifPayload *[]byte,
 	requeueDelay int64,
+	msg *nats.Msg,
 ) {
-	time.Sleep(time.Duration(requeueDelay) * time.Second)
-	r.JetStreamContext.Publish(subject, *notifPayload)
-	r.Log.V(1).Info(
-		"requeue notification sent",
-		"reconcilerName", r.Name,
-		"objectType", r.ObjectType,
-		"objectID", object.GetID(),
-		"requeueDelay", requeueDelay,
-	)
+	err := msg.NakWithDelay(time.Duration(requeueDelay) * time.Second)
+	if err != nil {
+		r.Log.V(1).Info(
+			"failed to perform negative acknowledgement with delay",
+			"objectType", r.ObjectType,
+			"objectID", object.GetID(),
+		)
+	} else {
+		r.Log.V(1).Info(
+			"requeue notification sent",
+			"reconcilerName", r.Name,
+			"objectType", r.ObjectType,
+			"objectID", object.GetID(),
+			"requeueDelay", requeueDelay,
+		)
+	}
 }
 
 // lockKey constructs the lock string for an object.

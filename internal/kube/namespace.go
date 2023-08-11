@@ -190,9 +190,11 @@ func createNamespaceWorkloadResourceInstance(
 	// construct the workload resource instance
 	var JSONDef datatypes.JSON
 	JSONDef = namespaceJSON
+	reconciled := false
 	workloadResourceInstance := v0.WorkloadResourceInstance{
 		JSONDefinition:     &JSONDef,
 		WorkloadInstanceID: &workloadInstanceID,
+		Reconciled:         &reconciled,
 	}
 
 	return &workloadResourceInstance, nil

@@ -79,23 +79,10 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				controller.DefaultMaxRequeueDelay,
 			)
 
-			// build the notif payload for requeues
-			notifPayload, err := gatewayDefinition.NotificationPayload(
-				notif.Operation,
-				true,
-				requeueDelay,
-			)
-			if err != nil {
-				log.Error(err, "failed to build notification payload for requeue")
-				r.RequeueRaw(msg)
-				log.V(1).Info("gateway definition reconciliation requeued with identical payload and fixed delay")
-				continue
-			}
-
 			// check for lock on object
 			locked, ok := r.CheckLock(&gatewayDefinition)
 			if locked || ok == false {
-				r.Requeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay)
+				r.Requeue(&gatewayDefinition, msg.Subject, requeueDelay, msg)
 				log.V(1).Info("gateway definition reconciliation requeued")
 				continue
 			}
@@ -105,7 +92,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of gateway definition")
-					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for gateway definition, closing out signal handler")
 				}
@@ -113,14 +100,14 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 
 			// put a lock on the reconciliation of the created object
 			if ok := r.Lock(&gatewayDefinition); !ok {
-				r.Requeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay)
+				r.Requeue(&gatewayDefinition, msg.Subject, requeueDelay, msg)
 				log.V(1).Info("gateway definition reconciliation requeued")
 				continue
 			}
 
-			// retrieve latest version of object if requeued unless object was
+			// retrieve latest version of object unless object was
 			// deleted (in which case we have the latest version)
-			if notif.Requeue && notif.Operation != notifications.NotificationOperationDeleted {
+			if notif.Operation != notifications.NotificationOperationDeleted {
 				latestGatewayDefinition, err := client.GetGatewayDefinitionByID(
 					r.APIClient,
 					r.APIServer,
@@ -137,7 +124,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				}
 				if err != nil {
 					log.Error(err, "failed to get gateway definition by ID from API")
-					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, requeueDelay, lockReleased, msg)
 					continue
 				}
 				gatewayDefinition = *latestGatewayDefinition
@@ -151,7 +138,6 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
 						msg.Subject,
-						notifPayload,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -164,7 +150,6 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
 						msg.Subject,
-						notifPayload,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -177,7 +162,6 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
 						msg.Subject,
-						notifPayload,
 						requeueDelay,
 						lockReleased,
 						msg,
@@ -195,7 +179,6 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				r.UnlockAndRequeue(
 					&gatewayDefinition,
 					msg.Subject,
-					notifPayload,
 					requeueDelay,
 					lockReleased,
 					msg,
@@ -218,7 +201,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update gateway definition to mark as reconciled")
-					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased, msg)
+					r.UnlockAndRequeue(&gatewayDefinition, msg.Subject, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(
