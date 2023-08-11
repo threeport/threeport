@@ -1333,13 +1333,7 @@ func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interfac
 	}
 
 	if devEnvironment {
-		codePathVol, codePathVolMount := getCodePathVols()
-		vols = append(vols, codePathVol)
-		volMounts = append(volMounts, codePathVolMount)
-
-		goPathVol, goPathVolMount := getGoPathVols()
-		vols = append(vols, goPathVol)
-		volMounts = append(volMounts, goPathVolMount)
+		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
 	}
 
 	return vols, volMounts
@@ -1388,13 +1382,7 @@ func getControllerVolumes(name string, devEnvironment bool, authConfig *auth.Aut
 	}
 
 	if devEnvironment {
-		codePathVol, codePathVolMount := getCodePathVols()
-		vols = append(vols, codePathVol)
-		volMounts = append(volMounts, codePathVolMount)
-
-		goPathVol, goPathVolMount := getGoPathVols()
-		vols = append(vols, goPathVol)
-		volMounts = append(volMounts, goPathVolMount)
+		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
 	}
 
 	return vols, volMounts
@@ -1470,13 +1458,7 @@ func getKubernetesRuntimeControllerVolumes(devEnvironment bool, authConfig *auth
 	}
 
 	if devEnvironment {
-		codePathVol, codePathVolMount := getCodePathVols()
-		vols = append(vols, codePathVol)
-		volMounts = append(volMounts, codePathVolMount)
-
-		goPathVol, goPathVolMount := getGoPathVols()
-		vols = append(vols, goPathVol)
-		volMounts = append(volMounts, goPathVolMount)
+		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
 	}
 
 	return vols, volMounts
@@ -1552,13 +1534,7 @@ func getAwsControllerVolumes(devEnvironment bool, authConfig *auth.AuthConfig) (
 	}
 
 	if devEnvironment {
-		codePathVol, codePathVolMount := getCodePathVols()
-		vols = append(vols, codePathVol)
-		volMounts = append(volMounts, codePathVolMount)
-
-		goPathVol, goPathVolMount := getGoPathVols()
-		vols = append(vols, goPathVol)
-		volMounts = append(volMounts, goPathVolMount)
+		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
 	}
 
 	return vols, volMounts
@@ -1801,4 +1777,16 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 			},
 		},
 	}
+}
+
+func getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []interface{}) {
+	codePathVol, codePathVolMount := getCodePathVols()
+	vols = append(vols, codePathVol)
+	volMounts = append(volMounts, codePathVolMount)
+
+	goPathVol, goPathVolMount := getGoPathVols()
+	vols = append(vols, goPathVol)
+	volMounts = append(volMounts, goPathVolMount)
+
+	return vols, volMounts
 }
