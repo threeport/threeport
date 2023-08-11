@@ -114,7 +114,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				if errors.Is(err, client.ErrorObjectNotFound) {
 					log.Info(fmt.Sprintf(
 						"object with ID %d no longer exists - halting reconciliation",
-						*gatewayDefinition.ID, msg.Ack(),
+						*gatewayDefinition.ID,
 					))
 					r.ReleaseLock(&gatewayDefinition, lockReleased, msg, true)
 					continue
