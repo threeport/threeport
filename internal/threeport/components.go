@@ -1601,6 +1601,24 @@ func getGoPathVols() (map[string]interface{}, map[string]interface{}) {
 	return goPathVol, goPathVolMount
 }
 
+// getGoCacheVols returns the volume and volume mount for dev environments to
+// mount local go path.
+func getGoCacheVols() (map[string]interface{}, map[string]interface{}) {
+	goCacheVol := map[string]interface{}{
+		"name": "go-cache",
+		"hostPath": map[string]interface{}{
+			"type": "Directory",
+			"path": "/root/.cache/go-build",
+		},
+	}
+	goCacheVolMount := map[string]interface{}{
+		"name":      "go-cache",
+		"mountPath": "/root/.cache/go-build",
+	}
+
+	return goCacheVol, goCacheVolMount
+}
+
 // getSecretVols returns volumes and volume mounts for secrets.
 func getSecretVols(name string, mountPath string) (map[string]interface{}, map[string]interface{}) {
 
@@ -1787,6 +1805,10 @@ func getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []i
 	goPathVol, goPathVolMount := getGoPathVols()
 	vols = append(vols, goPathVol)
 	volMounts = append(volMounts, goPathVolMount)
+
+	goCacheVol, goCacheVolMount := getGoCacheVols()
+	vols = append(vols, goCacheVol)
+	volMounts = append(volMounts, goCacheVolMount)
 
 	return vols, volMounts
 }
