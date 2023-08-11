@@ -1333,7 +1333,9 @@ func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interfac
 	}
 
 	if devEnvironment {
-		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
+		codePathVol, codePathVolMount := getCodePathVols()
+		vols = append(vols, codePathVol)
+		volMounts = append(volMounts, codePathVolMount)
 	}
 
 	return vols, volMounts
@@ -1382,7 +1384,9 @@ func getControllerVolumes(name string, devEnvironment bool, authConfig *auth.Aut
 	}
 
 	if devEnvironment {
-		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
+		codePathVol, codePathVolMount := getCodePathVols()
+		vols = append(vols, codePathVol)
+		volMounts = append(volMounts, codePathVolMount)
 	}
 
 	return vols, volMounts
@@ -1458,7 +1462,9 @@ func getKubernetesRuntimeControllerVolumes(devEnvironment bool, authConfig *auth
 	}
 
 	if devEnvironment {
-		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
+		codePathVol, codePathVolMount := getCodePathVols()
+		vols = append(vols, codePathVol)
+		volMounts = append(volMounts, codePathVolMount)
 	}
 
 	return vols, volMounts
@@ -1534,7 +1540,9 @@ func getAwsControllerVolumes(devEnvironment bool, authConfig *auth.AuthConfig) (
 	}
 
 	if devEnvironment {
-		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
+		codePathVol, codePathVolMount := getCodePathVols()
+		vols = append(vols, codePathVol)
+		volMounts = append(volMounts, codePathVolMount)
 	}
 
 	return vols, volMounts
@@ -1571,8 +1579,8 @@ func getCodePathVols() (map[string]interface{}, map[string]interface{}) {
 	codePathVol := map[string]interface{}{
 		"name": "code-path",
 		"hostPath": map[string]interface{}{
-			"type": "Directory",
 			"path": "/threeport",
+			"type": "Directory",
 		},
 	}
 	codePathVolMount := map[string]interface{}{
@@ -1581,42 +1589,6 @@ func getCodePathVols() (map[string]interface{}, map[string]interface{}) {
 	}
 
 	return codePathVol, codePathVolMount
-}
-
-// getGoPathVols returns the volume and volume mount for dev environments to
-// mount local go path.
-func getGoPathVols() (map[string]interface{}, map[string]interface{}) {
-	goPathVol := map[string]interface{}{
-		"name": "go-path",
-		"hostPath": map[string]interface{}{
-			"type": "Directory",
-			"path": "/go",
-		},
-	}
-	goPathVolMount := map[string]interface{}{
-		"name":      "go-path",
-		"mountPath": "/go",
-	}
-
-	return goPathVol, goPathVolMount
-}
-
-// getGoCacheVols returns the volume and volume mount for dev environments to
-// mount local go path.
-func getGoCacheVols() (map[string]interface{}, map[string]interface{}) {
-	goCacheVol := map[string]interface{}{
-		"name": "go-cache",
-		"hostPath": map[string]interface{}{
-			"type": "Directory",
-			"path": "/root/.cache/go-build",
-		},
-	}
-	goCacheVolMount := map[string]interface{}{
-		"name":      "go-cache",
-		"mountPath": "/root/.cache/go-build",
-	}
-
-	return goCacheVol, goCacheVolMount
 }
 
 // getSecretVols returns volumes and volume mounts for secrets.
@@ -1795,20 +1767,4 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 			},
 		},
 	}
-}
-
-func getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []interface{}) {
-	codePathVol, codePathVolMount := getCodePathVols()
-	vols = append(vols, codePathVol)
-	volMounts = append(volMounts, codePathVolMount)
-
-	goPathVol, goPathVolMount := getGoPathVols()
-	vols = append(vols, goPathVol)
-	volMounts = append(volMounts, goPathVolMount)
-
-	goCacheVol, goCacheVolMount := getGoCacheVols()
-	vols = append(vols, goCacheVol)
-	volMounts = append(volMounts, goCacheVolMount)
-
-	return vols, volMounts
 }
