@@ -1,13 +1,12 @@
 FROM golang:1.20-alpine
 
 RUN apk update && apk add git
-RUN go install github.com/cosmtrek/air@latest && \
-    mv /go/bin/air /usr/local/bin
+RUN go install github.com/cosmtrek/air@latest
 
 RUN mkdir /threeport
 WORKDIR /threeport
 
-ENTRYPOINT ["/usr/local/bin/air", \
+ENTRYPOINT ["air", \
     "-c", "/threeport/cmd/kubernetes-runtime-controller/image/air.toml", \
     "-build.cmd", "go build -o bin/threeport-kubernetes-runtime-controller cmd/kubernetes-runtime-controller/main_gen.go", \
     "-build.bin", "./bin/threeport-kubernetes-runtime-controller"]
