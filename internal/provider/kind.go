@@ -92,8 +92,19 @@ func getKindConfig(devEnvironment bool, threeportPath string, numWorkerNodes int
 			goPath = homeDir + "/go"
 		}
 
-		controlPlaneNode = *devEnvKindControlPlaneNode(threeportPath, goPath)
-		workerNodes = *devEnvKindWorkers(threeportPath, numWorkerNodes, goPath)
+		// configure goCache, default to ~/.cache/go-build if not set
+		var goCache string
+		goCache = os.Getenv("GOCACHE")
+		if goCache == "" {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				panic(err)
+			}
+			goCache = homeDir + "/.cache/go-build"
+		}
+
+		controlPlaneNode = *devEnvKindControlPlaneNode(threeportPath, goPath, goCache)
+		workerNodes = *devEnvKindWorkers(threeportPath, numWorkerNodes, goPath, goCache)
 	} else {
 		controlPlaneNode = *kindControlPlaneNode()
 		workerNodes = *kindWorkers(numWorkerNodes)
@@ -108,7 +119,7 @@ func getKindConfig(devEnvironment bool, threeportPath string, numWorkerNodes int
 
 // devEnvKindControlPlaneNode returns a control plane node with host path mount
 // for live code reloads.
-func devEnvKindControlPlaneNode(threeportPath, goPath string) *v1alpha4.Node {
+func devEnvKindControlPlaneNode(threeportPath, goPath, goCache string) *v1alpha4.Node {
 	controlPlaneNode := v1alpha4.Node{
 		Role: v1alpha4.ControlPlaneRole,
 		KubeadmConfigPatches: []string{
@@ -133,6 +144,10 @@ nodeRegistration:
 			{
 				ContainerPath: "/go",
 				HostPath:      goPath,
+			},
+			{
+				ContainerPath: "/root/.cache/go-build",
+				HostPath:      goCache,
 			},
 		},
 	}
@@ -165,7 +180,7 @@ nodeRegistration:
 
 // devEnvKindWorkers returns worker nodes with host path mount for live code
 // reloads.
-func devEnvKindWorkers(threeportPath string, numWorkerNodes int, goPath string) *[]v1alpha4.Node {
+func devEnvKindWorkers(threeportPath string, numWorkerNodes int, goPath, goCache string) *[]v1alpha4.Node {
 
 	nodes := make([]v1alpha4.Node, numWorkerNodes)
 	for i := range nodes {
@@ -179,6 +194,10 @@ func devEnvKindWorkers(threeportPath string, numWorkerNodes int, goPath string) 
 				{
 					ContainerPath: "/go",
 					HostPath:      goPath,
+				},
+				{
+					ContainerPath: "/root/.cache/go-build",
+					HostPath:      goCache,
 				},
 			},
 		}
