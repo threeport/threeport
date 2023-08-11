@@ -57,7 +57,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
-				go r.RequeueRaw(msg)
+				r.RequeueRaw(msg)
 				log.V(1).Info("workload definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -66,7 +66,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			var workloadDefinition v0.WorkloadDefinition
 			if err := workloadDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
-				go r.RequeueRaw(msg)
+				r.RequeueRaw(msg)
 				log.V(1).Info("workload definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -87,7 +87,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			)
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
-				go r.RequeueRaw(msg)
+				r.RequeueRaw(msg)
 				log.V(1).Info("workload definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -95,7 +95,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			// check for lock on object
 			locked, ok := r.CheckLock(&workloadDefinition)
 			if locked || ok == false {
-				go r.Requeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+				r.Requeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
 				log.V(1).Info("workload definition reconciliation requeued")
 				continue
 			}
@@ -113,7 +113,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 
 			// put a lock on the reconciliation of the created object
 			if ok := r.Lock(&workloadDefinition); !ok {
-				go r.Requeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+				r.Requeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
 				log.V(1).Info("workload definition reconciliation requeued")
 				continue
 			}

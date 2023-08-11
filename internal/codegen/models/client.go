@@ -430,6 +430,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
 			),
 			Line(),
+			Id(fmt.Sprintf("payload%s", mc.TypeName)).Dot("ID").Op("=").Op("&").Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName))),
 			Return().Op("&").Id(fmt.Sprintf("payload%s", mc.TypeName)).Op(",").Nil(),
 		)
 		f.Line()

@@ -57,7 +57,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
-				go r.RequeueRaw(msg)
+				r.RequeueRaw(msg)
 				log.V(1).Info("kubernetes runtime instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -66,7 +66,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
 			if err := kubernetesRuntimeInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
-				go r.RequeueRaw(msg)
+				r.RequeueRaw(msg)
 				log.V(1).Info("kubernetes runtime instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -87,7 +87,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			)
 			if err != nil {
 				log.Error(err, "failed to build notification payload for requeue")
-				go r.RequeueRaw(msg)
+				r.RequeueRaw(msg)
 				log.V(1).Info("kubernetes runtime instance reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -95,7 +95,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			// check for lock on object
 			locked, ok := r.CheckLock(&kubernetesRuntimeInstance)
 			if locked || ok == false {
-				go r.Requeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
+				r.Requeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
 				log.V(1).Info("kubernetes runtime instance reconciliation requeued")
 				continue
 			}
@@ -113,7 +113,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 
 			// put a lock on the reconciliation of the created object
 			if ok := r.Lock(&kubernetesRuntimeInstance); !ok {
-				go r.Requeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
+				r.Requeue(&kubernetesRuntimeInstance, msg.Subject, notifPayload, requeueDelay)
 				log.V(1).Info("kubernetes runtime instance reconciliation requeued")
 				continue
 			}
