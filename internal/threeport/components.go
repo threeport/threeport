@@ -1584,21 +1584,21 @@ func getCodePathVols() (map[string]interface{}, map[string]interface{}) {
 }
 
 // getGoPathVols returns the volume and volume mount for dev environments to
-// mount local codebase for live reloads.
+// mount local go path.
 func getGoPathVols() (map[string]interface{}, map[string]interface{}) {
-	codePathVol := map[string]interface{}{
+	goPathVol := map[string]interface{}{
 		"name": "go-path",
 		"hostPath": map[string]interface{}{
 			"type": "Directory",
 			"path": "/go",
 		},
 	}
-	codePathVolMount := map[string]interface{}{
+	goPathVolMount := map[string]interface{}{
 		"name":      "go-path",
 		"mountPath": "/go",
 	}
 
-	return codePathVol, codePathVolMount
+	return goPathVol, goPathVolMount
 }
 
 // getSecretVols returns volumes and volume mounts for secrets.
