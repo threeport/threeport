@@ -75,8 +75,6 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
 				notif.CreationTime,
-				controller.DefaultInitialRequeueDelay,
-				controller.DefaultMaxRequeueDelay,
 			)
 
 			// check for lock on object

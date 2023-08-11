@@ -139,8 +139,6 @@ func (cc *ControllerConfig) Reconcilers() error {
 						Comment("back off the requeue delay as needed"),
 						Id("requeueDelay").Op(":=").Id("controller").Dot("SetRequeueDelay").Call(
 							Line().Id("notif").Dot("CreationTime"),
-							Line().Id("controller").Dot("DefaultInitialRequeueDelay"),
-							Line().Id("controller").Dot("DefaultMaxRequeueDelay"),
 							Line(),
 						),
 						Line(),
