@@ -176,6 +176,7 @@ func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadProfile.ID = &profileID
 	return &payloadProfile, nil
 }
 
@@ -372,6 +373,7 @@ func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadTier.ID = &tierID
 	return &payloadTier, nil
 }
 

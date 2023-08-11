@@ -176,6 +176,7 @@ func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadGatewayDefinition.ID = &gatewayDefinitionID
 	return &payloadGatewayDefinition, nil
 }
 
@@ -372,6 +373,7 @@ func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadGatewayInstance.ID = &gatewayInstanceID
 	return &payloadGatewayInstance, nil
 }
 

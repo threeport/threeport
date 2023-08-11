@@ -176,6 +176,7 @@ func UpdateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwar
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadForwardProxyDefinition.ID = &forwardProxyDefinitionID
 	return &payloadForwardProxyDefinition, nil
 }
 
@@ -372,6 +373,7 @@ func UpdateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardP
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadForwardProxyInstance.ID = &forwardProxyInstanceID
 	return &payloadForwardProxyInstance, nil
 }
 

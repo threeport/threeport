@@ -176,6 +176,7 @@ func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadDomainNameDefinition.ID = &domainNameDefinitionID
 	return &payloadDomainNameDefinition, nil
 }
 
@@ -372,6 +373,7 @@ func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadDomainNameInstance.ID = &domainNameInstanceID
 	return &payloadDomainNameInstance, nil
 }
 
