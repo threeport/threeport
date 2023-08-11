@@ -256,8 +256,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Id("msg").Dot("Ack").Call(),
 									Line(),
 								)),
-								Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased")),
-								Id("msg").Dot("Ack").Call(),
+								Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)),
 								Continue(),
 							),
 							If(Id("err").Op("!=").Nil()).Block(
@@ -365,12 +364,11 @@ func (cc *ControllerConfig) Reconcilers() error {
 										Line(),
 									),
 								).Else().Block(
-									Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased")),
+									Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)),
 									Id("log").Dot("Info").Call(Lit(fmt.Sprintf(
 										"%s successfully reconciled",
 										strcase.ToDelimited(obj, ' '),
 									))),
-									Id("msg").Dot("Ack").Call(),
 								),
 								Continue(),
 							),
@@ -457,7 +455,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 						Line(),
 
 						Comment("release the lock on the reconciliation of the created object"),
-						If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased")), Op("!").Id("ok")).Block(
+						If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)), Op("!").Id("ok")).Block(
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 								"%s remains locked - will unlock when TTL expires",
 								strcase.ToDelimited(obj, ' '),
@@ -474,7 +472,6 @@ func (cc *ControllerConfig) Reconcilers() error {
 							"%s successfully reconciled",
 							strcase.ToDelimited(obj, ' '),
 						))),
-						Id("msg").Dot("Ack").Call(),
 					),
 				),
 			),

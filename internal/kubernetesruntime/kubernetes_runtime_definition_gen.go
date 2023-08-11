@@ -132,8 +132,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*kubernetesRuntimeDefinition.ID, msg.Ack(),
 					))
-					r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased)
-					msg.Ack()
+					r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased, msg, true)
 					continue
 				}
 				if err != nil {
@@ -184,9 +183,8 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 						msg,
 					)
 				} else {
-					r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased)
+					r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased, msg, true)
 					log.Info("kubernetes runtime definition successfully reconciled")
-					msg.Ack()
 				}
 				continue
 			default:
@@ -230,14 +228,13 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased); !ok {
+			if ok := r.ReleaseLock(&kubernetesRuntimeDefinition, lockReleased, msg, true); !ok {
 				log.V(1).Info("kubernetes runtime definition remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("kubernetes runtime definition unlocked")
 			}
 
 			log.Info("kubernetes runtime definition successfully reconciled")
-			msg.Ack()
 		}
 	}
 

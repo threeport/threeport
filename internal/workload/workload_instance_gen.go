@@ -132,8 +132,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*workloadInstance.ID, msg.Ack(),
 					))
-					r.ReleaseLock(&workloadInstance, lockReleased)
-					msg.Ack()
+					r.ReleaseLock(&workloadInstance, lockReleased, msg, true)
 					continue
 				}
 				if err != nil {
@@ -184,9 +183,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						msg,
 					)
 				} else {
-					r.ReleaseLock(&workloadInstance, lockReleased)
+					r.ReleaseLock(&workloadInstance, lockReleased, msg, true)
 					log.Info("workload instance successfully reconciled")
-					msg.Ack()
 				}
 				continue
 			default:
@@ -230,14 +228,13 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&workloadInstance, lockReleased); !ok {
+			if ok := r.ReleaseLock(&workloadInstance, lockReleased, msg, true); !ok {
 				log.V(1).Info("workload instance remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("workload instance unlocked")
 			}
 
 			log.Info("workload instance successfully reconciled")
-			msg.Ack()
 		}
 	}
 

@@ -93,7 +93,6 @@ func (r *Reconciler) PullMessage() *nats.Msg {
 	}
 	msg := messages[0]
 	r.Log.V(1).Info("new message received", "msgSubject", msg.Subject)
-	// msg.Ack()
 	return msg
 }
 
@@ -119,7 +118,7 @@ func (r *Reconciler) UnlockAndRequeue(
 	lockReleased chan bool,
 	msg *nats.Msg,
 ) {
-	if ok := r.ReleaseLock(object, lockReleased); !ok {
+	if ok := r.ReleaseLock(object, lockReleased, msg, false); !ok {
 		r.Log.V(1).Info(
 			"object remains locked - will unlock when TTL expires",
 			"objectType", r.ObjectType,
@@ -224,7 +223,7 @@ func (r *Reconciler) Lock(object v0.APIObject) bool {
 // ReleaseLock deletes the kev-value key so that future reconciliation will no
 // longer be locked.  Rerturns true if successful.  If the lock fails to be
 // released it will remain locked until the TTL expires in NATS.
-func (r *Reconciler) ReleaseLock(object v0.APIObject, lockReleased chan bool) bool {
+func (r *Reconciler) ReleaseLock(object v0.APIObject, lockReleased chan bool, msg *nats.Msg, reconcileSuccess bool) bool {
 	lockKey := r.lockKey(object.GetID())
 
 	if err := r.KeyValue.Delete(lockKey); err != nil {
@@ -239,6 +238,17 @@ func (r *Reconciler) ReleaseLock(object v0.APIObject, lockReleased chan bool) bo
 	// send a message to the lockReleased channel to indicate that the
 	// lock has been released
 	lockReleased <- true
+
+	if reconcileSuccess {
+		// acknowledge message so nats does not requeue
+		if err := msg.Ack(); err != nil {
+			r.Log.V(1).Info(
+				"failed to perform acknowledgement",
+				"objectType", r.ObjectType,
+				"objectID", object.GetID(),
+			)
+		}
+	}
 
 	return true
 }

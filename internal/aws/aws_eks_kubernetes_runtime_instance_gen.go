@@ -132,8 +132,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*awsEksKubernetesRuntimeInstance.ID, msg.Ack(),
 					))
-					r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased)
-					msg.Ack()
+					r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased, msg, true)
 					continue
 				}
 				if err != nil {
@@ -184,9 +183,8 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						msg,
 					)
 				} else {
-					r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased)
+					r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased, msg, true)
 					log.Info("aws eks kubernetes runtime instance successfully reconciled")
-					msg.Ack()
 				}
 				continue
 			default:
@@ -230,14 +228,13 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased); !ok {
+			if ok := r.ReleaseLock(&awsEksKubernetesRuntimeInstance, lockReleased, msg, true); !ok {
 				log.V(1).Info("aws eks kubernetes runtime instance remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("aws eks kubernetes runtime instance unlocked")
 			}
 
 			log.Info("aws eks kubernetes runtime instance successfully reconciled")
-			msg.Ack()
 		}
 	}
 

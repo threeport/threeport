@@ -132,8 +132,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*gatewayDefinition.ID, msg.Ack(),
 					))
-					r.ReleaseLock(&gatewayDefinition, lockReleased)
-					msg.Ack()
+					r.ReleaseLock(&gatewayDefinition, lockReleased, msg, true)
 					continue
 				}
 				if err != nil {
@@ -184,9 +183,8 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						msg,
 					)
 				} else {
-					r.ReleaseLock(&gatewayDefinition, lockReleased)
+					r.ReleaseLock(&gatewayDefinition, lockReleased, msg, true)
 					log.Info("gateway definition successfully reconciled")
-					msg.Ack()
 				}
 				continue
 			default:
@@ -230,14 +228,13 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&gatewayDefinition, lockReleased); !ok {
+			if ok := r.ReleaseLock(&gatewayDefinition, lockReleased, msg, true); !ok {
 				log.V(1).Info("gateway definition remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("gateway definition unlocked")
 			}
 
 			log.Info("gateway definition successfully reconciled")
-			msg.Ack()
 		}
 	}
 

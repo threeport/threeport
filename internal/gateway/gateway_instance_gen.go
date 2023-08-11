@@ -132,8 +132,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*gatewayInstance.ID, msg.Ack(),
 					))
-					r.ReleaseLock(&gatewayInstance, lockReleased)
-					msg.Ack()
+					r.ReleaseLock(&gatewayInstance, lockReleased, msg, true)
 					continue
 				}
 				if err != nil {
@@ -184,9 +183,8 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						msg,
 					)
 				} else {
-					r.ReleaseLock(&gatewayInstance, lockReleased)
+					r.ReleaseLock(&gatewayInstance, lockReleased, msg, true)
 					log.Info("gateway instance successfully reconciled")
-					msg.Ack()
 				}
 				continue
 			default:
@@ -230,14 +228,13 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&gatewayInstance, lockReleased); !ok {
+			if ok := r.ReleaseLock(&gatewayInstance, lockReleased, msg, true); !ok {
 				log.V(1).Info("gateway instance remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("gateway instance unlocked")
 			}
 
 			log.Info("gateway instance successfully reconciled")
-			msg.Ack()
 		}
 	}
 
