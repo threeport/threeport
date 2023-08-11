@@ -71,7 +71,6 @@ func (dnd *DomainNameDefinition) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       dnd,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -120,7 +119,6 @@ func (dni *DomainNameInstance) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       dni,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)

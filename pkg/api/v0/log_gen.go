@@ -89,7 +89,6 @@ func (lb *LogBackend) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       lb,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -138,7 +137,6 @@ func (lsd *LogStorageDefinition) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       lsd,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -187,7 +185,6 @@ func (lsi *LogStorageInstance) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       lsi,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)

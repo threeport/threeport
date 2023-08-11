@@ -71,7 +71,6 @@ func (fpd *ForwardProxyDefinition) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       fpd,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -120,7 +119,6 @@ func (fpi *ForwardProxyInstance) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       fpi,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)

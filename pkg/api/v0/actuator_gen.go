@@ -71,7 +71,6 @@ func (p *Profile) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       p,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -120,7 +119,6 @@ func (t *Tier) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       t,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)

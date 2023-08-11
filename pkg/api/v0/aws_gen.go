@@ -125,7 +125,6 @@ func (aa *AwsAccount) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       aa,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -174,7 +173,6 @@ func (aekrd *AwsEksKubernetesRuntimeDefinition) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       aekrd,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -223,7 +221,6 @@ func (aekri *AwsEksKubernetesRuntimeInstance) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       aekri,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -272,7 +269,6 @@ func (ardd *AwsRelationalDatabaseDefinition) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       ardd,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -321,7 +317,6 @@ func (ardi *AwsRelationalDatabaseInstance) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       ardi,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)

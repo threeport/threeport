@@ -71,7 +71,6 @@ func (gd *GatewayDefinition) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       gd,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -120,7 +119,6 @@ func (gi *GatewayInstance) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       gi,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)

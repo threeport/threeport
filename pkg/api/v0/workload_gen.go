@@ -143,7 +143,6 @@ func (wd *WorkloadDefinition) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       wd,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -192,7 +191,6 @@ func (wrd *WorkloadResourceDefinition) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       wrd,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -241,7 +239,6 @@ func (wi *WorkloadInstance) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       wi,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -290,7 +287,6 @@ func (aor *AttachedObjectReference) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       aor,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -339,7 +335,6 @@ func (wri *WorkloadResourceInstance) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       wri,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -388,7 +383,6 @@ func (we *WorkloadEvent) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       we,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)

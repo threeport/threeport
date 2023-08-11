@@ -71,7 +71,6 @@ func (krd *KubernetesRuntimeDefinition) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       krd,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -120,7 +119,6 @@ func (kri *KubernetesRuntimeInstance) NotificationPayload(
 		CreationTime: &creationTime,
 		Object:       kri,
 		Operation:    operation,
-		Requeue:      requeue,
 	}
 
 	payload, err := json.Marshal(notif)

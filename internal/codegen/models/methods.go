@@ -133,7 +133,6 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 				"Notification",
 			).Values(Dict{
 				Id("Operation"):    Id("operation"),
-				Id("Requeue"):      Id("requeue"),
 				Id("CreationTime"): Op("&").Id("creationTime"),
 				Id("Object"):       Id(codegen.TypeAbbrev(mc.TypeName)),
 			}),
