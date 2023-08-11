@@ -147,7 +147,6 @@ func (r *Reconciler) UnlockAndRequeue(
 func (r *Reconciler) UnlockAndRequeueMsg(
 	object v0.APIObject,
 	subject string,
-	notifPayload *[]byte,
 	requeueDelay int64,
 	lockReleased chan bool,
 	msg *nats.Msg,
@@ -166,14 +165,7 @@ func (r *Reconciler) UnlockAndRequeueMsg(
 		)
 	}
 
-	err := msg.NakWithDelay(time.Duration(requeueDelay) * time.Second)
-	if err != nil {
-		r.Log.V(1).Info(
-			"failed to perform negative acknowledgement with delay",
-			"objectType", r.ObjectType,
-			"objectID", object.GetID(),
-		)
-	}
+	r.Requeue(object, subject, requeueDelay, msg)
 }
 
 // Requeue waits for the delay duration and then sends the notifcation to the
