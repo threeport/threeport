@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
@@ -80,31 +79,8 @@ func getKindConfig(devEnvironment bool, threeportPath string, numWorkerNodes int
 	var controlPlaneNode v1alpha4.Node
 	var workerNodes []v1alpha4.Node
 	if devEnvironment {
-
-		// configure goPath, default to home directory if not set
-		var goPath string
-		goPath = os.Getenv("GOPATH")
-		if goPath == "" {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				panic(err)
-			}
-			goPath = homeDir + "/go"
-		}
-
-		// configure goCache, default to ~/.cache/go-build if not set
-		var goCache string
-		goCache = os.Getenv("GOCACHE")
-		if goCache == "" {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				panic(err)
-			}
-			goCache = homeDir + "/.cache/go-build"
-		}
-
-		controlPlaneNode = *devEnvKindControlPlaneNode(threeportPath, goPath, goCache)
-		workerNodes = *devEnvKindWorkers(threeportPath, numWorkerNodes, goPath, goCache)
+		controlPlaneNode = *devEnvKindControlPlaneNode(threeportPath)
+		workerNodes = *devEnvKindWorkers(threeportPath, numWorkerNodes)
 	} else {
 		controlPlaneNode = *kindControlPlaneNode()
 		workerNodes = *kindWorkers(numWorkerNodes)
@@ -119,7 +95,7 @@ func getKindConfig(devEnvironment bool, threeportPath string, numWorkerNodes int
 
 // devEnvKindControlPlaneNode returns a control plane node with host path mount
 // for live code reloads.
-func devEnvKindControlPlaneNode(threeportPath, goPath, goCache string) *v1alpha4.Node {
+func devEnvKindControlPlaneNode(threeportPath string) *v1alpha4.Node {
 	controlPlaneNode := v1alpha4.Node{
 		Role: v1alpha4.ControlPlaneRole,
 		KubeadmConfigPatches: []string{
@@ -140,14 +116,6 @@ nodeRegistration:
 			{
 				ContainerPath: "/threeport",
 				HostPath:      threeportPath,
-			},
-			{
-				ContainerPath: "/go",
-				HostPath:      goPath,
-			},
-			{
-				ContainerPath: "/root/.cache/go-build",
-				HostPath:      goCache,
 			},
 		},
 	}
@@ -180,8 +148,7 @@ nodeRegistration:
 
 // devEnvKindWorkers returns worker nodes with host path mount for live code
 // reloads.
-func devEnvKindWorkers(threeportPath string, numWorkerNodes int, goPath, goCache string) *[]v1alpha4.Node {
-
+func devEnvKindWorkers(threeportPath string, numWorkerNodes int) *[]v1alpha4.Node {
 	nodes := make([]v1alpha4.Node, numWorkerNodes)
 	for i := range nodes {
 		nodes[i] = v1alpha4.Node{
@@ -190,14 +157,6 @@ func devEnvKindWorkers(threeportPath string, numWorkerNodes int, goPath, goCache
 				{
 					ContainerPath: "/threeport",
 					HostPath:      threeportPath,
-				},
-				{
-					ContainerPath: "/go",
-					HostPath:      goPath,
-				},
-				{
-					ContainerPath: "/root/.cache/go-build",
-					HostPath:      goCache,
 				},
 			},
 		}
