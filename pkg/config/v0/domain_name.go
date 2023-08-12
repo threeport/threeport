@@ -17,6 +17,7 @@ type DomainNameDefinitionConfig struct {
 type DomainNameDefinitionValues struct {
 	Name   string `yaml:"Name"`
 	Domain string `yaml:"Domain"`
+	Zone   string `yaml:"Zone"`
 }
 
 // DomainNameInstanceConfig contains the config for a domain name instance.
@@ -44,7 +45,11 @@ func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, ap
 
 	// construct domain name definition object
 	domainNameDefinition := v0.DomainNameDefinition{
+		Definition: v0.Definition{
+			Name: &d.Name,
+		},
 		Domain: &d.Domain,
+		Zone:   &d.Zone,
 	}
 
 	// create domain name definition

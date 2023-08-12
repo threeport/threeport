@@ -90,7 +90,9 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 
 	// create the domain name definition
 	domainNameDefinition := DomainNameDefinitionValues{
+		Name:   w.DomainNameDefinition.Domain,
 		Domain: w.DomainNameDefinition.Domain,
+		Zone:   w.DomainNameDefinition.Zone,
 	}
 	_, err = domainNameDefinition.CreateIfNotExist(apiClient, apiEndpoint)
 	if err != nil {
