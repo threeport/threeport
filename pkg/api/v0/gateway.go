@@ -38,6 +38,12 @@ type GatewayDefinition struct {
 	// The request paths to serve requests for.
 	Path *string `json:"Paths,omitempty" query:"paths" gorm:"default:'/'" validate:"optional"`
 
+	// An optional subdomain to add to the domain name.
+	SubDomain *string `json:"SubDomain,omitempty" query:"subdomain" validate:"optional"`
+
+	// The kubernetes service to route requests to.
+	ServiceName *string `json:"ServiceName,omitempty" query:"servicename" validate:"optional"`
+
 	// The workload definition that belongs to this resource.
 	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" validate:"optional"`
 
