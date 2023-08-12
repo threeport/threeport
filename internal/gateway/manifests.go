@@ -132,24 +132,28 @@ func createCertManager(iamRoleArn string) (string, error) {
 
 func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 
-	parts := strings.SplitN(domain, ".", 2)
-	dnsZone := parts[1]
-	kebabDnsZone := strcase.ToKebab(dnsZone)
+	var domainList []interface{}
+	var virtualServiceName string
+	if domain == "" {
+		domainList = []interface{}{"*"}
+		virtualServiceName = *gatewayDefinition.Name
+	} else {
+		domainWithoutSchema := strings.SplitN(domain, ".", 2)[1]
+		domainList = []interface{}{domain, domainWithoutSchema}
+		virtualServiceName = strcase.ToKebab(domainWithoutSchema)
+	}
 
 	var virtualService = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "gateway.solo.io/v1",
 			"kind":       "VirtualService",
 			"metadata": map[string]interface{}{
-				"name":      kebabDnsZone,
+				"name":      virtualServiceName,
 				"namespace": "gloo-system",
 			},
 			"spec": map[string]interface{}{
 				"virtualHost": map[string]interface{}{
-					"domains": []interface{}{
-						domain,
-						dnsZone,
-					},
+					"domains": domainList,
 					"routes": []interface{}{
 						map[string]interface{}{
 							"matchers": []interface{}{
