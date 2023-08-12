@@ -151,18 +151,6 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
-			case notifications.NotificationOperationUpdated:
-				if err := kubernetesRuntimeInstanceUpdated(r, &kubernetesRuntimeInstance, &log); err != nil {
-					log.Error(err, "failed to reconcile updated kubernetes runtime instance object")
-					r.UnlockAndRequeue(
-						&kubernetesRuntimeInstance,
-						msg.Subject,
-						notifPayload,
-						requeueDelay,
-						lockReleased,
-					)
-					continue
-				}
 			case notifications.NotificationOperationDeleted:
 				if err := kubernetesRuntimeInstanceDeleted(r, &kubernetesRuntimeInstance, &log); err != nil {
 					log.Error(err, "failed to reconcile deleted kubernetes runtime instance object")
