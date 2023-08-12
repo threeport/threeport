@@ -23,6 +23,11 @@ func workloadDefinitionCreated(
 	workloadDefinition *v0.WorkloadDefinition,
 	log *logr.Logger,
 ) error {
+	workloadDefinition.Reconciled = nil
+	if *workloadDefinition.Reconciled {
+		fmt.Println(workloadDefinition.Reconciled)
+		panic("workloadDefinitionCreated")
+	}
 	// iterate over each resource in the yaml doc and construct a workload
 	// resource definition
 	decoder := yamlv3.NewDecoder(strings.NewReader(*workloadDefinition.YAMLDocument))
@@ -125,7 +130,6 @@ func workloadDefinitionUpdated(
 
 	return nil
 }
-
 
 // workloadDefinitionDeleted performs reconciliation when a workload definition
 // has been deleted.
