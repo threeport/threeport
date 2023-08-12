@@ -15,9 +15,8 @@ type DomainNameDefinitionConfig struct {
 // DomainNameDefinitionValues contains the attributes needed to manage a domain
 // name definition.
 type DomainNameDefinitionValues struct {
-	Name   string `yaml:"Name"`
-	Domain string `yaml:"Domain"`
-	Zone   string `yaml:"Zone"`
+	Name string `yaml:"Name"`
+	Zone string `yaml:"Zone"`
 }
 
 // DomainNameInstanceConfig contains the config for a domain name instance.
@@ -38,7 +37,7 @@ type DomainNameInstanceValues struct {
 func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
 
 	// check if domain name definition exists
-	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Domain)
+	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Name)
 	if err == nil {
 		return existingDomainNameDefinition, nil
 	}
@@ -48,7 +47,7 @@ func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, ap
 		Definition: v0.Definition{
 			Name: &d.Name,
 		},
-		Domain: &d.Domain,
+		Domain: &d.Name,
 		Zone:   &d.Zone,
 	}
 

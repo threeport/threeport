@@ -2,7 +2,9 @@ package gateway
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/iancoleman/strcase"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -46,11 +48,11 @@ func createGlooEdge() (string, error) {
 }
 
 func createExternalDns(
-		provider,
-		iamRoleArn,
-		glooEdgeNamespace,
-		kubernetesRuntimeInstanceID string,
-	) (string, error) {
+	provider,
+	iamRoleArn,
+	glooEdgeNamespace,
+	kubernetesRuntimeInstanceID string,
+) (string, error) {
 
 	zoneType := "public"
 	extraArgs := []string{
@@ -128,20 +130,25 @@ func createCertManager(iamRoleArn string) (string, error) {
 	return unstructuredToYAMLString(certManager)
 }
 
-func createVirtualService(gatewayDefinition *v0.GatewayDefinition) (string, error) {
+func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+
+	parts := strings.SplitN(domain, ".", 2)
+	dnsZone := parts[1]
+	kebabDnsZone := strcase.ToKebab(dnsZone)
 
 	var virtualService = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "gateway.solo.io/v1",
 			"kind":       "VirtualService",
 			"metadata": map[string]interface{}{
-				"name":      "default",
+				"name":      kebabDnsZone,
 				"namespace": "gloo-system",
 			},
 			"spec": map[string]interface{}{
 				"virtualHost": map[string]interface{}{
 					"domains": []interface{}{
-						"*",
+						domain,
+						dnsZone,
 					},
 					"routes": []interface{}{
 						map[string]interface{}{
@@ -168,27 +175,36 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition) (string, erro
 	return unstructuredToYAMLString(virtualService)
 }
 
-func createIssuer(gatewayDefinition *v0.GatewayDefinition) (string, error) {
+func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+
+	parts := strings.SplitN(domain, ".", 2)
+	dnsZone := parts[1]
+	kebabDnsZone := strcase.ToKebab(dnsZone)
+
 	var issuer = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cert-manager.io/v1",
 			"kind":       "Issuer",
 			"metadata": map[string]interface{}{
-				"name": "workload-123",
+				"name": kebabDnsZone,
 			},
 			"spec": map[string]interface{}{
 				"acme": map[string]interface{}{
+					"email":  "randy@qleet.io",
+					"server": "https://acme-v02.api.letsencrypt.org/directory",
+					"privateKeySecretRef": map[string]interface{}{
+						"name": "letsencrypt-prod-private-key",
+					},
 					"solvers": []interface{}{
 						map[string]interface{}{
 							"selector": map[string]interface{}{
 								"dnsZones": []interface{}{
-									"corp-domain.com",
+									dnsZone,
 								},
 							},
 							"dns01": map[string]interface{}{
 								"route53": map[string]interface{}{
 									"region": "us-east-1",
-									"role":   "arn:aws:iam::YYYYYYYYYYYY:role/dns-manager",
 								},
 							},
 						},
@@ -201,22 +217,26 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition) (string, error) {
 	return unstructuredToYAMLString(issuer)
 }
 
-func createCertificate(gatewayDefinition *v0.GatewayDefinition) (string, error) {
+func createCertificate(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+
+	parts := strings.SplitN(domain, ".", 2)
+	dnsZone := parts[1]
+	kebabDnsZone := strcase.ToKebab(dnsZone)
 
 	var certificate = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cert-manager.io/v1",
 			"kind":       "Certificate",
 			"metadata": map[string]interface{}{
-				"name": "corp-domain",
+				"name": kebabDnsZone,
 			},
 			"spec": map[string]interface{}{
-				"secretName": "corp-domain-tls",
+				"secretName": kebabDnsZone + "-tls",
 				"dnsNames": []interface{}{
-					"corp-domain.com",
+					dnsZone,
 				},
 				"issuerRef": map[string]interface{}{
-					"name": "workload-123",
+					"name": kebabDnsZone,
 					"kind": "Issuer",
 				},
 			},

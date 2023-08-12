@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/iancoleman/strcase"
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -733,7 +734,7 @@ func configureIssuer(
 
 	// split domain name into parts
 	parts := strings.SplitN(*domainNameDefinition.Domain, ".", 2)
-	domainWithoutSuffix := parts[0]
+	domainWithoutSuffix := strcase.ToKebab(parts[1])
 
 	// set issuer name
 	err = unstructured.SetNestedField(issuer, domainWithoutSuffix, "metadata", "name")
@@ -795,7 +796,7 @@ func configureCertificate(
 
 	// split domain name into parts
 	parts := strings.SplitN(*domainNameDefinition.Domain, ".", 2)
-	domainWithoutSuffix := parts[0]
+	domainWithoutSuffix := strcase.ToKebab(parts[1])
 
 	// set certificate name
 	err = unstructured.SetNestedField(certificate, domainWithoutSuffix, "metadata", "name")
