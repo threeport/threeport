@@ -9,6 +9,7 @@ type GatewayDefinitionConfig struct {
 type GatewayDefinitionValues struct {
 	TCPPort     int    `yaml:"TCPPort"`
 	TLSEnabled  bool   `yaml:"TlSEnabled"`
+	Path        string `yaml:"path"`
 	ServiceName string `yaml:"ServiceName"`
 }
 

@@ -32,8 +32,8 @@ type WorkloadValues struct {
 	YAMLDocument              string                          `yaml:"YAMLDocument"`
 	WorkloadConfigPath        string                          `yaml:"WorkloadConfigPath"`
 	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	DomainNameInstance        DomainNameInstanceValues        `yaml:"DomainNameInstance"`
-	GatewayInstance           GatewayInstanceValues           `yaml:"GatewayInstance"`
+	DomainNameDefinition      DomainNameDefinitionValues      `yaml:"DomainNameDefinition"`
+	GatewayDefinition         GatewayDefinitionValues         `yaml:"GatewayDefinition"`
 }
 
 // WorkloadDefinitionConfig contains the config for a workload definition.
@@ -86,6 +86,26 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 	createdWorkloadInstance, err := workloadInstance.Create(apiClient, apiEndpoint)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create workload instance: %w", err)
+	}
+
+	// create the domain name definition
+	domainNameDefinition := DomainNameDefinitionValues{
+		Domain: w.DomainNameDefinition.Domain,
+	}
+	_, err = domainNameDefinition.CreateIfNotExist(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create domain name definition: %w", err)
+	}
+
+	// create the domain name instance
+	domainNameInstance := DomainNameInstanceValues{
+		DomainNameDefinition:      domainNameDefinition,
+		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
+		WorkloadInstance:          workloadInstance,
+	}
+	_, err = domainNameInstance.Create(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create domain name instance: %w", err)
 	}
 
 	return createdWorkloadDefinition, createdWorkloadInstance, nil
