@@ -51,13 +51,6 @@ func main() {
 		showHelpAndExit(0)
 	}
 
-	// set up health check endpoint
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-	go http.ListenAndServe(":8080", nil)
-
 	// controller instance ID
 	controllerID := uuid.New()
 
@@ -220,6 +213,13 @@ func main() {
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Error(err, "failed to run server for shutdown endpoint")
 	}
+
+	// set up health check endpoint
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	go http.ListenAndServe(":8080", nil)
 
 	// wait for reconcilers to finish
 	shutdownWait.Wait()

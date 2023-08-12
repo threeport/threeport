@@ -144,21 +144,6 @@ func (cc *ControllerConfig) MainPackage() error {
 		If(Op("*").Id("help").Block(
 			Id("showHelpAndExit").Call(Lit(0)),
 		)),
-		Line(),
-
-		Comment("set up health check endpoint"),
-		Id("http.HandleFunc").Call(
-			Lit("/healthz"),
-			Func().Params(
-				Id("w").Qual("net/http", "ResponseWriter"),
-				Id("r").Op("*").Qual("net/http", "Request"),
-			).Block(
-				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusOK")),
-				Id("w").Dot("Write").Call(Index().Byte().Call(Lit("OK"))),
-			),
-		),
-		Go().Id("http.ListenAndServe").Call(Lit(":8080"), Nil()),
-		Line(),
 
 		Line(),
 		Comment("controller instance ID"),
@@ -439,6 +424,20 @@ func (cc *ControllerConfig) MainPackage() error {
 		).Block(
 			Id("log").Dot("Error").Call(Id("err"), Lit("failed to run server for shutdown endpoint")),
 		),
+		Line(),
+
+		Comment("set up health check endpoint"),
+		Id("http.HandleFunc").Call(
+			Lit("/healthz"),
+			Func().Params(
+				Id("w").Qual("net/http", "ResponseWriter"),
+				Id("r").Op("*").Qual("net/http", "Request"),
+			).Block(
+				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusOK")),
+				Id("w").Dot("Write").Call(Index().Byte().Call(Lit("OK"))),
+			),
+		),
+		Go().Id("http.ListenAndServe").Call(Lit(":8080"), Nil()),
 		Line(),
 
 		Comment("wait for reconcilers to finish"),

@@ -227,7 +227,8 @@ NATS_PORT=4222
 										"protocol":      "TCP",
 									},
 								},
-								"volumeMounts": apiVolMounts,
+								"volumeMounts":   apiVolMounts,
+								"readinessProbe": getReadinessProbe(),
 							},
 						},
 						"volumes": apiVols,
@@ -1030,7 +1031,8 @@ func InstallThreeportAgent(
 								//		},
 								//	},
 								//},
-								"volumeMounts": agentVolMounts,
+								"volumeMounts":   agentVolMounts,
+								"readinessProbe": getReadinessProbe(),
 							},
 						},
 						"volumes": agentVols,
@@ -1786,7 +1788,8 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 										},
 									},
 								},
-								"volumeMounts": volumeMounts,
+								"volumeMounts":   volumeMounts,
+								"readinessProbe": getReadinessProbe(),
 							},
 						},
 						"volumes": volumes,
@@ -1795,6 +1798,24 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 			},
 		},
 	}
+}
+
+func getReadinessProbe() map[string]interface{} {
+	var readinessProbe = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"failureThreshold": 1,
+			"httpGet": map[string]interface{}{
+				"path":   "/healthz",
+				"port":   8081,
+				"scheme": "HTTP",
+			},
+			"initialDelaySeconds": 1,
+			"periodSeconds":       1,
+			"successThreshold":    1,
+			"timeoutSeconds":      1,
+		},
+	}
+	return readinessProbe.Object
 }
 
 func getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []interface{}) {
