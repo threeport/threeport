@@ -616,9 +616,17 @@ func configureVirtualService(
 	}
 
 	// unmarshal service
-	service, err := util.UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances, "Service")
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
+	var service map[string]interface{}
+	if gatewayDefinition.ServiceName != nil && *gatewayDefinition.ServiceName != "" {
+		service, err = util.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "Service", *gatewayDefinition.ServiceName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
+		}
+	} else {
+		service, err = util.UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances, "Service")
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
+		}
 	}
 
 	// unmarshal service namespace

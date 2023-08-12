@@ -32,8 +32,8 @@ type WorkloadValues struct {
 	YAMLDocument              string                          `yaml:"YAMLDocument"`
 	WorkloadConfigPath        string                          `yaml:"WorkloadConfigPath"`
 	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	DomainNameDefinition      DomainNameDefinitionValues      `yaml:"DomainNameDefinition"`
-	GatewayDefinition         GatewayDefinitionValues         `yaml:"GatewayDefinition"`
+	DomainName                DomainNameDefinitionValues      `yaml:"DomainName"`
+	Gateway                   GatewayDefinitionValues         `yaml:"Gateway"`
 }
 
 // WorkloadDefinitionConfig contains the config for a workload definition.
@@ -90,9 +90,9 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 
 	// create the domain name definition
 	domainNameDefinition := DomainNameDefinitionValues{
-		Name:   w.DomainNameDefinition.Domain,
-		Domain: w.DomainNameDefinition.Domain,
-		Zone:   w.DomainNameDefinition.Zone,
+		Name:   w.DomainName.Domain,
+		Domain: w.DomainName.Domain,
+		Zone:   w.DomainName.Zone,
 	}
 	_, err = domainNameDefinition.CreateIfNotExist(apiClient, apiEndpoint)
 	if err != nil {
@@ -112,11 +112,11 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 
 	// create the gateway definition
 	gatewayDefinition := GatewayDefinitionValues{
-		Name:        w.GatewayDefinition.Name,
-		TCPPort:     w.GatewayDefinition.TCPPort,
-		TLSEnabled:  w.GatewayDefinition.TLSEnabled,
-		Path:        w.GatewayDefinition.Path,
-		ServiceName: w.GatewayDefinition.ServiceName,
+		Name:        w.Gateway.Name,
+		TCPPort:     w.Gateway.TCPPort,
+		TLSEnabled:  w.Gateway.TLSEnabled,
+		Path:        w.Gateway.Path,
+		ServiceName: w.Gateway.ServiceName,
 	}
 	_, err = gatewayDefinition.Create(apiClient, apiEndpoint)
 	if err != nil {
@@ -177,9 +177,9 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	}
 
 	// get domain name instance by name
-	domainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, w.DomainNameDefinition.Name)
+	domainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, w.DomainName.Name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find domain name instance with name %s: %w", w.DomainNameDefinition.Name, err)
+		return nil, nil, fmt.Errorf("failed to find domain name instance with name %s: %w", w.DomainName.Name, err)
 	}
 
 	// delete domain name instance
@@ -189,9 +189,9 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	}
 
 	// get domain name definition by name
-	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, w.DomainNameDefinition.Name)
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, w.DomainName.Name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find domain name definition with name %s: %w", w.DomainNameDefinition.Name, err)
+		return nil, nil, fmt.Errorf("failed to find domain name definition with name %s: %w", w.DomainName.Name, err)
 	}
 
 	// delete domain name definition
@@ -201,9 +201,9 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	}
 
 	// get gateway instance by name
-	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, w.GatewayDefinition.Name)
+	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, w.Gateway.Name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find gateway instance with name %s: %w", w.GatewayDefinition.Name, err)
+		return nil, nil, fmt.Errorf("failed to find gateway instance with name %s: %w", w.Gateway.Name, err)
 	}
 
 	// delete gateway instance
@@ -213,9 +213,9 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	}
 
 	// get gateway definition by name
-	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, w.GatewayDefinition.Name)
+	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, w.Gateway.Name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find gateway definition with name %s: %w", w.GatewayDefinition.Name, err)
+		return nil, nil, fmt.Errorf("failed to find gateway definition with name %s: %w", w.Gateway.Name, err)
 	}
 
 	// delete gateway definition
