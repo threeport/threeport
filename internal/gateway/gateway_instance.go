@@ -666,7 +666,7 @@ func configureVirtualService(
 	// set virtual service upstream name field
 	err = unstructured.SetNestedField(
 		routes[0].(map[string]interface{}),
-		fmt.Sprintf("%s-%s", namespace, name), // $namespace-$name is convention for gloo edge upstream names
+		fmt.Sprintf("%s-%s-%d", namespace, name, *gatewayDefinition.TCPPort), // $namespace-$name-$port is convention for gloo edge upstream names
 		"routeAction",
 		"single",
 		"upstream",
@@ -699,6 +699,23 @@ func configureVirtualService(
 	err = unstructured.SetNestedSlice(virtualService, routes, "spec", "virtualHost", "routes")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set route on virtual service: %w", err)
+	}
+
+	if *gatewayDefinition.TLSEnabled {
+
+		// set secret ref namespace
+		err = unstructured.SetNestedField(
+			virtualService,
+			namespace,
+			"spec",
+			"sslConfig",
+			"secretRef",
+			"namespace",
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set secret ref name on virtual service: %w", err)
+		}
+
 	}
 
 	// marshal virtual service

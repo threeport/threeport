@@ -143,6 +143,21 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 		virtualServiceName = strcase.ToKebab(domainWithoutSchema)
 	}
 
+	parts := strings.SplitN(domain, ".", 2)
+	dnsZone := parts[1]
+	kebabDnsZone := strcase.ToKebab(dnsZone)
+
+	// var sslConfig map[string]interface{}
+	sslConfig := map[string]interface{}{}
+	if *gatewayDefinition.TLSEnabled {
+		sslConfig = map[string]interface{}{
+			"secretRef": map[string]interface{}{
+				"name":      kebabDnsZone + "-tls",
+				"namespace": "default",
+			},
+		}
+	}
+
 	var virtualService = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "gateway.solo.io/v1",
@@ -158,7 +173,7 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 						map[string]interface{}{
 							"matchers": []interface{}{
 								map[string]interface{}{
-									"prefix": "/",
+									"prefix": *gatewayDefinition.Path,
 								},
 							},
 							"routeAction": map[string]interface{}{
@@ -172,6 +187,7 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 						},
 					},
 				},
+				"sslConfig": sslConfig,
 			},
 		},
 	}
