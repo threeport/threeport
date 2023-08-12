@@ -108,6 +108,29 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		return nil, nil, fmt.Errorf("failed to create domain name instance: %w", err)
 	}
 
+	// create the gateway definition
+	gatewayDefinition := GatewayDefinitionValues{
+		TCPPort:     w.GatewayDefinition.TCPPort,
+		TLSEnabled:  w.GatewayDefinition.TLSEnabled,
+		Path:        w.GatewayDefinition.Path,
+		ServiceName: w.GatewayDefinition.ServiceName,
+	}
+	_, err = gatewayDefinition.Create(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create gateway definition: %w", err)
+	}
+
+	// create the gateway instance
+	gatewayInstance := GatewayInstanceValues{
+		GatewayDefinition:         gatewayDefinition,
+		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
+		WorkloadInstance:          workloadInstance,
+	}
+	_, err = gatewayInstance.Create(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create gateway instance: %w", err)
+	}
+
 	return createdWorkloadDefinition, createdWorkloadInstance, nil
 }
 
