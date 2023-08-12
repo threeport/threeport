@@ -32,6 +32,10 @@ build-tptctl:
 generate: build-codegen
 	go generate ./...
 
+#generate-docs: @ Generate swagger docs
+generate-docs:
+	swag init --dir cmd/rest-api,pkg/api,internal/api --parseDependency --generalInfo main.go --output ../../internal/api/docs
+
 ## testing
 
 #test: @ Run automated tests
