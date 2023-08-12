@@ -39,14 +39,6 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteAwsRelationalDatabaseInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete AwsRelationalDatabaseInstance: %w", err)
 		}
-	case "v0.DomainNameDefinition":
-		if _, err := DeleteDomainNameDefinition(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete DomainNameDefinition: %w", err)
-		}
-	case "v0.DomainNameInstance":
-		if _, err := DeleteDomainNameInstance(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete DomainNameInstance: %w", err)
-		}
 	case "v0.ForwardProxyDefinition":
 		if _, err := DeleteForwardProxyDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete ForwardProxyDefinition: %w", err)
@@ -62,6 +54,14 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 	case "v0.GatewayInstance":
 		if _, err := DeleteGatewayInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete GatewayInstance: %w", err)
+		}
+	case "v0.DomainNameDefinition":
+		if _, err := DeleteDomainNameDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete DomainNameDefinition: %w", err)
+		}
+	case "v0.DomainNameInstance":
+		if _, err := DeleteDomainNameInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete DomainNameInstance: %w", err)
 		}
 	case "v0.KubernetesRuntimeDefinition":
 		if _, err := DeleteKubernetesRuntimeDefinition(apiClient, apiAddr, id); err != nil {
