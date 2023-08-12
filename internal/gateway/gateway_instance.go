@@ -753,7 +753,6 @@ func configureIssuer(
 			"dns01": map[string]interface{}{
 				"route53": map[string]interface{}{
 					"region": "us-east-1",
-					"role":   "arn:aws:iam::YYYYYYYYYYYY:role/dns-manager",
 				},
 			},
 		},
