@@ -141,40 +141,6 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 // domain name definition, domain name instance,
 // gateway definition, and gateway instance from the Threeport API.
 func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
-	// get workload instance by name
-	workloadInstName := defaultWorkloadInstanceName(w.Name)
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, workloadInstName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find workload instance with name %s: %w", workloadInstName, err)
-	}
-
-	// get workload definition by name
-	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, w.Name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find workload definition with name %s: %w", w.Name, err)
-	}
-
-	// ensure the workload definition has no more than one associated instance
-	workloadDefInsts, err := client.GetWorkloadInstancesByWorkloadDefinitionID(apiClient, apiEndpoint, *workloadDefinition.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get workload instances by workload definition with ID: %d: %w", workloadDefinition.ID, err)
-	}
-	if len(*workloadDefInsts) > 1 {
-		err = errors.New("deletion using the workload abstraction is only permitted when there is a one-to-one workload definition and workload instance relationship")
-		return nil, nil, fmt.Errorf("the workload definition has more than one workload instance associated: %w", err)
-	}
-
-	// delete workload instance
-	deletedWorkloadInstance, err := client.DeleteWorkloadInstance(apiClient, apiEndpoint, *workloadInstance.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
-	}
-
-	// delete workload definition
-	deletedWorkloadDefinition, err := client.DeleteWorkloadDefinition(apiClient, apiEndpoint, *workloadDefinition.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to delete workload definition from threeport API: %w", err)
-	}
 
 	// get domain name instance by name
 	domainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, w.DomainName.Name)
@@ -222,6 +188,41 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	_, err = client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to delete gateway definition from threeport API: %w", err)
+	}
+
+	// get workload instance by name
+	workloadInstName := defaultWorkloadInstanceName(w.Name)
+	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, workloadInstName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find workload instance with name %s: %w", workloadInstName, err)
+	}
+
+	// get workload definition by name
+	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, w.Name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find workload definition with name %s: %w", w.Name, err)
+	}
+
+	// ensure the workload definition has no more than one associated instance
+	workloadDefInsts, err := client.GetWorkloadInstancesByWorkloadDefinitionID(apiClient, apiEndpoint, *workloadDefinition.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get workload instances by workload definition with ID: %d: %w", workloadDefinition.ID, err)
+	}
+	if len(*workloadDefInsts) > 1 {
+		err = errors.New("deletion using the workload abstraction is only permitted when there is a one-to-one workload definition and workload instance relationship")
+		return nil, nil, fmt.Errorf("the workload definition has more than one workload instance associated: %w", err)
+	}
+
+	// delete workload instance
+	deletedWorkloadInstance, err := client.DeleteWorkloadInstance(apiClient, apiEndpoint, *workloadInstance.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
+	}
+
+	// delete workload definition
+	deletedWorkloadDefinition, err := client.DeleteWorkloadDefinition(apiClient, apiEndpoint, *workloadDefinition.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to delete workload definition from threeport API: %w", err)
 	}
 
 	return deletedWorkloadDefinition, deletedWorkloadInstance, nil

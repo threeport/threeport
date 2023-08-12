@@ -369,7 +369,8 @@ func workloadInstanceDeleted(
 		return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
 	}
 	if len(*workloadResourceInstances) == 0 {
-		return errors.New("zero workload resource instances to delete")
+		// return errors.New("zero workload resource instances to delete")
+		return nil
 	}
 
 	// get kubernetes runtime instance info
@@ -408,7 +409,10 @@ func workloadInstanceDeleted(
 	}
 	for _, object := range *attachedObjectReferences {
 		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.Type, *object.ObjectID)
-		if err != nil {
+		if errors.Is(err, client.ErrorObjectNotFound) {
+			// attached object has already been deleted
+			log.Info("attached object has already been deleted", "objectID", *object.ObjectID)
+		} else {
 			return fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.Type, *object.ID, err)
 		}
 		_, err = client.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *object.ID)
