@@ -14,12 +14,12 @@ type GatewayDefinitionConfig struct {
 
 // GatewayDefinitionValues contains the attributes needed to manage a gateway.
 type GatewayDefinitionValues struct {
-	Name        string `yaml:"Name"`
-	TCPPort     int    `yaml:"TCPPort"`
-	TLSEnabled  bool   `yaml:"TLSEnabled"`
-	Path        string `yaml:"path"`
-	ServiceName string `yaml:"ServiceName"`
-	
+	Name                 string                     `yaml:"Name"`
+	TCPPort              int                        `yaml:"TCPPort"`
+	TLSEnabled           bool                       `yaml:"TLSEnabled"`
+	Path                 string                     `yaml:"path"`
+	ServiceName          string                     `yaml:"ServiceName"`
+	DomainNameDefinition DomainNameDefinitionValues `yaml:"DomainNameDefinition"`
 }
 
 // GatewayInstanceConfig contains the config for a gateway instance.
@@ -38,15 +38,22 @@ type GatewayInstanceValues struct {
 // Create creates a gateway definition.
 func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, error) {
 
+	// get domain name definition
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	// construct gateway definition object
 	gatewayDefinition := v0.GatewayDefinition{
 		Definition: v0.Definition{
 			Name: &g.Name,
 		},
-		TCPPort:     &g.TCPPort,
-		TLSEnabled:  &g.TLSEnabled,
-		Path:        &g.Path,
-		ServiceName: &g.ServiceName,
+		TCPPort:                &g.TCPPort,
+		TLSEnabled:             &g.TLSEnabled,
+		Path:                   &g.Path,
+		ServiceName:            &g.ServiceName,
+		DomainNameDefinitionID: domainNameDefinition.ID,
 	}
 
 	// create gateway definition
