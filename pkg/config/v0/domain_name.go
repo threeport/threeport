@@ -83,6 +83,9 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 
 	// construct domain name instance object
 	domainNameInstance := v0.DomainNameInstance{
+		Instance: v0.Instance{
+			Name: &d.DomainNameDefinition.Name,
+		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadInstanceID:          workloadInstance.ID,
 		DomainNameDefinitionID:      domainNameDefinition.ID,

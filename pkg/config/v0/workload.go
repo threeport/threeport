@@ -112,6 +112,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 
 	// create the gateway definition
 	gatewayDefinition := GatewayDefinitionValues{
+		Name:        w.GatewayDefinition.Name,
 		TCPPort:     w.GatewayDefinition.TCPPort,
 		TLSEnabled:  w.GatewayDefinition.TLSEnabled,
 		Path:        w.GatewayDefinition.Path,

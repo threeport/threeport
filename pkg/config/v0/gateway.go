@@ -29,7 +29,6 @@ type GatewayInstanceConfig struct {
 // GatewayInstanceValues contains the attributes needed to manage a gateway
 // instance.
 type GatewayInstanceValues struct {
-	Name                      string                          `yaml:"Name"`
 	GatewayDefinition         GatewayDefinitionValues         `yaml:"GatewayDefinition"`
 	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	WorkloadInstance          WorkloadInstanceValues          `yaml:"WorkloadInstance"`
@@ -40,6 +39,9 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 
 	// construct gateway definition object
 	gatewayDefinition := v0.GatewayDefinition{
+		Definition: v0.Definition{
+			Name: &g.Name,
+		},
 		TCPPort:     &g.TCPPort,
 		TLSEnabled:  &g.TLSEnabled,
 		Path:        &g.Path,
@@ -78,6 +80,9 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 
 	// construct gateway instance object
 	gatewayInstance := v0.GatewayInstance{
+		Instance: v0.Instance{
+			Name: &g.GatewayDefinition.Name,
+		},
 		GatewayDefinitionID:         gatewayDefinition.ID,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadInstanceID:          workloadInstance.ID,
