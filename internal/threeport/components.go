@@ -1806,7 +1806,7 @@ func getReadinessProbe() map[string]interface{} {
 			"failureThreshold": 1,
 			"httpGet": map[string]interface{}{
 				"path":   "/healthz",
-				"port":   8081,
+				"port":   8082,
 				"scheme": "HTTP",
 			},
 			"initialDelaySeconds": 1,

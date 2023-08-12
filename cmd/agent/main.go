@@ -84,7 +84,7 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
-	go http.ListenAndServe(":8081", nil)
+	go http.ListenAndServe(":8082", nil)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,

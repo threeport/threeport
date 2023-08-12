@@ -418,14 +418,8 @@ func (cc *ControllerConfig) MainPackage() error {
 				).Params(),
 			),
 		),
-		If(
-			Err().Op(":=").Id("server").Dot("ListenAndServe").Call(),
-			Err().Op("!=").Nil().Op("&&").Err().Op("!=").Qual("net/http", "ErrServerClosed"),
-		).Block(
-			Id("log").Dot("Error").Call(Id("err"), Lit("failed to run server for shutdown endpoint")),
-		),
-		Line(),
 
+		Line(),
 		Comment("set up health check endpoint"),
 		Id("http.HandleFunc").Call(
 			Lit("/healthz"),
@@ -437,7 +431,17 @@ func (cc *ControllerConfig) MainPackage() error {
 				Id("w").Dot("Write").Call(Index().Byte().Call(Lit("OK"))),
 			),
 		),
-		Go().Id("http.ListenAndServe").Call(Lit(":8080"), Nil()),
+
+		Go().Id("http.ListenAndServe").Call(Lit(":8082"), Nil()),
+		Line(),
+
+		Comment("run shutdown endpoint server"),
+		If(
+			Err().Op(":=").Id("server").Dot("ListenAndServe").Call(),
+			Err().Op("!=").Nil().Op("&&").Err().Op("!=").Qual("net/http", "ErrServerClosed"),
+		).Block(
+			Id("log").Dot("Error").Call(Id("err"), Lit("failed to run server for shutdown endpoint")),
+		),
 		Line(),
 
 		Comment("wait for reconcilers to finish"),

@@ -217,5 +217,5 @@ func configureHealthCheckEndpoint() {
 		w.Write([]byte("OK"))
 	})
 
-	go http.ListenAndServe(":8081", nil)
+	go http.ListenAndServe(":8082", nil)
 }
