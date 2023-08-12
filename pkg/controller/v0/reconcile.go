@@ -139,7 +139,7 @@ func (r *Reconciler) UnlockAndRequeue(
 		)
 	}
 
-	r.Requeue(object,requeueDelay, msg)
+	r.Requeue(object, requeueDelay, msg)
 }
 
 // UnlockAndRequeue releases the lock on the object and requeues reconciliation
