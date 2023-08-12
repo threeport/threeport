@@ -32,6 +32,8 @@ type WorkloadValues struct {
 	YAMLDocument              string                          `yaml:"YAMLDocument"`
 	WorkloadConfigPath        string                          `yaml:"WorkloadConfigPath"`
 	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	DomainNameInstance        DomainNameInstanceValues        `yaml:"DomainNameInstance"`
+	GatewayInstance           GatewayInstanceValues           `yaml:"GatewayInstance"`
 }
 
 // WorkloadDefinitionConfig contains the config for a workload definition.
