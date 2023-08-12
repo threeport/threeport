@@ -16,9 +16,10 @@ type GatewayDefinitionConfig struct {
 type GatewayDefinitionValues struct {
 	Name        string `yaml:"Name"`
 	TCPPort     int    `yaml:"TCPPort"`
-	TLSEnabled  bool   `yaml:"TlSEnabled"`
+	TLSEnabled  bool   `yaml:"TLSEnabled"`
 	Path        string `yaml:"path"`
 	ServiceName string `yaml:"ServiceName"`
+	
 }
 
 // GatewayInstanceConfig contains the config for a gateway instance.
