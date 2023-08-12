@@ -29,6 +29,10 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = GatewayDefinition{}
 	case ObjectTypeGatewayInstance:
 		objStruct = GatewayInstance{}
+	case ObjectTypeDomainNameDefinition:
+		objStruct = DomainNameDefinition{}
+	case ObjectTypeDomainNameInstance:
+		objStruct = DomainNameInstance{}
 	case ObjectTypeKubernetesRuntimeDefinition:
 		objStruct = KubernetesRuntimeDefinition{}
 	case ObjectTypeKubernetesRuntimeInstance:
@@ -82,6 +86,10 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeGatewayDefinition
 	case PathGatewayInstances:
 		return ObjectTypeGatewayInstance
+	case PathDomainNameDefinitions:
+		return ObjectTypeDomainNameDefinition
+	case PathDomainNameInstances:
+		return ObjectTypeDomainNameInstance
 	case PathKubernetesRuntimeDefinitions:
 		return ObjectTypeKubernetesRuntimeDefinition
 	case PathKubernetesRuntimeInstances:
@@ -135,6 +143,10 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeGatewayDefinition
 	case GatewayInstance, *GatewayInstance, []GatewayInstance:
 		return ObjectTypeGatewayInstance
+	case DomainNameDefinition, *DomainNameDefinition, []DomainNameDefinition:
+		return ObjectTypeDomainNameDefinition
+	case DomainNameInstance, *DomainNameInstance, []DomainNameInstance:
+		return ObjectTypeDomainNameInstance
 	case KubernetesRuntimeDefinition, *KubernetesRuntimeDefinition, []KubernetesRuntimeDefinition:
 		return ObjectTypeKubernetesRuntimeDefinition
 	case KubernetesRuntimeInstance, *KubernetesRuntimeInstance, []KubernetesRuntimeInstance:

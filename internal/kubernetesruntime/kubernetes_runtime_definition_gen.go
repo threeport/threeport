@@ -159,6 +159,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 						msg.Subject,
 						notifPayload,
 						requeueDelay,
+						lockReleased,
 					)
 					continue
 				}
