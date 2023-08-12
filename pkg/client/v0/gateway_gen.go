@@ -99,9 +99,9 @@ func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	switch {
 	case len(gatewayDefinitions) < 1:
-		return &v0.GatewayDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.GatewayDefinition{}, errors.New(fmt.Sprintf("no gateway definition with name %s", name))
 	case len(gatewayDefinitions) > 1:
-		return &v0.GatewayDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.GatewayDefinition{}, errors.New(fmt.Sprintf("more than one gateway definition with name %s returned", name))
 	}
 
 	return &gatewayDefinitions[0], nil
@@ -296,9 +296,9 @@ func GetGatewayInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	switch {
 	case len(gatewayInstances) < 1:
-		return &v0.GatewayInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.GatewayInstance{}, errors.New(fmt.Sprintf("no gateway instance with name %s", name))
 	case len(gatewayInstances) > 1:
-		return &v0.GatewayInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.GatewayInstance{}, errors.New(fmt.Sprintf("more than one gateway instance with name %s returned", name))
 	}
 
 	return &gatewayInstances[0], nil
@@ -493,9 +493,9 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(domainNameDefinitions) < 1:
-		return &v0.DomainNameDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.DomainNameDefinition{}, errors.New(fmt.Sprintf("no domain name definition with name %s", name))
 	case len(domainNameDefinitions) > 1:
-		return &v0.DomainNameDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.DomainNameDefinition{}, errors.New(fmt.Sprintf("more than one domain name definition with name %s returned", name))
 	}
 
 	return &domainNameDefinitions[0], nil
@@ -690,9 +690,9 @@ func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 	switch {
 	case len(domainNameInstances) < 1:
-		return &v0.DomainNameInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.DomainNameInstance{}, errors.New(fmt.Sprintf("no domain name instance with name %s", name))
 	case len(domainNameInstances) > 1:
-		return &v0.DomainNameInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.DomainNameInstance{}, errors.New(fmt.Sprintf("more than one domain name instance with name %s returned", name))
 	}
 
 	return &domainNameInstances[0], nil

@@ -99,9 +99,9 @@ func GetForwardProxyDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 	switch {
 	case len(forwardProxyDefinitions) < 1:
-		return &v0.ForwardProxyDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.ForwardProxyDefinition{}, errors.New(fmt.Sprintf("no forward proxy definition with name %s", name))
 	case len(forwardProxyDefinitions) > 1:
-		return &v0.ForwardProxyDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.ForwardProxyDefinition{}, errors.New(fmt.Sprintf("more than one forward proxy definition with name %s returned", name))
 	}
 
 	return &forwardProxyDefinitions[0], nil
@@ -296,9 +296,9 @@ func GetForwardProxyInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(forwardProxyInstances) < 1:
-		return &v0.ForwardProxyInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.ForwardProxyInstance{}, errors.New(fmt.Sprintf("no forward proxy instance with name %s", name))
 	case len(forwardProxyInstances) > 1:
-		return &v0.ForwardProxyInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.ForwardProxyInstance{}, errors.New(fmt.Sprintf("more than one forward proxy instance with name %s returned", name))
 	}
 
 	return &forwardProxyInstances[0], nil

@@ -99,9 +99,9 @@ func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name 
 
 	switch {
 	case len(kubernetesRuntimeDefinitions) < 1:
-		return &v0.KubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.KubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("no kubernetes runtime definition with name %s", name))
 	case len(kubernetesRuntimeDefinitions) > 1:
-		return &v0.KubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.KubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("more than one kubernetes runtime definition with name %s returned", name))
 	}
 
 	return &kubernetesRuntimeDefinitions[0], nil
@@ -296,9 +296,9 @@ func GetKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name st
 
 	switch {
 	case len(kubernetesRuntimeInstances) < 1:
-		return &v0.KubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.KubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("no kubernetes runtime instance with name %s", name))
 	case len(kubernetesRuntimeInstances) > 1:
-		return &v0.KubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.KubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("more than one kubernetes runtime instance with name %s returned", name))
 	}
 
 	return &kubernetesRuntimeInstances[0], nil

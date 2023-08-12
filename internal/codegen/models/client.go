@@ -245,7 +245,7 @@ func (cc *ControllerConfig) ClientLib() error {
 						mc.TypeName,
 					).Values().Op(",").Qual("errors", "New").Call(
 						Qual("fmt", "Sprintf").Call(
-							Lit("no workload definitions with name %s").Op(",").Id("name"),
+							Lit("no "+strcase.ToDelimited(mc.TypeName, ' ')+" with name %s").Op(",").Id("name"),
 						),
 					),
 				),
@@ -255,7 +255,7 @@ func (cc *ControllerConfig) ClientLib() error {
 						mc.TypeName,
 					).Values().Op(",").Qual("errors", "New").Call(
 						Qual("fmt", "Sprintf").Call(
-							Lit("more than one workload definition with name %s returned").Op(",").Id("name"),
+							Lit("more than one "+strcase.ToDelimited(mc.TypeName, ' ')+" with name %s returned").Op(",").Id("name"),
 						),
 					),
 				),
