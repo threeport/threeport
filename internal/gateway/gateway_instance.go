@@ -666,7 +666,7 @@ func configureVirtualService(
 	// set virtual service upstream name field
 	err = unstructured.SetNestedField(
 		routes[0].(map[string]interface{}),
-		fmt.Sprintf("%s-%s-%d", namespace, name, *gatewayDefinition.TCPPort), // $namespace-$name-$port is convention for gloo edge upstream names
+		fmt.Sprintf("%s-%s-80", namespace, name), // $namespace-$name-$port is convention for gloo edge upstream names
 		"routeAction",
 		"single",
 		"upstream",
