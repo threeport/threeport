@@ -266,33 +266,6 @@ func createCertificate(gatewayDefinition *v0.GatewayDefinition, domain string) (
 	return unstructuredToYAMLString(certificate)
 }
 
-func createDnsEndpoint() (string, error) {
-
-	var resourceObj = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "externaldns.k8s.io/v1alpha1",
-			"kind":       "DNSEndpoint",
-			"metadata": map[string]interface{}{
-				"name": "dnsrecord",
-			},
-			"spec": map[string]interface{}{
-				"endpoints": []interface{}{
-					map[string]interface{}{
-						"dnsName":    "foo.bar.com",
-						"recordTTL":  180,
-						"recordType": "A",
-						"targets": []interface{}{
-							"192.168.99.216",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	return unstructuredToYAMLString(resourceObj)
-}
-
 // unstructuredToYAMLString converts an unstructured object into a YAML string.
 func unstructuredToYAMLString(unstructuredManifest *unstructured.Unstructured) (string, error) {
 	bytes, err := yaml.Marshal(unstructuredManifest.Object)
