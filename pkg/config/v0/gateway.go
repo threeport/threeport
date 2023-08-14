@@ -17,7 +17,7 @@ type GatewayDefinitionValues struct {
 	Name                 string                     `yaml:"Name"`
 	TCPPort              int                        `yaml:"TCPPort"`
 	TLSEnabled           bool                       `yaml:"TLSEnabled"`
-	Path                 string                     `yaml:"path"`
+	Path                 string                     `yaml:"Path"`
 	ServiceName          string                     `yaml:"ServiceName"`
 	DomainNameDefinition DomainNameDefinitionValues `yaml:"DomainNameDefinition"`
 }
