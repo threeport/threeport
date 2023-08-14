@@ -29,7 +29,10 @@ build-tptctl:
 ## code generation
 
 #generate: @ Run code generation
-generate: build-codegen
+generate: generate-code generate-docs
+
+#generate-code: @ Generate code
+generate-code: build-codegen
 	go generate ./...
 
 #generate-docs: @ Generate swagger docs
