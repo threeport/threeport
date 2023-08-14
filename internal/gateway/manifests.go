@@ -138,19 +138,17 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 		domainList = []interface{}{"*"}
 		virtualServiceName = *gatewayDefinition.Name
 	} else {
-		domainWithoutSchema := strings.SplitN(domain, ".", 2)[1]
+		domainWithoutSchema := strings.TrimPrefix(domain, "www.")
 		domainList = []interface{}{domain, domainWithoutSchema}
 		virtualServiceName = strcase.ToKebab(domainWithoutSchema)
 	}
 
 	sslConfig := map[string]interface{}{}
 	if *gatewayDefinition.TLSEnabled {
-		parts := strings.SplitN(domain, ".", 2)
-		dnsZone := parts[1]
-		kebabDnsZone := strcase.ToKebab(dnsZone)
+		strcase.ToKebab(strings.TrimPrefix(domain, "www."))
 		sslConfig = map[string]interface{}{
 			"secretRef": map[string]interface{}{
-				"name":      kebabDnsZone + "-tls",
+				"name":      getKebabDomain(domain) + "-tls",
 				"namespace": "default",
 			},
 		}
@@ -195,16 +193,12 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 
 func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 
-	parts := strings.SplitN(domain, ".", 2)
-	dnsZone := parts[1]
-	kebabDnsZone := strcase.ToKebab(dnsZone)
-
 	var issuer = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cert-manager.io/v1",
 			"kind":       "Issuer",
 			"metadata": map[string]interface{}{
-				"name": kebabDnsZone,
+				"name": getKebabDomain(domain),
 			},
 			"spec": map[string]interface{}{
 				"acme": map[string]interface{}{
@@ -217,7 +211,7 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain string) (strin
 						map[string]interface{}{
 							"selector": map[string]interface{}{
 								"dnsZones": []interface{}{
-									dnsZone,
+									strings.TrimSuffix(domain, "www."),
 								},
 							},
 							"dns01": map[string]interface{}{
@@ -237,24 +231,20 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain string) (strin
 
 func createCertificate(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 
-	parts := strings.SplitN(domain, ".", 2)
-	dnsZone := parts[1]
-	kebabDnsZone := strcase.ToKebab(dnsZone)
-
 	var certificate = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cert-manager.io/v1",
 			"kind":       "Certificate",
 			"metadata": map[string]interface{}{
-				"name": kebabDnsZone,
+				"name": getKebabDomain(domain),
 			},
 			"spec": map[string]interface{}{
-				"secretName": kebabDnsZone + "-tls",
+				"secretName": getKebabDomain(domain) + "-tls",
 				"dnsNames": []interface{}{
-					dnsZone,
+					strings.TrimSuffix(domain, "www."),
 				},
 				"issuerRef": map[string]interface{}{
-					"name": kebabDnsZone,
+					"name": getKebabDomain(domain),
 					"kind": "Issuer",
 				},
 			},
@@ -272,4 +262,9 @@ func unstructuredToYAMLString(unstructuredManifest *unstructured.Unstructured) (
 	}
 	stringManifest := string(bytes)
 	return stringManifest, nil
+}
+
+// getKebabDomain returns the domain name in kebab case.
+func getKebabDomain(url string) string {
+	return strcase.ToKebab(strings.TrimPrefix(url, "www."))
 }
