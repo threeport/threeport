@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+// createSupportServicesCollection creates a support services collection.
 func createSupportServicesCollection() (string, error) {
 	var supportServicesCollection = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -28,6 +29,7 @@ func createSupportServicesCollection() (string, error) {
 	return unstructuredToYAMLString(supportServicesCollection)
 }
 
+// createGlooEdge creates a gloo edge custom resource.
 func createGlooEdge() (string, error) {
 
 	var glooEdge = &unstructured.Unstructured{
@@ -47,6 +49,7 @@ func createGlooEdge() (string, error) {
 	return unstructuredToYAMLString(glooEdge)
 }
 
+// createExternalDns creates an external DNS custom resource.
 func createExternalDns(
 	provider,
 	iamRoleArn,
@@ -97,6 +100,7 @@ func createGlooEdgePort(name string, port int64, ssl bool) map[string]interface{
 	return portObject
 }
 
+// createCertManager creates a cert manager for the given IAM role ARN.
 func createCertManager(iamRoleArn string) (string, error) {
 
 	var certManager = &unstructured.Unstructured{
@@ -130,6 +134,7 @@ func createCertManager(iamRoleArn string) (string, error) {
 	return unstructuredToYAMLString(certManager)
 }
 
+// createVirtualService creates a virtual service for the given domain.
 func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 
 	var domainList []interface{}
@@ -191,6 +196,7 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 	return unstructuredToYAMLString(virtualService)
 }
 
+// createIssuer creates an issuer for the given domain.
 func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 
 	var issuer = &unstructured.Unstructured{
@@ -229,6 +235,7 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain string) (strin
 	return unstructuredToYAMLString(issuer)
 }
 
+// createCertificate creates a certificate for the given domain.
 func createCertificate(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 
 	var certificate = &unstructured.Unstructured{
