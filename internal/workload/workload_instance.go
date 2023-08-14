@@ -369,7 +369,7 @@ func workloadInstanceDeleted(
 		return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
 	}
 	if len(*workloadResourceInstances) == 0 {
-		// return errors.New("zero workload resource instances to delete")
+		// no workload resource instances to clean up
 		return nil
 	}
 
