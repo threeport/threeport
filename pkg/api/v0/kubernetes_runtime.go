@@ -104,4 +104,10 @@ type KubernetesRuntimeInstance struct {
 	// Indicates if object is considered to be reconciled by the kubernetes
 	// runtime controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
+
+	// TODO: evaluate potentially better ways to implement update metadata
+	// without creating an attribute on the object.
+	// Indicates if a particular change is passive to prevent unneeded
+	// reconciliation.
+	Passive *bool `json:"Passive,omitempty" gorm:"default:false" validate:"optional"`
 }

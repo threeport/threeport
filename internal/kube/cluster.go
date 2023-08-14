@@ -237,10 +237,12 @@ func refreshEKSConnection(
 		return nil, fmt.Errorf("failed to get EKS cluster connection info for token refresh: %w", err)
 	}
 
-	// update threeport API with new conncetion info
+	// update threeport API with new connection info
+	passiveChange := true // we do not want to triger reconciliation based on connection updates
 	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
 	runtimeInstance.ConnectionToken = &eksClusterConn.Token
 	runtimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
+	runtimeInstance.Passive = &passiveChange
 	_, err = client.UpdateKubernetesRuntimeInstance(
 		threeportAPIClient,
 		threeportAPIEndpoint,

@@ -1,9 +1,7 @@
 package kubernetesruntime
 
 import (
-	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 
@@ -141,25 +139,6 @@ func kubernetesRuntimeInstanceDeleted(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get workload instances running in kubernetes runtime: %w", err)
-	}
-	if len(*workloadInstances) > 0 {
-		if *kubernetesRuntimeInstance.ForceDelete {
-			for _, wi := range *workloadInstances {
-				_, err := client.DeleteWorkloadInstance(
-					r.APIClient,
-					r.APIServer,
-					*wi.ID,
-				)
-				if err != nil {
-					return fmt.Errorf("failed to delete workload instance with ID %d: %w", wi.ID, err)
-				}
-			}
-			// TODO: wait for workload instances to be deleted before deleting runtime
-			// without a dumb sleep
-			time.Sleep(time.Second * 300)
-		} else {
-			return errors.New("kubernetes runtime instance cannot be deleted - workload instances are present and ForceDelete is false")
-		}
 	}
 
 	// TODO: delete support services and control plane components
