@@ -4,7 +4,7 @@ import "time"
 
 const (
 	DefaultInitialRequeueDelay = 1
-	DefaultMaxRequeueDelay     = 300
+	DefaultMaxRequeueDelay     = 30
 )
 
 // SetRequeueDelay sets the requeue delay.  It will be set to the initial delay
