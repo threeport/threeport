@@ -204,7 +204,7 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
-	go http.ListenAndServe(":8082", nil)
+	go http.ListenAndServe(":8081", nil)
 
 	// run shutdown endpoint server
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

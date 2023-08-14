@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-	"net/http"
 	"os"
 	"sync"
 
@@ -78,13 +77,6 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
-	// set up health check endpoint
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-	go http.ListenAndServe(":8082", nil)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,

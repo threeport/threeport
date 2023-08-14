@@ -1005,14 +1005,14 @@ func InstallThreeportAgent(
 								//	"periodSeconds":       20,
 								//},
 								"name": "manager",
-								//"readinessProbe": map[string]interface{}{
-								//	"httpGet": map[string]interface{}{
-								//		"path": "/readyz",
-								//		"port": 8081,
-								//	},
-								//	"initialDelaySeconds": 5,
-								//	"periodSeconds":       10,
-								//},
+								"readinessProbe": map[string]interface{}{
+									"httpGet": map[string]interface{}{
+										"path": "/readyz",
+										"port": 8081,
+									},
+									"initialDelaySeconds": 5,
+									"periodSeconds":       10,
+								},
 								//"resources": map[string]interface{}{
 								//	"limits": map[string]interface{}{
 								//		"cpu":    "500m",
@@ -1032,7 +1032,6 @@ func InstallThreeportAgent(
 								//	},
 								//},
 								"volumeMounts":   agentVolMounts,
-								"readinessProbe": getReadinessProbe(),
 							},
 						},
 						"volumes": agentVols,
@@ -1806,11 +1805,11 @@ func getReadinessProbe() map[string]interface{} {
 			"failureThreshold": 1,
 			"httpGet": map[string]interface{}{
 				"path":   "/healthz",
-				"port":   8082,
+				"port":   8081,
 				"scheme": "HTTP",
 			},
 			"initialDelaySeconds": 1,
-			"periodSeconds":       1,
+			"periodSeconds":       2,
 			"successThreshold":    1,
 			"timeoutSeconds":      1,
 		},

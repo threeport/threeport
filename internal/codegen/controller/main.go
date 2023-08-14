@@ -432,7 +432,7 @@ func (cc *ControllerConfig) MainPackage() error {
 			),
 		),
 
-		Go().Id("http.ListenAndServe").Call(Lit(":8082"), Nil()),
+		Go().Id("http.ListenAndServe").Call(Lit(":8081"), Nil()),
 		Line(),
 
 		Comment("run shutdown endpoint server"),
