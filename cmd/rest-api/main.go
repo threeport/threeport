@@ -212,7 +212,7 @@ func main() {
 func configureHealthCheckEndpoint() {
 
 	// set up health check endpoint
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})

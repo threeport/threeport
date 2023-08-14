@@ -422,7 +422,7 @@ func (cc *ControllerConfig) MainPackage() error {
 		Line(),
 		Comment("set up health check endpoint"),
 		Id("http.HandleFunc").Call(
-			Lit("/healthz"),
+			Lit("/readyz"),
 			Func().Params(
 				Id("w").Qual("net/http", "ResponseWriter"),
 				Id("r").Op("*").Qual("net/http", "Request"),

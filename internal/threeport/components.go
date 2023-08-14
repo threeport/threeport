@@ -1031,7 +1031,7 @@ func InstallThreeportAgent(
 								//		},
 								//	},
 								//},
-								"volumeMounts":   agentVolMounts,
+								"volumeMounts": agentVolMounts,
 							},
 						},
 						"volumes": agentVols,
@@ -1804,7 +1804,7 @@ func getReadinessProbe() map[string]interface{} {
 		Object: map[string]interface{}{
 			"failureThreshold": 1,
 			"httpGet": map[string]interface{}{
-				"path":   "/healthz",
+				"path":   "/readyz",
 				"port":   8081,
 				"scheme": "HTTP",
 			},
