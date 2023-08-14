@@ -143,13 +143,11 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 		virtualServiceName = strcase.ToKebab(domainWithoutSchema)
 	}
 
-	parts := strings.SplitN(domain, ".", 2)
-	dnsZone := parts[1]
-	kebabDnsZone := strcase.ToKebab(dnsZone)
-
-	// var sslConfig map[string]interface{}
 	sslConfig := map[string]interface{}{}
 	if *gatewayDefinition.TLSEnabled {
+		parts := strings.SplitN(domain, ".", 2)
+		dnsZone := parts[1]
+		kebabDnsZone := strcase.ToKebab(dnsZone)
 		sslConfig = map[string]interface{}{
 			"secretRef": map[string]interface{}{
 				"name":      kebabDnsZone + "-tls",
