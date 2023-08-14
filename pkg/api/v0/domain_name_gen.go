@@ -65,13 +65,12 @@ func GetDomainNameSubjects() []string {
 func (dnd *DomainNameDefinition) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           dnd,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       dnd,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -114,13 +113,12 @@ func (dnd DomainNameDefinition) String() string {
 func (dni *DomainNameInstance) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           dni,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       dni,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)

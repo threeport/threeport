@@ -65,13 +65,12 @@ func GetGatewaySubjects() []string {
 func (gd *GatewayDefinition) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           gd,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       gd,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -114,13 +113,12 @@ func (gd GatewayDefinition) String() string {
 func (gi *GatewayInstance) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           gi,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       gi,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)

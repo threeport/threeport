@@ -137,13 +137,12 @@ func GetWorkloadSubjects() []string {
 func (wd *WorkloadDefinition) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           wd,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       wd,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -186,13 +185,12 @@ func (wd WorkloadDefinition) String() string {
 func (wrd *WorkloadResourceDefinition) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           wrd,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       wrd,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -235,13 +233,12 @@ func (wrd WorkloadResourceDefinition) String() string {
 func (wi *WorkloadInstance) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           wi,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       wi,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -284,13 +281,12 @@ func (wi WorkloadInstance) String() string {
 func (aor *AttachedObjectReference) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           aor,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       aor,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -333,13 +329,12 @@ func (aor AttachedObjectReference) String() string {
 func (wri *WorkloadResourceInstance) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           wri,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       wri,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -382,13 +377,12 @@ func (wri WorkloadResourceInstance) String() string {
 func (we *WorkloadEvent) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           we,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       we,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)

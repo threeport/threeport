@@ -11,6 +11,7 @@ import (
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -79,7 +80,7 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 	notifPayload, err := workloadDefinition.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -217,7 +218,7 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 		notifPayload, err := existingWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
-			0,
+			time.Now().Unix(),
 		)
 		if err != nil {
 			return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -335,7 +336,7 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 	notifPayload, err := workloadDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -401,7 +402,7 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 	notifPayload, err := workloadResourceDefinition.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -632,7 +633,7 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 	notifPayload, err := workloadResourceDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -713,7 +714,7 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 	notifPayload, err := workloadInstance.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -851,7 +852,7 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 		notifPayload, err := existingWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
-			0,
+			time.Now().Unix(),
 		)
 		if err != nil {
 			return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -963,7 +964,7 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 	notifPayload, err := workloadInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1029,7 +1030,7 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 	notifPayload, err := attachedObjectReference.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1260,7 +1261,7 @@ func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 	notifPayload, err := attachedObjectReference.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1326,7 +1327,7 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 	notifPayload, err := workloadResourceInstance.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1557,7 +1558,7 @@ func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 	notifPayload, err := workloadResourceInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1623,7 +1624,7 @@ func (h Handler) AddWorkloadEvent(c echo.Context) error {
 	notifPayload, err := workloadEvent.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1854,7 +1855,7 @@ func (h Handler) DeleteWorkloadEvent(c echo.Context) error {
 	notifPayload, err := workloadEvent.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

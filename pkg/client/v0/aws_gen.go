@@ -176,6 +176,7 @@ func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadAwsAccount.ID = &awsAccountID
 	return &payloadAwsAccount, nil
 }
 
@@ -372,6 +373,7 @@ func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadAwsEksKubernetesRuntimeDefinition.ID = &awsEksKubernetesRuntimeDefinitionID
 	return &payloadAwsEksKubernetesRuntimeDefinition, nil
 }
 
@@ -568,6 +570,7 @@ func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadAwsEksKubernetesRuntimeInstance.ID = &awsEksKubernetesRuntimeInstanceID
 	return &payloadAwsEksKubernetesRuntimeInstance, nil
 }
 
@@ -764,6 +767,7 @@ func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadAwsRelationalDatabaseDefinition.ID = &awsRelationalDatabaseDefinitionID
 	return &payloadAwsRelationalDatabaseDefinition, nil
 }
 
@@ -960,6 +964,7 @@ func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadAwsRelationalDatabaseInstance.ID = &awsRelationalDatabaseInstanceID
 	return &payloadAwsRelationalDatabaseInstance, nil
 }
 

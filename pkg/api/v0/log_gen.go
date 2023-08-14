@@ -83,13 +83,12 @@ func GetLogSubjects() []string {
 func (lb *LogBackend) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           lb,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       lb,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -132,13 +131,12 @@ func (lb LogBackend) String() string {
 func (lsd *LogStorageDefinition) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           lsd,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       lsd,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -181,13 +179,12 @@ func (lsd LogStorageDefinition) String() string {
 func (lsi *LogStorageInstance) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           lsi,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       lsi,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)

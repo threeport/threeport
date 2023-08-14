@@ -54,10 +54,9 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			if err != nil {
 				log.Error(
 					err, "failed to consume message data from NATS",
-					"msgSubject", msg.Subject,
 					"msgData", string(msg.Data),
 				)
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				r.RequeueRaw(msg)
 				log.V(1).Info("workload definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -66,7 +65,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			var workloadDefinition v0.WorkloadDefinition
 			if err := workloadDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
-				go r.RequeueRaw(msg.Subject, msg.Data)
+				r.RequeueRaw(msg)
 				log.V(1).Info("workload definition reconciliation requeued with identical payload and fixed delay")
 				continue
 			}
@@ -74,28 +73,13 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 
 			// back off the requeue delay as needed
 			requeueDelay := controller.SetRequeueDelay(
-				notif.LastRequeueDelay,
-				controller.DefaultInitialRequeueDelay,
-				controller.DefaultMaxRequeueDelay,
+				notif.CreationTime,
 			)
-
-			// build the notif payload for requeues
-			notifPayload, err := workloadDefinition.NotificationPayload(
-				notif.Operation,
-				true,
-				requeueDelay,
-			)
-			if err != nil {
-				log.Error(err, "failed to build notification payload for requeue")
-				go r.RequeueRaw(msg.Subject, msg.Data)
-				log.V(1).Info("workload definition reconciliation requeued with identical payload and fixed delay")
-				continue
-			}
 
 			// check for lock on object
 			locked, ok := r.CheckLock(&workloadDefinition)
 			if locked || ok == false {
-				go r.Requeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+				r.Requeue(&workloadDefinition, requeueDelay, msg)
 				log.V(1).Info("workload definition reconciliation requeued")
 				continue
 			}
@@ -105,7 +89,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				select {
 				case <-osSignals:
 					log.V(1).Info("received termination signal, performing unlock and requeue of workload definition")
-					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
 				case <-lockReleased:
 					log.V(1).Info("reached end of reconcile loop for workload definition, closing out signal handler")
 				}
@@ -113,14 +97,14 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 
 			// put a lock on the reconciliation of the created object
 			if ok := r.Lock(&workloadDefinition); !ok {
-				go r.Requeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay)
+				r.Requeue(&workloadDefinition, requeueDelay, msg)
 				log.V(1).Info("workload definition reconciliation requeued")
 				continue
 			}
 
-			// retrieve latest version of object if requeued unless object was
+			// retrieve latest version of object unless object was
 			// deleted (in which case we have the latest version)
-			if notif.Requeue && notif.Operation != notifications.NotificationOperationDeleted {
+			if notif.Operation != notifications.NotificationOperationDeleted {
 				latestWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
 					r.APIClient,
 					r.APIServer,
@@ -132,12 +116,12 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 						"object with ID %d no longer exists - halting reconciliation",
 						*workloadDefinition.ID,
 					))
-					r.ReleaseLock(&workloadDefinition, lockReleased)
+					r.ReleaseLock(&workloadDefinition, lockReleased, msg, true)
 					continue
 				}
 				if err != nil {
 					log.Error(err, "failed to get workload definition by ID from API")
-					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
 					continue
 				}
 				workloadDefinition = *latestWorkloadDefinition
@@ -150,10 +134,9 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile created workload definition object")
 					r.UnlockAndRequeue(
 						&workloadDefinition,
-						msg.Subject,
-						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 					continue
 				}
@@ -162,10 +145,9 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile updated workload definition object")
 					r.UnlockAndRequeue(
 						&workloadDefinition,
-						msg.Subject,
-						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 					continue
 				}
@@ -174,13 +156,12 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to reconcile deleted workload definition object")
 					r.UnlockAndRequeue(
 						&workloadDefinition,
-						msg.Subject,
-						notifPayload,
 						requeueDelay,
 						lockReleased,
+						msg,
 					)
 				} else {
-					r.ReleaseLock(&workloadDefinition, lockReleased)
+					r.ReleaseLock(&workloadDefinition, lockReleased, msg, true)
 					log.Info("workload definition successfully reconciled")
 				}
 				continue
@@ -191,10 +172,9 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				)
 				r.UnlockAndRequeue(
 					&workloadDefinition,
-					msg.Subject,
-					notifPayload,
 					requeueDelay,
 					lockReleased,
+					msg,
 				)
 				continue
 
@@ -214,7 +194,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				)
 				if err != nil {
 					log.Error(err, "failed to update workload definition to mark as reconciled")
-					r.UnlockAndRequeue(&workloadDefinition, msg.Subject, notifPayload, requeueDelay, lockReleased)
+					r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
 					continue
 				}
 				log.V(1).Info(
@@ -224,7 +204,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&workloadDefinition, lockReleased); !ok {
+			if ok := r.ReleaseLock(&workloadDefinition, lockReleased, msg, true); !ok {
 				log.V(1).Info("workload definition remains locked - will unlock when TTL expires")
 			} else {
 				log.V(1).Info("workload definition unlocked")

@@ -176,6 +176,7 @@ func UpdateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadKubernetesRuntimeDefinition.ID = &kubernetesRuntimeDefinitionID
 	return &payloadKubernetesRuntimeDefinition, nil
 }
 
@@ -372,6 +373,7 @@ func UpdateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadKubernetesRuntimeInstance.ID = &kubernetesRuntimeInstanceID
 	return &payloadKubernetesRuntimeInstance, nil
 }
 

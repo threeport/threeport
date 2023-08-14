@@ -93,11 +93,10 @@ func (cc *ControllerConfig) Reconcilers() error {
 						If(Id("err").Op("!=").Nil()).Block(
 							Id("log").Dot("Error").Call(
 								Line().Id("err"), Lit("failed to consume message data from NATS"),
-								Line().Lit("msgSubject"), Id("msg").Dot("Subject"),
 								Line().Lit("msgData"), Id("string").Call(Id("msg").Dot("Data")),
 								Line(),
 							),
-							Go().Id("r").Dot("RequeueRaw").Call(Id("msg").Dot("Subject"), Id("msg").Dot("Data")),
+							Id("r").Dot("RequeueRaw").Call(Id("msg")),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
 								Lit(fmt.Sprintf(
 									"%s reconciliation requeued with identical payload and fixed delay",
@@ -119,7 +118,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Id("log").Dot("Error").Call(
 								Id("err"), Lit("failed to marshal object map from consumed notification message"),
 							),
-							Go().Id("r").Dot("RequeueRaw").Call(Id("msg").Dot("Subject"), Id("msg").Dot("Data")),
+							Id("r").Dot("RequeueRaw").Call(Id("msg")),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
 								Lit(fmt.Sprintf(
 									"%s reconciliation requeued with identical payload and fixed delay",
@@ -138,34 +137,8 @@ func (cc *ControllerConfig) Reconcilers() error {
 
 						Comment("back off the requeue delay as needed"),
 						Id("requeueDelay").Op(":=").Id("controller").Dot("SetRequeueDelay").Call(
-							Line().Id("notif").Dot("LastRequeueDelay"),
-							Line().Id("controller").Dot("DefaultInitialRequeueDelay"),
-							Line().Id("controller").Dot("DefaultMaxRequeueDelay"),
+							Line().Id("notif").Dot("CreationTime"),
 							Line(),
-						),
-						Line(),
-
-						Comment("build the notif payload for requeues"),
-						Id("notifPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(obj)).Dot("NotificationPayload").Call(
-							Line().Id("notif").Dot("Operation"),
-							Line().Lit(true),
-							Line().Id("requeueDelay"),
-							Line(),
-						),
-						If(Id("err").Op("!=").Nil()).Block(
-							Id("log").Dot("Error").Call(
-								Id("err").Op(",").Lit("failed to build notification payload for requeue"),
-							),
-							Go().Id("r").Dot("RequeueRaw").Call(
-								Id("msg").Dot("Subject").Op(",").Id("msg").Dot("Data"),
-							),
-							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
-								Lit(fmt.Sprintf(
-									"%s reconciliation requeued with identical payload and fixed delay",
-									strcase.ToDelimited(obj, ' '),
-								)),
-							),
-							Continue(),
 						),
 						Line(),
 
@@ -174,8 +147,8 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Op("&").Id(strcase.ToLowerCamel(obj)),
 						),
 						If(Id("locked").Op("||").Id("ok").Op("==").Id("false")).Block(
-							Go().Id("r").Dot("Requeue").Call(
-								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("msg").Dot("Subject").Op(",").Id("notifPayload").Op(",").Id("requeueDelay"),
+							Id("r").Dot("Requeue").Call(
+								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
 							),
 							Id("log").Dot("V").Call(
 								Lit(1),
@@ -194,7 +167,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 										"received termination signal, performing unlock and requeue of %s",
 										strcase.ToDelimited(obj, ' '),
 									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("msg").Dot("Subject"), Id("notifPayload"), Id("requeueDelay"), Id("lockReleased")),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 								),
 								Case(Op("<-").Id("lockReleased")).Block(
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
@@ -209,8 +182,8 @@ func (cc *ControllerConfig) Reconcilers() error {
 						If(Id("ok").Op(":=").Id("r").Dot("Lock").Call(
 							Op("&").Id(strcase.ToLowerCamel(obj))).Op(";").Op("!").Id("ok"),
 						).Block(
-							Go().Id("r").Dot("Requeue").Call(
-								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("msg").Dot("Subject").Op(",").Id("notifPayload").Op(",").Id("requeueDelay"),
+							Id("r").Dot("Requeue").Call(
+								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
 							),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 								"%s reconciliation requeued",
@@ -220,10 +193,10 @@ func (cc *ControllerConfig) Reconcilers() error {
 						),
 						Line(),
 
-						Comment("retrieve latest version of object if requeued unless object was"),
+						Comment("retrieve latest version of object unless object was"),
 						Comment("deleted (in which case we have the latest version)"),
 						If(
-							Id("notif").Dot("Requeue").Op("&&").Id("notif").Dot("Operation").Op("!=").Qual(
+							Id("notif").Dot("Operation").Op("!=").Qual(
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationDeleted",
 							),
@@ -255,7 +228,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									)).Dot("ID"),
 									Line(),
 								)),
-								Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased")),
+								Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)),
 								Continue(),
 							),
 							If(Id("err").Op("!=").Nil()).Block(
@@ -263,7 +236,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									"failed to get %s by ID from API",
 									strcase.ToDelimited(obj, ' '),
 								))),
-								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("msg").Dot("Subject"), Id("notifPayload"), Id("requeueDelay"), Id("lockReleased")),
+								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 								Continue(),
 							),
 							Id(strcase.ToLowerCamel(obj)).Op("=").Op("*").Id(fmt.Sprintf(
@@ -295,10 +268,9 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-										Line().Id("msg").Dot("Subject"),
-										Line().Id("notifPayload"),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
+										Line().Id("msg"),
 										Line(),
 									),
 									Continue(),
@@ -324,10 +296,9 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-										Line().Id("msg").Dot("Subject"),
-										Line().Id("notifPayload"),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
+										Line().Id("msg"),
 										Line(),
 									),
 									Continue(),
@@ -353,14 +324,13 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-										Line().Id("msg").Dot("Subject"),
-										Line().Id("notifPayload"),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
+										Line().Id("msg"),
 										Line(),
 									),
 								).Else().Block(
-									Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased")),
+									Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)),
 									Id("log").Dot("Info").Call(Lit(fmt.Sprintf(
 										"%s successfully reconciled",
 										strcase.ToDelimited(obj, ' '),
@@ -376,10 +346,9 @@ func (cc *ControllerConfig) Reconcilers() error {
 								),
 								Id("r").Dot("UnlockAndRequeue").Call(
 									Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-									Line().Id("msg").Dot("Subject"),
-									Line().Id("notifPayload"),
 									Line().Id("requeueDelay"),
 									Line().Id("lockReleased"),
+									Line().Id("msg"),
 									Line(),
 								),
 								Continue(),
@@ -429,7 +398,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									"failed to update %s to mark as reconciled",
 									strcase.ToDelimited(obj, ' '),
 								))),
-								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("msg").Dot("Subject"), Id("notifPayload"), Id("requeueDelay"), Id("lockReleased")),
+								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 								Continue(),
 							),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
@@ -450,7 +419,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 						Line(),
 
 						Comment("release the lock on the reconciliation of the created object"),
-						If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased")), Op("!").Id("ok")).Block(
+						If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)), Op("!").Id("ok")).Block(
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 								"%s remains locked - will unlock when TTL expires",
 								strcase.ToDelimited(obj, ' '),

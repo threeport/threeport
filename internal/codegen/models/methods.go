@@ -122,7 +122,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 				"NotificationOperation",
 			),
 			Line().Id("requeue").Bool(),
-			Line().Id("lastDelay").Int64(),
+			Line().Id("creationTime").Int64(),
 			Line(),
 		).Parens(List(
 			Op("*").Index().Byte(),
@@ -132,10 +132,9 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 				"github.com/threeport/threeport/pkg/notifications/v0",
 				"Notification",
 			).Values(Dict{
-				Id("Operation"):        Id("operation"),
-				Id("Requeue"):          Id("requeue"),
-				Id("LastRequeueDelay"): Op("&").Id("lastDelay"),
-				Id("Object"):           Id(codegen.TypeAbbrev(mc.TypeName)),
+				Id("Operation"):    Id("operation"),
+				Id("CreationTime"): Op("&").Id("creationTime"),
+				Id("Object"):       Id(codegen.TypeAbbrev(mc.TypeName)),
 			}),
 			Line(),
 			List(

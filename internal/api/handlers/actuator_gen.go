@@ -11,6 +11,7 @@ import (
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -79,7 +80,7 @@ func (h Handler) AddProfile(c echo.Context) error {
 	notifPayload, err := profile.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -310,7 +311,7 @@ func (h Handler) DeleteProfile(c echo.Context) error {
 	notifPayload, err := profile.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -391,7 +392,7 @@ func (h Handler) AddTier(c echo.Context) error {
 	notifPayload, err := tier.NotificationPayload(
 		notifications.NotificationOperationCreated,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -622,7 +623,7 @@ func (h Handler) DeleteTier(c echo.Context) error {
 	notifPayload, err := tier.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

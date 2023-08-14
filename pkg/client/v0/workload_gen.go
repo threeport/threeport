@@ -176,6 +176,7 @@ func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadWorkloadDefinition.ID = &workloadDefinitionID
 	return &payloadWorkloadDefinition, nil
 }
 
@@ -372,6 +373,7 @@ func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadWorkloadResourceDefinition.ID = &workloadResourceDefinitionID
 	return &payloadWorkloadResourceDefinition, nil
 }
 
@@ -568,6 +570,7 @@ func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadWorkloadInstance.ID = &workloadInstanceID
 	return &payloadWorkloadInstance, nil
 }
 
@@ -764,6 +767,7 @@ func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadAttachedObjectReference.ID = &attachedObjectReferenceID
 	return &payloadAttachedObjectReference, nil
 }
 
@@ -960,6 +964,7 @@ func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadWorkloadResourceInstance.ID = &workloadResourceInstanceID
 	return &payloadWorkloadResourceInstance, nil
 }
 
@@ -1156,6 +1161,7 @@ func UpdateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadWorkloadEvent.ID = &workloadEventID
 	return &payloadWorkloadEvent, nil
 }
 

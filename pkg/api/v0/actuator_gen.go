@@ -65,13 +65,12 @@ func GetActuatorSubjects() []string {
 func (p *Profile) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           p,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       p,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -114,13 +113,12 @@ func (p Profile) String() string {
 func (t *Tier) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           t,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       t,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)

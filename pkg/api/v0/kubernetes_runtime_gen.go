@@ -65,13 +65,12 @@ func GetKubernetesRuntimeSubjects() []string {
 func (krd *KubernetesRuntimeDefinition) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           krd,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       krd,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -114,13 +113,12 @@ func (krd KubernetesRuntimeDefinition) String() string {
 func (kri *KubernetesRuntimeInstance) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           kri,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       kri,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)

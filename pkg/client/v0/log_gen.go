@@ -176,6 +176,7 @@ func UpdateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadLogBackend.ID = &logBackendID
 	return &payloadLogBackend, nil
 }
 
@@ -372,6 +373,7 @@ func UpdateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadLogStorageDefinition.ID = &logStorageDefinitionID
 	return &payloadLogStorageDefinition, nil
 }
 
@@ -568,6 +570,7 @@ func UpdateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
+	payloadLogStorageInstance.ID = &logStorageInstanceID
 	return &payloadLogStorageInstance, nil
 }
 

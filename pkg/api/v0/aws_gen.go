@@ -119,13 +119,12 @@ func GetAwsSubjects() []string {
 func (aa *AwsAccount) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           aa,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       aa,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -168,13 +167,12 @@ func (aa AwsAccount) String() string {
 func (aekrd *AwsEksKubernetesRuntimeDefinition) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           aekrd,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       aekrd,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -217,13 +215,12 @@ func (aekrd AwsEksKubernetesRuntimeDefinition) String() string {
 func (aekri *AwsEksKubernetesRuntimeInstance) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           aekri,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       aekri,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -266,13 +263,12 @@ func (aekri AwsEksKubernetesRuntimeInstance) String() string {
 func (ardd *AwsRelationalDatabaseDefinition) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           ardd,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       ardd,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
@@ -315,13 +311,12 @@ func (ardd AwsRelationalDatabaseDefinition) String() string {
 func (ardi *AwsRelationalDatabaseInstance) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
-	lastDelay int64,
+	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
-		LastRequeueDelay: &lastDelay,
-		Object:           ardi,
-		Operation:        operation,
-		Requeue:          requeue,
+		CreationTime: &creationTime,
+		Object:       ardi,
+		Operation:    operation,
 	}
 
 	payload, err := json.Marshal(notif)
