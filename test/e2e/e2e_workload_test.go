@@ -267,6 +267,24 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.NotNil(err, "duplicate workload instance should throw error")
 
+		// configure domain name instance
+		domainNameInstance := &v0.DomainNameInstance{
+			Instance: v0.Instance{
+				Name: &workloadInstName,
+			},
+			DomainNameDefinitionID:      domainNameDefinition.ID,
+			WorkloadInstanceID:          createdWorkloadInst.ID,
+			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
+		}
+
+		// create domain name instance
+		_, err = client.CreateDomainNameInstance(
+			apiClient,
+			apiAddr(),
+			domainNameInstance,
+		)
+		assert.Nil(err, "should have no error creating domain name instance")
+
 		// create a gateway instance
 		gatewayInstanceName := "gatewayInstance"
 		gatewayInstance := &v0.GatewayInstance{
