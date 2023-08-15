@@ -233,6 +233,7 @@ func validateThreeportStateExternalDns(
 	return nil
 }
 
+// getGlooEdgeNamespace gets the namespace of the gloo edge instance.
 func getGlooEdgeNamespace(r *controller.Reconciler, workloadInstanceID *uint) (string, error) {
 
 	// get gloo edge workload resource instance
