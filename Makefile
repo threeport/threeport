@@ -29,8 +29,15 @@ build-tptctl:
 ## code generation
 
 #generate: @ Run code generation
-generate: build-codegen
+generate: generate-code generate-docs
+
+#generate-code: @ Generate code
+generate-code: build-codegen
 	go generate ./...
+
+#generate-docs: @ Generate swagger docs
+generate-docs:
+	swag init --dir cmd/rest-api,pkg/api,internal/api --parseDependency --generalInfo main.go --output ../../internal/api/docs
 
 ## testing
 
@@ -121,9 +128,12 @@ dev-reset-crdb:
 		workload_instances, \
 		workload_resource_instances, \
 		gateway_instances, \
-		gateway_definitions; \
+		gateway_definitions, \
+		domain_name_definitions, \
+		domain_name_instances; \
 		set sql_safe_updates = false; \
 		update kubernetes_runtime_instances set gateway_controller_instance_id = NULL; \
+		update kubernetes_runtime_instances set dns_controller_instance_id = NULL; \
 		set sql_safe_updates = true;"
 
 #TODO: move to kubectl exec command that uses `nats` binary in contianer

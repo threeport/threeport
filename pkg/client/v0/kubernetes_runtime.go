@@ -104,3 +104,21 @@ func GetThreeportControlPlaneKubernetesRuntimeInstance(apiClient *http.Client, a
 
 	return &kubernetesRuntimeInstance, nil
 }
+
+// GetInfraProviderByKubernetesRuntimeInstanceID gets the infrastructure provider from the kubernetes runtime instance.
+func GetInfraProviderByKubernetesRuntimeInstanceID(apiClient *http.Client, apiAddr string, kubernetesRuntimeInstanceId *uint) (*string, error) {
+
+	// get kubernetes runtime instance
+	kri, err := GetKubernetesRuntimeInstanceByID(apiClient, apiAddr, *kubernetesRuntimeInstanceId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+
+	// get kubernetes runtime definition
+	krd, err := GetKubernetesRuntimeDefinitionByID(apiClient, apiAddr, *kri.KubernetesRuntimeDefinitionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime definition: %w", err)
+	}
+
+	return krd.InfraProvider, nil
+}

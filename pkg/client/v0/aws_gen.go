@@ -99,9 +99,9 @@ func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsA
 
 	switch {
 	case len(awsAccounts) < 1:
-		return &v0.AwsAccount{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.AwsAccount{}, errors.New(fmt.Sprintf("no aws account with name %s", name))
 	case len(awsAccounts) > 1:
-		return &v0.AwsAccount{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.AwsAccount{}, errors.New(fmt.Sprintf("more than one aws account with name %s returned", name))
 	}
 
 	return &awsAccounts[0], nil
@@ -296,9 +296,9 @@ func GetAwsEksKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr,
 
 	switch {
 	case len(awsEksKubernetesRuntimeDefinitions) < 1:
-		return &v0.AwsEksKubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.AwsEksKubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("no aws eks kubernetes runtime definition with name %s", name))
 	case len(awsEksKubernetesRuntimeDefinitions) > 1:
-		return &v0.AwsEksKubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.AwsEksKubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("more than one aws eks kubernetes runtime definition with name %s returned", name))
 	}
 
 	return &awsEksKubernetesRuntimeDefinitions[0], nil
@@ -493,9 +493,9 @@ func GetAwsEksKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, n
 
 	switch {
 	case len(awsEksKubernetesRuntimeInstances) < 1:
-		return &v0.AwsEksKubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.AwsEksKubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("no aws eks kubernetes runtime instance with name %s", name))
 	case len(awsEksKubernetesRuntimeInstances) > 1:
-		return &v0.AwsEksKubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.AwsEksKubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("more than one aws eks kubernetes runtime instance with name %s returned", name))
 	}
 
 	return &awsEksKubernetesRuntimeInstances[0], nil
@@ -690,9 +690,9 @@ func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, n
 
 	switch {
 	case len(awsRelationalDatabaseDefinitions) < 1:
-		return &v0.AwsRelationalDatabaseDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.AwsRelationalDatabaseDefinition{}, errors.New(fmt.Sprintf("no aws relational database definition with name %s", name))
 	case len(awsRelationalDatabaseDefinitions) > 1:
-		return &v0.AwsRelationalDatabaseDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.AwsRelationalDatabaseDefinition{}, errors.New(fmt.Sprintf("more than one aws relational database definition with name %s returned", name))
 	}
 
 	return &awsRelationalDatabaseDefinitions[0], nil
@@ -887,9 +887,9 @@ func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, nam
 
 	switch {
 	case len(awsRelationalDatabaseInstances) < 1:
-		return &v0.AwsRelationalDatabaseInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.AwsRelationalDatabaseInstance{}, errors.New(fmt.Sprintf("no aws relational database instance with name %s", name))
 	case len(awsRelationalDatabaseInstances) > 1:
-		return &v0.AwsRelationalDatabaseInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.AwsRelationalDatabaseInstance{}, errors.New(fmt.Sprintf("more than one aws relational database instance with name %s returned", name))
 	}
 
 	return &awsRelationalDatabaseInstances[0], nil

@@ -99,7 +99,7 @@ func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (
 
 	switch {
 	case len(workloadDefinitions) < 1:
-		return &v0.WorkloadDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.WorkloadDefinition{}, errors.New(fmt.Sprintf("no workload definition with name %s", name))
 	case len(workloadDefinitions) > 1:
 		return &v0.WorkloadDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
 	}
@@ -296,9 +296,9 @@ func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name s
 
 	switch {
 	case len(workloadResourceDefinitions) < 1:
-		return &v0.WorkloadResourceDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.WorkloadResourceDefinition{}, errors.New(fmt.Sprintf("no workload resource definition with name %s", name))
 	case len(workloadResourceDefinitions) > 1:
-		return &v0.WorkloadResourceDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.WorkloadResourceDefinition{}, errors.New(fmt.Sprintf("more than one workload resource definition with name %s returned", name))
 	}
 
 	return &workloadResourceDefinitions[0], nil
@@ -493,9 +493,9 @@ func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v
 
 	switch {
 	case len(workloadInstances) < 1:
-		return &v0.WorkloadInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.WorkloadInstance{}, errors.New(fmt.Sprintf("no workload instance with name %s", name))
 	case len(workloadInstances) > 1:
-		return &v0.WorkloadInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.WorkloadInstance{}, errors.New(fmt.Sprintf("more than one workload instance with name %s returned", name))
 	}
 
 	return &workloadInstances[0], nil
@@ -690,9 +690,9 @@ func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name stri
 
 	switch {
 	case len(attachedObjectReferences) < 1:
-		return &v0.AttachedObjectReference{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.AttachedObjectReference{}, errors.New(fmt.Sprintf("no attached object reference with name %s", name))
 	case len(attachedObjectReferences) > 1:
-		return &v0.AttachedObjectReference{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.AttachedObjectReference{}, errors.New(fmt.Sprintf("more than one attached object reference with name %s returned", name))
 	}
 
 	return &attachedObjectReferences[0], nil
@@ -887,9 +887,9 @@ func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name str
 
 	switch {
 	case len(workloadResourceInstances) < 1:
-		return &v0.WorkloadResourceInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.WorkloadResourceInstance{}, errors.New(fmt.Sprintf("no workload resource instance with name %s", name))
 	case len(workloadResourceInstances) > 1:
-		return &v0.WorkloadResourceInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.WorkloadResourceInstance{}, errors.New(fmt.Sprintf("more than one workload resource instance with name %s returned", name))
 	}
 
 	return &workloadResourceInstances[0], nil
@@ -1084,9 +1084,9 @@ func GetWorkloadEventByName(apiClient *http.Client, apiAddr, name string) (*v0.W
 
 	switch {
 	case len(workloadEvents) < 1:
-		return &v0.WorkloadEvent{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.WorkloadEvent{}, errors.New(fmt.Sprintf("no workload event with name %s", name))
 	case len(workloadEvents) > 1:
-		return &v0.WorkloadEvent{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.WorkloadEvent{}, errors.New(fmt.Sprintf("more than one workload event with name %s returned", name))
 	}
 
 	return &workloadEvents[0], nil

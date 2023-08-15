@@ -12,14 +12,17 @@ import (
 )
 
 const (
-	SupportServicesNamespace = "support-services-system"
-	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.2.0"
+	SupportServicesNamespace     = "support-services-system"
+	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.4.2"
 	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
 
 	// links the service account delcared in the IngressComponent resource to the
 	// resource config for eks-cluster to create the attached IAM role.
 	DNSManagerServiceAccountName     = "external-dns"
-	DNSManagerServiceAccountNamepace = "nukleros-ingress-system"
+	DNSManagerServiceAccountNamepace = "nukleros-gateway-system"
+
+	DNS01ChallengeServiceAccountName     = "cert-manager"
+	DNS01ChallengeServiceAccountNamepace = "nukleros-certs-system"
 
 	// links the service account used by the EBS CSI driver to the resource
 	// config for eks-cluster to create the attached IAM role.
@@ -129,6 +132,10 @@ func InstallThreeportCRDs(
 													},
 												},
 												"type": "object",
+											},
+											"iamRoleArn": map[string]interface{}{
+												"description": "On AWS, the IAM Role ARN that gives cert-manager access to Route53",
+												"type":        "string",
 											},
 											"namespace": map[string]interface{}{
 												"default":     "nukleros-certs-system",
@@ -343,6 +350,13 @@ func InstallThreeportCRDs(
 											"domainName": map[string]interface{}{
 												"type": "string",
 											},
+											"extraArgs": map[string]interface{}{
+												"description": "Extra arguments to be passed into the External DNS container.",
+												"items": map[string]interface{}{
+													"type": "string",
+												},
+												"type": "array",
+											},
 											"iamRoleArn": map[string]interface{}{
 												"description": "On AWS, the IAM Role ARN that gives external-dns access to Route53",
 												"type":        "string",
@@ -353,8 +367,8 @@ func InstallThreeportCRDs(
 												"type":        "string",
 											},
 											"namespace": map[string]interface{}{
-												"default":     "nukleros-ingress-system",
-												"description": "(Default: \"nukleros-ingress-system\") Namespace to use for ingress support services.",
+												"default":     "nukleros-gateway-system",
+												"description": "(Default: \"nukleros-gateway-system\") Namespace to use for ingress support services.",
 												"type":        "string",
 											},
 											"provider": map[string]interface{}{

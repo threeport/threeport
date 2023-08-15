@@ -7384,6 +7384,9 @@ const docTemplate = `{
                 }
             }
         },
+        "datatypes.JSON": {
+            "type": "object"
+        },
         "v0.AttachedObjectReference": {
             "type": "object",
             "required": [
@@ -7621,6 +7624,13 @@ const docTemplate = `{
                     "description": "The base domain upon which the subdomain will be added to give a workload\na unique domain name.",
                     "type": "string"
                 },
+                "DomainNameInstances": {
+                    "description": "The associated domain name instances that are deployed from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.DomainNameInstance"
+                    }
+                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -7629,8 +7639,16 @@ const docTemplate = `{
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
                 },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "type": "boolean"
+                },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                },
+                "WorkloadDefinitionID": {
+                    "description": "The workload definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Zone": {
@@ -7652,16 +7670,24 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "KubernetesRuntimeInstanceID": {
-                    "description": "The kubernetes runtime where the workload that is using the domain name is running.",
+                    "description": "The cluster where the workload that is using the domain name is running.",
                     "type": "integer"
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "type": "boolean"
+                },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "WorkloadInstanceID": {
+                    "description": "The workload instance this gateway belongs to.",
+                    "type": "integer"
                 }
             }
         },
@@ -7883,6 +7909,10 @@ const docTemplate = `{
                     "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
                     "type": "boolean"
                 },
+                "DnsWorkloadInstanceID": {
+                    "description": "The WorkloadInstanceID of the dns support service",
+                    "type": "integer"
+                },
                 "GatewayWorkloadInstanceID": {
                     "description": "The WorkloadInstanceID of the gateway support service",
                     "type": "integer"
@@ -8026,6 +8056,20 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "Profile",
+                "Tier",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
@@ -8045,13 +8089,27 @@ const docTemplate = `{
                 "KubernetesRuntimeInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance"
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "Profile",
+                "Tier"
             ],
             "x-enum-varnames": [
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
@@ -8071,11 +8129,23 @@ const docTemplate = `{
                 "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
+<<<<<<< HEAD
                 "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsEksClusterDefinition",
+                "ObjectTypeAwsEksClusterInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance"
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance"
             ]
         },
         "v0.Profile": {
@@ -8303,10 +8373,11 @@ const docTemplate = `{
             "properties": {
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "WorkloadDefinitionID": {
                     "description": "The workload definition this resource belongs to.",
@@ -8330,10 +8401,11 @@ const docTemplate = `{
                 },
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.  This field is a superset of\nWorkloadResourceDefinition.JSONDefinition in that it has namespace\nmanagement and other configuration - such as resource allocation\nmanagement - added.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "LastOperation": {
                     "description": "The most recent operation performed on a Kubernete resource in the\nkubernetes runtime.",
@@ -8345,10 +8417,11 @@ const docTemplate = `{
                 },
                 "RuntimeDefinition": {
                     "description": "The JSON definition of a Kubernetes resource as stored in etcd in the\nkubernetes runtime.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "ScheduledForDeletion": {
                     "description": "Whether another controller has scheduled this resource for deletion",

@@ -257,6 +257,38 @@ func GetAttachedObjectReferencesByWorkloadInstanceID(apiClient *http.Client, api
 	return &attachedObjectReferences, nil
 }
 
+// EnsureAttachedObjectReferenceExists ensures that an attached object reference
+// exists for the given object type and ID.
+func EnsureAttachedObjectReferenceExists(apiClient *http.Client, apiAddr, objectType string, id, workloadInstanceID *uint) error {
+
+	attachedObjectReferences, err := GetAttachedObjectReferencesByWorkloadInstanceID(apiClient, apiAddr, *workloadInstanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
+	}
+
+	// check if attached object reference already exists
+	for _, attachedObjectReference := range *attachedObjectReferences {
+		if *attachedObjectReference.Type == objectType &&
+			*attachedObjectReference.ObjectID == *id {
+			return nil
+		}
+	}
+
+	// create attached object reference
+	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
+		Type:               &objectType,
+		ObjectID:           id,
+		WorkloadInstanceID: workloadInstanceID,
+	}
+	_, err = CreateAttachedObjectReference(apiClient, apiAddr, workloadInstanceAttachedObjectReference)
+	if err != nil {
+		return fmt.Errorf("failed to create attached object reference: %w", err)
+	}
+
+	return nil
+
+}
+
 // ConfirmWorkloadInstanceReconciled confirms whether a workload instance
 // is reconciled.
 func ConfirmWorkloadInstanceReconciled(

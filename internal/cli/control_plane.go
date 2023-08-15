@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/nukleros/eks-cluster/pkg/resource"
+	"gorm.io/datatypes"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
@@ -692,6 +693,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	// * set region in threeport config
 	// * create aws eks k8s runtime definition
 	// * create aws eks k8s runtime instance
+	// * copy aws eks resource inventory to cluster
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create aws account
@@ -769,6 +771,17 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		}
 
 		// create aws eks k8s runtime instance
+		inventory, err := resource.ReadInventory(
+			provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to read eks kubernetes runtime inventory for inventory update: %w", err)
+		}
+		inventoryJSON, err := resource.MarshalInventory(inventory)
+		if err != nil {
+			return fmt.Errorf("failed to marshal eks kubernetes runtime inventory for inventory update: %w", err)
+		}
+		dbInventory := datatypes.JSON(inventoryJSON)
 		eksRuntimeInstName := threeport.BootstrapKubernetesRuntimeName(a.InstanceName)
 		reconciled := true
 		awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
@@ -779,6 +792,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			AwsEksKubernetesRuntimeDefinitionID: createdAwsEksKubernetesRuntimeDef.ID,
 			Reconciled:                          &reconciled,
 			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
+			ResourceInventory:                   &dbInventory,
 		}
 		_, err = client.CreateAwsEksKubernetesRuntimeInstance(
 			apiClient,

@@ -19,7 +19,7 @@ func gatewayDefinitionCreated(
 ) error {
 
 	// create gateway kubernetes manifests
-	yamlDocument, err := createYAMLDocument(gatewayDefinition)
+	yamlDocument, err := createYAMLDocument(r, gatewayDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to create yaml document: %w", err)
 	}
@@ -68,7 +68,7 @@ func gatewayDefinitionUpdated(
 ) error {
 
 	// create gateway kubernetes manifests
-	yamlDocument, err := createYAMLDocument(gatewayDefinition)
+	yamlDocument, err := createYAMLDocument(r, gatewayDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to create yaml document: %w", err)
 	}
@@ -139,13 +139,30 @@ func gatewayDefinitionDeleted(
 	return nil
 }
 
-func createYAMLDocument(gatewayDefinition *v0.GatewayDefinition) (string, error) {
+// createYAMLDocument creates a YAML document containing the Kubernetes
+// manifests for a gateway definition.
+func createYAMLDocument(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (string, error) {
 	// create Gloo virtual service definition
 
 	manifests := []string{}
 
+	domain := ""
+	adminEmail := ""
+
+	if gatewayDefinition.DomainNameDefinitionID != nil {
+
+		domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *gatewayDefinition.DomainNameDefinitionID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get domain name definition by ID: %w", err)
+		}
+
+		domain = *domainNameDefinition.Domain
+		adminEmail = *domainNameDefinition.AdminEmail
+
+	}
+
 	// create Gloo virtual service definition
-	virtualService, err := createVirtualService(gatewayDefinition)
+	virtualService, err := createVirtualService(gatewayDefinition, domain)
 	if err != nil {
 		return "", fmt.Errorf("failed to create virtual service: %w", err)
 	}
@@ -153,15 +170,19 @@ func createYAMLDocument(gatewayDefinition *v0.GatewayDefinition) (string, error)
 
 	if *gatewayDefinition.TLSEnabled {
 
+		if domain == "" {
+			return "", fmt.Errorf("failed to create issuer and certificate, domain is empty")
+		}
+
 		// create cert manager issuer definition
-		issuer, err := createIssuer(gatewayDefinition)
+		issuer, err := createIssuer(gatewayDefinition, domain, adminEmail)
 		if err != nil {
 			return "", fmt.Errorf("failed to create issuer: %w", err)
 		}
 		manifests = append(manifests, issuer)
 
 		// create cert manager certificate definition
-		certificate, err := createCertificate(gatewayDefinition)
+		certificate, err := createCertificate(gatewayDefinition, domain)
 		if err != nil {
 			return "", fmt.Errorf("failed to create certificate: %w", err)
 		}

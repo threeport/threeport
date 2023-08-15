@@ -45,9 +45,14 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 	resourceConfig.MinNodes = int32(2)
 	resourceConfig.MaxNodes = int32(6)
 	resourceConfig.DNSManagement = true
+	resourceConfig.DNS01Challenge = true
 	resourceConfig.DNSManagementServiceAccount = resource.DNSManagementServiceAccount{
 		Name:      threeport.DNSManagerServiceAccountName,
 		Namespace: threeport.DNSManagerServiceAccountNamepace,
+	}
+	resourceConfig.DNS01ChallengeServiceAccount = resource.DNS01ChallengeServiceAccount{
+		Name:      threeport.DNS01ChallengeServiceAccountName,
+		Namespace: threeport.DNS01ChallengeServiceAccountNamepace,
 	}
 	resourceConfig.ClusterAutoscaling = true
 	resourceConfig.ClusterAutoscalingServiceAccount = resource.ClusterAutoscalingServiceAccount{

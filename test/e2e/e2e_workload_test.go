@@ -143,6 +143,28 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.NotNil(err, "duplicate workload definition should throw error")
 
+		// configure domain name definition object
+		domainNameDefinitionName := "domainNameDefinition"
+		domainNameDefinitionDomain := "test.threeport.io"
+		domainNameDefinitionZone := "testZone"
+		domainNameDefinitionAdminEmail := "no-reply@threeport.io"
+		domainNameDefinition := &v0.DomainNameDefinition{
+			Definition: v0.Definition{
+				Name: &domainNameDefinitionName,
+			},
+			Domain:     &domainNameDefinitionDomain,
+			Zone:       &domainNameDefinitionZone,
+			AdminEmail: &domainNameDefinitionAdminEmail,
+		}
+
+		// create domain name definition
+		_, err = client.CreateDomainNameDefinition(
+			apiClient,
+			apiAddr(),
+			domainNameDefinition,
+		)
+		assert.Nil(err, "should have no error creating domain name definition")
+
 		if assert.NotNil(createdWorkloadDef, "should have a workload definition returned") {
 			assert.NotNil(createdWorkloadDef.ID, "created workload definition should contain unique ID")
 			assert.NotNil(createdWorkloadDef.CreatedAt, "created workload definition should contain created timestamp")
@@ -246,6 +268,24 @@ func TestWorkloadE2E(t *testing.T) {
 			&duplicateWorkloadInst,
 		)
 		assert.NotNil(err, "duplicate workload instance should throw error")
+
+		// configure domain name instance
+		domainNameInstance := &v0.DomainNameInstance{
+			Instance: v0.Instance{
+				Name: &workloadInstName,
+			},
+			DomainNameDefinitionID:      domainNameDefinition.ID,
+			WorkloadInstanceID:          createdWorkloadInst.ID,
+			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
+		}
+
+		// create domain name instance
+		_, err = client.CreateDomainNameInstance(
+			apiClient,
+			apiAddr(),
+			domainNameInstance,
+		)
+		assert.Nil(err, "should have no error creating domain name instance")
 
 		// create a gateway instance
 		gatewayInstanceName := "gatewayInstance"
@@ -451,6 +491,26 @@ func TestWorkloadE2E(t *testing.T) {
 			break
 		}
 		assert.Nil(err, "should have no error deleting gateway definition")
+
+		// delete domain name definition
+		deletedAttempts = 0
+		for deletedAttempts < deletedAttemptsMax {
+			_, err = client.DeleteDomainNameDefinition(
+				apiClient,
+				apiAddr(),
+				*domainNameDefinition.ID,
+			)
+
+			// workload controller may not have deleted the gateway
+			// instance yet. If so, wait and try again
+			if err != nil {
+				deletedAttempts += 1
+				time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
+				continue
+			}
+			break
+		}
+		assert.Nil(err, "should have no error deleting domain name definition")
 
 		// delete workload definition
 		deletedWorkloadDef, err := client.DeleteWorkloadDefinition(

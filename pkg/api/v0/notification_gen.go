@@ -17,6 +17,8 @@ func GetSubjectByReconcilerName(name string) (string, error) {
 		return GatewayDefinitionSubject, nil
 	case "GatewayInstanceReconciler":
 		return GatewayInstanceSubject, nil
+	case "DomainNameInstanceReconciler":
+		return DomainNameInstanceSubject, nil
 
 	default:
 		return "", errors.New("unrecognized reconciler name")

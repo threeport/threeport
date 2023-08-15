@@ -40,7 +40,6 @@ import (
 // @BasePath /
 //
 //go:generate ../../bin/threeport-codegen api-version v0
-//go:generate swag init --dir ./,../../pkg/api,../../internal/api --parseDependency --generalInfo main.go --output ../../internal/api/docs
 func main() {
 	// flags
 	var envFile string

@@ -130,7 +130,7 @@ func (r *Reconciler) UnlockAndRequeue(
 		)
 	}
 
-	r.Requeue(object,requeueDelay, msg)
+	r.Requeue(object, requeueDelay, msg)
 }
 
 // Requeue waits for the delay duration and then sends the notifcation to the

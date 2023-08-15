@@ -144,8 +144,7 @@ metadata:
     app.kubernetes.io/instance: getting-started
     app.kubernetes.io/managed-by: Helm
 spec:
-  type: LoadBalancer
-  externalTrafficPolicy: "Cluster"
+  type: ClusterIP
   sessionAffinity: None
   ports:
     - name: http

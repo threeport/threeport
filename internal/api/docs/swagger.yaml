@@ -14,6 +14,8 @@ definitions:
     - API
     - Versions
     type: object
+  datatypes.JSON:
+    type: object
   v0.AttachedObjectReference:
     properties:
       ObjectID:
@@ -449,6 +451,9 @@ definitions:
           If true, this Kubernetes cluster will be used for all workloads if not
           otherwise assigned.
         type: boolean
+      DnsWorkloadInstanceID:
+        description: The WorkloadInstanceID of the dns support service
+        type: integer
       GatewayWorkloadInstanceID:
         description: The WorkloadInstanceID of the gateway support service
         type: integer
@@ -577,6 +582,20 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - Profile
+    - Tier
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
@@ -597,12 +616,37 @@ definitions:
     - DomainNameDefinition
     - DomainNameInstance
     - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
+    - AwsEksClusterDefinition
+    - AwsEksClusterInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - GatewayDefinition
+    - GatewayInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
@@ -622,11 +666,24 @@ definitions:
     - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+=======
+>>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
     - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsEksClusterDefinition
+    - ObjectTypeAwsEksClusterInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
   v0.Profile:
     properties:
       Name:
@@ -799,10 +856,9 @@ definitions:
   v0.WorkloadResourceDefinition:
     properties:
       JSONDefinition:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: The individual manifest in JSON format.
-        items:
-          type: integer
-        type: array
       WorkloadDefinitionID:
         description: The workload definition this resource belongs to.
         type: integer
@@ -818,14 +874,13 @@ definitions:
           $ref: '#/definitions/v0.WorkloadEvent'
         type: array
       JSONDefinition:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: |-
           The individual manifest in JSON format.  This field is a superset of
           WorkloadResourceDefinition.JSONDefinition in that it has namespace
           management and other configuration - such as resource allocation
           management - added.
-        items:
-          type: integer
-        type: array
       LastOperation:
         description: |-
           The most recent operation performed on a Kubernete resource in the
@@ -836,6 +891,8 @@ definitions:
           controller.
         type: boolean
       RuntimeDefinition:
+        allOf:
+        - $ref: '#/definitions/datatypes.JSON'
         description: |-
           The JSON definition of a Kubernetes resource as stored in etcd in the
           kubernetes runtime.

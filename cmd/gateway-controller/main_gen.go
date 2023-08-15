@@ -35,6 +35,11 @@ func main() {
 		1,
 		"Number of concurrent reconcilers to run for gateway instances",
 	)
+	var domainNameInstanceConcurrentReconciles = flag.Int(
+		"DomainNameInstance-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for domain name instances",
+	)
 
 	var apiServer = flag.String("api-server", "threeport-api-server", "Threepoort REST API server endpoint")
 	var msgBrokerHost = flag.String("msg-broker-host", "", "Threeport message broker hostname")
@@ -142,6 +147,13 @@ func main() {
 		NotifSubject:         v0.GatewayInstanceSubject,
 		ObjectType:           v0.ObjectTypeGatewayInstance,
 		ReconcileFunc:        gateway.GatewayInstanceReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *domainNameInstanceConcurrentReconciles,
+		Name:                 "DomainNameInstanceReconciler",
+		NotifSubject:         v0.DomainNameInstanceSubject,
+		ObjectType:           v0.ObjectTypeDomainNameInstance,
+		ReconcileFunc:        gateway.DomainNameInstanceReconciler,
 	})
 
 	for _, r := range reconcilerConfigs {

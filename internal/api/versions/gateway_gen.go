@@ -72,3 +72,67 @@ func AddGatewayInstanceVersions() {
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)
 }
+
+// AddDomainNameDefinitionVersions adds field validation info and adds it
+// to the REST API versions.
+func AddDomainNameDefinitionVersions() {
+	iapi.DomainNameDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.DomainNameDefinition)),
+		"",
+		iapi.Translate,
+		iapi.DomainNameDefinitionTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeDomainNameDefinition),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.DomainNameDefinitionTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
+// AddDomainNameInstanceVersions adds field validation info and adds it
+// to the REST API versions.
+func AddDomainNameInstanceVersions() {
+	iapi.DomainNameInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.DomainNameInstance)),
+		"",
+		iapi.Translate,
+		iapi.DomainNameInstanceTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeDomainNameInstance),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.DomainNameInstanceTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}

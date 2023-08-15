@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -25,6 +24,18 @@ func gatewayInstanceCreated(
 	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) error {
+
+	// ensure attached object reference exists
+	err := client.EnsureAttachedObjectReferenceExists(
+		r.APIClient,
+		r.APIServer,
+		reflect.TypeOf(*gatewayInstance).String(),
+		gatewayInstance.ID,
+		gatewayInstance.WorkloadInstanceID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
+	}
 
 	// initialize threeport object references
 	kubernetesRuntimeInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
@@ -58,18 +69,6 @@ func gatewayInstanceCreated(
 	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to update workload instance: %w", err)
-	}
-
-	// create attached object reference
-	gatewayInstanceType := reflect.TypeOf(*gatewayInstance).String()
-	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
-		Type:               &gatewayInstanceType,
-		ObjectID:           gatewayInstance.ID,
-		WorkloadInstanceID: workloadInstance.ID,
-	}
-	_, err = client.CreateAttachedObjectReference(r.APIClient, r.APIServer, workloadInstanceAttachedObjectReference)
-	if err != nil {
-		return fmt.Errorf("failed to create attached object reference: %w", err)
 	}
 
 	// update gateway instance
@@ -221,6 +220,10 @@ func gatewayInstanceDeleted(
 		}
 		_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
 		if err != nil {
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				// workload resource instance has already been deleted
+				return nil
+			}
 			return fmt.Errorf("failed to update workload resource instance: %w", err)
 		}
 	}
@@ -236,6 +239,10 @@ func gatewayInstanceDeleted(
 	}
 	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
+		if errors.Is(err, client.ErrorObjectNotFound) {
+			// workload resource instance has already been deleted
+			return nil
+		}
 		return fmt.Errorf("failed to update workload instance: %w", err)
 	}
 
@@ -312,7 +319,7 @@ func validateThreeportState(
 	}
 
 	// ensure gateway controller is deployed
-	err = confirmGatewayControllerDeployed(r, gatewayInstance, kubernetesRuntimeInstance, log)
+	err = confirmGatewayControllerDeployed(r, kubernetesRuntimeInstance, log)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile gateway controller: %w", err)
 	}
@@ -380,7 +387,6 @@ func confirmDefinitionsReconciled(
 // and if not, deploys it.
 func confirmGatewayControllerDeployed(
 	r *controller.Reconciler,
-	gatewayInstance *v0.GatewayInstance,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	log *logr.Logger,
 ) error {
@@ -402,14 +408,40 @@ func confirmGatewayControllerDeployed(
 		return fmt.Errorf("failed to create support services collection resource: %w", err)
 	}
 
-	// generate cert manager manifest
-	certManager, err := createCertManager()
+	// get infra provider
+	infraProvider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
 	if err != nil {
-		return fmt.Errorf("failed to create cert manager resource: %w", err)
+		return fmt.Errorf("failed to get infra provider: %w", err)
+	}
+
+	// generate cert manager manifest based on infra provider
+	var certManager string
+	switch *infraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+
+		resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
+		}
+
+		certManager, err = createCertManager(resourceInventory.DNS01ChallengeRole.RoleARN)
+		if err != nil {
+			return fmt.Errorf("failed to create cert manager resource: %w", err)
+		}
+
+	case v0.KubernetesRuntimeInfraProviderKind:
+
+		certManager, err = createCertManager("")
+		if err != nil {
+			return fmt.Errorf("failed to create cert manager resource: %w", err)
+		}
+
+	default:
+		break
 	}
 
 	// concatenate gloo edge, support services collection, and cert manager manifests
-	manifest := fmt.Sprintf("---\n%s\n---\n%s\n---\n%s\n", glooEdge, supportServicesCollection, certManager)
+	manifest := fmt.Sprintf("---\n%s\n---\n%s\n---\n%s\n", supportServicesCollection, certManager, glooEdge)
 
 	// create gateway controller workload definition
 	workloadDefName := "gloo-edge"
@@ -427,7 +459,7 @@ func confirmGatewayControllerDeployed(
 	// create gateway workload instance
 	glooEdgeWorkloadInstance := v0.WorkloadInstance{
 		Instance:                    v0.Instance{Name: &workloadDefName},
-		KubernetesRuntimeInstanceID: gatewayInstance.KubernetesRuntimeInstanceID,
+		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadDefinitionID:        createdWorkloadDef.ID,
 	}
 	createdGlooEdgeWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &glooEdgeWorkloadInstance)
@@ -583,9 +615,17 @@ func configureVirtualService(
 	}
 
 	// unmarshal service
-	service, err := util.UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances, "Service")
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
+	var service map[string]interface{}
+	if gatewayDefinition.ServiceName != nil && *gatewayDefinition.ServiceName != "" {
+		service, err = util.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "Service", *gatewayDefinition.ServiceName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
+		}
+	} else {
+		service, err = util.UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances, "Service")
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
+		}
 	}
 
 	// unmarshal service namespace
@@ -624,7 +664,7 @@ func configureVirtualService(
 	// set virtual service upstream name field
 	err = unstructured.SetNestedField(
 		routes[0].(map[string]interface{}),
-		fmt.Sprintf("%s-%s", namespace, name), // $namespace-$name is convention for gloo edge upstream names
+		fmt.Sprintf("%s-%s-80", namespace, name), // $namespace-$name-$port is convention for gloo edge upstream names
 		"routeAction",
 		"single",
 		"upstream",
@@ -634,22 +674,10 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
 	}
 
-	// get gloo edge workload resource instance
-	glooEdgeWorkloadResourceInstance, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.GatewayControllerInstanceID)
+	// get gloo edge namespace
+	glooEdgeNamespace, err := getGlooEdgeNamespace(r, kubernetesRuntimeInstance.GatewayControllerInstanceID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gloo edge workload resource instance: %w", err)
-	}
-
-	// unmarshal gloo edge custom resource
-	glooEdge, err := util.UnmarshalUniqueWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
-	}
-
-	// get gateway namespace
-	glooEdgeNamespace, found, err := unstructured.NestedString(glooEdge, "spec", "namespace")
-	if err != nil || !found {
-		return nil, fmt.Errorf("failed to get namespace from gateway workload resource definition: %w", err)
+		return nil, fmt.Errorf("failed to get gloo edge namespace: %w", err)
 	}
 
 	// set virtual service upstream namespace field
@@ -671,6 +699,24 @@ func configureVirtualService(
 		return nil, fmt.Errorf("failed to set route on virtual service: %w", err)
 	}
 
+	if *gatewayDefinition.TLSEnabled {
+
+		// set secret ref namespace
+		err = unstructured.SetNestedField(
+			virtualService,
+			namespace,
+			"spec",
+			"sslConfig",
+			"secretRef",
+			"namespace",
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set secret ref name on virtual service: %w", err)
+		}
+
+	}
+
+	// marshal virtual service
 	virtualServiceMarshaled, err := util.MarshalJSON(virtualService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal virtual service: %w", err)
@@ -701,12 +747,9 @@ func configureIssuer(
 		return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
 	}
 
-	// split domain name into parts
-	parts := strings.SplitN(*domainNameDefinition.Domain, ".", 2)
-	domainWithoutSuffix := parts[0]
-
 	// set issuer name
-	err = unstructured.SetNestedField(issuer, domainWithoutSuffix, "metadata", "name")
+	kebabDomain := getKebabDomain(*domainNameDefinition.Name)
+	err = unstructured.SetNestedField(issuer, kebabDomain, "metadata", "name")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
 	}
@@ -722,7 +765,6 @@ func configureIssuer(
 			"dns01": map[string]interface{}{
 				"route53": map[string]interface{}{
 					"region": "us-east-1",
-					"role":   "arn:aws:iam::YYYYYYYYYYYY:role/dns-manager",
 				},
 			},
 		},
@@ -763,12 +805,9 @@ func configureCertificate(
 		return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
 	}
 
-	// split domain name into parts
-	parts := strings.SplitN(*domainNameDefinition.Domain, ".", 2)
-	domainWithoutSuffix := parts[0]
-
 	// set certificate name
-	err = unstructured.SetNestedField(certificate, domainWithoutSuffix, "metadata", "name")
+	kebabDomain := getKebabDomain(*domainNameDefinition.Name)
+	err = unstructured.SetNestedField(certificate, kebabDomain, "metadata", "name")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
 	}
@@ -782,7 +821,7 @@ func configureCertificate(
 	}
 
 	// set issuerRef name
-	err = unstructured.SetNestedField(certificate, domainWithoutSuffix, "spec", "issuerRef", "name")
+	err = unstructured.SetNestedField(certificate, kebabDomain, "spec", "issuerRef", "name")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set issuerRef on certificate: %w", err)
 	}
