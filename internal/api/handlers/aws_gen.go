@@ -76,17 +76,6 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := awsAccount.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsAccountCreateSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, awsAccount)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -307,17 +296,6 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := awsAccount.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsAccountDeleteSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, awsAccount)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -387,17 +365,6 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	if result := h.DB.Create(&awsEksKubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := awsEksKubernetesRuntimeDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsEksKubernetesRuntimeDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition)
 	if err != nil {
@@ -625,17 +592,6 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := awsEksKubernetesRuntimeDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsEksKubernetesRuntimeDefinitionDeleteSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -706,16 +662,18 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := awsEksKubernetesRuntimeInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*awsEksKubernetesRuntimeInstance.Reconciled {
+		notifPayload, err := awsEksKubernetesRuntimeInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsEksKubernetesRuntimeInstanceCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.AwsEksKubernetesRuntimeInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance)
 	if err != nil {
@@ -835,6 +793,19 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingAwsEksKubernetesRuntimeInstance).Updates(updatedAwsEksKubernetesRuntimeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*existingAwsEksKubernetesRuntimeInstance.Reconciled {
+		notifPayload, err := existingAwsEksKubernetesRuntimeInstance.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsEksKubernetesRuntimeInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeInstance)
@@ -1017,17 +988,6 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 	if result := h.DB.Create(&awsRelationalDatabaseDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsRelationalDatabaseDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition)
 	if err != nil {
@@ -1249,17 +1209,6 @@ func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsRelationalDatabaseDefinitionDeleteSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1329,17 +1278,6 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	if result := h.DB.Create(&awsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsRelationalDatabaseInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
 	if err != nil {
@@ -1560,17 +1498,6 @@ func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 	if result := h.DB.Delete(&awsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsRelationalDatabaseInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
 	if err != nil {

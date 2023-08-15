@@ -8,10 +8,8 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
-	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -75,17 +73,6 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 	if result := h.DB.Create(&logBackend); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := logBackend.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogBackendCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, logBackend)
 	if err != nil {
@@ -307,17 +294,6 @@ func (h Handler) DeleteLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := logBackend.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogBackendDeleteSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, logBackend)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -387,17 +363,6 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 	if result := h.DB.Create(&logStorageDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := logStorageDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogStorageDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, logStorageDefinition)
 	if err != nil {
@@ -619,17 +584,6 @@ func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := logStorageDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogStorageDefinitionDeleteSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, logStorageDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -699,17 +653,6 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 	if result := h.DB.Create(&logStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := logStorageInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogStorageInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, logStorageInstance)
 	if err != nil {
@@ -930,17 +873,6 @@ func (h Handler) DeleteLogStorageInstance(c echo.Context) error {
 	if result := h.DB.Delete(&logStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := logStorageInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogStorageInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, logStorageInstance)
 	if err != nil {

@@ -177,11 +177,11 @@ func checkTokenExpiring(
 	if runtimeInstance.ConnectionTokenExpiration == nil {
 		return true, errors.New("runtime instance has no token expiration value set")
 	}
-	if time.Now().Sub(*runtimeInstance.ConnectionTokenExpiration) > time.Minute*3 {
-		return false, nil
-	} else {
-		return true, nil
-	}
+
+	expiration := time.Now().Add(time.Minute * 3)
+	expiring := runtimeInstance.ConnectionTokenExpiration.Before(expiration)
+
+	return expiring, nil
 }
 
 // refreshEKSConnection retrieves a new EKS token when it expires.
@@ -237,7 +237,7 @@ func refreshEKSConnection(
 		return nil, fmt.Errorf("failed to get EKS cluster connection info for token refresh: %w", err)
 	}
 
-	// update threeport API with new conncetion info
+	// update threeport API with new connection info
 	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
 	runtimeInstance.ConnectionToken = &eksClusterConn.Token
 	runtimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration

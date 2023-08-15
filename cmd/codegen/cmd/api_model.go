@@ -9,6 +9,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"strings"
 
 	"github.com/iancoleman/strcase"
 	"github.com/spf13/cobra"
@@ -68,7 +69,7 @@ When 'make generate' is run, the following code is generated for API:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// inspect source code
 		fset := token.NewFileSet()
-		pf, err := parser.ParseFile(fset, filename, nil, parser.AllErrors)
+		pf, err := parser.ParseFile(fset, filename, nil, parser.ParseComments|parser.AllErrors)
 		if err != nil {
 			return fmt.Errorf("failed to parse source code file: %w", err)
 		}
@@ -79,15 +80,18 @@ When 'make generate' is run, the following code is generated for API:
 		//}
 		////////////////////////////////////////////////////////////////////////////
 		var modelConfigs []models.ModelConfig
+		var reconcilerModels []string
 		for _, node := range pf.Decls {
 			switch node.(type) {
 			case *ast.GenDecl:
+				var objectName string
 				genDecl := node.(*ast.GenDecl)
 				for _, spec := range genDecl.Specs {
 					switch spec.(type) {
 					// in the case we're looking at a struct type definition, inspect
 					case *ast.TypeSpec:
 						typeSpec := spec.(*ast.TypeSpec)
+						objectName = typeSpec.Name.Name
 						// capture the name of the struct - the model name
 						mc := models.ModelConfig{
 							TypeName:  typeSpec.Name.Name,
@@ -112,10 +116,20 @@ When 'make generate' is run, the following code is generated for API:
 									if util.StringSliceContains(nameFields(), name.Name, true) {
 										mc.NameField = true
 									}
+									if name.Name == "Reconciled" {
+										mc.ReconciledField = true
+									}
 								}
 							}
 						}
 						modelConfigs = append(modelConfigs, mc)
+					}
+				}
+				if genDecl.Doc != nil {
+					for _, comment := range genDecl.Doc.List {
+						if strings.Contains(comment.Text, codegen.ReconclierMarkerText) {
+							reconcilerModels = append(reconcilerModels, objectName)
+						}
 					}
 				}
 			}
@@ -129,11 +143,12 @@ When 'make generate' is run, the following code is generated for API:
 			ControllerDomain:      strcase.ToCamel(codegen.FilenameSansExt(filename)),
 			ControllerDomainLower: strcase.ToLowerCamel(codegen.FilenameSansExt(filename)),
 			ModelConfigs:          modelConfigs,
+			ReconcilerModels:      reconcilerModels,
 		}
 
-		// validate names
-		// ensure no naming conflicts between controller domain and models
+		// validate model configs
 		for _, mc := range controllerConfig.ModelConfigs {
+			// ensure no naming conflicts between controller domain and models
 			if mc.TypeName == controllerConfig.ControllerDomain {
 				err := errors.New(fmt.Sprintf(
 					"controller domain %s has naming conflict with model %s",
@@ -141,6 +156,23 @@ When 'make generate' is run, the following code is generated for API:
 					mc.TypeName,
 				))
 				return fmt.Errorf("naming conflict encountered: %w", err)
+			}
+		}
+
+		// for all objects with a reconciler:
+		// * validate the model includes the Reconciled field
+		// * set Reconciler field in model config to true
+		for _, rm := range controllerConfig.ReconcilerModels {
+			for i, mc := range controllerConfig.ModelConfigs {
+				if rm == mc.TypeName {
+					if !mc.ReconciledField {
+						return errors.New(fmt.Sprintf(
+							"%s object does not include a Reconciled field - all objects with reconcilers must include this field", rm,
+						))
+					} else {
+						controllerConfig.ModelConfigs[i].Reconciler = true
+					}
+				}
 			}
 		}
 

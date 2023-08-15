@@ -24,12 +24,6 @@ func deletionInstanceCheckTypeNames() []string {
 	}
 }
 
-// SetReconcileCheckTypeNames returns the definition objects that need to
-// have their Reconcile field set to false by their handler
-func SetReconcileCheckTypeNames() []string {
-	return []string{"WorkloadDefinition", "WorkloadInstance", "GatewayDefinition", "GatewayInstance", "DomainNameInstance"}
-}
-
 // apiHandlersPath returns the path from the models to the API's internal handlers
 // package.
 func apiHandlersPath() string {
@@ -91,32 +85,44 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			).Line()
 		}
 
-		reconcileCheck := false
-		for _, typeName := range SetReconcileCheckTypeNames() {
-			if mc.TypeName == typeName {
-				reconcileCheck = true
-			}
-		}
+		notifyControllersCreateHandler := &Statement{}
+		notifyControllersUpdateHandler := &Statement{}
+		notifyControllersDeleteHandler := &Statement{}
 
-		reconcileCheckHandler := &Statement{}
-		notifyControllersHandler := &Statement{}
-
-		if reconcileCheck {
-
-			// configure reconcileCheckHandler
-			reconcileCheckHandler = Comment("if client doesn't specify reconciled, set it to false")
-			reconcileCheckHandler.Line()
-			reconcileCheckHandler.If(
-				Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("==").Nil().Block(
-					Id("reconciled").Op(":=").False(),
-					Id(fmt.Sprintf("updated%s", mc.TypeName)).Dot("Reconciled").Op("=").Op("&").Id("reconciled"),
+		if mc.Reconciler {
+			// configure controller notifications
+			// create notifications
+			notifyControllersCreateHandler = Comment("notify controller if reconciliation is required")
+			notifyControllersCreateHandler.Line()
+			notifyControllersCreateHandler.If(Op("!*").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("Reconciled").Block(
+				Id("notifPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("NotificationPayload").Call(
+					Line().Qual(
+						"github.com/threeport/threeport/pkg/notifications/v0",
+						"NotificationOperationCreated",
+					),
+					Line().Lit(false),
+					Line().Qual("time", "Now").Call().Dot("Unix").Call(),
+					Line(),
 				),
-			)
-			// confiugre notifyControllersHandler
+				If(Id("err").Op("!=").Nil().Block(
+					Return(Qual(
+						"github.com/threeport/threeport/internal/api",
+						"ResponseStatus500",
+					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
+				),
+				Id("h").Dot("JS").Dot("Publish").Call(Qual(
+					fmt.Sprintf(
+						"github.com/threeport/threeport/pkg/api/%s",
+						cc.ParsedModelFile.Name.Name,
+					),
+					mc.CreateSubject,
+				).Op(",").Op("*").Id("notifPayload")),
+			))
 
-			notifyControllersHandler = Comment("notify controllers if reconciliation is required")
-			notifyControllersHandler.Line()
-			notifyControllersHandler.If(Op("!*").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("Reconciled").Block(
+			// update notifications
+			notifyControllersUpdateHandler = Comment("notify controller if reconciliation is required")
+			notifyControllersUpdateHandler.Line()
+			notifyControllersUpdateHandler.If(Op("!*").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("Reconciled").Block(
 				Id("notifPayload").Op(",").Id("err").Op(":=").Id(fmt.Sprintf("existing%s", mc.TypeName)).Dot("NotificationPayload").Call(
 					Line().Qual(
 						"github.com/threeport/threeport/pkg/notifications/v0",
@@ -140,6 +146,34 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					mc.UpdateSubject,
 				).Op(",").Op("*").Id("notifPayload")),
 			))
+
+			// delete notifications
+			notifyControllersDeleteHandler = Comment("notify controller")
+			notifyControllersDeleteHandler.Line()
+			notifyControllersDeleteHandler.Id("notifPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("NotificationPayload").Call(
+				Line().Qual(
+					"github.com/threeport/threeport/pkg/notifications/v0",
+					"NotificationOperationDeleted",
+				),
+				Line().Lit(false),
+				Line().Qual("time", "Now").Call().Dot("Unix").Call(),
+				Line(),
+			)
+			notifyControllersDeleteHandler.Line()
+			notifyControllersDeleteHandler.If(Id("err").Op("!=").Nil().Block(
+				Return(Qual(
+					"github.com/threeport/threeport/internal/api",
+					"ResponseStatus500",
+				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
+			)
+			notifyControllersDeleteHandler.Line()
+			notifyControllersDeleteHandler.Id("h").Dot("JS").Dot("Publish").Call(Qual(
+				fmt.Sprintf(
+					"github.com/threeport/threeport/pkg/api/%s",
+					cc.ParsedModelFile.Name.Name,
+				),
+				mc.DeleteSubject,
+			).Op(",").Op("*").Id("notifPayload"))
 		}
 
 		// delete handler includes instance check for definition objects to ensure
@@ -390,29 +424,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 			),
 			Line(),
-			Comment("notify controller"),
-			Id("notifPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("NotificationPayload").Call(
-				Line().Qual(
-					"github.com/threeport/threeport/pkg/notifications/v0",
-					"NotificationOperationCreated",
-				),
-				Line().Lit(false),
-				Line().Qual("time", "Now").Call().Dot("Unix").Call(),
-				Line(),
-			),
-			If(Id("err").Op("!=").Nil().Block(
-				Return(Qual(
-					"github.com/threeport/threeport/internal/api",
-					"ResponseStatus500",
-				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
-			),
-			Id("h").Dot("JS").Dot("Publish").Call(Qual(
-				fmt.Sprintf(
-					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
-				),
-				mc.CreateSubject,
-			).Op(",").Op("*").Id("notifPayload")),
+			notifyControllersCreateHandler,
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
@@ -818,7 +830,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 			),
 			Line(),
-			reconcileCheckHandler,
+			//reconcileCheckHandler,
 			Line(),
 			Comment("update object in database"),
 			If(
@@ -834,7 +846,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 			),
 			Line(),
-			notifyControllersHandler,
+			notifyControllersUpdateHandler,
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
@@ -1156,29 +1168,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 			),
 			Line(),
-			Comment("notify controller"),
-			Id("notifPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("NotificationPayload").Call(
-				Line().Qual(
-					"github.com/threeport/threeport/pkg/notifications/v0",
-					"NotificationOperationDeleted",
-				),
-				Line().Lit(false),
-				Line().Qual("time", "Now").Call().Dot("Unix").Call(),
-				Line(),
-			),
-			If(Id("err").Op("!=").Nil().Block(
-				Return(Qual(
-					"github.com/threeport/threeport/internal/api",
-					"ResponseStatus500",
-				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
-			),
-			Id("h").Dot("JS").Dot("Publish").Call(Qual(
-				fmt.Sprintf(
-					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
-				),
-				mc.DeleteSubject,
-			).Op(",").Op("*").Id("notifPayload")),
+			notifyControllersDeleteHandler,
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
@@ -1208,7 +1198,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 	genFilepath := filepath.Join(apiHandlersPath(), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("failed open file to write generated code for model handlers: %w", err)
+		return fmt.Errorf("failed to open file to write generated code for model handlers: %w", err)
 	}
 	defer file.Close()
 	if err := f.Render(file); err != nil {

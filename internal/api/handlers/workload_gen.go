@@ -76,16 +76,18 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := workloadDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*workloadDefinition.Reconciled {
+		notifPayload, err := workloadDefinition.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.WorkloadDefinitionCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.WorkloadDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadDefinition)
 	if err != nil {
@@ -202,18 +204,12 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// if client doesn't specify reconciled, set it to false
-	if updatedWorkloadDefinition.Reconciled == nil {
-		reconciled := false
-		updatedWorkloadDefinition.Reconciled = &reconciled
-	}
-
 	// update object in database
 	if result := h.DB.Model(&existingWorkloadDefinition).Updates(updatedWorkloadDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controllers if reconciliation is required
+	// notify controller if reconciliation is required
 	if !*existingWorkloadDefinition.Reconciled {
 		notifPayload, err := existingWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
@@ -397,17 +393,6 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 	if result := h.DB.Create(&workloadResourceDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := workloadResourceDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadResourceDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadResourceDefinition)
 	if err != nil {
@@ -629,17 +614,6 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := workloadResourceDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadResourceDefinitionDeleteSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, workloadResourceDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -710,16 +684,18 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := workloadInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*workloadInstance.Reconciled {
+		notifPayload, err := workloadInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.WorkloadInstanceCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.WorkloadInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadInstance)
 	if err != nil {
@@ -836,18 +812,12 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// if client doesn't specify reconciled, set it to false
-	if updatedWorkloadInstance.Reconciled == nil {
-		reconciled := false
-		updatedWorkloadInstance.Reconciled = &reconciled
-	}
-
 	// update object in database
 	if result := h.DB.Model(&existingWorkloadInstance).Updates(updatedWorkloadInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controllers if reconciliation is required
+	// notify controller if reconciliation is required
 	if !*existingWorkloadInstance.Reconciled {
 		notifPayload, err := existingWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
@@ -1025,17 +995,6 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 	if result := h.DB.Create(&attachedObjectReference); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := attachedObjectReference.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AttachedObjectReferenceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, attachedObjectReference)
 	if err != nil {
@@ -1257,17 +1216,6 @@ func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := attachedObjectReference.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AttachedObjectReferenceDeleteSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, attachedObjectReference)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1322,17 +1270,6 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 	if result := h.DB.Create(&workloadResourceInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := workloadResourceInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadResourceInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadResourceInstance)
 	if err != nil {
@@ -1554,17 +1491,6 @@ func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := workloadResourceInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadResourceInstanceDeleteSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, workloadResourceInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1619,17 +1545,6 @@ func (h Handler) AddWorkloadEvent(c echo.Context) error {
 	if result := h.DB.Create(&workloadEvent); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := workloadEvent.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadEventCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadEvent)
 	if err != nil {
@@ -1850,17 +1765,6 @@ func (h Handler) DeleteWorkloadEvent(c echo.Context) error {
 	if result := h.DB.Delete(&workloadEvent); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := workloadEvent.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadEventDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadEvent)
 	if err != nil {

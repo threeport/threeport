@@ -451,9 +451,15 @@ definitions:
           If true, this Kubernetes cluster will be used for all workloads if not
           otherwise assigned.
         type: boolean
+<<<<<<< HEAD
       DnsWorkloadInstanceID:
         description: The WorkloadInstanceID of the dns support service
         type: integer
+=======
+      ForceDelete:
+        description: If true, delete the runtime even if there are workloads present.
+        type: boolean
+>>>>>>> 542e194 (feat: improve notification handling)
       GatewayWorkloadInstanceID:
         description: The WorkloadInstanceID of the gateway support service
         type: integer
@@ -582,6 +588,7 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+<<<<<<< HEAD
     - ForwardProxyDefinition
     - ForwardProxyInstance
     - Profile
@@ -591,30 +598,32 @@ definitions:
     - LogStorageInstance
     - GatewayDefinition
     - GatewayInstance
+=======
+    - Profile
+    - Tier
+>>>>>>> 542e194 (feat: improve notification handling)
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+<<<<<<< HEAD
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
+=======
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+>>>>>>> 542e194 (feat: improve notification handling)
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
-    - Profile
-    - Tier
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
     - DomainNameDefinition
     - DomainNameInstance
+<<<<<<< HEAD
     - AwsAccount
     - AwsEksClusterDefinition
     - AwsEksClusterInstance
@@ -626,6 +635,10 @@ definitions:
     - KubernetesRuntimeInstance
     - DomainNameDefinition
     - DomainNameInstance
+=======
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+>>>>>>> 542e194 (feat: improve notification handling)
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
@@ -633,6 +646,7 @@ definitions:
     - GatewayInstance
     type: string
     x-enum-varnames:
+<<<<<<< HEAD
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
     - ObjectTypeProfile
@@ -642,30 +656,32 @@ definitions:
     - ObjectTypeLogStorageInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
+=======
+    - ObjectTypeProfile
+    - ObjectTypeTier
+>>>>>>> 542e194 (feat: improve notification handling)
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+<<<<<<< HEAD
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
+=======
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+>>>>>>> 542e194 (feat: improve notification handling)
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+<<<<<<< HEAD
 =======
 >>>>>>> d305071 (chore: refactor to decouple CLI from K8s cluster creation)
     - ObjectTypeAwsAccount
@@ -679,6 +695,10 @@ definitions:
     - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+=======
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+>>>>>>> 542e194 (feat: improve notification handling)
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance

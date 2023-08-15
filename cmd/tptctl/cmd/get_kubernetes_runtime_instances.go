@@ -69,7 +69,7 @@ var GetKubernetesRuntimeInstancesCmd = &cobra.Command{
 			os.Exit(0)
 		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "NAME\t RUNTIME DEFINITION\t LOCATION\t DEFAULT RUNTIME\t INFRA PROVIDER\t AGE")
+		fmt.Fprintln(writer, "NAME\t RUNTIME DEFINITION\t LOCATION\t DEFAULT RUNTIME\t INFRA PROVIDER\t FORCE DELETE\t AGE")
 		metadataErr := false
 		var kubernetesRuntimeDefErr error
 		var kubernetesRuntimeInstErr error
@@ -94,7 +94,7 @@ var GetKubernetesRuntimeInstancesCmd = &cobra.Command{
 			}
 			fmt.Fprintln(
 				writer, *kri.Name, "\t", kubernetesRuntimeDef, "\t", *kri.Location, "\t",
-				*kri.DefaultRuntime, "\t", infraProvider, "\t", util.GetAge(kri.CreatedAt),
+				*kri.DefaultRuntime, "\t", infraProvider, "\t", *kri.ForceDelete, "\t", util.GetAge(kri.CreatedAt),
 			)
 		}
 		writer.Flush()

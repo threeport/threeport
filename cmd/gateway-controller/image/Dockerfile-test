@@ -1,5 +1,5 @@
 FROM gcr.io/distroless/static:nonroot
-COPY threeport-gateway-controller /threeport-gateway-controller
+COPY bin/threeport-gateway-controller /threeport-gateway-controller
 USER 65532:65532
 
 ENTRYPOINT ["/threeport-gateway-controller"]

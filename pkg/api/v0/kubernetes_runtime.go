@@ -40,7 +40,6 @@ type KubernetesRuntimeDefinition struct {
 
 // +threeport-codegen:reconciler
 // KubernetesRuntimeInstance is a deployed instance of a Kubernetes cluster.
-// TODO: Apply BeforeCreate to the Location field - it is immutable.
 type KubernetesRuntimeInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`
@@ -48,7 +47,7 @@ type KubernetesRuntimeInstance struct {
 	// The geographical location for the runtime cluster.  This is an
 	// abstraction for the cloud provider regions that is mapped into the
 	// regions used by providers.
-	Location *string `json:"Location,omitempty" query:"location" validate:"optional"`
+	Location *string `json:"Location,omitempty" query:"location" gorm:"not null" validate:"required"`
 
 	// If true, the Kubernetes cluster is hosting a threeport control plane and
 	// any controllers that connect to the kube API will use internal cluster
@@ -86,6 +85,9 @@ type KubernetesRuntimeInstance struct {
 
 	// The associated workload instances running on this kubernetes runtime.
 	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstance,omitempty" validate:"optional,association"`
+
+	// If true, delete the runtime even if there are workloads present.
+	ForceDelete *bool `json:"ForceDelete,omitempty" query:"forcedelete" gorm:"default:false" validate:"optional"`
 
 	// The WorkloadInstanceID of the gateway support service
 	GatewayControllerInstanceID *uint `json:"GatewayWorkloadInstanceID,omitempty" validate:"optional"`

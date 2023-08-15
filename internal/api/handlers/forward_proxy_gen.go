@@ -8,10 +8,8 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
-	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -75,17 +73,6 @@ func (h Handler) AddForwardProxyDefinition(c echo.Context) error {
 	if result := h.DB.Create(&forwardProxyDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := forwardProxyDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ForwardProxyDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, forwardProxyDefinition)
 	if err != nil {
@@ -307,17 +294,6 @@ func (h Handler) DeleteForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := forwardProxyDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ForwardProxyDefinitionDeleteSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, forwardProxyDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -387,17 +363,6 @@ func (h Handler) AddForwardProxyInstance(c echo.Context) error {
 	if result := h.DB.Create(&forwardProxyInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := forwardProxyInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ForwardProxyInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, forwardProxyInstance)
 	if err != nil {
@@ -618,17 +583,6 @@ func (h Handler) DeleteForwardProxyInstance(c echo.Context) error {
 	if result := h.DB.Delete(&forwardProxyInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := forwardProxyInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ForwardProxyInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, forwardProxyInstance)
 	if err != nil {

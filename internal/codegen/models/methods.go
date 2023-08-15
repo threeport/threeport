@@ -206,7 +206,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 	genFilename := fmt.Sprintf("%s_gen.go", codegen.FilenameSansExt(cc.ModelFilename))
 	file, err := os.OpenFile(genFilename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("failed open file to write generated code for database models: %w", err)
+		return fmt.Errorf("failed to open file to write generated code for database models: %w", err)
 	}
 	defer file.Close()
 	if err := f.Render(file); err != nil {
