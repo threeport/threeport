@@ -227,7 +227,8 @@ NATS_PORT=4222
 										"protocol":      "TCP",
 									},
 								},
-								"volumeMounts": apiVolMounts,
+								"volumeMounts":   apiVolMounts,
+								"readinessProbe": getReadinessProbe(),
 							},
 						},
 						"volumes": apiVols,
@@ -1004,14 +1005,14 @@ func InstallThreeportAgent(
 								//	"periodSeconds":       20,
 								//},
 								"name": "manager",
-								//"readinessProbe": map[string]interface{}{
-								//	"httpGet": map[string]interface{}{
-								//		"path": "/readyz",
-								//		"port": 8081,
-								//	},
-								//	"initialDelaySeconds": 5,
-								//	"periodSeconds":       10,
-								//},
+								"readinessProbe": map[string]interface{}{
+									"httpGet": map[string]interface{}{
+										"path": "/readyz",
+										"port": 8081,
+									},
+									"initialDelaySeconds": 5,
+									"periodSeconds":       10,
+								},
 								//"resources": map[string]interface{}{
 								//	"limits": map[string]interface{}{
 								//		"cpu":    "500m",
@@ -1786,7 +1787,8 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 										},
 									},
 								},
-								"volumeMounts": volumeMounts,
+								"volumeMounts":   volumeMounts,
+								"readinessProbe": getReadinessProbe(),
 							},
 						},
 						"volumes": volumes,
@@ -1795,6 +1797,24 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 			},
 		},
 	}
+}
+
+func getReadinessProbe() map[string]interface{} {
+	var readinessProbe = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"failureThreshold": 1,
+			"httpGet": map[string]interface{}{
+				"path":   "/readyz",
+				"port":   8081,
+				"scheme": "HTTP",
+			},
+			"initialDelaySeconds": 1,
+			"periodSeconds":       2,
+			"successThreshold":    1,
+			"timeoutSeconds":      1,
+		},
+	}
+	return readinessProbe.Object
 }
 
 func getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []interface{}) {

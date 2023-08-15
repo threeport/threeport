@@ -188,6 +188,7 @@ func main() {
 		}
 
 		fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
+		configureHealthCheckEndpoint()
 		if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 			e.Logger.Fatal(err)
 		}
@@ -200,8 +201,21 @@ func main() {
 		}
 
 		fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
+		configureHealthCheckEndpoint()
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			e.Logger.Fatal(err)
 		}
 	}
+}
+
+// configureHealthCheckEndpoint sets up a health check endpoint for the API server
+func configureHealthCheckEndpoint() {
+
+	// set up health check endpoint
+	http.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	go http.ListenAndServe(":8081", nil)
 }

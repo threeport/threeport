@@ -418,6 +418,24 @@ func (cc *ControllerConfig) MainPackage() error {
 				).Params(),
 			),
 		),
+
+		Line(),
+		Comment("set up health check endpoint"),
+		Id("http.HandleFunc").Call(
+			Lit("/readyz"),
+			Func().Params(
+				Id("w").Qual("net/http", "ResponseWriter"),
+				Id("r").Op("*").Qual("net/http", "Request"),
+			).Block(
+				Id("w").Dot("WriteHeader").Call(Qual("net/http", "StatusOK")),
+				Id("w").Dot("Write").Call(Index().Byte().Call(Lit("OK"))),
+			),
+		),
+
+		Go().Id("http.ListenAndServe").Call(Lit(":8081"), Nil()),
+		Line(),
+
+		Comment("run shutdown endpoint server"),
 		If(
 			Err().Op(":=").Id("server").Dot("ListenAndServe").Call(),
 			Err().Op("!=").Nil().Op("&&").Err().Op("!=").Qual("net/http", "ErrServerClosed"),

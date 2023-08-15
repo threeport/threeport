@@ -198,6 +198,15 @@ func main() {
 			shutdownWait.Done()
 		}()
 	})
+
+	// set up health check endpoint
+	http.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	go http.ListenAndServe(":8081", nil)
+
+	// run shutdown endpoint server
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Error(err, "failed to run server for shutdown endpoint")
 	}
