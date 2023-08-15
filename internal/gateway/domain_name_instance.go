@@ -282,6 +282,12 @@ func confirmDnsControllerDeployed(
 		return fmt.Errorf("failed to get gloo edge namespace: %w", err)
 	}
 
+	// get domain name definition
+	domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *domainNameInstance.DomainNameDefinitionID)
+	if err != nil {
+		return fmt.Errorf("failed to get domain name definition: %w", err)
+	}
+
 	// generate external dns manifest based on infra provider
 	var externalDnsManifest string
 	kubernetesRuntimeInstanceID := strconv.Itoa(int(*domainNameInstance.KubernetesRuntimeInstanceID))
@@ -294,6 +300,7 @@ func confirmDnsControllerDeployed(
 		}
 
 		externalDnsManifest, err = createExternalDns(
+			*domainNameDefinition.Domain,
 			"route53",
 			resourceInventory.DNSManagementRole.RoleARN,
 			glooEdgeNamespace,
@@ -306,6 +313,7 @@ func confirmDnsControllerDeployed(
 	case v0.KubernetesRuntimeInfraProviderKind:
 
 		externalDnsManifest, err = createExternalDns(
+			*domainNameDefinition.Domain,
 			"none",
 			"",
 			glooEdgeNamespace,

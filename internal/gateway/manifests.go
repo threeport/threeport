@@ -51,6 +51,7 @@ func createGlooEdge() (string, error) {
 
 // createExternalDns creates an external DNS custom resource.
 func createExternalDns(
+	domain,
 	provider,
 	iamRoleArn,
 	glooEdgeNamespace,
@@ -75,7 +76,7 @@ func createExternalDns(
 			"spec": map[string]interface{}{
 				"namespace":          "nukleros-gateway-system",
 				"zoneType":           zoneType,
-				"domainName":         "qleet.net",
+				"domainName":         strings.TrimPrefix(domain, "www."),
 				"image":              "registry.k8s.io/external-dns/external-dns",
 				"version":            "v0.13.5",
 				"provider":           provider,
