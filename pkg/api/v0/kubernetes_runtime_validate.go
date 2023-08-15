@@ -90,36 +90,13 @@ func (k *KubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
 // BeforeUpdate validates that no immutable fields are attempting to be changed
 // before updates are persisted.
 func (k *KubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
-	fmt.Println("---------------------------------------------------------")
-	fmt.Println(*k.Location)
-	// if the location in an update payload is nil, return without error
-	if k.Location == nil {
-		return nil
-	}
-
-	// validate location
-	if !mapping.ValidLocation(*k.Location) {
-		msg := fmt.Sprintf("location %s is not a supported threeport location for a kubernetes runtime instance", *k.Location)
+	// ensure runtime location is not changed
+	if tx.Statement.Changed("Location") {
+		msg := fmt.Sprintf("kubernetes runtime instances cannot be moved - location %s is immutable", *k.Location)
 		return &KubernetesRuntimeInstanceValidationErr{msg}
 	}
 
-	// if the location in an update payload matches the existing payload, return
-	// without error
-	var existingRuntimeInstance KubernetesRuntimeInstance
-	if result := tx.First(&existingRuntimeInstance, *k.ID); result.Error != nil {
-		msg := fmt.Sprintf("failed to get location for existing kubernetes runtime instance %s", *k.Name)
-		return &KubernetesRuntimeInstanceValidationErr{msg}
-	}
-	fmt.Println("############################################################")
-	fmt.Println(*existingRuntimeInstance.Location)
-	fmt.Println(*k.Location)
-	if *existingRuntimeInstance.Location == *k.Location {
-		return nil
-	}
-
-	// cannot change location
-	msg := fmt.Sprintf("kubernetes runtime instances cannot be moved - location %s is immutable", *existingRuntimeInstance.Location)
-	return &KubernetesRuntimeInstanceValidationErr{msg}
+	return nil
 }
 
 // BeforeDelete validates a delete request on a kubernetes runtime instance
