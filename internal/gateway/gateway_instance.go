@@ -749,12 +749,9 @@ func configureIssuer(
 		return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
 	}
 
-	// split domain name into parts
-	parts := strings.SplitN(*domainNameDefinition.Domain, ".", 2)
-	domainWithoutSuffix := strcase.ToKebab(parts[1])
-
 	// set issuer name
-	err = unstructured.SetNestedField(issuer, domainWithoutSuffix, "metadata", "name")
+	kebabDomain := getKebabDomain(*domainNameDefinition.Name)
+	err = unstructured.SetNestedField(issuer, kebabDomain, "metadata", "name")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
 	}
@@ -810,12 +807,9 @@ func configureCertificate(
 		return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
 	}
 
-	// split domain name into parts
-	parts := strings.SplitN(*domainNameDefinition.Domain, ".", 2)
-	domainWithoutSuffix := strcase.ToKebab(parts[1])
-
 	// set certificate name
-	err = unstructured.SetNestedField(certificate, domainWithoutSuffix, "metadata", "name")
+	kebabDomain := getKebabDomain(*domainNameDefinition.Name)
+	err = unstructured.SetNestedField(certificate, kebabDomain, "metadata", "name")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
 	}
@@ -829,7 +823,7 @@ func configureCertificate(
 	}
 
 	// set issuerRef name
-	err = unstructured.SetNestedField(certificate, domainWithoutSuffix, "spec", "issuerRef", "name")
+	err = unstructured.SetNestedField(certificate, kebabDomain, "spec", "issuerRef", "name")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set issuerRef on certificate: %w", err)
 	}
