@@ -94,6 +94,9 @@ type DomainNameDefinition struct {
 	// The name of the zone in which the domain is managed.
 	Zone *string `json:"Zone,omitempty" query:"zone" gorm:"not null" validate:"required"`
 
+	// The email address of the domain administrator.
+	AdminEmail *string `json:"AdminEmail,omitempty" query:"adminemail" gorm:"not null" validate:"required"`
+
 	// Whether or not the domain name is a root domain.
 	// RootDomain *bool `json:"RootDomain,omitempty" query:"rootdomain" gorm:"default:false" validate:"optional"`
 

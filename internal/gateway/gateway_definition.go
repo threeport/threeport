@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/go-logr/logr"
 
@@ -19,14 +18,8 @@ func gatewayDefinitionCreated(
 	log *logr.Logger,
 ) error {
 
-	// get domain name
-	domainName, err := getDomainName(r.APIClient, r.APIServer, gatewayDefinition)
-	if err != nil {
-		return fmt.Errorf("failed to get domain name: %w", err)
-	}
-
 	// create gateway kubernetes manifests
-	yamlDocument, err := createYAMLDocument(gatewayDefinition, domainName)
+	yamlDocument, err := createYAMLDocument(r, gatewayDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to create yaml document: %w", err)
 	}
@@ -74,14 +67,8 @@ func gatewayDefinitionUpdated(
 	log *logr.Logger,
 ) error {
 
-	// get domain name
-	domainName, err := getDomainName(r.APIClient, r.APIServer, gatewayDefinition)
-	if err != nil {
-		return fmt.Errorf("failed to get domain name: %w", err)
-	}
-
 	// create gateway kubernetes manifests
-	yamlDocument, err := createYAMLDocument(gatewayDefinition, domainName)
+	yamlDocument, err := createYAMLDocument(r, gatewayDefinition)
 	if err != nil {
 		return fmt.Errorf("failed to create yaml document: %w", err)
 	}
@@ -152,10 +139,27 @@ func gatewayDefinitionDeleted(
 	return nil
 }
 
-func createYAMLDocument(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+// createYAMLDocument creates a YAML document containing the Kubernetes
+// manifests for a gateway definition.
+func createYAMLDocument(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (string, error) {
 	// create Gloo virtual service definition
 
 	manifests := []string{}
+
+	domain := ""
+	adminEmail := ""
+
+	if gatewayDefinition.DomainNameDefinitionID != nil {
+
+		domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *gatewayDefinition.DomainNameDefinitionID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get domain name definition by ID: %w", err)
+		}
+
+		domain = *domainNameDefinition.Domain
+		adminEmail = *domainNameDefinition.AdminEmail
+
+	}
 
 	// create Gloo virtual service definition
 	virtualService, err := createVirtualService(gatewayDefinition, domain)
@@ -171,7 +175,7 @@ func createYAMLDocument(gatewayDefinition *v0.GatewayDefinition, domain string) 
 		}
 
 		// create cert manager issuer definition
-		issuer, err := createIssuer(gatewayDefinition, domain)
+		issuer, err := createIssuer(gatewayDefinition, domain, adminEmail)
 		if err != nil {
 			return "", fmt.Errorf("failed to create issuer: %w", err)
 		}
@@ -192,19 +196,4 @@ func createYAMLDocument(gatewayDefinition *v0.GatewayDefinition, domain string) 
 	}
 
 	return yamlDocument, nil
-}
-
-// getDomainName returns the domain name for a gateway definition if it is set.
-func getDomainName(apiClient *http.Client, apiAddr string, gatewayDefinition *v0.GatewayDefinition) (string, error) {
-
-	if gatewayDefinition.DomainNameDefinitionID == nil {
-		return "", nil
-	}
-
-	domainNameDefinition, err := client.GetDomainNameDefinitionByID(apiClient, apiAddr, *gatewayDefinition.DomainNameDefinitionID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get domain name definition by ID: %w", err)
-	}
-
-	return *domainNameDefinition.Domain, nil
 }

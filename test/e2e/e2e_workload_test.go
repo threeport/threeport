@@ -147,12 +147,14 @@ func TestWorkloadE2E(t *testing.T) {
 		domainNameDefinitionName := "domainNameDefinition"
 		domainNameDefinitionDomain := "test.threeport.io"
 		domainNameDefinitionZone := "testZone"
+		domainNameDefinitionAdminEmail := "no-reply@threeport.io"
 		domainNameDefinition := &v0.DomainNameDefinition{
 			Definition: v0.Definition{
 				Name: &domainNameDefinitionName,
 			},
-			Domain: &domainNameDefinitionDomain,
-			Zone:   &domainNameDefinitionZone,
+			Domain:     &domainNameDefinitionDomain,
+			Zone:       &domainNameDefinitionZone,
+			AdminEmail: &domainNameDefinitionAdminEmail,
 		}
 
 		// create domain name definition

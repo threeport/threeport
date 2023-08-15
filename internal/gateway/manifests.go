@@ -197,7 +197,7 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 }
 
 // createIssuer creates an issuer for the given domain.
-func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
 
 	var issuer = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -208,7 +208,7 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain string) (strin
 			},
 			"spec": map[string]interface{}{
 				"acme": map[string]interface{}{
-					"email":  "randy@qleet.io",
+					"email":  adminEmail,
 					"server": "https://acme-v02.api.letsencrypt.org/directory",
 					"privateKeySecretRef": map[string]interface{}{
 						"name": "letsencrypt-prod-private-key",
