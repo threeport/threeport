@@ -7406,154 +7406,13 @@ const docTemplate = `{
             }
         },
         "v0.AwsAccount": {
-            "type": "object",
-            "required": [
-                "AccessKeyID",
-                "AccountID",
-                "DefaultRegion",
-                "Name",
-                "SecretAccessKey"
-            ],
-            "properties": {
-                "AccessKeyID": {
-                    "description": "The key ID credentials for the AWS account.",
-                    "type": "string"
-                },
-                "AccountID": {
-                    "description": "The account ID for the AWS account.",
-                    "type": "string"
-                },
-                "AwsEksKubernetesRuntimeDefinitions": {
-                    "description": "The cluster instances deployed in this AWS account.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeDefinition"
-                    }
-                },
-                "DefaultAccount": {
-                    "description": "If true is the AWS Account used if none specified in a definition.",
-                    "type": "boolean"
-                },
-                "DefaultRegion": {
-                    "description": "The region to use for AWS managed services if not specified.",
-                    "type": "string"
-                },
-                "Name": {
-                    "description": "The unique name of an AWS account.",
-                    "type": "string"
-                },
-                "SecretAccessKey": {
-                    "description": "The secret key credentials for the AWS account.",
-                    "type": "string"
-                }
-            }
+            "type": "object"
         },
         "v0.AwsEksKubernetesRuntimeDefinition": {
-            "type": "object",
-            "required": [
-                "AWSAccountID",
-                "DefaultNodeGroupInitialSize",
-                "DefaultNodeGroupInstanceType",
-                "DefaultNodeGroupMaximumSize",
-                "DefaultNodeGroupMinimumSize",
-                "KubernetesRuntimeDefinitionID",
-                "Name",
-                "ZoneCount"
-            ],
-            "properties": {
-                "AWSAccountID": {
-                    "description": "The AWS account in which the EKS cluster is provisioned.",
-                    "type": "integer"
-                },
-                "AwsEksKubernetesRuntimeInstances": {
-                    "description": "The AWS EKS kubernetes runtime instances derived from this definition.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeInstance"
-                    }
-                },
-                "DefaultNodeGroupInitialSize": {
-                    "description": "The number of nodes in the default initial node group.",
-                    "type": "integer"
-                },
-                "DefaultNodeGroupInstanceType": {
-                    "description": "The AWS instance type for the default initial node group.",
-                    "type": "string"
-                },
-                "DefaultNodeGroupMaximumSize": {
-                    "description": "The maximum number of nodes the default initial node group should have.",
-                    "type": "integer"
-                },
-                "DefaultNodeGroupMinimumSize": {
-                    "description": "The minimum number of nodes the default initial node group should have.",
-                    "type": "integer"
-                },
-                "KubernetesRuntimeDefinitionID": {
-                    "description": "The kubernetes runtime definition for an EKS cluster in AWS.",
-                    "type": "integer"
-                },
-                "Name": {
-                    "description": "An arbitrary name for the definition.",
-                    "type": "string"
-                },
-                "ProfileID": {
-                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
-                    "type": "integer"
-                },
-                "TierID": {
-                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
-                    "type": "integer"
-                },
-                "ZoneCount": {
-                    "description": "The number of zones the cluster should span for availability.",
-                    "type": "integer"
-                }
-            }
+            "type": "object"
         },
         "v0.AwsEksKubernetesRuntimeInstance": {
-            "type": "object",
-            "required": [
-                "AwsEksKubernetesRuntimeDefinitionID",
-                "KubernetesRuntimeInstanceID",
-                "Name"
-            ],
-            "properties": {
-                "AwsEksKubernetesRuntimeDefinitionID": {
-                    "description": "The definition that configures this instance.",
-                    "type": "integer"
-                },
-                "InterruptReconciliation": {
-                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
-                    "type": "boolean"
-                },
-                "KubernetesRuntimeInstanceID": {
-                    "description": "The kubernetes runtime instance associated with the AWS EKS cluster.",
-                    "type": "integer"
-                },
-                "Name": {
-                    "description": "An arbitrary name the instance",
-                    "type": "string"
-                },
-                "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by workload controller.",
-                    "type": "boolean"
-                },
-                "Region": {
-                    "description": "The AWS Region in which the cluster is provisioned.  This field is\nstored in the instance (as well as definition) since a change to the\ndefinition will not move a cluster.",
-                    "type": "string"
-                },
-                "ResourceInventory": {
-                    "description": "An inventory of all AWS resources for the EKS cluster.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "Status": {
-                    "description": "The status of the instance.\nTODO: use a custom type",
-                    "type": "string"
-                }
-            }
+            "type": "object"
         },
         "v0.AwsRelationalDatabaseDefinition": {
             "type": "object",
@@ -7615,11 +7474,16 @@ const docTemplate = `{
         "v0.DomainNameDefinition": {
             "type": "object",
             "required": [
+                "AdminEmail",
                 "Domain",
                 "Name",
                 "Zone"
             ],
             "properties": {
+                "AdminEmail": {
+                    "description": "The email address of the domain administrator.",
+                    "type": "string"
+                },
                 "Domain": {
                     "description": "The base domain upon which the subdomain will be added to give a workload\na unique domain name.",
                     "type": "string"
@@ -7645,10 +7509,6 @@ const docTemplate = `{
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
-                    "type": "integer"
-                },
-                "WorkloadDefinitionID": {
-                    "description": "The workload definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Zone": {
@@ -7782,6 +7642,14 @@ const docTemplate = `{
                     "description": "Indicates if object is considered to be reconciled by gateway controller.",
                     "type": "boolean"
                 },
+                "ServiceName": {
+                    "description": "The kubernetes service to route requests to.",
+                    "type": "string"
+                },
+                "SubDomain": {
+                    "description": "An optional subdomain to add to the domain name.",
+                    "type": "string"
+                },
                 "TCPPort": {
                     "description": "TCP Port to expose to outside network.",
                     "type": "integer"
@@ -7882,6 +7750,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "KubernetesRuntimeDefinitionID",
+                "Location",
                 "Name"
             ],
             "properties": {
@@ -7909,15 +7778,13 @@ const docTemplate = `{
                     "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
                     "type": "boolean"
                 },
-<<<<<<< HEAD
-                "DnsWorkloadInstanceID": {
-                    "description": "The WorkloadInstanceID of the dns support service",
+                "DnsControllerInstanceId": {
+                    "description": "The WorkloadInstanceID of the gateway support service",
                     "type": "integer"
-=======
+                },
                 "ForceDelete": {
                     "description": "If true, delete the runtime even if there are workloads present.",
                     "type": "boolean"
->>>>>>> 542e194 (feat: improve notification handling)
                 },
                 "GatewayWorkloadInstanceID": {
                     "description": "The WorkloadInstanceID of the gateway support service",
@@ -8062,114 +7929,56 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-<<<<<<< HEAD
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "Profile",
                 "Tier",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-=======
-                "Profile",
-                "Tier",
->>>>>>> 542e194 (feat: improve notification handling)
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-<<<<<<< HEAD
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-=======
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
->>>>>>> 542e194 (feat: improve notification handling)
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-<<<<<<< HEAD
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "Profile",
-                "Tier"
-            ],
-            "x-enum-varnames": [
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-=======
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "GatewayDefinition",
-                "GatewayInstance"
+                "GatewayInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance"
             ],
             "x-enum-varnames": [
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
->>>>>>> 542e194 (feat: improve notification handling)
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-<<<<<<< HEAD
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-=======
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
->>>>>>> 542e194 (feat: improve notification handling)
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-<<<<<<< HEAD
-<<<<<<< HEAD
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksClusterDefinition",
-                "ObjectTypeAwsEksClusterInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
                 "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-=======
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
->>>>>>> 542e194 (feat: improve notification handling)
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance"
+                "ObjectTypeKubernetesRuntimeInstance"
             ]
         },
         "v0.Profile": {
