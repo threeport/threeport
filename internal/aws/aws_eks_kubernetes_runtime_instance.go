@@ -92,13 +92,11 @@ func awsEksKubernetesRuntimeInstanceCreated(
 				reconLog.Error(err, "failed to marshal inventory")
 			}
 			dbInventory := datatypes.JSON(inventoryJSON)
-			passiveChange := true // we do not want to trigger reconciliation on inventory updates
 			eksK8sInstanceWithInventory := v0.AwsEksKubernetesRuntimeInstance{
 				Common: v0.Common{
 					ID: awsEksKubernetesRuntimeInstance.ID,
 				},
 				ResourceInventory: &dbInventory,
-				Passive:           &passiveChange,
 			}
 			_, err = client.UpdateAwsEksKubernetesRuntimeInstance(
 				r.APIClient,

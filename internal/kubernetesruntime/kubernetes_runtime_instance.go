@@ -126,21 +126,6 @@ func kubernetesRuntimeInstanceDeleted(
 		return fmt.Errorf("failed to kubernetes runtime definition by ID: %w", err)
 	}
 
-	// check for workload instances:
-	// return error if ForceDelete field on k8s runtime instance is false
-	// delete workload instances if ForceDelete is true
-	// workload instances must be removed prior to runtime deletion as workloads
-	// may have attached infrastructure, e.g. load balancers that will prevent
-	// infrastructure clean up
-	workloadInstances, err := client.GetWorkloadInstancesByKubernetesRuntimeInstanceID(
-		r.APIClient,
-		r.APIServer,
-		*kubernetesRuntimeInstance.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get workload instances running in kubernetes runtime: %w", err)
-	}
-
 	// TODO: delete support services and control plane components
 
 	// delete kubernetes runtime instance

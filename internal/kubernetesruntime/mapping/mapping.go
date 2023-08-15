@@ -41,8 +41,11 @@ func (e *RegionError) Error() string {
 	return e.Message
 }
 
-func regionMap() *[]RegionMap {
+func getRegionMap() *[]RegionMap {
 	return &[]RegionMap{
+		{
+			Location: "Local",
+		},
 		{
 			Location:  "NorthAmerica:NewYork",
 			AwsRegion: "us-east-1",
@@ -154,10 +157,24 @@ func regionMap() *[]RegionMap {
 	}
 }
 
+// ValidLocation returns true if the location provided is a supported location.
+func ValidLocation(location string) bool {
+	// validate location
+	locationFound := false
+	for _, mapping := range *getRegionMap() {
+		if location == mapping.Location {
+			locationFound = true
+			break
+		}
+	}
+
+	return locationFound
+}
+
 // GetProviderRegionForLocation returns a cloud provider region for a given
 // threeport location and provider.
 func GetProviderRegionForLocation(provider, location string) (string, error) {
-	for _, r := range *regionMap() {
+	for _, r := range *getRegionMap() {
 		if r.Location == location {
 			switch provider {
 			case "aws":
@@ -176,7 +193,7 @@ func GetProviderRegionForLocation(provider, location string) (string, error) {
 // GetLocationForAwsRegion returns the threeport location for a given AWS
 // region.
 func GetLocationForAwsRegion(awsRegion string) (string, error) {
-	for _, r := range *regionMap() {
+	for _, r := range *getRegionMap() {
 		if r.AwsRegion == awsRegion {
 			return r.Location, nil
 		}

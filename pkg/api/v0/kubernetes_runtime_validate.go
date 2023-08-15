@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+
+	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
 )
 
 // KubernetesRuntimeInfraProvider indicates which infrastructure provider is being
@@ -37,10 +39,22 @@ func (e *KubernetesRuntimeDefinitionValidationErr) Error() string {
 	return e.Message
 }
 
+// KubernetesRuntimeInstanceValidationErr is an error that accepts a custom
+// message when validation errors occur for the KubernetesRuntimeInstance
+// object.
+type KubernetesRuntimeInstanceValidationErr struct {
+	Message string
+}
+
+// Error returns the custom message generated during validation.
+func (e *KubernetesRuntimeInstanceValidationErr) Error() string {
+	return e.Message
+}
+
 // BeforeCreate validates a KubernetesRuntimeDefinition object before creating
 // in the database.
 func (k *KubernetesRuntimeDefinition) BeforeCreate(tx *gorm.DB) error {
-	// validate infra provider is one of the support types
+	// validate infra provider is one of the supported types
 	infraProviders := SupportedInfraProviders()
 	providerValid := false
 	for _, provider := range infraProviders {
@@ -61,6 +75,53 @@ func (k *KubernetesRuntimeDefinition) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+// BeforeCreate validates a KubernetesRuntimeInstance before persisting to the
+// database.
+func (k *KubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
+	// validate location
+	if !mapping.ValidLocation(*k.Location) {
+		msg := fmt.Sprintf("location %s is not a supported threeport location for a kubernetes runtime instance", *k.Location)
+		return &KubernetesRuntimeInstanceValidationErr{msg}
+	}
+
+	return nil
+}
+
+// BeforeUpdate validates that no immutable fields are attempting to be changed
+// before updates are persisted.
+func (k *KubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
+	fmt.Println("---------------------------------------------------------")
+	fmt.Println(*k.Location)
+	// if the location in an update payload is nil, return without error
+	if k.Location == nil {
+		return nil
+	}
+
+	// validate location
+	if !mapping.ValidLocation(*k.Location) {
+		msg := fmt.Sprintf("location %s is not a supported threeport location for a kubernetes runtime instance", *k.Location)
+		return &KubernetesRuntimeInstanceValidationErr{msg}
+	}
+
+	// if the location in an update payload matches the existing payload, return
+	// without error
+	var existingRuntimeInstance KubernetesRuntimeInstance
+	if result := tx.First(&existingRuntimeInstance, *k.ID); result.Error != nil {
+		msg := fmt.Sprintf("failed to get location for existing kubernetes runtime instance %s", *k.Name)
+		return &KubernetesRuntimeInstanceValidationErr{msg}
+	}
+	fmt.Println("############################################################")
+	fmt.Println(*existingRuntimeInstance.Location)
+	fmt.Println(*k.Location)
+	if *existingRuntimeInstance.Location == *k.Location {
+		return nil
+	}
+
+	// cannot change location
+	msg := fmt.Sprintf("kubernetes runtime instances cannot be moved - location %s is immutable", *existingRuntimeInstance.Location)
+	return &KubernetesRuntimeInstanceValidationErr{msg}
+}
+
 // BeforeDelete validates a delete request on a kubernetes runtime instance
 // deletion to ensure deletion is possible.
 func (k *KubernetesRuntimeInstance) BeforeDelete(tx *gorm.DB) error {
@@ -68,7 +129,7 @@ func (k *KubernetesRuntimeInstance) BeforeDelete(tx *gorm.DB) error {
 	var workloadInstances []WorkloadInstance
 	if result := tx.Where(&WorkloadInstance{KubernetesRuntimeInstanceID: k.ID}).Find(&workloadInstances); result.Error != nil {
 		msg := fmt.Sprintf("failed to query workload instances for kubernetes runtime instance %s", *k.Name)
-		return &KubernetesRuntimeDefinitionValidationErr{msg}
+		return &KubernetesRuntimeInstanceValidationErr{msg}
 	}
 
 	if len(workloadInstances) > 0 {
@@ -76,7 +137,7 @@ func (k *KubernetesRuntimeInstance) BeforeDelete(tx *gorm.DB) error {
 			"kubernetes runtime instance %s cannot be deleted until workloads are removed",
 			*k.Name,
 		)
-		return &KubernetesRuntimeDefinitionValidationErr{msg}
+		return &KubernetesRuntimeInstanceValidationErr{msg}
 	}
 
 	return nil
