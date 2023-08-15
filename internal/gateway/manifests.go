@@ -20,7 +20,7 @@ func createSupportServicesCollection() (string, error) {
 				"name": "supportservices-sample",
 			},
 			"spec": map[string]interface{}{
-				"tier":                     "development",
+				"tier": "development",
 			},
 		},
 	}
@@ -210,7 +210,7 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail st
 			"spec": map[string]interface{}{
 				"acme": map[string]interface{}{
 					"email":  adminEmail,
-					"server": "https://acme-v02.api.letsencrypt.org/directory",
+					"server": "https://acme-staging-v02.api.letsencrypt.org/directory",
 					"privateKeySecretRef": map[string]interface{}{
 						"name": "letsencrypt-prod-private-key",
 					},
