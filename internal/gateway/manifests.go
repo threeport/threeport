@@ -21,7 +21,6 @@ func createSupportServicesCollection() (string, error) {
 			},
 			"spec": map[string]interface{}{
 				"tier":                     "development",
-				"defaultIngressController": "kong",
 			},
 		},
 	}
