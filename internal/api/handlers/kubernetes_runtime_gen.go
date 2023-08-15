@@ -4,15 +4,14 @@ package handlers
 
 import (
 	"errors"
-	"net/http"
-	"time"
-
 	echo "github.com/labstack/echo/v4"
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
+	"net/http"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -82,7 +81,7 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 		notifPayload, err := kubernetesRuntimeDefinition.NotificationPayload(
 			notifications.NotificationOperationCreated,
 			false,
-			0,
+			time.Now().Unix(),
 		)
 		if err != nil {
 			return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -333,7 +332,7 @@ func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 	notifPayload, err := kubernetesRuntimeDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -415,7 +414,7 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 		notifPayload, err := kubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationCreated,
 			false,
-			0,
+			time.Now().Unix(),
 		)
 		if err != nil {
 			return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -660,7 +659,7 @@ func (h Handler) DeleteKubernetesRuntimeInstance(c echo.Context) error {
 	notifPayload, err := kubernetesRuntimeInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)

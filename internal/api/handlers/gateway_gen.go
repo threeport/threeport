@@ -81,7 +81,7 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 		notifPayload, err := gatewayDefinition.NotificationPayload(
 			notifications.NotificationOperationCreated,
 			false,
-			0,
+			time.Now().Unix(),
 		)
 		if err != nil {
 			return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -332,7 +332,7 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 	notifPayload, err := gatewayDefinition.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -414,7 +414,7 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 		notifPayload, err := gatewayInstance.NotificationPayload(
 			notifications.NotificationOperationCreated,
 			false,
-			0,
+			time.Now().Unix(),
 		)
 		if err != nil {
 			return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -659,7 +659,7 @@ func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 	notifPayload, err := gatewayInstance.NotificationPayload(
 		notifications.NotificationOperationDeleted,
 		false,
-		0,
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -735,17 +735,6 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 	if result := h.DB.Create(&domainNameDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := domainNameDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.DomainNameDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, domainNameDefinition)
 	if err != nil {
@@ -967,17 +956,6 @@ func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := domainNameDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.DomainNameDefinitionDeleteSubject, *notifPayload)
-
 	response, err := v0.CreateResponse(nil, domainNameDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1048,16 +1026,18 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := domainNameInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*domainNameInstance.Reconciled {
+		notifPayload, err := domainNameInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.DomainNameInstanceCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.DomainNameInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, domainNameInstance)
 	if err != nil {
@@ -1174,18 +1154,12 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	// if client doesn't specify reconciled, set it to false
-	if updatedDomainNameInstance.Reconciled == nil {
-		reconciled := false
-		updatedDomainNameInstance.Reconciled = &reconciled
-	}
-
 	// update object in database
 	if result := h.DB.Model(&existingDomainNameInstance).Updates(updatedDomainNameInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controllers if reconciliation is required
+	// notify controller if reconciliation is required
 	if !*existingDomainNameInstance.Reconciled {
 		notifPayload, err := existingDomainNameInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
