@@ -89,6 +89,7 @@ func createExternalDns(
 	return unstructuredToYAMLString(externalDns)
 }
 
+// createGlooEdgePort creates a gloo edge port.
 func createGlooEdgePort(name string, port int64, ssl bool) map[string]interface{} {
 
 	var portObject = map[string]interface{}{
