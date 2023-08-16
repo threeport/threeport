@@ -1,7 +1,7 @@
 KubernetesRuntime:
-  Name: aws-remote-compute-space
+  Name: eks-remote
   InfraProvider: eks
   InfraProviderAccountName: default-account
   HighAvailability: false
-  Location: NorthAmericaEast
+  Location: NorthAmerica:NewYork
 
