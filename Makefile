@@ -254,6 +254,3 @@ gateway-controller-image: gateway-controller-image-build gateway-controller-imag
 #agent-image: @ Build and push agent container image
 agent-image: agent-image-build agent-image-push
 
-#control-plane-images: @ Build and push all control plane images
-control-plane-images: control-plane-images-build control-plane-images-push
-
