@@ -41,6 +41,8 @@ func (e *RegionError) Error() string {
 	return e.Message
 }
 
+// getRegionMap returns the mappings of threeport locations to cloud provider
+// regions.
 func getRegionMap() *[]RegionMap {
 	return &[]RegionMap{
 		{
