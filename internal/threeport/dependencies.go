@@ -40,7 +40,7 @@ func InstallThreeportControlPlaneDependencies(
 	mapper *meta.RESTMapper,
 	infraProvider string,
 ) error {
-	crdbVolClaimTemplateSpec := getCRDBVolClaimTemplateSpec(infraProvider)
+	crdbVolClaimTemplateSpec := getVolClaimTemplateSpec(infraProvider)
 
 	if err := CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
@@ -130,6 +130,7 @@ jetstream {
 }
 lame_duck_grace_period: 10s
 lame_duck_duration: 30s
+store_dir: /data
 `,
 			},
 		},
@@ -469,6 +470,10 @@ lame_duck_duration: 30s
 										"name":      "pid",
 										"mountPath": "/var/run/nats",
 									},
+									map[string]interface{}{
+										"name":      "datadir",
+										"mountPath": "/data",
+									},
 								},
 							},
 							//#############################
@@ -501,7 +506,14 @@ lame_duck_duration: 30s
 						},
 					},
 				},
-				"volumeClaimTemplates": nil,
+				"volumeClaimTemplates": []interface{}{
+					map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"name": "datadir",
+						},
+						"spec": getVolClaimTemplateSpec(infraProvider),
+					},
+				},
 			},
 		},
 	}
@@ -778,9 +790,9 @@ lame_duck_duration: 30s
 	return nil
 }
 
-// getCRDBVolClaimTemplateSpec returns the spec for the cockroach DB volume
+// getVolClaimTemplateSpec returns the spec for the cockroach DB volume
 // claim template based on the infra provider.
-func getCRDBVolClaimTemplateSpec(infraProvider string) map[string]interface{} {
+func getVolClaimTemplateSpec(infraProvider string) map[string]interface{} {
 	volClaimTemplateSpec := map[string]interface{}{
 		"accessModes": []interface{}{
 			"ReadWriteOnce",
