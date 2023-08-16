@@ -23,7 +23,17 @@ type KubernetesRuntimeDefinition struct {
 	// If true, will be deployed in a highly available configuration across
 	// multiple zones within a region and with multiple replicas of Kubernetes
 	// control plane components.
-	HighAvailability *bool `json:"HighAvailability,omitempty" query:"highavailability" validate:"optional"`
+	HighAvailability *bool `json:"HighAvailability,omitempty" query:"highavailability" gorm:"default:false" validate:"optional"`
+
+	// Sets the compute capacity of the machine type for the default node group.
+	NodeSize *string `json:"NodeSize,omitempty" query:"nodesize" gorm:"default:Medium" validate:"optional"`
+
+	// Sets the CPU:memory ration of the machine type for the default node
+	// group.
+	NodeProfile *string `json:"NodeProfile,omitempty" query:"nodeprofile" gorm:"default:Balanced" validate:"optional"`
+
+	// Sets the maximum number of nodes for the default node group.
+	NodeMaximum *int `json:"NodeMaximum,omitempty" query:"nodemaximum" gorm:"default:250" validate:"optional"`
 
 	// TODO: add fields for location limitations
 	// LocationsAllowed
