@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/threeport/threeport/internal/util"
+	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -243,7 +244,7 @@ func getGlooEdgeNamespace(r *controller.Reconciler, workloadInstanceID *uint) (s
 	}
 
 	// unmarshal gloo edge custom resource
-	glooEdge, err := util.UnmarshalUniqueWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
+	glooEdge, err := workloadutil.UnmarshalUniqueWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
 	if err != nil {
 		return "", fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
 	}
@@ -383,7 +384,7 @@ func configureWorkloadResourceInstance(
 	}
 
 	// get workload resource instance
-	workloadResourceInstance, err := util.GetUniqueWorkloadResourceInstance(workloadResourceInstances, "VirtualService")
+	workloadResourceInstance, err := workloadutil.GetUniqueWorkloadResourceInstance(workloadResourceInstances, "VirtualService")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workload resource instance: %w", err)
 	}

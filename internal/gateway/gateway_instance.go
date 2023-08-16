@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/threeport/threeport/internal/util"
+	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -128,13 +129,13 @@ func gatewayInstanceUpdated(
 	for _, resource := range gatewayInstanceObjects {
 
 		// get workload resource instance for virtual service
-		existingWorkloadResourceInstance, err := util.GetUniqueWorkloadResourceInstance(existingWorkloadResourceInstances, resource)
+		existingWorkloadResourceInstance, err := workloadutil.GetUniqueWorkloadResourceInstance(existingWorkloadResourceInstances, resource)
 		if err != nil {
 			return fmt.Errorf("failed to get workload resource instance: %w", err)
 		}
 
 		// get workload resource instance for virtual service
-		updatedWorkloadResourceInstance, err := util.GetUniqueWorkloadResourceInstance(updatedWorkloadResourceInstances, resource)
+		updatedWorkloadResourceInstance, err := workloadutil.GetUniqueWorkloadResourceInstance(updatedWorkloadResourceInstances, resource)
 		if err != nil {
 			return fmt.Errorf("failed to get workload resource instance: %w", err)
 		}
@@ -204,7 +205,7 @@ func gatewayInstanceDeleted(
 	for _, resource := range gatewayInstanceObjects {
 
 		// get workload resource instance for virtual service
-		workloadResourceInstance, err := util.GetUniqueWorkloadResourceInstance(workloadResourceInstances, resource)
+		workloadResourceInstance, err := workloadutil.GetUniqueWorkloadResourceInstance(workloadResourceInstances, resource)
 		if err != nil {
 			// workload instance has already been deleted
 			return nil
@@ -502,7 +503,7 @@ func confirmGatewayPortExposed(
 	}
 
 	// unmarshal gloo edge custom resource
-	gateway, err := util.UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
+	gateway, err := workloadutil.UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
 	}
@@ -567,7 +568,7 @@ func confirmGatewayPortExposed(
 	}
 
 	// update the gloo edge workload resource object
-	glooEdgeObject, err := util.GetUniqueWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
+	glooEdgeObject, err := workloadutil.GetUniqueWorkloadResourceInstance(workloadResourceInstances, "GlooEdge")
 	if err != nil {
 		return fmt.Errorf("failed to get gloo edge workload resource instance: %w", err)
 	}
@@ -617,12 +618,12 @@ func configureVirtualService(
 	// unmarshal service
 	var service map[string]interface{}
 	if gatewayDefinition.ServiceName != nil && *gatewayDefinition.ServiceName != "" {
-		service, err = util.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "Service", *gatewayDefinition.ServiceName)
+		service, err = workloadutil.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "Service", *gatewayDefinition.ServiceName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
 		}
 	} else {
-		service, err = util.UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances, "Service")
+		service, err = workloadutil.UnmarshalUniqueWorkloadResourceInstance(workloadResourceInstances, "Service")
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
 		}
@@ -647,7 +648,7 @@ func configureVirtualService(
 	}
 
 	// unmarshal virtual service
-	virtualService, err := util.UnmarshalUniqueWorkloadResourceDefinition(gatewayWorkloadResourceDefinitions, "VirtualService")
+	virtualService, err := workloadutil.UnmarshalUniqueWorkloadResourceDefinition(gatewayWorkloadResourceDefinitions, "VirtualService")
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
 	}
@@ -742,7 +743,7 @@ func configureIssuer(
 	}
 
 	// unmarshal virtual service
-	issuer, err := util.UnmarshalUniqueWorkloadResourceDefinition(gatewayWorkloadResourceDefinitions, "Issuer")
+	issuer, err := workloadutil.UnmarshalUniqueWorkloadResourceDefinition(gatewayWorkloadResourceDefinitions, "Issuer")
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
 	}
@@ -800,7 +801,7 @@ func configureCertificate(
 	}
 
 	// unmarshal virtual service
-	certificate, err := util.UnmarshalUniqueWorkloadResourceDefinition(gatewayWorkloadResourceDefinitions, "Certificate")
+	certificate, err := workloadutil.UnmarshalUniqueWorkloadResourceDefinition(gatewayWorkloadResourceDefinitions, "Certificate")
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
 	}
