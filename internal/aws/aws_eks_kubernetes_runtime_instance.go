@@ -141,10 +141,15 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	}()
 
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
-		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
-		AwsAccountID:        *awsAccount.AccountID,
-		AwsConfig:           awsConfig,
-		ResourceClient:      resourceClient,
+		RuntimeInstanceName:          *awsEksKubernetesRuntimeInstance.Name,
+		AwsAccountID:                 *awsAccount.AccountID,
+		AwsConfig:                    awsConfig,
+		ResourceClient:               resourceClient,
+		ZoneCount:                    int32(*awsEksKubernetesRuntimeDefinition.ZoneCount),
+		DefaultNodeGroupInstanceType: *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
+		DefaultNodeGroupInitialNodes: int32(*awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize),
+		DefaultNodeGroupMinNodes:     int32(*awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize),
+		DefaultNodeGroupMaxNodes:     int32(*awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize),
 	}
 
 	// create control plane infra
@@ -154,7 +159,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		// dangling AWS resources
 		createErr := fmt.Errorf("failed to create new threeport cluster: %w", err)
 		inventory, invErr := getInventory(r, awsEksKubernetesRuntimeInstance)
-		if err != nil {
+		if invErr != nil {
 			return fmt.Errorf("%w and failed to retrieve AWS resource inventory: %w", createErr, invErr)
 		}
 		if inventory != nil {

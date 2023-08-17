@@ -223,10 +223,15 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-			RuntimeInstanceName: provider.ThreeportRuntimeName(a.InstanceName),
-			AwsAccountID:        a.CreateProviderAccountID,
-			AwsConfig:           awsConfig,
-			ResourceClient:      resourceClient,
+			RuntimeInstanceName:          provider.ThreeportRuntimeName(a.InstanceName),
+			AwsAccountID:                 a.CreateProviderAccountID,
+			AwsConfig:                    awsConfig,
+			ResourceClient:               resourceClient,
+			ZoneCount:                    int32(1),
+			DefaultNodeGroupInstanceType: "t3.medium",
+			DefaultNodeGroupInitialNodes: int32(3),
+			DefaultNodeGroupMinNodes:     int32(3),
+			DefaultNodeGroupMaxNodes:     int32(250),
 		}
 
 		// update threeport config
@@ -638,7 +643,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	}
 
 	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper, a.DevEnvironment, a.CreateAdminEmail)
+	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
 	if err != nil {
 		msg := "failed to install threeport support services operator"
 		// print the error when it happens and then again post-deletion

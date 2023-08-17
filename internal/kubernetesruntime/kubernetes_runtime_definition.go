@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -54,24 +55,35 @@ func kubernetesRuntimeDefinitionCreated(
 		}
 
 		// create an AWS EKS cluster definition
-		zoneCount := 1
-		defaultNodeGroupInstanceType := "t2.medium"
+		var zoneCount int
+		if *kubernetesRuntimeDefinition.HighAvailability {
+			zoneCount = 3
+		} else {
+			zoneCount = 2
+		}
+		nodeGroupInstanceType, err := mapping.GetMachineType(
+			"aws",
+			*kubernetesRuntimeDefinition.NodeProfile,
+			*kubernetesRuntimeDefinition.NodeSize,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to map node size and profile to AWS machine type: %w", err)
+		}
 		defaultNodeGroupInitialSize := 2
-		defaultNodeGroupMinSize := 1
-		defaultNodeGroupMaxSize := 6
+		defaultNodeGroupMinSize := 0
 		awsEksKubernetesRuntimeDefinition := v0.AwsEksKubernetesRuntimeDefinition{
 			Definition: v0.Definition{
 				Name: kubernetesRuntimeDefinition.Name,
 			},
 			AwsAccountID:                  awsAccount.ID,
 			ZoneCount:                     &zoneCount,
-			DefaultNodeGroupInstanceType:  &defaultNodeGroupInstanceType,
+			DefaultNodeGroupInstanceType:  &nodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:   &defaultNodeGroupMinSize,
-			DefaultNodeGroupMaximumSize:   &defaultNodeGroupMaxSize,
+			DefaultNodeGroupMaximumSize:   kubernetesRuntimeDefinition.NodeMaximum,
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		}
-		_, err := client.CreateAwsEksKubernetesRuntimeDefinition(
+		_, err = client.CreateAwsEksKubernetesRuntimeDefinition(
 			r.APIClient,
 			r.APIServer,
 			&awsEksKubernetesRuntimeDefinition,

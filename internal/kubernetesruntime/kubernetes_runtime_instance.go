@@ -85,7 +85,7 @@ func kubernetesRuntimeInstanceUpdated(
 		return nil
 	}
 
-	// install compute space control plane components
+	// get kube client to install compute space control plane components
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
 		false,
@@ -98,11 +98,16 @@ func kubernetesRuntimeInstanceUpdated(
 	}
 
 	// TODO: sort out an elegant way to pass the custom image info for
-	// threeport-agent and other components
+	// install compute space control plane components
+	var agentImage string
+	if kubernetesRuntimeInstance.ThreeportAgentImage != nil {
+		agentImage = *kubernetesRuntimeInstance.ThreeportAgentImage
+	}
 	if err := threeport.InstallComputeSpaceControlPlaneComponents(
 		dynamicKubeClient,
 		mapper,
 		*kubernetesRuntimeInstance.Name,
+		agentImage,
 	); err != nil {
 		return fmt.Errorf("failed to insall compute space control plane components: %w", err)
 	}
