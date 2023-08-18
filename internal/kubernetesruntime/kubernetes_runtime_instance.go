@@ -86,13 +86,19 @@ func kubernetesRuntimeInstanceUpdated(
 		return nil
 	}
 
+	// get encryption key
+	encryptionKey := os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		return fmt.Errorf("ENCRYPTION_KEY environment variable not set")
+	}
+
 	// install compute space control plane components
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
 		false,
 		r.APIClient,
 		r.APIServer,
-		os.Getenv("ENCRYPTION_KEY"),
+		encryptionKey,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
