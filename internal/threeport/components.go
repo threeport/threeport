@@ -168,11 +168,28 @@ DB_PORT=26257
 DB_SSL_MODE=disable
 NATS_HOST=nats-js
 NATS_PORT=4222
-ENCRYPTION_KEY=` + encryptionKey,
+`,
 			},
 		},
 	}
 	if _, err := kube.CreateResource(apiSecret, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create API server secret: %w", err)
+	}
+
+	var encryptionSecret = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "encryption-key",
+				"namespace": ControlPlaneNamespace,
+			},
+			"stringData": map[string]interface{}{
+				"ENCRYPTION_KEY": encryptionKey,
+			},
+		},
+	}
+	if _, err := kube.CreateResource(encryptionSecret, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
 
