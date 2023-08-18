@@ -247,13 +247,6 @@ NATS_PORT=4222
 								},
 								"volumeMounts":   apiVolMounts,
 								"readinessProbe": getReadinessProbe(),
-								"envFrom": []interface{}{
-									map[string]interface{}{
-										"secretRef": map[string]interface{}{
-											"name": "encryption-key",
-										},
-									},
-								},
 							},
 						},
 						"volumes": apiVols,
