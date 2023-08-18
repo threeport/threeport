@@ -138,7 +138,7 @@ func (cfg *ThreeportConfig) GetEncryptionKey() (string, error) {
 		}
 	}
 
-	return "", errors.New("current instance not found when retrieving threeport API endpoint")
+	return "", errors.New("current instance not found when retrieving encryption key")
 }
 
 // GetThreeportCertificates returns the CA certificate, client certificate, and
