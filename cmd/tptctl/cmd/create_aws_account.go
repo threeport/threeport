@@ -69,9 +69,15 @@ control plane so that it may be used to manage infrastructure.`,
 			os.Exit(1)
 		}
 
+		encryptionKey, err := threeportConfig.GetEncryptionKey()
+		if err != nil {
+			cli.Error("failed to get encryption key from config", err)
+			os.Exit(1)
+		}
+
 		// create AWS account
 		awsAccount := awsAccountConfig.AwsAccount
-		aa, err := awsAccount.Create(apiClient, apiEndpoint)
+		aa, err := awsAccount.Create(apiClient, apiEndpoint, encryptionKey)
 		if err != nil {
 			cli.Error("failed to create aws account", err)
 			os.Exit(1)

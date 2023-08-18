@@ -20,11 +20,11 @@ type AwsAccount struct {
 	// The region to use for AWS managed services if not specified.
 	DefaultRegion *string `json:"DefaultRegion,omitempty" query:"defaultregion" gorm:"not null" validate:"required"`
 
-	// The key ID credentials for the AWS account.
-	AccessKeyID *string `json:"AccessKeyID,omitempty" query:"accesskeyid" gorm:"not null" validate:"required"`
+	// The encrypted key ID credentials for the AWS account.
+	EncryptedAccessKeyID *string `json:"EncryptedAccessKeyID,omitempty" query:"encryptedaccesskeyid" gorm:"not null" validate:"required"`
 
-	// The secret key credentials for the AWS account.
-	SecretAccessKey *string `json:"SecretAccessKey,omitempty" query:"secretaccesskey" gorm:"not null" validate:"required"`
+	// The encrypted secret key credentials for the AWS account.
+	EncryptedSecretAccessKey *string `json:"EncryptedSecretAccessKey,omitempty" query:"encryptedsecretaccesskey" gorm:"not null" validate:"required"`
 
 	// The cluster instances deployed in this AWS account.
 	AwsEksKubernetesRuntimeDefinitions []*AwsEksKubernetesRuntimeDefinition `json:"AwsEksKubernetesRuntimeDefinitions,omitempty" validate:"optional,association"`

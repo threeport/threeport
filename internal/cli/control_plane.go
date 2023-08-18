@@ -735,13 +735,25 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		}
 		awsAccountName := "default-account"
 		defaultAccount := true
+
+		// encrypt access key ID and secret access key
+		encryptedAccessKeyId, err := encryption.Encrypt(encryptionKey, accessKeyID)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt access key ID: %w", err)
+		}
+
+		encryptedSecretKey, err := encryption.Encrypt(encryptionKey, secretAccessKey)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt secret access key: %w", err)
+		}
+
 		awsAccount := v0.AwsAccount{
-			Name:            &awsAccountName,
-			AccountID:       &a.CreateProviderAccountID,
-			DefaultAccount:  &defaultAccount,
-			DefaultRegion:   &awsConfig.Region,
-			AccessKeyID:     &accessKeyID,
-			SecretAccessKey: &secretAccessKey,
+			Name:                     &awsAccountName,
+			AccountID:                &a.CreateProviderAccountID,
+			DefaultAccount:           &defaultAccount,
+			DefaultRegion:            &awsConfig.Region,
+			EncryptedAccessKeyID:     &encryptedAccessKeyId,
+			EncryptedSecretAccessKey: &encryptedSecretKey,
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,
@@ -923,7 +935,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 	// check for existing workload instances that may prevent deletion
 	switch threeportInstanceConfig.Provider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
+		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForInstance(a.InstanceName)
 		if err != nil {
 			return fmt.Errorf("failed to get threeport certificates from config: %w", err)
 		}
