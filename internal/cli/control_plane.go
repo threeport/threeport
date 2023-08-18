@@ -311,6 +311,13 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			}
 			return err
 		}
+
+		// encrypt connection token
+		encryptedConnectionToken, err := encryption.Encrypt(encryptionKey, kubeConnectionInfo.EKSToken)
+		if err != nil {
+			return err
+		}
+
 		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
@@ -319,7 +326,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			ThreeportControlPlaneHost: &controlPlaneHost,
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
-			EncryptedConnectionToken:  &kubeConnectionInfo.EKSToken,
+			EncryptedConnectionToken:  &encryptedConnectionToken,
 			DefaultRuntime:            &defaultRuntime,
 			Reconciled:                &instReconciled,
 		}
@@ -965,7 +972,20 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 				if err != nil {
 					return fmt.Errorf("failed to refresh token to connect to EKS kubernetes runtime: %w", err)
 				}
-				kubernetesRuntimeInstance.EncryptedConnectionToken = &kubeConn.EKSToken
+
+				// get encryption key
+				encryptionKey := os.Getenv("ENCRYPTION_KEY")
+				if encryptionKey == "" {
+					return fmt.Errorf("ENCRYPTION_KEY environment variable not set")
+				}
+
+				// encrypt connection token
+				encryptedConnectionToken, err := encryption.Encrypt(encryptionKey, kubeConn.EKSToken)
+				if err != nil {
+					return fmt.Errorf("failed to encrypt connection token: %w", err)
+				}
+
+				kubernetesRuntimeInstance.EncryptedConnectionToken = &encryptedConnectionToken
 				updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
 					apiClient,
 					threeportInstanceConfig.APIServer,

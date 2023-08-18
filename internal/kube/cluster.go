@@ -136,9 +136,13 @@ func getRESTConfig(
 		tlsConfig := rest.TLSClientConfig{
 			CAData: []byte(*runtime.CACertificate),
 		}
+		bearerToken, err := encryption.Decrypt(encryptionKey, *runtime.EncryptedConnectionToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt kubernetes runtime instance connection token: %w", err)
+		}
 		restConfig = rest.Config{
 			Host:            kubeAPIEndpoint,
-			BearerToken:     *runtime.EncryptedConnectionToken,
+			BearerToken:     bearerToken,
 			TLSClientConfig: tlsConfig,
 		}
 		// if there is a connection token expiration, make sure that token is
@@ -166,6 +170,7 @@ func getRESTConfig(
 						runtime,
 						threeportAPIClient,
 						threeportAPIEndpoint,
+						encryptionKey,
 					)
 					if err != nil {
 						return nil, fmt.Errorf("failed to refresh connection token for EKS cluster: %w", err)
@@ -205,6 +210,7 @@ func refreshEKSConnection(
 	runtimeInstance *v0.KubernetesRuntimeInstance,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
+	encryptionKey string,
 ) (*rest.Config, error) {
 	// get EKS runtime instance
 	eksRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(
@@ -253,9 +259,15 @@ func refreshEKSConnection(
 		return nil, fmt.Errorf("failed to get EKS cluster connection info for token refresh: %w", err)
 	}
 
+	// encrypt connection token
+	encryptedConnectionToken, err := encryption.Encrypt(encryptionKey, eksClusterConn.Token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt EKS cluster connection token: %w", err)
+	}
+
 	// update threeport API with new connection info
 	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
-	runtimeInstance.EncryptedConnectionToken = &eksClusterConn.Token
+	runtimeInstance.EncryptedConnectionToken = &encryptedConnectionToken
 	runtimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
 	_, err = client.UpdateKubernetesRuntimeInstance(
 		threeportAPIClient,

@@ -14,6 +14,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
 // awsEksKubernetesRuntimeInstanceCreated reconciles state for created AWS EKS
@@ -179,11 +180,23 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		return fmt.Errorf("failed to get kubernetes runtime instance to update kube connection info: %w", err)
 	}
 
+	// get encryption key
+	encryptionKey := os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		return fmt.Errorf("ENCRYPTION_KEY environment variable not set")
+	}
+
+	// encrypt connection token
+	encryptedConnectionToken, err := encryption.Encrypt(encryptionKey, kubeConnectionInfo.EKSToken)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt connection token: %w", err)
+	}
+
 	// update kube connection info
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
-	kubernetesRuntimeInstance.EncryptedConnectionToken = &kubeConnectionInfo.EKSToken
+	kubernetesRuntimeInstance.EncryptedConnectionToken = &encryptedConnectionToken
 	kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnectionInfo.EKSTokenExpiration
 	kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
 	_, err = client.UpdateKubernetesRuntimeInstance(
