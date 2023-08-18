@@ -319,7 +319,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			ThreeportControlPlaneHost: &controlPlaneHost,
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
-			ConnectionToken:           &kubeConnectionInfo.EKSToken,
+			EncryptedConnectionToken:  &kubeConnectionInfo.EKSToken,
 			DefaultRuntime:            &defaultRuntime,
 			Reconciled:                &instReconciled,
 		}
@@ -965,7 +965,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 				if err != nil {
 					return fmt.Errorf("failed to refresh token to connect to EKS kubernetes runtime: %w", err)
 				}
-				kubernetesRuntimeInstance.ConnectionToken = &kubeConn.EKSToken
+				kubernetesRuntimeInstance.EncryptedConnectionToken = &kubeConn.EKSToken
 				updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
 					apiClient,
 					threeportInstanceConfig.APIServer,

@@ -132,13 +132,13 @@ func getRESTConfig(
 			Host:            kubeAPIEndpoint,
 			TLSClientConfig: tlsConfig,
 		}
-	case runtime.ConnectionToken != nil:
+	case runtime.EncryptedConnectionToken != nil:
 		tlsConfig := rest.TLSClientConfig{
 			CAData: []byte(*runtime.CACertificate),
 		}
 		restConfig = rest.Config{
 			Host:            kubeAPIEndpoint,
-			BearerToken:     *runtime.ConnectionToken,
+			BearerToken:     *runtime.EncryptedConnectionToken,
 			TLSClientConfig: tlsConfig,
 		}
 		// if there is a connection token expiration, make sure that token is
@@ -255,7 +255,7 @@ func refreshEKSConnection(
 
 	// update threeport API with new connection info
 	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
-	runtimeInstance.ConnectionToken = &eksClusterConn.Token
+	runtimeInstance.EncryptedConnectionToken = &eksClusterConn.Token
 	runtimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
 	_, err = client.UpdateKubernetesRuntimeInstance(
 		threeportAPIClient,

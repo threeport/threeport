@@ -183,7 +183,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
-	kubernetesRuntimeInstance.ConnectionToken = &kubeConnectionInfo.EKSToken
+	kubernetesRuntimeInstance.EncryptedConnectionToken = &kubeConnectionInfo.EKSToken
 	kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnectionInfo.EKSTokenExpiration
 	kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
 	_, err = client.UpdateKubernetesRuntimeInstance(
