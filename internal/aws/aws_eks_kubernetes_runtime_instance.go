@@ -180,14 +180,8 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		return fmt.Errorf("failed to get kubernetes runtime instance to update kube connection info: %w", err)
 	}
 
-	// get encryption key
-	encryptionKey := os.Getenv("ENCRYPTION_KEY")
-	if encryptionKey == "" {
-		return fmt.Errorf("ENCRYPTION_KEY environment variable not set")
-	}
-
 	// encrypt connection token
-	encryptedConnectionToken, err := encryption.Encrypt(encryptionKey, kubeConnectionInfo.EKSToken)
+	encryptedConnectionToken, err := encryption.Encrypt(r.EncryptionKey, kubeConnectionInfo.EKSToken)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt connection token: %w", err)
 	}

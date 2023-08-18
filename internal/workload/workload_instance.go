@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -90,19 +89,13 @@ func workloadInstanceCreated(
 		return fmt.Errorf("failed to get workload kubernetesRuntime instance by ID: %w", err)
 	}
 
-	// get encryption key
-	encryptionKey := os.Getenv("ENCRYPTION_KEY")
-	if encryptionKey == "" {
-		return fmt.Errorf("ENCRYPTION_KEY environment variable not set")
-	}
-
 	// get a kube discovery client for the kubernetes runtime
 	discoveryClient, err := kube.GetDiscoveryClient(
 		kubernetesRuntimeInstance,
 		true,
 		r.APIClient,
 		r.APIServer,
-		encryptionKey,
+		r.EncryptionKey,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes API discovery client for kubernetes runtime instance: %w", err)
@@ -124,7 +117,7 @@ func workloadInstanceCreated(
 		true,
 		r.APIClient,
 		r.APIServer,
-		encryptionKey,
+		r.EncryptionKey,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create dynamic kube API client: %w", err)
@@ -262,19 +255,13 @@ func workloadInstanceUpdated(
 		return nil
 	}
 
-	// get encryption key
-	encryptionKey := os.Getenv("ENCRYPTION_KEY")
-	if encryptionKey == "" {
-		return fmt.Errorf("ENCRYPTION_KEY environment variable not set")
-	}
-
 	// get a kube discovery client for the cluster
 	discoveryClient, err := kube.GetDiscoveryClient(
 		kubernetesRuntimeInstance,
 		true,
 		r.APIClient,
 		r.APIServer,
-		encryptionKey,
+		r.EncryptionKey,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get kube discovery client for cluster: %w", err)
@@ -296,7 +283,7 @@ func workloadInstanceUpdated(
 		true,
 		r.APIClient,
 		r.APIServer,
-		encryptionKey,
+		r.EncryptionKey,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create kube API client object: %w", err)
@@ -404,19 +391,13 @@ func workloadInstanceDeleted(
 		return fmt.Errorf("failed to get kubernetes runtime instance by ID: %w", err)
 	}
 
-	// get encryption key
-	encryptionKey := os.Getenv("ENCRYPTION_KEY")
-	if encryptionKey == "" {
-		return fmt.Errorf("ENCRYPTION_KEY environment variable not set")
-	}
-
 	// create a client to connect to kube API
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
 		true,
 		r.APIClient,
 		r.APIServer,
-		encryptionKey,
+		r.EncryptionKey,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create kube API client object: %w", err)

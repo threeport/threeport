@@ -47,6 +47,12 @@ func main() {
 	var authEnabled = flag.Bool("auth-enabled", true, "Enable client certificate authentication (default is true)")
 	flag.Parse()
 
+	var log logr.Logger
+	var encryptionKey = os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		log.Error(errors.New("environment variable ENCRYPTION_KEY is not set"), "encryption key not found")
+	}
+
 	if *help {
 		showHelpAndExit(0)
 	}
@@ -55,7 +61,6 @@ func main() {
 	controllerID := uuid.New()
 
 	// logging setup
-	var log logr.Logger
 	switch *verbose {
 	case true:
 		zapLog, err := zap.NewDevelopment()
@@ -170,6 +175,7 @@ func main() {
 			APIClient:        apiClient,
 			APIServer:        *apiServer,
 			ControllerID:     controllerID,
+			EncryptionKey:    encryptionKey,
 			JetStreamContext: js,
 			KeyValue:         kv,
 			Log:              &log,

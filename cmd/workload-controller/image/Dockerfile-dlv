@@ -1,0 +1,10 @@
+FROM golang:1.20-alpine
+
+RUN apk update && apk add git
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+COPY bin/threeport-workload-controller /threeport-workload-controller
+
+RUN mkdir /threeport
+WORKDIR /threeport
+
+CMD /go/bin/dlv --listen=:40000 --headless=true --api-version=2 --log exec /threeport-workload-controller
