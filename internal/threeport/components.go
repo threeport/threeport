@@ -251,6 +251,13 @@ NATS_PORT=4222
 								},
 								"volumeMounts":   apiVolMounts,
 								"readinessProbe": getReadinessProbe(),
+								"envFrom": []interface{}{
+									map[string]interface{}{
+										"secretRef": map[string]interface{}{
+											"name": "encryption-key",
+										},
+									},
+								},
 							},
 						},
 						"volumes": apiVols,
@@ -1806,6 +1813,11 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 									map[string]interface{}{
 										"secretRef": map[string]interface{}{
 											"name": "controller-config",
+										},
+									},
+									map[string]interface{}{
+										"secretRef": map[string]interface{}{
+											"name": "encryption-key",
 										},
 									},
 								},
