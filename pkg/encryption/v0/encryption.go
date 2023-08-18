@@ -41,14 +41,14 @@ func Encrypt(key, text string) (string, error) {
 	// creates a new AES cipher using our 32 byte key
 	c, err := aes.NewCipher([]byte(decodedKey))
 	if err != nil {
-		fmt.Println(err)
+		return "", fmt.Errorf("failed to create cipher: %w", err)
 	}
 
 	// configure Galois/Counter mode,
 	// which provides both authentication and encryption
 	gcm, err := cipher.NewGCM(c)
 	if err != nil {
-		fmt.Println(err)
+		return "", fmt.Errorf("failed to configure galois counter mode: %w", err)
 	}
 
 	// creates a new byte array the size of the nonce
@@ -57,7 +57,7 @@ func Encrypt(key, text string) (string, error) {
 	// populate nonce with a random and unique value, which is
 	// required for GCM to be secure
 	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		fmt.Println(err)
+		return "", fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
 	// encode our nonce and ciphertext in base64 and return
@@ -90,7 +90,7 @@ func Decrypt(key, ciphertext string) (string, error) {
 	// configure Galois/Counter mode
 	gcm, err := cipher.NewGCM(c)
 	if err != nil {
-		return "", fmt.Errorf("failed to create gcm: %w", err)
+		return "", fmt.Errorf("failed to configure galois counter mode: %w", err)
 	}
 
 	// get the nonce size
@@ -105,7 +105,7 @@ func Decrypt(key, ciphertext string) (string, error) {
 	// decrypt the ciphertext
 	plaintext, err := gcm.Open(nil, []byte(nonce), []byte(decodedCipherText), nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to open gcm: %w", err)
+		return "", fmt.Errorf("failed to decrypt: %w", err)
 	}
 
 	// return the plaintext as a string
