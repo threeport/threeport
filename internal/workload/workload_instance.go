@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -95,6 +96,7 @@ func workloadInstanceCreated(
 		true,
 		r.APIClient,
 		r.APIServer,
+		os.Getenv("ENCRYPTION_KEY"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes API discovery client for kubernetes runtime instance: %w", err)
@@ -116,6 +118,7 @@ func workloadInstanceCreated(
 		true,
 		r.APIClient,
 		r.APIServer,
+		os.Getenv("ENCRYPTION_KEY"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create dynamic kube API client: %w", err)
@@ -259,6 +262,7 @@ func workloadInstanceUpdated(
 		true,
 		r.APIClient,
 		r.APIServer,
+		os.Getenv("ENCRYPTION_KEY"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get kube discovery client for cluster: %w", err)
@@ -280,6 +284,7 @@ func workloadInstanceUpdated(
 		true,
 		r.APIClient,
 		r.APIServer,
+		os.Getenv("ENCRYPTION_KEY"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create kube API client object: %w", err)
@@ -393,6 +398,7 @@ func workloadInstanceDeleted(
 		true,
 		r.APIClient,
 		r.APIServer,
+		os.Getenv("ENCRYPTION_KEY"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create kube API client object: %w", err)

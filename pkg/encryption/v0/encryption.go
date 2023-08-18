@@ -7,38 +7,49 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+
+	"github.com/threeport/threeport/internal/util"
 )
 
 // GenerateKey generates a random 64-byte key for use in encryption.
 func GenerateKey() (string, error) {
-	key := make([]byte, 64)
 
+	// creates a new byte array the size of our key
+	key := make([]byte, 32)
+
+	// populate our key with a cryptographically secure
+	// random sequence
 	_, err := rand.Read(key)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate key: %w", err)
 	}
 
+	// encode our key in base64 and return it as a string
 	return base64.StdEncoding.EncodeToString(key), nil
 }
 
 // Encrypt encrypts a string using AES-GCM.
-func Encrypt(key, text string) {
+func Encrypt(key, text string) (string, error) {
 
-	c, err := aes.NewCipher([]byte(key))
+	// decode the key from base64
+	decodedKey, err := util.Base64Decode(key)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode key: %w", err)
+	}
+
+	// creates a new AES cipher using our 32 byte key
+	c, err := aes.NewCipher([]byte(decodedKey))
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	// gcm or Galois/Counter Mode, is a mode of operation
-	// for symmetric key cryptographic block ciphers
-	// - https://en.wikipedia.org/wiki/Galois/Counter_Mode
+	// configure Galois/Counter mode
 	gcm, err := cipher.NewGCM(c)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	// creates a new byte array the size of the nonce
-	// which must be passed to Seal
 	nonce := make([]byte, gcm.NonceSize())
 
 	// populates our nonce with a cryptographically secure
@@ -47,38 +58,54 @@ func Encrypt(key, text string) {
 		fmt.Println(err)
 	}
 
-	// here we encrypt our text using the Seal function
-	// Seal encrypts and authenticates plaintext, authenticates the
-	// additional data and appends the result to dst, returning the updated
-	// slice. The nonce must be NonceSize() bytes long and unique for all
-	// time, for a given key.
-	fmt.Println(gcm.Seal(nonce, nonce, []byte(text), nil))
+	// encode our nonce and ciphertext in base64 and return
+	// them as a string
+	return base64.StdEncoding.EncodeToString(gcm.Seal(nonce, nonce, []byte(text), nil)), nil
 
 }
 
 // Decrypt decrypts a string using AES-GCM.
-func Decrypt(key, ciphertext string) {
+func Decrypt(key, ciphertext string) (string, error) {
 
-	c, err := aes.NewCipher([]byte(key))
+	// decode the ciphertext from base64
+	decodedCipherText, err := util.Base64Decode(ciphertext)
 	if err != nil {
-		fmt.Println(err)
+		return "", fmt.Errorf("failed to decode ciphertext: %w", err)
 	}
 
+	// decode the key from base64
+	decodedKey, err := util.Base64Decode(key)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode key: %w", err)
+	}
+
+	// create a new AES cipher using our 32 byte key
+	c, err := aes.NewCipher([]byte(decodedKey))
+	if err != nil {
+		return "", fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	// configure Galois/Counter mode
 	gcm, err := cipher.NewGCM(c)
 	if err != nil {
-		fmt.Println(err)
+		return "", fmt.Errorf("failed to create gcm: %w", err)
 	}
 
+	// get the nonce size
 	nonceSize := gcm.NonceSize()
-	if len(ciphertext) < nonceSize {
-		fmt.Println(err)
+	if len(decodedCipherText) < nonceSize {
+		return "", fmt.Errorf("ciphertext too short")
 	}
 
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-	plaintext, err := gcm.Open(nil, []byte(nonce), []byte(ciphertext), nil)
+	// extract the nonce from the ciphertext
+	nonce, decodedCipherText := decodedCipherText[:nonceSize], decodedCipherText[nonceSize:]
+
+	// decrypt the ciphertext
+	plaintext, err := gcm.Open(nil, []byte(nonce), []byte(decodedCipherText), nil)
 	if err != nil {
-		fmt.Println(err)
+		return "", fmt.Errorf("failed to open gcm: %w", err)
 	}
-	fmt.Println(string(plaintext))
 
+	// return the plaintext as a string
+	return string(plaintext), nil
 }

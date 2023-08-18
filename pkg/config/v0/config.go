@@ -50,6 +50,9 @@ type Instance struct {
 
 	// Client authentication credentials to threeport API.
 	Credentials []Credential `yaml:"Credentials"`
+
+	// The encryption key used to encrypt secrets.
+	EncryptionKey string `yaml:"EncryptionKey"`
 }
 
 // KubeAPI is the information and credentials needed to connect to the
@@ -124,6 +127,18 @@ func (cfg *ThreeportConfig) GetThreeportAuthEnabled() (bool, error) {
 	}
 
 	return false, errors.New("current instance not found when retrieving threeport API endpoint")
+}
+
+// GetEncryptionKey returns the encryption key from the threeport
+// config.
+func (cfg *ThreeportConfig) GetEncryptionKey() (string, error) {
+	for i, instance := range cfg.Instances {
+		if instance.Name == cfg.CurrentInstance {
+			return cfg.Instances[i].EncryptionKey, nil
+		}
+	}
+
+	return "", errors.New("current instance not found when retrieving threeport API endpoint")
 }
 
 // GetThreeportCertificates returns the CA certificate, client certificate, and

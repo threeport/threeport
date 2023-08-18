@@ -65,7 +65,7 @@ type KubernetesRuntimeInstance struct {
 	Certificate *string `json:"Certificate,omitempty" validate:"optional"`
 
 	// The client key to use for auth to the kube-api.
-	Key *string `json:"Key,omitempty" validate:"optional"`
+	EncryptedKey *string `json:"Key,omitempty" validate:"optional"`
 
 	// ConnectionToken is used to authenticate with a OIDC provider that
 	// implements auth for a Kubernetes cluster.  It is an alternative to client

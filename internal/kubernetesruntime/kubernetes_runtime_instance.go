@@ -2,6 +2,7 @@ package kubernetesruntime
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
 
@@ -91,6 +92,7 @@ func kubernetesRuntimeInstanceUpdated(
 		false,
 		r.APIClient,
 		r.APIServer,
+		os.Getenv("ENCRYPTION_KEY"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)

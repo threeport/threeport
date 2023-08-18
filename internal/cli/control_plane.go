@@ -25,6 +25,7 @@ import (
 	"github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
 var ThreeportConfigAlreadyExistsErr = errors.New("threeport control plane with provided name already exists in threeport config")
@@ -261,6 +262,15 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		EKSToken:      util.Base64Encode(kubeConnectionInfo.EKSToken),
 	}
 
+	// generate encryption key
+	encryptionKey, err := encryption.GenerateKey()
+	if err != nil {
+		return fmt.Errorf("failed to generate encryption key: %w", err)
+	}
+
+	// set encryption key in threeport config
+	threeportInstanceConfig.EncryptionKey = encryptionKey
+
 	// the kubernetes runtime instance is the default compute space kubernetes runtime to be added
 	// to the API
 	kubernetesRuntimeInstName := threeport.BootstrapKubernetesRuntimeName(a.InstanceName)
@@ -271,6 +281,10 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		location := "Local"
+		encryptedKey, err := encryption.Encrypt(encryptionKey, kubeConnectionInfo.Key)
+		if err != nil {
+			return err
+		}
 		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
@@ -279,7 +293,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
 			Certificate:               &kubeConnectionInfo.Certificate,
-			Key:                       &kubeConnectionInfo.Key,
+			EncryptedKey:              &encryptedKey,
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
 			Reconciled:                &instReconciled,
@@ -319,6 +333,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		false,
 		nil,
 		"",
+		threeportInstanceConfig.EncryptionKey,
 	)
 	if err != nil {
 		msg := "failed to get a Kubernetes client and mapper"
@@ -462,6 +477,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		a.ControlPlaneImageTag,
 		authConfig,
 		a.InfraProvider,
+		encryptionKey,
 	); err != nil {
 		msg := "failed to install threeport API server"
 		// print the error when it happens and then again post-deletion
@@ -545,6 +561,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		false,
 		apiClient,
 		threeportAPIEndpoint,
+		threeportInstanceConfig.EncryptionKey,
 	)
 	if err != nil {
 		msg := "failed to get a new Kubernetes client and mapper"
@@ -939,6 +956,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 			false,
 			apiClient,
 			threeportInstanceConfig.APIServer,
+			threeportInstanceConfig.EncryptionKey,
 		)
 		if err != nil {
 			if kubeerrors.IsUnauthorized(err) {
@@ -961,6 +979,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 					false,
 					apiClient,
 					threeportInstanceConfig.APIServer,
+					threeportInstanceConfig.EncryptionKey,
 				)
 				if err != nil {
 					return fmt.Errorf("failed to get a Kubernetes client and mapper with refreshed token: %w", err)

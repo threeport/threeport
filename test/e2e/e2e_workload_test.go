@@ -313,12 +313,16 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error getting kubernetes runtime instance")
 		assert.NotNil(kubernetesRuntimeInstance, "should have a kubernetes runtime instance returned")
 
+		encryptionKey, err := threeportConfig.GetEncryptionKey()
+		assert.Nil(err, "should have no error getting encryption key")
+
 		// create a client to connect to kube API
 		dynamicKubeClient, mapper, err := kube.GetClient(
 			kubernetesRuntimeInstance,
 			false,
 			apiClient,
 			apiAddr(),
+			encryptionKey,
 		)
 		assert.Nil(err, "should have no error creating a client and REST mapper for Kubernetes cluster API")
 
