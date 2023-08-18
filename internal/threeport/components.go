@@ -15,6 +15,7 @@ import (
 	"github.com/threeport/threeport/internal/version"
 	"github.com/threeport/threeport/pkg/auth/v0"
 	v0 "github.com/threeport/threeport/pkg/client/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
 const (
@@ -121,6 +122,10 @@ func InstallThreeportAPI(
 	apiServiceType := getAPIServiceType(infraProvider)
 	apiServiceAnnotations := getAPIServiceAnnotations(infraProvider)
 	apiServicePortName, apiServicePort := getAPIServicePort(infraProvider, authConfig)
+	encryptionKey, err := encryption.GenerateKey()
+	if err != nil {
+		return fmt.Errorf("failed to generate encryption key: %w", err)
+	}
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -163,7 +168,7 @@ DB_PORT=26257
 DB_SSL_MODE=disable
 NATS_HOST=nats-js
 NATS_PORT=4222
-`,
+ENCRYPTION_KEY=` + encryptionKey,
 			},
 		},
 	}
