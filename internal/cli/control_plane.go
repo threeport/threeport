@@ -974,9 +974,9 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 				}
 
 				// get encryption key
-				encryptionKey := os.Getenv("ENCRYPTION_KEY")
-				if encryptionKey == "" {
-					return fmt.Errorf("ENCRYPTION_KEY environment variable not set")
+				encryptionKey, err := threeportConfig.GetEncryptionKey()
+				if err != nil {
+					return fmt.Errorf("failed to get encryption key from threeport config: %w", err)
 				}
 
 				// encrypt connection token
