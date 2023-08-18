@@ -11,7 +11,8 @@ import (
 	"github.com/threeport/threeport/internal/util"
 )
 
-// GenerateKey generates a random 64-byte key for use in encryption.
+// GenerateKey generates a random 32-byte key for use in encryption
+// (32 bytes is the maximum key size for AES-256).
 func GenerateKey() (string, error) {
 
 	// creates a new byte array the size of our key
@@ -43,7 +44,8 @@ func Encrypt(key, text string) (string, error) {
 		fmt.Println(err)
 	}
 
-	// configure Galois/Counter mode
+	// configure Galois/Counter mode,
+	// which provides both authentication and encryption
 	gcm, err := cipher.NewGCM(c)
 	if err != nil {
 		fmt.Println(err)
@@ -52,8 +54,8 @@ func Encrypt(key, text string) (string, error) {
 	// creates a new byte array the size of the nonce
 	nonce := make([]byte, gcm.NonceSize())
 
-	// populates our nonce with a cryptographically secure
-	// random sequence
+	// populate nonce with a random and unique value, which is
+	// required for GCM to be secure
 	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
 		fmt.Println(err)
 	}
