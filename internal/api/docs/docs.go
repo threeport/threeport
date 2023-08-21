@@ -7405,17 +7405,13 @@ const docTemplate = `{
         "v0.AwsAccount": {
             "type": "object",
             "required": [
-                "AccessKeyID",
                 "AccountID",
                 "DefaultRegion",
-                "Name",
-                "SecretAccessKey"
+                "EncryptedAccessKeyID",
+                "EncryptedSecretAccessKey",
+                "Name"
             ],
             "properties": {
-                "AccessKeyID": {
-                    "description": "The key ID credentials for the AWS account.",
-                    "type": "string"
-                },
                 "AccountID": {
                     "description": "The account ID for the AWS account.",
                     "type": "string"
@@ -7435,12 +7431,16 @@ const docTemplate = `{
                     "description": "The region to use for AWS managed services if not specified.",
                     "type": "string"
                 },
-                "Name": {
-                    "description": "The unique name of an AWS account.",
+                "EncryptedAccessKeyID": {
+                    "description": "The encrypted key ID credentials for the AWS account.",
                     "type": "string"
                 },
-                "SecretAccessKey": {
-                    "description": "The secret key credentials for the AWS account.",
+                "EncryptedSecretAccessKey": {
+                    "description": "The encrypted secret key credentials for the AWS account.",
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "The unique name of an AWS account.",
                     "type": "string"
                 }
             }
@@ -7991,10 +7991,6 @@ const docTemplate = `{
                     "description": "The client certificate to use for auth to the kube-api.",
                     "type": "string"
                 },
-                "ConnectionToken": {
-                    "description": "ConnectionToken is used to authenticate with a OIDC provider that\nimplements auth for a Kubernetes cluster.  It is an alternative to client\ncertficate and key authenticaion.",
-                    "type": "string"
-                },
                 "ConnectionTokenExpiration": {
                     "description": "ConnectionTokenExpiration is the time when a ConnectionToken will expire.\nUsed to ensure a token will not expire before it can be used.",
                     "type": "string"
@@ -8019,6 +8015,10 @@ const docTemplate = `{
                     "description": "The WorkloadInstanceID of the gateway support service",
                     "type": "integer"
                 },
+                "EncryptedConnectionToken": {
+                    "description": "EncryptedConnectionToken is used to authenticate with a OIDC provider that\nimplements auth for a Kubernetes cluster.  It is an alternative to client\ncertficate and key authenticaion.",
+                    "type": "string"
+                },
                 "ForceDelete": {
                     "description": "If true, delete the runtime even if there are workloads present.",
                     "type": "boolean"
@@ -8028,7 +8028,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "Key": {
-                    "description": "The client key to use for auth to the kube-api.",
+                    "description": "The encrypted client key to use for auth to the kube-api.",
                     "type": "string"
                 },
                 "KubernetesRuntimeDefinitionID": {
@@ -8166,56 +8166,56 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "AttachedObjectReference",
-                "WorkloadResourceInstance",
-                "WorkloadEvent",
-                "Profile",
-                "Tier",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
+                "Profile",
+                "Tier",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
                 "GatewayDefinition",
                 "GatewayInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance"
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "AttachedObjectReference",
+                "WorkloadResourceInstance",
+                "WorkloadEvent"
             ],
             "x-enum-varnames": [
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance"
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeAttachedObjectReference",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent"
             ]
         },
         "v0.Profile": {
