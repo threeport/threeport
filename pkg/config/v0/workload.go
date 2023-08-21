@@ -231,6 +231,11 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 
 // Create creates a workload definition in the Threeport API.
 func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, error) {
+	// validate required fields
+	if wd.Name == "" || wd.YAMLDocument == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, YAMLDocument")
+	}
+
 	// build the path to the YAML document relative to the user's working
 	// directory
 	configPath, _ := filepath.Split(wd.WorkloadConfigPath)
@@ -280,6 +285,11 @@ func (wd *WorkloadDefinitionValues) Delete(apiClient *http.Client, apiEndpoint s
 
 // Create creates a workload instance in the Threeport API.
 func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadInstance, error) {
+	// validate required fields
+	if wi.Name == "" || wi.WorkloadDefinition.Name == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, WorkloadDefinition.Name")
+	}
+
 	// get kubernetes runtime instance by name if provided, otherwise default kubernetes runtime
 	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
 	if wi.KubernetesRuntimeInstance.Name == "" {

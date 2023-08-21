@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"errors"
 	"net/http"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -36,6 +37,10 @@ type DomainNameInstanceValues struct {
 // CreateIfNotExist creates a domain name definition if it does not exist in the Threeport
 // API.
 func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
+	// validate required fields
+	if d.Name == "" || d.Zone == "" || d.AdminEmail == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, Zone, AdminEmail")
+	}
 
 	// check if domain name definition exists
 	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Name)
@@ -63,6 +68,11 @@ func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, ap
 }
 
 func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameInstance, error) {
+	// validate required fields
+	if d.Name == "" || d.DomainNameDefinition.Name == "" || d.WorkloadInstance.Name == "" ||
+		d.KubernetesRuntimeInstance.Name == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, DomainNameDefinition.Name, WorkloadInstance.Name, KubernetesRuntimeInstance.Name")
+	}
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, d.KubernetesRuntimeInstance.Name)

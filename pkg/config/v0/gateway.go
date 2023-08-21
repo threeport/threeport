@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"errors"
 	"net/http"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -37,6 +38,10 @@ type GatewayInstanceValues struct {
 
 // Create creates a gateway definition.
 func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, error) {
+	// validate required fields
+	if g.Name == "" || g.TCPPort == 0 {
+		return nil, errors.New("missing required field/s in config - required fields: Name, TCPPort")
+	}
 
 	// get domain name definition
 	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
@@ -67,6 +72,11 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 
 // Create creates a gateway instance.
 func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayInstance, error) {
+	// validate required fields
+	if g.Name == "" || g.GatewayDefinition.Name == "" || g.KubernetesRuntimeInstance.Name == "" ||
+		g.WorkloadInstance.Name == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, GatewayDefinition.Name, KubernetesRuntimeInstance.Name, WorkloadInstance.Name")
+	}
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, g.KubernetesRuntimeInstance.Name)

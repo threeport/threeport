@@ -6,6 +6,12 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 )
 
+const (
+	// Max length of runtime names prevents infra provider resource names
+	// exceeding maximum lengths imposed by provider.
+	RuntimeNameMaxLength = 30
+)
+
 // KubernetesRuntimeInfra is the interface each provider has to satisfy to manage
 // Kubernetes runtime infra.
 type KubernetesRuntimeInfra interface {

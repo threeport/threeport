@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/nukleros/eks-cluster/pkg/resource"
@@ -107,6 +108,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 	// flag validation
 	if err := validateCreateControlPlaneFlags(
+		a.InstanceName,
 		a.InfraProvider,
 		a.CreateRootDomain,
 		a.CreateProviderAccountID,
@@ -1064,7 +1066,23 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 }
 
 // validateCreateControlPlaneFlags validates flag inputs as needed
-func validateCreateControlPlaneFlags(infraProvider, createRootDomain, createProviderAccountID string, authEnabled bool) error {
+func validateCreateControlPlaneFlags(
+	instanceName string,
+	infraProvider string,
+	createRootDomain string,
+	createProviderAccountID string,
+	authEnabled bool,
+) error {
+	// ensure name length doesn't exceed maximum
+	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
+		return errors.New(
+			fmt.Sprintf(
+				"instance name is too long - cannot exceed %d characters",
+				threeport.InstanceNameMaxLength,
+			),
+		)
+	}
+
 	// validate infra provider is supported
 	allowedInfraProviders := v0.SupportedInfraProviders()
 	matched := false

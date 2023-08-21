@@ -191,6 +191,13 @@ func (aa *AwsAccountValues) Delete(apiClient *http.Client, apiEndpoint string) (
 }
 
 func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	// validate required fields
+	if aekrd.Name == "" || aekrd.AwsAccountName == "" || aekrd.ZoneCount == 0 ||
+		aekrd.DefaultNodeGroupInstanceType == "" || aekrd.DefaultNodeGroupInitialSize == 0 ||
+		aekrd.DefaultNodeGroupMinimumSize == 0 || aekrd.DefaultNodeGroupMaximumSize == 0 {
+		return nil, errors.New("missing required field/s in config - required fields: Name, AwsAccountName, ZoneCount, DefaultNodeGroupInstanceType, DefaultNodeGroupInitialSize, DefaultNodeGroupMinimumSize, DefaultNodeGroupMaximumSize")
+	}
+
 	// look up AWS account by name
 	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, aekrd.AwsAccountName)
 	if err != nil {
@@ -254,6 +261,11 @@ func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Cli
 }
 
 func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	// validate required fields
+	if aekri.Name == "" || aekri.AwsEksKubernetesRuntimeDefinitionName == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, AwsEksKubernetesRuntimeDefinitionName")
+	}
+
 	// look up AWS EKS kubernetes runtime definition by name
 	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, aekri.AwsEksKubernetesRuntimeDefinitionName)
 	if err != nil {
