@@ -69,11 +69,11 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	// decrypt access key id and secret access key
 	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedAccessKeyID)
 	if err != nil {
-		return fmt.Errorf("failed to decrypt access key id: %w", err)
+		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
 	}
 	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedSecretAccessKey)
 	if err != nil {
-		return fmt.Errorf("failed to decrypt secret access key: %w", err)
+		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
 	}
 
 	// create AWS config
@@ -200,7 +200,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	// encrypt connection token
 	encryptedConnectionToken, err := encryption.Encrypt(r.EncryptionKey, kubeConnectionInfo.EKSToken)
 	if err != nil {
-		return fmt.Errorf("failed to encrypt connection token: %w", err)
+		return 0, fmt.Errorf("failed to encrypt connection token: %w", err)
 	}
 
 	// update kube connection info

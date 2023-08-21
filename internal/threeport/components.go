@@ -266,6 +266,13 @@ NATS_PORT=4222
 										"protocol":      "TCP",
 									},
 								},
+								"envFrom": []interface{}{
+									map[string]interface{}{
+										"secretRef": map[string]interface{}{
+											"name": "encryption-key",
+										},
+									},
+								},
 								"volumeMounts":   apiVolMounts,
 								"readinessProbe": getReadinessProbe(),
 							},

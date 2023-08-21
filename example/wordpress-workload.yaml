@@ -6,6 +6,7 @@ Workload:
   DomainName:
     Name: www.qleet.net
     Zone: Public
+    AdminEmail: admin@qleet.net
   Gateway:
     TCPPort: 443
     Path: /
