@@ -7384,9 +7384,6 @@ const docTemplate = `{
                 }
             }
         },
-        "datatypes.JSON": {
-            "type": "object"
-        },
         "v0.AttachedObjectReference": {
             "type": "object",
             "required": [
@@ -7406,13 +7403,166 @@ const docTemplate = `{
             }
         },
         "v0.AwsAccount": {
-            "type": "object"
+            "type": "object",
+            "required": [
+                "AccessKeyID",
+                "AccountID",
+                "DefaultRegion",
+                "Name",
+                "SecretAccessKey"
+            ],
+            "properties": {
+                "AccessKeyID": {
+                    "description": "The key ID credentials for the AWS account.",
+                    "type": "string"
+                },
+                "AccountID": {
+                    "description": "The account ID for the AWS account.",
+                    "type": "string"
+                },
+                "AwsEksKubernetesRuntimeDefinitions": {
+                    "description": "The cluster instances deployed in this AWS account.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeDefinition"
+                    }
+                },
+                "DefaultAccount": {
+                    "description": "If true is the AWS Account used if none specified in a definition.",
+                    "type": "boolean"
+                },
+                "DefaultRegion": {
+                    "description": "The region to use for AWS managed services if not specified.",
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "The unique name of an AWS account.",
+                    "type": "string"
+                },
+                "SecretAccessKey": {
+                    "description": "The secret key credentials for the AWS account.",
+                    "type": "string"
+                }
+            }
         },
         "v0.AwsEksKubernetesRuntimeDefinition": {
-            "type": "object"
+            "type": "object",
+            "required": [
+                "AWSAccountID",
+                "DefaultNodeGroupInitialSize",
+                "DefaultNodeGroupInstanceType",
+                "DefaultNodeGroupMaximumSize",
+                "DefaultNodeGroupMinimumSize",
+                "KubernetesRuntimeDefinitionID",
+                "Name",
+                "ZoneCount"
+            ],
+            "properties": {
+                "AWSAccountID": {
+                    "description": "The AWS account in which the EKS cluster is provisioned.",
+                    "type": "integer"
+                },
+                "AwsEksKubernetesRuntimeInstances": {
+                    "description": "The AWS EKS kubernetes runtime instances derived from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeInstance"
+                    }
+                },
+                "DefaultNodeGroupInitialSize": {
+                    "description": "The number of nodes in the default initial node group.",
+                    "type": "integer"
+                },
+                "DefaultNodeGroupInstanceType": {
+                    "description": "The AWS instance type for the default initial node group.",
+                    "type": "string"
+                },
+                "DefaultNodeGroupMaximumSize": {
+                    "description": "The maximum number of nodes the default initial node group should have.",
+                    "type": "integer"
+                },
+                "DefaultNodeGroupMinimumSize": {
+                    "description": "The minimum number of nodes the default initial node group should have.",
+                    "type": "integer"
+                },
+                "KubernetesRuntimeDefinitionID": {
+                    "description": "The kubernetes runtime definition for an EKS cluster in AWS.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name for the definition.",
+                    "type": "string"
+                },
+                "ProfileID": {
+                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
+                    "type": "integer"
+                },
+                "TierID": {
+                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                },
+                "ZoneCount": {
+                    "description": "The number of zones the cluster should span for availability.",
+                    "type": "integer"
+                }
+            }
         },
         "v0.AwsEksKubernetesRuntimeInstance": {
-            "type": "object"
+            "type": "object",
+            "required": [
+                "AwsEksKubernetesRuntimeDefinitionID",
+                "KubernetesRuntimeInstanceID",
+                "Name"
+            ],
+            "properties": {
+                "AwsEksKubernetesRuntimeDefinitionID": {
+                    "description": "The definition that configures this instance.",
+                    "type": "integer"
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "KubernetesRuntimeInstanceID": {
+                    "description": "The kubernetes runtime instance associated with the AWS EKS cluster.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "Region": {
+                    "description": "The AWS Region in which the cluster is provisioned.  This field is\nstored in the instance (as well as definition) since a change to the\ndefinition will not move a cluster.",
+                    "type": "string"
+                },
+                "ResourceInventory": {
+                    "description": "An inventory of all AWS resources for the EKS cluster.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "Status": {
+                    "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                }
+            }
         },
         "v0.AwsRelationalDatabaseDefinition": {
             "type": "object",
@@ -7484,6 +7634,18 @@ const docTemplate = `{
                     "description": "The email address of the domain administrator.",
                     "type": "string"
                 },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
                 "Domain": {
                     "description": "The base domain upon which the subdomain will be added to give a workload\na unique domain name.",
                     "type": "string"
@@ -7504,7 +7666,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
                 "TierID": {
@@ -7525,6 +7687,18 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
                 "DomainNameDefinitionID": {
                     "description": "The definition used to define the instance.",
                     "type": "integer"
@@ -7538,7 +7712,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
                 "Status": {
@@ -7611,6 +7785,18 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
                 "DomainNameDefinitionID": {
                     "description": "The domain name to serve requests for.",
                     "type": "integer"
@@ -7639,7 +7825,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
                 "ServiceName": {
@@ -7676,6 +7862,18 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
                 "GatewayDefinitionID": {
                     "description": "GatewayDefinitionID is the definition used to configure the workload instance.",
                     "type": "integer"
@@ -7689,7 +7887,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by gateway controller.",
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
                 "Status": {
@@ -7709,6 +7907,18 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
                 "HighAvailability": {
                     "description": "If true, will be deployed in a highly available configuration across\nmultiple zones within a region and with multiple replicas of Kubernetes\ncontrol plane components.",
                     "type": "boolean"
@@ -7732,12 +7942,24 @@ const docTemplate = `{
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
                 },
+                "NodeMaximum": {
+                    "description": "Sets the maximum number of nodes for the default node group.",
+                    "type": "integer"
+                },
+                "NodeProfile": {
+                    "description": "Sets the CPU:memory ration of the machine type for the default node\ngroup.",
+                    "type": "string"
+                },
+                "NodeSize": {
+                    "description": "Sets the compute capacity of the machine type for the default node group.",
+                    "type": "string"
+                },
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
                 },
                 "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by the kubernetes\nruntime controller.",
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
                 "TierID": {
@@ -7778,6 +8000,18 @@ const docTemplate = `{
                     "description": "If true, this Kubernetes cluster will be used for all workloads if not\notherwise assigned.",
                     "type": "boolean"
                 },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
                 "DnsControllerInstanceId": {
                     "description": "The WorkloadInstanceID of the gateway support service",
                     "type": "integer"
@@ -7807,7 +8041,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by the kubernetes\nruntime controller.",
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
                 "Status": {
@@ -7929,8 +8163,8 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "Profile",
-                "Tier",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -7945,8 +8179,8 @@ const docTemplate = `{
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
+                "Profile",
+                "Tier",
                 "GatewayDefinition",
                 "GatewayInstance",
                 "DomainNameDefinition",
@@ -7955,8 +8189,8 @@ const docTemplate = `{
                 "KubernetesRuntimeInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
@@ -7971,8 +8205,8 @@ const docTemplate = `{
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeDomainNameDefinition",
@@ -8073,6 +8307,18 @@ const docTemplate = `{
                 "YAMLDocument"
             ],
             "properties": {
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -8082,7 +8328,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by workload controller.",
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
                 "TierID": {
@@ -8158,12 +8404,26 @@ const docTemplate = `{
             ],
             "properties": {
                 "AttachedObjectReferences": {
+                    "description": "The threeport objects that are deployed to support the workload instance.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.AttachedObjectReference"
                     }
                 },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
                 "Events": {
+                    "description": "All events generated for the workload instance that aren't related to a\nparticular workload resource instance.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.WorkloadEvent"
@@ -8178,10 +8438,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by workload controller.",
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
                 "Status": {
+                    "description": "The latest status of a workload instance.",
                     "type": "string"
                 },
                 "WorkloadDefinitionID": {
@@ -8206,11 +8467,10 @@ const docTemplate = `{
             "properties": {
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "WorkloadDefinitionID": {
                     "description": "The workload definition this resource belongs to.",
@@ -8234,11 +8494,10 @@ const docTemplate = `{
                 },
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.  This field is a superset of\nWorkloadResourceDefinition.JSONDefinition in that it has namespace\nmanagement and other configuration - such as resource allocation\nmanagement - added.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "LastOperation": {
                     "description": "The most recent operation performed on a Kubernete resource in the\nkubernetes runtime.",
@@ -8250,11 +8509,10 @@ const docTemplate = `{
                 },
                 "RuntimeDefinition": {
                     "description": "The JSON definition of a Kubernetes resource as stored in etcd in the\nkubernetes runtime.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/datatypes.JSON"
-                        }
-                    ]
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "ScheduledForDeletion": {
                     "description": "Whether another controller has scheduled this resource for deletion",

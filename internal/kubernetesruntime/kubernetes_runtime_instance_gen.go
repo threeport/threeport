@@ -102,35 +102,33 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// retrieve latest version of object unless object was
-			// deleted (in which case we have the latest version)
-			if notif.Operation != notifications.NotificationOperationDeleted {
-				latestKubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
-					r.APIClient,
-					r.APIServer,
+			// retrieve latest version of object
+			latestKubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+				r.APIClient,
+				r.APIServer,
+				*kubernetesRuntimeInstance.ID,
+			)
+			// check if error is 404 - if object no longer exists, no need to requeue
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				log.Info(fmt.Sprintf(
+					"object with ID %d no longer exists - halting reconciliation",
 					*kubernetesRuntimeInstance.ID,
-				)
-				// check if error is 404 - if object no longer exists, no need to requeue
-				if errors.Is(err, client.ErrorObjectNotFound) {
-					log.Info(fmt.Sprintf(
-						"object with ID %d no longer exists - halting reconciliation",
-						*kubernetesRuntimeInstance.ID,
-					))
-					r.ReleaseLock(&kubernetesRuntimeInstance, lockReleased, msg, true)
-					continue
-				}
-				if err != nil {
-					log.Error(err, "failed to get kubernetes runtime instance by ID from API")
-					r.UnlockAndRequeue(&kubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				kubernetesRuntimeInstance = *latestKubernetesRuntimeInstance
+				))
+				r.ReleaseLock(&kubernetesRuntimeInstance, lockReleased, msg, true)
+				continue
 			}
+			if err != nil {
+				log.Error(err, "failed to get kubernetes runtime instance by ID from API")
+				r.UnlockAndRequeue(&kubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
+				continue
+			}
+			kubernetesRuntimeInstance = *latestKubernetesRuntimeInstance
 
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
-				if err := kubernetesRuntimeInstanceCreated(r, &kubernetesRuntimeInstance, &log); err != nil {
+				customRequeueDelay, err := kubernetesRuntimeInstanceCreated(r, &kubernetesRuntimeInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile created kubernetes runtime instance object")
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeInstance,
@@ -140,8 +138,19 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("create requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&kubernetesRuntimeInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationUpdated:
-				if err := kubernetesRuntimeInstanceUpdated(r, &kubernetesRuntimeInstance, &log); err != nil {
+				customRequeueDelay, err := kubernetesRuntimeInstanceUpdated(r, &kubernetesRuntimeInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile updated kubernetes runtime instance object")
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeInstance,
@@ -151,8 +160,19 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("update requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&kubernetesRuntimeInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
-				if err := kubernetesRuntimeInstanceDeleted(r, &kubernetesRuntimeInstance, &log); err != nil {
+				customRequeueDelay, err := kubernetesRuntimeInstanceDeleted(r, &kubernetesRuntimeInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile deleted kubernetes runtime instance object")
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeInstance,
@@ -160,11 +180,18 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
-				} else {
-					r.ReleaseLock(&kubernetesRuntimeInstance, lockReleased, msg, true)
-					log.Info("kubernetes runtime instance successfully reconciled")
+					continue
 				}
-				continue
+				if customRequeueDelay != 0 {
+					log.Info("deletion requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&kubernetesRuntimeInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),
@@ -184,8 +211,8 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				objectReconciled := true
 				reconciledKubernetesRuntimeInstance := v0.KubernetesRuntimeInstance{
-					Common:     v0.Common{ID: kubernetesRuntimeInstance.ID},
-					Reconciled: &objectReconciled,
+					Common:         v0.Common{ID: kubernetesRuntimeInstance.ID},
+					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
 				}
 				updatedKubernetesRuntimeInstance, err := client.UpdateKubernetesRuntimeInstance(
 					r.APIClient,
@@ -205,12 +232,15 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&kubernetesRuntimeInstance, lockReleased, msg, true); !ok {
-				log.V(1).Info("kubernetes runtime instance remains locked - will unlock when TTL expires")
+				log.Error(errors.New("kubernetes runtime instance remains locked - will unlock when TTL expires"), "")
 			} else {
 				log.V(1).Info("kubernetes runtime instance unlocked")
 			}
 
-			log.Info("kubernetes runtime instance successfully reconciled")
+			log.Info(fmt.Sprintf(
+				"kubernetes runtime instance successfully reconciled for %s operation",
+				notif.Operation,
+			))
 		}
 	}
 

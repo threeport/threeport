@@ -240,10 +240,12 @@ func (r *Reconciler) ReleaseLock(object v0.APIObject, lockReleased chan bool, ms
 	lockReleased <- true
 
 	if reconcileSuccess {
-		// acknowledge message so nats does not requeue
-		if err := msg.Ack(); err != nil {
-			r.Log.V(1).Info(
-				"failed to perform acknowledgement",
+		// acknowledge message so nats does not requeue and wait for response
+		// before continuing to avoid race condition of re-pulling the same
+		// message again
+		if err := msg.AckSync(); err != nil {
+			r.Log.Error(
+				err, "failed to perform acknowledgement",
 				"objectType", r.ObjectType,
 				"objectID", object.GetID(),
 			)

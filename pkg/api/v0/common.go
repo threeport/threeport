@@ -15,3 +15,21 @@ type Common struct {
 	UpdatedAt *time.Time      `json:"UpdatedAt,omitempty"`
 	DeletedAt *gorm.DeletedAt `json:"DeletedAt,omitempty" gorm:"index"`
 }
+
+// Reconciliation includes the fields for reconciled objects.
+type Reconciliation struct {
+	// Indicates if object is considered to be reconciled by the object's controller.
+	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
+
+	// Used to inform reconcilers that an object is being deleted so they may
+	// complete delete reconciliation before actually deleting the object from the database.
+	DeletionScheduled *time.Time `json:"DeletionScheduled,omitempty" query:"deletionscheduled" validate:"optional"`
+
+	// Used by controllers to acknowledge deletion and indicate that deletion
+	// reconciliation has begun so that subsequent reconciliation attempts can
+	// act accordingly.
+	DeletionAcknowledged *time.Time `json:"DeletionAcknowledged,omitempty" query:"deletionacknowledged" validate:"optional"`
+
+	// Used by controllers to confirm deletion of an object.
+	DeletionConfirmed *time.Time `json:"DeletionConfirmed,omitempty" query:"deletionconfirmed" validate:"optional"`
+}

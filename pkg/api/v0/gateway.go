@@ -6,8 +6,9 @@ package v0
 // Gateway is a route for requests to a workload from clients outside the
 // private network of a workload kubernetes runtime.  This
 type GatewayDefinition struct {
-	Common     `swaggerignore:"true" mapstructure:",squash"`
-	Definition `mapstructure:",squash"`
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Definition     `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
 
 	// TCP Port to expose to outside network.
 	TCPPort *int `json:"TCPPort,omitempty" query:"tcpport" gorm:"not null" validate:"optional"`
@@ -49,16 +50,14 @@ type GatewayDefinition struct {
 
 	// The associated gateway instances that are deployed from this definition.
 	GatewayInstances []*GatewayInstance `json:"GatewayInstances,omitempty" validate:"optional,association"`
-
-	// Indicates if object is considered to be reconciled by gateway controller.
-	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
 // +threeport-codegen:reconciler
 // GatewayInstance is a deployed instance of a gateway.
 type GatewayInstance struct {
-	Common   `swaggerignore:"true" mapstructure:",squash"`
-	Instance `mapstructure:",squash"`
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Instance       `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
 
 	// The kubernetes runtime where the ingress layer is installed.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
@@ -76,16 +75,14 @@ type GatewayInstance struct {
 	// query the workload instance & search for the workload resource instance
 	// The workload resource instances that belong to this instance.
 	// WorkloadResourceInstances *[]WorkloadResourceInstance `json:"WorkloadResourceInstances,omitempty" query:"workloadresourceinstances" validate:"optional,association"`
-
-	// Indicates if object is considered to be reconciled by gateway controller.
-	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
 // DomainNameDefinition the definition for domain name management for a
 // particular DNS zone.
 type DomainNameDefinition struct {
-	Common     `swaggerignore:"true" mapstructure:",squash"`
-	Definition `mapstructure:",squash"`
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Definition     `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
 
 	// The base domain upon which the subdomain will be added to give a workload
 	// a unique domain name.
@@ -112,16 +109,14 @@ type DomainNameDefinition struct {
 
 	// The associated domain name instances that are deployed from this definition.
 	DomainNameInstances []*DomainNameInstance `json:"DomainNameInstances,omitempty" validate:"optional,association"`
-
-	// Indicates if object is considered to be reconciled by gateway controller.
-	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
 // +threeport-codegen:reconciler
 // DomainNameInstance is an instance of domain name management for a workload.
 type DomainNameInstance struct {
-	Common   `swaggerignore:"true" mapstructure:",squash"`
-	Instance `mapstructure:",squash"`
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Instance       `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
 
 	// The definition used to define the instance.
 	DomainNameDefinitionID *uint `json:"DomainNameDefinitionID,omitempty" query:"domainnamedefinitionid" gorm:"not null" validate:"required"`
@@ -131,7 +126,4 @@ type DomainNameInstance struct {
 
 	// The cluster where the workload that is using the domain name is running.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
-
-	// Indicates if object is considered to be reconciled by gateway controller.
-	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }

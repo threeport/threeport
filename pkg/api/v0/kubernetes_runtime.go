@@ -9,8 +9,9 @@ import "time"
 // TODO apply BeforeCreate functions that prevent changes to InfraProvider and
 // HighAvailability fields - these are immutable.
 type KubernetesRuntimeDefinition struct {
-	Common     `swaggerignore:"true" mapstructure:",squash"`
-	Definition `mapstructure:",squash"`
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Definition     `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
 
 	// The infrastructure provider running the compute infrastructure for the
 	// cluster.
@@ -42,17 +43,14 @@ type KubernetesRuntimeDefinition struct {
 	// The associated kubernetes runtime instances that are deployed from this
 	// definition.
 	KubernetesRuntimeInstances []*KubernetesRuntimeInstance `json:"KubernetesRuntimeInstances,omitempty" validate:"optional,association"`
-
-	// Indicates if object is considered to be reconciled by the kubernetes
-	// runtime controller.
-	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
 // +threeport-codegen:reconciler
 // KubernetesRuntimeInstance is a deployed instance of a Kubernetes cluster.
 type KubernetesRuntimeInstance struct {
-	Common   `swaggerignore:"true" mapstructure:",squash"`
-	Instance `mapstructure:",squash"`
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Instance       `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
 
 	// The geographical location for the runtime cluster.  This is an
 	// abstraction for the cloud provider regions that is mapped into the
@@ -109,8 +107,4 @@ type KubernetesRuntimeInstance struct {
 	// managed Kubernetes runtime clusters.  If not supplied, the official image
 	// with the correct version will be used.
 	ThreeportAgentImage *string `json:"ThreeportAgentImage,omitempty" validate:"optional"`
-
-	// Indicates if object is considered to be reconciled by the kubernetes
-	// runtime controller.
-	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }

@@ -290,6 +290,7 @@ func (h Handler) DeleteLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&logBackend); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -580,6 +581,7 @@ func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&logStorageDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -870,6 +872,7 @@ func (h Handler) DeleteLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&logStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}

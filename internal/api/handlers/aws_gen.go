@@ -4,14 +4,16 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
+	"net/http"
+	"time"
+
 	echo "github.com/labstack/echo/v4"
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	"net/http"
-	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -292,6 +294,7 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&awsAccount); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -588,6 +591,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus409(c, nil, err, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&awsEksKubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -904,20 +908,47 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	if result := h.DB.Delete(&awsEksKubernetesRuntimeInstance); result.Error != nil {
-		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if awsEksKubernetesRuntimeInstance.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
+			Reconciliation: v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&awsEksKubernetesRuntimeInstance).Updates(scheduledAwsEksKubernetesRuntimeInstance); result.Error != nil {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := awsEksKubernetesRuntimeInstance.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsEksKubernetesRuntimeInstanceDeleteSubject, *notifPayload)
+	} else {
+		if awsEksKubernetesRuntimeInstance.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return iapi.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*awsEksKubernetesRuntimeInstance.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&awsEksKubernetesRuntimeInstance); result.Error != nil {
+				return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
 	}
-
-	// notify controller
-	notifPayload, err := awsEksKubernetesRuntimeInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsEksKubernetesRuntimeInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance)
 	if err != nil {
@@ -1205,6 +1236,7 @@ func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&awsRelationalDatabaseDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -1495,6 +1527,7 @@ func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&awsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}

@@ -4,6 +4,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	echo "github.com/labstack/echo/v4"
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
@@ -324,20 +325,47 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatus409(c, nil, err, objectType)
 	}
 
-	if result := h.DB.Delete(&workloadDefinition); result.Error != nil {
-		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if workloadDefinition.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledWorkloadDefinition := v0.WorkloadDefinition{
+			Reconciliation: v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&workloadDefinition).Updates(scheduledWorkloadDefinition); result.Error != nil {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := workloadDefinition.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.WorkloadDefinitionDeleteSubject, *notifPayload)
+	} else {
+		if workloadDefinition.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return iapi.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*workloadDefinition.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&workloadDefinition); result.Error != nil {
+				return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
 	}
-
-	// notify controller
-	notifPayload, err := workloadDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadDefinition)
 	if err != nil {
@@ -610,6 +638,7 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&workloadResourceDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -926,20 +955,47 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	if result := h.DB.Delete(&workloadInstance); result.Error != nil {
-		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if workloadInstance.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledWorkloadInstance := v0.WorkloadInstance{
+			Reconciliation: v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&workloadInstance).Updates(scheduledWorkloadInstance); result.Error != nil {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := workloadInstance.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.WorkloadInstanceDeleteSubject, *notifPayload)
+	} else {
+		if workloadInstance.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return iapi.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*workloadInstance.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&workloadInstance); result.Error != nil {
+				return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
 	}
-
-	// notify controller
-	notifPayload, err := workloadInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		time.Now().Unix(),
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadInstance)
 	if err != nil {
@@ -1212,6 +1268,7 @@ func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&attachedObjectReference); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -1487,6 +1544,7 @@ func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&workloadResourceInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -1762,6 +1820,7 @@ func (h Handler) DeleteWorkloadEvent(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&workloadEvent); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}

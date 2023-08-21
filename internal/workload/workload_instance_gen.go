@@ -102,35 +102,33 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// retrieve latest version of object unless object was
-			// deleted (in which case we have the latest version)
-			if notif.Operation != notifications.NotificationOperationDeleted {
-				latestWorkloadInstance, err := client.GetWorkloadInstanceByID(
-					r.APIClient,
-					r.APIServer,
+			// retrieve latest version of object
+			latestWorkloadInstance, err := client.GetWorkloadInstanceByID(
+				r.APIClient,
+				r.APIServer,
+				*workloadInstance.ID,
+			)
+			// check if error is 404 - if object no longer exists, no need to requeue
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				log.Info(fmt.Sprintf(
+					"object with ID %d no longer exists - halting reconciliation",
 					*workloadInstance.ID,
-				)
-				// check if error is 404 - if object no longer exists, no need to requeue
-				if errors.Is(err, client.ErrorObjectNotFound) {
-					log.Info(fmt.Sprintf(
-						"object with ID %d no longer exists - halting reconciliation",
-						*workloadInstance.ID,
-					))
-					r.ReleaseLock(&workloadInstance, lockReleased, msg, true)
-					continue
-				}
-				if err != nil {
-					log.Error(err, "failed to get workload instance by ID from API")
-					r.UnlockAndRequeue(&workloadInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				workloadInstance = *latestWorkloadInstance
+				))
+				r.ReleaseLock(&workloadInstance, lockReleased, msg, true)
+				continue
 			}
+			if err != nil {
+				log.Error(err, "failed to get workload instance by ID from API")
+				r.UnlockAndRequeue(&workloadInstance, requeueDelay, lockReleased, msg)
+				continue
+			}
+			workloadInstance = *latestWorkloadInstance
 
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
-				if err := workloadInstanceCreated(r, &workloadInstance, &log); err != nil {
+				customRequeueDelay, err := workloadInstanceCreated(r, &workloadInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile created workload instance object")
 					r.UnlockAndRequeue(
 						&workloadInstance,
@@ -140,8 +138,19 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("create requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&workloadInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationUpdated:
-				if err := workloadInstanceUpdated(r, &workloadInstance, &log); err != nil {
+				customRequeueDelay, err := workloadInstanceUpdated(r, &workloadInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile updated workload instance object")
 					r.UnlockAndRequeue(
 						&workloadInstance,
@@ -151,8 +160,19 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("update requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&workloadInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
-				if err := workloadInstanceDeleted(r, &workloadInstance, &log); err != nil {
+				customRequeueDelay, err := workloadInstanceDeleted(r, &workloadInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile deleted workload instance object")
 					r.UnlockAndRequeue(
 						&workloadInstance,
@@ -160,11 +180,18 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
-				} else {
-					r.ReleaseLock(&workloadInstance, lockReleased, msg, true)
-					log.Info("workload instance successfully reconciled")
+					continue
 				}
-				continue
+				if customRequeueDelay != 0 {
+					log.Info("deletion requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&workloadInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),
@@ -184,8 +211,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				objectReconciled := true
 				reconciledWorkloadInstance := v0.WorkloadInstance{
-					Common:     v0.Common{ID: workloadInstance.ID},
-					Reconciled: &objectReconciled,
+					Common:         v0.Common{ID: workloadInstance.ID},
+					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
 				}
 				updatedWorkloadInstance, err := client.UpdateWorkloadInstance(
 					r.APIClient,
@@ -205,12 +232,15 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&workloadInstance, lockReleased, msg, true); !ok {
-				log.V(1).Info("workload instance remains locked - will unlock when TTL expires")
+				log.Error(errors.New("workload instance remains locked - will unlock when TTL expires"), "")
 			} else {
 				log.V(1).Info("workload instance unlocked")
 			}
 
-			log.Info("workload instance successfully reconciled")
+			log.Info(fmt.Sprintf(
+				"workload instance successfully reconciled for %s operation",
+				notif.Operation,
+			))
 		}
 	}
 

@@ -1,7 +1,9 @@
 package kubernetesruntime
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 
@@ -17,17 +19,17 @@ func kubernetesRuntimeDefinitionCreated(
 	r *controller.Reconciler,
 	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
 	log *logr.Logger,
-) error {
+) (int64, error) {
 	// if a cluster definition is created by another mechanism and being
 	// registered in the system with Reconciled=true, there's no need to do
 	// anything - return immediately without error
 	if *kubernetesRuntimeDefinition.Reconciled == true {
-		return nil
+		return 0, nil
 	}
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		// kind clusters not managed by k8s runtime controller
-		return nil
+		return 0, nil
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// look up AWS account
 		var awsAccount v0.AwsAccount
@@ -39,7 +41,7 @@ func kubernetesRuntimeDefinitionCreated(
 				*kubernetesRuntimeDefinition.InfraProviderAccountName,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to get AWS account by account name: %w", err)
+				return 0, fmt.Errorf("failed to get AWS account by account name: %w", err)
 			}
 			awsAccount = *account
 		} else {
@@ -49,7 +51,7 @@ func kubernetesRuntimeDefinitionCreated(
 				r.APIServer,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to AWS account by ID: %w", err)
+				return 0, fmt.Errorf("failed to AWS account by ID: %w", err)
 			}
 			awsAccount = *account
 		}
@@ -67,7 +69,7 @@ func kubernetesRuntimeDefinitionCreated(
 			*kubernetesRuntimeDefinition.NodeSize,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to map node size and profile to AWS machine type: %w", err)
+			return 0, fmt.Errorf("failed to map node size and profile to AWS machine type: %w", err)
 		}
 		defaultNodeGroupInitialSize := 2
 		defaultNodeGroupMinSize := 0
@@ -89,11 +91,11 @@ func kubernetesRuntimeDefinitionCreated(
 			&awsEksKubernetesRuntimeDefinition,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to create new AWS EKS kubernetes runtime: %w", err)
+			return 0, fmt.Errorf("failed to create new AWS EKS kubernetes runtime: %w", err)
 		}
 	}
 
-	return nil
+	return 0, nil
 }
 
 // kubernetesRuntimeDefinitionCreated reconciles state for a kubernetes
@@ -102,8 +104,8 @@ func kubernetesRuntimeDefinitionUpdated(
 	r *controller.Reconciler,
 	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
 	log *logr.Logger,
-) error {
-	return nil
+) (int64, error) {
+	return 0, nil
 }
 
 // kubernetesRuntimeDefinitionCreated reconciles state for a kubernetes
@@ -112,6 +114,47 @@ func kubernetesRuntimeDefinitionDeleted(
 	r *controller.Reconciler,
 	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
 	log *logr.Logger,
-) error {
-	return nil
+) (int64, error) {
+	// check that deletion is scheduled - if not there's a problem
+	if kubernetesRuntimeDefinition.DeletionScheduled == nil {
+		return 0, errors.New("deletion notification receieved but not scheduled")
+	}
+
+	// check to see if reconciled - it should not be, but if so we should do no
+	// more
+	if kubernetesRuntimeDefinition.DeletionConfirmed != nil {
+		return 0, nil
+	}
+
+	// delete the kubernetes runtime definition that was scheduled for deletion
+	deletionReconciled := true
+	deletionTimestamp := time.Now().UTC()
+	deletedKubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
+		Common: v0.Common{
+			ID: kubernetesRuntimeDefinition.ID,
+		},
+		Reconciliation: v0.Reconciliation{
+			Reconciled:           &deletionReconciled,
+			DeletionAcknowledged: &deletionTimestamp,
+			DeletionConfirmed:    &deletionTimestamp,
+		},
+	}
+	_, err := client.UpdateKubernetesRuntimeDefinition(
+		r.APIClient,
+		r.APIServer,
+		&deletedKubernetesRuntimeDefinition,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to confirm deletion of kubernetes runtime definition in threeport API: %w", err)
+	}
+	_, err = client.DeleteKubernetesRuntimeDefinition(
+		r.APIClient,
+		r.APIServer,
+		*kubernetesRuntimeDefinition.ID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete kubernetes runtime definition in threeport API: %w", err)
+	}
+
+	return 0, nil
 }

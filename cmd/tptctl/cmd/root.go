@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
 	"github.com/threeport/threeport/internal/cli"
 )
 
@@ -32,7 +33,6 @@ func Execute() {
 }
 
 func init() {
-
 	rootCmd.PersistentFlags().StringVar(
 		&cliArgs.CfgFile, "threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml).",
 	)
