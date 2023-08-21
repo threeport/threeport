@@ -1,5 +1,8 @@
+ARG BIN_DIR=bin
+
 FROM gcr.io/distroless/static:nonroot
-COPY bin/threeport-agent /threeport-agent
+ARG BIN_DIR
+COPY ${BIN_DIR}/threeport-agent /threeport-agent
 USER 65532:65532
 
 ENTRYPOINT ["/threeport-agent"]

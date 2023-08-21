@@ -30,6 +30,10 @@ build-tptctl:
 test-build-agent:
 	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-agent cmd/agent/main.go
 
+#remote-build-agent: @ Build threeport agent for container build
+remote-build-agent:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o bin/remote/threeport-agent cmd/agent/main.go
+
 #test-build-aws-controller: @ Build threeport aws controller for container build
 test-build-aws-controller:
 	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-aws-controller cmd/aws-controller/main_gen.go
@@ -206,6 +210,10 @@ gateway-controller-image-build:
 agent-image-build:
 	docker buildx build --platform linux/amd64 -t $(AGENT_IMG) -f cmd/agent/image/Dockerfile-test .
 
+#agent-image-build-remote: @ Build agent container image
+agent-image-build-remote:
+	docker buildx build --build-arg BIN=bin/remote --platform linux/amd64 -t $(AGENT_IMG)-remote -f cmd/agent/image/Dockerfile-test .
+
 #control-plane-images-build: @ Build all control plane images
 control-plane-images-build: rest-api-image-build workload-controller-image-build kubernetes-runtime-controller-image-build aws-controller-image-build gateway-controller-image-build agent-image-build
 
@@ -232,6 +240,10 @@ gateway-controller-image-push:
 #agent-image-push: @ Push agent container image
 agent-image-push:
 	docker push $(AGENT_IMG)
+
+#agent-image-push: @ Push agent container image
+agent-image-push-remote:
+	docker push $(AGENT_IMG)-remote
 
 #control-plane-images-push: @ Push all control plane images
 control-plane-images-push: rest-api-image-push workload-controller-image-push kubernetes-runtime-controller-image-push aws-controller-image-push gateway-controller-image-push agent-image-push
