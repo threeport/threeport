@@ -69,9 +69,9 @@ func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, ap
 
 func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameInstance, error) {
 	// validate required fields
-	if d.Name == "" || d.DomainNameDefinition.Name == "" || d.WorkloadInstance.Name == "" ||
+	if d.DomainNameDefinition.Name == "" || d.WorkloadInstance.Name == "" ||
 		d.KubernetesRuntimeInstance.Name == "" {
-		return nil, errors.New("missing required field/s in config - required fields: Name, DomainNameDefinition.Name, WorkloadInstance.Name, KubernetesRuntimeInstance.Name")
+		return nil, errors.New("missing required field/s in config - required fields: DomainNameDefinition.Name, WorkloadInstance.Name, KubernetesRuntimeInstance.Name")
 	}
 
 	// get kubernetes runtime instance

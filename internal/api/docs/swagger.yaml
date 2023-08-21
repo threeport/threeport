@@ -315,6 +315,7 @@ definitions:
     - DomainNameDefinitionID
     - KubernetesRuntimeInstanceID
     - Name
+    - WorkloadInstanceID
     type: object
   v0.ForwardProxyDefinition:
     properties:
@@ -426,6 +427,7 @@ definitions:
         type: integer
     required:
     - Name
+    - TCPPort
     type: object
   v0.GatewayInstance:
     properties:
@@ -469,6 +471,7 @@ definitions:
     - GatewayDefinitionID
     - KubernetesRuntimeInstanceID
     - Name
+    - WorkloadInstanceID
     type: object
   v0.KubernetesRuntimeDefinition:
     properties:
@@ -719,16 +722,6 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -737,6 +730,16 @@ definitions:
     - WorkloadEvent
     - Profile
     - Tier
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - GatewayDefinition
     - GatewayInstance
     - DomainNameDefinition
@@ -745,16 +748,6 @@ definitions:
     - KubernetesRuntimeInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -763,6 +756,16 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeProfile
     - ObjectTypeTier
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
     - ObjectTypeDomainNameDefinition

@@ -7684,7 +7684,8 @@ const docTemplate = `{
             "required": [
                 "DomainNameDefinitionID",
                 "KubernetesRuntimeInstanceID",
-                "Name"
+                "Name",
+                "WorkloadInstanceID"
             ],
             "properties": {
                 "DeletionAcknowledged": {
@@ -7782,7 +7783,8 @@ const docTemplate = `{
         "v0.GatewayDefinition": {
             "type": "object",
             "required": [
-                "Name"
+                "Name",
+                "TCPPort"
             ],
             "properties": {
                 "DeletionAcknowledged": {
@@ -7859,7 +7861,8 @@ const docTemplate = `{
             "required": [
                 "GatewayDefinitionID",
                 "KubernetesRuntimeInstanceID",
-                "Name"
+                "Name",
+                "WorkloadInstanceID"
             ],
             "properties": {
                 "DeletionAcknowledged": {
@@ -8163,16 +8166,6 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -8181,6 +8174,16 @@ const docTemplate = `{
                 "WorkloadEvent",
                 "Profile",
                 "Tier",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "GatewayDefinition",
                 "GatewayInstance",
                 "DomainNameDefinition",
@@ -8189,16 +8192,6 @@ const docTemplate = `{
                 "KubernetesRuntimeInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
@@ -8207,6 +8200,16 @@ const docTemplate = `{
                 "ObjectTypeWorkloadEvent",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeDomainNameDefinition",

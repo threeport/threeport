@@ -73,7 +73,7 @@ This command displays all instances and the definitions used to configure them.`
 			os.Exit(0)
 		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t WORKLOAD INSTANCE\t CLUSTER INSTANCE\t STATUS\t AGE")
+		fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
 		metadataErr := false
 		var workloadDefErr error
 		var kubernetesRuntimeInstErr error

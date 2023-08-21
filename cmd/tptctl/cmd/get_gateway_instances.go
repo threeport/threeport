@@ -12,17 +12,16 @@ import (
 
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/util"
-	"github.com/threeport/threeport/internal/workload/status"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// GetWorkloadInstancesCmd represents the workload-instances command
-var GetWorkloadInstancesCmd = &cobra.Command{
-	Use:          "workload-instances",
-	Example:      "tptctl get workload-instances",
-	Short:        "Get workload instances from the system",
-	Long:         `Get workload instances from the system.`,
+// GetGatewayInstancesCmd represents the gateway-instances command
+var GetGatewayInstancesCmd = &cobra.Command{
+	Use:          "gateway-instances",
+	Example:      "tptctl get gateway-instances",
+	Short:        "Get gateway instances from the system",
+	Long:         `Get gateway instances from the system.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config and extract threeport API endpoint
@@ -54,41 +53,41 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// get workload instances
-		workloadInstances, err := client.GetWorkloadInstances(apiClient, apiEndpoint)
+		// get gateway instances
+		gatewayInstances, err := client.GetGatewayInstances(apiClient, apiEndpoint)
 		if err != nil {
-			cli.Error("failed to retrieve workload instances", err)
+			cli.Error("failed to retrieve gateway instances", err)
 			os.Exit(1)
 		}
 
 		// write the output
-		if len(*workloadInstances) == 0 {
+		if len(*gatewayInstances) == 0 {
 			cli.Info(fmt.Sprintf(
-				"No workload instances currently managed by %s threeport control plane",
+				"No gateway instances currently managed by %s threeport control plane",
 				threeportConfig.CurrentInstance,
 			))
 			os.Exit(0)
 		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
+		fmt.Fprintln(writer, "NAME\t GATEWAY DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
 		metadataErr := false
-		var workloadDefErr error
+		var gatewayDefErr error
 		var kubernetesRuntimeInstErr error
-		var statusErr error
-		for _, wi := range *workloadInstances {
-			// get workload definition name for instance
-			var workloadDef string
-			workloadDefinition, err := client.GetWorkloadDefinitionByID(apiClient, apiEndpoint, *wi.WorkloadDefinitionID)
+		var workloadInstErr error
+		for _, g := range *gatewayInstances {
+			// get gateway definition name for instance
+			var gatewayDef string
+			gatewayDefinition, err := client.GetGatewayDefinitionByID(apiClient, apiEndpoint, *g.GatewayDefinitionID)
 			if err != nil {
 				metadataErr = true
-				workloadDefErr = err
-				workloadDef = "<error>"
+				gatewayDefErr = err
+				gatewayDef = "<error>"
 			} else {
-				workloadDef = *workloadDefinition.Name
+				gatewayDef = *gatewayDefinition.Name
 			}
 			// get kubernetes runtime instance name for instance
 			var kubernetesRuntimeInst string
-			kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *wi.KubernetesRuntimeInstanceID)
+			kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *g.KubernetesRuntimeInstanceID)
 			if err != nil {
 				metadataErr = true
 				kubernetesRuntimeInstErr = err
@@ -96,31 +95,32 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 			} else {
 				kubernetesRuntimeInst = *kubernetesRuntimeInstance.Name
 			}
-			// get workload status
-			var workloadInstStatus string
-			workloadInstStatusDetail := status.GetWorkloadInstanceStatus(apiClient, apiEndpoint, &wi)
-			if workloadInstStatusDetail.Error != nil {
+			// get workload instance instance name for instance
+			var workloadInst string
+			workloadInstance, err := client.GetWorkloadInstanceByID(apiClient, apiEndpoint, *g.WorkloadInstanceID)
+			if err != nil {
 				metadataErr = true
-				statusErr = workloadInstStatusDetail.Error
-				workloadInstStatus = "<error>"
+				workloadInstErr = err
+				workloadInst = "<error>"
+			} else {
+				workloadInst = *workloadInstance.Name
 			}
-			workloadInstStatus = string(workloadInstStatusDetail.Status)
 			fmt.Fprintln(
-				writer, *wi.Name, "\t", workloadDef, "\t", kubernetesRuntimeInst, "\t",
-				workloadInstStatus, "\t", util.GetAge(wi.CreatedAt),
+				writer, *g.Name, "\t", gatewayDef, "\t", kubernetesRuntimeInst, "\t",
+				workloadInst, "\t", util.GetAge(g.CreatedAt),
 			)
 		}
 		writer.Flush()
 
 		if metadataErr {
-			if workloadDefErr != nil {
-				cli.Error("encountered an error retrieving workload definition info", workloadDefErr)
+			if gatewayDefErr != nil {
+				cli.Error("encountered an error retrieving gateway definition info", gatewayDefErr)
 			}
 			if kubernetesRuntimeInstErr != nil {
 				cli.Error("encountered an error retrieving kubernetes runtime instance info", kubernetesRuntimeInstErr)
 			}
-			if statusErr != nil {
-				cli.Error("encountered an error retrieving workload instance status", statusErr)
+			if workloadInstErr != nil {
+				cli.Error("encountered an error retrieving workload instance info", workloadInstErr)
 			}
 			os.Exit(1)
 		}
@@ -128,5 +128,5 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetWorkloadInstancesCmd)
+	getCmd.AddCommand(GetGatewayInstancesCmd)
 }

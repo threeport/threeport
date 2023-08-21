@@ -1,0 +1,4 @@
+DomainNameDefinition:
+  Name: example.com
+  Zone: example-zone
+  AdminEmail: admin@example.com
