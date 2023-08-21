@@ -17,8 +17,9 @@ const (
 // WorkloadDefinition is the collection of Kubernetes manifests that define a
 // distinct workload.
 type WorkloadDefinition struct {
-	Common     `swaggerignore:"true" mapstructure:",squash"`
-	Definition `mapstructure:",squash"`
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Definition     `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
 
 	// The yaml manifests that define the workload configuration.
 	YAMLDocument *string `json:"YAMLDocument,omitempty" gorm:"not null" validate:"required"`
@@ -28,9 +29,6 @@ type WorkloadDefinition struct {
 
 	// The associated workload instances that are deployed from this definition.
 	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstances,omitempty" validate:"optional,association"`
-
-	// Indicates if object is considered to be reconciled by workload controller.
-	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 }
 
 // WorkloadResourceDefinition is an individual Kubernetes resource manifest.
@@ -47,8 +45,10 @@ type WorkloadResourceDefinition struct {
 // +threeport-codegen:reconciler
 // WorkloadInstance is a deployed instance of a workload.
 type WorkloadInstance struct {
-	Common   `swaggerignore:"true" mapstructure:",squash"`
-	Instance `mapstructure:",squash"`
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Instance       `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
+
 	// The kubernetes runtime to which the workload is deployed.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
@@ -58,13 +58,14 @@ type WorkloadInstance struct {
 	// The associated workload resource definitions that are derived.
 	WorkloadResourceInstances []*WorkloadResourceInstance `json:"WorkloadResourceInstances,omitempty" validate:"optional,association"`
 
-	// Indicates if object is considered to be reconciled by workload controller.
-	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
-
+	// The latest status of a workload instance.
 	Status *string `json:"Status,omitempty" query:"status" validate:"optional"`
 
+	// All events generated for the workload instance that aren't related to a
+	// particular workload resource instance.
 	Events []*WorkloadEvent `json:"Events,omitempty" query:"events" validate:"optional"`
 
+	// The threeport objects that are deployed to support the workload instance.
 	AttachedObjectReferences []*AttachedObjectReference `json:"AttachedObjectReferences,omitempty" query:"attachedobjectreferences" validate:"optional,association"`
 }
 

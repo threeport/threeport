@@ -108,6 +108,9 @@ When 'make generate' is run, the following code is generated for API:
 									if util.StringSliceContains(nameFields(), identType.Name, true) {
 										mc.NameField = true
 									}
+									if identType.Name == "Reconciliation" {
+										mc.ReconciledField = true
+									}
 								}
 								// each field is an *ast.Field, which has a Names field that
 								// is a []*ast.Ident - iterate over those names to find the

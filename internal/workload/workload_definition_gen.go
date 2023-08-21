@@ -102,35 +102,33 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// retrieve latest version of object unless object was
-			// deleted (in which case we have the latest version)
-			if notif.Operation != notifications.NotificationOperationDeleted {
-				latestWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
-					r.APIClient,
-					r.APIServer,
+			// retrieve latest version of object
+			latestWorkloadDefinition, err := client.GetWorkloadDefinitionByID(
+				r.APIClient,
+				r.APIServer,
+				*workloadDefinition.ID,
+			)
+			// check if error is 404 - if object no longer exists, no need to requeue
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				log.Info(fmt.Sprintf(
+					"object with ID %d no longer exists - halting reconciliation",
 					*workloadDefinition.ID,
-				)
-				// check if error is 404 - if object no longer exists, no need to requeue
-				if errors.Is(err, client.ErrorObjectNotFound) {
-					log.Info(fmt.Sprintf(
-						"object with ID %d no longer exists - halting reconciliation",
-						*workloadDefinition.ID,
-					))
-					r.ReleaseLock(&workloadDefinition, lockReleased, msg, true)
-					continue
-				}
-				if err != nil {
-					log.Error(err, "failed to get workload definition by ID from API")
-					r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				workloadDefinition = *latestWorkloadDefinition
+				))
+				r.ReleaseLock(&workloadDefinition, lockReleased, msg, true)
+				continue
 			}
+			if err != nil {
+				log.Error(err, "failed to get workload definition by ID from API")
+				r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
+				continue
+			}
+			workloadDefinition = *latestWorkloadDefinition
 
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
-				if err := workloadDefinitionCreated(r, &workloadDefinition, &log); err != nil {
+				customRequeueDelay, err := workloadDefinitionCreated(r, &workloadDefinition, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile created workload definition object")
 					r.UnlockAndRequeue(
 						&workloadDefinition,
@@ -140,8 +138,19 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("create requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&workloadDefinition,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationUpdated:
-				if err := workloadDefinitionUpdated(r, &workloadDefinition, &log); err != nil {
+				customRequeueDelay, err := workloadDefinitionUpdated(r, &workloadDefinition, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile updated workload definition object")
 					r.UnlockAndRequeue(
 						&workloadDefinition,
@@ -151,8 +160,19 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("update requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&workloadDefinition,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
-				if err := workloadDefinitionDeleted(r, &workloadDefinition, &log); err != nil {
+				customRequeueDelay, err := workloadDefinitionDeleted(r, &workloadDefinition, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile deleted workload definition object")
 					r.UnlockAndRequeue(
 						&workloadDefinition,
@@ -160,11 +180,18 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
-				} else {
-					r.ReleaseLock(&workloadDefinition, lockReleased, msg, true)
-					log.Info("workload definition successfully reconciled")
+					continue
 				}
-				continue
+				if customRequeueDelay != 0 {
+					log.Info("deletion requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&workloadDefinition,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),
@@ -184,8 +211,8 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				objectReconciled := true
 				reconciledWorkloadDefinition := v0.WorkloadDefinition{
-					Common:     v0.Common{ID: workloadDefinition.ID},
-					Reconciled: &objectReconciled,
+					Common:         v0.Common{ID: workloadDefinition.ID},
+					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
 				}
 				updatedWorkloadDefinition, err := client.UpdateWorkloadDefinition(
 					r.APIClient,
@@ -205,12 +232,15 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&workloadDefinition, lockReleased, msg, true); !ok {
-				log.V(1).Info("workload definition remains locked - will unlock when TTL expires")
+				log.Error(errors.New("workload definition remains locked - will unlock when TTL expires"), "")
 			} else {
 				log.V(1).Info("workload definition unlocked")
 			}
 
-			log.Info("workload definition successfully reconciled")
+			log.Info(fmt.Sprintf(
+				"workload definition successfully reconciled for %s operation",
+				notif.Operation,
+			))
 		}
 	}
 

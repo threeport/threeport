@@ -102,35 +102,33 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// retrieve latest version of object unless object was
-			// deleted (in which case we have the latest version)
-			if notif.Operation != notifications.NotificationOperationDeleted {
-				latestDomainNameInstance, err := client.GetDomainNameInstanceByID(
-					r.APIClient,
-					r.APIServer,
+			// retrieve latest version of object
+			latestDomainNameInstance, err := client.GetDomainNameInstanceByID(
+				r.APIClient,
+				r.APIServer,
+				*domainNameInstance.ID,
+			)
+			// check if error is 404 - if object no longer exists, no need to requeue
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				log.Info(fmt.Sprintf(
+					"object with ID %d no longer exists - halting reconciliation",
 					*domainNameInstance.ID,
-				)
-				// check if error is 404 - if object no longer exists, no need to requeue
-				if errors.Is(err, client.ErrorObjectNotFound) {
-					log.Info(fmt.Sprintf(
-						"object with ID %d no longer exists - halting reconciliation",
-						*domainNameInstance.ID,
-					))
-					r.ReleaseLock(&domainNameInstance, lockReleased, msg, true)
-					continue
-				}
-				if err != nil {
-					log.Error(err, "failed to get domain name instance by ID from API")
-					r.UnlockAndRequeue(&domainNameInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				domainNameInstance = *latestDomainNameInstance
+				))
+				r.ReleaseLock(&domainNameInstance, lockReleased, msg, true)
+				continue
 			}
+			if err != nil {
+				log.Error(err, "failed to get domain name instance by ID from API")
+				r.UnlockAndRequeue(&domainNameInstance, requeueDelay, lockReleased, msg)
+				continue
+			}
+			domainNameInstance = *latestDomainNameInstance
 
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
-				if err := domainNameInstanceCreated(r, &domainNameInstance, &log); err != nil {
+				customRequeueDelay, err := domainNameInstanceCreated(r, &domainNameInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile created domain name instance object")
 					r.UnlockAndRequeue(
 						&domainNameInstance,
@@ -140,8 +138,19 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("create requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&domainNameInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationUpdated:
-				if err := domainNameInstanceUpdated(r, &domainNameInstance, &log); err != nil {
+				customRequeueDelay, err := domainNameInstanceUpdated(r, &domainNameInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile updated domain name instance object")
 					r.UnlockAndRequeue(
 						&domainNameInstance,
@@ -151,8 +160,19 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("update requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&domainNameInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
-				if err := domainNameInstanceDeleted(r, &domainNameInstance, &log); err != nil {
+				customRequeueDelay, err := domainNameInstanceDeleted(r, &domainNameInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile deleted domain name instance object")
 					r.UnlockAndRequeue(
 						&domainNameInstance,
@@ -160,11 +180,18 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
-				} else {
-					r.ReleaseLock(&domainNameInstance, lockReleased, msg, true)
-					log.Info("domain name instance successfully reconciled")
+					continue
 				}
-				continue
+				if customRequeueDelay != 0 {
+					log.Info("deletion requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&domainNameInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),
@@ -184,8 +211,8 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				objectReconciled := true
 				reconciledDomainNameInstance := v0.DomainNameInstance{
-					Common:     v0.Common{ID: domainNameInstance.ID},
-					Reconciled: &objectReconciled,
+					Common:         v0.Common{ID: domainNameInstance.ID},
+					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
 				}
 				updatedDomainNameInstance, err := client.UpdateDomainNameInstance(
 					r.APIClient,
@@ -205,12 +232,15 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&domainNameInstance, lockReleased, msg, true); !ok {
-				log.V(1).Info("domain name instance remains locked - will unlock when TTL expires")
+				log.Error(errors.New("domain name instance remains locked - will unlock when TTL expires"), "")
 			} else {
 				log.V(1).Info("domain name instance unlocked")
 			}
 
-			log.Info("domain name instance successfully reconciled")
+			log.Info(fmt.Sprintf(
+				"domain name instance successfully reconciled for %s operation",
+				notif.Operation,
+			))
 		}
 	}
 

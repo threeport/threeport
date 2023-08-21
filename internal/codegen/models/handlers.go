@@ -87,7 +87,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 
 		notifyControllersCreateHandler := &Statement{}
 		notifyControllersUpdateHandler := &Statement{}
-		notifyControllersDeleteHandler := &Statement{}
+		deleteObjectExecution := &Statement{}
 
 		if mc.Reconciler {
 			// configure controller notifications
@@ -147,47 +147,115 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				).Op(",").Op("*").Id("notifPayload")),
 			))
 
-			// delete notifications
-			notifyControllersDeleteHandler = Comment("notify controller")
-			notifyControllersDeleteHandler.Line()
-			notifyControllersDeleteHandler.Id("notifPayload").Op(",").Id("err").Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("NotificationPayload").Call(
-				Line().Qual(
-					"github.com/threeport/threeport/pkg/notifications/v0",
-					"NotificationOperationDeleted",
+			// schedule for deletion
+			deleteObjectExecution = Comment("schedule for deletion if not already scheduled")
+			deleteObjectExecution.Line()
+			deleteObjectExecution.Comment("if scheduled and reconciled, delete object from DB")
+			deleteObjectExecution.Line()
+			deleteObjectExecution.Comment("if scheduled but not reconciled, return 409 (controller is working on it)")
+			deleteObjectExecution.Line()
+			deleteObjectExecution.If(Id(strcase.ToLowerCamel(mc.TypeName)).Dot("DeletionScheduled").Op("==").Nil()).Block(
+				Comment("schedule for deletion"),
+				Id("reconciled").Op(":=").Lit(false),
+				Id("timestamp").Op(":=").Qual("time", "Now").Call().Dot("UTC").Call(),
+				Id(fmt.Sprintf("scheduled%s", mc.TypeName)).Op(":=").Qual(
+					fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.ParsedModelFile.Name.Name),
+					mc.TypeName,
+				).Values(
+					Dict{
+						Line().Id("Reconciliation"): Qual(
+							fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.ParsedModelFile.Name.Name),
+							"Reconciliation",
+						).Values(
+							Dict{
+								Id("Reconciled"):        Op("&").Id("reconciled"),
+								Id("DeletionScheduled"): Op("&").Id("timestamp"),
+							},
+						),
+					},
 				),
-				Line().Lit(false),
-				Line().Qual("time", "Now").Call().Dot("Unix").Call(),
-				Line(),
-			)
-			notifyControllersDeleteHandler.Line()
-			notifyControllersDeleteHandler.If(Id("err").Op("!=").Nil().Block(
-				Return(Qual(
-					"github.com/threeport/threeport/internal/api",
-					"ResponseStatus500",
-				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
-			)
-			notifyControllersDeleteHandler.Line()
-			notifyControllersDeleteHandler.Id("h").Dot("JS").Dot("Publish").Call(Qual(
-				fmt.Sprintf(
-					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+				If(
+					Id("result").Op(":=").Id("h").Dot("DB").Dot("Model").Call(
+						Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
+					).Dot("Updates").Call(
+						Id(fmt.Sprintf("scheduled%s", mc.TypeName)),
+					),
+					Id("result").Dot("Error").Op("!=").Nil(),
+				).Block(
+					Return(Id("iapi").Dot("ResponseStatus500").Call(
+						Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")),
+					),
 				),
-				mc.DeleteSubject,
-			).Op(",").Op("*").Id("notifPayload"))
+				Comment("notify controller"),
+				List(Id("notifPayload"), Id("err")).Op(":=").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("NotificationPayload").Call(
+					Line().Qual(
+						"github.com/threeport/threeport/pkg/notifications/v0",
+						"NotificationOperationDeleted",
+					),
+					Line().Lit(false),
+					Line().Qual("time", "Now").Call().Dot("Unix").Call(),
+					Line(),
+				),
+				If(Id("err").Op("!=").Nil()).Block(
+					Return(Id("iapi").Dot("ResponseStatus500").Call(Id("c"), Nil(), Id("err"), Id("objectType"))),
+				),
+				Id("h").Dot("JS").Dot("Publish").Call(
+					Qual(
+						fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.ParsedModelFile.Name.Name),
+						fmt.Sprintf("%sDeleteSubject", mc.TypeName),
+					), Op("*").Id("notifPayload"),
+				),
+			).Else().Block(
+				If(Id(strcase.ToLowerCamel(mc.TypeName)).Dot("DeletionConfirmed").Op("==").Nil()).Block(
+					Comment("if deletion scheduled but not reconciled, return 409 - deletion"),
+					Comment("already underway"),
+					Return(
+						Id("iapi").Dot("ResponseStatus409").Call(
+							Id("c"),
+							Nil(),
+							Qual("errors", "New").Call(Qual("fmt", "Sprintf").Call(
+								Line().Lit("object with ID %d already being deleted"),
+								Line().Op("*").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID"),
+								Line(),
+							)),
+							Id("objectType"),
+						),
+					),
+				).Else().Block(
+					Comment("object scheduled for deletion and confirmed - it can be deleted"),
+					Comment("from DB"),
+					If(
+						Id("result").Op(":=").Id("h").Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName))),
+						Id("result").Dot("Error").Op("!=").Nil(),
+					).Block(
+						Return(Id("iapi").Dot("ResponseStatus500").Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
+					),
+				),
+			)
+		} else {
+			// delete object that doesn't require scheduling (no reconciler)
+			deleteObjectExecution = Comment("delete object")
+			deleteObjectExecution.Line()
+			deleteObjectExecution.If(
+				Id("result").Op(":=").Id("h").Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName))),
+				Id("result").Dot("Error").Op("!=").Nil(),
+			).Block(
+				Return(Id("iapi").Dot("ResponseStatus500").Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
+			)
 		}
 
 		// delete handler includes instance check for definition objects to ensure
-		// no definitions with related instances get deleted
+		// no definitions with related instances get deleted (where applicable)
 		instanceCheck := false
 		for _, typeName := range deletionInstanceCheckTypeNames() {
 			if mc.TypeName == typeName {
 				instanceCheck = true
 			}
 		}
-		deleteObjectHandler := &Statement{}
+		deleteObjectChecks := &Statement{}
 		if instanceCheck {
 			instancesName := strings.TrimSuffix(mc.TypeName, "Definition") + "Instances"
-			deleteObjectHandler = If(
+			deleteObjectChecks = If(
 				Id("result").Op(":=").Id("h").Dot("DB").Dot("Preload").Call(
 					Lit(instancesName),
 				).Dot("First").Call(Op("&").Id(
@@ -212,10 +280,10 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					),
 				),
 			).Line()
-			deleteObjectHandler.Line()
-			deleteObjectHandler.Comment("check to make sure no dependent instances exist for this definition")
-			deleteObjectHandler.Line()
-			deleteObjectHandler.If(
+			deleteObjectChecks.Line()
+			deleteObjectChecks.Comment("check to make sure no dependent instances exist for this definition")
+			deleteObjectChecks.Line()
+			deleteObjectChecks.If(
 				Len(Id(strcase.ToLowerCamel(mc.TypeName)).Dot(instancesName)).Op("!=").Lit(0).Block(
 					Id("err").Op(":=").Qual("errors", "New").Call(
 						Lit(fmt.Sprintf(
@@ -230,9 +298,9 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")),
 				),
 			)
-			deleteObjectHandler.Line()
+			deleteObjectChecks.Line()
 		} else {
-			deleteObjectHandler = If(
+			deleteObjectChecks = If(
 				Id("result").Op(":=").Id("h").Dot("DB").
 					Dot("First").Call(Op("&").Id(
 					strcase.ToLowerCamel(mc.TypeName),
@@ -1156,19 +1224,9 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				mc.TypeName,
 			),
 			// TODO: figure out all preload objects
-			deleteObjectHandler,
-			If(
-				Id("result").Op(":=").Id("h").Dot("DB").Dot("Delete").Call(
-					Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
-				).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-					Return(Qual(
-						"github.com/threeport/threeport/internal/api",
-						"ResponseStatus500",
-					).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
-				),
-			),
+			deleteObjectChecks,
 			Line(),
-			notifyControllersDeleteHandler,
+			deleteObjectExecution,
 			Line(),
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(

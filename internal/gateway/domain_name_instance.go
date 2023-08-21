@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/threeport/threeport/internal/util"
+	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -21,8 +23,7 @@ func domainNameInstanceCreated(
 	r *controller.Reconciler,
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
-) error {
-
+) (int64, error) {
 	// ensure attached object reference exists
 	err := client.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
@@ -32,16 +33,16 @@ func domainNameInstanceCreated(
 		domainNameInstance.WorkloadInstanceID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
+		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)
 	}
 
 	// reconcile created domain name instance
 	err = reconcileCreatedOrUpdatedDomainNameInstance(r, domainNameInstance, log)
 	if err != nil {
-		return fmt.Errorf("failed to reconcile created domain name instance: %w", err)
+		return 0, fmt.Errorf("failed to reconcile created domain name instance: %w", err)
 	}
 
-	return nil
+	return 0, nil
 }
 
 // domainNameInstanceUpdated performs reconciliation when a domain name instance
@@ -50,15 +51,14 @@ func domainNameInstanceUpdated(
 	r *controller.Reconciler,
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
-) error {
-
+) (int64, error) {
 	// reconcile updated domain name instance
 	err := reconcileCreatedOrUpdatedDomainNameInstance(r, domainNameInstance, log)
 	if err != nil {
-		return fmt.Errorf("failed to reconcile updated domain name instance: %w", err)
+		return 0, fmt.Errorf("failed to reconcile updated domain name instance: %w", err)
 	}
 
-	return nil
+	return 0, nil
 }
 
 // domainNameInstanceDeleted performs reconciliation when a domain name instance
@@ -67,22 +67,32 @@ func domainNameInstanceDeleted(
 	r *controller.Reconciler,
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
-) error {
+) (int64, error) {
+	// check that deletion is scheduled - if not there's a problem
+	if domainNameInstance.DeletionScheduled == nil {
+		return 0, errors.New("deletion notification receieved but not scheduled")
+	}
+
+	// check to see if reconciled - it should not be, but if so we should do no
+	// more
+	if domainNameInstance.DeletionConfirmed != nil {
+		return 0, nil
+	}
 
 	// get workload instance
 	workloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *domainNameInstance.WorkloadInstanceID)
 	if err != nil {
 		if errors.Is(err, client.ErrorObjectNotFound) {
 			// workload instance has already been deleted
-			return nil
+			return 0, nil
 		}
-		return fmt.Errorf("failed to get workload instance: %w", err)
+		return 0, fmt.Errorf("failed to get workload instance: %w", err)
 	}
 
 	// get domain name definition
 	domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *domainNameInstance.DomainNameDefinitionID)
 	if err != nil {
-		return fmt.Errorf("failed to get domain name definition: %w", err)
+		return 0, fmt.Errorf("failed to get domain name definition: %w", err)
 	}
 
 	// configure virtual service
@@ -90,9 +100,9 @@ func domainNameInstanceDeleted(
 	if err != nil {
 		if errors.Is(err, client.ErrorObjectNotFound) {
 			// workload resource instance has already been deleted
-			return nil
+			return 0, nil
 		}
-		return fmt.Errorf("failed to configure virtual service: %w", err)
+		return 0, fmt.Errorf("failed to configure virtual service: %w", err)
 	}
 
 	// update workload resource instance
@@ -100,9 +110,9 @@ func domainNameInstanceDeleted(
 	if err != nil {
 		if errors.Is(err, client.ErrorObjectNotFound) {
 			// workload resource instance has already been deleted
-			return nil
+			return 0, nil
 		}
-		return fmt.Errorf("failed to create workload resource instance: %w", err)
+		return 0, fmt.Errorf("failed to create workload resource instance: %w", err)
 	}
 
 	// trigger a reconciliation of the workload instance
@@ -112,12 +122,42 @@ func domainNameInstanceDeleted(
 	if err != nil {
 		if errors.Is(err, client.ErrorObjectNotFound) {
 			// workload instance has already been deleted
-			return nil
+			return 0, nil
 		}
-		return fmt.Errorf("failed to update workload instance: %w", err)
+		return 0, fmt.Errorf("failed to update workload instance: %w", err)
 	}
 
-	return nil
+	// delete the domain name instance that was scheduled for deletion
+	deletionReconciled := true
+	deletionTimestamp := time.Now().UTC()
+	deletedDomainNameInstance := v0.DomainNameInstance{
+		Common: v0.Common{
+			ID: domainNameInstance.ID,
+		},
+		Reconciliation: v0.Reconciliation{
+			Reconciled:           &deletionReconciled,
+			DeletionAcknowledged: &deletionTimestamp,
+			DeletionConfirmed:    &deletionTimestamp,
+		},
+	}
+	_, err = client.UpdateDomainNameInstance(
+		r.APIClient,
+		r.APIServer,
+		&deletedDomainNameInstance,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to confirm deletion of domain name instance in threeport API: %w", err)
+	}
+	_, err = client.DeleteDomainNameInstance(
+		r.APIClient,
+		r.APIServer,
+		*domainNameInstance.ID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete domain name instance in threeport API: %w", err)
+	}
+
+	return 0, nil
 }
 
 // reconcileCreatedOrUpdatedDomainNameInstance performs reconciliation when a
@@ -243,7 +283,7 @@ func getGlooEdgeNamespace(r *controller.Reconciler, workloadInstanceID *uint) (s
 	}
 
 	// unmarshal gloo edge custom resource
-	glooEdge, err := util.UnmarshalUniqueWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
+	glooEdge, err := workloadutil.UnmarshalUniqueWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
 	if err != nil {
 		return "", fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
 	}
@@ -383,7 +423,7 @@ func configureWorkloadResourceInstance(
 	}
 
 	// get workload resource instance
-	workloadResourceInstance, err := util.GetUniqueWorkloadResourceInstance(workloadResourceInstances, "VirtualService")
+	workloadResourceInstance, err := workloadutil.GetUniqueWorkloadResourceInstance(workloadResourceInstances, "VirtualService")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workload resource instance: %w", err)
 	}

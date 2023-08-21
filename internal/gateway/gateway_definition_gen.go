@@ -102,35 +102,33 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// retrieve latest version of object unless object was
-			// deleted (in which case we have the latest version)
-			if notif.Operation != notifications.NotificationOperationDeleted {
-				latestGatewayDefinition, err := client.GetGatewayDefinitionByID(
-					r.APIClient,
-					r.APIServer,
+			// retrieve latest version of object
+			latestGatewayDefinition, err := client.GetGatewayDefinitionByID(
+				r.APIClient,
+				r.APIServer,
+				*gatewayDefinition.ID,
+			)
+			// check if error is 404 - if object no longer exists, no need to requeue
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				log.Info(fmt.Sprintf(
+					"object with ID %d no longer exists - halting reconciliation",
 					*gatewayDefinition.ID,
-				)
-				// check if error is 404 - if object no longer exists, no need to requeue
-				if errors.Is(err, client.ErrorObjectNotFound) {
-					log.Info(fmt.Sprintf(
-						"object with ID %d no longer exists - halting reconciliation",
-						*gatewayDefinition.ID,
-					))
-					r.ReleaseLock(&gatewayDefinition, lockReleased, msg, true)
-					continue
-				}
-				if err != nil {
-					log.Error(err, "failed to get gateway definition by ID from API")
-					r.UnlockAndRequeue(&gatewayDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				gatewayDefinition = *latestGatewayDefinition
+				))
+				r.ReleaseLock(&gatewayDefinition, lockReleased, msg, true)
+				continue
 			}
+			if err != nil {
+				log.Error(err, "failed to get gateway definition by ID from API")
+				r.UnlockAndRequeue(&gatewayDefinition, requeueDelay, lockReleased, msg)
+				continue
+			}
+			gatewayDefinition = *latestGatewayDefinition
 
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
-				if err := gatewayDefinitionCreated(r, &gatewayDefinition, &log); err != nil {
+				customRequeueDelay, err := gatewayDefinitionCreated(r, &gatewayDefinition, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile created gateway definition object")
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
@@ -140,8 +138,19 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("create requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&gatewayDefinition,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationUpdated:
-				if err := gatewayDefinitionUpdated(r, &gatewayDefinition, &log); err != nil {
+				customRequeueDelay, err := gatewayDefinitionUpdated(r, &gatewayDefinition, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile updated gateway definition object")
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
@@ -151,8 +160,19 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("update requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&gatewayDefinition,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
-				if err := gatewayDefinitionDeleted(r, &gatewayDefinition, &log); err != nil {
+				customRequeueDelay, err := gatewayDefinitionDeleted(r, &gatewayDefinition, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile deleted gateway definition object")
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
@@ -160,11 +180,18 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
-				} else {
-					r.ReleaseLock(&gatewayDefinition, lockReleased, msg, true)
-					log.Info("gateway definition successfully reconciled")
+					continue
 				}
-				continue
+				if customRequeueDelay != 0 {
+					log.Info("deletion requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&gatewayDefinition,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),
@@ -184,8 +211,8 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				objectReconciled := true
 				reconciledGatewayDefinition := v0.GatewayDefinition{
-					Common:     v0.Common{ID: gatewayDefinition.ID},
-					Reconciled: &objectReconciled,
+					Common:         v0.Common{ID: gatewayDefinition.ID},
+					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
 				}
 				updatedGatewayDefinition, err := client.UpdateGatewayDefinition(
 					r.APIClient,
@@ -205,12 +232,15 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&gatewayDefinition, lockReleased, msg, true); !ok {
-				log.V(1).Info("gateway definition remains locked - will unlock when TTL expires")
+				log.Error(errors.New("gateway definition remains locked - will unlock when TTL expires"), "")
 			} else {
 				log.V(1).Info("gateway definition unlocked")
 			}
 
-			log.Info("gateway definition successfully reconciled")
+			log.Info(fmt.Sprintf(
+				"gateway definition successfully reconciled for %s operation",
+				notif.Operation,
+			))
 		}
 	}
 

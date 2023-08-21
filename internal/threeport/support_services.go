@@ -930,8 +930,6 @@ func InstallThreeportCRDs(
 func InstallThreeportSupportServicesOperator(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	devEnvironment bool,
-	adminEmail string,
 ) error {
 	var namespace = &unstructured.Unstructured{
 		Object: map[string]interface{}{

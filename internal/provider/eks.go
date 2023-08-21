@@ -32,6 +32,21 @@ type KubernetesRuntimeInfraEKS struct {
 
 	// The inventory of AWS resources used to run an EKS cluster.
 	ResourceInventory *resource.ResourceInventory
+
+	// The number of availability zones the eks-cluster will be deployed across.
+	ZoneCount int32
+
+	// The AWS isntance type used for the default node group.
+	DefaultNodeGroupInstanceType string
+
+	// The number of nodes initially created for the default node group.
+	DefaultNodeGroupInitialNodes int32
+
+	// The minimum number of nodes to maintain in the default node group.
+	DefaultNodeGroupMinNodes int32
+
+	// The maximum number of nodes allowed in the default node group.
+	DefaultNodeGroupMaxNodes int32
 }
 
 // Create installs a Kubernetes cluster using AWS EKS for threeport workloads.
@@ -40,10 +55,11 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 	resourceConfig := resource.NewResourceConfig()
 	resourceConfig.Name = i.RuntimeInstanceName
 	resourceConfig.AWSAccountID = i.AwsAccountID
-	resourceConfig.InstanceTypes = []string{"t2.medium"}
-	resourceConfig.InitialNodes = int32(2)
-	resourceConfig.MinNodes = int32(2)
-	resourceConfig.MaxNodes = int32(6)
+	resourceConfig.DesiredAZCount = i.ZoneCount
+	resourceConfig.InstanceTypes = []string{i.DefaultNodeGroupInstanceType}
+	resourceConfig.InitialNodes = i.DefaultNodeGroupInitialNodes
+	resourceConfig.MinNodes = i.DefaultNodeGroupMinNodes
+	resourceConfig.MaxNodes = i.DefaultNodeGroupMaxNodes
 	resourceConfig.DNSManagement = true
 	resourceConfig.DNS01Challenge = true
 	resourceConfig.DNSManagementServiceAccount = resource.DNSManagementServiceAccount{

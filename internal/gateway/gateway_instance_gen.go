@@ -102,35 +102,33 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// retrieve latest version of object unless object was
-			// deleted (in which case we have the latest version)
-			if notif.Operation != notifications.NotificationOperationDeleted {
-				latestGatewayInstance, err := client.GetGatewayInstanceByID(
-					r.APIClient,
-					r.APIServer,
+			// retrieve latest version of object
+			latestGatewayInstance, err := client.GetGatewayInstanceByID(
+				r.APIClient,
+				r.APIServer,
+				*gatewayInstance.ID,
+			)
+			// check if error is 404 - if object no longer exists, no need to requeue
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				log.Info(fmt.Sprintf(
+					"object with ID %d no longer exists - halting reconciliation",
 					*gatewayInstance.ID,
-				)
-				// check if error is 404 - if object no longer exists, no need to requeue
-				if errors.Is(err, client.ErrorObjectNotFound) {
-					log.Info(fmt.Sprintf(
-						"object with ID %d no longer exists - halting reconciliation",
-						*gatewayInstance.ID,
-					))
-					r.ReleaseLock(&gatewayInstance, lockReleased, msg, true)
-					continue
-				}
-				if err != nil {
-					log.Error(err, "failed to get gateway instance by ID from API")
-					r.UnlockAndRequeue(&gatewayInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
-				gatewayInstance = *latestGatewayInstance
+				))
+				r.ReleaseLock(&gatewayInstance, lockReleased, msg, true)
+				continue
 			}
+			if err != nil {
+				log.Error(err, "failed to get gateway instance by ID from API")
+				r.UnlockAndRequeue(&gatewayInstance, requeueDelay, lockReleased, msg)
+				continue
+			}
+			gatewayInstance = *latestGatewayInstance
 
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
-				if err := gatewayInstanceCreated(r, &gatewayInstance, &log); err != nil {
+				customRequeueDelay, err := gatewayInstanceCreated(r, &gatewayInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile created gateway instance object")
 					r.UnlockAndRequeue(
 						&gatewayInstance,
@@ -140,8 +138,19 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("create requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&gatewayInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationUpdated:
-				if err := gatewayInstanceUpdated(r, &gatewayInstance, &log); err != nil {
+				customRequeueDelay, err := gatewayInstanceUpdated(r, &gatewayInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile updated gateway instance object")
 					r.UnlockAndRequeue(
 						&gatewayInstance,
@@ -151,8 +160,19 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if customRequeueDelay != 0 {
+					log.Info("update requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&gatewayInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			case notifications.NotificationOperationDeleted:
-				if err := gatewayInstanceDeleted(r, &gatewayInstance, &log); err != nil {
+				customRequeueDelay, err := gatewayInstanceDeleted(r, &gatewayInstance, &log)
+				if err != nil {
 					log.Error(err, "failed to reconcile deleted gateway instance object")
 					r.UnlockAndRequeue(
 						&gatewayInstance,
@@ -160,11 +180,18 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
-				} else {
-					r.ReleaseLock(&gatewayInstance, lockReleased, msg, true)
-					log.Info("gateway instance successfully reconciled")
+					continue
 				}
-				continue
+				if customRequeueDelay != 0 {
+					log.Info("deletion requeued for future reconciliation")
+					r.UnlockAndRequeue(
+						&gatewayInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 			default:
 				log.Error(
 					errors.New("unrecognized notifcation operation"),
@@ -184,8 +211,8 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				objectReconciled := true
 				reconciledGatewayInstance := v0.GatewayInstance{
-					Common:     v0.Common{ID: gatewayInstance.ID},
-					Reconciled: &objectReconciled,
+					Common:         v0.Common{ID: gatewayInstance.ID},
+					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
 				}
 				updatedGatewayInstance, err := client.UpdateGatewayInstance(
 					r.APIClient,
@@ -205,12 +232,15 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 
 			// release the lock on the reconciliation of the created object
 			if ok := r.ReleaseLock(&gatewayInstance, lockReleased, msg, true); !ok {
-				log.V(1).Info("gateway instance remains locked - will unlock when TTL expires")
+				log.Error(errors.New("gateway instance remains locked - will unlock when TTL expires"), "")
 			} else {
 				log.V(1).Info("gateway instance unlocked")
 			}
 
-			log.Info("gateway instance successfully reconciled")
+			log.Info(fmt.Sprintf(
+				"gateway instance successfully reconciled for %s operation",
+				notif.Operation,
+			))
 		}
 	}
 

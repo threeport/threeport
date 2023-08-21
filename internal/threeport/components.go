@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/kube"
+	"github.com/threeport/threeport/internal/util"
 	"github.com/threeport/threeport/internal/version"
 	"github.com/threeport/threeport/pkg/auth/v0"
 	v0 "github.com/threeport/threeport/pkg/client/v0"
@@ -79,6 +80,7 @@ func InstallComputeSpaceControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	runtimeInstanceName string,
+	agentImage string,
 ) error {
 	// threeport control plane namespace
 	if err := CreateThreeportControlPlaneNamespace(
@@ -89,18 +91,37 @@ func InstallComputeSpaceControlPlaneComponents(
 	}
 
 	// threeport agent
+	var agentImageRegistry string
+	var agentImageTag string
+	if agentImage != "" {
+		agentRegistry, _, agentTag, err := util.ParseImage(agentImage)
+		if err != nil {
+			return fmt.Errorf("failed to parse custom threeport agent image: %w", err)
+		}
+		agentImageRegistry = agentRegistry
+		agentImageTag = agentTag
+	}
 	if err := InstallThreeportAgent(
 		kubeClient,
 		mapper,
 		runtimeInstanceName,
 		false,
-		"lander2k2",
-		"latest",
+		agentImageRegistry,
+		agentImageTag,
 		nil,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport agent: %w", err)
 	}
 
+	// threeport CRDs
+	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to install threeport CRDs: %w", err)
+	}
+
+	// support services operator
+	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to install support services operator: %w", err)
+	}
 	return nil
 }
 

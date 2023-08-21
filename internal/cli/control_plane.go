@@ -223,10 +223,15 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-			RuntimeInstanceName: provider.ThreeportRuntimeName(a.InstanceName),
-			AwsAccountID:        a.CreateProviderAccountID,
-			AwsConfig:           awsConfig,
-			ResourceClient:      resourceClient,
+			RuntimeInstanceName:          provider.ThreeportRuntimeName(a.InstanceName),
+			AwsAccountID:                 a.CreateProviderAccountID,
+			AwsConfig:                    awsConfig,
+			ResourceClient:               resourceClient,
+			ZoneCount:                    int32(1),
+			DefaultNodeGroupInstanceType: "t3.medium",
+			DefaultNodeGroupInitialNodes: int32(3),
+			DefaultNodeGroupMinNodes:     int32(3),
+			DefaultNodeGroupMaxNodes:     int32(250),
 		}
 
 		// update threeport config
@@ -289,6 +294,9 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
 			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &instReconciled,
+			},
 			ThreeportControlPlaneHost: &controlPlaneHost,
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
@@ -296,7 +304,6 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			EncryptedKey:              &encryptedKey,
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
-			Reconciled:                &instReconciled,
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		location, err := mapping.GetLocationForAwsRegion(awsConfig.Region)
@@ -322,13 +329,15 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
 			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &instReconciled,
+			},
 			Location:                  &location,
 			ThreeportControlPlaneHost: &controlPlaneHost,
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
 			EncryptedConnectionToken:  &encryptedConnectionToken,
 			DefaultRuntime:            &defaultRuntime,
-			Reconciled:                &instReconciled,
 		}
 	}
 
@@ -638,7 +647,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	}
 
 	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper, a.DevEnvironment, a.CreateAdminEmail)
+	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
 	if err != nil {
 		msg := "failed to install threeport support services operator"
 		// print the error when it happens and then again post-deletion
@@ -673,8 +682,10 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Definition: v0.Definition{
 			Name: &kubernetesRuntimeDefName,
 		},
+		Reconciliation: v0.Reconciliation{
+			Reconciled: &defReconciled,
+		},
 		InfraProvider: &a.InfraProvider,
-		Reconciled:    &defReconciled,
 	}
 	kubernetesRuntimeDefResult, err := client.CreateKubernetesRuntimeDefinition(
 		apiClient,
@@ -824,9 +835,11 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Instance: v0.Instance{
 				Name: &eksRuntimeInstName,
 			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &reconciled,
+			},
 			Region:                              &awsConfig.Region,
 			AwsEksKubernetesRuntimeDefinitionID: createdAwsEksKubernetesRuntimeDef.ID,
-			Reconciled:                          &reconciled,
 			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
 			ResourceInventory:                   &dbInventory,
 		}

@@ -30,7 +30,7 @@ type KubernetesRuntimeValues struct {
 	HighAvailability         bool   `yaml:"HighAvailability"`
 	Location                 string `yaml:"Location"`
 	DefaultRuntime           bool   `yaml:"DefaultRuntime"`
-	ThreeportAgentImageName  string `yaml:"ThreeportAgentImageName"`
+	ThreeportAgentImage      string `yaml:"ThreeportAgentImage"`
 }
 
 // KubernetesRuntimeDefinitionConfig contains the config for a kubernetes runtime definition.
@@ -59,6 +59,7 @@ type KubernetesRuntimeInstanceValues struct {
 	ThreeportControlPlaneHost   bool                              `yaml:"ThreeportControlPlaneHost"`
 	DefaultRuntime              bool                              `yaml:"DefaultRuntime"`
 	Location                    string                            `yaml:"Location"`
+	ThreeportAgentImage         string                            `yaml:"ThreeportAgentImage"`
 	KubernetesRuntimeDefinition KubernetesRuntimeDefinitionValues `yaml:"KubernetesRuntimeDefinition"`
 }
 
@@ -82,6 +83,7 @@ func (kr *KubernetesRuntimeValues) Create(apiClient *http.Client, apiEndpoint st
 		Location:                  kr.Location,
 		ThreeportControlPlaneHost: false,
 		DefaultRuntime:            kr.DefaultRuntime,
+		ThreeportAgentImage:       kr.ThreeportAgentImage,
 		KubernetesRuntimeDefinition: KubernetesRuntimeDefinitionValues{
 			Name: kr.Name,
 		},
@@ -186,6 +188,7 @@ func (kri *KubernetesRuntimeInstanceValues) Create(apiClient *http.Client, apiEn
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
 		DefaultRuntime:                &kri.DefaultRuntime,
 		Location:                      &kri.Location,
+		ThreeportAgentImage:           &kri.ThreeportAgentImage,
 	}
 
 	// create kubernetes runtime instance

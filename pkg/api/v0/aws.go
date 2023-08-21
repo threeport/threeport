@@ -2,7 +2,9 @@
 //go:generate ../../../bin/threeport-codegen controller --filename $GOFILE
 package v0
 
-import "gorm.io/datatypes"
+import (
+	"gorm.io/datatypes"
+)
 
 // AwsAccount is a user account with the AWS service provider.
 type AwsAccount struct {
@@ -67,8 +69,9 @@ type AwsEksKubernetesRuntimeDefinition struct {
 // +threeport-codegen:reconciler
 // AwsEksKubernetesRuntimeInstance is a deployed instance of an EKS cluster.
 type AwsEksKubernetesRuntimeInstance struct {
-	Common   `swaggerignore:"true" mapstructure:",squash"`
-	Instance `mapstructure:",squash"`
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Instance       `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
 
 	// The AWS Region in which the cluster is provisioned.  This field is
 	// stored in the instance (as well as definition) since a change to the
@@ -77,9 +80,6 @@ type AwsEksKubernetesRuntimeInstance struct {
 
 	// The definition that configures this instance.
 	AwsEksKubernetesRuntimeDefinitionID *uint `json:"AwsEksKubernetesRuntimeDefinitionID,omitempty" query:"awsekskubernetesruntimedefinitionid" gorm:"not null" validate:"required"`
-
-	// Indicates if object is considered to be reconciled by workload controller.
-	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
 
 	// An inventory of all AWS resources for the EKS cluster.
 	ResourceInventory *datatypes.JSON `json:"ResourceInventory,omitempty" validate:"optional"`
