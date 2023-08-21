@@ -20,7 +20,7 @@ type GatewayDefinition struct {
 	// HTTPPort *bool `json:"HTTPPort,omitempty" query:"httpport" gorm:"default:true" validate:"optional"`
 
 	// Redirect all requests to HTTP port to HTTPS.
-	HTTPSRedirct *bool `json:"HTTPSRedirect,omitempty" query:"httpsredirect" gorm:"default:true" validate:"optional"`
+	HTTPSRedirect *bool `json:"HTTPSRedirect,omitempty" query:"httpsredirect" gorm:"default:true" validate:"optional"`
 
 	// // Allow requests from the public internet.
 	// Public *bool `json:"Public,omitempty" query:"public" gorm:"default:true" validate:"optional"`

@@ -39,8 +39,8 @@ type GatewayInstanceValues struct {
 // Create creates a gateway definition.
 func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, error) {
 	// validate required fields
-	if g.Name == "" || g.TCPPort == 0 {
-		return nil, errors.New("missing required field/s in config - required fields: Name, TCPPort")
+	if g.Name == "" || g.TCPPort == 0 || g.DomainNameDefinition.Name == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, TCPPort, DomainNameDefinition.Name")
 	}
 
 	// get domain name definition
@@ -73,9 +73,9 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 // Create creates a gateway instance.
 func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayInstance, error) {
 	// validate required fields
-	if g.Name == "" || g.GatewayDefinition.Name == "" || g.KubernetesRuntimeInstance.Name == "" ||
+	if g.GatewayDefinition.Name == "" || g.KubernetesRuntimeInstance.Name == "" ||
 		g.WorkloadInstance.Name == "" {
-		return nil, errors.New("missing required field/s in config - required fields: Name, GatewayDefinition.Name, KubernetesRuntimeInstance.Name, WorkloadInstance.Name")
+		return nil, errors.New("missing required field/s in config - required fields: GatewayDefinition.Name, KubernetesRuntimeInstance.Name, WorkloadInstance.Name")
 	}
 
 	// get kubernetes runtime instance

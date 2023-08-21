@@ -7677,7 +7677,8 @@
             "required": [
                 "DomainNameDefinitionID",
                 "KubernetesRuntimeInstanceID",
-                "Name"
+                "Name",
+                "WorkloadInstanceID"
             ],
             "properties": {
                 "DeletionAcknowledged": {
@@ -7775,7 +7776,8 @@
         "v0.GatewayDefinition": {
             "type": "object",
             "required": [
-                "Name"
+                "Name",
+                "TCPPort"
             ],
             "properties": {
                 "DeletionAcknowledged": {
@@ -7852,7 +7854,8 @@
             "required": [
                 "GatewayDefinitionID",
                 "KubernetesRuntimeInstanceID",
-                "Name"
+                "Name",
+                "WorkloadInstanceID"
             ],
             "properties": {
                 "DeletionAcknowledged": {
@@ -8156,16 +8159,6 @@
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -8174,6 +8167,16 @@
                 "WorkloadEvent",
                 "Profile",
                 "Tier",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "GatewayDefinition",
                 "GatewayInstance",
                 "DomainNameDefinition",
@@ -8182,16 +8185,6 @@
                 "KubernetesRuntimeInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
@@ -8200,6 +8193,16 @@
                 "ObjectTypeWorkloadEvent",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeDomainNameDefinition",
