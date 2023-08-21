@@ -63,7 +63,6 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		"awsEksClsuterDefinitionRegion", *awsEksKubernetesRuntimeInstance.Region,
 		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
 		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
-		"awsAccountAccessKeyID", *awsAccount.EncryptedAccessKeyID,
 	)
 
 	// decrypt access key id and secret access key
@@ -328,13 +327,22 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 		"awsEksClsuterInstsanceRegion", *awsEksKubernetesRuntimeInstance.Region,
 		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
 		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
-		"awsAccountAccessKeyID", *awsAccount.EncryptedAccessKeyID,
 	)
+
+	// decrypt access key id and secret access key
+	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedAccessKeyID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
+	}
+	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedSecretAccessKey)
+	if err != nil {
+		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
+	}
 
 	// create AWS config
 	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
-		*awsAccount.EncryptedAccessKeyID,
-		*awsAccount.EncryptedSecretAccessKey,
+		accessKeyID,
+		secretAccessKey,
 		"",
 		*awsEksKubernetesRuntimeInstance.Region,
 	)
