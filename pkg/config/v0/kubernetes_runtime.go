@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"unicode/utf8"
 
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
@@ -137,6 +139,19 @@ func (kr *KubernetesRuntimeValues) Delete(apiClient *http.Client, apiEndpoint st
 }
 
 func (krd *KubernetesRuntimeDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.KubernetesRuntimeDefinition, error) {
+	// validate required fields
+	if krd.Name == "" || krd.InfraProvider == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, InfraProvider")
+	}
+
+	// validate name length
+	if utf8.RuneCountInString(krd.Name) > provider.RuntimeNameMaxLength {
+		return nil, errors.New(fmt.Sprintf(
+			"kubernetes runtime definition name too long - cannot exceed %d characters",
+			provider.RuntimeNameMaxLength,
+		))
+	}
+
 	// construct kubernetes runtime definition object
 	kubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
 		Definition: v0.Definition{
@@ -174,6 +189,19 @@ func (krd *KubernetesRuntimeDefinitionValues) Delete(apiClient *http.Client, api
 }
 
 func (kri *KubernetesRuntimeInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.KubernetesRuntimeInstance, error) {
+	// validate required fields
+	if kri.Name == "" || kri.Location == "" || kri.KubernetesRuntimeDefinition.Name == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, Location, KubernetesRuntimeDefinition.Name")
+	}
+
+	// validate name length
+	if utf8.RuneCountInString(kri.Name) > provider.RuntimeNameMaxLength {
+		return nil, errors.New(fmt.Sprintf(
+			"kubernetes runtime instance name too long - cannot exceed %d characters",
+			provider.RuntimeNameMaxLength,
+		))
+	}
+
 	// get kubernetes runtime definition by name
 	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, kri.KubernetesRuntimeDefinition.Name)
 	if err != nil {

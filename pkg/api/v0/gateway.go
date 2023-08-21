@@ -11,7 +11,7 @@ type GatewayDefinition struct {
 	Reconciliation `mapstructure:",squash"`
 
 	// TCP Port to expose to outside network.
-	TCPPort *int `json:"TCPPort,omitempty" query:"tcpport" gorm:"not null" validate:"optional"`
+	TCPPort *int `json:"TCPPort,omitempty" query:"tcpport" gorm:"not null" validate:"required"`
 
 	// // Expose port 443 with TLS termination.
 	// HTTPSPort *bool `json:"HTTPSPort,omitempty" query:"httpsport" gorm:"default:true" validate:"optional"`
@@ -69,7 +69,7 @@ type GatewayInstance struct {
 	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" query:"gatewaydefinitionid" gorm:"not null" validate:"required"`
 
 	// The workload instance this gateway belongs to.
-	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadresourceinstanceid" gorm:"not null" validate:"optional"`
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadresourceinstanceid" gorm:"not null" validate:"required"`
 
 	//TODO: implement this in the future so we don't need to
 	// query the workload instance & search for the workload resource instance
@@ -122,7 +122,7 @@ type DomainNameInstance struct {
 	DomainNameDefinitionID *uint `json:"DomainNameDefinitionID,omitempty" query:"domainnamedefinitionid" gorm:"not null" validate:"required"`
 
 	// The workload instance this gateway belongs to.
-	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadresourceinstanceid" gorm:"not null" validate:"optional"`
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadresourceinstanceid" gorm:"not null" validate:"required"`
 
 	// The cluster where the workload that is using the domain name is running.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
