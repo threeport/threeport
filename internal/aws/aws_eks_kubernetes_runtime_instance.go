@@ -14,6 +14,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
 // awsEksKubernetesRuntimeInstanceCreated reconciles state for created AWS EKS
@@ -60,13 +61,23 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		"awsEksClsuterDefinitionRegion", *awsEksKubernetesRuntimeInstance.Region,
 		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
 		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
-		"awsAccountAccessKeyID", *awsAccount.AccessKeyID,
+		"awsAccountAccessKeyID", *awsAccount.EncryptedAccessKeyID,
 	)
+
+	// decrypt access key id and secret access key
+	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedAccessKeyID)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt access key id: %w", err)
+	}
+	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedSecretAccessKey)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt secret access key: %w", err)
+	}
 
 	// create AWS config
 	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
-		*awsAccount.AccessKeyID,
-		*awsAccount.SecretAccessKey,
+		accessKeyID,
+		secretAccessKey,
 		"",
 		*awsEksKubernetesRuntimeInstance.Region,
 	)
@@ -179,11 +190,17 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		return fmt.Errorf("failed to get kubernetes runtime instance to update kube connection info: %w", err)
 	}
 
+	// encrypt connection token
+	encryptedConnectionToken, err := encryption.Encrypt(r.EncryptionKey, kubeConnectionInfo.EKSToken)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt connection token: %w", err)
+	}
+
 	// update kube connection info
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
-	kubernetesRuntimeInstance.ConnectionToken = &kubeConnectionInfo.EKSToken
+	kubernetesRuntimeInstance.EncryptedConnectionToken = &encryptedConnectionToken
 	kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnectionInfo.EKSTokenExpiration
 	kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
 	_, err = client.UpdateKubernetesRuntimeInstance(
@@ -237,13 +254,13 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 		"awsEksClsuterInstsanceRegion", *awsEksKubernetesRuntimeInstance.Region,
 		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
 		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
-		"awsAccountAccessKeyID", *awsAccount.AccessKeyID,
+		"awsAccountAccessKeyID", *awsAccount.EncryptedAccessKeyID,
 	)
 
 	// create AWS config
 	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
-		*awsAccount.AccessKeyID,
-		*awsAccount.SecretAccessKey,
+		*awsAccount.EncryptedAccessKeyID,
+		*awsAccount.EncryptedSecretAccessKey,
 		"",
 		*awsEksKubernetesRuntimeInstance.Region,
 	)

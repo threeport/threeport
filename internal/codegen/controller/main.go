@@ -141,6 +141,15 @@ func (cc *ControllerConfig) MainPackage() error {
 		).Call(),
 
 		Line(),
+		Var().Id("log").Qual("github.com/go-logr/logr", "Logger"),
+		Var().Id("encryptionKey").Op("=").Qual("os", "Getenv").Call(Lit("ENCRYPTION_KEY")),
+		If(Id("encryptionKey").Op("==").Lit("")).Block(
+			Id("log").Dot("Error").Call(
+				Qual("errors", "New").Call(Lit("environment variable ENCRYPTION_KEY is not set")), Lit("encryption key not found"),
+			),
+		),
+
+		Line(),
 		If(Op("*").Id("help").Block(
 			Id("showHelpAndExit").Call(Lit(0)),
 		)),
@@ -153,7 +162,6 @@ func (cc *ControllerConfig) MainPackage() error {
 		).Call(),
 
 		Line().Comment("logging setup"),
-		Var().Id("log").Qual("github.com/go-logr/logr", "Logger"),
 		Switch(Op("*").Id("verbose")).Block(
 			Case(Lit(true)).Block(
 				List(Id("zapLog"), Id("err")).Op(":=").Qual("go.uber.org/zap", "NewDevelopment").Call(),
@@ -370,6 +378,7 @@ func (cc *ControllerConfig) MainPackage() error {
 				Id("Log"):              Op("&").Id("log"),
 				Id("Shutdown"):         Id("shutdownChan"),
 				Id("ShutdownWait"):     Op("&").Id("shutdownWait"),
+				Id("EncryptionKey"):    Id("encryptionKey"),
 			}),
 
 			Line().Comment("start reconciler"),

@@ -91,6 +91,7 @@ func kubernetesRuntimeInstanceUpdated(
 		false,
 		r.APIClient,
 		r.APIServer,
+		r.EncryptionKey,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)

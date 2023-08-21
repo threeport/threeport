@@ -76,6 +76,9 @@ type Reconciler struct {
 	// ShutdownWait is the wait group that waits for reconcilers to finish
 	// before shutting down the controller.
 	ShutdownWait *sync.WaitGroup
+
+	// EncryptionKey is the key used to encrypt and decrypt sensitive fields.
+	EncryptionKey string
 }
 
 // PullMessage checks the queue for a message and returns it if there was a

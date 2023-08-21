@@ -114,6 +114,7 @@ func InstallThreeportAPI(
 	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
 	infraProvider string,
+	encryptionKey string,
 ) error {
 	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
 	apiArgs := getAPIArgs(devEnvironment, authConfig)
@@ -168,6 +169,23 @@ NATS_PORT=4222
 		},
 	}
 	if _, err := kube.CreateResource(apiSecret, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create API server secret: %w", err)
+	}
+
+	var encryptionSecret = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "encryption-key",
+				"namespace": ControlPlaneNamespace,
+			},
+			"stringData": map[string]interface{}{
+				"ENCRYPTION_KEY": encryptionKey,
+			},
+		},
+	}
+	if _, err := kube.CreateResource(encryptionSecret, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
 
@@ -1784,6 +1802,11 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 									map[string]interface{}{
 										"secretRef": map[string]interface{}{
 											"name": "controller-config",
+										},
+									},
+									map[string]interface{}{
+										"secretRef": map[string]interface{}{
+											"name": "encryption-key",
 										},
 									},
 								},
