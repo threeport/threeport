@@ -274,7 +274,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-										Line().Id("requeueDelay"),
+										Line().Id("customRequeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
 										Line(),
@@ -316,7 +316,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-										Line().Id("requeueDelay"),
+										Line().Id("customRequeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
 										Line(),
@@ -358,7 +358,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
-										Line().Id("requeueDelay"),
+										Line().Id("customRequeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
 										Line(),

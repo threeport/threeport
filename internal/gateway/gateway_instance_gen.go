@@ -142,7 +142,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					log.Info("create requeued for future reconciliation")
 					r.UnlockAndRequeue(
 						&gatewayInstance,
-						requeueDelay,
+						customRequeueDelay,
 						lockReleased,
 						msg,
 					)
@@ -164,7 +164,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					log.Info("update requeued for future reconciliation")
 					r.UnlockAndRequeue(
 						&gatewayInstance,
-						requeueDelay,
+						customRequeueDelay,
 						lockReleased,
 						msg,
 					)
@@ -186,7 +186,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					log.Info("deletion requeued for future reconciliation")
 					r.UnlockAndRequeue(
 						&gatewayInstance,
-						requeueDelay,
+						customRequeueDelay,
 						lockReleased,
 						msg,
 					)
