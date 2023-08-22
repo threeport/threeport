@@ -63,17 +63,16 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		"awsEksClsuterDefinitionRegion", *awsEksKubernetesRuntimeInstance.Region,
 		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
 		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
-		"awsAccountAccessKeyID", *awsAccount.EncryptedAccessKeyID,
 	)
 
 	// decrypt access key id and secret access key
 	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedAccessKeyID)
 	if err != nil {
-		return fmt.Errorf("failed to decrypt access key id: %w", err)
+		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
 	}
 	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedSecretAccessKey)
 	if err != nil {
-		return fmt.Errorf("failed to decrypt secret access key: %w", err)
+		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
 	}
 
 	// create AWS config
@@ -197,17 +196,11 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		return 0, fmt.Errorf("failed to get kubernetes runtime instance to update kube connection info: %w", err)
 	}
 
-	// encrypt connection token
-	encryptedConnectionToken, err := encryption.Encrypt(r.EncryptionKey, kubeConnectionInfo.EKSToken)
-	if err != nil {
-		return fmt.Errorf("failed to encrypt connection token: %w", err)
-	}
-
 	// update kube connection info
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
-	kubernetesRuntimeInstance.EncryptedConnectionToken = &encryptedConnectionToken
+	kubernetesRuntimeInstance.EncryptedConnectionToken = &kubeConnectionInfo.EKSToken
 	kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnectionInfo.EKSTokenExpiration
 	kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
 	_, err = client.UpdateKubernetesRuntimeInstance(
@@ -328,13 +321,22 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 		"awsEksClsuterInstsanceRegion", *awsEksKubernetesRuntimeInstance.Region,
 		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
 		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
-		"awsAccountAccessKeyID", *awsAccount.EncryptedAccessKeyID,
 	)
+
+	// decrypt access key id and secret access key
+	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedAccessKeyID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
+	}
+	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedSecretAccessKey)
+	if err != nil {
+		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
+	}
 
 	// create AWS config
 	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
-		*awsAccount.EncryptedAccessKeyID,
-		*awsAccount.EncryptedSecretAccessKey,
+		accessKeyID,
+		secretAccessKey,
 		"",
 		*awsEksKubernetesRuntimeInstance.Region,
 	)

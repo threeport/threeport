@@ -3,11 +3,14 @@
 package v0
 
 import (
+	"errors"
 	"fmt"
+	"os"
 
 	"gorm.io/gorm"
 
 	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
 // KubernetesRuntimeInfraProvider indicates which infrastructure provider is being
@@ -82,6 +85,26 @@ func (k *KubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
 	if !mapping.ValidLocation(*k.Location) {
 		msg := fmt.Sprintf("location %s is not a supported threeport location for a kubernetes runtime instance", *k.Location)
 		return &KubernetesRuntimeInstanceValidationErr{msg}
+	}
+
+	// encrypt sensitive values
+	var encryptionKey = os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		return errors.New("environment variable ENCRYPTION_KEY is not set")
+	}
+	if k.EncryptedKey != nil {
+		encryptedVal, err := encryption.Encrypt(encryptionKey, *k.EncryptedKey)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt kubernetes API secret key for storage: %w", err)
+		}
+		k.EncryptedKey = &encryptedVal
+	}
+	if k.EncryptedConnectionToken != nil {
+		encryptedVal, err := encryption.Encrypt(encryptionKey, *k.EncryptedConnectionToken)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt kubernetes API secret key for storage: %w", err)
+		}
+		k.EncryptedConnectionToken = &encryptedVal
 	}
 
 	return nil

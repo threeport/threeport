@@ -9,7 +9,6 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
 // AwsAccountConfig contains the config for an AWS account.
@@ -63,7 +62,7 @@ type AwsEksKubernetesRuntimeInstanceValues struct {
 }
 
 // Create creates an AWS account in the Threeport API.
-func (aa *AwsAccountValues) Create(apiClient *http.Client, apiEndpoint, encryptionKey string) (*v0.AwsAccount, error) {
+func (aa *AwsAccountValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsAccount, error) {
 	// validate required fields
 	if aa.Name == "" || aa.AccountID == "" {
 		return nil, errors.New("missing required field/s in config - required fields: Name, AccountID")
@@ -144,24 +143,14 @@ LocalConfig, LocalCredentials and LocalProfile
 		secretAccessKey = aa.SecretAccessKey
 	}
 
-	// encrypt access key ID and secret access key
-	encryptedAccessKeyId, err := encryption.Encrypt(encryptionKey, accessKeyID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt access key ID: %w", err)
-	}
-	encryptedSecretKey, err := encryption.Encrypt(encryptionKey, secretAccessKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt secret access key: %w", err)
-	}
-
 	// construct AWS account object
 	awsAccount := v0.AwsAccount{
 		Name:                     &aa.Name,
 		DefaultAccount:           &aa.DefaultAccount,
 		DefaultRegion:            &region,
 		AccountID:                &aa.AccountID,
-		EncryptedAccessKeyID:     &encryptedAccessKeyId,
-		EncryptedSecretAccessKey: &encryptedSecretKey,
+		EncryptedAccessKeyID:     &accessKeyID,
+		EncryptedSecretAccessKey: &secretAccessKey,
 	}
 
 	// create AWS account
