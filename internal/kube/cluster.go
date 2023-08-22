@@ -119,13 +119,19 @@ func getRESTConfig(
 	var restConfig rest.Config
 	switch {
 	case runtime.Certificate != nil && runtime.EncryptedKey != nil:
-		decryptedKey, err := encryption.Decrypt(encryptionKey, *runtime.EncryptedKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt kubernetes runtime instance key: %w", err)
+		var keyData string
+		if encryptionKey != "" {
+			decryptedKey, err := encryption.Decrypt(encryptionKey, *runtime.EncryptedKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt kubernetes runtime instance key: %w", err)
+			}
+			keyData = decryptedKey
+		} else {
+			keyData = *runtime.EncryptedKey
 		}
 		tlsConfig := rest.TLSClientConfig{
 			CertData: []byte(*runtime.Certificate),
-			KeyData:  []byte(decryptedKey),
+			KeyData:  []byte(keyData),
 			CAData:   []byte(*runtime.CACertificate),
 		}
 		restConfig = rest.Config{

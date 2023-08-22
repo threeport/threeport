@@ -288,10 +288,6 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		location := "Local"
-		encryptedKey, err := encryption.Encrypt(encryptionKey, kubeConnectionInfo.Key)
-		if err != nil {
-			return err
-		}
 		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
@@ -303,7 +299,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
 			Certificate:               &kubeConnectionInfo.Certificate,
-			EncryptedKey:              &encryptedKey,
+			EncryptedKey:              &kubeConnectionInfo.Key,
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
 		}
@@ -321,12 +317,6 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			return err
 		}
 
-		// encrypt connection token
-		encryptedConnectionToken, err := encryption.Encrypt(encryptionKey, kubeConnectionInfo.EKSToken)
-		if err != nil {
-			return err
-		}
-
 		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
@@ -338,7 +328,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			ThreeportControlPlaneHost: &controlPlaneHost,
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
-			EncryptedConnectionToken:  &encryptedConnectionToken,
+			EncryptedConnectionToken:  &kubeConnectionInfo.EKSToken,
 			DefaultRuntime:            &defaultRuntime,
 		}
 	}
@@ -351,7 +341,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		false,
 		nil,
 		"",
-		threeportInstanceConfig.EncryptionKey,
+		"",
 	)
 	if err != nil {
 		msg := "failed to get a Kubernetes client and mapper"
@@ -579,7 +569,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		false,
 		apiClient,
 		threeportAPIEndpoint,
-		threeportInstanceConfig.EncryptionKey,
+		"",
 	)
 	if err != nil {
 		msg := "failed to get a new Kubernetes client and mapper"
@@ -749,24 +739,13 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		awsAccountName := "default-account"
 		defaultAccount := true
 
-		// encrypt access key ID and secret access key
-		encryptedAccessKeyId, err := encryption.Encrypt(encryptionKey, accessKeyID)
-		if err != nil {
-			return fmt.Errorf("failed to encrypt access key ID: %w", err)
-		}
-
-		encryptedSecretKey, err := encryption.Encrypt(encryptionKey, secretAccessKey)
-		if err != nil {
-			return fmt.Errorf("failed to encrypt secret access key: %w", err)
-		}
-
 		awsAccount := v0.AwsAccount{
 			Name:                     &awsAccountName,
 			AccountID:                &a.CreateProviderAccountID,
 			DefaultAccount:           &defaultAccount,
 			DefaultRegion:            &awsConfig.Region,
-			EncryptedAccessKeyID:     &encryptedAccessKeyId,
-			EncryptedSecretAccessKey: &encryptedSecretKey,
+			EncryptedAccessKeyID:     &accessKeyID,
+			EncryptedSecretAccessKey: &secretAccessKey,
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,
@@ -1000,19 +979,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 					return fmt.Errorf("failed to refresh token to connect to EKS kubernetes runtime: %w", err)
 				}
 
-				// get encryption key
-				encryptionKey, err := threeportConfig.GetEncryptionKey()
-				if err != nil {
-					return fmt.Errorf("failed to get encryption key from threeport config: %w", err)
-				}
-
-				// encrypt connection token
-				encryptedConnectionToken, err := encryption.Encrypt(encryptionKey, kubeConn.EKSToken)
-				if err != nil {
-					return fmt.Errorf("failed to encrypt connection token: %w", err)
-				}
-
-				kubernetesRuntimeInstance.EncryptedConnectionToken = &encryptedConnectionToken
+				kubernetesRuntimeInstance.EncryptedConnectionToken = &kubeConn.EKSToken
 				updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
 					apiClient,
 					threeportInstanceConfig.APIServer,

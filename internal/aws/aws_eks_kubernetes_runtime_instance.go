@@ -196,17 +196,11 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		return 0, fmt.Errorf("failed to get kubernetes runtime instance to update kube connection info: %w", err)
 	}
 
-	// encrypt connection token
-	encryptedConnectionToken, err := encryption.Encrypt(r.EncryptionKey, kubeConnectionInfo.EKSToken)
-	if err != nil {
-		return 0, fmt.Errorf("failed to encrypt connection token: %w", err)
-	}
-
 	// update kube connection info
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
-	kubernetesRuntimeInstance.EncryptedConnectionToken = &encryptedConnectionToken
+	kubernetesRuntimeInstance.EncryptedConnectionToken = &kubeConnectionInfo.EKSToken
 	kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnectionInfo.EKSTokenExpiration
 	kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
 	_, err = client.UpdateKubernetesRuntimeInstance(
