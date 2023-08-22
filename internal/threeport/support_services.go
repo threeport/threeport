@@ -8,17 +8,21 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/kube"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 const (
 	SupportServicesNamespace     = "support-services-system"
-	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.1.12"
+	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.4.2"
 	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
 
 	// links the service account delcared in the IngressComponent resource to the
 	// resource config for eks-cluster to create the attached IAM role.
 	DNSManagerServiceAccountName     = "external-dns"
-	DNSManagerServiceAccountNamepace = "nukleros-ingress-system"
+	DNSManagerServiceAccountNamepace = "nukleros-gateway-system"
+
+	DNS01ChallengeServiceAccountName     = "cert-manager"
+	DNS01ChallengeServiceAccountNamepace = "nukleros-certs-system"
 
 	// links the service account used by the EBS CSI driver to the resource
 	// config for eks-cluster to create the attached IAM role.
@@ -37,7 +41,7 @@ func InstallThreeportCRDs(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
-	var certsComponentCRD = &unstructured.Unstructured{
+	var certManagerCRD = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
 			"kind":       "CustomResourceDefinition",
@@ -46,15 +50,15 @@ func InstallThreeportCRDs(
 					"controller-gen.kubebuilder.io/version": "v0.9.0",
 				},
 				"creationTimestamp": nil,
-				"name":              "certificatescomponents.platform.addons.nukleros.io",
+				"name":              "certmanagers.certificates.support-services.nukleros.io",
 			},
 			"spec": map[string]interface{}{
-				"group": "platform.addons.nukleros.io",
+				"group": "certificates.support-services.nukleros.io",
 				"names": map[string]interface{}{
-					"kind":     "CertificatesComponent",
-					"listKind": "CertificatesComponentList",
-					"plural":   "certificatescomponents",
-					"singular": "certificatescomponent",
+					"kind":     "CertManager",
+					"listKind": "CertManagerList",
+					"plural":   "certmanagers",
+					"singular": "certmanager",
 				},
 				"scope": "Cluster",
 				"versions": []interface{}{
@@ -62,7 +66,7 @@ func InstallThreeportCRDs(
 						"name": "v1alpha1",
 						"schema": map[string]interface{}{
 							"openAPIV3Schema": map[string]interface{}{
-								"description": "CertificatesComponent is the Schema for the certificatescomponents API.",
+								"description": "CertManager is the Schema for the certmanagers API.",
 								"properties": map[string]interface{}{
 									"apiVersion": map[string]interface{}{
 										"description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
@@ -76,70 +80,19 @@ func InstallThreeportCRDs(
 										"type": "object",
 									},
 									"spec": map[string]interface{}{
-										"description": "CertificatesComponentSpec defines the desired state of CertificatesComponent.",
+										"description": "CertManagerSpec defines the desired state of CertManager.",
 										"properties": map[string]interface{}{
-											"certManager": map[string]interface{}{
+											"cainjector": map[string]interface{}{
 												"properties": map[string]interface{}{
-													"cainjector": map[string]interface{}{
-														"properties": map[string]interface{}{
-															"image": map[string]interface{}{
-																"default": "quay.io/jetstack/cert-manager-cainjector",
-																"description": `(Default: "quay.io/jetstack/cert-manager-cainjector") 
- Image repo and name to use for cert-manager cainjector.`,
-																"type": "string",
-															},
-															"replicas": map[string]interface{}{
-																"default": 2,
-																"description": `(Default: 2) 
- Number of replicas to use for the cert-manager cainjector deployment.`,
-																"type": "integer",
-															},
-														},
-														"type": "object",
-													},
-													"contactEmail": map[string]interface{}{
-														"description": "Contact e-mail address for receiving updates about certificates from LetsEncrypt.",
+													"image": map[string]interface{}{
+														"default":     "quay.io/jetstack/cert-manager-cainjector",
+														"description": "(Default: \"quay.io/jetstack/cert-manager-cainjector\") Image repo and name to use for cert-manager cainjector.",
 														"type":        "string",
 													},
-													"controller": map[string]interface{}{
-														"properties": map[string]interface{}{
-															"image": map[string]interface{}{
-																"default": "quay.io/jetstack/cert-manager-controller",
-																"description": `(Default: "quay.io/jetstack/cert-manager-controller") 
- Image repo and name to use for cert-manager controller.`,
-																"type": "string",
-															},
-															"replicas": map[string]interface{}{
-																"default": 2,
-																"description": `(Default: 2) 
- Number of replicas to use for the cert-manager controller deployment.`,
-																"type": "integer",
-															},
-														},
-														"type": "object",
-													},
-													"version": map[string]interface{}{
-														"default": "v1.9.1",
-														"description": `(Default: "v1.9.1") 
- Version of cert-manager to use.`,
-														"type": "string",
-													},
-													"webhook": map[string]interface{}{
-														"properties": map[string]interface{}{
-															"image": map[string]interface{}{
-																"default": "quay.io/jetstack/cert-manager-webhook",
-																"description": `(Default: "quay.io/jetstack/cert-manager-webhook") 
- Image repo and name to use for cert-manager webhook.`,
-																"type": "string",
-															},
-															"replicas": map[string]interface{}{
-																"default": 2,
-																"description": `(Default: 2) 
- Number of replicas to use for the cert-manager webhook deployment.`,
-																"type": "integer",
-															},
-														},
-														"type": "object",
+													"replicas": map[string]interface{}{
+														"default":     2,
+														"description": "(Default: 2) Number of replicas to use for the cert-manager cainjector deployment.",
+														"type":        "integer",
 													},
 												},
 												"type": "object",
@@ -161,17 +114,59 @@ func InstallThreeportCRDs(
 												},
 												"type": "object",
 											},
+											"contactEmail": map[string]interface{}{
+												"description": "Contact e-mail address for receiving updates about certificates from LetsEncrypt.",
+												"type":        "string",
+											},
+											"controller": map[string]interface{}{
+												"properties": map[string]interface{}{
+													"image": map[string]interface{}{
+														"default":     "quay.io/jetstack/cert-manager-controller",
+														"description": "(Default: \"quay.io/jetstack/cert-manager-controller\") Image repo and name to use for cert-manager controller.",
+														"type":        "string",
+													},
+													"replicas": map[string]interface{}{
+														"default":     2,
+														"description": "(Default: 2) Number of replicas to use for the cert-manager controller deployment.",
+														"type":        "integer",
+													},
+												},
+												"type": "object",
+											},
+											"iamRoleArn": map[string]interface{}{
+												"description": "On AWS, the IAM Role ARN that gives cert-manager access to Route53",
+												"type":        "string",
+											},
 											"namespace": map[string]interface{}{
-												"default": "nukleros-certs-system",
-												"description": `(Default: "nukleros-certs-system") 
- Namespace to use for certificate support services.`,
-												"type": "string",
+												"default":     "nukleros-certs-system",
+												"description": "(Default: \"nukleros-certs-system\") Namespace to use for certificate support services.",
+												"type":        "string",
+											},
+											"version": map[string]interface{}{
+												"default":     "v1.9.1",
+												"description": "(Default: \"v1.9.1\") Version of cert-manager to use.",
+												"type":        "string",
+											},
+											"webhook": map[string]interface{}{
+												"properties": map[string]interface{}{
+													"image": map[string]interface{}{
+														"default":     "quay.io/jetstack/cert-manager-webhook",
+														"description": "(Default: \"quay.io/jetstack/cert-manager-webhook\") Image repo and name to use for cert-manager webhook.",
+														"type":        "string",
+													},
+													"replicas": map[string]interface{}{
+														"default":     2,
+														"description": "(Default: 2) Number of replicas to use for the cert-manager webhook deployment.",
+														"type":        "integer",
+													},
+												},
+												"type": "object",
 											},
 										},
 										"type": "object",
 									},
 									"status": map[string]interface{}{
-										"description": "CertificatesComponentStatus defines the observed state of CertificatesComponent.",
+										"description": "CertManagerStatus defines the observed state of CertManager.",
 										"properties": map[string]interface{}{
 											"conditions": map[string]interface{}{
 												"items": map[string]interface{}{
@@ -290,11 +285,11 @@ func InstallThreeportCRDs(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(certsComponentCRD, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services cert component CRD: %w", err)
+	if _, err := kube.CreateResource(certManagerCRD, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create cert manager crd: %w", err)
 	}
 
-	var ingressComponentCRD = &unstructured.Unstructured{
+	var externalDNSCRD = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
 			"kind":       "CustomResourceDefinition",
@@ -303,15 +298,15 @@ func InstallThreeportCRDs(
 					"controller-gen.kubebuilder.io/version": "v0.9.0",
 				},
 				"creationTimestamp": nil,
-				"name":              "ingresscomponents.platform.addons.nukleros.io",
+				"name":              "externaldns.gateway.support-services.nukleros.io",
 			},
 			"spec": map[string]interface{}{
-				"group": "platform.addons.nukleros.io",
+				"group": "gateway.support-services.nukleros.io",
 				"names": map[string]interface{}{
-					"kind":     "IngressComponent",
-					"listKind": "IngressComponentList",
-					"plural":   "ingresscomponents",
-					"singular": "ingresscomponent",
+					"kind":     "ExternalDNS",
+					"listKind": "ExternalDNSList",
+					"plural":   "externaldns",
+					"singular": "externaldns",
 				},
 				"scope": "Cluster",
 				"versions": []interface{}{
@@ -319,7 +314,7 @@ func InstallThreeportCRDs(
 						"name": "v1alpha1",
 						"schema": map[string]interface{}{
 							"openAPIV3Schema": map[string]interface{}{
-								"description": "IngressComponent is the Schema for the ingresscomponents API.",
+								"description": "ExternalDNS is the Schema for the externaldns API.",
 								"properties": map[string]interface{}{
 									"apiVersion": map[string]interface{}{
 										"description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
@@ -333,7 +328,7 @@ func InstallThreeportCRDs(
 										"type": "object",
 									},
 									"spec": map[string]interface{}{
-										"description": "IngressComponentSpec defines the desired state of IngressComponent.",
+										"description": "ExternalDNSSpec defines the desired state of ExternalDNS.",
 										"properties": map[string]interface{}{
 											"collection": map[string]interface{}{
 												"description": "Specifies a reference to the collection to use for this workload. Requires the name and namespace input to find the collection. If no collection field is set, default to selecting the only workload collection in the cluster, which will result in an error if not exactly one collection is found.",
@@ -355,161 +350,62 @@ func InstallThreeportCRDs(
 											"domainName": map[string]interface{}{
 												"type": "string",
 											},
-											"externalDNS": map[string]interface{}{
-												"properties": map[string]interface{}{
-													"iamRoleArn": map[string]interface{}{
-														"description": "On AWS, the IAM Role ARN that gives external-dns access to Route53",
-														"type":        "string",
-													},
-													"image": map[string]interface{}{
-														"default": "k8s.gcr.io/external-dns/external-dns",
-														"description": `(Default: "k8s.gcr.io/external-dns/external-dns") 
- Image repo and name to use for external-dns.`,
-														"type": "string",
-													},
-													"provider": map[string]interface{}{
-														"default": "none",
-														"description": `(Default: "none") 
- The DNS provider to use for setting DNS records with external-dns.  One of: none | active-directory | google | route53.`,
-														"enum": []interface{}{
-															"none",
-															"active-directory",
-															"google",
-															"route53",
-														},
-														"type": "string",
-													},
-													"serviceAccountName": map[string]interface{}{
-														"default": "external-dns",
-														"description": `(Default: "external-dns") 
- The name of the external-dns service account which is referenced in role policy doc for AWS.`,
-														"type": "string",
-													},
-													"version": map[string]interface{}{
-														"default": "v0.12.2",
-														"description": `(Default: "v0.12.2") 
- Version of external-dns to use.`,
-														"type": "string",
-													},
-													"zoneType": map[string]interface{}{
-														"default": "private",
-														"description": `(Default: "private") 
- Type of DNS hosted zone to manage.`,
-														"enum": []interface{}{
-															"private",
-															"public",
-														},
-														"type": "string",
-													},
+											"extraArgs": map[string]interface{}{
+												"description": "Extra arguments to be passed into the External DNS container.",
+												"items": map[string]interface{}{
+													"type": "string",
 												},
-												"type": "object",
+												"type": "array",
 											},
-											"kong": map[string]interface{}{
-												"properties": map[string]interface{}{
-													"gateway": map[string]interface{}{
-														"properties": map[string]interface{}{
-															"image": map[string]interface{}{
-																"default": "kong/kong-gateway",
-																"description": `(Default: "kong/kong-gateway") 
- Image repo and name to use for kong gateway.`,
-																"type": "string",
-															},
-															"version": map[string]interface{}{
-																"default": "2.8",
-																"description": `(Default: "2.8") 
- Version of kong gateway to use.`,
-																"type": "string",
-															},
-														},
-														"type": "object",
-													},
-													"include": map[string]interface{}{
-														"default": true,
-														"description": `(Default: true) 
- Include the Kong ingress controller when installing ingress components.`,
-														"type": "boolean",
-													},
-													"ingressController": map[string]interface{}{
-														"properties": map[string]interface{}{
-															"image": map[string]interface{}{
-																"default": "kong/kubernetes-ingress-controller",
-																"description": `(Default: "kong/kubernetes-ingress-controller") 
- Image repo and name to use for kong ingress controller.`,
-																"type": "string",
-															},
-															"version": map[string]interface{}{
-																"default": "2.5.0",
-																"description": `(Default: "2.5.0") 
- Version of kong ingress controller to use.`,
-																"type": "string",
-															},
-														},
-														"type": "object",
-													},
-													"proxyServiceName": map[string]interface{}{
-														"default":     "kong-proxy",
-														"description": "(Default: \"kong-proxy\")",
-														"type":        "string",
-													},
-													"replicas": map[string]interface{}{
-														"default": 2,
-														"description": `(Default: 2) 
- Number of replicas to use for the kong ingress deployment.`,
-														"type": "integer",
-													},
-												},
-												"type": "object",
+											"iamRoleArn": map[string]interface{}{
+												"description": "On AWS, the IAM Role ARN that gives external-dns access to Route53",
+												"type":        "string",
+											},
+											"image": map[string]interface{}{
+												"default":     "k8s.gcr.io/external-dns/external-dns",
+												"description": "(Default: \"k8s.gcr.io/external-dns/external-dns\") Image repo and name to use for external-dns.",
+												"type":        "string",
 											},
 											"namespace": map[string]interface{}{
-												"default": "nukleros-ingress-system",
-												"description": `(Default: "nukleros-ingress-system") 
- Namespace to use for ingress support services.`,
+												"default":     "nukleros-gateway-system",
+												"description": "(Default: \"nukleros-gateway-system\") Namespace to use for ingress support services.",
+												"type":        "string",
+											},
+											"provider": map[string]interface{}{
+												"default":     "none",
+												"description": "(Default: \"none\") The DNS provider to use for setting DNS records with external-dns.  One of: none | active-directory | google | route53.",
+												"enum": []interface{}{
+													"none",
+													"active-directory",
+													"google",
+													"route53",
+												},
 												"type": "string",
 											},
-											"nginx": map[string]interface{}{
-												"properties": map[string]interface{}{
-													"image": map[string]interface{}{
-														"default": "nginx/nginx-ingress",
-														"description": `(Default: "nginx/nginx-ingress") 
- Image repo and name to use for nginx.`,
-														"type": "string",
-													},
-													"include": map[string]interface{}{
-														"default": false,
-														"description": `(Default: false) 
- Include the Nginx ingress controller when installing ingress components.`,
-														"type": "boolean",
-													},
-													"installType": map[string]interface{}{
-														"default": "deployment",
-														"description": `(Default: "deployment") 
- Method of install nginx ingress controller.  One of: deployment | daemonset.`,
-														"enum": []interface{}{
-															"deployment",
-															"daemonset",
-														},
-														"type": "string",
-													},
-													"replicas": map[string]interface{}{
-														"default": 2,
-														"description": `(Default: 2) 
- Number of replicas to use for the nginx ingress controller deployment.`,
-														"type": "integer",
-													},
-													"version": map[string]interface{}{
-														"default": "2.3.0",
-														"description": `(Default: "2.3.0") 
- Version of nginx to use.`,
-														"type": "string",
-													},
+											"serviceAccountName": map[string]interface{}{
+												"default":     "external-dns",
+												"description": "(Default: \"external-dns\") The name of the external-dns service account which is referenced in role policy doc for AWS.",
+												"type":        "string",
+											},
+											"version": map[string]interface{}{
+												"default":     "v0.12.2",
+												"description": "(Default: \"v0.12.2\") Version of external-dns to use.",
+												"type":        "string",
+											},
+											"zoneType": map[string]interface{}{
+												"default":     "private",
+												"description": "(Default: \"private\") Type of DNS hosted zone to manage.",
+												"enum": []interface{}{
+													"private",
+													"public",
 												},
-												"type": "object",
+												"type": "string",
 											},
 										},
 										"type": "object",
 									},
 									"status": map[string]interface{}{
-										"description": "IngressComponentStatus defines the observed state of IngressComponent.",
+										"description": "ExternalDNSStatus defines the observed state of ExternalDNS.",
 										"properties": map[string]interface{}{
 											"conditions": map[string]interface{}{
 												"items": map[string]interface{}{
@@ -628,11 +524,11 @@ func InstallThreeportCRDs(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(ingressComponentCRD, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services ingress component CRD: %w", err)
+	if _, err := kube.CreateResource(externalDNSCRD, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create external dns crd: %w", err)
 	}
 
-	var secretsComponentCRD = &unstructured.Unstructured{
+	var glooEdgeCRD = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
 			"kind":       "CustomResourceDefinition",
@@ -641,15 +537,15 @@ func InstallThreeportCRDs(
 					"controller-gen.kubebuilder.io/version": "v0.9.0",
 				},
 				"creationTimestamp": nil,
-				"name":              "secretscomponents.platform.addons.nukleros.io",
+				"name":              "glooedges.gateway.support-services.nukleros.io",
 			},
 			"spec": map[string]interface{}{
-				"group": "platform.addons.nukleros.io",
+				"group": "gateway.support-services.nukleros.io",
 				"names": map[string]interface{}{
-					"kind":     "SecretsComponent",
-					"listKind": "SecretsComponentList",
-					"plural":   "secretscomponents",
-					"singular": "secretscomponent",
+					"kind":     "GlooEdge",
+					"listKind": "GlooEdgeList",
+					"plural":   "glooedges",
+					"singular": "glooedge",
 				},
 				"scope": "Cluster",
 				"versions": []interface{}{
@@ -657,7 +553,7 @@ func InstallThreeportCRDs(
 						"name": "v1alpha1",
 						"schema": map[string]interface{}{
 							"openAPIV3Schema": map[string]interface{}{
-								"description": "SecretsComponent is the Schema for the secretscomponents API.",
+								"description": "GlooEdge is the Schema for the glooedges API.",
 								"properties": map[string]interface{}{
 									"apiVersion": map[string]interface{}{
 										"description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
@@ -671,7 +567,7 @@ func InstallThreeportCRDs(
 										"type": "object",
 									},
 									"spec": map[string]interface{}{
-										"description": "SecretsComponentSpec defines the desired state of SecretsComponent.",
+										"description": "GlooEdgeSpec defines the desired state of GlooEdge.",
 										"properties": map[string]interface{}{
 											"collection": map[string]interface{}{
 												"description": "Specifies a reference to the collection to use for this workload. Requires the name and namespace input to find the collection. If no collection field is set, default to selecting the only workload collection in the cluster, which will result in an error if not exactly one collection is found.",
@@ -690,90 +586,34 @@ func InstallThreeportCRDs(
 												},
 												"type": "object",
 											},
-											"externalSecrets": map[string]interface{}{
-												"properties": map[string]interface{}{
-													"certController": map[string]interface{}{
-														"properties": map[string]interface{}{
-															"replicas": map[string]interface{}{
-																"default": 1,
-																"description": `(Default: 1) 
- Number of replicas to use for the external-secrets cert-controller deployment.`,
-																"type": "integer",
-															},
-														},
-														"type": "object",
-													},
-													"controller": map[string]interface{}{
-														"properties": map[string]interface{}{
-															"replicas": map[string]interface{}{
-																"default": 2,
-																"description": `(Default: 2) 
- Number of replicas to use for the external-secrets controller deployment.`,
-																"type": "integer",
-															},
-														},
-														"type": "object",
-													},
-													"image": map[string]interface{}{
-														"default": "ghcr.io/external-secrets/external-secrets",
-														"description": `(Default: "ghcr.io/external-secrets/external-secrets") 
- Image repo and name to use for external-secrets.`,
-														"type": "string",
-													},
-													"version": map[string]interface{}{
-														"default": "v0.5.9",
-														"description": `(Default: "v0.5.9") 
- Version of external-secrets to use.`,
-														"type": "string",
-													},
-													"webhook": map[string]interface{}{
-														"properties": map[string]interface{}{
-															"replicas": map[string]interface{}{
-																"default": 2,
-																"description": `(Default: 2) 
- Number of replicas to use for the external-secrets webhook deployment.`,
-																"type": "integer",
-															},
-														},
-														"type": "object",
-													},
-												},
-												"type": "object",
-											},
 											"namespace": map[string]interface{}{
-												"default": "nukleros-secrets-system",
-												"description": `(Default: "nukleros-secrets-system") 
- Namespace to use for secrets support services.`,
-												"type": "string",
+												"default":     "nukleros-gateway-system",
+												"description": "(Default: \"nukleros-gateway-system\") Namespace to use for gateway support services.",
+												"type":        "string",
 											},
-											"reloader": map[string]interface{}{
-												"properties": map[string]interface{}{
-													"image": map[string]interface{}{
-														"default": "stakater/reloader",
-														"description": `(Default: "stakater/reloader") 
- Image repo and name to use for reloader.`,
-														"type": "string",
+											"ports": map[string]interface{}{
+												"items": map[string]interface{}{
+													"properties": map[string]interface{}{
+														"name": map[string]interface{}{
+															"type": "string",
+														},
+														"port": map[string]interface{}{
+															"format": "int64",
+															"type":   "integer",
+														},
+														"ssl": map[string]interface{}{
+															"type": "boolean",
+														},
 													},
-													"replicas": map[string]interface{}{
-														"default": 1,
-														"description": `(Default: 1) 
- Number of replicas to use for the reloader deployment.`,
-														"type": "integer",
-													},
-													"version": map[string]interface{}{
-														"default": "v0.0.119",
-														"description": `(Default: "v0.0.119") 
- Version of reloader to use.`,
-														"type": "string",
-													},
+													"type": "object",
 												},
-												"type": "object",
+												"type": "array",
 											},
 										},
 										"type": "object",
 									},
 									"status": map[string]interface{}{
-										"description": "SecretsComponentStatus defines the observed state of SecretsComponent.",
+										"description": "GlooEdgeStatus defines the observed state of GlooEdge.",
 										"properties": map[string]interface{}{
 											"conditions": map[string]interface{}{
 												"items": map[string]interface{}{
@@ -892,11 +732,11 @@ func InstallThreeportCRDs(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(secretsComponentCRD, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services secrets component CRD: %w", err)
+	if _, err := kube.CreateResource(glooEdgeCRD, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create gloo edge crd: %w", err)
 	}
 
-	var setupCRD = &unstructured.Unstructured{
+	var supportServicesCRD = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apiextensions.k8s.io/v1",
 			"kind":       "CustomResourceDefinition",
@@ -905,10 +745,10 @@ func InstallThreeportCRDs(
 					"controller-gen.kubebuilder.io/version": "v0.9.0",
 				},
 				"creationTimestamp": nil,
-				"name":              "supportservices.setup.addons.nukleros.io",
+				"name":              "supportservices.orchestration.support-services.nukleros.io",
 			},
 			"spec": map[string]interface{}{
-				"group": "setup.addons.nukleros.io",
+				"group": "orchestration.support-services.nukleros.io",
 				"names": map[string]interface{}{
 					"kind":     "SupportServices",
 					"listKind": "SupportServicesList",
@@ -938,9 +778,8 @@ func InstallThreeportCRDs(
 										"description": "SupportServicesSpec defines the desired state of SupportServices.",
 										"properties": map[string]interface{}{
 											"defaultIngressController": map[string]interface{}{
-												"default": "kong",
-												"description": `(Default: "kong") 
- The default ingress for setting TLS certs.  One of: kong | nginx.`,
+												"default":     "kong",
+												"description": "(Default: \"kong\") The default ingress for setting TLS certs.  One of: kong | nginx.",
 												"enum": []interface{}{
 													"kong",
 													"nginx",
@@ -948,9 +787,8 @@ func InstallThreeportCRDs(
 												"type": "string",
 											},
 											"tier": map[string]interface{}{
-												"default": "development",
-												"description": `(Default: "development") 
- The tier of cluster being used.  One of: development | staging | production.`,
+												"default":     "development",
+												"description": "(Default: \"development\") The tier of cluster being used.  One of: development | staging | production.",
 												"enum": []interface{}{
 													"development",
 													"staging",
@@ -1081,20 +919,17 @@ func InstallThreeportCRDs(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(setupCRD, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services setup CRD: %w", err)
+	if _, err := kube.CreateResource(supportServicesCRD, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create support services crd: %w", err)
 	}
 
 	return nil
 }
 
-// InstallThreeportSupportServices installs the threeport control plane's support
-// services, e.g. TLS assets.
-func InstallThreeportSupportServices(
+// InstallThreeportSupportServicesOperator installs the support services operator
+func InstallThreeportSupportServicesOperator(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	devEnvironment bool,
-	adminEmail string,
 ) error {
 	var namespace = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -1102,15 +937,20 @@ func InstallThreeportSupportServices(
 			"kind":       "Namespace",
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
-					"control-plane":               "controller-manager",
-					"kubernetes.io/metadata.name": "support-services-operator-system",
+					"app.kubernetes.io/component":  "manager",
+					"app.kubernetes.io/created-by": "support-services-operator",
+					"app.kubernetes.io/instance":   "system",
+					"app.kubernetes.io/managed-by": "kustomize",
+					"app.kubernetes.io/name":       "namespace",
+					"app.kubernetes.io/part-of":    "support-services-operator",
+					"control-plane":                "controller-manager",
 				},
 				"name": SupportServicesNamespace,
 			},
 		},
 	}
 	if _, err := kube.CreateResource(namespace, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services namespace: %w", err)
+		return fmt.Errorf("failed to create service account: %w", err)
 	}
 
 	var serviceAccount = &unstructured.Unstructured{
@@ -1118,20 +958,36 @@ func InstallThreeportSupportServices(
 			"apiVersion": "v1",
 			"kind":       "ServiceAccount",
 			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kuberentes.io/instance":   "controller-manager",
+					"app.kubernetes.io/component":  "rbac",
+					"app.kubernetes.io/created-by": "support-services-operator",
+					"app.kubernetes.io/managed-by": "kustomize",
+					"app.kubernetes.io/name":       "serviceaccount",
+					"app.kubernetes.io/part-of":    "support-services-operator",
+				},
 				"name":      "support-services-operator-controller-manager",
 				"namespace": SupportServicesNamespace,
 			},
 		},
 	}
 	if _, err := kube.CreateResource(serviceAccount, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services service account: %w", err)
+		return fmt.Errorf("failed to create service account: %w", err)
 	}
 
-	var leaderElectionRole = &unstructured.Unstructured{
+	var roleLeaderElection = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
 			"kind":       "Role",
 			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/component":  "rbac",
+					"app.kubernetes.io/created-by": "support-services-operator",
+					"app.kubernetes.io/instance":   "leader-election-role",
+					"app.kubernetes.io/managed-by": "kustomize",
+					"app.kubernetes.io/name":       "role",
+					"app.kubernetes.io/part-of":    "support-services-operator",
+				},
 				"name":      "support-services-operator-leader-election-role",
 				"namespace": SupportServicesNamespace,
 			},
@@ -1185,85 +1041,19 @@ func InstallThreeportSupportServices(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(leaderElectionRole, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services leader election role: %w", err)
+	if _, err := kube.CreateResource(roleLeaderElection, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create leader election role: %w", err)
 	}
 
-	var managerRole = &unstructured.Unstructured{
+	var clusterRoleManager = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
 			"kind":       "ClusterRole",
 			"metadata": map[string]interface{}{
-				"name": "support-services-operator-manager-role",
+				"creationTimestamp": nil,
+				"name":              "support-services-operator-manager-role",
 			},
 			"rules": []interface{}{
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"acid.zalan.do",
-					},
-					"resources": []interface{}{
-						"operatorconfigurations",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"deletecollection",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"acid.zalan.do",
-					},
-					"resources": []interface{}{
-						"postgresqls",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"deletecollection",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"acid.zalan.do",
-					},
-					"resources": []interface{}{
-						"postgresqls/status",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"deletecollection",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"acid.zalan.do",
-					},
-					"resources": []interface{}{
-						"postgresteams",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
 						"acme.cert-manager.io",
@@ -1413,53 +1203,6 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"application.addons.nukleros.io",
-					},
-					"resources": []interface{}{
-						"databasecomponents",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"application.addons.nukleros.io",
-					},
-					"resources": []interface{}{
-						"databasecomponents/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"apps",
-					},
-					"resources": []interface{}{
-						"daemonsets",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
 						"apps",
 					},
 					"resources": []interface{}{
@@ -1477,22 +1220,6 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"apps",
-					},
-					"resources": []interface{}{
-						"statefulsets",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"get",
-						"list",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
 						"authorization.k8s.io",
 					},
 					"resources": []interface{}{
@@ -1500,22 +1227,6 @@ func InstallThreeportSupportServices(
 					},
 					"verbs": []interface{}{
 						"create",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"batch",
-					},
-					"resources": []interface{}{
-						"cronjobs",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"get",
-						"list",
-						"patch",
-						"update",
 					},
 				},
 				map[string]interface{}{
@@ -1709,179 +1420,10 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"cis.f5.com",
+						"certificates.support-services.nukleros.io",
 					},
 					"resources": []interface{}{
-						"ingresslinks",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"kongclusterplugins",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"kongclusterplugins/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"kongconsumers",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"kongconsumers/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"kongingresses",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"kongingresses/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"kongplugins",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"kongplugins/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"tcpingresses",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"tcpingresses/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"udpingresses",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"configuration.konghq.com",
-					},
-					"resources": []interface{}{
-						"udpingresses/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"coordination.k8s.io",
-					},
-					"resources": []interface{}{
-						"configmaps",
+						"certmanagers",
 					},
 					"verbs": []interface{}{
 						"create",
@@ -1891,6 +1433,19 @@ func InstallThreeportSupportServices(
 						"patch",
 						"update",
 						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"certificates.support-services.nukleros.io",
+					},
+					"resources": []interface{}{
+						"certmanagers/status",
+					},
+					"verbs": []interface{}{
+						"get",
+						"patch",
+						"update",
 					},
 				},
 				map[string]interface{}{
@@ -1901,13 +1456,11 @@ func InstallThreeportSupportServices(
 						"leases",
 					},
 					"verbs": []interface{}{
+						"*",
 						"create",
-						"delete",
 						"get",
-						"list",
 						"patch",
 						"update",
-						"watch",
 					},
 				},
 				map[string]interface{}{
@@ -1918,23 +1471,7 @@ func InstallThreeportSupportServices(
 						"configmaps",
 					},
 					"verbs": []interface{}{
-						"create",
-						"delete",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"",
-					},
-					"resources": []interface{}{
-						"deployments",
-					},
-					"verbs": []interface{}{
+						"*",
 						"create",
 						"delete",
 						"get",
@@ -1952,27 +1489,9 @@ func InstallThreeportSupportServices(
 						"endpoints",
 					},
 					"verbs": []interface{}{
-						"create",
-						"delete",
-						"deletecollection",
 						"get",
 						"list",
-						"patch",
-						"update",
 						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"",
-					},
-					"resources": []interface{}{
-						"endpoints/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
 					},
 				},
 				map[string]interface{}{
@@ -1985,27 +1504,8 @@ func InstallThreeportSupportServices(
 					"verbs": []interface{}{
 						"create",
 						"get",
-						"list",
 						"patch",
 						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"",
-					},
-					"resources": []interface{}{
-						"leases",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
 					},
 				},
 				map[string]interface{}{
@@ -2033,37 +1533,8 @@ func InstallThreeportSupportServices(
 						"nodes",
 					},
 					"verbs": []interface{}{
-						"get",
 						"list",
 						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"",
-					},
-					"resources": []interface{}{
-						"persistentvolumeclaims",
-					},
-					"verbs": []interface{}{
-						"delete",
-						"get",
-						"list",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"",
-					},
-					"resources": []interface{}{
-						"persistentvolumes",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"update",
 					},
 				},
 				map[string]interface{}{
@@ -2078,20 +1549,7 @@ func InstallThreeportSupportServices(
 						"delete",
 						"get",
 						"list",
-						"patch",
-						"update",
 						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"",
-					},
-					"resources": []interface{}{
-						"pods/exec",
-					},
-					"verbs": []interface{}{
-						"create",
 					},
 				},
 				map[string]interface{}{
@@ -2116,19 +1574,6 @@ func InstallThreeportSupportServices(
 						"",
 					},
 					"resources": []interface{}{
-						"secrets/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"",
-					},
-					"resources": []interface{}{
 						"serviceaccounts",
 					},
 					"verbs": []interface{}{
@@ -2139,17 +1584,6 @@ func InstallThreeportSupportServices(
 						"patch",
 						"update",
 						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"",
-					},
-					"resources": []interface{}{
-						"serviceaccounts/token",
-					},
-					"verbs": []interface{}{
-						"create",
 					},
 				},
 				map[string]interface{}{
@@ -2171,43 +1605,16 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"",
+						"enterprise.gloo.solo.io",
 					},
 					"resources": []interface{}{
-						"services/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"extensions",
-					},
-					"resources": []interface{}{
-						"daemonsets",
+						"authconfigs",
 					},
 					"verbs": []interface{}{
 						"get",
 						"list",
 						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"extensions",
-					},
-					"resources": []interface{}{
-						"deployments",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"patch",
-						"update",
+						"watch",
 					},
 				},
 				map[string]interface{}{
@@ -2225,236 +1632,6 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"extensions",
-					},
-					"resources": []interface{}{
-						"ingresses/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"clusterexternalsecrets",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"clusterexternalsecrets/finalizers",
-					},
-					"verbs": []interface{}{
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"clusterexternalsecrets/status",
-					},
-					"verbs": []interface{}{
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"clustersecretstores",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"deletecollection",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"clustersecretstores/finalizers",
-					},
-					"verbs": []interface{}{
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"clustersecretstores/status",
-					},
-					"verbs": []interface{}{
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"externalsecrets",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"deletecollection",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"externalsecrets/finalizers",
-					},
-					"verbs": []interface{}{
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"externalsecrets/status",
-					},
-					"verbs": []interface{}{
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"secretstores",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"deletecollection",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"secretstores/finalizers",
-					},
-					"verbs": []interface{}{
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"external-secrets.io",
-					},
-					"resources": []interface{}{
-						"secretstores/status",
-					},
-					"verbs": []interface{}{
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"externaldns.nginx.org",
-					},
-					"resources": []interface{}{
-						"dnsendpoints",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"get",
-						"list",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"externaldns.nginx.org",
-					},
-					"resources": []interface{}{
-						"dnsendpoints/status",
-					},
-					"verbs": []interface{}{
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
-					},
-					"resources": []interface{}{
-						"gatewayclasses",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
-					},
-					"resources": []interface{}{
-						"gatewayclasses/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
 						"gateway.networking.k8s.io",
 					},
 					"resources": []interface{}{
@@ -2463,7 +1640,6 @@ func InstallThreeportSupportServices(
 					"verbs": []interface{}{
 						"get",
 						"list",
-						"update",
 						"watch",
 					},
 				},
@@ -2475,18 +1651,6 @@ func InstallThreeportSupportServices(
 						"gateways/finalizers",
 					},
 					"verbs": []interface{}{
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
-					},
-					"resources": []interface{}{
-						"gateways/status",
-					},
-					"verbs": []interface{}{
-						"get",
 						"update",
 					},
 				},
@@ -2519,22 +1683,26 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
+						"gateway.solo.io",
 					},
 					"resources": []interface{}{
-						"httproutes/status",
+						"*",
 					},
 					"verbs": []interface{}{
+						"create",
+						"delete",
 						"get",
+						"list",
+						"patch",
 						"update",
 					},
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
+						"gateway.solo.io",
 					},
 					"resources": []interface{}{
-						"referencepolicies",
+						"gateways",
 					},
 					"verbs": []interface{}{
 						"create",
@@ -2548,259 +1716,254 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
+						"gateway.solo.io",
 					},
 					"resources": []interface{}{
-						"referencepolicies/finalizers",
-					},
-					"verbs": []interface{}{
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
-					},
-					"resources": []interface{}{
-						"referencepolicies/status",
+						"httpgateways",
 					},
 					"verbs": []interface{}{
 						"get",
+						"list",
 						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
-					},
-					"resources": []interface{}{
-						"tcproutes",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
 						"watch",
 					},
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
+						"gateway.solo.io",
 					},
 					"resources": []interface{}{
-						"tcproutes/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
-					},
-					"resources": []interface{}{
-						"tlsroutes",
+						"routeoptions",
 					},
 					"verbs": []interface{}{
 						"get",
 						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
-					},
-					"resources": []interface{}{
-						"tlsroutes/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
-					},
-					"resources": []interface{}{
-						"udproutes",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"gateway.networking.k8s.io",
-					},
-					"resources": []interface{}{
-						"udproutes/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"k8s.nginx.org",
-					},
-					"resources": []interface{}{
-						"dnsendpoints/status",
-					},
-					"verbs": []interface{}{
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"k8s.nginx.org",
-					},
-					"resources": []interface{}{
-						"globalconfigurations",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"k8s.nginx.org",
-					},
-					"resources": []interface{}{
-						"policies",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"k8s.nginx.org",
-					},
-					"resources": []interface{}{
-						"policies/status",
-					},
-					"verbs": []interface{}{
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"k8s.nginx.org",
-					},
-					"resources": []interface{}{
-						"transportservers",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"k8s.nginx.org",
-					},
-					"resources": []interface{}{
-						"transportservers/status",
-					},
-					"verbs": []interface{}{
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"k8s.nginx.org",
-					},
-					"resources": []interface{}{
-						"virtualserverroutes",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"k8s.nginx.org",
-					},
-					"resources": []interface{}{
-						"virtualserverroutes/status",
-					},
-					"verbs": []interface{}{
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"k8s.nginx.org",
-					},
-					"resources": []interface{}{
-						"virtualservers",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"k8s.nginx.org",
-					},
-					"resources": []interface{}{
-						"virtualservers/status",
-					},
-					"verbs": []interface{}{
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"networking.internal.knative.dev",
-					},
-					"resources": []interface{}{
-						"ingresses",
-					},
-					"verbs": []interface{}{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"networking.internal.knative.dev",
-					},
-					"resources": []interface{}{
-						"ingresses/status",
-					},
-					"verbs": []interface{}{
-						"get",
 						"patch",
-						"update",
+						"watch",
 					},
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"networking.k8s.io",
+						"gateway.solo.io",
 					},
 					"resources": []interface{}{
-						"ingressclasses",
+						"routetables",
+					},
+					"verbs": []interface{}{
+						"get",
+						"list",
+						"patch",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gateway.solo.io",
+					},
+					"resources": []interface{}{
+						"tcpgateways",
+					},
+					"verbs": []interface{}{
+						"get",
+						"list",
+						"patch",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gateway.solo.io",
+					},
+					"resources": []interface{}{
+						"virtualhostoptions",
+					},
+					"verbs": []interface{}{
+						"get",
+						"list",
+						"patch",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gateway.solo.io",
+					},
+					"resources": []interface{}{
+						"virtualservices",
+					},
+					"verbs": []interface{}{
+						"get",
+						"list",
+						"patch",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gateway.support-services.nukleros.io",
+					},
+					"resources": []interface{}{
+						"externaldns",
 					},
 					"verbs": []interface{}{
 						"create",
 						"delete",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gateway.support-services.nukleros.io",
+					},
+					"resources": []interface{}{
+						"externaldns/status",
+					},
+					"verbs": []interface{}{
+						"get",
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gateway.support-services.nukleros.io",
+					},
+					"resources": []interface{}{
+						"glooedges",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gateway.support-services.nukleros.io",
+					},
+					"resources": []interface{}{
+						"glooedges/status",
+					},
+					"verbs": []interface{}{
+						"get",
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gloo.solo.io",
+					},
+					"resources": []interface{}{
+						"*",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"get",
+						"list",
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gloo.solo.io",
+					},
+					"resources": []interface{}{
+						"proxies",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gloo.solo.io",
+					},
+					"resources": []interface{}{
+						"settings",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gloo.solo.io",
+					},
+					"resources": []interface{}{
+						"upstreamgroups",
+					},
+					"verbs": []interface{}{
+						"get",
+						"list",
+						"patch",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"gloo.solo.io",
+					},
+					"resources": []interface{}{
+						"upstreams",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"graphql.gloo.solo.io",
+					},
+					"resources": []interface{}{
+						"graphqlapis",
+					},
+					"verbs": []interface{}{
+						"create",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"graphql.gloo.solo.io",
+					},
+					"resources": []interface{}{
+						"graphqlapis/status",
+					},
+					"verbs": []interface{}{
+						"create",
 						"get",
 						"list",
 						"patch",
@@ -2837,23 +2000,10 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"networking.k8s.io",
+						"orchestration.support-services.nukleros.io",
 					},
 					"resources": []interface{}{
-						"ingresses/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"platform.addons.nukleros.io",
-					},
-					"resources": []interface{}{
-						"certificatescomponents",
+						"supportservices",
 					},
 					"verbs": []interface{}{
 						"create",
@@ -2867,10 +2017,10 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"platform.addons.nukleros.io",
+						"orchestration.support-services.nukleros.io",
 					},
 					"resources": []interface{}{
-						"certificatescomponents/status",
+						"supportservices/status",
 					},
 					"verbs": []interface{}{
 						"get",
@@ -2880,14 +2030,12 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"platform.addons.nukleros.io",
+						"ratelimit.solo.io",
 					},
 					"resources": []interface{}{
-						"ingresscomponents",
+						"ratelimitconfigs",
 					},
 					"verbs": []interface{}{
-						"create",
-						"delete",
 						"get",
 						"list",
 						"patch",
@@ -2897,58 +2045,17 @@ func InstallThreeportSupportServices(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"platform.addons.nukleros.io",
+						"ratelimit.solo.io",
 					},
 					"resources": []interface{}{
-						"ingresscomponents/status",
+						"ratelimitconfigs/status",
 					},
 					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"platform.addons.nukleros.io",
-					},
-					"resources": []interface{}{
-						"secretscomponents",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
 						"get",
 						"list",
 						"patch",
 						"update",
 						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"platform.addons.nukleros.io",
-					},
-					"resources": []interface{}{
-						"secretscomponents/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"policy",
-					},
-					"resources": []interface{}{
-						"poddisruptionbudgets",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"get",
 					},
 				},
 				map[string]interface{}{
@@ -3030,48 +2137,26 @@ func InstallThreeportSupportServices(
 						"create",
 					},
 				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"setup.addons.nukleros.io",
-					},
-					"resources": []interface{}{
-						"supportservices",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"setup.addons.nukleros.io",
-					},
-					"resources": []interface{}{
-						"supportservices/status",
-					},
-					"verbs": []interface{}{
-						"get",
-						"patch",
-						"update",
-					},
-				},
 			},
 		},
 	}
-	if _, err := kube.CreateResource(managerRole, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services manager role: %w", err)
+	if _, err := kube.CreateResource(clusterRoleManager, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create manager cluster role: %w", err)
 	}
 
-	var metricsRole = &unstructured.Unstructured{
+	var clusterRoleMetricsReader = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
 			"kind":       "ClusterRole",
 			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/component":  "kube-rbac-proxy",
+					"app.kubernetes.io/created-by": "support-services-operator",
+					"app.kubernetes.io/instance":   "metrics-reader",
+					"app.kubernetes.io/managed-by": "kustomize",
+					"app.kubernetes.io/name":       "clusterrole",
+					"app.kubernetes.io/part-of":    "support-services-operator",
+				},
 				"name": "support-services-operator-metrics-reader",
 			},
 			"rules": []interface{}{
@@ -3086,15 +2171,23 @@ func InstallThreeportSupportServices(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(metricsRole, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services metrics role: %w", err)
+	if _, err := kube.CreateResource(clusterRoleMetricsReader, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create metrics reader cluster role: %w", err)
 	}
 
-	var proxyRole = &unstructured.Unstructured{
+	var clusterRoleProxy = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
 			"kind":       "ClusterRole",
 			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/component":  "kube-rbac-proxy",
+					"app.kubernetes.io/created-by": "support-services-operator",
+					"app.kubernetes.io/instance":   "proxy-role",
+					"app.kubernetes.io/managed-by": "kustomize",
+					"app.kubernetes.io/name":       "clusterrole",
+					"app.kubernetes.io/part-of":    "support-services-operator",
+				},
 				"name": "support-services-operator-proxy-role",
 			},
 			"rules": []interface{}{
@@ -3123,15 +2216,23 @@ func InstallThreeportSupportServices(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(proxyRole, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services proxy role: %w", err)
+	if _, err := kube.CreateResource(clusterRoleProxy, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create proxy cluster role: %w", err)
 	}
 
-	var leaderElectionRoleBinding = &unstructured.Unstructured{
+	var roleBindingLeaderElection = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
 			"kind":       "RoleBinding",
 			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/component":  "rbac",
+					"app.kubernetes.io/created-by": "support-services-operator",
+					"app.kubernetes.io/instance":   "leader-election-rolebinding",
+					"app.kubernetes.io/managed-by": "kustomize",
+					"app.kubernetes.io/name":       "rolebinding",
+					"app.kubernetes.io/part-of":    "support-services-operator",
+				},
 				"name":      "support-services-operator-leader-election-rolebinding",
 				"namespace": SupportServicesNamespace,
 			},
@@ -3149,15 +2250,23 @@ func InstallThreeportSupportServices(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(leaderElectionRoleBinding, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services leader election role binding: %w", err)
+	if _, err := kube.CreateResource(roleBindingLeaderElection, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create leader election role binding: %w", err)
 	}
 
-	var managerRoleBinding = &unstructured.Unstructured{
+	var roleBindingManager = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
 			"kind":       "ClusterRoleBinding",
 			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/component":  "rbac",
+					"app.kubernetes.io/created-by": "support-services-operator",
+					"app.kubernetes.io/instance":   "manager-rolebinding",
+					"app.kubernetes.io/managed-by": "kustomize",
+					"app.kubernetes.io/name":       "clusterrolebinding",
+					"app.kubernetes.io/part-of":    "support-services-operator",
+				},
 				"name": "support-services-operator-manager-rolebinding",
 			},
 			"roleRef": map[string]interface{}{
@@ -3174,15 +2283,23 @@ func InstallThreeportSupportServices(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(managerRoleBinding, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services manager role binding: %w", err)
+	if _, err := kube.CreateResource(roleBindingManager, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create manager role binding: %w", err)
 	}
 
-	var proxyRoleBinding = &unstructured.Unstructured{
+	var clusterRoleBindingProxy = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
 			"kind":       "ClusterRoleBinding",
 			"metadata": map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/component":  "kube-rbac-proxy",
+					"app.kubernetes.io/created-by": "support-services-operator",
+					"app.kubernetes.io/instance":   "proxy-rolebinding",
+					"app.kubernetes.io/managed-by": "kustomize",
+					"app.kubernetes.io/name":       "clusterrolebinding",
+					"app.kubernetes.io/part-of":    "support-services-operator",
+				},
 				"name": "support-services-operator-proxy-rolebinding",
 			},
 			"roleRef": map[string]interface{}{
@@ -3199,185 +2316,28 @@ func InstallThreeportSupportServices(
 			},
 		},
 	}
-	if _, err := kube.CreateResource(proxyRoleBinding, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services proxy role binding: %w", err)
+	if _, err := kube.CreateResource(clusterRoleBindingProxy, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create proxy cluster role binding: %w", err)
 	}
 
-	var managerConfig = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "ConfigMap",
-			"metadata": map[string]interface{}{
-				"name":      "support-services-operator-manager-config",
-				"namespace": SupportServicesNamespace,
-			},
-			"data": map[string]interface{}{
-				"controller_manager_config.yaml": `apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
-	kind: ControllerManagerConfig
-	health:
-	  healthProbeBindAddress: :8081
-	metrics:
-	  bindAddress: 127.0.0.1:8080
-	webhook:
-	  port: 9443
-	leaderElection:
-	  leaderElect: true
-	  resourceName: bb9cd6ef.addons.nukleros.io
-	`,
-			},
-		},
-	}
-	if _, err := kube.CreateResource(managerConfig, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services manager configmap: %w", err)
-	}
-
-	var deployment = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "apps/v1",
-			"kind":       "Deployment",
-			"metadata": map[string]interface{}{
-				"labels": map[string]interface{}{
-					"control-plane": "controller-manager",
-				},
-				"name":      "support-services-operator-controller-manager",
-				"namespace": SupportServicesNamespace,
-			},
-			"spec": map[string]interface{}{
-				"progressDeadlineSeconds": 600,
-				"replicas":                1,
-				"revisionHistoryLimit":    10,
-				"selector": map[string]interface{}{
-					"matchLabels": map[string]interface{}{
-						"control-plane": "controller-manager",
-					},
-				},
-				"strategy": map[string]interface{}{
-					"rollingUpdate": map[string]interface{}{
-						"maxSurge":       "25%",
-						"maxUnavailable": "25%",
-					},
-					"type": "RollingUpdate",
-				},
-				"template": map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"creationTimestamp": nil,
-						"labels": map[string]interface{}{
-							"control-plane": "controller-manager",
-						},
-					},
-					"spec": map[string]interface{}{
-						"containers": []interface{}{
-							map[string]interface{}{
-								"args": []interface{}{
-									"--secure-listen-address=0.0.0.0:8443",
-									"--upstream=http://127.0.0.1:8080/",
-									"--logtostderr=true",
-									"--v=10",
-								},
-								"image":           RBACProxyImage,
-								"imagePullPolicy": "IfNotPresent",
-								"name":            "kube-rbac-proxy",
-								"ports": []interface{}{
-									map[string]interface{}{
-										"containerPort": 8443,
-										"name":          "https",
-										"protocol":      "TCP",
-									},
-								},
-								"resources":                map[string]interface{}{},
-								"terminationMessagePath":   "/dev/termination-log",
-								"terminationMessagePolicy": "File",
-							},
-							map[string]interface{}{
-								"args": []interface{}{
-									"--health-probe-bind-address=:8081",
-									"--metrics-bind-address=127.0.0.1:8080",
-									"--leader-elect",
-								},
-								"command": []interface{}{
-									"/manager",
-								},
-								"image":           SupportServicesOperatorImage,
-								"imagePullPolicy": "IfNotPresent",
-								"livenessProbe": map[string]interface{}{
-									"failureThreshold": 3,
-									"httpGet": map[string]interface{}{
-										"path":   "/healthz",
-										"port":   8081,
-										"scheme": "HTTP",
-									},
-									"initialDelaySeconds": 15,
-									"periodSeconds":       20,
-									"successThreshold":    1,
-									"timeoutSeconds":      1,
-								},
-								"name": "manager",
-								"readinessProbe": map[string]interface{}{
-									"failureThreshold": 3,
-									"httpGet": map[string]interface{}{
-										"path":   "/readyz",
-										"port":   8081,
-										"scheme": "HTTP",
-									},
-									"initialDelaySeconds": 5,
-									"periodSeconds":       10,
-									"successThreshold":    1,
-									"timeoutSeconds":      1,
-								},
-								"resources": map[string]interface{}{
-									"limits": map[string]interface{}{
-										"cpu":    "100m",
-										"memory": "30Mi",
-									},
-									"requests": map[string]interface{}{
-										"cpu":    "100m",
-										"memory": "20Mi",
-									},
-								},
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
-								},
-								"terminationMessagePath":   "/dev/termination-log",
-								"terminationMessagePolicy": "File",
-							},
-						},
-						"dnsPolicy":     "ClusterFirst",
-						"restartPolicy": "Always",
-						"schedulerName": "default-scheduler",
-						"securityContext": map[string]interface{}{
-							"runAsNonRoot": true,
-							"fsGroup":      2000,
-							"runAsUser":    1000,
-						},
-						"serviceAccount":                "support-services-operator-controller-manager",
-						"serviceAccountName":            "support-services-operator-controller-manager",
-						"terminationGracePeriodSeconds": 10,
-					},
-				},
-			},
-		},
-	}
-	if _, err := kube.CreateResource(deployment, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services deployment: %w", err)
-	}
-
-	var service = &unstructured.Unstructured{
+	var serviceMetrics = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "Service",
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
-					"control-plane": "controller-manager",
+					"app.kubernetes.io/component":  "kube-rbac-proxy",
+					"app.kubernetes.io/created-by": "support-services-operator",
+					"app.kubernetes.io/instance":   "controller-manager-metrics-service",
+					"app.kubernetes.io/managed-by": "kustomize",
+					"app.kubernetes.io/name":       "service",
+					"app.kubernetes.io/part-of":    "support-services-operator",
+					"control-plane":                "controller-manager",
 				},
 				"name":      "support-services-operator-controller-manager-metrics-service",
 				"namespace": SupportServicesNamespace,
 			},
 			"spec": map[string]interface{}{
-				"internalTrafficPolicy": "Cluster",
-				"ipFamilies": []interface{}{
-					"IPv4",
-				},
-				"ipFamilyPolicy": "SingleStack",
 				"ports": []interface{}{
 					map[string]interface{}{
 						"name":       "https",
@@ -3389,61 +2349,171 @@ func InstallThreeportSupportServices(
 				"selector": map[string]interface{}{
 					"control-plane": "controller-manager",
 				},
-				"sessionAffinity": "None",
-				"type":            "ClusterIP",
 			},
 		},
 	}
-	if _, err := kube.CreateResource(service, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services service: %w", err)
+	if _, err := kube.CreateResource(serviceMetrics, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create metrics service: %w", err)
 	}
 
-	var setup = &unstructured.Unstructured{
+	var deployment = &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "setup.addons.nukleros.io/v1alpha1",
-			"kind":       "SupportServices",
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
 			"metadata": map[string]interface{}{
-				"name": "threeport-support-services",
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/component":  "manager",
+					"app.kubernetes.io/created-by": "support-services-operator",
+					"app.kubernetes.io/instance":   "controller-manager",
+					"app.kubernetes.io/managed-by": "kustomize",
+					"app.kubernetes.io/name":       "deployment",
+					"app.kubernetes.io/part-of":    "support-services-operator",
+					"control-plane":                "controller-manager",
+				},
+				"name":      "support-services-operator-controller-manager",
+				"namespace": SupportServicesNamespace,
 			},
 			"spec": map[string]interface{}{
-				"tier": "development",
-			},
-		},
-	}
-	if _, err := kube.CreateResource(setup, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services setup resource: %w", err)
-	}
-
-	var certsComponent = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "platform.addons.nukleros.io/v1alpha1",
-			"kind":       "CertificatesComponent",
-			"metadata": map[string]interface{}{
-				"name": "threeport-control-plane-certs",
-			},
-			"spec": map[string]interface{}{
-				"namespace": "threeport-certs",
-				"certManager": map[string]interface{}{
-					"cainjector": map[string]interface{}{
-						"replicas": 1,
-						"image":    "quay.io/jetstack/cert-manager-cainjector",
+				"replicas": 1,
+				"selector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"control-plane": "controller-manager",
 					},
-					"version": "v1.9.1",
-					"controller": map[string]interface{}{
-						"replicas": 1,
-						"image":    "quay.io/jetstack/cert-manager-controller",
+				},
+				"template": map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							"kubectl.kubernetes.io/default-container": "manager",
+						},
+						"labels": map[string]interface{}{
+							"control-plane": "controller-manager",
+						},
 					},
-					"webhook": map[string]interface{}{
-						"replicas": 1,
-						"image":    "quay.io/jetstack/cert-manager-webhook",
+					"spec": map[string]interface{}{
+						"affinity": map[string]interface{}{
+							"nodeAffinity": map[string]interface{}{
+								"requiredDuringSchedulingIgnoredDuringExecution": map[string]interface{}{
+									"nodeSelectorTerms": []interface{}{
+										map[string]interface{}{
+											"matchExpressions": []interface{}{
+												map[string]interface{}{
+													"key":      "kubernetes.io/arch",
+													"operator": "In",
+													"values": []interface{}{
+														"amd64",
+														"arm64",
+														"ppc64le",
+														"s390x",
+													},
+												},
+												map[string]interface{}{
+													"key":      "kubernetes.io/os",
+													"operator": "In",
+													"values": []interface{}{
+														"linux",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						"containers": []interface{}{
+							map[string]interface{}{
+								"args": []interface{}{
+									"--secure-listen-address=0.0.0.0:8443",
+									"--upstream=http://127.0.0.1:8080/",
+									"--logtostderr=true",
+									"--v=0",
+								},
+								"image": RBACProxyImage,
+								"name":  "kube-rbac-proxy",
+								"ports": []interface{}{
+									map[string]interface{}{
+										"containerPort": 8443,
+										"name":          "https",
+										"protocol":      "TCP",
+									},
+								},
+								"resources": map[string]interface{}{
+									"limits": map[string]interface{}{
+										"cpu":    "500m",
+										"memory": "128Mi",
+									},
+									"requests": map[string]interface{}{
+										"cpu":    "5m",
+										"memory": "64Mi",
+									},
+								},
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{
+											"ALL",
+										},
+									},
+								},
+							},
+							map[string]interface{}{
+								"args": []interface{}{
+									"--health-probe-bind-address=:8081",
+									"--metrics-bind-address=127.0.0.1:8080",
+									"--leader-elect",
+								},
+								"command": []interface{}{
+									"/manager",
+								},
+								"image": SupportServicesOperatorImage,
+								"livenessProbe": map[string]interface{}{
+									"httpGet": map[string]interface{}{
+										"path": "/healthz",
+										"port": 8081,
+									},
+									"initialDelaySeconds": 15,
+									"periodSeconds":       20,
+								},
+								"name": "manager",
+								"readinessProbe": map[string]interface{}{
+									"httpGet": map[string]interface{}{
+										"path": "/readyz",
+										"port": 8081,
+									},
+									"initialDelaySeconds": 5,
+									"periodSeconds":       10,
+								},
+								"resources": map[string]interface{}{
+									"limits": map[string]interface{}{
+										"cpu":    "500m",
+										"memory": "128Mi",
+									},
+									"requests": map[string]interface{}{
+										"cpu":    "10m",
+										"memory": "64Mi",
+									},
+								},
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
+									"capabilities": map[string]interface{}{
+										"drop": []interface{}{
+											"ALL",
+										},
+									},
+								},
+							},
+						},
+						"securityContext": map[string]interface{}{
+							"runAsNonRoot": true,
+						},
+						"serviceAccountName":            "support-services-operator-controller-manager",
+						"terminationGracePeriodSeconds": 10,
 					},
-					"contactEmail": adminEmail,
 				},
 			},
 		},
 	}
-	if _, err := kube.CreateResource(certsComponent, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create support services certs component: %w", err)
+	if _, err := kube.CreateResource(deployment, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create deployment: %w", err)
 	}
 
 	return nil
@@ -3458,7 +2528,7 @@ func InstallThreeportSystemServices(
 	infraProvider string,
 	clusterName string,
 ) error {
-	if infraProvider == ControlPlaneInfraProviderEKS {
+	if infraProvider == v0.KubernetesRuntimeInfraProviderEKS {
 		var clusterAutoscalerServiceAcct = &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",

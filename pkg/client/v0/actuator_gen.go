@@ -99,9 +99,9 @@ func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile
 
 	switch {
 	case len(profiles) < 1:
-		return &v0.Profile{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.Profile{}, errors.New(fmt.Sprintf("no profile with name %s", name))
 	case len(profiles) > 1:
-		return &v0.Profile{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.Profile{}, errors.New(fmt.Sprintf("more than one profile with name %s returned", name))
 	}
 
 	return &profiles[0], nil
@@ -141,13 +141,15 @@ func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 
 // UpdateProfile updates a profile.
 func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) (*v0.Profile, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	profileID := *profile.ID
-	profile.ID = nil
-	profile.CreatedAt = nil
-	profile.UpdatedAt = nil
+	payloadProfile := *profile
+	payloadProfile.ID = nil
+	payloadProfile.CreatedAt = nil
+	payloadProfile.UpdatedAt = nil
 
-	jsonProfile, err := util.MarshalObject(profile)
+	jsonProfile, err := util.MarshalObject(payloadProfile)
 	if err != nil {
 		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -170,11 +172,12 @@ func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&profile); err != nil {
+	if err := decoder.Decode(&payloadProfile); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return profile, nil
+	payloadProfile.ID = &profileID
+	return &payloadProfile, nil
 }
 
 // DeleteProfile deletes a profile by ID.
@@ -293,9 +296,9 @@ func GetTierByName(apiClient *http.Client, apiAddr, name string) (*v0.Tier, erro
 
 	switch {
 	case len(tiers) < 1:
-		return &v0.Tier{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.Tier{}, errors.New(fmt.Sprintf("no tier with name %s", name))
 	case len(tiers) > 1:
-		return &v0.Tier{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.Tier{}, errors.New(fmt.Sprintf("more than one tier with name %s returned", name))
 	}
 
 	return &tiers[0], nil
@@ -335,13 +338,15 @@ func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 
 // UpdateTier updates a tier.
 func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	tierID := *tier.ID
-	tier.ID = nil
-	tier.CreatedAt = nil
-	tier.UpdatedAt = nil
+	payloadTier := *tier
+	payloadTier.ID = nil
+	payloadTier.CreatedAt = nil
+	payloadTier.UpdatedAt = nil
 
-	jsonTier, err := util.MarshalObject(tier)
+	jsonTier, err := util.MarshalObject(payloadTier)
 	if err != nil {
 		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -364,11 +369,12 @@ func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&tier); err != nil {
+	if err := decoder.Decode(&payloadTier); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return tier, nil
+	payloadTier.ID = &tierID
+	return &payloadTier, nil
 }
 
 // DeleteTier deletes a tier by ID.

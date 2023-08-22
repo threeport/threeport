@@ -1,0 +1,7 @@
+WorkloadInstance:
+  Name: "wordpress-1"
+  WorkloadDefinition:
+    Name: "wordpress"
+  KubernetesRuntimeInstance:
+    Name: "eks-remote-0"
+

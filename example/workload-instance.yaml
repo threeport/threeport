@@ -2,6 +2,6 @@ WorkloadInstance:
   Name: "go-web3-sample-app-0"
   WorkloadDefinition:
     Name: "go-web3-sample-app-def"
-  #ClusterInstance:
-  #  Name: "dev-0-compute-space-0"
+  KubernetesRuntimeInstance:
+    Name: "aws-remote-compute-space-1"
 

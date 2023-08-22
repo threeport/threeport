@@ -8,7 +8,6 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
 )
@@ -74,17 +73,6 @@ func (h Handler) AddProfile(c echo.Context) error {
 	if result := h.DB.Create(&profile); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := profile.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ProfileCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, profile)
 	if err != nil {
@@ -201,6 +189,7 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingProfile).Updates(updatedProfile); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -280,7 +269,7 @@ func (h Handler) ReplaceProfile(c echo.Context) error {
 }
 
 // @Summary deletes a profile.
-// @Description Delete a profile by from the database.
+// @Description Delete a profile by ID from the database.
 // @ID delete-profile
 // @Accept json
 // @Produce json
@@ -301,20 +290,10 @@ func (h Handler) DeleteProfile(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&profile); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := profile.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ProfileDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, profile)
 	if err != nil {
@@ -385,17 +364,6 @@ func (h Handler) AddTier(c echo.Context) error {
 	if result := h.DB.Create(&tier); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := tier.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.TierCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, tier)
 	if err != nil {
@@ -512,6 +480,7 @@ func (h Handler) UpdateTier(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingTier).Updates(updatedTier); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -591,7 +560,7 @@ func (h Handler) ReplaceTier(c echo.Context) error {
 }
 
 // @Summary deletes a tier.
-// @Description Delete a tier by from the database.
+// @Description Delete a tier by ID from the database.
 // @ID delete-tier
 // @Accept json
 // @Produce json
@@ -612,20 +581,10 @@ func (h Handler) DeleteTier(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&tier); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := tier.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.TierDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, tier)
 	if err != nil {

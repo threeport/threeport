@@ -1,4 +1,5 @@
-FROM scratch
+FROM gcr.io/distroless/static:nonroot
 COPY threeport-rest-api /threeport-rest-api
-ENTRYPOINT ["/threeport-rest-api"]
+USER 65532:65532
 
+ENTRYPOINT ["/threeport-rest-api"]

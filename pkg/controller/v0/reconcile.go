@@ -32,6 +32,9 @@ type ReconcilerConfig struct {
 	// consumption at a reasonable level for each individual controller.  The
 	// proportion of activity among reconcilers within a controller is the key.
 	ConcurrentReconciles int
+
+	// The NATS Jetstream subject used for notifications to a reconciler
+	NotifSubject string
 }
 
 // Reconciler contains the assets needed by reconcilers to recieve subscription
@@ -73,6 +76,9 @@ type Reconciler struct {
 	// ShutdownWait is the wait group that waits for reconcilers to finish
 	// before shutting down the controller.
 	ShutdownWait *sync.WaitGroup
+
+	// EncryptionKey is the key used to encrypt and decrypt sensitive fields.
+	EncryptionKey string
 }
 
 // PullMessage checks the queue for a message and returns it if there was a
@@ -90,7 +96,6 @@ func (r *Reconciler) PullMessage() *nats.Msg {
 	}
 	msg := messages[0]
 	r.Log.V(1).Info("new message received", "msgSubject", msg.Subject)
-	msg.Ack()
 	return msg
 }
 
@@ -98,12 +103,11 @@ func (r *Reconciler) PullMessage() *nats.Msg {
 // unmarshalled properly or when a new notification payload could not be
 // properly constructed.  Since a backoff cannot be properly calculated we
 // requeue after 10 sec.
-func (r *Reconciler) RequeueRaw(subject string, payload []byte) {
-	time.Sleep(time.Second * 10)
-	r.JetStreamContext.Publish(subject, payload)
+func (r *Reconciler) RequeueRaw(msg *nats.Msg) {
+	msg.NakWithDelay(time.Duration(time.Duration(10).Seconds()))
 	r.Log.V(1).Info("raw message requeued",
-		"messageSubject", subject,
-		"messagePayload", string(payload),
+		"messageSubject", msg.Subject,
+		"messagePayload", string(msg.Data),
 	)
 }
 
@@ -111,11 +115,11 @@ func (r *Reconciler) RequeueRaw(subject string, payload []byte) {
 // for that object.
 func (r *Reconciler) UnlockAndRequeue(
 	object v0.APIObject,
-	subject string,
-	notifPayload *[]byte,
 	requeueDelay int64,
+	lockReleased chan bool,
+	msg *nats.Msg,
 ) {
-	if ok := r.ReleaseLock(object); !ok {
+	if ok := r.ReleaseLock(object, lockReleased, msg, false); !ok {
 		r.Log.V(1).Info(
 			"object remains locked - will unlock when TTL expires",
 			"objectType", r.ObjectType,
@@ -129,26 +133,32 @@ func (r *Reconciler) UnlockAndRequeue(
 		)
 	}
 
-	go r.Requeue(object, subject, notifPayload, requeueDelay)
+	r.Requeue(object, requeueDelay, msg)
 }
 
 // Requeue waits for the delay duration and then sends the notifcation to the
 // NATS server to trigger reconciliation.
 func (r *Reconciler) Requeue(
 	object v0.APIObject,
-	subject string,
-	notifPayload *[]byte,
 	requeueDelay int64,
+	msg *nats.Msg,
 ) {
-	time.Sleep(time.Duration(requeueDelay) * time.Second)
-	r.JetStreamContext.Publish(subject, *notifPayload)
-	r.Log.V(1).Info(
-		"requeue notification sent",
-		"reconcilerName", r.Name,
-		"objectType", r.ObjectType,
-		"objectID", object.GetID(),
-		"requeueDelay", requeueDelay,
-	)
+	err := msg.NakWithDelay(time.Duration(requeueDelay) * time.Second)
+	if err != nil {
+		r.Log.V(1).Info(
+			"failed to perform negative acknowledgement with delay",
+			"objectType", r.ObjectType,
+			"objectID", object.GetID(),
+		)
+	} else {
+		r.Log.V(1).Info(
+			"requeue notification sent",
+			"reconcilerName", r.Name,
+			"objectType", r.ObjectType,
+			"objectID", object.GetID(),
+			"requeueDelay", requeueDelay,
+		)
+	}
 }
 
 // lockKey constructs the lock string for an object.
@@ -175,12 +185,12 @@ func (r *Reconciler) CheckLock(object v0.APIObject) (bool, bool) {
 		}
 	}
 	if kvEntry != nil {
-		return true, true
 		r.Log.V(1).Info(
 			"object is locked - requeue",
 			"objectType", r.ObjectType,
 			"objectID", object.GetID(),
 		)
+		return true, true
 	}
 
 	return false, true
@@ -206,13 +216,14 @@ func (r *Reconciler) Lock(object v0.APIObject) bool {
 		"objectType", r.ObjectType,
 		"objectID", object.GetID(),
 	)
+
 	return true
 }
 
 // ReleaseLock deletes the kev-value key so that future reconciliation will no
 // longer be locked.  Rerturns true if successful.  If the lock fails to be
 // released it will remain locked until the TTL expires in NATS.
-func (r *Reconciler) ReleaseLock(object v0.APIObject) bool {
+func (r *Reconciler) ReleaseLock(object v0.APIObject, lockReleased chan bool, msg *nats.Msg, reconcileSuccess bool) bool {
 	lockKey := r.lockKey(object.GetID())
 
 	if err := r.KeyValue.Delete(lockKey); err != nil {
@@ -222,6 +233,23 @@ func (r *Reconciler) ReleaseLock(object v0.APIObject) bool {
 			"bucket", r.KeyValue.Bucket(),
 		)
 		return false
+	}
+
+	// send a message to the lockReleased channel to indicate that the
+	// lock has been released
+	lockReleased <- true
+
+	if reconcileSuccess {
+		// acknowledge message so nats does not requeue and wait for response
+		// before continuing to avoid race condition of re-pulling the same
+		// message again
+		if err := msg.AckSync(); err != nil {
+			r.Log.Error(
+				err, "failed to perform acknowledgement",
+				"objectType", r.ObjectType,
+				"objectID", object.GetID(),
+			)
+		}
 	}
 
 	return true

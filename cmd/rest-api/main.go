@@ -40,7 +40,6 @@ import (
 // @BasePath /
 //
 //go:generate ../../bin/threeport-codegen api-version v0
-//go:generate swag init --dir ./,../../pkg/api,../../internal/api --parseDependency --generalInfo main.go --output ../../internal/api/docs
 func main() {
 	// flags
 	var envFile string
@@ -75,12 +74,22 @@ func main() {
 		panic(err)
 	}
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogURI:    true,
-		LogStatus: true,
+		LogMethod:   true,
+		LogURI:      true,
+		LogStatus:   true,
+		LogRemoteIP: true,
+		LogHost:     true,
+		LogLatency:  true,
+		LogError:    true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
 			logger.Info("request",
-				zap.String("URI", v.URI),
+				zap.String("method", v.Method),
+				zap.String("uri", v.URI),
 				zap.Int("status", v.Status),
+				zap.String("remoteIP", v.RemoteIP),
+				zap.String("host", v.Host),
+				zap.Duration("latency", v.Latency),
+				zap.Error(v.Error),
 			)
 			return nil
 		},
@@ -126,10 +135,22 @@ func main() {
 		e.Logger.Fatalf("failed to create jetstream context: %v", err)
 	}
 
-	// add stream
+	// add controller streams
 	js.AddStream(&nats.StreamConfig{
 		Name:     v0.WorkloadStreamName,
 		Subjects: v0.GetWorkloadSubjects(),
+	})
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.KubernetesRuntimeStreamName,
+		Subjects: v0.GetKubernetesRuntimeSubjects(),
+	})
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.AwsStreamName,
+		Subjects: v0.GetAwsSubjects(),
+	})
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.GatewayStreamName,
+		Subjects: v0.GetGatewaySubjects(),
 	})
 
 	// handlers
@@ -177,6 +198,7 @@ func main() {
 		}
 
 		fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
+		configureHealthCheckEndpoint()
 		if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 			e.Logger.Fatal(err)
 		}
@@ -189,8 +211,21 @@ func main() {
 		}
 
 		fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
+		configureHealthCheckEndpoint()
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			e.Logger.Fatal(err)
 		}
 	}
+}
+
+// configureHealthCheckEndpoint sets up a health check endpoint for the API server
+func configureHealthCheckEndpoint() {
+
+	// set up health check endpoint
+	http.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	go http.ListenAndServe(":8081", nil)
 }

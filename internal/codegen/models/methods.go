@@ -122,7 +122,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 				"NotificationOperation",
 			),
 			Line().Id("requeue").Bool(),
-			Line().Id("lastDelay").Int64(),
+			Line().Id("creationTime").Int64(),
 			Line(),
 		).Parens(List(
 			Op("*").Index().Byte(),
@@ -132,10 +132,9 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 				"github.com/threeport/threeport/pkg/notifications/v0",
 				"Notification",
 			).Values(Dict{
-				Id("Operation"):        Id("operation"),
-				Id("Requeue"):          Id("requeue"),
-				Id("LastRequeueDelay"): Op("&").Id("lastDelay"),
-				Id("Object"):           Id(codegen.TypeAbbrev(mc.TypeName)),
+				Id("Operation"):    Id("operation"),
+				Id("CreationTime"): Op("&").Id("creationTime"),
+				Id("Object"):       Id(codegen.TypeAbbrev(mc.TypeName)),
 			}),
 			Line(),
 			List(
@@ -160,6 +159,30 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 			),
 		)
 		f.Line()
+		// DecodeNotifObject method
+		f.Comment("DecodeNotifObject takes the threeport object in the form of a")
+		f.Comment("map[string]interface and returns the typed object by marshalling into JSON")
+		f.Comment("and then unmarshalling into the typed object.  We are not using the")
+		f.Comment("mapstructure library here as that requires custom decode hooks to manage")
+		f.Comment("fields with non-native go types.")
+		f.Func().Params(
+			Id(codegen.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+		).Id("DecodeNotifObject").Params(Id("object").Interface()).Error().Block(
+			List(Id("jsonObject"), Id("err")).Op(":=").Qual("encoding/json", "Marshal").Call(Id("object")),
+			If(Id("err").Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit("failed to marshal object map from consumed notification message: %w"), Id("err")),
+				),
+			),
+			If(Err().Op(":=").Qual("encoding/json", "Unmarshal").Call(
+				Id("jsonObject"), Op("&").Id(codegen.TypeAbbrev(mc.TypeName)),
+			).Op(";").Id("err").Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit("failed to unmarshal json object to typed object: %w"), Id("err"),
+				)),
+			),
+			Return(Nil()),
+		)
 		// GetID method
 		f.Comment("GetID returns the unique ID for the object.")
 		f.Func().Params(
@@ -183,7 +206,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 	genFilename := fmt.Sprintf("%s_gen.go", codegen.FilenameSansExt(cc.ModelFilename))
 	file, err := os.OpenFile(genFilename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("failed open file to write generated code for database models: %w", err)
+		return fmt.Errorf("failed to open file to write generated code for database models: %w", err)
 	}
 	defer file.Close()
 	if err := f.Render(file); err != nil {

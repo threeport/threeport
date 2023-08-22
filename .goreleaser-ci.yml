@@ -1,0 +1,107 @@
+---
+before:
+builds:
+  - id: threeport-rest-api
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/rest-api/main.go
+    binary: threeport-rest-api
+  - id: threeport-workload-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/workload-controller/main_gen.go
+    binary: threeport-workload-controller
+  - id: threeport-kubernetes-runtime-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/kubernetes-runtime/main_gen.go
+    binary: threeport-kubernetes-runtime-controller
+  - id: threeport-aws-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/aws-controller/main_gen.go
+    binary: threeport-aws-controller
+  - id: threeport-gateway-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/gateway-controller/main_gen.go
+    binary: threeport-gateway-controller
+  - id: threeport-agent
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/agent/main_gen.go
+    binary: threeport-agent
+dockers:
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-rest-api:{{ .Env.IMAGE_TAG }}'
+    dockerfile: cmd/rest-api/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-workload-controller:{{ .Env.IMAGE_TAG }}'
+    dockerfile: cmd/workload-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-kubernetes-runtime-controller:{{ .Env.IMAGE_TAG }}'
+    dockerfile: cmd/kubernetes-runtime-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-aws-controller:{{ .Env.IMAGE_TAG }}'
+    dockerfile: cmd/aws-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-gateway-controller:{{ .Env.IMAGE_TAG }}'
+    dockerfile: cmd/gateway-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-agent:{{ .Env.IMAGE_TAG }}'
+    dockerfile: cmd/agent/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--platform=linux/amd64"
+

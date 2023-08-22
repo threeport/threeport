@@ -1,0 +1,6 @@
+KubernetesRuntimeInstance:
+  Name: aws-remote-compute-space-0
+  KubernetesRuntimeDefinition:
+    Name: aws-remote-compute-space
+  Location: NorthAmericaEast
+

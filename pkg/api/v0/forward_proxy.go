@@ -23,6 +23,6 @@ type ForwardProxyInstance struct {
 	// The definition used to define the instance.
 	ForwardProxyDefinitionID *uint `json:"ForwardProxyDefinitionID,omitempty" validate:"optional,association"`
 
-	// The cluster where the forward proxy is deployed.
-	ClusterInstanceID *uint `json:"ClusterInstanceID,omitempty" validate:"optional,association"`
+	// The kubernetes runtime where the forward proxy is deployed.
+	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" validate:"optional,association"`
 }

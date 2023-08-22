@@ -8,7 +8,6 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
 )
@@ -74,17 +73,6 @@ func (h Handler) AddForwardProxyDefinition(c echo.Context) error {
 	if result := h.DB.Create(&forwardProxyDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := forwardProxyDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ForwardProxyDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, forwardProxyDefinition)
 	if err != nil {
@@ -201,6 +189,7 @@ func (h Handler) UpdateForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingForwardProxyDefinition).Updates(updatedForwardProxyDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -280,7 +269,7 @@ func (h Handler) ReplaceForwardProxyDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a forward proxy definition.
-// @Description Delete a forward proxy definition by from the database.
+// @Description Delete a forward proxy definition by ID from the database.
 // @ID delete-forwardProxyDefinition
 // @Accept json
 // @Produce json
@@ -301,20 +290,10 @@ func (h Handler) DeleteForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&forwardProxyDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := forwardProxyDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ForwardProxyDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, forwardProxyDefinition)
 	if err != nil {
@@ -385,17 +364,6 @@ func (h Handler) AddForwardProxyInstance(c echo.Context) error {
 	if result := h.DB.Create(&forwardProxyInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := forwardProxyInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ForwardProxyInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, forwardProxyInstance)
 	if err != nil {
@@ -512,6 +480,7 @@ func (h Handler) UpdateForwardProxyInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingForwardProxyInstance).Updates(updatedForwardProxyInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -591,7 +560,7 @@ func (h Handler) ReplaceForwardProxyInstance(c echo.Context) error {
 }
 
 // @Summary deletes a forward proxy instance.
-// @Description Delete a forward proxy instance by from the database.
+// @Description Delete a forward proxy instance by ID from the database.
 // @ID delete-forwardProxyInstance
 // @Accept json
 // @Produce json
@@ -612,20 +581,10 @@ func (h Handler) DeleteForwardProxyInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&forwardProxyInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := forwardProxyInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.ForwardProxyInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, forwardProxyInstance)
 	if err != nil {

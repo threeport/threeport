@@ -10,16 +10,12 @@ import (
 	"github.com/threeport/threeport/internal/kube"
 )
 
-// InstallThreeportControlPlaneDependencies installs the necessary components
-// for the threeport REST API and controllers to operate.  It includes the
-// database and message broker.
-func InstallThreeportControlPlaneDependencies(
+// CreateThreeportControlPlaneNamespace creates the threeport control plane
+// namespace in a Kubernetes cluster.
+func CreateThreeportControlPlaneNamespace(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	infraProvider string,
 ) error {
-	crdbVolClaimTemplateSpec := getCRDBVolClaimTemplateSpec(infraProvider)
-
 	var namespace = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -31,6 +27,23 @@ func InstallThreeportControlPlaneDependencies(
 	}
 	if _, err := kube.CreateResource(namespace, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create namespace: %w", err)
+	}
+
+	return nil
+}
+
+// InstallThreeportControlPlaneDependencies installs the necessary components
+// for the threeport REST API and controllers to operate.  It includes the
+// database and message broker.
+func InstallThreeportControlPlaneDependencies(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	infraProvider string,
+) error {
+	crdbVolClaimTemplateSpec := getVolClaimTemplateSpec(infraProvider)
+
+	if err := CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
 	}
 
 	var natsPDB = &unstructured.Unstructured{
@@ -117,6 +130,7 @@ jetstream {
 }
 lame_duck_grace_period: 10s
 lame_duck_duration: 30s
+store_dir: /data
 `,
 			},
 		},
@@ -378,17 +392,17 @@ lame_duck_duration: 30s
 								// Healthcheck Probes  #
 								//                     #
 								//######################
-								"livenessProbe": map[string]interface{}{
-									"failureThreshold": 3,
-									"httpGet": map[string]interface{}{
-										"path": "/",
-										"port": 8222,
-									},
-									"initialDelaySeconds": 10,
-									"periodSeconds":       30,
-									"successThreshold":    1,
-									"timeoutSeconds":      5,
-								},
+								//"livenessProbe": map[string]interface{}{
+								//	"failureThreshold": 3,
+								//	"httpGet": map[string]interface{}{
+								//		"path": "/",
+								//		"port": 8222,
+								//	},
+								//	"initialDelaySeconds": 10,
+								//	"periodSeconds":       30,
+								//	"successThreshold":    1,
+								//	"timeoutSeconds":      5,
+								//},
 								"readinessProbe": map[string]interface{}{
 									"failureThreshold": 3,
 									"httpGet": map[string]interface{}{
@@ -456,6 +470,10 @@ lame_duck_duration: 30s
 										"name":      "pid",
 										"mountPath": "/var/run/nats",
 									},
+									map[string]interface{}{
+										"name":      "datadir",
+										"mountPath": "/data",
+									},
 								},
 							},
 							//#############################
@@ -488,7 +506,14 @@ lame_duck_duration: 30s
 						},
 					},
 				},
-				"volumeClaimTemplates": nil,
+				"volumeClaimTemplates": []interface{}{
+					map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"name": "datadir",
+						},
+						"spec": getVolClaimTemplateSpec(infraProvider),
+					},
+				},
 			},
 		},
 	}
@@ -765,9 +790,9 @@ lame_duck_duration: 30s
 	return nil
 }
 
-// getCRDBVolClaimTemplateSpec returns the spec for the cockroach DB volume
+// getVolClaimTemplateSpec returns the spec for the cockroach DB volume
 // claim template based on the infra provider.
-func getCRDBVolClaimTemplateSpec(infraProvider string) map[string]interface{} {
+func getVolClaimTemplateSpec(infraProvider string) map[string]interface{} {
 	volClaimTemplateSpec := map[string]interface{}{
 		"accessModes": []interface{}{
 			"ReadWriteOnce",

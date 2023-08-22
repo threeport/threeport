@@ -47,6 +47,12 @@ func main() {
 	var authEnabled = flag.Bool("auth-enabled", true, "Enable client certificate authentication (default is true)")
 	flag.Parse()
 
+	var log logr.Logger
+	var encryptionKey = os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		log.Error(errors.New("environment variable ENCRYPTION_KEY is not set"), "encryption key not found")
+	}
+
 	if *help {
 		showHelpAndExit(0)
 	}
@@ -55,7 +61,6 @@ func main() {
 	controllerID := uuid.New()
 
 	// logging setup
-	var log logr.Logger
 	switch *verbose {
 	case true:
 		zapLog, err := zap.NewDevelopment()
@@ -132,12 +137,14 @@ func main() {
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
 		ConcurrentReconciles: *workloadDefinitionConcurrentReconciles,
 		Name:                 "WorkloadDefinitionReconciler",
+		NotifSubject:         v0.WorkloadDefinitionSubject,
 		ObjectType:           v0.ObjectTypeWorkloadDefinition,
 		ReconcileFunc:        workload.WorkloadDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
 		ConcurrentReconciles: *workloadInstanceConcurrentReconciles,
 		Name:                 "WorkloadInstanceReconciler",
+		NotifSubject:         v0.WorkloadInstanceSubject,
 		ObjectType:           v0.ObjectTypeWorkloadInstance,
 		ReconcileFunc:        workload.WorkloadInstanceReconciler,
 	})
@@ -146,19 +153,18 @@ func main() {
 
 		// create JetStream consumer
 		consumer := r.Name + "Consumer"
-		subject, err := v0.GetSubjectByReconcilerName(r.Name)
-		if err != nil {
-			log.Error(err, "failed to get notification subject by reconciler name", "reconcilerName", r.Name)
-			os.Exit(1)
-		}
 		js.AddConsumer(v0.WorkloadStreamName, &natsgo.ConsumerConfig{
 			AckPolicy:     natsgo.AckExplicitPolicy,
 			Durable:       consumer,
-			FilterSubject: subject,
+			FilterSubject: r.NotifSubject,
 		})
 
 		// create durable pull subscription
-		sub, err := js.PullSubscribe(subject, consumer, natsgo.BindStream(v0.WorkloadStreamName))
+		sub, err := js.PullSubscribe(r.NotifSubject, consumer, natsgo.BindStream(v0.WorkloadStreamName))
+		if err != nil {
+			log.Error(err, "failed to create pull subscription for reconciler notifications", "reconcilerName", r.Name)
+			os.Exit(1)
+		}
 
 		// create exit channel
 		shutdownChan := make(chan bool, 1)
@@ -169,6 +175,7 @@ func main() {
 			APIClient:        apiClient,
 			APIServer:        *apiServer,
 			ControllerID:     controllerID,
+			EncryptionKey:    encryptionKey,
 			JetStreamContext: js,
 			KeyValue:         kv,
 			Log:              &log,
@@ -209,6 +216,15 @@ func main() {
 			shutdownWait.Done()
 		}()
 	})
+
+	// set up health check endpoint
+	http.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	go http.ListenAndServe(":8081", nil)
+
+	// run shutdown endpoint server
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Error(err, "failed to run server for shutdown endpoint")
 	}

@@ -11,7 +11,7 @@ func Error(message string, err error) {
 	if err != nil {
 		fmt.Println(Red(fmt.Sprintf("Error: %s\n%s", message, err)))
 	} else {
-		fmt.Println(Red(fmt.Sprintf("Error: %s\n", message)))
+		fmt.Println(Red(fmt.Sprintf("Error: %s", message)))
 	}
 }
 
@@ -22,11 +22,11 @@ func Info(message string) {
 
 // Warning returns a formatted warning message in yellow.
 func Warning(message string) {
-	fmt.Println(Yellow(fmt.Sprintf("Warning: %s\n", message)))
+	fmt.Println(Yellow(fmt.Sprintf("Warning: %s", message)))
 }
 
 // Complete returns a formatted message in green.  Used when operations are
 // finished.
 func Complete(message string) {
-	fmt.Println(Green(fmt.Sprintf("Complete: %s\n", message)))
+	fmt.Println(Green(fmt.Sprintf("Complete: %s", message)))
 }

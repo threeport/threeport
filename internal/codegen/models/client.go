@@ -245,7 +245,7 @@ func (cc *ControllerConfig) ClientLib() error {
 						mc.TypeName,
 					).Values().Op(",").Qual("errors", "New").Call(
 						Qual("fmt", "Sprintf").Call(
-							Lit("no workload definitions with name %s").Op(",").Id("name"),
+							Lit("no "+strcase.ToDelimited(mc.TypeName, ' ')+" with name %s").Op(",").Id("name"),
 						),
 					),
 				),
@@ -255,7 +255,7 @@ func (cc *ControllerConfig) ClientLib() error {
 						mc.TypeName,
 					).Values().Op(",").Qual("errors", "New").Call(
 						Qual("fmt", "Sprintf").Call(
-							Lit("more than one workload definition with name %s returned").Op(",").Id("name"),
+							Lit("more than one "+strcase.ToDelimited(mc.TypeName, ' ')+" with name %s returned").Op(",").Id("name"),
 						),
 					),
 				),
@@ -364,18 +364,20 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Error(),
 		)).Block(
-			Comment("capture the object ID then remove fields that cannot be updated in the API"),
+			Comment("capture the object ID, make a copy of the object, then remove fields that"),
+			Comment("cannot be updated in the API"),
 			Id(
 				fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName)),
 			).Op(":=").Op("*").Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID"),
-			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("ID").Op("=").Nil(),
-			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("CreatedAt").Op("=").Nil(),
-			Id(strcase.ToLowerCamel(mc.TypeName)).Dot("UpdatedAt").Op("=").Nil(),
+			Id(fmt.Sprintf("payload%s", mc.TypeName)).Op(":=").Op("*").Id(strcase.ToLowerCamel(mc.TypeName)),
+			Id(fmt.Sprintf("payload%s", mc.TypeName)).Dot("ID").Op("=").Nil(),
+			Id(fmt.Sprintf("payload%s", mc.TypeName)).Dot("CreatedAt").Op("=").Nil(),
+			Id(fmt.Sprintf("payload%s", mc.TypeName)).Dot("UpdatedAt").Op("=").Nil(),
 			Line(),
 			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
 				"github.com/threeport/threeport/internal/util",
 				"MarshalObject",
-			).Call(Id(strcase.ToLowerCamel(mc.TypeName))),
+			).Call(Id(fmt.Sprintf("payload%s", mc.TypeName))),
 			If(Id("err").Op("!=").Nil().Block(
 				Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
 					"fmt", "Errorf",
@@ -421,14 +423,15 @@ func (cc *ControllerConfig) ClientLib() error {
 			).Call(Id("jsonData"))),
 			Id("decoder").Dot("UseNumber").Call(),
 			If(Id("err").Op(":=").Id("decoder").Dot("Decode").Call(
-				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
+				Op("&").Id(fmt.Sprintf("payload%s", mc.TypeName)),
 			).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return().Nil().Op(",").Qual(
 					"fmt", "Errorf",
 				).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
 			),
 			Line(),
-			Return().Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
+			Id(fmt.Sprintf("payload%s", mc.TypeName)).Dot("ID").Op("=").Op("&").Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(mc.TypeName))),
+			Return().Op("&").Id(fmt.Sprintf("payload%s", mc.TypeName)).Op(",").Nil(),
 		)
 		f.Line()
 		// delete object
@@ -507,7 +510,7 @@ func (cc *ControllerConfig) ClientLib() error {
 	genFilepath := filepath.Join(clientLibPath(cc.PackageName), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("failed open file to write generated code for model client library: %w", err)
+		return fmt.Errorf("failed to open file to write generated code for model client library: %w", err)
 	}
 	defer file.Close()
 	if err := f.Render(file); err != nil {

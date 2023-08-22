@@ -99,9 +99,9 @@ func GetLogBackendByName(apiClient *http.Client, apiAddr, name string) (*v0.LogB
 
 	switch {
 	case len(logBackends) < 1:
-		return &v0.LogBackend{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.LogBackend{}, errors.New(fmt.Sprintf("no log backend with name %s", name))
 	case len(logBackends) > 1:
-		return &v0.LogBackend{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.LogBackend{}, errors.New(fmt.Sprintf("more than one log backend with name %s returned", name))
 	}
 
 	return &logBackends[0], nil
@@ -141,13 +141,15 @@ func CreateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 
 // UpdateLogBackend updates a log backend.
 func UpdateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.LogBackend) (*v0.LogBackend, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	logBackendID := *logBackend.ID
-	logBackend.ID = nil
-	logBackend.CreatedAt = nil
-	logBackend.UpdatedAt = nil
+	payloadLogBackend := *logBackend
+	payloadLogBackend.ID = nil
+	payloadLogBackend.CreatedAt = nil
+	payloadLogBackend.UpdatedAt = nil
 
-	jsonLogBackend, err := util.MarshalObject(logBackend)
+	jsonLogBackend, err := util.MarshalObject(payloadLogBackend)
 	if err != nil {
 		return logBackend, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -170,11 +172,12 @@ func UpdateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&logBackend); err != nil {
+	if err := decoder.Decode(&payloadLogBackend); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return logBackend, nil
+	payloadLogBackend.ID = &logBackendID
+	return &payloadLogBackend, nil
 }
 
 // DeleteLogBackend deletes a log backend by ID.
@@ -293,9 +296,9 @@ func GetLogStorageDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(logStorageDefinitions) < 1:
-		return &v0.LogStorageDefinition{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.LogStorageDefinition{}, errors.New(fmt.Sprintf("no log storage definition with name %s", name))
 	case len(logStorageDefinitions) > 1:
-		return &v0.LogStorageDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.LogStorageDefinition{}, errors.New(fmt.Sprintf("more than one log storage definition with name %s returned", name))
 	}
 
 	return &logStorageDefinitions[0], nil
@@ -335,13 +338,15 @@ func CreateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 
 // UpdateLogStorageDefinition updates a log storage definition.
 func UpdateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStorageDefinition *v0.LogStorageDefinition) (*v0.LogStorageDefinition, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	logStorageDefinitionID := *logStorageDefinition.ID
-	logStorageDefinition.ID = nil
-	logStorageDefinition.CreatedAt = nil
-	logStorageDefinition.UpdatedAt = nil
+	payloadLogStorageDefinition := *logStorageDefinition
+	payloadLogStorageDefinition.ID = nil
+	payloadLogStorageDefinition.CreatedAt = nil
+	payloadLogStorageDefinition.UpdatedAt = nil
 
-	jsonLogStorageDefinition, err := util.MarshalObject(logStorageDefinition)
+	jsonLogStorageDefinition, err := util.MarshalObject(payloadLogStorageDefinition)
 	if err != nil {
 		return logStorageDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -364,11 +369,12 @@ func UpdateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&logStorageDefinition); err != nil {
+	if err := decoder.Decode(&payloadLogStorageDefinition); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return logStorageDefinition, nil
+	payloadLogStorageDefinition.ID = &logStorageDefinitionID
+	return &payloadLogStorageDefinition, nil
 }
 
 // DeleteLogStorageDefinition deletes a log storage definition by ID.
@@ -487,9 +493,9 @@ func GetLogStorageInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 	switch {
 	case len(logStorageInstances) < 1:
-		return &v0.LogStorageInstance{}, errors.New(fmt.Sprintf("no workload definitions with name %s", name))
+		return &v0.LogStorageInstance{}, errors.New(fmt.Sprintf("no log storage instance with name %s", name))
 	case len(logStorageInstances) > 1:
-		return &v0.LogStorageInstance{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.LogStorageInstance{}, errors.New(fmt.Sprintf("more than one log storage instance with name %s returned", name))
 	}
 
 	return &logStorageInstances[0], nil
@@ -529,13 +535,15 @@ func CreateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 
 // UpdateLogStorageInstance updates a log storage instance.
 func UpdateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorageInstance *v0.LogStorageInstance) (*v0.LogStorageInstance, error) {
-	// capture the object ID then remove fields that cannot be updated in the API
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
 	logStorageInstanceID := *logStorageInstance.ID
-	logStorageInstance.ID = nil
-	logStorageInstance.CreatedAt = nil
-	logStorageInstance.UpdatedAt = nil
+	payloadLogStorageInstance := *logStorageInstance
+	payloadLogStorageInstance.ID = nil
+	payloadLogStorageInstance.CreatedAt = nil
+	payloadLogStorageInstance.UpdatedAt = nil
 
-	jsonLogStorageInstance, err := util.MarshalObject(logStorageInstance)
+	jsonLogStorageInstance, err := util.MarshalObject(payloadLogStorageInstance)
 	if err != nil {
 		return logStorageInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
 	}
@@ -558,11 +566,12 @@ func UpdateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&logStorageInstance); err != nil {
+	if err := decoder.Decode(&payloadLogStorageInstance); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return logStorageInstance, nil
+	payloadLogStorageInstance.ID = &logStorageInstanceID
+	return &payloadLogStorageInstance, nil
 }
 
 // DeleteLogStorageInstance deletes a log storage instance by ID.

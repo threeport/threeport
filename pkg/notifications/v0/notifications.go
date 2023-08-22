@@ -28,19 +28,16 @@ type Notification struct {
 	// * Deleted
 	Operation NotificationOperation
 
-	// Whether the notification was a part of a requeue.  It will be false when
-	// the API Server sends the notification in response to a client change.  It
-	// will be true when requeued by a controller.
-	Requeue bool
-
 	// Tracks the backoff delay last used in a requeue so that it may
 	// incremented or repeated (when at max delay) as appropriate.
-	LastRequeueDelay *int64
+	CreationTime *int64
 
 	// The API object that has been changed.
 	Object interface{}
 }
 
+// ConsumeMessage generates a Notificatiion object from a json notification from
+// NATS to a controller.
 func ConsumeMessage(msgData []byte) (*Notification, error) {
 	var notif Notification
 	decoder := json.NewDecoder(bytes.NewReader(msgData))

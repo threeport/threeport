@@ -13,44 +13,48 @@ func GetStructByObjectType(objectType ObjectType) Object {
 		objStruct = Tier{}
 	case ObjectTypeAwsAccount:
 		objStruct = AwsAccount{}
-	case ObjectTypeAwsEksClusterDefinition:
-		objStruct = AwsEksClusterDefinition{}
-	case ObjectTypeAwsEksClusterInstance:
-		objStruct = AwsEksClusterInstance{}
+	case ObjectTypeAwsEksKubernetesRuntimeDefinition:
+		objStruct = AwsEksKubernetesRuntimeDefinition{}
+	case ObjectTypeAwsEksKubernetesRuntimeInstance:
+		objStruct = AwsEksKubernetesRuntimeInstance{}
 	case ObjectTypeAwsRelationalDatabaseDefinition:
 		objStruct = AwsRelationalDatabaseDefinition{}
 	case ObjectTypeAwsRelationalDatabaseInstance:
 		objStruct = AwsRelationalDatabaseInstance{}
-	case ObjectTypeClusterDefinition:
-		objStruct = ClusterDefinition{}
-	case ObjectTypeClusterInstance:
-		objStruct = ClusterInstance{}
-	case ObjectTypeDomainNameDefinition:
-		objStruct = DomainNameDefinition{}
-	case ObjectTypeDomainNameInstance:
-		objStruct = DomainNameInstance{}
 	case ObjectTypeForwardProxyDefinition:
 		objStruct = ForwardProxyDefinition{}
 	case ObjectTypeForwardProxyInstance:
 		objStruct = ForwardProxyInstance{}
+	case ObjectTypeGatewayDefinition:
+		objStruct = GatewayDefinition{}
+	case ObjectTypeGatewayInstance:
+		objStruct = GatewayInstance{}
+	case ObjectTypeDomainNameDefinition:
+		objStruct = DomainNameDefinition{}
+	case ObjectTypeDomainNameInstance:
+		objStruct = DomainNameInstance{}
+	case ObjectTypeKubernetesRuntimeDefinition:
+		objStruct = KubernetesRuntimeDefinition{}
+	case ObjectTypeKubernetesRuntimeInstance:
+		objStruct = KubernetesRuntimeInstance{}
 	case ObjectTypeLogBackend:
 		objStruct = LogBackend{}
 	case ObjectTypeLogStorageDefinition:
 		objStruct = LogStorageDefinition{}
 	case ObjectTypeLogStorageInstance:
 		objStruct = LogStorageInstance{}
-	case ObjectTypeNetworkIngressDefinition:
-		objStruct = NetworkIngressDefinition{}
-	case ObjectTypeNetworkIngressInstance:
-		objStruct = NetworkIngressInstance{}
 	case ObjectTypeWorkloadDefinition:
 		objStruct = WorkloadDefinition{}
 	case ObjectTypeWorkloadResourceDefinition:
 		objStruct = WorkloadResourceDefinition{}
 	case ObjectTypeWorkloadInstance:
 		objStruct = WorkloadInstance{}
+	case ObjectTypeAttachedObjectReference:
+		objStruct = AttachedObjectReference{}
 	case ObjectTypeWorkloadResourceInstance:
 		objStruct = WorkloadResourceInstance{}
+	case ObjectTypeWorkloadEvent:
+		objStruct = WorkloadEvent{}
 
 	}
 
@@ -66,44 +70,48 @@ func GetObjectTypeByPath(path string) ObjectType {
 		return ObjectTypeTier
 	case PathAwsAccounts:
 		return ObjectTypeAwsAccount
-	case PathAwsEksClusterDefinitions:
-		return ObjectTypeAwsEksClusterDefinition
-	case PathAwsEksClusterInstances:
-		return ObjectTypeAwsEksClusterInstance
+	case PathAwsEksKubernetesRuntimeDefinitions:
+		return ObjectTypeAwsEksKubernetesRuntimeDefinition
+	case PathAwsEksKubernetesRuntimeInstances:
+		return ObjectTypeAwsEksKubernetesRuntimeInstance
 	case PathAwsRelationalDatabaseDefinitions:
 		return ObjectTypeAwsRelationalDatabaseDefinition
 	case PathAwsRelationalDatabaseInstances:
 		return ObjectTypeAwsRelationalDatabaseInstance
-	case PathClusterDefinitions:
-		return ObjectTypeClusterDefinition
-	case PathClusterInstances:
-		return ObjectTypeClusterInstance
-	case PathDomainNameDefinitions:
-		return ObjectTypeDomainNameDefinition
-	case PathDomainNameInstances:
-		return ObjectTypeDomainNameInstance
 	case PathForwardProxyDefinitions:
 		return ObjectTypeForwardProxyDefinition
 	case PathForwardProxyInstances:
 		return ObjectTypeForwardProxyInstance
+	case PathGatewayDefinitions:
+		return ObjectTypeGatewayDefinition
+	case PathGatewayInstances:
+		return ObjectTypeGatewayInstance
+	case PathDomainNameDefinitions:
+		return ObjectTypeDomainNameDefinition
+	case PathDomainNameInstances:
+		return ObjectTypeDomainNameInstance
+	case PathKubernetesRuntimeDefinitions:
+		return ObjectTypeKubernetesRuntimeDefinition
+	case PathKubernetesRuntimeInstances:
+		return ObjectTypeKubernetesRuntimeInstance
 	case PathLogBackends:
 		return ObjectTypeLogBackend
 	case PathLogStorageDefinitions:
 		return ObjectTypeLogStorageDefinition
 	case PathLogStorageInstances:
 		return ObjectTypeLogStorageInstance
-	case PathNetworkIngressDefinitions:
-		return ObjectTypeNetworkIngressDefinition
-	case PathNetworkIngressInstances:
-		return ObjectTypeNetworkIngressInstance
 	case PathWorkloadDefinitions:
 		return ObjectTypeWorkloadDefinition
 	case PathWorkloadResourceDefinitions:
 		return ObjectTypeWorkloadResourceDefinition
 	case PathWorkloadInstances:
 		return ObjectTypeWorkloadInstance
+	case PathAttachedObjectReferences:
+		return ObjectTypeAttachedObjectReference
 	case PathWorkloadResourceInstances:
 		return ObjectTypeWorkloadResourceInstance
+	case PathWorkloadEvents:
+		return ObjectTypeWorkloadEvent
 
 	}
 
@@ -119,44 +127,48 @@ func GetObjectType(v interface{}) ObjectType {
 		return ObjectTypeTier
 	case AwsAccount, *AwsAccount, []AwsAccount:
 		return ObjectTypeAwsAccount
-	case AwsEksClusterDefinition, *AwsEksClusterDefinition, []AwsEksClusterDefinition:
-		return ObjectTypeAwsEksClusterDefinition
-	case AwsEksClusterInstance, *AwsEksClusterInstance, []AwsEksClusterInstance:
-		return ObjectTypeAwsEksClusterInstance
+	case AwsEksKubernetesRuntimeDefinition, *AwsEksKubernetesRuntimeDefinition, []AwsEksKubernetesRuntimeDefinition:
+		return ObjectTypeAwsEksKubernetesRuntimeDefinition
+	case AwsEksKubernetesRuntimeInstance, *AwsEksKubernetesRuntimeInstance, []AwsEksKubernetesRuntimeInstance:
+		return ObjectTypeAwsEksKubernetesRuntimeInstance
 	case AwsRelationalDatabaseDefinition, *AwsRelationalDatabaseDefinition, []AwsRelationalDatabaseDefinition:
 		return ObjectTypeAwsRelationalDatabaseDefinition
 	case AwsRelationalDatabaseInstance, *AwsRelationalDatabaseInstance, []AwsRelationalDatabaseInstance:
 		return ObjectTypeAwsRelationalDatabaseInstance
-	case ClusterDefinition, *ClusterDefinition, []ClusterDefinition:
-		return ObjectTypeClusterDefinition
-	case ClusterInstance, *ClusterInstance, []ClusterInstance:
-		return ObjectTypeClusterInstance
-	case DomainNameDefinition, *DomainNameDefinition, []DomainNameDefinition:
-		return ObjectTypeDomainNameDefinition
-	case DomainNameInstance, *DomainNameInstance, []DomainNameInstance:
-		return ObjectTypeDomainNameInstance
 	case ForwardProxyDefinition, *ForwardProxyDefinition, []ForwardProxyDefinition:
 		return ObjectTypeForwardProxyDefinition
 	case ForwardProxyInstance, *ForwardProxyInstance, []ForwardProxyInstance:
 		return ObjectTypeForwardProxyInstance
+	case GatewayDefinition, *GatewayDefinition, []GatewayDefinition:
+		return ObjectTypeGatewayDefinition
+	case GatewayInstance, *GatewayInstance, []GatewayInstance:
+		return ObjectTypeGatewayInstance
+	case DomainNameDefinition, *DomainNameDefinition, []DomainNameDefinition:
+		return ObjectTypeDomainNameDefinition
+	case DomainNameInstance, *DomainNameInstance, []DomainNameInstance:
+		return ObjectTypeDomainNameInstance
+	case KubernetesRuntimeDefinition, *KubernetesRuntimeDefinition, []KubernetesRuntimeDefinition:
+		return ObjectTypeKubernetesRuntimeDefinition
+	case KubernetesRuntimeInstance, *KubernetesRuntimeInstance, []KubernetesRuntimeInstance:
+		return ObjectTypeKubernetesRuntimeInstance
 	case LogBackend, *LogBackend, []LogBackend:
 		return ObjectTypeLogBackend
 	case LogStorageDefinition, *LogStorageDefinition, []LogStorageDefinition:
 		return ObjectTypeLogStorageDefinition
 	case LogStorageInstance, *LogStorageInstance, []LogStorageInstance:
 		return ObjectTypeLogStorageInstance
-	case NetworkIngressDefinition, *NetworkIngressDefinition, []NetworkIngressDefinition:
-		return ObjectTypeNetworkIngressDefinition
-	case NetworkIngressInstance, *NetworkIngressInstance, []NetworkIngressInstance:
-		return ObjectTypeNetworkIngressInstance
 	case WorkloadDefinition, *WorkloadDefinition, []WorkloadDefinition:
 		return ObjectTypeWorkloadDefinition
 	case WorkloadResourceDefinition, *WorkloadResourceDefinition, []WorkloadResourceDefinition:
 		return ObjectTypeWorkloadResourceDefinition
 	case WorkloadInstance, *WorkloadInstance, []WorkloadInstance:
 		return ObjectTypeWorkloadInstance
+	case AttachedObjectReference, *AttachedObjectReference, []AttachedObjectReference:
+		return ObjectTypeAttachedObjectReference
 	case WorkloadResourceInstance, *WorkloadResourceInstance, []WorkloadResourceInstance:
 		return ObjectTypeWorkloadResourceInstance
+	case WorkloadEvent, *WorkloadEvent, []WorkloadEvent:
+		return ObjectTypeWorkloadEvent
 
 	}
 

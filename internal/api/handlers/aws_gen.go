@@ -4,6 +4,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	echo "github.com/labstack/echo/v4"
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
@@ -11,6 +12,7 @@ import (
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -74,17 +76,6 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 	if result := h.DB.Create(&awsAccount); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := awsAccount.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsAccountCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsAccount)
 	if err != nil {
@@ -201,6 +192,7 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingAwsAccount).Updates(updatedAwsAccount); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -280,7 +272,7 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 }
 
 // @Summary deletes a aws account.
-// @Description Delete a aws account by from the database.
+// @Description Delete a aws account by ID from the database.
 // @ID delete-awsAccount
 // @Accept json
 // @Produce json
@@ -301,20 +293,10 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&awsAccount); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := awsAccount.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsAccountDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsAccount)
 	if err != nil {
@@ -325,51 +307,51 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// AwsEksClusterDefinition
+// AwsEksKubernetesRuntimeDefinition
 ///////////////////////////////////////////////////////////////////////////////
 
-// @Summary GetAwsEksClusterDefinitionVersions gets the supported versions for the aws eks cluster definition API.
-// @Description Get the supported API versions for aws eks cluster definitions.
-// @ID awsEksClusterDefinition-get-versions
+// @Summary GetAwsEksKubernetesRuntimeDefinitionVersions gets the supported versions for the aws eks kubernetes runtime definition API.
+// @Description Get the supported API versions for aws eks kubernetes runtime definitions.
+// @ID awsEksKubernetesRuntimeDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws-eks-cluster-definitions/versions [get]
-func (h Handler) GetAwsEksClusterDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsEksClusterDefinition)])
+// @Router /aws-eks-kubernetes-runtime-definitions/versions [get]
+func (h Handler) GetAwsEksKubernetesRuntimeDefinitionVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsEksKubernetesRuntimeDefinition)])
 }
 
-// @Summary adds a new aws eks cluster definition.
-// @Description Add a new aws eks cluster definition to the Threeport database.
-// @ID add-awsEksClusterDefinition
+// @Summary adds a new aws eks kubernetes runtime definition.
+// @Description Add a new aws eks kubernetes runtime definition to the Threeport database.
+// @ID add-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
-// @Param awsEksClusterDefinition body v0.AwsEksClusterDefinition true "AwsEksClusterDefinition object"
+// @Param awsEksKubernetesRuntimeDefinition body v0.AwsEksKubernetesRuntimeDefinition true "AwsEksKubernetesRuntimeDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-definitions [post]
-func (h Handler) AddAwsEksClusterDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterDefinition
-	var awsEksClusterDefinition v0.AwsEksClusterDefinition
+// @Router /v0/aws-eks-kubernetes-runtime-definitions [post]
+func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
+	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	if err := c.Bind(&awsEksClusterDefinition); err != nil {
+	if err := c.Bind(&awsEksKubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, awsEksClusterDefinition, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, awsEksKubernetesRuntimeDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// check for duplicate names
-	var existingAwsEksClusterDefinition v0.AwsEksClusterDefinition
+	var existingAwsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
 	nameUsed := true
-	result := h.DB.Where("name = ?", awsEksClusterDefinition.Name).First(&existingAwsEksClusterDefinition)
+	result := h.DB.Where("name = ?", awsEksKubernetesRuntimeDefinition.Name).First(&existingAwsEksKubernetesRuntimeDefinition)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
@@ -382,22 +364,11 @@ func (h Handler) AddAwsEksClusterDefinition(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.DB.Create(&awsEksClusterDefinition); result.Error != nil {
+	if result := h.DB.Create(&awsEksKubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := awsEksClusterDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsEksClusterDefinitionCreateSubject, *notifPayload)
-
-	response, err := v0.CreateResponse(nil, awsEksClusterDefinition)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -405,34 +376,34 @@ func (h Handler) AddAwsEksClusterDefinition(c echo.Context) error {
 	return iapi.ResponseStatus201(c, *response)
 }
 
-// @Summary gets all aws eks cluster definitions.
-// @Description Get all aws eks cluster definitions from the Threeport database.
-// @ID get-awsEksClusterDefinitions
+// @Summary gets all aws eks kubernetes runtime definitions.
+// @Description Get all aws eks kubernetes runtime definitions from the Threeport database.
+// @ID get-awsEksKubernetesRuntimeDefinitions
 // @Accept json
 // @Produce json
-// @Param name query string false "aws eks cluster definition search by name"
+// @Param name query string false "aws eks kubernetes runtime definition search by name"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-definitions [get]
-func (h Handler) GetAwsEksClusterDefinitions(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterDefinition
+// @Router /v0/aws-eks-kubernetes-runtime-definitions [get]
+func (h Handler) GetAwsEksKubernetesRuntimeDefinitions(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
 	if err != nil {
 		return iapi.ResponseStatus400(c, &params, err, objectType)
 	}
 
-	var filter v0.AwsEksClusterDefinition
+	var filter v0.AwsEksKubernetesRuntimeDefinition
 	if err := c.Bind(&filter); err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&v0.AwsEksClusterDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsEksKubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	records := &[]v0.AwsEksClusterDefinition{}
+	records := &[]v0.AwsEksKubernetesRuntimeDefinition{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
@@ -445,28 +416,28 @@ func (h Handler) GetAwsEksClusterDefinitions(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary gets a aws eks cluster definition.
-// @Description Get a particular aws eks cluster definition from the database.
-// @ID get-awsEksClusterDefinition
+// @Summary gets a aws eks kubernetes runtime definition.
+// @Description Get a particular aws eks kubernetes runtime definition from the database.
+// @ID get-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-definitions/{id} [get]
-func (h Handler) GetAwsEksClusterDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterDefinition
-	awsEksClusterDefinitionID := c.Param("id")
-	var awsEksClusterDefinition v0.AwsEksClusterDefinition
-	if result := h.DB.First(&awsEksClusterDefinition, awsEksClusterDefinitionID); result.Error != nil {
+// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [get]
+func (h Handler) GetAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
+	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
+	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
+	if result := h.DB.First(&awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsEksClusterDefinition)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -474,27 +445,27 @@ func (h Handler) GetAwsEksClusterDefinition(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates specific fields for an existing aws eks cluster definition.
-// @Description Update a aws eks cluster definition in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating aws eks cluster definition objects only.
+// @Summary updates specific fields for an existing aws eks kubernetes runtime definition.
+// @Description Update a aws eks kubernetes runtime definition in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating aws eks kubernetes runtime definition objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-awsEksClusterDefinition
+// @ID update-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsEksClusterDefinition body v0.AwsEksClusterDefinition true "AwsEksClusterDefinition object"
+// @Param awsEksKubernetesRuntimeDefinition body v0.AwsEksKubernetesRuntimeDefinition true "AwsEksKubernetesRuntimeDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-definitions/{id} [patch]
-func (h Handler) UpdateAwsEksClusterDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterDefinition
-	awsEksClusterDefinitionID := c.Param("id")
-	var existingAwsEksClusterDefinition v0.AwsEksClusterDefinition
-	if result := h.DB.First(&existingAwsEksClusterDefinition, awsEksClusterDefinitionID); result.Error != nil {
+// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [patch]
+func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
+	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
+	var existingAwsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
+	if result := h.DB.First(&existingAwsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -507,16 +478,17 @@ func (h Handler) UpdateAwsEksClusterDefinition(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedAwsEksClusterDefinition v0.AwsEksClusterDefinition
-	if err := c.Bind(&updatedAwsEksClusterDefinition); err != nil {
+	var updatedAwsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
+	if err := c.Bind(&updatedAwsEksKubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	if result := h.DB.Model(&existingAwsEksClusterDefinition).Updates(updatedAwsEksClusterDefinition); result.Error != nil {
+	// update object in database
+	if result := h.DB.Model(&existingAwsEksKubernetesRuntimeDefinition).Updates(updatedAwsEksKubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsEksClusterDefinition)
+	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -524,28 +496,28 @@ func (h Handler) UpdateAwsEksClusterDefinition(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates an existing aws eks cluster definition by replacing the entire object.
-// @Description Replace a aws eks cluster definition in the database.  All required fields must be provided.
+// @Summary updates an existing aws eks kubernetes runtime definition by replacing the entire object.
+// @Description Replace a aws eks kubernetes runtime definition in the database.  All required fields must be provided.
 // @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating aws eks cluster definition objects only.
+// @Description Note: This API endpint is for updating aws eks kubernetes runtime definition objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-awsEksClusterDefinition
+// @ID replace-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsEksClusterDefinition body v0.AwsEksClusterDefinition true "AwsEksClusterDefinition object"
+// @Param awsEksKubernetesRuntimeDefinition body v0.AwsEksKubernetesRuntimeDefinition true "AwsEksKubernetesRuntimeDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-definitions/{id} [put]
-func (h Handler) ReplaceAwsEksClusterDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterDefinition
-	awsEksClusterDefinitionID := c.Param("id")
-	var existingAwsEksClusterDefinition v0.AwsEksClusterDefinition
-	if result := h.DB.First(&existingAwsEksClusterDefinition, awsEksClusterDefinitionID); result.Error != nil {
+// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [put]
+func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
+	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
+	var existingAwsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
+	if result := h.DB.First(&existingAwsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -558,31 +530,31 @@ func (h Handler) ReplaceAwsEksClusterDefinition(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedAwsEksClusterDefinition v0.AwsEksClusterDefinition
-	if err := c.Bind(&updatedAwsEksClusterDefinition); err != nil {
+	var updatedAwsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
+	if err := c.Bind(&updatedAwsEksKubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, updatedAwsEksClusterDefinition, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, updatedAwsEksKubernetesRuntimeDefinition, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
-	updatedAwsEksClusterDefinition.ID = existingAwsEksClusterDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsEksClusterDefinition); result.Error != nil {
+	updatedAwsEksKubernetesRuntimeDefinition.ID = existingAwsEksKubernetesRuntimeDefinition.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsEksKubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// reload updated data from DB
-	if result := h.DB.First(&existingAwsEksClusterDefinition, awsEksClusterDefinitionID); result.Error != nil {
+	if result := h.DB.First(&existingAwsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsEksClusterDefinition)
+	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -590,9 +562,9 @@ func (h Handler) ReplaceAwsEksClusterDefinition(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary deletes a aws eks cluster definition.
-// @Description Delete a aws eks cluster definition by from the database.
-// @ID delete-awsEksClusterDefinition
+// @Summary deletes a aws eks kubernetes runtime definition.
+// @Description Delete a aws eks kubernetes runtime definition by ID from the database.
+// @ID delete-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -600,34 +572,30 @@ func (h Handler) ReplaceAwsEksClusterDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-definitions/{id} [delete]
-func (h Handler) DeleteAwsEksClusterDefinition(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterDefinition
-	awsEksClusterDefinitionID := c.Param("id")
-	var awsEksClusterDefinition v0.AwsEksClusterDefinition
-	if result := h.DB.First(&awsEksClusterDefinition, awsEksClusterDefinitionID); result.Error != nil {
+// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [delete]
+func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
+	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
+	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
+	if result := h.DB.Preload("AwsEksKubernetesRuntimeInstances").First(&awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	if result := h.DB.Delete(&awsEksClusterDefinition); result.Error != nil {
+	// check to make sure no dependent instances exist for this definition
+	if len(awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeInstances) != 0 {
+		err := errors.New("aws eks kubernetes runtime definition has related aws eks kubernetes runtime instances - cannot be deleted")
+		return iapi.ResponseStatus409(c, nil, err, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&awsEksKubernetesRuntimeDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := awsEksClusterDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsEksClusterDefinitionDeleteSubject, *notifPayload)
-
-	response, err := v0.CreateResponse(nil, awsEksClusterDefinition)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -636,51 +604,51 @@ func (h Handler) DeleteAwsEksClusterDefinition(c echo.Context) error {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// AwsEksClusterInstance
+// AwsEksKubernetesRuntimeInstance
 ///////////////////////////////////////////////////////////////////////////////
 
-// @Summary GetAwsEksClusterInstanceVersions gets the supported versions for the aws eks cluster instance API.
-// @Description Get the supported API versions for aws eks cluster instances.
-// @ID awsEksClusterInstance-get-versions
+// @Summary GetAwsEksKubernetesRuntimeInstanceVersions gets the supported versions for the aws eks kubernetes runtime instance API.
+// @Description Get the supported API versions for aws eks kubernetes runtime instances.
+// @ID awsEksKubernetesRuntimeInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws-eks-cluster-instances/versions [get]
-func (h Handler) GetAwsEksClusterInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsEksClusterInstance)])
+// @Router /aws-eks-kubernetes-runtime-instances/versions [get]
+func (h Handler) GetAwsEksKubernetesRuntimeInstanceVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsEksKubernetesRuntimeInstance)])
 }
 
-// @Summary adds a new aws eks cluster instance.
-// @Description Add a new aws eks cluster instance to the Threeport database.
-// @ID add-awsEksClusterInstance
+// @Summary adds a new aws eks kubernetes runtime instance.
+// @Description Add a new aws eks kubernetes runtime instance to the Threeport database.
+// @ID add-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
-// @Param awsEksClusterInstance body v0.AwsEksClusterInstance true "AwsEksClusterInstance object"
+// @Param awsEksKubernetesRuntimeInstance body v0.AwsEksKubernetesRuntimeInstance true "AwsEksKubernetesRuntimeInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-instances [post]
-func (h Handler) AddAwsEksClusterInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterInstance
-	var awsEksClusterInstance v0.AwsEksClusterInstance
+// @Router /v0/aws-eks-kubernetes-runtime-instances [post]
+func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
+	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	if err := c.Bind(&awsEksClusterInstance); err != nil {
+	if err := c.Bind(&awsEksKubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, awsEksClusterInstance, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, awsEksKubernetesRuntimeInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// check for duplicate names
-	var existingAwsEksClusterInstance v0.AwsEksClusterInstance
+	var existingAwsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
 	nameUsed := true
-	result := h.DB.Where("name = ?", awsEksClusterInstance.Name).First(&existingAwsEksClusterInstance)
+	result := h.DB.Where("name = ?", awsEksKubernetesRuntimeInstance.Name).First(&existingAwsEksKubernetesRuntimeInstance)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
@@ -693,22 +661,24 @@ func (h Handler) AddAwsEksClusterInstance(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.DB.Create(&awsEksClusterInstance); result.Error != nil {
+	if result := h.DB.Create(&awsEksKubernetesRuntimeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := awsEksClusterInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*awsEksKubernetesRuntimeInstance.Reconciled {
+		notifPayload, err := awsEksKubernetesRuntimeInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsEksKubernetesRuntimeInstanceCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.AwsEksClusterInstanceCreateSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, awsEksClusterInstance)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -716,34 +686,34 @@ func (h Handler) AddAwsEksClusterInstance(c echo.Context) error {
 	return iapi.ResponseStatus201(c, *response)
 }
 
-// @Summary gets all aws eks cluster instances.
-// @Description Get all aws eks cluster instances from the Threeport database.
-// @ID get-awsEksClusterInstances
+// @Summary gets all aws eks kubernetes runtime instances.
+// @Description Get all aws eks kubernetes runtime instances from the Threeport database.
+// @ID get-awsEksKubernetesRuntimeInstances
 // @Accept json
 // @Produce json
-// @Param name query string false "aws eks cluster instance search by name"
+// @Param name query string false "aws eks kubernetes runtime instance search by name"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-instances [get]
-func (h Handler) GetAwsEksClusterInstances(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterInstance
+// @Router /v0/aws-eks-kubernetes-runtime-instances [get]
+func (h Handler) GetAwsEksKubernetesRuntimeInstances(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
 	if err != nil {
 		return iapi.ResponseStatus400(c, &params, err, objectType)
 	}
 
-	var filter v0.AwsEksClusterInstance
+	var filter v0.AwsEksKubernetesRuntimeInstance
 	if err := c.Bind(&filter); err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&v0.AwsEksClusterInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsEksKubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	records := &[]v0.AwsEksClusterInstance{}
+	records := &[]v0.AwsEksKubernetesRuntimeInstance{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
@@ -756,28 +726,28 @@ func (h Handler) GetAwsEksClusterInstances(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary gets a aws eks cluster instance.
-// @Description Get a particular aws eks cluster instance from the database.
-// @ID get-awsEksClusterInstance
+// @Summary gets a aws eks kubernetes runtime instance.
+// @Description Get a particular aws eks kubernetes runtime instance from the database.
+// @ID get-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-instances/{id} [get]
-func (h Handler) GetAwsEksClusterInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterInstance
-	awsEksClusterInstanceID := c.Param("id")
-	var awsEksClusterInstance v0.AwsEksClusterInstance
-	if result := h.DB.First(&awsEksClusterInstance, awsEksClusterInstanceID); result.Error != nil {
+// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [get]
+func (h Handler) GetAwsEksKubernetesRuntimeInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
+	awsEksKubernetesRuntimeInstanceID := c.Param("id")
+	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+	if result := h.DB.First(&awsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsEksClusterInstance)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -785,27 +755,27 @@ func (h Handler) GetAwsEksClusterInstance(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates specific fields for an existing aws eks cluster instance.
-// @Description Update a aws eks cluster instance in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating aws eks cluster instance objects only.
+// @Summary updates specific fields for an existing aws eks kubernetes runtime instance.
+// @Description Update a aws eks kubernetes runtime instance in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating aws eks kubernetes runtime instance objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-awsEksClusterInstance
+// @ID update-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsEksClusterInstance body v0.AwsEksClusterInstance true "AwsEksClusterInstance object"
+// @Param awsEksKubernetesRuntimeInstance body v0.AwsEksKubernetesRuntimeInstance true "AwsEksKubernetesRuntimeInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-instances/{id} [patch]
-func (h Handler) UpdateAwsEksClusterInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterInstance
-	awsEksClusterInstanceID := c.Param("id")
-	var existingAwsEksClusterInstance v0.AwsEksClusterInstance
-	if result := h.DB.First(&existingAwsEksClusterInstance, awsEksClusterInstanceID); result.Error != nil {
+// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [patch]
+func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
+	awsEksKubernetesRuntimeInstanceID := c.Param("id")
+	var existingAwsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+	if result := h.DB.First(&existingAwsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -818,16 +788,30 @@ func (h Handler) UpdateAwsEksClusterInstance(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedAwsEksClusterInstance v0.AwsEksClusterInstance
-	if err := c.Bind(&updatedAwsEksClusterInstance); err != nil {
+	var updatedAwsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+	if err := c.Bind(&updatedAwsEksKubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	if result := h.DB.Model(&existingAwsEksClusterInstance).Updates(updatedAwsEksClusterInstance); result.Error != nil {
+	// update object in database
+	if result := h.DB.Model(&existingAwsEksKubernetesRuntimeInstance).Updates(updatedAwsEksKubernetesRuntimeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsEksClusterInstance)
+	// notify controller if reconciliation is required
+	if !*existingAwsEksKubernetesRuntimeInstance.Reconciled {
+		notifPayload, err := existingAwsEksKubernetesRuntimeInstance.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsEksKubernetesRuntimeInstanceUpdateSubject, *notifPayload)
+	}
+
+	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -835,28 +819,28 @@ func (h Handler) UpdateAwsEksClusterInstance(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary updates an existing aws eks cluster instance by replacing the entire object.
-// @Description Replace a aws eks cluster instance in the database.  All required fields must be provided.
+// @Summary updates an existing aws eks kubernetes runtime instance by replacing the entire object.
+// @Description Replace a aws eks kubernetes runtime instance in the database.  All required fields must be provided.
 // @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating aws eks cluster instance objects only.
+// @Description Note: This API endpint is for updating aws eks kubernetes runtime instance objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-awsEksClusterInstance
+// @ID replace-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsEksClusterInstance body v0.AwsEksClusterInstance true "AwsEksClusterInstance object"
+// @Param awsEksKubernetesRuntimeInstance body v0.AwsEksKubernetesRuntimeInstance true "AwsEksKubernetesRuntimeInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-instances/{id} [put]
-func (h Handler) ReplaceAwsEksClusterInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterInstance
-	awsEksClusterInstanceID := c.Param("id")
-	var existingAwsEksClusterInstance v0.AwsEksClusterInstance
-	if result := h.DB.First(&existingAwsEksClusterInstance, awsEksClusterInstanceID); result.Error != nil {
+// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [put]
+func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
+	awsEksKubernetesRuntimeInstanceID := c.Param("id")
+	var existingAwsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+	if result := h.DB.First(&existingAwsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -869,31 +853,31 @@ func (h Handler) ReplaceAwsEksClusterInstance(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedAwsEksClusterInstance v0.AwsEksClusterInstance
-	if err := c.Bind(&updatedAwsEksClusterInstance); err != nil {
+	var updatedAwsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+	if err := c.Bind(&updatedAwsEksKubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, updatedAwsEksClusterInstance, objectType); err != nil {
+	if id, err := iapi.ValidateBoundData(c, updatedAwsEksKubernetesRuntimeInstance, objectType); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
-	updatedAwsEksClusterInstance.ID = existingAwsEksClusterInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsEksClusterInstance); result.Error != nil {
+	updatedAwsEksKubernetesRuntimeInstance.ID = existingAwsEksKubernetesRuntimeInstance.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsEksKubernetesRuntimeInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// reload updated data from DB
-	if result := h.DB.First(&existingAwsEksClusterInstance, awsEksClusterInstanceID); result.Error != nil {
+	if result := h.DB.First(&existingAwsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsEksClusterInstance)
+	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -901,9 +885,9 @@ func (h Handler) ReplaceAwsEksClusterInstance(c echo.Context) error {
 	return iapi.ResponseStatus200(c, *response)
 }
 
-// @Summary deletes a aws eks cluster instance.
-// @Description Delete a aws eks cluster instance by from the database.
-// @ID delete-awsEksClusterInstance
+// @Summary deletes a aws eks kubernetes runtime instance.
+// @Description Delete a aws eks kubernetes runtime instance by ID from the database.
+// @ID delete-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -911,34 +895,61 @@ func (h Handler) ReplaceAwsEksClusterInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-cluster-instances/{id} [delete]
-func (h Handler) DeleteAwsEksClusterInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeAwsEksClusterInstance
-	awsEksClusterInstanceID := c.Param("id")
-	var awsEksClusterInstance v0.AwsEksClusterInstance
-	if result := h.DB.First(&awsEksClusterInstance, awsEksClusterInstanceID); result.Error != nil {
+// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [delete]
+func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
+	awsEksKubernetesRuntimeInstanceID := c.Param("id")
+	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+	if result := h.DB.First(&awsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	if result := h.DB.Delete(&awsEksClusterInstance); result.Error != nil {
-		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if awsEksKubernetesRuntimeInstance.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
+			Reconciliation: v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&awsEksKubernetesRuntimeInstance).Updates(scheduledAwsEksKubernetesRuntimeInstance); result.Error != nil {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := awsEksKubernetesRuntimeInstance.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsEksKubernetesRuntimeInstanceDeleteSubject, *notifPayload)
+	} else {
+		if awsEksKubernetesRuntimeInstance.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return iapi.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*awsEksKubernetesRuntimeInstance.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&awsEksKubernetesRuntimeInstance); result.Error != nil {
+				return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
 	}
 
-	// notify controller
-	notifPayload, err := awsEksClusterInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsEksClusterInstanceDeleteSubject, *notifPayload)
-
-	response, err := v0.CreateResponse(nil, awsEksClusterInstance)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1007,17 +1018,6 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 	if result := h.DB.Create(&awsRelationalDatabaseDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsRelationalDatabaseDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition)
 	if err != nil {
@@ -1134,6 +1134,7 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingAwsRelationalDatabaseDefinition).Updates(updatedAwsRelationalDatabaseDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -1213,7 +1214,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a aws relational database definition.
-// @Description Delete a aws relational database definition by from the database.
+// @Description Delete a aws relational database definition by ID from the database.
 // @ID delete-awsRelationalDatabaseDefinition
 // @Accept json
 // @Produce json
@@ -1234,20 +1235,10 @@ func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&awsRelationalDatabaseDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := awsRelationalDatabaseDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsRelationalDatabaseDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition)
 	if err != nil {
@@ -1318,17 +1309,6 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	if result := h.DB.Create(&awsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsRelationalDatabaseInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
 	if err != nil {
@@ -1445,6 +1425,7 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingAwsRelationalDatabaseInstance).Updates(updatedAwsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -1524,7 +1505,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 }
 
 // @Summary deletes a aws relational database instance.
-// @Description Delete a aws relational database instance by from the database.
+// @Description Delete a aws relational database instance by ID from the database.
 // @ID delete-awsRelationalDatabaseInstance
 // @Accept json
 // @Produce json
@@ -1545,20 +1526,10 @@ func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&awsRelationalDatabaseInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.AwsRelationalDatabaseInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
 	if err != nil {

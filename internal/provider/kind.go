@@ -9,50 +9,43 @@ import (
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cmd"
 
-	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/kube"
 )
 
-type ControlPlaneInfraKind struct {
-	// The unique name of the threeport instance.
-	ThreeportInstanceName string
+// KubernetesRuntimeInfraKind represents a kind cluster for local a threeport instance.
+type KubernetesRuntimeInfraKind struct {
+	// The unique name of the kubernetes runtime instance.
+	RuntimeInstanceName string
 
 	// Path to user's kubeconfig file for connecting to Kubernetes API.
 	KubeconfigPath string
 
-	// The kind configuration that informs how the cluster will be configured.
-	KindConfig *v1alpha4.Cluster
+	// True if threeport instance is for a development environment with live
+	// reloads of code from filesystem.
+	DevEnvironment bool
 
 	// Used only for development environments.  The path to the threeport repo
 	// on the developer's file system.
 	ThreeportPath string
+
+	// Number of worker nodes for kind cluster.
+	NumWorkerNodes int
 }
 
 // Create installs a Kubernetes cluster using kind for the threeport control
 // plane.
-func (i *ControlPlaneInfraKind) Create(providerConfigDir string, sigs chan os.Signal) (*kube.KubeConnectionInfo, error) {
+func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) {
 	logger := cmd.NewLogger()
 	prov := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
 	)
 
-	// delete kind cluster if user interrupts creation with Ctrl+C
-	go func() {
-		<-sigs
-		cli.Info("\nreceived interrupt signal, cleaning up resources...")
-		if err := prov.Delete(ThreeportClusterName(i.ThreeportInstanceName), i.KubeconfigPath); err != nil {
-			cli.Error("\nfailed to delete kind cluster", err)
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}()
-
 	// create the kind cluster
 	if err := prov.Create(
-		ThreeportClusterName(i.ThreeportInstanceName),
+		i.RuntimeInstanceName,
 		cluster.CreateWithKubeconfigPath(i.KubeconfigPath),
 		cluster.CreateWithWaitForReady(time.Duration(1000000000*60*5)), // 5 minutes
-		cluster.CreateWithV1Alpha4Config(i.KindConfig),
+		cluster.CreateWithV1Alpha4Config(getKindConfig(i.DevEnvironment, i.ThreeportPath, i.NumWorkerNodes)),
 	); err != nil {
 		return &kube.KubeConnectionInfo{}, fmt.Errorf("failed to create new kind cluster: %w", err)
 	}
@@ -67,65 +60,128 @@ func (i *ControlPlaneInfraKind) Create(providerConfigDir string, sigs chan os.Si
 }
 
 // Delete deletes a kind cluster and the threeport control plane with it.
-func (i *ControlPlaneInfraKind) Delete(providerConfigDir string) error {
+func (i *KubernetesRuntimeInfraKind) Delete() error {
 	logger := cmd.NewLogger()
 	prov := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
 	)
 
-	if err := prov.Delete(ThreeportClusterName(i.ThreeportInstanceName), i.KubeconfigPath); err != nil {
+	if err := prov.Delete(i.RuntimeInstanceName, i.KubeconfigPath); err != nil {
 		return fmt.Errorf("failed to delete kind cluster: %w", err)
 	}
 
 	return nil
 }
 
-// GetKindConfig returns a kind config for users of threeport.
-func (i *ControlPlaneInfraKind) GetKindConfig(devEnvironment bool, numWorkerNodes int) *v1alpha4.Cluster {
-	clusterConfig := v1alpha4.Cluster{
-		Nodes: []v1alpha4.Node{
-			{
-				Role: v1alpha4.ControlPlaneRole,
-				KubeadmConfigPatches: []string{
-					`kind: InitConfiguration
-nodeRegistration:
-  kubeletExtraArgs:
-    node-labels: "ingress-ready=true"
-`,
-				},
-				ExtraPortMappings: []v1alpha4.PortMapping{
-					{
-						ContainerPort: int32(30000),
-						HostPort:      int32(443),
-						Protocol:      v1alpha4.PortMappingProtocolTCP,
-					},
-				},
-				ExtraMounts: []v1alpha4.Mount{
-					{
-						ContainerPath: "/threeport",
-						HostPath:      i.ThreeportPath,
-					},
-				},
-			},
-		},
-	}
+// getKindConfig returns a kind config for a threeport Kubernetes runtime.
+func getKindConfig(devEnvironment bool, threeportPath string, numWorkerNodes int) *v1alpha4.Cluster {
+	clusterConfig := v1alpha4.Cluster{}
 
-	var workerNodes *[]v1alpha4.Node
+	var controlPlaneNode v1alpha4.Node
+	var workerNodes []v1alpha4.Node
 	if devEnvironment {
-		workerNodes = devEnvKindWorkers(i.ThreeportPath, numWorkerNodes)
+
+		// configure goPath, default to home directory if not set
+		var goPath string
+		goPath = os.Getenv("GOPATH")
+		if goPath == "" {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				panic(err)
+			}
+			goPath = homeDir + "/go"
+		}
+
+		// configure goCache, default to ~/.cache/go-build if not set
+		var goCache string
+		goCache = os.Getenv("GOCACHE")
+		if goCache == "" {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				panic(err)
+			}
+			goCache = homeDir + "/.cache/go-build"
+		}
+
+		controlPlaneNode = *devEnvKindControlPlaneNode(threeportPath, goPath, goCache)
+		workerNodes = *devEnvKindWorkers(threeportPath, numWorkerNodes, goPath, goCache)
 	} else {
-		workerNodes = kindWorkers(numWorkerNodes)
+		controlPlaneNode = *kindControlPlaneNode()
+		workerNodes = *kindWorkers(numWorkerNodes)
 	}
-	for _, n := range *workerNodes {
+	clusterConfig.Nodes = []v1alpha4.Node{controlPlaneNode}
+	for _, n := range workerNodes {
 		clusterConfig.Nodes = append(clusterConfig.Nodes, n)
 	}
 
 	return &clusterConfig
 }
 
+// devEnvKindControlPlaneNode returns a control plane node with host path mount
+// for live code reloads.
+func devEnvKindControlPlaneNode(threeportPath, goPath, goCache string) *v1alpha4.Node {
+	controlPlaneNode := v1alpha4.Node{
+		Role: v1alpha4.ControlPlaneRole,
+		KubeadmConfigPatches: []string{
+			`kind: InitConfiguration
+nodeRegistration:
+  kubeletExtraArgs:
+    node-labels: "ingress-ready=true"
+`,
+		},
+		ExtraPortMappings: []v1alpha4.PortMapping{
+			{
+				ContainerPort: int32(30000),
+				HostPort:      int32(443),
+				Protocol:      v1alpha4.PortMappingProtocolTCP,
+			},
+		},
+		ExtraMounts: []v1alpha4.Mount{
+			{
+				ContainerPath: "/threeport",
+				HostPath:      threeportPath,
+			},
+			{
+				ContainerPath: "/go",
+				HostPath:      goPath,
+			},
+			{
+				ContainerPath: "/root/.cache/go-build",
+				HostPath:      goCache,
+			},
+		},
+	}
+
+	return &controlPlaneNode
+}
+
+// kindControlPlaneNode returns a control plane node config for regular use.
+func kindControlPlaneNode() *v1alpha4.Node {
+	controlPlaneNode := v1alpha4.Node{
+		Role: v1alpha4.ControlPlaneRole,
+		KubeadmConfigPatches: []string{
+			`kind: InitConfiguration
+nodeRegistration:
+  kubeletExtraArgs:
+    node-labels: "ingress-ready=true"
+`,
+		},
+		ExtraPortMappings: []v1alpha4.PortMapping{
+			{
+				ContainerPort: int32(30000),
+				HostPort:      int32(443),
+				Protocol:      v1alpha4.PortMappingProtocolTCP,
+			},
+		},
+	}
+
+	return &controlPlaneNode
+}
+
 // devEnvKindWorkers returns worker nodes with host path mount for live code
 // reloads.
-func devEnvKindWorkers(threeportPath string, numWorkerNodes int) *[]v1alpha4.Node {
+func devEnvKindWorkers(threeportPath string, numWorkerNodes int, goPath, goCache string) *[]v1alpha4.Node {
+
 	nodes := make([]v1alpha4.Node, numWorkerNodes)
 	for i := range nodes {
 		nodes[i] = v1alpha4.Node{
@@ -135,13 +191,22 @@ func devEnvKindWorkers(threeportPath string, numWorkerNodes int) *[]v1alpha4.Nod
 					ContainerPath: "/threeport",
 					HostPath:      threeportPath,
 				},
+				{
+					ContainerPath: "/go",
+					HostPath:      goPath,
+				},
+				{
+					ContainerPath: "/root/.cache/go-build",
+					HostPath:      goCache,
+				},
 			},
 		}
 	}
+
 	return &nodes
 }
 
-// kindWorkers returns regular worker nodes
+// kindWorkers returns regular worker nodes.
 func kindWorkers(numWorkerNodes int) *[]v1alpha4.Node {
 	nodes := make([]v1alpha4.Node, numWorkerNodes)
 	for i := range nodes {
@@ -151,5 +216,6 @@ func kindWorkers(numWorkerNodes int) *[]v1alpha4.Node {
 		}
 
 	}
+
 	return &nodes
 }

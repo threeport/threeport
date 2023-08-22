@@ -53,8 +53,12 @@ and workload instance based on the workload config.`,
 			os.Exit(1)
 		}
 
+		// add path to workload config - used to determine relative path from
+		// user's working directory to YAML document
+		workloadConfig.Workload.WorkloadConfigPath = createWorkloadConfigPath
+
 		// get threeport API client
-		authEnabled, err = threeportConfig.GetThreeportAuthEnabled()
+		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled()
 		if err != nil {
 			cli.Error("failed to determine if auth is enabled on threeport API", err)
 			os.Exit(1)
@@ -64,7 +68,7 @@ and workload instance based on the workload config.`,
 			cli.Error("failed to get threeport certificates from config", err)
 			os.Exit(1)
 		}
-		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
+		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey)
 		if err != nil {
 			cli.Error("failed to create https client", err)
 			os.Exit(1)

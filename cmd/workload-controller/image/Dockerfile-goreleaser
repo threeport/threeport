@@ -1,4 +1,5 @@
-FROM scratch
+FROM gcr.io/distroless/static:nonroot
 COPY threeport-workload-controller /threeport-workload-controller
-ENTRYPOINT ["/threeport-workload-controller"]
+USER 65532:65532
 
+ENTRYPOINT ["/threeport-workload-controller"]

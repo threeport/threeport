@@ -88,3 +88,4 @@ func (gvc *GlobalVersionConfig) ResponseObjects() error {
 
 	return nil
 }
+

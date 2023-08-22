@@ -1,0 +1,5 @@
+FROM gcr.io/distroless/static:nonroot
+COPY bin/threeport-aws-controller /threeport-aws-controller
+USER 65532:65532
+
+ENTRYPOINT ["/threeport-aws-controller"]

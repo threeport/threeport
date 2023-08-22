@@ -133,7 +133,6 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 	}
 
 	// field not Optional, OptionalAssociation or Required - it's Unsupported
-
 	optionalFields = &ObjectTaggedFields[VersionObject{Version: apiVer, Object: string(objectType)}].Optional
 	optionalAssociationsFields = &ObjectTaggedFields[VersionObject{Version: apiVer, Object: string(objectType)}].OptionalAssociations
 	requiredFields = &ObjectTaggedFields[VersionObject{Version: apiVer, Object: string(objectType)}].Required

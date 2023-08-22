@@ -1,0 +1,5 @@
+GatewayDefinition:
+  Name: example-gateway
+  TCPPort: 80
+  DomainNameDefinition:
+    Name: example.com

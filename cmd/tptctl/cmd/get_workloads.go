@@ -12,6 +12,7 @@ import (
 
 	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/util"
+	"github.com/threeport/threeport/internal/workload/status"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
@@ -40,7 +41,7 @@ This command displays all instances and the definitions used to configure them.`
 		}
 
 		// get threeport API client
-		authEnabled, err = threeportConfig.GetThreeportAuthEnabled()
+		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled()
 		if err != nil {
 			cli.Error("failed to determine if auth is enabled on threeport API", err)
 			os.Exit(1)
@@ -50,7 +51,7 @@ This command displays all instances and the definitions used to configure them.`
 			cli.Error("failed to get threeport certificates from config", err)
 			os.Exit(1)
 		}
-		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
+		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey)
 		if err != nil {
 			cli.Error("failed to create threeport API client", err)
 			os.Exit(1)
@@ -64,11 +65,19 @@ This command displays all instances and the definitions used to configure them.`
 		}
 
 		// write the output
+		if len(*workloadInstances) == 0 {
+			cli.Info(fmt.Sprintf(
+				"No workloads currently managed by %s threeport control plane",
+				threeportConfig.CurrentInstance,
+			))
+			os.Exit(0)
+		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t WORKLOAD INSTANCE\t CLUSTER INSTANCE\t AGE")
+		fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
 		metadataErr := false
 		var workloadDefErr error
-		var clusterInstErr error
+		var kubernetesRuntimeInstErr error
+		var statusErr error
 		for _, wi := range *workloadInstances {
 			// get workload definition name for instance
 			var workloadDef string
@@ -80,26 +89,41 @@ This command displays all instances and the definitions used to configure them.`
 			} else {
 				workloadDef = *workloadDefinition.Name
 			}
-			// get cluster instance name for instance
-			var clusterInst string
-			clusterInstance, err := client.GetClusterInstanceByID(apiClient, apiEndpoint, *wi.ClusterInstanceID)
+			// get kubernetes runtime instance name for instance
+			var kubernetesRuntimeInst string
+			kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *wi.KubernetesRuntimeInstanceID)
 			if err != nil {
 				metadataErr = true
-				clusterInstErr = err
-				clusterInst = "<error>"
+				kubernetesRuntimeInstErr = err
+				kubernetesRuntimeInst = "<error>"
 			} else {
-				clusterInst = *clusterInstance.Name
+				kubernetesRuntimeInst = *kubernetesRuntimeInstance.Name
 			}
-			fmt.Fprintln(writer, workloadDef, "\t", workloadDef, "\t", *wi.Name, "\t", clusterInst, "\t", util.GetAge(wi.CreatedAt))
+			// get workload status
+			var workloadInstStatus string
+			workloadInstStatusDetail := status.GetWorkloadInstanceStatus(apiClient, apiEndpoint, &wi)
+			if workloadInstStatusDetail.Error != nil {
+				metadataErr = true
+				statusErr = workloadInstStatusDetail.Error
+				workloadInstStatus = "<error>"
+			}
+			workloadInstStatus = string(workloadInstStatusDetail.Status)
+			fmt.Fprintln(
+				writer, workloadDef, "\t", workloadDef, "\t", *wi.Name, "\t", kubernetesRuntimeInst, "\t",
+				workloadInstStatus, "\t", util.GetAge(wi.CreatedAt),
+			)
 		}
 		writer.Flush()
 
 		if metadataErr {
 			if workloadDefErr != nil {
-				cli.Error("encountered errors retrieving workload definition info", workloadDefErr)
+				cli.Error("encountered an error retrieving workload definition info", workloadDefErr)
 			}
-			if clusterInstErr != nil {
-				cli.Error("encountered errors retrieving cluster instance info", clusterInstErr)
+			if kubernetesRuntimeInstErr != nil {
+				cli.Error("encountered an error retrieving kubernetes runtime instance info", kubernetesRuntimeInstErr)
+			}
+			if statusErr != nil {
+				cli.Error("encountered an error retrieving workload instance status", statusErr)
 			}
 			os.Exit(1)
 		}

@@ -8,7 +8,6 @@ import (
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
 )
@@ -74,17 +73,6 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 	if result := h.DB.Create(&logBackend); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := logBackend.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogBackendCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, logBackend)
 	if err != nil {
@@ -201,6 +189,7 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingLogBackend).Updates(updatedLogBackend); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -280,7 +269,7 @@ func (h Handler) ReplaceLogBackend(c echo.Context) error {
 }
 
 // @Summary deletes a log backend.
-// @Description Delete a log backend by from the database.
+// @Description Delete a log backend by ID from the database.
 // @ID delete-logBackend
 // @Accept json
 // @Produce json
@@ -301,20 +290,10 @@ func (h Handler) DeleteLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&logBackend); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := logBackend.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogBackendDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, logBackend)
 	if err != nil {
@@ -385,17 +364,6 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 	if result := h.DB.Create(&logStorageDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := logStorageDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogStorageDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, logStorageDefinition)
 	if err != nil {
@@ -512,6 +480,7 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingLogStorageDefinition).Updates(updatedLogStorageDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -591,7 +560,7 @@ func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a log storage definition.
-// @Description Delete a log storage definition by from the database.
+// @Description Delete a log storage definition by ID from the database.
 // @ID delete-logStorageDefinition
 // @Accept json
 // @Produce json
@@ -612,20 +581,10 @@ func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&logStorageDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := logStorageDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogStorageDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, logStorageDefinition)
 	if err != nil {
@@ -696,17 +655,6 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 	if result := h.DB.Create(&logStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := logStorageInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogStorageInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, logStorageInstance)
 	if err != nil {
@@ -823,6 +771,7 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingLogStorageInstance).Updates(updatedLogStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -902,7 +851,7 @@ func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 }
 
 // @Summary deletes a log storage instance.
-// @Description Delete a log storage instance by from the database.
+// @Description Delete a log storage instance by ID from the database.
 // @ID delete-logStorageInstance
 // @Accept json
 // @Produce json
@@ -923,20 +872,10 @@ func (h Handler) DeleteLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&logStorageInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := logStorageInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.LogStorageInstanceDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, logStorageInstance)
 	if err != nil {

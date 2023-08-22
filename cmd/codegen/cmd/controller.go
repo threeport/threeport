@@ -10,6 +10,7 @@ import (
 	"go/token"
 	"strings"
 
+	"github.com/iancoleman/strcase"
 	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/codegen"
@@ -49,9 +50,20 @@ controllers each time 'make generate' is called.`,
 		//	return err
 		//}
 		//////////////////////////////////////////////////////////////////////////
+		baseName := codegen.FilenameSansExt(modelFilenameForController)
 		controllerConfig := controller.ControllerConfig{
-			Name: fmt.Sprintf("%s-controller", codegen.FilenameSansExt(modelFilenameForController)),
+			Name: strings.ReplaceAll(
+				fmt.Sprintf("%s-controller", baseName),
+				"_",
+				"-",
+			),
+			ShortName:   strings.ReplaceAll(baseName, "_", "-"),
+			PackageName: strings.ReplaceAll(baseName, "_", ""),
+			StreamName: fmt.Sprintf(
+				"%sStreamName", strcase.ToCamel(baseName),
+			),
 		}
+
 		for _, node := range pf.Decls {
 			switch node.(type) {
 			case *ast.GenDecl:
@@ -79,10 +91,20 @@ controllers each time 'make generate' is called.`,
 			return fmt.Errorf("failed to generate code for controller's main package: %w", err)
 		}
 
+		// generate the controller's internal package general source code
+		if err := controllerConfig.InternalPackage(); err != nil {
+			return fmt.Errorf("failed to generate code for controller's internal package source file: %w", err)
+		}
+
 		// generate the controller's reconcile functions
 		if err := controllerConfig.Reconcilers(); err != nil {
 			return fmt.Errorf("failed to generate code for controller's reconcilers: %w", err)
 		}
+
+		//// generate the controller's reconcile functions
+		//if err := controllerConfig.NotificationHelper(); err != nil {
+		//	return fmt.Errorf("failed to generate notification helper for controller's reconcilers: %w", err)
+		//}
 
 		return nil
 
@@ -95,6 +117,4 @@ func init() {
 
 	controllerCmd.Flags().StringVarP(&modelFilenameForController, "filename", "f", "", "The filename for the file containing the API models")
 	controllerCmd.MarkFlagRequired("filename")
-	//controllerCmd.Flags().StringVarP(&packageName, "package", "p", "", "The package name of the the API model")
-	//controllerCmd.MarkFlagRequired("package")
 }

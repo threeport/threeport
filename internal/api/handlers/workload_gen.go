@@ -4,6 +4,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	echo "github.com/labstack/echo/v4"
 	iapi "github.com/threeport/threeport/internal/api"
 	api "github.com/threeport/threeport/pkg/api"
@@ -11,6 +12,7 @@ import (
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -75,16 +77,18 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := workloadDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*workloadDefinition.Reconciled {
+		notifPayload, err := workloadDefinition.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.WorkloadDefinitionCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.WorkloadDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadDefinition)
 	if err != nil {
@@ -201,8 +205,22 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingWorkloadDefinition).Updates(updatedWorkloadDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*existingWorkloadDefinition.Reconciled {
+		notifPayload, err := existingWorkloadDefinition.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.WorkloadDefinitionUpdateSubject, *notifPayload)
 	}
 
 	response, err := v0.CreateResponse(nil, existingWorkloadDefinition)
@@ -280,7 +298,7 @@ func (h Handler) ReplaceWorkloadDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a workload definition.
-// @Description Delete a workload definition by from the database.
+// @Description Delete a workload definition by ID from the database.
 // @ID delete-workloadDefinition
 // @Accept json
 // @Produce json
@@ -307,20 +325,47 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatus409(c, nil, err, objectType)
 	}
 
-	if result := h.DB.Delete(&workloadDefinition); result.Error != nil {
-		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if workloadDefinition.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledWorkloadDefinition := v0.WorkloadDefinition{
+			Reconciliation: v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&workloadDefinition).Updates(scheduledWorkloadDefinition); result.Error != nil {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := workloadDefinition.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.WorkloadDefinitionDeleteSubject, *notifPayload)
+	} else {
+		if workloadDefinition.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return iapi.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*workloadDefinition.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&workloadDefinition); result.Error != nil {
+				return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
 	}
-
-	// notify controller
-	notifPayload, err := workloadDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadDefinition)
 	if err != nil {
@@ -376,17 +421,6 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 	if result := h.DB.Create(&workloadResourceDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := workloadResourceDefinition.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadResourceDefinitionCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadResourceDefinition)
 	if err != nil {
@@ -503,6 +537,7 @@ func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingWorkloadResourceDefinition).Updates(updatedWorkloadResourceDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -582,7 +617,7 @@ func (h Handler) ReplaceWorkloadResourceDefinition(c echo.Context) error {
 }
 
 // @Summary deletes a workload resource definition.
-// @Description Delete a workload resource definition by from the database.
+// @Description Delete a workload resource definition by ID from the database.
 // @ID delete-workloadResourceDefinition
 // @Accept json
 // @Produce json
@@ -603,20 +638,10 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&workloadResourceDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := workloadResourceDefinition.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadResourceDefinitionDeleteSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadResourceDefinition)
 	if err != nil {
@@ -688,16 +713,18 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := workloadInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+	// notify controller if reconciliation is required
+	if !*workloadInstance.Reconciled {
+		notifPayload, err := workloadInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.WorkloadInstanceCreateSubject, *notifPayload)
 	}
-	h.JS.Publish(v0.WorkloadInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadInstance)
 	if err != nil {
@@ -814,8 +841,22 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingWorkloadInstance).Updates(updatedWorkloadInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*existingWorkloadInstance.Reconciled {
+		notifPayload, err := existingWorkloadInstance.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.WorkloadInstanceUpdateSubject, *notifPayload)
 	}
 
 	response, err := v0.CreateResponse(nil, existingWorkloadInstance)
@@ -893,7 +934,7 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 }
 
 // @Summary deletes a workload instance.
-// @Description Delete a workload instance by from the database.
+// @Description Delete a workload instance by ID from the database.
 // @ID delete-workloadInstance
 // @Accept json
 // @Produce json
@@ -914,22 +955,325 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	if result := h.DB.Delete(&workloadInstance); result.Error != nil {
-		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if workloadInstance.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledWorkloadInstance := v0.WorkloadInstance{
+			Reconciliation: v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&workloadInstance).Updates(scheduledWorkloadInstance); result.Error != nil {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := workloadInstance.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.WorkloadInstanceDeleteSubject, *notifPayload)
+	} else {
+		if workloadInstance.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return iapi.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*workloadInstance.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&workloadInstance); result.Error != nil {
+				return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
 	}
 
-	// notify controller
-	notifPayload, err := workloadInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
+	response, err := v0.CreateResponse(nil, workloadInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.WorkloadInstanceDeleteSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, workloadInstance)
+	return iapi.ResponseStatus200(c, *response)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AttachedObjectReference
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetAttachedObjectReferenceVersions gets the supported versions for the attached object reference API.
+// @Description Get the supported API versions for attached object references.
+// @ID attachedObjectReference-get-versions
+// @Produce json
+// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Router /attached-object-references/versions [get]
+func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAttachedObjectReference)])
+}
+
+// @Summary adds a new attached object reference.
+// @Description Add a new attached object reference to the Threeport database.
+// @ID add-attachedObjectReference
+// @Accept json
+// @Produce json
+// @Param attachedObjectReference body v0.AttachedObjectReference true "AttachedObjectReference object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/attached-object-references [post]
+func (h Handler) AddAttachedObjectReference(c echo.Context) error {
+	objectType := v0.ObjectTypeAttachedObjectReference
+	var attachedObjectReference v0.AttachedObjectReference
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&attachedObjectReference); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, attachedObjectReference, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&attachedObjectReference); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, attachedObjectReference)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all attached object references.
+// @Description Get all attached object references from the Threeport database.
+// @ID get-attachedObjectReferences
+// @Accept json
+// @Produce json
+// @Param name query string false "attached object reference search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/attached-object-references [get]
+func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
+	objectType := v0.ObjectTypeAttachedObjectReference
+	params, err := c.(*iapi.CustomContext).GetPaginationParams()
+	if err != nil {
+		return iapi.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter v0.AttachedObjectReference
+	if err := c.Bind(&filter); err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&v0.AttachedObjectReference{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]v0.AttachedObjectReference{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	if err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a attached object reference.
+// @Description Get a particular attached object reference from the database.
+// @ID get-attachedObjectReference
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/attached-object-references/{id} [get]
+func (h Handler) GetAttachedObjectReference(c echo.Context) error {
+	objectType := v0.ObjectTypeAttachedObjectReference
+	attachedObjectReferenceID := c.Param("id")
+	var attachedObjectReference v0.AttachedObjectReference
+	if result := h.DB.First(&attachedObjectReference, attachedObjectReferenceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, attachedObjectReference)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing attached object reference.
+// @Description Update a attached object reference in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating attached object reference objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-attachedObjectReference
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param attachedObjectReference body v0.AttachedObjectReference true "AttachedObjectReference object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/attached-object-references/{id} [patch]
+func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
+	objectType := v0.ObjectTypeAttachedObjectReference
+	attachedObjectReferenceID := c.Param("id")
+	var existingAttachedObjectReference v0.AttachedObjectReference
+	if result := h.DB.First(&existingAttachedObjectReference, attachedObjectReferenceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAttachedObjectReference v0.AttachedObjectReference
+	if err := c.Bind(&updatedAttachedObjectReference); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingAttachedObjectReference).Updates(updatedAttachedObjectReference); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingAttachedObjectReference)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing attached object reference by replacing the entire object.
+// @Description Replace a attached object reference in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating attached object reference objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-attachedObjectReference
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param attachedObjectReference body v0.AttachedObjectReference true "AttachedObjectReference object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/attached-object-references/{id} [put]
+func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
+	objectType := v0.ObjectTypeAttachedObjectReference
+	attachedObjectReferenceID := c.Param("id")
+	var existingAttachedObjectReference v0.AttachedObjectReference
+	if result := h.DB.First(&existingAttachedObjectReference, attachedObjectReferenceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAttachedObjectReference v0.AttachedObjectReference
+	if err := c.Bind(&updatedAttachedObjectReference); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, updatedAttachedObjectReference, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedAttachedObjectReference.ID = existingAttachedObjectReference.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAttachedObjectReference); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingAttachedObjectReference, attachedObjectReferenceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingAttachedObjectReference)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a attached object reference.
+// @Description Delete a attached object reference by ID from the database.
+// @ID delete-attachedObjectReference
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/attached-object-references/{id} [delete]
+func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
+	objectType := v0.ObjectTypeAttachedObjectReference
+	attachedObjectReferenceID := c.Param("id")
+	var attachedObjectReference v0.AttachedObjectReference
+	if result := h.DB.First(&attachedObjectReference, attachedObjectReferenceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&attachedObjectReference); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, attachedObjectReference)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -983,17 +1327,6 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 	if result := h.DB.Create(&workloadResourceInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// notify controller
-	notifPayload, err := workloadResourceInstance.NotificationPayload(
-		notifications.NotificationOperationCreated,
-		false,
-		0,
-	)
-	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
-	}
-	h.JS.Publish(v0.WorkloadResourceInstanceCreateSubject, *notifPayload)
 
 	response, err := v0.CreateResponse(nil, workloadResourceInstance)
 	if err != nil {
@@ -1110,6 +1443,7 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// update object in database
 	if result := h.DB.Model(&existingWorkloadResourceInstance).Updates(updatedWorkloadResourceInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -1189,7 +1523,7 @@ func (h Handler) ReplaceWorkloadResourceInstance(c echo.Context) error {
 }
 
 // @Summary deletes a workload resource instance.
-// @Description Delete a workload resource instance by from the database.
+// @Description Delete a workload resource instance by ID from the database.
 // @ID delete-workloadResourceInstance
 // @Accept json
 // @Produce json
@@ -1210,22 +1544,288 @@ func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// delete object
 	if result := h.DB.Delete(&workloadResourceInstance); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// notify controller
-	notifPayload, err := workloadResourceInstance.NotificationPayload(
-		notifications.NotificationOperationDeleted,
-		false,
-		0,
-	)
+	response, err := v0.CreateResponse(nil, workloadResourceInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
-	h.JS.Publish(v0.WorkloadResourceInstanceDeleteSubject, *notifPayload)
 
-	response, err := v0.CreateResponse(nil, workloadResourceInstance)
+	return iapi.ResponseStatus200(c, *response)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// WorkloadEvent
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetWorkloadEventVersions gets the supported versions for the workload event API.
+// @Description Get the supported API versions for workload events.
+// @ID workloadEvent-get-versions
+// @Produce json
+// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Router /workload-events/versions [get]
+func (h Handler) GetWorkloadEventVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeWorkloadEvent)])
+}
+
+// @Summary adds a new workload event.
+// @Description Add a new workload event to the Threeport database.
+// @ID add-workloadEvent
+// @Accept json
+// @Produce json
+// @Param workloadEvent body v0.WorkloadEvent true "WorkloadEvent object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/workload-events [post]
+func (h Handler) AddWorkloadEvent(c echo.Context) error {
+	objectType := v0.ObjectTypeWorkloadEvent
+	var workloadEvent v0.WorkloadEvent
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&workloadEvent); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, workloadEvent, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&workloadEvent); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, workloadEvent)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all workload events.
+// @Description Get all workload events from the Threeport database.
+// @ID get-workloadEvents
+// @Accept json
+// @Produce json
+// @Param name query string false "workload event search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/workload-events [get]
+func (h Handler) GetWorkloadEvents(c echo.Context) error {
+	objectType := v0.ObjectTypeWorkloadEvent
+	params, err := c.(*iapi.CustomContext).GetPaginationParams()
+	if err != nil {
+		return iapi.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter v0.WorkloadEvent
+	if err := c.Bind(&filter); err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&v0.WorkloadEvent{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]v0.WorkloadEvent{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	if err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a workload event.
+// @Description Get a particular workload event from the database.
+// @ID get-workloadEvent
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/workload-events/{id} [get]
+func (h Handler) GetWorkloadEvent(c echo.Context) error {
+	objectType := v0.ObjectTypeWorkloadEvent
+	workloadEventID := c.Param("id")
+	var workloadEvent v0.WorkloadEvent
+	if result := h.DB.First(&workloadEvent, workloadEventID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, workloadEvent)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing workload event.
+// @Description Update a workload event in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating workload event objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-workloadEvent
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param workloadEvent body v0.WorkloadEvent true "WorkloadEvent object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/workload-events/{id} [patch]
+func (h Handler) UpdateWorkloadEvent(c echo.Context) error {
+	objectType := v0.ObjectTypeWorkloadEvent
+	workloadEventID := c.Param("id")
+	var existingWorkloadEvent v0.WorkloadEvent
+	if result := h.DB.First(&existingWorkloadEvent, workloadEventID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedWorkloadEvent v0.WorkloadEvent
+	if err := c.Bind(&updatedWorkloadEvent); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingWorkloadEvent).Updates(updatedWorkloadEvent); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingWorkloadEvent)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing workload event by replacing the entire object.
+// @Description Replace a workload event in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating workload event objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-workloadEvent
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param workloadEvent body v0.WorkloadEvent true "WorkloadEvent object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/workload-events/{id} [put]
+func (h Handler) ReplaceWorkloadEvent(c echo.Context) error {
+	objectType := v0.ObjectTypeWorkloadEvent
+	workloadEventID := c.Param("id")
+	var existingWorkloadEvent v0.WorkloadEvent
+	if result := h.DB.First(&existingWorkloadEvent, workloadEventID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedWorkloadEvent v0.WorkloadEvent
+	if err := c.Bind(&updatedWorkloadEvent); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, updatedWorkloadEvent, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedWorkloadEvent.ID = existingWorkloadEvent.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedWorkloadEvent); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingWorkloadEvent, workloadEventID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingWorkloadEvent)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a workload event.
+// @Description Delete a workload event by ID from the database.
+// @ID delete-workloadEvent
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/workload-events/{id} [delete]
+func (h Handler) DeleteWorkloadEvent(c echo.Context) error {
+	objectType := v0.ObjectTypeWorkloadEvent
+	workloadEventID := c.Param("id")
+	var workloadEvent v0.WorkloadEvent
+	if result := h.DB.First(&workloadEvent, workloadEventID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&workloadEvent); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, workloadEvent)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
