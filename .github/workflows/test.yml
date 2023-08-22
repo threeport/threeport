@@ -87,7 +87,8 @@ jobs:
       run: make tests
 
   clean:
-    needs: test
+    if: ${{ always() }}
+    needs: [images, test]
     runs-on: ubuntu-latest
     steps:
     - name: Login to GitHub Container Registry
