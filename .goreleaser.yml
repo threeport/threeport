@@ -29,7 +29,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-    main: cmd/kubernetes-runtime/main_gen.go
+    main: cmd/kubernetes-runtime-controller/main_gen.go
     binary: threeport-kubernetes-runtime-controller
   - id: threeport-aws-controller
     env:
@@ -50,7 +50,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-    main: cmd/agent/main_gen.go
+    main: cmd/agent/main.go
     binary: threeport-agent
 archives:
   - name_template: >-
