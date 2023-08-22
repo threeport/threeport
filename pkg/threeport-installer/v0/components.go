@@ -1312,7 +1312,7 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string, devEnvironment 
 
 func getAirArgs(name, extraArgs string) []interface{} {
 	main := "main_gen.go"
-	if name == "rest-api" {
+	if name == "rest-api" || name == "agent" {
 		main = "main.go"
 	}
 
@@ -1323,7 +1323,7 @@ func getAirArgs(name, extraArgs string) []interface{} {
 
 	return []interface{}{
 		"-c", "/threeport/cmd/dev/air.toml",
-		"-build.cmd", "go build -o /threeport/bin/threeport-" + name + " cmd/" + name + "/" + main,
+		"-build.cmd", "go build -o /threeport/bin/threeport-" + name + " /threeport/cmd/" + name + "/" + main,
 		"-build.bin", "/usr/local/bin/dlv",
 		"-build.args_bin", "--continue --accept-multiclient --listen=:40000 --headless=true --api-version=2 --log exec /threeport/bin/threeport-" + name + appendedArgs,
 	}
@@ -1640,7 +1640,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            name,
-								"image":           image,
+								"image":           "threeport-air",
 								"command":         getCommand(devEnvironment),
 								"imagePullPolicy": "IfNotPresent",
 								"args":            args,
@@ -1739,7 +1739,7 @@ func getCommand(devEnvironment bool) []interface{} {
 
 	if devEnvironment {
 		return []interface{}{
-			"air",
+			"/usr/local/bin/air",
 		}
 	}
 
