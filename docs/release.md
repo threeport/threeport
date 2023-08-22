@@ -6,7 +6,7 @@ Once you have all PRs merged that will be included in the next release, check
 out main and run the following:
 
 ```bash
-RELEASE_VERSION=[version] make release
+export RELEASE_VERSION=[version] && make release
 ```
 
 This will do the following:
