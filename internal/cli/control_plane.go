@@ -223,13 +223,15 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			os.Exit(1)
 		}()
 
+		// TODO: add flags to tptctl command for high availability, etc to
+		// deterimine these values
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 			RuntimeInstanceName:          provider.ThreeportRuntimeName(a.InstanceName),
 			AwsAccountID:                 a.CreateProviderAccountID,
 			AwsConfig:                    awsConfig,
 			ResourceClient:               resourceClient,
-			ZoneCount:                    int32(1),
+			ZoneCount:                    int32(2),
 			DefaultNodeGroupInstanceType: "t3.medium",
 			DefaultNodeGroupInitialNodes: int32(3),
 			DefaultNodeGroupMinNodes:     int32(3),
@@ -770,20 +772,17 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 		// create aws eks k8s runtime definition
 		eksRuntimeDefName := fmt.Sprintf("eks-compute-space-%s", a.InstanceName)
-		zoneCount := 1
-		defaultInstanceType := "t2.medium"
-		defaultNodeGroupInitialSize := 2
-		defaultNodeGroupMinSize := 2
-		defaultNodeGroupMaxSize := 6
+		zoneCount := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ZoneCount)
+		defaultNodeGroupInitialSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupInitialNodes)
+		defaultNodeGroupMinSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupMinNodes)
+		defaultNodeGroupMaxSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupMaxNodes)
 		awsEksKubernetesRuntimeDef := v0.AwsEksKubernetesRuntimeDefinition{
 			Definition: v0.Definition{
 				Name: &eksRuntimeDefName,
 			},
-			AwsAccountID: createdAwsAccount.ID,
-			// TODO: add flags to tptctl command for high availability, etc to
-			// deterimine these values
+			AwsAccountID:                  createdAwsAccount.ID,
 			ZoneCount:                     &zoneCount,
-			DefaultNodeGroupInstanceType:  &defaultInstanceType,
+			DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:   &defaultNodeGroupMinSize,
 			DefaultNodeGroupMaximumSize:   &defaultNodeGroupMaxSize,
