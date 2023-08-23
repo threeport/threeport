@@ -277,6 +277,12 @@ func workloadInstanceUpdated(
 		return 0, fmt.Errorf("failed to set namespaces for workload resource instances: %w", err)
 	}
 
+	// return if namespaceWRI hasn't been created yet
+	namespaceWRI := (*processedWRIs)[0]
+	if namespaceWRI.ID == nil {
+		return 0, fmt.Errorf("namespace not created yet")
+	}
+
 	// create a client to connect to kube API
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
