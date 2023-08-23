@@ -5,6 +5,23 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Connect to server",
+            "type": "go",
+            "request": "attach",
+            "mode": "remote",
+            "port": 40000,
+            "host": "127.0.0.1",
+            "substitutePath": [
+                {
+                    "from": "${workspaceFolder}",
+                    "to": "/threeport",
+                },
+            ],
+            "showLog": true,
+			"trace": "log",
+			"logOutput": "rpc"
+        },
+        {
             "name": "Debug e2e tests",
             "type": "go",
             "request": "launch",
