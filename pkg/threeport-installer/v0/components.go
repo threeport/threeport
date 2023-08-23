@@ -1323,7 +1323,7 @@ func getAirArgs(name, extraArgs string) []interface{} {
 
 	return []interface{}{
 		"-c", "/threeport/cmd/dev/air.toml",
-		"-build.cmd", "go build -o /threeport/bin/threeport-" + name + " /threeport/cmd/" + name + "/" + main,
+		"-build.cmd", "go build -gcflags='all=-N -l' -o /threeport/bin/threeport-" + name + " /threeport/cmd/" + name + "/" + main,
 		"-build.bin", "/usr/local/bin/dlv",
 		"-build.args_bin", "--continue --accept-multiclient --listen=:40000 --headless=true --api-version=2 --log exec /threeport/bin/threeport-" + name + appendedArgs,
 	}
