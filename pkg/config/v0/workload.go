@@ -243,7 +243,7 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 		}
 		// no error means workload instance was found - hasn't yet been deleted
 		deletedCheckAttempts += 1
-		time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
+		time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
 	}
 	if !workloadInstanceDeleted {
 		return nil, nil, errors.New(fmt.Sprintf(
