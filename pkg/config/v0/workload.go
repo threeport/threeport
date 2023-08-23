@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -223,6 +224,32 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	deletedWorkloadInstance, err := client.DeleteWorkloadInstance(apiClient, apiEndpoint, *workloadInstance.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
+	}
+
+	// wait for workload deletion to be reconciled
+	deletedCheckAttempts := 0
+	deletedCheckAttemptsMax := 30
+	deletedCheckDurationSeconds := 1
+	workloadInstanceDeleted := false
+	for deletedCheckAttempts < deletedCheckAttemptsMax {
+		_, err := client.GetWorkloadInstanceByID(apiClient, apiEndpoint, *workloadInstance.ID)
+		if err != nil {
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				workloadInstanceDeleted = true
+				break
+			} else {
+				return nil, nil, fmt.Errorf("failed to get workload instance from API when checking deletion: %w", err)
+			}
+		}
+		// no error means workload instance was found - hasn't yet been deleted
+		deletedCheckAttempts += 1
+		time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
+	}
+	if !workloadInstanceDeleted {
+		return nil, nil, errors.New(fmt.Sprintf(
+			"workload instance not deleted after %d seconds",
+			deletedCheckAttemptsMax*deletedCheckDurationSeconds,
+		))
 	}
 
 	// delete workload definition
