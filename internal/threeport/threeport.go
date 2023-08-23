@@ -1,8 +1,6 @@
 package threeport
 
 import (
-	"fmt"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
@@ -33,10 +31,4 @@ const (
 type ControlPlane struct {
 	InfraProvider v0.KubernetesRuntimeInfraProvider
 	Tier          ControlPlaneTier
-}
-
-// BootstrapKubernetesRuntimeName is the name given to the runtime cluster used
-// as the initial compute space.
-func BootstrapKubernetesRuntimeName(threeportInstanceName string) string {
-	return fmt.Sprintf("compute-space-%s-0", threeportInstanceName)
 }
