@@ -98,7 +98,7 @@ func TestWorkloadE2E(t *testing.T) {
 		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
 		assert.Nil(err, "should have no error creating http client")
 
-		gatewayDefinitionName := "gatewayDefinition"
+		gatewayDefinitionName := "gateway-definition"
 		tcpPort := 80
 		tlsEnabled := false
 		gatewayDefinition := &v0.GatewayDefinition{
@@ -424,8 +424,24 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.Nil(err, "should have no error deleting workload instance")
 
-		// give the API server time to process deletion
-		time.Sleep(time.Second * 3)
+		// wait for workload deletion to be reconciled
+		deletedCheckAttempts := 0
+		deletedCheckAttemptsMax := 30
+		deletedCheckDurationSeconds := 1
+		workloadInstanceDeleted := false
+		for deletedCheckAttempts < deletedCheckAttemptsMax {
+			_, err := client.GetWorkloadInstanceByID(apiClient, apiAddr(), *createdWorkloadInst.ID)
+			if err != nil {
+				if errors.Is(err, client.ErrorObjectNotFound) {
+					workloadInstanceDeleted = true
+					break
+				}
+			}
+			// no error means workload instance was found - hasn't yet been deleted
+			deletedCheckAttempts += 1
+			time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
+		}
+		assert.True(workloadInstanceDeleted, fmt.Sprintf("should have found that workload instance was deleted after %d seconds", deletedCheckAttemptsMax*deletedCheckDurationSeconds))
 
 		// make sure there are zero workload instances in system
 		workloadInsts, err := client.GetWorkloadInstances(
@@ -480,7 +496,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// delete gateway definition
 		deletedAttempts := 0
 		deletedAttemptsMax := 10
-		deletedCheckDurationSeconds := 1
+		deletedCheckDurationSeconds = 1
 		for deletedAttempts < deletedAttemptsMax {
 			_, err = client.DeleteGatewayDefinition(
 				apiClient,
