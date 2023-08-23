@@ -75,6 +75,7 @@ func BuildDevImage(threeportPath string) error {
 		Dockerfile: filepath.Join("cmd", "dev", "Dockerfile-dev"),
 		Tags:       []string{imageName},
 		Remove:     true,
+		Target:    "live-reload-dev",
 	}
 
 	result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
