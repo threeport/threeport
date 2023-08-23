@@ -28,12 +28,12 @@ type WorkloadConfig struct {
 // WorkloadValues contains the attributes needed to manage a workload
 // definition and workload instance.
 type WorkloadValues struct {
-	Name                      string                          `yaml:"Name"`
-	YAMLDocument              string                          `yaml:"YAMLDocument"`
-	WorkloadConfigPath        string                          `yaml:"WorkloadConfigPath"`
-	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	DomainName                DomainNameDefinitionValues      `yaml:"DomainName"`
-	Gateway                   GatewayDefinitionValues         `yaml:"Gateway"`
+	Name                      string                           `yaml:"Name"`
+	YAMLDocument              string                           `yaml:"YAMLDocument"`
+	WorkloadConfigPath        string                           `yaml:"WorkloadConfigPath"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	DomainName                *DomainNameDefinitionValues      `yaml:"DomainName"`
+	Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
 }
 
 // WorkloadDefinitionConfig contains the config for a workload definition.
@@ -57,9 +57,9 @@ type WorkloadInstanceConfig struct {
 // WorkloadInstanceValues contains the attributes needed to manage a workload
 // instance.
 type WorkloadInstanceValues struct {
-	Name                      string                          `yaml:"Name"`
-	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadDefinition        WorkloadDefinitionValues        `yaml:"WorkloadDefinition"`
+	Name                      string                           `yaml:"Name"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	WorkloadDefinition        WorkloadDefinitionValues         `yaml:"WorkloadDefinition"`
 }
 
 // Create creates a workload definition and instance in the Threeport API.
@@ -88,51 +88,53 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		return nil, nil, fmt.Errorf("failed to create workload instance: %w", err)
 	}
 
-	// create the domain name definition
-	domainNameDefinition := DomainNameDefinitionValues{
-		Name:       w.DomainName.Name,
-		Zone:       w.DomainName.Zone,
-		AdminEmail: w.DomainName.AdminEmail,
-	}
-	_, err = domainNameDefinition.CreateIfNotExist(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create domain name definition: %w", err)
-	}
+	if w.DomainName != nil && w.Gateway != nil {
+		// create the domain name definition
+		domainNameDefinition := DomainNameDefinitionValues{
+			Name:       w.DomainName.Name,
+			Zone:       w.DomainName.Zone,
+			AdminEmail: w.DomainName.AdminEmail,
+		}
+		_, err = domainNameDefinition.CreateIfNotExist(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create domain name definition: %w", err)
+		}
 
-	// create the domain name instance
-	domainNameInstance := DomainNameInstanceValues{
-		DomainNameDefinition:      domainNameDefinition,
-		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-		WorkloadInstance:          workloadInstance,
-	}
-	_, err = domainNameInstance.Create(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create domain name instance: %w", err)
-	}
+		// create the domain name instance
+		domainNameInstance := DomainNameInstanceValues{
+			DomainNameDefinition:      domainNameDefinition,
+			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
+			WorkloadInstance:          workloadInstance,
+		}
+		_, err = domainNameInstance.Create(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create domain name instance: %w", err)
+		}
 
-	// create the gateway definition
-	gatewayDefinition := GatewayDefinitionValues{
-		Name:                 w.Gateway.Name,
-		TCPPort:              w.Gateway.TCPPort,
-		TLSEnabled:           w.Gateway.TLSEnabled,
-		Path:                 w.Gateway.Path,
-		ServiceName:          w.Gateway.ServiceName,
-		DomainNameDefinition: domainNameDefinition,
-	}
-	_, err = gatewayDefinition.Create(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create gateway definition: %w", err)
-	}
+		// create the gateway definition
+		gatewayDefinition := GatewayDefinitionValues{
+			Name:                 w.Gateway.Name,
+			TCPPort:              w.Gateway.TCPPort,
+			TLSEnabled:           w.Gateway.TLSEnabled,
+			Path:                 w.Gateway.Path,
+			ServiceName:          w.Gateway.ServiceName,
+			DomainNameDefinition: domainNameDefinition,
+		}
+		_, err = gatewayDefinition.Create(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create gateway definition: %w", err)
+		}
 
-	// create the gateway instance
-	gatewayInstance := GatewayInstanceValues{
-		GatewayDefinition:         gatewayDefinition,
-		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-		WorkloadInstance:          workloadInstance,
-	}
-	_, err = gatewayInstance.Create(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create gateway instance: %w", err)
+		// create the gateway instance
+		gatewayInstance := GatewayInstanceValues{
+			GatewayDefinition:         gatewayDefinition,
+			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
+			WorkloadInstance:          workloadInstance,
+		}
+		_, err = gatewayInstance.Create(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create gateway instance: %w", err)
+		}
 	}
 
 	return createdWorkloadDefinition, createdWorkloadInstance, nil
@@ -142,53 +144,56 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 // domain name definition, domain name instance,
 // gateway definition, and gateway instance from the Threeport API.
 func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
+	if w.DomainName != nil {
+		// get domain name instance by name
+		domainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, w.DomainName.Name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to find domain name instance with name %s: %w", w.DomainName.Name, err)
+		}
 
-	// get domain name instance by name
-	domainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, w.DomainName.Name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find domain name instance with name %s: %w", w.DomainName.Name, err)
+		// delete domain name instance
+		_, err = client.DeleteDomainNameInstance(apiClient, apiEndpoint, *domainNameInstance.ID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to delete domain name instance from threeport API: %w", err)
+		}
+
+		// get domain name definition by name
+		domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, w.DomainName.Name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to find domain name definition with name %s: %w", w.DomainName.Name, err)
+		}
+
+		// delete domain name definition
+		_, err = client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *domainNameDefinition.ID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to delete domain name definition from threeport API: %w", err)
+		}
 	}
 
-	// delete domain name instance
-	_, err = client.DeleteDomainNameInstance(apiClient, apiEndpoint, *domainNameInstance.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to delete domain name instance from threeport API: %w", err)
-	}
+	if w.Gateway != nil {
+		// get gateway instance by name
+		gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, w.Gateway.Name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to find gateway instance with name %s: %w", w.Gateway.Name, err)
+		}
 
-	// get domain name definition by name
-	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, w.DomainName.Name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find domain name definition with name %s: %w", w.DomainName.Name, err)
-	}
+		// delete gateway instance
+		_, err = client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to delete gateway instance from threeport API: %w", err)
+		}
 
-	// delete domain name definition
-	_, err = client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *domainNameDefinition.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to delete domain name definition from threeport API: %w", err)
-	}
+		// get gateway definition by name
+		gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, w.Gateway.Name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to find gateway definition with name %s: %w", w.Gateway.Name, err)
+		}
 
-	// get gateway instance by name
-	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, w.Gateway.Name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find gateway instance with name %s: %w", w.Gateway.Name, err)
-	}
-
-	// delete gateway instance
-	_, err = client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to delete gateway instance from threeport API: %w", err)
-	}
-
-	// get gateway definition by name
-	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, w.Gateway.Name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find gateway definition with name %s: %w", w.Gateway.Name, err)
-	}
-
-	// delete gateway definition
-	_, err = client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to delete gateway definition from threeport API: %w", err)
+		// delete gateway definition
+		_, err = client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to delete gateway definition from threeport API: %w", err)
+		}
 	}
 
 	// get workload instance by name
@@ -292,7 +297,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 
 	// get kubernetes runtime instance by name if provided, otherwise default kubernetes runtime
 	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
-	if wi.KubernetesRuntimeInstance.Name == "" {
+	if wi.KubernetesRuntimeInstance == nil {
 		// get default kubernetes runtime instance
 		kubernetesRuntimeInst, err := client.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
 		if err != nil {
