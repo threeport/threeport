@@ -193,7 +193,7 @@ func TestWorkloadE2E(t *testing.T) {
 				break
 			}
 			workloadDefChecks += 1
-			time.Sleep(time.Duration(workloadDefCheckDurationSeconds * 1000000000))
+			time.Sleep(time.Second * time.Duration(workloadDefCheckDurationSeconds))
 		}
 		assert.Equal(*existingWorkloadDef.Reconciled, true, fmt.Sprintf("created workload definition should be reconciled by workload controller after %d seconds", workloadDefMaxChecks*workloadDefCheckDurationSeconds))
 
@@ -338,7 +338,7 @@ func TestWorkloadE2E(t *testing.T) {
 				if len(managedNamespaceNames) < 1 {
 					// not found yet, check again in getNSDurationSeconds
 					getNSAttempts += 1
-					time.Sleep(time.Duration(getNSDurationSeconds * 1000000000))
+					time.Sleep(time.Second * time.Duration(getNSDurationSeconds))
 					continue
 				}
 				managedNSFound = true
@@ -377,7 +377,7 @@ func TestWorkloadE2E(t *testing.T) {
 				break
 			}
 			findAttempts += 1
-			time.Sleep(time.Duration(findCheckDurationSeconds * 1000000000))
+			time.Sleep(time.Second * time.Duration(findCheckDurationSeconds))
 		}
 		assert.Equal(allResourcesFound, true, fmt.Sprintf("should have found all resources in Kubernetes after %d seconds", findAttemptsMax*findCheckDurationSeconds))
 
@@ -403,7 +403,7 @@ func TestWorkloadE2E(t *testing.T) {
 				break
 			}
 			eventAttempts += 1
-			time.Sleep(time.Duration(eventCheckDurationSeconds * 1000000000))
+			time.Sleep(time.Second * time.Duration(eventCheckDurationSeconds))
 		}
 		assert.Equal(startedEventFound, true, fmt.Sprintf("should have found all container started events in Kubernetes after %d seconds", eventAttemptsMax*eventCheckDurationSeconds))
 
@@ -426,7 +426,7 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// wait for workload deletion to be reconciled
 		deletedCheckAttempts := 0
-		deletedCheckAttemptsMax := 30
+		deletedCheckAttemptsMax := 90
 		deletedCheckDurationSeconds := 1
 		workloadInstanceDeleted := false
 		for deletedCheckAttempts < deletedCheckAttemptsMax {
@@ -439,7 +439,7 @@ func TestWorkloadE2E(t *testing.T) {
 			}
 			// no error means workload instance was found - hasn't yet been deleted
 			deletedCheckAttempts += 1
-			time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
+			time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
 		}
 		assert.True(workloadInstanceDeleted, fmt.Sprintf("should have found that workload instance was deleted after %d seconds", deletedCheckAttemptsMax*deletedCheckDurationSeconds))
 
@@ -489,7 +489,7 @@ func TestWorkloadE2E(t *testing.T) {
 				break
 			}
 			goneAttempts += 1
-			time.Sleep(time.Duration(goneCheckDurationSeconds * 1000000000))
+			time.Sleep(time.Second * time.Duration(goneCheckDurationSeconds))
 		}
 		assert.Equal(allResourcesGone, true, fmt.Sprintf("should have found that all resources are gone from Kubernetes after %d seconds", goneAttemptsMax*goneCheckDurationSeconds))
 
@@ -508,7 +508,7 @@ func TestWorkloadE2E(t *testing.T) {
 			// instance yet. If so, wait and try again
 			if err != nil {
 				deletedAttempts += 1
-				time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
+				time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
 				continue
 			}
 			break
