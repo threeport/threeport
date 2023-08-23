@@ -282,7 +282,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 	// the kubernetes runtime instance is the default compute space kubernetes runtime to be added
 	// to the API
-	kubernetesRuntimeInstName := threeport.BootstrapKubernetesRuntimeName(a.InstanceName)
+	kubernetesRuntimeInstName := provider.ThreeportRuntimeName(a.InstanceName)
 	controlPlaneHost := true
 	defaultRuntime := true
 	instReconciled := true // this instance exists already - we don't need the k8s runtime instance doing anything
@@ -331,6 +331,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
 			EncryptedConnectionToken:  &kubeConnectionInfo.EKSToken,
+			ConnectionTokenExpiration: &kubeConnectionInfo.EKSTokenExpiration,
 			DefaultRuntime:            &defaultRuntime,
 		}
 	}
@@ -670,7 +671,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	}
 
 	// create the default compute space kubernetes runtime definition in threeport API
-	kubernetesRuntimeDefName := fmt.Sprintf("compute-space-%s", a.InstanceName)
+	kubernetesRuntimeDefName := provider.ThreeportRuntimeName(a.InstanceName)
 	defReconciled := true // this definition for the bootstrap cluster does not require reconcilation
 	kubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
 		Definition: v0.Definition{
@@ -771,7 +772,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
 
 		// create aws eks k8s runtime definition
-		eksRuntimeDefName := fmt.Sprintf("eks-compute-space-%s", a.InstanceName)
+		eksRuntimeDefName := provider.ThreeportRuntimeName(a.InstanceName)
 		zoneCount := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ZoneCount)
 		defaultNodeGroupInitialSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupInitialNodes)
 		defaultNodeGroupMinSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupMinNodes)
@@ -809,7 +810,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			return fmt.Errorf("failed to marshal eks kubernetes runtime inventory for inventory update: %w", err)
 		}
 		dbInventory := datatypes.JSON(inventoryJSON)
-		eksRuntimeInstName := threeport.BootstrapKubernetesRuntimeName(a.InstanceName)
+		eksRuntimeInstName := provider.ThreeportRuntimeName(a.InstanceName)
 		reconciled := true
 		awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
 			Instance: v0.Instance{
