@@ -142,9 +142,15 @@ func getRESTConfig(
 		tlsConfig := rest.TLSClientConfig{
 			CAData: []byte(*runtime.CACertificate),
 		}
-		bearerToken, err := encryption.Decrypt(encryptionKey, *runtime.EncryptedConnectionToken)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt kubernetes runtime instance connection token: %w", err)
+		var bearerToken string
+		if encryptionKey != "" {
+			token, err := encryption.Decrypt(encryptionKey, *runtime.EncryptedConnectionToken)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt kubernetes runtime instance connection token: %w", err)
+			}
+			bearerToken = token
+		} else {
+			bearerToken = *runtime.EncryptedConnectionToken
 		}
 		restConfig = rest.Config{
 			Host:            kubeAPIEndpoint,
