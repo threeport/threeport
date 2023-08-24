@@ -106,9 +106,9 @@ func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceNa
 
 // GetThreeportAPIEndpoint returns the threeport API endpoint from threeport
 // config.
-func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
+func (cfg *ThreeportConfig) GetThreeportAPIEndpoint(requestedInstance string) (string, error) {
 	for i, instance := range cfg.Instances {
-		if instance.Name == cfg.CurrentInstance {
+		if instance.Name == requestedInstance {
 			return cfg.Instances[i].APIServer, nil
 		}
 	}
@@ -118,9 +118,9 @@ func (cfg *ThreeportConfig) GetThreeportAPIEndpoint() (string, error) {
 
 // GetThreeportAuthEnabled returns a boolean that indicates whether current
 // instance has auth enabled.
-func (cfg *ThreeportConfig) GetThreeportAuthEnabled() (bool, error) {
+func (cfg *ThreeportConfig) GetThreeportAuthEnabled(requestedInstance string) (bool, error) {
 	for i, instance := range cfg.Instances {
-		if instance.Name == cfg.CurrentInstance {
+		if instance.Name == requestedInstance {
 			return cfg.Instances[i].AuthEnabled, nil
 		}
 	}
@@ -130,9 +130,9 @@ func (cfg *ThreeportConfig) GetThreeportAuthEnabled() (bool, error) {
 
 // GetEncryptionKey returns the encryption key from the threeport
 // config.
-func (cfg *ThreeportConfig) GetEncryptionKey() (string, error) {
+func (cfg *ThreeportConfig) GetEncryptionKey(requestedInstance string) (string, error) {
 	for i, instance := range cfg.Instances {
-		if instance.Name == cfg.CurrentInstance {
+		if instance.Name == requestedInstance {
 			return cfg.Instances[i].EncryptionKey, nil
 		}
 	}
@@ -189,15 +189,6 @@ func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName str
 	}
 
 	return caCert, clientCert, clientPrivateKey, nil
-}
-
-// GetThreeportCertificates returns the CA certificate, client certificate, and
-// client private key for the current instance.
-func (cfg *ThreeportConfig) GetThreeportCertificates() (caCert, clientCert, clientPrivateKey string, err error) {
-	if cfg.CurrentInstance == "" {
-		return "", "", "", errors.New("current instance not set - set it with 'tptctl config current-instance -n [instance name]'")
-	}
-	return cfg.GetThreeportCertificatesForInstance(cfg.CurrentInstance)
 }
 
 // SetCurrentInstance updates the threeport config to set CurrentInstance as the
@@ -273,4 +264,13 @@ func DefaultProviderConfigDir() (string, error) {
 	}
 
 	return DefaultThreeportConfigPath(home), nil
+}
+
+// GetRequestedInstanceName returns the requested instance name or the current
+// instance name if none is provided.
+func (cfg *ThreeportConfig) GetRequestedInstanceName(requestedInstance string) string {
+	if requestedInstance != "" {
+		return requestedInstance
+	}
+	return cfg.CurrentInstance
 }

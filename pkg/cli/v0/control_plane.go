@@ -440,7 +440,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane(customInstaller *threeport.Cont
 	}
 
 	// get threeport API client
-	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
+	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForInstance(a.InstanceName)
 	if err != nil {
 		msg := "failed to get threeport certificates from config"
 		// print the error when it happens and then again post-deletion
