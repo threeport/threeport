@@ -170,7 +170,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		// create AWS Config
+		// create AWS config
 		awsConf, err := resource.LoadAWSConfig(
 			a.AwsConfigEnv,
 			a.AwsConfigProfile,
@@ -240,7 +240,6 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 		// update threeport config
 		threeportInstanceConfig.EKSProviderConfig = config.EKSProviderConfig{
-			AwsConfigEnv:     a.AwsConfigEnv,
 			AwsConfigProfile: a.AwsConfigProfile,
 			AwsRegion:        a.AwsRegion,
 			AwsAccountID:     a.CreateProviderAccountID,
@@ -875,11 +874,15 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		// create AWS Config
+		// create AWS config
+		// * AwsConfigEnv is always passed in from CLI args as it is not
+		//   persisted in threeport config
+		// * AwsConfigProfile and AwsRegion cannot be passed in through CLI for
+		// deletion opertion as these are stored in threeport config
 		awsConfig, err := resource.LoadAWSConfig(
 			a.AwsConfigEnv,
-			a.AwsConfigProfile,
-			a.AwsRegion,
+			threeportInstanceConfig.EKSProviderConfig.AwsConfigProfile,
+			threeportInstanceConfig.EKSProviderConfig.AwsRegion,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)

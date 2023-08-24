@@ -29,11 +29,20 @@ var ConfigGetInstancesCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// check to see if current instance is set
+		if threeportConfig.CurrentInstance == "" {
+			cli.Warning("current instance is not set - set it with 'tptctl config current-instance -i <instance name>'")
+		}
+
 		// output table of results
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "NAME\t PROVIDER")
+		fmt.Fprintln(writer, "NAME\t PROVIDER\t CURRENT INSTANCE")
 		for _, instance := range threeportConfig.Instances {
-			fmt.Fprintln(writer, instance.Name, "\t", instance.Provider)
+			currentInst := false
+			if instance.Name == threeportConfig.CurrentInstance {
+				currentInst = true
+			}
+			fmt.Fprintln(writer, instance.Name, "\t", instance.Provider, "\t", currentInst)
 		}
 		writer.Flush()
 	},
