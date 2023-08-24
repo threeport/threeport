@@ -14,8 +14,8 @@ jobs:
     steps:
     - name: Check Base Branch
       run: |
-        if [[ "${GITHUB_BASE_REF}" != "0.2" ]]; then
-          echo "Error: By default the pull request should be targeting the '0.2' branch but targets '${GITHUB_BASE_REF}' instead."
+        if [[ "${GITHUB_BASE_REF}" != "0.3" ]]; then
+          echo "Error: By default the pull request should be targeting the '0.3' branch but targets '${GITHUB_BASE_REF}' instead."
           echo "You can ignore this error if you are adding a bug fix to an earlier minor version release"
           exit 1
         fi
