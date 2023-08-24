@@ -68,7 +68,6 @@ type KubeAPI struct {
 // EKSProviderConfig is the set of provider config information needed to manage
 // EKS clusters on AWs.
 type EKSProviderConfig struct {
-	AwsConfigEnv     bool   `yaml:"AWSConfigEnv"`
 	AwsConfigProfile string `yaml:"AWSConfigProfile"`
 	AwsRegion        string `yaml:"AWSRegion"`
 	AwsAccountID     string `yaml:"AWSAccountID"`
@@ -141,8 +140,8 @@ func (cfg *ThreeportConfig) GetEncryptionKey() (string, error) {
 	return "", errors.New("current instance not found when retrieving encryption key")
 }
 
-// GetThreeportCertificates returns the CA certificate, client certificate, and
-// client private key for a named threeport instance.
+// GetThreeportCertificatesForInstance returns the CA certificate, client
+// certificate, and client private key for a named threeport instance.
 func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName string) (string, string, string, error) {
 	// find instance
 	var instance Instance
