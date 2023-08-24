@@ -29,8 +29,7 @@ control plane so that it may be used to manage infrastructure.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config and extract threeport API endpoint
-		threeportConfig, err := config.GetThreeportConfig()
-		requestedInstance := threeportConfig.GetRequestedInstanceName(cliArgs.InstanceName)
+		threeportConfig, requestedInstance, err := config.GetThreeportConfig(cliArgs.InstanceName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)

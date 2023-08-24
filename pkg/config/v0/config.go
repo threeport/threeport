@@ -198,14 +198,20 @@ func (cfg *ThreeportConfig) SetCurrentInstance(instanceName string) {
 	viper.WriteConfig()
 }
 
-// GetThreeportConfig retrieves the threeport config
-func GetThreeportConfig() (*ThreeportConfig, error) {
+// GetThreeportConfig retrieves the threeport config and name of the
+// requested instance.
+func GetThreeportConfig(requestedInstance string) (*ThreeportConfig, string, error) {
 	threeportConfig := &ThreeportConfig{}
 	if err := viper.Unmarshal(threeportConfig); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+		return nil, "", fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	return threeportConfig, nil
+	instance := threeportConfig.CurrentInstance
+	if requestedInstance != "" {
+		instance = requestedInstance
+	}
+
+	return threeportConfig, instance, nil
 }
 
 // UpdateThreeportConfig updates a threeport config to add or update a config
@@ -264,13 +270,4 @@ func DefaultProviderConfigDir() (string, error) {
 	}
 
 	return DefaultThreeportConfigPath(home), nil
-}
-
-// GetRequestedInstanceName returns the requested instance name or the current
-// instance name if none is provided.
-func (cfg *ThreeportConfig) GetRequestedInstanceName(requestedInstance string) string {
-	if requestedInstance != "" {
-		return requestedInstance
-	}
-	return cfg.CurrentInstance
 }

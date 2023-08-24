@@ -25,12 +25,11 @@ var GetGatewayInstancesCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config and extract threeport API endpoint
-		threeportConfig, err := config.GetThreeportConfig()
+		threeportConfig, requestedInstance, err := config.GetThreeportConfig(cliArgs.InstanceName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
-		requestedInstance := threeportConfig.GetRequestedInstanceName(cliArgs.InstanceName)
 		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedInstance)
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)
