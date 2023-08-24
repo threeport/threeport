@@ -8,7 +8,7 @@ KubernetesRuntimeInstance objects.  It serves as an abstraction to
 cloud-provider specific implementation details so that users can declare a
 runtime with a set of high-level configs.   This controller translates those
 configs into cloud provider values and creates the provider-specific resource on
-the user's behlaf.  It also contains connection information and credentials that
+the user's behalf.  It also contains connection information and credentials that
 other controllers, such as the workload controller, use to connect to the
 Kubernetes API to manage workloads.
 
