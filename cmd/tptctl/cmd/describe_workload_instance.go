@@ -140,6 +140,10 @@ func init() {
 		&describeWorkloadInstanceName,
 		"name", "n", "", "Name of workload instance.",
 	)
+	DescribeWorkloadInstanceCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }
 
 // validateDescribeControlPlaneFlags validates flag inputs as needed.

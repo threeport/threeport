@@ -132,4 +132,8 @@ This command displays all instances and the definitions used to configure them.`
 
 func init() {
 	getCmd.AddCommand(GetWorkloadsCmd)
+	GetWorkloadsCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }

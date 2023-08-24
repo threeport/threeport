@@ -79,4 +79,8 @@ var GetWorkloadDefinitionsCmd = &cobra.Command{
 
 func init() {
 	getCmd.AddCommand(GetWorkloadDefinitionsCmd)
+	GetWorkloadDefinitionsCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }

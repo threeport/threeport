@@ -38,4 +38,8 @@ func init() {
 		"aws-config-env", false, "Retrieve AWS credentials from environment variables when using eks provider.",
 	)
 	DeleteControlPlaneCmd.MarkFlagRequired("name")
+	DeleteControlPlaneCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }

@@ -89,4 +89,8 @@ func init() {
 		"config", "c", "", "Path to file with AWS account config.",
 	)
 	CreateAwsAccountCmd.MarkFlagRequired("config")
+	CreateAwsAccountCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }

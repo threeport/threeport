@@ -129,4 +129,8 @@ var GetGatewayInstancesCmd = &cobra.Command{
 
 func init() {
 	getCmd.AddCommand(GetGatewayInstancesCmd)
+	GetGatewayInstancesCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }

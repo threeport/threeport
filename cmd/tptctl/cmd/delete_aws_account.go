@@ -81,4 +81,8 @@ func init() {
 		"name", "n", "", "Name of AWS account.",
 	)
 	DeleteAwsAccountCmd.MarkFlagRequired("name")
+	DeleteAwsAccountCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }

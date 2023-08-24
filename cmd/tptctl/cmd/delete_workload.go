@@ -116,6 +116,10 @@ func init() {
 		&deleteWorkloadName,
 		"name", "n", "", "Name of workload.",
 	)
+	DeleteWorkloadCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }
 
 // validateDeleteWorkloadFlags validates flag inputs as needed.

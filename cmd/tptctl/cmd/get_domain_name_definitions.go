@@ -79,4 +79,8 @@ var GetDomainNameDefinitionsCmd = &cobra.Command{
 
 func init() {
 	getCmd.AddCommand(GetDomainNameDefinitionsCmd)
+	GetDomainNameDefinitionsCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }

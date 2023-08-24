@@ -87,4 +87,8 @@ func init() {
 		"config", "c", "", "Path to file with gateway definition config.",
 	)
 	CreateGatewayDefinitionCmd.MarkFlagRequired("config")
+	CreateGatewayDefinitionCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }

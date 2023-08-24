@@ -91,4 +91,8 @@ func init() {
 		"config", "c", "", "Path to file with kubernetes runtime config.",
 	)
 	CreateKubernetesRuntimeCmd.MarkFlagRequired("config")
+	CreateKubernetesRuntimeCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }

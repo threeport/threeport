@@ -81,4 +81,8 @@ func init() {
 		"name", "n", "", "Name of kubernetes runtime instance.",
 	)
 	DeleteKubernetesRuntimeInstanceCmd.MarkFlagRequired("name")
+	DeleteKubernetesRuntimeInstanceCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }

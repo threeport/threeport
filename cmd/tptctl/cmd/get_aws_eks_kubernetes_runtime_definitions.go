@@ -115,4 +115,8 @@ var GetAwsEksKubernetesRuntimeInstancesCmd = &cobra.Command{
 
 func init() {
 	getCmd.AddCommand(GetAwsEksKubernetesRuntimeInstancesCmd)
+	GetAwsEksKubernetesRuntimeInstancesCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+	)
 }
