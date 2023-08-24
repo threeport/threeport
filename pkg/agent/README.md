@@ -3,7 +3,6 @@
 This package contains the Kubernetes API extension for the threeport-agent.  We
 use Kubernetes version conventions for this resource, currently `v1alpha1`.
 
-
 The ThreeportWorkload API type is defined in
 `api/v1alpha1/threeportworkload_types`.  If you need to make changes to the
 fields available in that resource, that is where to do it.

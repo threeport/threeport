@@ -1,8 +1,8 @@
 # threeport-agent
 
 The threeport-agent is a Kubernetes Operator that runs in each cluster managed
-by Threeport and provides a feedback loop on Kubernetes resources in the run
-time clusters.
+by Threeport and provides a feedback loop on Kubernetes resources in the runtime
+clusters.
 
 Its primary purpose is to send information back to the Threeport API so that:
 

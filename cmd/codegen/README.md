@@ -1,10 +1,9 @@
 # Threeport Codegen
 
-Generate boilerplate code for threeport projects.
+Generate boilerplate code for threeport and its extensions.
 
 Here you will find the main package and commands for the `threeport-codegen`
-CLI.  This command line tool is not intended to be used directly (although it
-can be).  Its primary use is being called by `go:generate` directives alonside
+CLI.  Today, its primary use is being called by `go:generate` directives alonside
 code such as in `cmd/rest-api/main.go` where code is generated for the threeport
 API server.
 
@@ -17,4 +16,7 @@ generation which has good docs with many examples in its README.
 
 For more information see the [internal codegen package
 docs](../../internal/codegen/README.md) docs.
+
+In future, this tool will become the threeport-sdk that will be used by
+threeport developers and those building extensions to threeport.
 

@@ -10,7 +10,8 @@ requests), the NATS subject names that are used for notifications to
 the controllers as well as the REST paths that are used by the APIs request
 router.
 
-The objects are versioned so that backward compatibility can be maintained.
-When required fields are added to an object or when fields are removed, a new
-version for that API object must be created.
+The objects are versioned so that backward compatibility for the API objects can
+be maintained across releases of threeport itself.  When required fields are
+added to an object or when fields are removed, a new version for that API object
+must be created.
 

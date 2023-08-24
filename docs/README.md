@@ -13,9 +13,16 @@ Following is an overview of what lives at the root of this repo:
 * The `bin` directory is where binary artifacts are stored when built.
 * The `cmd` directory contains the main package for each program that produces a
   binary artifact:
-  * [agent](../cmd/agent/README.md) is the run time control plane agent.
+  * [agent](../cmd/agent/README.md) is the runtime control plane agent.
+  * [aws-controller](../cmd/aws-controller/README.md) is the threeport
+    controller that manages AWS resources as workload dependencies.
   * [codegen](../cmd/codegen/README.md) generates scaffolding and boilerplate code
     for various components and packages.
+  * [gateway-controller](../cmd/gateway-controller/README.md) is the threeport
+    controller that manages network ingress gateways and DNS records for workloads.
+  * [kubernetes-runtime-controller](../cmd/kubernetes-runtime-controller/README.md)
+    is the threeport controller that manages Kubernetes clusters as runtime
+    environments for workloads.
   * [rest-api](../cmd/rest-api/README.md) is the RESTful API for the threeport
     control plane.
   * [tptctl](../cmd/tptctl/README.md) is the primary client CLI for threeport uers.
@@ -53,17 +60,25 @@ a list of available operations.
 Following is an index of package documentation:
 * [`internal/agent`](../internal/agent/README.md)
 * [`internal/api`](../internal/api/README.md)
+* [`internal/aws`](../internal/aws/README.md)
+* [`internal/cli`](../internal/cli/README.md)
 * [`internal/codegen`](../internal/codegen/README.md)
+* [`internal/gateway`](../internal/gateway/README.md)
 * [`internal/kube`](../internal/kube/README.md)
+* [`internal/kubernetesruntime`](../internal/kubernetesruntime/README.md)
 * [`internal/log`](../internal/log/README.md)
 * [`internal/provider`](../internal/provider/README.md)
 * [`internal/threeport`](../internal/threeport/README.md)
 * [`internal/tptdev`](../internal/tptdev/README.md)
+* [`internal/util`](../internal/util/README.md)
 * [`internal/version`](../internal/version/README.md)
 * [`internal/workload`](../internal/workload/README.md)
 * [`pkg/agent`](../pkg/agent/README.md)
 * [`pkg/api`](../pkg/api/README.md)
+* [`pkg/auth`](../pkg/auth/README.md)
 * [`pkg/client`](../pkg/client/README.md)
 * [`pkg/config`](../pkg/config/README.md)
 * [`pkg/controller`](../pkg/controller/README.md)
+* [`pkg/encryption`](../pkg/encryption/README.md)
+* [`pkg/notifications`](../pkg/notifications/README.md)
 
