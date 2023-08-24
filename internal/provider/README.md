@@ -1,5 +1,7 @@
 # internal/provider
 
-This package is for interacting with infrastructure and managed service
-providers.
+This package provides the interfaces for implementing workload dependencies on
+different providers.  Currently, it provides only a Kubernetes runtime
+implementation.  In the future, it will also include interfaces for databases,
+object stores and other workload dependencies.
 

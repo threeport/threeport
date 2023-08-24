@@ -1,8 +1,7 @@
-# pkg/controller
+# pkg/auth
 
-This package is a library for common controller operations.  It is used by core
-threeport controllers and can be used by externally maintained custom controllers
-that are added to user's threeport implementations.
+This package is used to manage TLS assets used to secure connections to the
+threeport API and authenticate requests.
 
 This package is versioned to maintain compatibility for projects importing it
 while still being able to upgrade to the latest version of threeport. This
