@@ -2,7 +2,6 @@
 
 This package contains:
 * Definition and management of the threeport config.
-  machines to configure interaction with threeport control planes.
 * Threeport object config abstractions for client applications.
 
 The threeport config is a file that resides on a user's workstation at
