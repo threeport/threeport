@@ -287,6 +287,17 @@ NATS_PORT=4222
 		return fmt.Errorf("failed to create API server deployment: %w", err)
 	}
 
+	// configure API server port based on whether
+	// auth is enabled
+	port := map[string]interface{}{
+		"name":       apiServicePortName,
+		"port":       apiServicePort,
+		"protocol":   "TCP",
+		"targetPort": 1323,
+	}
+	if infraProvider == "kind" {
+		port["nodePort"] = getAPIServiceNodePort(authConfig)
+	}
 	var apiService = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -301,13 +312,7 @@ NATS_PORT=4222
 					"app.kubernetes.io/name": "threeport-api-server",
 				},
 				"ports": []interface{}{
-					map[string]interface{}{
-						"name":       apiServicePortName,
-						"port":       apiServicePort,
-						"protocol":   "TCP",
-						"targetPort": 1323,
-						"nodePort":   30000,
-					},
+					port,
 				},
 				"type": apiServiceType,
 			},
@@ -1741,6 +1746,15 @@ func getAPIServicePort(infraProvider string, authConfig *auth.AuthConfig) (strin
 	}
 
 	return "https", 443
+}
+
+// getAPIServiceNodePort returns threeport API's service node port based on
+// whether auth is enabled.
+func getAPIServiceNodePort(authConfig *auth.AuthConfig) int {
+	if authConfig != nil {
+		return 30001
+	}
+	return 30000
 }
 
 // getAgentArgs returns the args that are passed to the threeport agent.  In
