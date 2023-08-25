@@ -287,8 +287,7 @@ NATS_PORT=4222
 		return fmt.Errorf("failed to create API server deployment: %w", err)
 	}
 
-	// configure API server port based on whether
-	// auth is enabled
+	// configure node port based on infra provider
 	port := map[string]interface{}{
 		"name":       apiServicePortName,
 		"port":       apiServicePort,
@@ -296,7 +295,7 @@ NATS_PORT=4222
 		"targetPort": 1323,
 	}
 	if infraProvider == "kind" {
-		port["nodePort"] = getAPIServiceNodePort(authConfig)
+		port["nodePort"] = 30000
 	}
 	var apiService = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -1746,15 +1745,6 @@ func getAPIServicePort(infraProvider string, authConfig *auth.AuthConfig) (strin
 	}
 
 	return "https", 443
-}
-
-// getAPIServiceNodePort returns threeport API's service node port based on
-// whether auth is enabled.
-func getAPIServiceNodePort(authConfig *auth.AuthConfig) int {
-	if authConfig != nil {
-		return 30001
-	}
-	return 30000
 }
 
 // getAgentArgs returns the args that are passed to the threeport agent.  In

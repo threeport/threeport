@@ -147,6 +147,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			DevEnvironment:      a.DevEnvironment,
 			ThreeportPath:       a.ThreeportPath,
 			NumWorkerNodes:      a.NumWorkerNodes,
+			AuthEnabled:         a.AuthEnabled,
 		}
 
 		// update threerport config
