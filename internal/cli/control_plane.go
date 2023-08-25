@@ -137,7 +137,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		threeportAPIEndpoint = fmt.Sprintf(
 			"%s:%d",
 			threeport.ThreeportLocalAPIEndpoint,
-			getThreeportAPIPort(a.AuthEnabled),
+			kube.GetThreeportAPIPort(a.AuthEnabled),
 		)
 
 		// construct kind infra provider object
@@ -1145,12 +1145,4 @@ func (a *ControlPlaneCLIArgs) cleanOnCreateError(
 	}
 
 	return nil
-}
-
-// GetThreeportAPIPort returns the port that the threeport API is running on.
-func getThreeportAPIPort(authEnabled bool) int {
-	if authEnabled {
-		return 443
-	}
-	return 80
 }

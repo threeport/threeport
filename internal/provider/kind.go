@@ -123,13 +123,7 @@ func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWo
 // devEnvKindControlPlaneNode returns a control plane node with host path mount
 // for live code reloads.
 func devEnvKindControlPlaneNode(authEnabled bool, threeportPath, goPath, goCache string) *v1alpha4.Node {
-
-	// use port 80 for http, 443 for https
-	hostPort := 80
-	if authEnabled {
-		hostPort = 443
-	}
-
+	hostPort := kube.GetThreeportAPIPort(authEnabled)
 	controlPlaneNode := v1alpha4.Node{
 		Role: v1alpha4.ControlPlaneRole,
 		KubeadmConfigPatches: []string{

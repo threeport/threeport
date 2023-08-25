@@ -312,3 +312,11 @@ func refreshEKSConnection(
 
 	return &restConfig, nil
 }
+
+// GetThreeportAPIPort returns the port that the threeport API is running on.
+func GetThreeportAPIPort(authEnabled bool) int {
+	if authEnabled {
+		return 443
+	}
+	return 80
+}
