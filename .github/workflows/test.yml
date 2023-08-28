@@ -129,7 +129,14 @@ jobs:
 
   clean:
     if: ${{ always() }}
-    needs: [images, test]
+    needs:
+      - build-threeport-api
+      - build-workload-controller
+      - build-kubernetes-runtime-controller
+      - build-aws-controller
+      - build-gateway-controller
+      - build-threeport-agent
+      - test
     runs-on: ubuntu-latest
     steps:
     - name: Login to GitHub Container Registry
