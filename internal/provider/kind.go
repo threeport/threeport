@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/threeport/threeport/internal/threeport"
 	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cmd"
@@ -123,7 +124,7 @@ func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWo
 // devEnvKindControlPlaneNode returns a control plane node with host path mount
 // for live code reloads.
 func devEnvKindControlPlaneNode(authEnabled bool, threeportPath, goPath, goCache string) *v1alpha4.Node {
-	hostPort := kube.GetThreeportAPIPort(authEnabled)
+	hostPort := threeport.GetThreeportAPIPort(authEnabled)
 	controlPlaneNode := v1alpha4.Node{
 		Role: v1alpha4.ControlPlaneRole,
 		KubeadmConfigPatches: []string{
@@ -161,7 +162,7 @@ nodeRegistration:
 
 // kindControlPlaneNode returns a control plane node config for regular use.
 func kindControlPlaneNode(authEnabled bool) *v1alpha4.Node {
-	hostPort := kube.GetThreeportAPIPort(authEnabled)
+	hostPort := threeport.GetThreeportAPIPort(authEnabled)
 	controlPlaneNode := v1alpha4.Node{
 		Role: v1alpha4.ControlPlaneRole,
 		KubeadmConfigPatches: []string{

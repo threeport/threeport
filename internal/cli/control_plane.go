@@ -137,7 +137,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		threeportAPIEndpoint = fmt.Sprintf(
 			"%s:%d",
 			threeport.ThreeportLocalAPIEndpoint,
-			kube.GetThreeportAPIPort(a.AuthEnabled),
+			threeport.GetThreeportAPIPort(a.AuthEnabled),
 		)
 
 		// construct kind infra provider object

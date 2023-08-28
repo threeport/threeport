@@ -1887,3 +1887,11 @@ func getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []i
 
 	return vols, volMounts
 }
+
+// GetThreeportAPIPort returns the port that the threeport API is running on.
+func GetThreeportAPIPort(authEnabled bool) int {
+	if authEnabled {
+		return 443
+	}
+	return 80
+}
