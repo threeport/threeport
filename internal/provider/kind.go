@@ -109,7 +109,7 @@ func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWo
 		controlPlaneNode = *devEnvKindControlPlaneNode(authEnabled, threeportPath, goPath, goCache)
 		workerNodes = *devEnvKindWorkers(threeportPath, numWorkerNodes, goPath, goCache)
 	} else {
-		controlPlaneNode = *kindControlPlaneNode()
+		controlPlaneNode = *kindControlPlaneNode(authEnabled)
 		workerNodes = *kindWorkers(numWorkerNodes)
 	}
 	clusterConfig.Nodes = []v1alpha4.Node{controlPlaneNode}
@@ -160,7 +160,8 @@ nodeRegistration:
 }
 
 // kindControlPlaneNode returns a control plane node config for regular use.
-func kindControlPlaneNode() *v1alpha4.Node {
+func kindControlPlaneNode(authEnabled bool) *v1alpha4.Node {
+	hostPort := kube.GetThreeportAPIPort(authEnabled)
 	controlPlaneNode := v1alpha4.Node{
 		Role: v1alpha4.ControlPlaneRole,
 		KubeadmConfigPatches: []string{
@@ -173,7 +174,7 @@ nodeRegistration:
 		ExtraPortMappings: []v1alpha4.PortMapping{
 			{
 				ContainerPort: int32(30000),
-				HostPort:      int32(443),
+				HostPort:      int32(hostPort),
 				Protocol:      v1alpha4.PortMappingProtocolTCP,
 			},
 		},
