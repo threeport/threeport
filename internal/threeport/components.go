@@ -30,7 +30,6 @@ const (
 	ThreeportAPIServiceResourceName           = "threeport-api-server"
 	ThreeportAPIIngressResourceName           = "threeport-api-ingress"
 	ThreeportLocalAPIEndpoint                 = "localhost"
-	ThreeportLocalAPIPort                     = "443"
 )
 
 // ThreeportDevImages returns a map of main package dirs to dev image names
@@ -1894,4 +1893,14 @@ func GetThreeportAPIPort(authEnabled bool) int {
 		return 443
 	}
 	return 80
+}
+
+// GetLocalThreeportAPIEndpoint returns the endpoint for the threeport API
+// running locally.
+func GetLocalThreeportAPIEndpoint(authEnabled bool) string {
+	return fmt.Sprintf(
+		"%s:%d",
+		ThreeportLocalAPIEndpoint,
+		GetThreeportAPIPort(authEnabled),
+	)
 }

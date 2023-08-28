@@ -134,11 +134,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	awsConfig := &aws.Config{}
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
-		threeportAPIEndpoint = fmt.Sprintf(
-			"%s:%d",
-			threeport.ThreeportLocalAPIEndpoint,
-			threeport.GetThreeportAPIPort(a.AuthEnabled),
-		)
+		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(a.AuthEnabled)
 
 		// construct kind infra provider object
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
