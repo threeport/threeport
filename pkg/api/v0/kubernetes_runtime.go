@@ -73,11 +73,11 @@ type KubernetesRuntimeInstance struct {
 	Certificate *string `json:"Certificate,omitempty" validate:"optional"`
 
 	// The client certificate key to use for auth to the kube-api.
-	CertificateKey *string `json:"CertificateKey,omitempty" validate:"optional"`
+	CertificateKey *string `json:"CertificateKey,omitempty" validate:"optional" encrypt:"true"`
 
 	// Used to authenticate with a OIDC provider that implements auth for a
 	// Kubernetes cluster.  It is an alternative to client cert authenticaion.
-	ConnectionToken *string `json:"ConnectionToken,omitempty" validate:"optional"`
+	ConnectionToken *string `json:"ConnectionToken,omitempty" validate:"optional" encrypt:"true"`
 
 	// ConnectionTokenExpiration is the time when a ConnectionToken will expire.
 	// Used to ensure a token will not expire before it can be used.

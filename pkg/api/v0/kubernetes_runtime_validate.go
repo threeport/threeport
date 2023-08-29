@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 
 	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
 	"github.com/threeport/threeport/pkg/encryption/v0"
@@ -92,19 +94,30 @@ func (k *KubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
 	if encryptionKey == "" {
 		return errors.New("environment variable ENCRYPTION_KEY is not set")
 	}
-	if k.CertificateKey != nil {
-		encryptedVal, err := encryption.Encrypt(encryptionKey, *k.CertificateKey)
-		if err != nil {
-			return fmt.Errorf("failed to encrypt kubernetes API certificate key for storage: %w", err)
+	createdObj := *k
+	objVal := reflect.ValueOf(&createdObj).Elem()
+	objType := objVal.Type()
+	for i := 0; i < objType.NumField(); i++ {
+		field := objType.Field(i)
+		fieldVal := objVal.Field(i)
+		encrypt := field.Tag.Get("encrypt")
+		if encrypt == "true" {
+			if fieldVal.Kind() == reflect.Ptr && !fieldVal.IsNil() {
+				underlyingVal := fieldVal.Elem()
+				createdVal, ok := underlyingVal.Interface().(string)
+				if !ok {
+					return fmt.Errorf("%s field tagged for encryption but not a string value", field.Name)
+				}
+				encryptedVal, err := encryption.Encrypt(encryptionKey, createdVal)
+				if err != nil {
+					return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
+				}
+				// use gorm to get column name from field name
+				ns := schema.NamingStrategy{}
+				columnName := ns.ColumnName("", field.Name)
+				tx.Statement.SetColumn(columnName, encryptedVal)
+			}
 		}
-		k.CertificateKey = &encryptedVal
-	}
-	if k.ConnectionToken != nil {
-		encryptedVal, err := encryption.Encrypt(encryptionKey, *k.ConnectionToken)
-		if err != nil {
-			return fmt.Errorf("failed to encrypt kubernetes API connection token for storage: %w", err)
-		}
-		k.ConnectionToken = &encryptedVal
 	}
 
 	return nil
@@ -125,25 +138,29 @@ func (k *KubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
 		return errors.New("environment variable ENCRYPTION_KEY is not set")
 	}
 	updatedObj := tx.Statement.Dest.(KubernetesRuntimeInstance)
-	if tx.Statement.Changed("CertificateKey") {
-		encryptedVal, err := encryption.Encrypt(
-			encryptionKey,
-			*updatedObj.CertificateKey,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to encrypt kubernetes API certificate key for storage: %w", err)
+	objVal := reflect.ValueOf(&updatedObj).Elem()
+	objType := objVal.Type()
+	for i := 0; i < objType.NumField(); i++ {
+		field := objType.Field(i)
+		fieldVal := objVal.Field(i)
+		encrypt := field.Tag.Get("encrypt")
+		if encrypt == "true" && tx.Statement.Changed(field.Name) {
+			if fieldVal.Kind() == reflect.Ptr && !fieldVal.IsNil() {
+				underlyingVal := fieldVal.Elem()
+				updatedVal, ok := underlyingVal.Interface().(string)
+				if !ok {
+					return fmt.Errorf("%s field tagged for encryption but not a string value", field.Name)
+				}
+				encryptedVal, err := encryption.Encrypt(encryptionKey, updatedVal)
+				if err != nil {
+					return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
+				}
+				// use gorm to get column name from field name
+				ns := schema.NamingStrategy{}
+				columnName := ns.ColumnName("", field.Name)
+				tx.Statement.SetColumn(columnName, encryptedVal)
+			}
 		}
-		tx.Statement.SetColumn("certificate_key", encryptedVal)
-	}
-	if tx.Statement.Changed("ConnectionToken") {
-		encryptedVal, err := encryption.Encrypt(
-			encryptionKey,
-			*updatedObj.ConnectionToken,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to encrypt kubernetes API connection token for storage: %w", err)
-		}
-		tx.Statement.SetColumn("connection_token", encryptedVal)
 	}
 
 	return nil
