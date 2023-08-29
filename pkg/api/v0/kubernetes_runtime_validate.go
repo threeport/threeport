@@ -92,19 +92,19 @@ func (k *KubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
 	if encryptionKey == "" {
 		return errors.New("environment variable ENCRYPTION_KEY is not set")
 	}
-	if k.EncryptedKey != nil {
-		encryptedVal, err := encryption.Encrypt(encryptionKey, *k.EncryptedKey)
+	if k.CertificateKey != nil {
+		encryptedVal, err := encryption.Encrypt(encryptionKey, *k.CertificateKey)
 		if err != nil {
-			return fmt.Errorf("failed to encrypt kubernetes API secret key for storage: %w", err)
+			return fmt.Errorf("failed to encrypt kubernetes API certificate key for storage: %w", err)
 		}
-		k.EncryptedKey = &encryptedVal
+		k.CertificateKey = &encryptedVal
 	}
-	if k.EncryptedConnectionToken != nil {
-		encryptedVal, err := encryption.Encrypt(encryptionKey, *k.EncryptedConnectionToken)
+	if k.ConnectionToken != nil {
+		encryptedVal, err := encryption.Encrypt(encryptionKey, *k.ConnectionToken)
 		if err != nil {
-			return fmt.Errorf("failed to encrypt kubernetes API secret key for storage: %w", err)
+			return fmt.Errorf("failed to encrypt kubernetes API connection token for storage: %w", err)
 		}
-		k.EncryptedConnectionToken = &encryptedVal
+		k.ConnectionToken = &encryptedVal
 	}
 
 	return nil
@@ -117,6 +117,33 @@ func (k *KubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
 	if tx.Statement.Changed("Location") {
 		msg := fmt.Sprintf("kubernetes runtime instances cannot be moved - location %s is immutable", *k.Location)
 		return &KubernetesRuntimeInstanceValidationErr{msg}
+	}
+
+	// encrypt sensitive values
+	var encryptionKey = os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		return errors.New("environment variable ENCRYPTION_KEY is not set")
+	}
+	updatedObj := tx.Statement.Dest.(KubernetesRuntimeInstance)
+	if tx.Statement.Changed("CertificateKey") {
+		encryptedVal, err := encryption.Encrypt(
+			encryptionKey,
+			*updatedObj.CertificateKey,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt kubernetes API certificate key for storage: %w", err)
+		}
+		tx.Statement.SetColumn("certificate_key", encryptedVal)
+	}
+	if tx.Statement.Changed("ConnectionToken") {
+		encryptedVal, err := encryption.Encrypt(
+			encryptionKey,
+			*updatedObj.ConnectionToken,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt kubernetes API connection token for storage: %w", err)
+		}
+		tx.Statement.SetColumn("connection_token", encryptedVal)
 	}
 
 	return nil

@@ -118,16 +118,16 @@ func getRESTConfig(
 	// set tlsConfig according to authN type
 	var restConfig rest.Config
 	switch {
-	case runtime.Certificate != nil && runtime.EncryptedKey != nil:
+	case runtime.Certificate != nil && runtime.CertificateKey != nil:
 		var keyData string
 		if encryptionKey != "" {
-			decryptedKey, err := encryption.Decrypt(encryptionKey, *runtime.EncryptedKey)
+			decryptedKey, err := encryption.Decrypt(encryptionKey, *runtime.CertificateKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decrypt kubernetes runtime instance key: %w", err)
 			}
 			keyData = decryptedKey
 		} else {
-			keyData = *runtime.EncryptedKey
+			keyData = *runtime.CertificateKey
 		}
 		tlsConfig := rest.TLSClientConfig{
 			CertData: []byte(*runtime.Certificate),
@@ -138,19 +138,19 @@ func getRESTConfig(
 			Host:            kubeAPIEndpoint,
 			TLSClientConfig: tlsConfig,
 		}
-	case runtime.EncryptedConnectionToken != nil:
+	case runtime.ConnectionToken != nil:
 		tlsConfig := rest.TLSClientConfig{
 			CAData: []byte(*runtime.CACertificate),
 		}
 		var bearerToken string
 		if encryptionKey != "" {
-			token, err := encryption.Decrypt(encryptionKey, *runtime.EncryptedConnectionToken)
+			token, err := encryption.Decrypt(encryptionKey, *runtime.ConnectionToken)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decrypt kubernetes runtime instance connection token: %w", err)
 			}
 			bearerToken = token
 		} else {
-			bearerToken = *runtime.EncryptedConnectionToken
+			bearerToken = *runtime.ConnectionToken
 		}
 		restConfig = rest.Config{
 			Host:            kubeAPIEndpoint,
@@ -255,11 +255,11 @@ func refreshEKSConnection(
 	}
 
 	// decrypt access key id and secret access key
-	accessKeyID, err := encryption.Decrypt(encryptionKey, *awsAccount.EncryptedAccessKeyID)
+	accessKeyID, err := encryption.Decrypt(encryptionKey, *awsAccount.AccessKeyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt access key id: %w", err)
 	}
-	secretAccessKey, err := encryption.Decrypt(encryptionKey, *awsAccount.EncryptedSecretAccessKey)
+	secretAccessKey, err := encryption.Decrypt(encryptionKey, *awsAccount.SecretAccessKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt secret access key: %w", err)
 	}
@@ -281,15 +281,9 @@ func refreshEKSConnection(
 		return nil, fmt.Errorf("failed to get EKS cluster connection info for token refresh: %w", err)
 	}
 
-	// encrypt connection token
-	encryptedConnectionToken, err := encryption.Encrypt(encryptionKey, eksClusterConn.Token)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt EKS cluster connection token: %w", err)
-	}
-
 	// update threeport API with new connection info
 	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
-	runtimeInstance.EncryptedConnectionToken = &encryptedConnectionToken
+	runtimeInstance.ConnectionToken = &eksClusterConn.Token
 	runtimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
 	_, err = client.UpdateKubernetesRuntimeInstance(
 		threeportAPIClient,
