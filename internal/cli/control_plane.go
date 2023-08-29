@@ -51,7 +51,6 @@ type ControlPlaneCLIArgs struct {
 	KubeconfigPath          string
 	NumWorkerNodes          int
 	ProviderConfigDir       string
-	ThreeportLocalAPIPort   int
 	ThreeportPath           string
 }
 
@@ -135,11 +134,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	awsConfig := &aws.Config{}
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
-		threeportAPIEndpoint = fmt.Sprintf(
-			"%s:%d",
-			threeport.ThreeportLocalAPIEndpoint,
-			a.ThreeportLocalAPIPort,
-		)
+		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(a.AuthEnabled)
 
 		// construct kind infra provider object
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
@@ -148,6 +143,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			DevEnvironment:      a.DevEnvironment,
 			ThreeportPath:       a.ThreeportPath,
 			NumWorkerNodes:      a.NumWorkerNodes,
+			AuthEnabled:         a.AuthEnabled,
 		}
 
 		// update threerport config

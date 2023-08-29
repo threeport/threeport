@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/threeport/threeport/internal/threeport"
 	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cmd"
@@ -30,6 +31,9 @@ type KubernetesRuntimeInfraKind struct {
 
 	// Number of worker nodes for kind cluster.
 	NumWorkerNodes int
+
+	// True if Threeport API is served via HTTPs.
+	AuthEnabled bool
 }
 
 // Create installs a Kubernetes cluster using kind for the threeport control
@@ -45,7 +49,7 @@ func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) 
 		i.RuntimeInstanceName,
 		cluster.CreateWithKubeconfigPath(i.KubeconfigPath),
 		cluster.CreateWithWaitForReady(time.Duration(1000000000*60*5)), // 5 minutes
-		cluster.CreateWithV1Alpha4Config(getKindConfig(i.DevEnvironment, i.ThreeportPath, i.NumWorkerNodes)),
+		cluster.CreateWithV1Alpha4Config(getKindConfig(i.AuthEnabled, i.DevEnvironment, i.ThreeportPath, i.NumWorkerNodes)),
 	); err != nil {
 		return &kube.KubeConnectionInfo{}, fmt.Errorf("failed to create new kind cluster: %w", err)
 	}
@@ -74,7 +78,7 @@ func (i *KubernetesRuntimeInfraKind) Delete() error {
 }
 
 // getKindConfig returns a kind config for a threeport Kubernetes runtime.
-func getKindConfig(devEnvironment bool, threeportPath string, numWorkerNodes int) *v1alpha4.Cluster {
+func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWorkerNodes int) *v1alpha4.Cluster {
 	clusterConfig := v1alpha4.Cluster{}
 
 	var controlPlaneNode v1alpha4.Node
@@ -103,10 +107,10 @@ func getKindConfig(devEnvironment bool, threeportPath string, numWorkerNodes int
 			goCache = homeDir + "/.cache/go-build"
 		}
 
-		controlPlaneNode = *devEnvKindControlPlaneNode(threeportPath, goPath, goCache)
+		controlPlaneNode = *devEnvKindControlPlaneNode(authEnabled, threeportPath, goPath, goCache)
 		workerNodes = *devEnvKindWorkers(threeportPath, numWorkerNodes, goPath, goCache)
 	} else {
-		controlPlaneNode = *kindControlPlaneNode()
+		controlPlaneNode = *kindControlPlaneNode(authEnabled)
 		workerNodes = *kindWorkers(numWorkerNodes)
 	}
 	clusterConfig.Nodes = []v1alpha4.Node{controlPlaneNode}
@@ -119,7 +123,8 @@ func getKindConfig(devEnvironment bool, threeportPath string, numWorkerNodes int
 
 // devEnvKindControlPlaneNode returns a control plane node with host path mount
 // for live code reloads.
-func devEnvKindControlPlaneNode(threeportPath, goPath, goCache string) *v1alpha4.Node {
+func devEnvKindControlPlaneNode(authEnabled bool, threeportPath, goPath, goCache string) *v1alpha4.Node {
+	hostPort := threeport.GetThreeportAPIPort(authEnabled)
 	controlPlaneNode := v1alpha4.Node{
 		Role: v1alpha4.ControlPlaneRole,
 		KubeadmConfigPatches: []string{
@@ -132,7 +137,7 @@ nodeRegistration:
 		ExtraPortMappings: []v1alpha4.PortMapping{
 			{
 				ContainerPort: int32(30000),
-				HostPort:      int32(443),
+				HostPort:      int32(hostPort),
 				Protocol:      v1alpha4.PortMappingProtocolTCP,
 			},
 		},
@@ -156,7 +161,8 @@ nodeRegistration:
 }
 
 // kindControlPlaneNode returns a control plane node config for regular use.
-func kindControlPlaneNode() *v1alpha4.Node {
+func kindControlPlaneNode(authEnabled bool) *v1alpha4.Node {
+	hostPort := threeport.GetThreeportAPIPort(authEnabled)
 	controlPlaneNode := v1alpha4.Node{
 		Role: v1alpha4.ControlPlaneRole,
 		KubeadmConfigPatches: []string{
@@ -169,7 +175,7 @@ nodeRegistration:
 		ExtraPortMappings: []v1alpha4.PortMapping{
 			{
 				ContainerPort: int32(30000),
-				HostPort:      int32(443),
+				HostPort:      int32(hostPort),
 				Protocol:      v1alpha4.PortMappingProtocolTCP,
 			},
 		},

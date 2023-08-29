@@ -58,10 +58,6 @@ func init() {
 		"provider-config", "", "Path to infra provider config directory (default is $HOME/.config/threeport/).",
 	)
 	upCmd.Flags().IntVar(
-		&cliArgs.ThreeportLocalAPIPort,
-		"threeport-api-port", 443, "Local port to bind threeport APIServer to (default is 443).",
-	)
-	upCmd.Flags().IntVar(
 		&cliArgs.NumWorkerNodes,
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
 	)

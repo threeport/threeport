@@ -9,7 +9,7 @@ on:
       - reopened
 
 jobs:
-  images:
+  build-threeport-api:
     runs-on: ubuntu-22.04
     steps:
 
@@ -24,6 +24,13 @@ jobs:
         dockerfile: cmd/rest-api/image/Dockerfile
         image_tag: ${{ github.sha }}
 
+  build-workload-controller:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v3
+
     - name: Build workload-controller
       uses: macbre/push-to-ghcr@master
       with:
@@ -31,6 +38,13 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dockerfile: cmd/workload-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
+
+  build-kubernetes-runtime-controller:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v3
 
     - name: Build kubernetes-runtime-controller
       uses: macbre/push-to-ghcr@master
@@ -40,6 +54,13 @@ jobs:
         dockerfile: cmd/kubernetes-runtime-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
 
+  build-aws-controller:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v3
+
     - name: Build aws-controller
       uses: macbre/push-to-ghcr@master
       with:
@@ -48,6 +69,13 @@ jobs:
         dockerfile: cmd/aws-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
 
+  build-gateway-controller:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v3
+
     - name: Build gateway-controller
       uses: macbre/push-to-ghcr@master
       with:
@@ -55,6 +83,13 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dockerfile: cmd/gateway-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
+
+  build-threeport-agent:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v3
 
     - name: Build threeport-agent
       uses: macbre/push-to-ghcr@master
@@ -65,7 +100,13 @@ jobs:
         image_tag: ${{ github.sha }}
 
   test:
-    needs: images
+    needs:
+      - build-threeport-api
+      - build-workload-controller
+      - build-kubernetes-runtime-controller
+      - build-aws-controller
+      - build-gateway-controller
+      - build-threeport-agent
     runs-on: ubuntu-22.04
     steps:
 
@@ -88,7 +129,14 @@ jobs:
 
   clean:
     if: ${{ always() }}
-    needs: [images, test]
+    needs:
+      - build-threeport-api
+      - build-workload-controller
+      - build-kubernetes-runtime-controller
+      - build-aws-controller
+      - build-gateway-controller
+      - build-threeport-agent
+      - test
     runs-on: ubuntu-latest
     steps:
     - name: Login to GitHub Container Registry
