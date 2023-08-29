@@ -30,7 +30,6 @@ const (
 	ThreeportAPIServiceResourceName           = "threeport-api-server"
 	ThreeportAPIIngressResourceName           = "threeport-api-ingress"
 	ThreeportLocalAPIEndpoint                 = "localhost"
-	ThreeportLocalAPIPort                     = "443"
 )
 
 // ThreeportDevImages returns a map of main package dirs to dev image names
@@ -287,6 +286,16 @@ NATS_PORT=4222
 		return fmt.Errorf("failed to create API server deployment: %w", err)
 	}
 
+	// configure node port based on infra provider
+	port := map[string]interface{}{
+		"name":       apiServicePortName,
+		"port":       apiServicePort,
+		"protocol":   "TCP",
+		"targetPort": 1323,
+	}
+	if infraProvider == "kind" {
+		port["nodePort"] = 30000
+	}
 	var apiService = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -301,13 +310,7 @@ NATS_PORT=4222
 					"app.kubernetes.io/name": "threeport-api-server",
 				},
 				"ports": []interface{}{
-					map[string]interface{}{
-						"name":       apiServicePortName,
-						"port":       apiServicePort,
-						"protocol":   "TCP",
-						"targetPort": 1323,
-						"nodePort":   30000,
-					},
+					port,
 				},
 				"type": apiServiceType,
 			},
@@ -1882,4 +1885,22 @@ func getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []i
 	volMounts = append(volMounts, goCacheVolMount)
 
 	return vols, volMounts
+}
+
+// GetThreeportAPIPort returns the port that the threeport API is running on.
+func GetThreeportAPIPort(authEnabled bool) int {
+	if authEnabled {
+		return 443
+	}
+	return 80
+}
+
+// GetLocalThreeportAPIEndpoint returns the endpoint for the threeport API
+// running locally.
+func GetLocalThreeportAPIEndpoint(authEnabled bool) string {
+	return fmt.Sprintf(
+		"%s:%d",
+		ThreeportLocalAPIEndpoint,
+		GetThreeportAPIPort(authEnabled),
+	)
 }
