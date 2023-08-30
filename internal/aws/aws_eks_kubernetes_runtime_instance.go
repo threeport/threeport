@@ -66,11 +66,11 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	)
 
 	// decrypt access key id and secret access key
-	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedAccessKeyID)
+	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
 	}
-	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedSecretAccessKey)
+	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
 	}
@@ -200,7 +200,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	kubeRuntimeReconciled := false
 	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
 	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
-	kubernetesRuntimeInstance.EncryptedConnectionToken = &kubeConnectionInfo.EKSToken
+	kubernetesRuntimeInstance.ConnectionToken = &kubeConnectionInfo.EKSToken
 	kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnectionInfo.EKSTokenExpiration
 	kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
 	_, err = client.UpdateKubernetesRuntimeInstance(
@@ -324,11 +324,11 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 	)
 
 	// decrypt access key id and secret access key
-	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedAccessKeyID)
+	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
 	}
-	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.EncryptedSecretAccessKey)
+	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
 	}

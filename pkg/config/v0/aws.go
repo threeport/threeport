@@ -145,12 +145,12 @@ LocalConfig, LocalCredentials and LocalProfile
 
 	// construct AWS account object
 	awsAccount := v0.AwsAccount{
-		Name:                     &aa.Name,
-		DefaultAccount:           &aa.DefaultAccount,
-		DefaultRegion:            &region,
-		AccountID:                &aa.AccountID,
-		EncryptedAccessKeyID:     &accessKeyID,
-		EncryptedSecretAccessKey: &secretAccessKey,
+		Name:            &aa.Name,
+		DefaultAccount:  &aa.DefaultAccount,
+		DefaultRegion:   &region,
+		AccountID:       &aa.AccountID,
+		AccessKeyID:     &accessKeyID,
+		SecretAccessKey: &secretAccessKey,
 	}
 
 	// create AWS account

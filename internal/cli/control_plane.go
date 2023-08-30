@@ -296,7 +296,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
 			Certificate:               &kubeConnectionInfo.Certificate,
-			EncryptedKey:              &kubeConnectionInfo.Key,
+			CertificateKey:            &kubeConnectionInfo.Key,
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
 		}
@@ -325,7 +325,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			ThreeportControlPlaneHost: &controlPlaneHost,
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
-			EncryptedConnectionToken:  &kubeConnectionInfo.EKSToken,
+			ConnectionToken:           &kubeConnectionInfo.EKSToken,
 			ConnectionTokenExpiration: &kubeConnectionInfo.EKSTokenExpiration,
 			DefaultRuntime:            &defaultRuntime,
 		}
@@ -738,12 +738,12 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		defaultAccount := true
 
 		awsAccount := v0.AwsAccount{
-			Name:                     &awsAccountName,
-			AccountID:                &a.CreateProviderAccountID,
-			DefaultAccount:           &defaultAccount,
-			DefaultRegion:            &awsConfig.Region,
-			EncryptedAccessKeyID:     &accessKeyID,
-			EncryptedSecretAccessKey: &secretAccessKey,
+			Name:            &awsAccountName,
+			AccountID:       &a.CreateProviderAccountID,
+			DefaultAccount:  &defaultAccount,
+			DefaultRegion:   &awsConfig.Region,
+			AccessKeyID:     &accessKeyID,
+			SecretAccessKey: &secretAccessKey,
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,
@@ -978,7 +978,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 					return fmt.Errorf("failed to refresh token to connect to EKS kubernetes runtime: %w", err)
 				}
 
-				kubernetesRuntimeInstance.EncryptedConnectionToken = &kubeConn.EKSToken
+				kubernetesRuntimeInstance.ConnectionToken = &kubeConn.EKSToken
 				updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
 					apiClient,
 					threeportInstanceConfig.APIServer,
