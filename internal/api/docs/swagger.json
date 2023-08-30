@@ -9,7 +9,7 @@
             "url": "https://threeport.io/support",
             "email": "support@threeport.io"
         },
-        "version": "v0.1.2"
+        "version": "v0.2.1"
     },
     "host": "rest-api.threeport.io",
     "basePath": "/",
@@ -7398,13 +7398,17 @@
         "v0.AwsAccount": {
             "type": "object",
             "required": [
+                "AccessKeyID",
                 "AccountID",
                 "DefaultRegion",
-                "EncryptedAccessKeyID",
-                "EncryptedSecretAccessKey",
-                "Name"
+                "Name",
+                "SecretAccessKey"
             ],
             "properties": {
+                "AccessKeyID": {
+                    "description": "The access key ID credentials for the AWS account.",
+                    "type": "string"
+                },
                 "AccountID": {
                     "description": "The account ID for the AWS account.",
                     "type": "string"
@@ -7424,16 +7428,12 @@
                     "description": "The region to use for AWS managed services if not specified.",
                     "type": "string"
                 },
-                "EncryptedAccessKeyID": {
-                    "description": "The encrypted key ID credentials for the AWS account.",
-                    "type": "string"
-                },
-                "EncryptedSecretAccessKey": {
-                    "description": "The encrypted secret key credentials for the AWS account.",
-                    "type": "string"
-                },
                 "Name": {
                     "description": "The unique name of an AWS account.",
+                    "type": "string"
+                },
+                "SecretAccessKey": {
+                    "description": "The secret key credentials for the AWS account.",
                     "type": "string"
                 }
             }
@@ -7984,6 +7984,14 @@
                     "description": "The client certificate to use for auth to the kube-api.",
                     "type": "string"
                 },
+                "CertificateKey": {
+                    "description": "The client certificate key to use for auth to the kube-api.",
+                    "type": "string"
+                },
+                "ConnectionToken": {
+                    "description": "Used to authenticate with a OIDC provider that implements auth for a\nKubernetes cluster.  It is an alternative to client cert authenticaion.",
+                    "type": "string"
+                },
                 "ConnectionTokenExpiration": {
                     "description": "ConnectionTokenExpiration is the time when a ConnectionToken will expire.\nUsed to ensure a token will not expire before it can be used.",
                     "type": "string"
@@ -8008,10 +8016,6 @@
                     "description": "The WorkloadInstanceID of the gateway support service",
                     "type": "integer"
                 },
-                "EncryptedConnectionToken": {
-                    "description": "EncryptedConnectionToken is used to authenticate with a OIDC provider that\nimplements auth for a Kubernetes cluster.  It is an alternative to client\ncertficate and key authenticaion.",
-                    "type": "string"
-                },
                 "ForceDelete": {
                     "description": "If true, delete the runtime even if there are workloads present.",
                     "type": "boolean"
@@ -8019,10 +8023,6 @@
                 "GatewayWorkloadInstanceID": {
                     "description": "The WorkloadInstanceID of the gateway support service",
                     "type": "integer"
-                },
-                "Key": {
-                    "description": "The encrypted client key to use for auth to the kube-api.",
-                    "type": "string"
                 },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for this instance.",
@@ -8159,56 +8159,56 @@
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "KubernetesRuntimeDefinition",
                 "KubernetesRuntimeInstance",
-                "Profile",
-                "Tier",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance"
+                "Profile",
+                "Tier"
             ],
             "x-enum-varnames": [
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeKubernetesRuntimeDefinition",
                 "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance"
+                "ObjectTypeProfile",
+                "ObjectTypeTier"
             ]
         },
         "v0.Profile": {

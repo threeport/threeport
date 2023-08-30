@@ -28,6 +28,9 @@ definitions:
     type: object
   v0.AwsAccount:
     properties:
+      AccessKeyID:
+        description: The access key ID credentials for the AWS account.
+        type: string
       AccountID:
         description: The account ID for the AWS account.
         type: string
@@ -42,21 +45,18 @@ definitions:
       DefaultRegion:
         description: The region to use for AWS managed services if not specified.
         type: string
-      EncryptedAccessKeyID:
-        description: The encrypted key ID credentials for the AWS account.
-        type: string
-      EncryptedSecretAccessKey:
-        description: The encrypted secret key credentials for the AWS account.
-        type: string
       Name:
         description: The unique name of an AWS account.
         type: string
+      SecretAccessKey:
+        description: The secret key credentials for the AWS account.
+        type: string
     required:
+    - AccessKeyID
     - AccountID
     - DefaultRegion
-    - EncryptedAccessKeyID
-    - EncryptedSecretAccessKey
     - Name
+    - SecretAccessKey
     type: object
   v0.AwsEksKubernetesRuntimeDefinition:
     properties:
@@ -558,6 +558,14 @@ definitions:
       Certificate:
         description: The client certificate to use for auth to the kube-api.
         type: string
+      CertificateKey:
+        description: The client certificate key to use for auth to the kube-api.
+        type: string
+      ConnectionToken:
+        description: |-
+          Used to authenticate with a OIDC provider that implements auth for a
+          Kubernetes cluster.  It is an alternative to client cert authenticaion.
+        type: string
       ConnectionTokenExpiration:
         description: |-
           ConnectionTokenExpiration is the time when a ConnectionToken will expire.
@@ -585,21 +593,12 @@ definitions:
       DnsControllerInstanceId:
         description: The WorkloadInstanceID of the gateway support service
         type: integer
-      EncryptedConnectionToken:
-        description: |-
-          EncryptedConnectionToken is used to authenticate with a OIDC provider that
-          implements auth for a Kubernetes cluster.  It is an alternative to client
-          certficate and key authenticaion.
-        type: string
       ForceDelete:
         description: If true, delete the runtime even if there are workloads present.
         type: boolean
       GatewayWorkloadInstanceID:
         description: The WorkloadInstanceID of the gateway support service
         type: integer
-      Key:
-        description: The encrypted client key to use for auth to the kube-api.
-        type: string
       KubernetesRuntimeDefinitionID:
         description: The kubernetes runtime definition for this instance.
         type: integer
@@ -722,56 +721,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
-    - Profile
-    - Tier
+    - GatewayDefinition
+    - GatewayInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
+    - Profile
+    - Tier
     type: string
     x-enum-varnames:
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
   v0.Profile:
     properties:
       Name:
@@ -1047,7 +1046,7 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: v0.1.2
+  version: v0.2.1
 paths:
   /attached-object-references/versions:
     get:
