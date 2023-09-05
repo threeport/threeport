@@ -103,23 +103,53 @@ type AwsRelationalDatabaseDefinition struct {
 	// The database engine for the instance.  One of:
 	// * mysql
 	// * postgres
+	// * mariadb
 	Engine *string `json:"Engine,omitempty" query:"engine" gorm:"not null" validate:"required"`
 
-	// The amount of storage to allocate for the database.
-	Storage *int `json:"Storage,omitempty" query:"storage" gorm:"not null" validate:"required"`
+	// The version of the database engine for the instance.
+	EngineVersion *string `json:"EngineVersion,omitempty" query:"engineversion" gorm:"not null" validate:"required"`
+
+	// The name of the database that will be used by the client workload.
+	DatabaseName *string `json:"DatabaseName,omitempty" query:"databasename" gorm:"not null" validate:"required"`
+
+	// The port to use to connect to the database.
+	DatabasePort *int `json:"DatabasePort,omitempty" query:"databaseport" gorm:"not null" validate:"required"`
+
+	// The number of days to retain database backups for.
+	BackupDays *int `json:"BackupDays,omitempty" query:"BackupDays" gorm:"default: 0" validate:"optional"`
+
+	// The amount of compute capacity to use for the database virtual machine.
+	MachineSize *string `json:"MachineSize,omitempty" query:"machinesize" gorm:"not null" validate:"required"`
+
+	// The amount of storage in Gb to allocate for the database.
+	StorageGb *int `json:"StorageGb,omitempty" query:"storagegb" gorm:"not null" validate:"required"`
+
+	// The name of the Kubernetes secret that will be attached to the
+	// running workload from which database connection configuration will be
+	// supplied.  This secret name must be referred to in the Kubernetes
+	// manifest, .e.g Deployment, for the workload.
+	WorkloadSecretName *string `json:"WorkloadSecretName,omitempty" query:"WorkloadSecretName" gorm:"not null" validate:"required"`
 
 	// The AWS account in which the RDS instance will be provisioned.
-	AWSAccountID *uint `json:"AWSAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
+	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
 }
 
+// +threeport-codegen:reconciler
 // AwsRelationalDatabaseInstance is a deployed instance of an RDS instance.
 type AwsRelationalDatabaseInstance struct {
-	Common   `swaggerignore:"true" mapstructure:",squash"`
-	Instance `mapstructure:",squash"`
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Instance       `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
 
 	// The definition that configures this instance.
 	AwsRelationalDatabaseDefinitionID *uint `json:"AwsRelationalDatabaseDefinitionID,omitempty" query:"awsrelationaldatabasedefinitionid" gorm:"not null" validate:"required"`
 
-	// The status of the running instance
-	Status *string `json:"Status,omitempty" query:"status" gorm:"not null" validate:"required"`
+	// An inventory of all AWS resources for the EKS cluster.
+	ResourceInventory *datatypes.JSON `json:"ResourceInventory,omitempty" validate:"optional"`
+
+	// The ID of the workload instance that the database instance serves.
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
+
+	//// The status of the running instance
+	//Status *string `json:"Status,omitempty" query:"status" gorm:"not null" validate:"required"`
 }

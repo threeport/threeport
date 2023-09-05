@@ -11,6 +11,8 @@ func GetSubjectByReconcilerName(name string) (string, error) {
 	switch name {
 	case "AwsEksKubernetesRuntimeInstanceReconciler":
 		return AwsEksKubernetesRuntimeInstanceSubject, nil
+	case "AwsRelationalDatabaseInstanceReconciler":
+		return AwsRelationalDatabaseInstanceSubject, nil
 	case "GatewayDefinitionReconciler":
 		return GatewayDefinitionSubject, nil
 	case "GatewayInstanceReconciler":

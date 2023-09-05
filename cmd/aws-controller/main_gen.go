@@ -30,6 +30,11 @@ func main() {
 		1,
 		"Number of concurrent reconcilers to run for aws eks kubernetes runtime instances",
 	)
+	var awsRelationalDatabaseInstanceConcurrentReconciles = flag.Int(
+		"AwsRelationalDatabaseInstance-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for aws relational database instances",
+	)
 
 	var apiServer = flag.String("api-server", "threeport-api-server", "Threepoort REST API server endpoint")
 	var msgBrokerHost = flag.String("msg-broker-host", "", "Threeport message broker hostname")
@@ -135,6 +140,13 @@ func main() {
 		NotifSubject:         v0.AwsEksKubernetesRuntimeInstanceSubject,
 		ObjectType:           v0.ObjectTypeAwsEksKubernetesRuntimeInstance,
 		ReconcileFunc:        aws.AwsEksKubernetesRuntimeInstanceReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *awsRelationalDatabaseInstanceConcurrentReconciles,
+		Name:                 "AwsRelationalDatabaseInstanceReconciler",
+		NotifSubject:         v0.AwsRelationalDatabaseInstanceSubject,
+		ObjectType:           v0.ObjectTypeAwsRelationalDatabaseInstance,
+		ReconcileFunc:        aws.AwsRelationalDatabaseInstanceReconciler,
 	})
 
 	for _, r := range reconcilerConfigs {

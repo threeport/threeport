@@ -170,14 +170,31 @@ definitions:
     type: object
   v0.AwsRelationalDatabaseDefinition:
     properties:
-      AWSAccountID:
+      AwsAccountID:
         description: The AWS account in which the RDS instance will be provisioned.
+        type: integer
+      BackupDays:
+        description: The number of days to retain database backups for.
+        type: integer
+      DatabaseName:
+        description: The name of the database that will be used by the client workload.
+        type: string
+      DatabasePort:
+        description: The port to use to connect to the database.
         type: integer
       Engine:
         description: |-
           The database engine for the instance.  One of:
           * mysql
           * postgres
+          * mariadb
+        type: string
+      EngineVersion:
+        description: The version of the database engine for the instance.
+        type: string
+      MachineSize:
+        description: The amount of compute capacity to use for the database virtual
+          machine.
         type: string
       Name:
         description: An arbitrary name for the definition.
@@ -187,35 +204,75 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
-      Storage:
-        description: The amount of storage to allocate for the database.
+      StorageGb:
+        description: The amount of storage in Gb to allocate for the database.
         type: integer
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
+      WorkloadSecretName:
+        description: |-
+          The name of the Kubernetes secret that will be attached to the
+          running workload from which database connection configuration will be
+          supplied.  This secret name must be referred to in the Kubernetes
+          manifest, .e.g Deployment, for the workload.
+        type: string
     required:
-    - AWSAccountID
+    - AwsAccountID
+    - DatabaseName
+    - DatabasePort
     - Engine
+    - EngineVersion
+    - MachineSize
     - Name
-    - Storage
+    - StorageGb
+    - WorkloadSecretName
     type: object
   v0.AwsRelationalDatabaseInstance:
     properties:
       AwsRelationalDatabaseDefinitionID:
         description: The definition that configures this instance.
         type: integer
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
       Name:
         description: An arbitrary name the instance
         type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      ResourceInventory:
+        description: An inventory of all AWS resources for the EKS cluster.
+        items:
+          type: integer
+        type: array
       Status:
-        description: The status of the running instance
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
         type: string
+      WorkloadInstanceID:
+        description: The ID of the workload instance that the database instance serves.
+        type: integer
     required:
     - AwsRelationalDatabaseDefinitionID
     - Name
-    - Status
+    - WorkloadInstanceID
     type: object
   v0.DomainNameDefinition:
     properties:
@@ -721,23 +778,18 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
     - GatewayDefinition
     - GatewayInstance
     - DomainNameDefinition
     - DomainNameInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -745,25 +797,25 @@ definitions:
     - AwsRelationalDatabaseInstance
     - Profile
     - Tier
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -771,6 +823,11 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeProfile
     - ObjectTypeTier
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       Name:
@@ -1046,7 +1103,7 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: v0.2.1
+  version: v0.2.2
 paths:
   /attached-object-references/versions:
     get:

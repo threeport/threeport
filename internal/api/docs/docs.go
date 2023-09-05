@@ -7567,18 +7567,43 @@ const docTemplate = `{
         "v0.AwsRelationalDatabaseDefinition": {
             "type": "object",
             "required": [
-                "AWSAccountID",
+                "AwsAccountID",
+                "DatabaseName",
+                "DatabasePort",
                 "Engine",
+                "EngineVersion",
+                "MachineSize",
                 "Name",
-                "Storage"
+                "StorageGb",
+                "WorkloadSecretName"
             ],
             "properties": {
-                "AWSAccountID": {
+                "AwsAccountID": {
                     "description": "The AWS account in which the RDS instance will be provisioned.",
                     "type": "integer"
                 },
+                "BackupDays": {
+                    "description": "The number of days to retain database backups for.",
+                    "type": "integer"
+                },
+                "DatabaseName": {
+                    "description": "The name of the database that will be used by the client workload.",
+                    "type": "string"
+                },
+                "DatabasePort": {
+                    "description": "The port to use to connect to the database.",
+                    "type": "integer"
+                },
                 "Engine": {
-                    "description": "The database engine for the instance.  One of:\n* mysql\n* postgres",
+                    "description": "The database engine for the instance.  One of:\n* mysql\n* postgres\n* mariadb",
+                    "type": "string"
+                },
+                "EngineVersion": {
+                    "description": "The version of the database engine for the instance.",
+                    "type": "string"
+                },
+                "MachineSize": {
+                    "description": "The amount of compute capacity to use for the database virtual machine.",
                     "type": "string"
                 },
                 "Name": {
@@ -7589,13 +7614,17 @@ const docTemplate = `{
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
                 },
-                "Storage": {
-                    "description": "The amount of storage to allocate for the database.",
+                "StorageGb": {
+                    "description": "The amount of storage in Gb to allocate for the database.",
                     "type": "integer"
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
+                },
+                "WorkloadSecretName": {
+                    "description": "The name of the Kubernetes secret that will be attached to the\nrunning workload from which database connection configuration will be\nsupplied.  This secret name must be referred to in the Kubernetes\nmanifest, .e.g Deployment, for the workload.",
+                    "type": "string"
                 }
             }
         },
@@ -7604,20 +7633,47 @@ const docTemplate = `{
             "required": [
                 "AwsRelationalDatabaseDefinitionID",
                 "Name",
-                "Status"
+                "WorkloadInstanceID"
             ],
             "properties": {
                 "AwsRelationalDatabaseDefinitionID": {
                     "description": "The definition that configures this instance.",
                     "type": "integer"
                 },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "ResourceInventory": {
+                    "description": "An inventory of all AWS resources for the EKS cluster.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "Status": {
-                    "description": "The status of the running instance",
+                    "description": "The status of the instance.\nTODO: use a custom type",
                     "type": "string"
+                },
+                "WorkloadInstanceID": {
+                    "description": "The ID of the workload instance that the database instance serves.",
+                    "type": "integer"
                 }
             }
         },
@@ -8166,56 +8222,56 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
                 "GatewayDefinition",
                 "GatewayInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
                 "Profile",
-                "Tier"
+                "Tier",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeProfile",
-                "ObjectTypeTier"
+                "ObjectTypeTier",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance"
             ]
         },
         "v0.Profile": {
@@ -8543,7 +8599,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.2.1",
+	Version:          "v0.2.2",
 	Host:             "rest-api.threeport.io",
 	BasePath:         "/",
 	Schemes:          []string{},
