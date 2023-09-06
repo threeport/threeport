@@ -424,7 +424,7 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 	// associated instance
 	awsRelationalDatabaseInsts, err := client.GetAwsRelationalDatabaseInstancesByAwsRelationalDatabaseDefinitionID(apiClient, apiEndpoint, *awsRelationalDatabaseDefinition.ID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get AWS relational database instances by AWS relational database definition with ID: %d: %w", *awsRelationalDatabaseDefinition.ID)
+		return nil, nil, fmt.Errorf("failed to get AWS relational database instances by AWS relational database definition with ID: %d: %w", *awsRelationalDatabaseDefinition.ID, err)
 	}
 	if len(*awsRelationalDatabaseInsts) > 1 {
 		err = errors.New("deletion using the AWS relational database abstraction is only permitted when there is a one-to-one AWS relational database defintion and instance relationship")
