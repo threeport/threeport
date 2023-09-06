@@ -14,12 +14,6 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
-// defaultWorkloadInstanceName generates a workload instance name for when the
-// workload abstraction is used to create it.
-func defaultWorkloadInstanceName(name string) string {
-	return fmt.Sprintf("%s-0", name)
-}
-
 // WorkloadConfig contains the config for a workload which is an abstraction of
 // a workload definition and workload instance.
 type WorkloadConfig struct {
@@ -35,6 +29,7 @@ type WorkloadValues struct {
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	DomainName                *DomainNameDefinitionValues      `yaml:"DomainName"`
 	Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
+	AwsRelationalDatabase     *AwsRelationalDatabaseValues     `yaml:"AwsRelationalDatabase"`
 }
 
 // WorkloadDefinitionConfig contains the config for a workload definition.
@@ -78,7 +73,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 
 	// create the workload instance
 	workloadInstance := WorkloadInstanceValues{
-		Name:                      defaultWorkloadInstanceName(w.Name),
+		Name:                      defaultInstanceName(w.Name),
 		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
 		WorkloadDefinition: WorkloadDefinitionValues{
 			Name: w.Name,
@@ -135,6 +130,29 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		_, err = gatewayInstance.Create(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create gateway instance: %w", err)
+		}
+	}
+
+	// create AWS relational database
+	if w.AwsRelationalDatabase != nil {
+		awsRelationalDatabase := AwsRelationalDatabaseValues{
+			Name:               w.AwsRelationalDatabase.Name,
+			AwsAccountName:     w.AwsRelationalDatabase.AwsAccountName,
+			Engine:             w.AwsRelationalDatabase.Engine,
+			EngineVersion:      w.AwsRelationalDatabase.EngineVersion,
+			DatabaseName:       w.AwsRelationalDatabase.DatabaseName,
+			DatabasePort:       w.AwsRelationalDatabase.DatabasePort,
+			BackupDays:         w.AwsRelationalDatabase.BackupDays,
+			MachineSize:        w.AwsRelationalDatabase.MachineSize,
+			StorageGb:          w.AwsRelationalDatabase.StorageGb,
+			WorkloadSecretName: w.AwsRelationalDatabase.WorkloadSecretName,
+			WorkloadInstance: &WorkloadInstanceValues{
+				Name: defaultInstanceName(w.Name),
+			},
+		}
+		_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create AWS relational database: %w", err)
 		}
 	}
 
@@ -198,7 +216,7 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	}
 
 	// get workload instance by name
-	workloadInstName := defaultWorkloadInstanceName(w.Name)
+	workloadInstName := defaultInstanceName(w.Name)
 	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, workloadInstName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find workload instance with name %s: %w", workloadInstName, err)
@@ -226,7 +244,7 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 		return nil, nil, fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
 	}
 
-	// wait for workload deletion to be reconciled
+	// wait for workload instance to be reconciled
 	deletedCheckAttempts := 0
 	deletedCheckAttemptsMax := 30
 	deletedCheckDurationSeconds := 1

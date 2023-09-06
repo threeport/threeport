@@ -14,14 +14,14 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-var deleteAwsAccountName string
+var deleteAwsRelationalDatabaseInstanceName string
 
-// DeleteAwsAccountCmd represents the aws-account command
-var DeleteAwsAccountCmd = &cobra.Command{
-	Use:          "aws-account",
-	Example:      "tptctl delete aws-account --name some-account",
-	Short:        "Delete an existing AWS account",
-	Long:         `Delete an existing AWS account.`,
+// DeleteAwsRelationalDatabaseInstanceCmd represents the aws-relational-database-instance command
+var DeleteAwsRelationalDatabaseInstanceCmd = &cobra.Command{
+	Use:          "aws-relational-database-instance",
+	Example:      "tptctl delete aws-relational-database-instance --name some-instance",
+	Short:        "Delete an existing AWS relational database instance",
+	Long:         `Delete an existing AWS relational database instance.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -38,9 +38,9 @@ var DeleteAwsAccountCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		awsAccountConfig := config.AwsAccountConfig{
-			AwsAccount: config.AwsAccountValues{
-				Name: deleteAwsAccountName,
+		awsRelationalDatabaseInstanceConfig := config.AwsRelationalDatabaseInstanceConfig{
+			AwsRelationalDatabaseInstance: config.AwsRelationalDatabaseInstanceValues{
+				Name: deleteAwsRelationalDatabaseInstanceName,
 			},
 		}
 
@@ -61,24 +61,24 @@ var DeleteAwsAccountCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// delete AWS account
-		awsAccount := awsAccountConfig.AwsAccount
-		aa, err := awsAccount.Delete(apiClient, apiEndpoint)
+		// delete AWS relational database instance
+		awsRelationalDatabaseInstance := awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance
+		aa, err := awsRelationalDatabaseInstance.Delete(apiClient, apiEndpoint)
 		if err != nil {
-			cli.Error("failed to delete AWS account", err)
+			cli.Error("failed to delete AWS relational database instance", err)
 			os.Exit(1)
 		}
 
-		cli.Complete(fmt.Sprintf("AWS account %s deleted", *aa.Name))
+		cli.Complete(fmt.Sprintf("AWS relational database instance %s deleted", *aa.Name))
 	},
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteAwsAccountCmd)
+	deleteCmd.AddCommand(DeleteAwsRelationalDatabaseInstanceCmd)
 
-	DeleteAwsAccountCmd.Flags().StringVarP(
-		&deleteAwsAccountName,
-		"name", "n", "", "Name of AWS account.",
+	DeleteAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&deleteAwsRelationalDatabaseInstanceName,
+		"name", "n", "", "Name of AWS relational database instance.",
 	)
-	DeleteAwsAccountCmd.MarkFlagRequired("name")
+	DeleteAwsRelationalDatabaseInstanceCmd.MarkFlagRequired("name")
 }

@@ -21,7 +21,7 @@ var DeleteAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 	Use:          "aws-eks-kubernetes-runtime-definition",
 	Example:      "tptctl delete aws-eks-kubernetes-runtime-definition --name some-definition",
 	Short:        "Delete an existing AWS EKS kubernetes runtime definition",
-	Long:         `Delete as existing AWS EKS kubernetes runtime definition.`,
+	Long:         `Delete an existing AWS EKS kubernetes runtime definition.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 

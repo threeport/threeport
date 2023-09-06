@@ -21,7 +21,7 @@ var DeleteKubernetesRuntimeInstanceCmd = &cobra.Command{
 	Use:          "kubernetes-runtime-instance",
 	Example:      "tptctl delete kubernetes-runtime-instance --name some-instance",
 	Short:        "Delete an existing kubernetes runtime instance",
-	Long:         `Delete as existing kubernetes runtime instance.`,
+	Long:         `Delete an existing kubernetes runtime instance.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 

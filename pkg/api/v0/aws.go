@@ -149,7 +149,4 @@ type AwsRelationalDatabaseInstance struct {
 
 	// The ID of the workload instance that the database instance serves.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
-
-	//// The status of the running instance
-	//Status *string `json:"Status,omitempty" query:"status" gorm:"not null" validate:"required"`
 }
