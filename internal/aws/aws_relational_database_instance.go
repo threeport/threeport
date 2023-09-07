@@ -27,8 +27,8 @@ import (
 	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
-const dbConnectionSecretName = "wordpress-db-connection"
-
+// awsRelationalDatabaseInstanceCreated reconciles state for an AWS relational
+// database instance that has been created.
 func awsRelationalDatabaseInstanceCreated(
 	r *controller.Reconciler,
 	awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance,
@@ -39,6 +39,18 @@ func awsRelationalDatabaseInstanceCreated(
 		"awsRelationalDatabaseInstanceID", *awsRelationalDatabaseInstance.ID,
 		"awsRelationalDatabaseInstanceName", *awsRelationalDatabaseInstance.Name,
 	)
+
+	// ensure attached object reference exists
+	err := client.EnsureAttachedObjectReferenceExists(
+		r.APIClient,
+		r.APIServer,
+		reflect.TypeOf(*awsRelationalDatabaseInstance).String(),
+		awsRelationalDatabaseInstance.ID,
+		awsRelationalDatabaseInstance.WorkloadInstanceID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)
+	}
 
 	// get required objects from the threeport API
 	awsRelationalDatabaseDef, awsAccount, workloadInstance, awsEksKubernetesRuntimeInstance, err := getRequiredRdsObjects(r, awsRelationalDatabaseInstance)
@@ -150,21 +162,6 @@ func awsRelationalDatabaseInstanceCreated(
 		return 0, fmt.Errorf("failed to create RDS resource stack: %w", err)
 	}
 
-	// ensure attached object reference exists
-	err = client.EnsureAttachedObjectReferenceExists(
-		r.APIClient,
-		r.APIServer,
-		//reflect.TypeOf(*gatewayInstance).String(),
-		reflect.TypeOf(*awsRelationalDatabaseInstance).String(),
-		//gatewayInstance.ID,
-		awsRelationalDatabaseInstance.ID,
-		//gatewayInstance.WorkloadInstanceID,
-		awsRelationalDatabaseInstance.WorkloadInstanceID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)
-	}
-
 	// get workload namespace
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
 		r.APIClient,
@@ -195,17 +192,9 @@ func awsRelationalDatabaseInstanceCreated(
 	workloadNamespace := namespaces[0]
 
 	// extract RDS inventory from database
-	latestAwsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*awsRelationalDatabaseInstance.ID,
-	)
+	rdsInventory, err := getRdsInventory(r, awsRelationalDatabaseInstance)
 	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve relational database instance with inventory: %w", err)
-	}
-	var rdsInventory rds.RdsInventory
-	if err := rdsInventory.Unmarshal(*latestAwsRelationalDatabaseInstance.ResourceInventory); err != nil {
-		return 0, fmt.Errorf("failed to unmarshal RDS inventory: %w", err)
+		return 0, fmt.Errorf("failed to retrieve AWS relational databse inventory")
 	}
 
 	// create DB connection secret for workload
@@ -222,7 +211,7 @@ func awsRelationalDatabaseInstanceCreated(
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dbConnectionSecretName,
+			Name:      *awsRelationalDatabaseDef.WorkloadSecretName,
 			Namespace: workloadNamespace,
 		},
 		Data: data,
@@ -268,6 +257,8 @@ func awsRelationalDatabaseInstanceCreated(
 	return 0, nil
 }
 
+// awsRelationalDatabaseInstanceUpdated reconciles state for changes to an AWS
+// relational database instance.
 func awsRelationalDatabaseInstanceUpdated(
 	r *controller.Reconciler,
 	awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance,
@@ -276,6 +267,8 @@ func awsRelationalDatabaseInstanceUpdated(
 	return 0, nil
 }
 
+// awsRelationalDatabaseInstanceDeleted reconciles state when an AWS relational
+// database is deleted.
 func awsRelationalDatabaseInstanceDeleted(
 	r *controller.Reconciler,
 	awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance,
@@ -424,19 +417,20 @@ func awsRelationalDatabaseInstanceDeleted(
 	}
 
 	// get RDS inventory
-	var rdsInventory rds.RdsInventory
-	if err := rdsInventory.Unmarshal(*awsRelationalDatabaseInstance.ResourceInventory); err != nil {
-		return 0, fmt.Errorf("failed to unmarshal RDS inventory: %w", err)
+	rdsInventory, err := getRdsInventory(r, awsRelationalDatabaseInstance)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve AWS relational databse inventory")
 	}
 
 	// delete RDS instance
-	go deleteRdsInstance(&rdsClient, &rdsInventory, &reconLog)
+	go deleteRdsInstance(&rdsClient, rdsInventory, &reconLog)
 
 	// RDS instance deletion initiated, return custom requeue to check resources
 	// in 3 min
 	return 180, nil
 }
 
+// deleteRdsInstance deletes the AWS Resources for an RDS instance.
 func deleteRdsInstance(
 	rdsClient *rds.RdsClient,
 	rdsInventory *rds.RdsInventory,
@@ -447,6 +441,8 @@ func deleteRdsInstance(
 	}
 }
 
+// getRdsInventory retrieves the inventory from the threeport API for an AWS
+// relational database.
 func getRdsInventory(
 	r *controller.Reconciler,
 	awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance,
@@ -472,6 +468,10 @@ func getRdsInventory(
 	return &inventory, nil
 }
 
+// checkRdsDeleted checks the inventory for an AWS relational database instance
+// and returns true if the final resource has been removed from the inventory.
+// Otherwise it returns false, indicating there are still resources to be
+// deleted.
 func checkRdsDeleted(
 	r *controller.Reconciler,
 	awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance,
@@ -490,6 +490,8 @@ func checkRdsDeleted(
 	return false, nil
 }
 
+// getRequiredRdsObjects gets the related objects from the threeport API that
+// are needed for reconciling state for AWS relational database instances.
 func getRequiredRdsObjects(
 	r *controller.Reconciler,
 	awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance,
