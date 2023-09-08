@@ -1,4 +1,4 @@
-package notifications
+package v0
 
 import (
 	"bytes"

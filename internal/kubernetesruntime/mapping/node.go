@@ -3,7 +3,7 @@ package mapping
 import (
 	"fmt"
 
-	"github.com/threeport/threeport/internal/util"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // RegionMap contains a threeport location with the corresponding regions for

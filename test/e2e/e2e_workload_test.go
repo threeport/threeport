@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/threeport/threeport/internal/cli"
-	"github.com/threeport/threeport/internal/kube"
-	"github.com/threeport/threeport/internal/threeport"
-	"github.com/threeport/threeport/internal/tptdev"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 
 // testWorkload represents a test case for this e2e test.

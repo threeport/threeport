@@ -68,7 +68,7 @@ generate-code: build-codegen
 
 #generate-docs: @ Generate swagger docs
 generate-docs:
-	swag init --dir cmd/rest-api,pkg/api,internal/api --parseDependency --generalInfo main.go --output internal/api/docs
+	swag init --dir cmd/rest-api,pkg/api,pkg/api-server/v0 --parseDependency --generalInfo main.go --output pkg/api-server/v0/docs
 
 ## testing
 

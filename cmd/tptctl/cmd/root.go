@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/threeport/threeport/internal/cli"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
 )
 
 var cliArgs = &cli.ControlPlaneCLIArgs{}

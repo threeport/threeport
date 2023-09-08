@@ -19,12 +19,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"github.com/threeport/threeport/internal/aws/mapping"
-	"github.com/threeport/threeport/internal/kube"
-	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // awsRelationalDatabaseInstanceCreated reconciles state for an AWS relational

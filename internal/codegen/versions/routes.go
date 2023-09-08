@@ -37,14 +37,14 @@ func (gvc *GlobalVersionConfig) AllRoutes() error {
 			"github.com/labstack/echo/v4",
 			"Echo",
 		).Op(",").Id("h").Op("*").Qual(
-			"github.com/threeport/threeport/internal/api/handlers",
+			"github.com/threeport/threeport/pkg/api-server/v0/handlers",
 			"Handler",
 		)).Block(
 		routeFuncCalls,
 	)
 
 	// write code to file
-	routesFilepath := filepath.Join("..", "..", "internal", "api", "routes", "routes_gen.go")
+	routesFilepath := filepath.Join("..", "..", "pkg", "api-server", "v0", "routes", "routes_gen.go")
 	file, err := os.OpenFile(routesFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for all routes: %w", err)

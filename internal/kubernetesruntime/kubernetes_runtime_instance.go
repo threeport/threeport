@@ -7,12 +7,12 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/threeport/threeport/internal/kube"
 	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
-	"github.com/threeport/threeport/internal/threeport"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // kubernetesRuntimeInstanceCreated reconciles state for a new kubernetes
