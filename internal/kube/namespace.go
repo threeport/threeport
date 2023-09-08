@@ -17,6 +17,37 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
+// NamespaceFinder is used to get namespace info from JSON representations of
+// Kubernetes objects.
+type NamespaceFinder struct {
+	Kind     string              `json:"kind"`
+	Metadata NamespaceFinderMeta `json:"metadata"`
+}
+
+// NamespaceFinderMeta is used to get namespace info from the metadata field of
+// JSON representations of Kubernetes objects.
+type NamespaceFinderMeta struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+// GetNamespaceFromJSON takes the JSON representation of a Kubernetes object and
+// returns the namespace name if it is a Namespace object, the
+// metaddata.namespace value if a namespaced object or an empty string if it is
+// a non-namespaced ojbect.
+func GetNamespaceFromJSON(jsonObject []byte) (string, error) {
+	var object NamespaceFinder
+	if err := json.Unmarshal(jsonObject, &object); err != nil {
+		return "", fmt.Errorf("failed to unmarshal JSON object: %w", err)
+	}
+
+	if object.Kind == "Namespace" {
+		return object.Metadata.Name, nil
+	}
+
+	return object.Metadata.Namespace, nil
+}
+
 // SetNamespaces adds the namespace resource and namespace assignment as needed
 // to an array of workload resource instances.
 func SetNamespaces(
@@ -44,7 +75,7 @@ func SetNamespaces(
 	if clientManagedNS == "" {
 		// we are managing namespaces for the client - create namespace and add to
 		// array of processed workload resource instances
-		namespace = fmt.Sprintf("%s-%s", *workloadInstance.Name, util.RandomString(10))
+		namespace = fmt.Sprintf("%s-%s", *workloadInstance.Name, util.RandomAlphaNumericString(10))
 	} else {
 		namespace = clientManagedNS
 	}

@@ -28,8 +28,8 @@ func awsEksKubernetesRuntimeInstanceCreated(
 ) (int64, error) {
 	// add log metadata
 	reconLog := log.WithValues(
-		"awsEksKubernetesRuntimeInstance", *awsEksKubernetesRuntimeInstance.ID,
-		"awsEksKubernetesRuntimeInstance", *awsEksKubernetesRuntimeInstance.Name,
+		"awsEksKubernetesRuntimeInstanceID", *awsEksKubernetesRuntimeInstance.ID,
+		"awsEksKubernetesRuntimeInstanceName", *awsEksKubernetesRuntimeInstance.Name,
 	)
 
 	// check to make sure reconciliation is not being interrupted - if it is
@@ -231,6 +231,12 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// add log metadata
+	reconLog := log.WithValues(
+		"awsEksKubernetesRuntimeInstanceID", *awsEksKubernetesRuntimeInstance.ID,
+		"awsEksKubernetesRuntimeInstanceName", *awsEksKubernetesRuntimeInstance.Name,
+	)
+
 	// check that deletion is scheduled - if not there's a problem
 	if awsEksKubernetesRuntimeInstance.DeletionScheduled == nil {
 		return 0, errors.New("deletion notification receieved but not scheduled")
@@ -316,13 +322,6 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 		return 0, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
 	}
 
-	// add log metadata
-	reconLog := log.WithValues(
-		"awsEksClsuterInstsanceRegion", *awsEksKubernetesRuntimeInstance.Region,
-		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
-		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
-	)
-
 	// decrypt access key id and secret access key
 	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
 	if err != nil {
@@ -399,7 +398,7 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 		ResourceInventory:   &resourceInventory,
 	}
 
-	go deleteInfra(&clusterInfra, log)
+	go deleteInfra(&clusterInfra, &reconLog)
 
 	// cluster infra resource deletion started, return custom requeue to check
 	// resources in 5 min

@@ -21,7 +21,7 @@ var DeleteKubernetesRuntimeDefinitionCmd = &cobra.Command{
 	Use:          "kubernetes-runtime-definition",
 	Example:      "tptctl delete kubernetes-runtime-definition --name some-definition",
 	Short:        "Delete an existing kubernetes runtime definition",
-	Long:         `Delete as existing kubernetes runtime definition.`,
+	Long:         `Delete an existing kubernetes runtime definition.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 

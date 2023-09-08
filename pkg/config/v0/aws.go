@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"gopkg.in/ini.v1"
 
@@ -59,6 +60,61 @@ type AwsEksKubernetesRuntimeInstanceValues struct {
 	Name                                  string `yaml:"Name"`
 	Region                                string `yaml:"Region"`
 	AwsEksKubernetesRuntimeDefinitionName string `yaml:"AwsEksKubernetesRuntimeDefinitionName"`
+}
+
+type AwsRelationalDatabaseConfig struct {
+	AwsRelationalDatabase AwsRelationalDatabaseValues `yaml:"AwsRelationalDatabase"`
+}
+
+// AwsRelationalDatabaseConfig contains the config for an abstraction of an RDS
+// instance and definition.
+type AwsRelationalDatabaseValues struct {
+	Name               string                  `yaml:"Name"`
+	AwsAccountName     string                  `yaml:"AwsAccountName"`
+	Engine             string                  `yaml:"Engine"`
+	EngineVersion      string                  `yaml:"EngineVersion"`
+	DatabaseName       string                  `yaml:"DatabaseName"`
+	DatabasePort       int                     `yaml:"DatabasePort"`
+	BackupDays         int                     `yaml:"BackupDays"`
+	MachineSize        string                  `yaml:"MachineSize"`
+	StorageGb          int                     `yaml:"StorageGb"`
+	WorkloadSecretName string                  `yaml:"WorkloadSecretName"`
+	WorkloadInstance   *WorkloadInstanceValues `yaml:"WorkloadInstance"`
+}
+
+// AwsRelationalDatabaseDefinitionConfig contains the config for an AWS
+// relational database definition.
+type AwsRelationalDatabaseDefinitionConfig struct {
+	AwsRelationalDatabaseDefinition AwsRelationalDatabaseDefinitionValues `yaml:"AwsRelationalDatabaseDefinition"`
+}
+
+// AwsRelationalDatabaseDefinitionValues contains the attributes needed to
+// configure an AWS RDS instance.
+type AwsRelationalDatabaseDefinitionValues struct {
+	Name               string `yaml:"Name"`
+	AwsAccountName     string `yaml:"AwsAccountName"`
+	Engine             string `yaml:"Engine"`
+	EngineVersion      string `yaml:"EngineVersion"`
+	DatabaseName       string `yaml:"DatabaseName"`
+	DatabasePort       int    `yaml:"DatabasePort"`
+	BackupDays         int    `yaml:"BackupDays"`
+	MachineSize        string `yaml:"MachineSize"`
+	StorageGb          int    `yaml:"StorageGb"`
+	WorkloadSecretName string `yaml:"WorkloadSecretName"`
+}
+
+// AwsRelationalDatabaseInstanceConfig contains the config for an AWS relational
+// database instance.
+type AwsRelationalDatabaseInstanceConfig struct {
+	AwsRelationalDatabaseInstance AwsRelationalDatabaseInstanceValues `yaml:"AwsRelationalDatabaseInstance"`
+}
+
+// AwsRelationalDatabaseInstanceValues contains the attributes needed to
+// create an AWS RDS instance.
+type AwsRelationalDatabaseInstanceValues struct {
+	Name                            string                                `yaml:"Name"`
+	AwsRelationalDatabaseDefinition AwsRelationalDatabaseDefinitionValues `yaml:"AwsRelationalDatabaseDefinition"`
+	WorkloadInstance                WorkloadInstanceValues                `yaml:"WorkloadInstance"`
 }
 
 // Create creates an AWS account in the Threeport API.
@@ -313,4 +369,219 @@ func (aekri *AwsEksKubernetesRuntimeInstanceValues) Delete(apiClient *http.Clien
 	}
 
 	return deletedAwsEksKubernetesRuntimeInstance, nil
+}
+
+func (r *AwsRelationalDatabaseValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, *v0.AwsRelationalDatabaseInstance, error) {
+	// create the relational database definition
+	awsRelationalDatabaseDefinition := AwsRelationalDatabaseDefinitionValues{
+		Name:               r.Name,
+		AwsAccountName:     r.AwsAccountName,
+		Engine:             r.Engine,
+		EngineVersion:      r.EngineVersion,
+		DatabaseName:       r.DatabaseName,
+		DatabasePort:       r.DatabasePort,
+		BackupDays:         r.BackupDays,
+		MachineSize:        r.MachineSize,
+		StorageGb:          r.StorageGb,
+		WorkloadSecretName: r.WorkloadSecretName,
+	}
+	createdAwsRelationalDatabaseDefinition, err := awsRelationalDatabaseDefinition.Create(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create AWS relational database definition: %w", err)
+	}
+
+	// create the relational database instance
+	awsRelationalDatabaseInstance := AwsRelationalDatabaseInstanceValues{
+		Name: defaultInstanceName(r.Name),
+		AwsRelationalDatabaseDefinition: AwsRelationalDatabaseDefinitionValues{
+			Name: r.Name,
+		},
+		WorkloadInstance: *r.WorkloadInstance,
+	}
+	createdAwsRelationalDatabaseInstance, err := awsRelationalDatabaseInstance.Create(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create AWS relational database instance: %w", err)
+	}
+
+	return createdAwsRelationalDatabaseDefinition, createdAwsRelationalDatabaseInstance, nil
+}
+
+func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, *v0.AwsRelationalDatabaseInstance, error) {
+	// get AWS relational database definition by name
+	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, r.Name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find AWS relational database definition by name %s: %w", r.Name, err)
+	}
+
+	// get AWS relational database instance by name
+	awsRelationalDatabaseInstName := defaultInstanceName(r.Name)
+	awsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByName(apiClient, apiEndpoint, awsRelationalDatabaseInstName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find AWS relational database instance by name %s: %w", r.Name, err)
+	}
+
+	// ensure the AWS relational database definition has no more than one
+	// associated instance
+	awsRelationalDatabaseInsts, err := client.GetAwsRelationalDatabaseInstancesByAwsRelationalDatabaseDefinitionID(apiClient, apiEndpoint, *awsRelationalDatabaseDefinition.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get AWS relational database instances by AWS relational database definition with ID: %d: %w", *awsRelationalDatabaseDefinition.ID, err)
+	}
+	if len(*awsRelationalDatabaseInsts) > 1 {
+		err = errors.New("deletion using the AWS relational database abstraction is only permitted when there is a one-to-one AWS relational database defintion and instance relationship")
+		return nil, nil, fmt.Errorf("the AWS relational database definition has more than one instance associated: %w", err)
+	}
+
+	// delete AWS relational database instance
+	deletedAwsRelationalDatabaseInstance, err := client.DeleteAwsRelationalDatabaseInstance(apiClient, apiEndpoint, *awsRelationalDatabaseInstance.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to delete AWS relational database instance from threeport API: %w", err)
+	}
+
+	// wait for AWS relational database instance to be reconciled
+	deletedCheckAttempts := 0
+	deletedCheckAttemptsMax := 30
+	deletedCheckDurationSeconds := 10
+	awsRelationalDatabaseInstanceDeleted := false
+	for deletedCheckAttempts < deletedCheckAttemptsMax {
+		_, err := client.GetAwsRelationalDatabaseInstanceByID(apiClient, apiEndpoint, *awsRelationalDatabaseInstance.ID)
+		if err != nil {
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				awsRelationalDatabaseInstanceDeleted = true
+				break
+			} else {
+				return nil, nil, fmt.Errorf("failed to get AWS relational database instance from API when checking deletion: %w", err)
+			}
+		}
+		// no error means AWS relational database instance was found - hasn't yet been deleted
+		deletedCheckAttempts += 1
+		time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
+	}
+	if !awsRelationalDatabaseInstanceDeleted {
+		return nil, nil, errors.New(fmt.Sprintf(
+			"AWS relational database instance not deleted after %d seconds",
+			deletedCheckAttemptsMax*deletedCheckDurationSeconds,
+		))
+	}
+
+	// delete AWS relational database definition
+	deletedAwsRelationalDatabaseDefinition, err := client.DeleteAwsRelationalDatabaseDefinition(apiClient, apiEndpoint, *awsRelationalDatabaseDefinition.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to delete AWS relational database definition from threeport API: %w", err)
+	}
+
+	return deletedAwsRelationalDatabaseDefinition, deletedAwsRelationalDatabaseInstance, nil
+}
+
+func (r *AwsRelationalDatabaseDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, error) {
+	// validate required fields
+	if r.Name == "" || r.Engine == "" || r.EngineVersion == "" || r.DatabaseName == "" ||
+		r.DatabasePort == 0 || r.MachineSize == "" || r.StorageGb == 0 ||
+		r.WorkloadSecretName == "" || r.AwsAccountName == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, Engine, EngineVersion, DatabaseName, DatabasePort, MachineSize, StorageGb, WorkloadSecretName, AwsAccountName")
+	}
+
+	// look up AWS account by name
+	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, r.AwsAccountName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", r.Name, err)
+	}
+
+	// construct AWS relational database definition object
+	awsRelationalDatabaseDefinition := v0.AwsRelationalDatabaseDefinition{
+		Definition: v0.Definition{
+			Name: &r.Name,
+		},
+		Engine:             &r.Engine,
+		EngineVersion:      &r.EngineVersion,
+		DatabaseName:       &r.DatabaseName,
+		DatabasePort:       &r.DatabasePort,
+		MachineSize:        &r.MachineSize,
+		StorageGb:          &r.StorageGb,
+		WorkloadSecretName: &r.WorkloadSecretName,
+		AwsAccountID:       awsAccount.ID,
+	}
+
+	// create AWS relational database definition
+	createdAwsRelationalDatabaseDefinition, err := client.CreateAwsRelationalDatabaseDefinition(apiClient, apiEndpoint, &awsRelationalDatabaseDefinition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AWS relational database definition in threeport API: %w", err)
+	}
+
+	return createdAwsRelationalDatabaseDefinition, nil
+}
+
+func (r *AwsRelationalDatabaseDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, error) {
+	// get AWS relational database definition by name
+	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, r.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS relational database definition by name %s: %w", r.Name, err)
+	}
+
+	// delete AWS relational database definition
+	deletedAwsRelationalDatabaseDefinition, err := client.DeleteAwsRelationalDatabaseDefinition(apiClient, apiEndpoint, *awsRelationalDatabaseDefinition.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete AWS relational database definition from threeport API: %w", err)
+	}
+
+	return deletedAwsRelationalDatabaseDefinition, nil
+}
+
+func (r *AwsRelationalDatabaseInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseInstance, error) {
+	// validate required fields
+	if r.Name == "" || r.AwsRelationalDatabaseDefinition.Name == "" || r.WorkloadInstance.Name == "" {
+		return nil, errors.New("missing required fields in config - required fields: Name, AwsRelationalDatabaseDefinition.Name, WorkloadInstance.Name")
+	}
+
+	// get AWS relational database definition by name
+	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(
+		apiClient,
+		apiEndpoint,
+		r.AwsRelationalDatabaseDefinition.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS relational database definition by name %s: %w", r.AwsRelationalDatabaseDefinition.Name, err)
+	}
+
+	// get workload instance by name
+	workloadInstance, err := client.GetWorkloadInstanceByName(
+		apiClient,
+		apiEndpoint,
+		r.WorkloadInstance.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed find workload instance by name %s: %w", r.WorkloadInstance.Name, err)
+	}
+
+	// construct AWS relational database instance object
+	awsRelationalDatabaseInstance := v0.AwsRelationalDatabaseInstance{
+		Instance: v0.Instance{
+			Name: &r.Name,
+		},
+		AwsRelationalDatabaseDefinitionID: awsRelationalDatabaseDefinition.ID,
+		WorkloadInstanceID:                workloadInstance.ID,
+	}
+
+	// create AWS relational database instance
+	createdAwsRelationalDatabaseInstance, err := client.CreateAwsRelationalDatabaseInstance(apiClient, apiEndpoint, &awsRelationalDatabaseInstance)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AWS relational database instance in threeport API: %w", err)
+	}
+
+	return createdAwsRelationalDatabaseInstance, nil
+}
+
+func (r *AwsRelationalDatabaseInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseInstance, error) {
+	// get AWS relational database instance by name
+	awsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByName(apiClient, apiEndpoint, r.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS relational database instance by name %s: %w", r.Name, err)
+	}
+
+	// delete AWS relational database instance
+	deletedAwsRelationalDatabaseInstance, err := client.DeleteAwsRelationalDatabaseInstance(apiClient, apiEndpoint, *awsRelationalDatabaseInstance.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete AWS relational database instance from threeport API: %w", err)
+	}
+
+	return deletedAwsRelationalDatabaseInstance, nil
 }

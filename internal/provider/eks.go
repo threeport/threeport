@@ -79,7 +79,7 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 		Name:      threeport.StorageManagerServiceAccountName,
 		Namespace: threeport.StorageManagerServiceAccountNamespace,
 	}
-	resourceConfig.Tags = map[string]string{"ProvisionedBy": "tptctl"}
+	resourceConfig.Tags = map[string]string{"ProvisionedBy": "threeport"}
 
 	// create EKS cluster resource stack in AWS
 	if err := i.ResourceClient.CreateResourceStack(resourceConfig); err != nil {

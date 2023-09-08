@@ -21,7 +21,7 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 	Use:          "aws-eks-kubernetes-runtime-instance",
 	Example:      "tptctl delete aws-eks-kubernetes-runtime-instance --name some-instance",
 	Short:        "Delete an existing AWS EKS kubernetes runtime instance",
-	Long:         `Delete as existing AWS EKS kubernetes runtime instance.`,
+	Long:         `Delete an existing AWS EKS kubernetes runtime instance.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 

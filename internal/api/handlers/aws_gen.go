@@ -1310,6 +1310,19 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller if reconciliation is required
+	if !*awsRelationalDatabaseInstance.Reconciled {
+		notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsRelationalDatabaseInstanceCreateSubject, *notifPayload)
+	}
+
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1430,6 +1443,19 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// notify controller if reconciliation is required
+	if !*existingAwsRelationalDatabaseInstance.Reconciled {
+		notifPayload, err := existingAwsRelationalDatabaseInstance.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsRelationalDatabaseInstanceUpdateSubject, *notifPayload)
+	}
+
 	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseInstance)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
@@ -1526,9 +1552,46 @@ func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// delete object
-	if result := h.DB.Delete(&awsRelationalDatabaseInstance); result.Error != nil {
-		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if awsRelationalDatabaseInstance.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledAwsRelationalDatabaseInstance := v0.AwsRelationalDatabaseInstance{
+			Reconciliation: v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&awsRelationalDatabaseInstance).Updates(scheduledAwsRelationalDatabaseInstance); result.Error != nil {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsRelationalDatabaseInstanceDeleteSubject, *notifPayload)
+	} else {
+		if awsRelationalDatabaseInstance.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return iapi.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*awsRelationalDatabaseInstance.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&awsRelationalDatabaseInstance); result.Error != nil {
+				return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
 	}
 
 	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)

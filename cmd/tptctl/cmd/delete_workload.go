@@ -27,7 +27,7 @@ var DeleteWorkloadCmd = &cobra.Command{
 	Use:     "workload",
 	Example: "tptctl delete workload --config /path/to/config.yaml",
 	Short:   "Delete an existing workload",
-	Long: `Delete a new workload. This command deletes an existing workload definition
+	Long: `Delete an existing workload. This command deletes an existing workload definition
 and workload instance based on the workload config or name.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {

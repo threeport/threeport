@@ -6,6 +6,15 @@ import (
 	"github.com/threeport/threeport/internal/util"
 )
 
+// RegionMap contains a threeport location with the corresponding regions for
+// cloud providers.
+type MachineTypeMap struct {
+	NodeProfile    string
+	NodeSize       string
+	AwsMachineType string
+	//GcpMachineType string  // future use
+}
+
 // MachineTypeError is an error returned when a machine type cannot be provided
 // for a provider, node profile, node size combination.
 type MachineTypeError struct {
@@ -15,15 +24,6 @@ type MachineTypeError struct {
 // Error returns a customized message for the MachineTypeError.
 func (e *MachineTypeError) Error() string {
 	return e.Message
-}
-
-// RegionMap contains a threeport location with the corresponding regions for
-// cloud providers.
-type MachineTypeMap struct {
-	NodeProfile    string
-	NodeSize       string
-	AwsMachineType string
-	//GcpMachineType string  // future use
 }
 
 // getMachineTypeMap returns the map of node sizes and profiles to cloud
