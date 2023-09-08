@@ -12,7 +12,7 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"github.com/threeport/threeport/pkg/cli/v0"
-	"github.com/threeport/threeport/pkg/threeport/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // TODO: will become a variable once production-ready control plane instances are

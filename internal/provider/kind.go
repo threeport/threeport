@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/threeport/threeport/pkg/threeport/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cmd"

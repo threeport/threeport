@@ -12,7 +12,7 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	"github.com/threeport/threeport/pkg/kube/v0"
-	"github.com/threeport/threeport/pkg/threeport/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // kubernetesRuntimeInstanceCreated reconciles state for a new kubernetes

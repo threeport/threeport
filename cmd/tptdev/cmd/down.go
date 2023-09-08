@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/threeport/threeport/internal/tptdev"
 	"github.com/threeport/threeport/pkg/cli/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 
 // downCmd represents the down command

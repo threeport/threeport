@@ -12,7 +12,7 @@ import (
 	"gopkg.in/ini.v1"
 
 	"github.com/threeport/threeport/pkg/kube/v0"
-	"github.com/threeport/threeport/pkg/threeport/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // KubernetesRuntimeInfraEKS represents the infrastructure for a threeport-managed EKS

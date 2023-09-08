@@ -18,14 +18,14 @@ import (
 
 	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
 	"github.com/threeport/threeport/internal/provider"
-	"github.com/threeport/threeport/internal/tptdev"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	"github.com/threeport/threeport/pkg/kube/v0"
-	"github.com/threeport/threeport/pkg/threeport/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	"github.com/threeport/threeport/pkg/util/v0"
 )
 
