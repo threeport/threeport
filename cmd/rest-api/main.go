@@ -18,15 +18,15 @@ import (
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
-	iapi "github.com/threeport/threeport/internal/api"
-	"github.com/threeport/threeport/internal/api/database"
-	_ "github.com/threeport/threeport/internal/api/docs"
-	"github.com/threeport/threeport/internal/api/handlers"
-	"github.com/threeport/threeport/internal/api/routes"
-	"github.com/threeport/threeport/internal/api/versions"
-	"github.com/threeport/threeport/internal/log"
 	"github.com/threeport/threeport/internal/version"
+	iapi "github.com/threeport/threeport/pkg/api-server/v0"
+	"github.com/threeport/threeport/pkg/api-server/v0/database"
+	_ "github.com/threeport/threeport/pkg/api-server/v0/docs"
+	"github.com/threeport/threeport/pkg/api-server/v0/handlers"
+	"github.com/threeport/threeport/pkg/api-server/v0/routes"
+	"github.com/threeport/threeport/pkg/api-server/v0/versions"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	"github.com/threeport/threeport/pkg/log/v0"
 )
 
 // @title Threeport RESTful API

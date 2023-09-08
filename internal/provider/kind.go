@@ -5,12 +5,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/threeport/threeport/internal/threeport"
+	"github.com/threeport/threeport/pkg/threeport/v0"
 	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cmd"
 
-	"github.com/threeport/threeport/internal/kube"
+	"github.com/threeport/threeport/pkg/kube/v0"
 )
 
 // KubernetesRuntimeInfraKind represents a kind cluster for local a threeport instance.

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"github.com/threeport/threeport/pkg/controller/v0"
+	"github.com/threeport/threeport/pkg/util/v0"
 )
 
 // CreateWorkloadResourceDefinitions creates a new set of workload resource

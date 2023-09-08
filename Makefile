@@ -18,6 +18,9 @@ help:
 build-codegen:
 	go build -o bin/threeport-codegen cmd/codegen/main.go
 
+install-codegen:
+	go build -o ${GOPATH}/bin/threeport-codegen cmd/codegen/main.go
+
 #build-tptdev: @ Build tptdev binary
 build-tptdev:
 	go build -o bin/tptdev cmd/tptdev/main.go
@@ -68,7 +71,7 @@ generate-code: build-codegen
 
 #generate-docs: @ Generate swagger docs
 generate-docs:
-	swag init --dir cmd/rest-api,pkg/api,internal/api --parseDependency --generalInfo main.go --output internal/api/docs
+	swag init --dir cmd/rest-api,pkg/api,pkg/api-server/v0 --parseDependency --generalInfo main.go --output pkg/api-server/v0/docs
 
 ## testing
 

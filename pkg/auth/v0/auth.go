@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/threeport/threeport/internal/util"
+	"github.com/threeport/threeport/pkg/util/v0"
 )
 
 // AuthConfig contains root CA and private key for generating client certificates.

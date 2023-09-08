@@ -22,7 +22,7 @@ func (gvc *GlobalVersionConfig) TaggedFields() error {
 	}
 
 	// write code to file
-	taggedFieldsFilepath := filepath.Join("..", "..", "internal", "api", "tagged_fields_gen.go")
+	taggedFieldsFilepath := filepath.Join("..", "..", "pkg", "api-server", "v0", "tagged_fields_gen.go")
 	file, err := os.OpenFile(taggedFieldsFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for tagged fields maps: %w", err)

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/threeport/threeport/internal/util"
+	"github.com/threeport/threeport/pkg/util/v0"
 )
 
 // GenerateKey generates a random 32-byte key for use in encryption

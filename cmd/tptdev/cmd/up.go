@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/threeport/threeport/internal/cli"
 	"github.com/threeport/threeport/internal/tptdev"
+	"github.com/threeport/threeport/pkg/cli/v0"
 )
 
 // upCmd represents the up command
