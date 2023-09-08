@@ -1,4 +1,4 @@
-package kube
+package v0
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"github.com/threeport/threeport/pkg/util/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // NamespaceFinder is used to get namespace info from JSON representations of

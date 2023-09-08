@@ -15,7 +15,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	"github.com/threeport/threeport/pkg/kube/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 // workloadInstanceCreated performs reconciliation when a workload instance

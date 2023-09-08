@@ -1,4 +1,4 @@
-package threeport
+package v0
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"github.com/threeport/threeport/pkg/kube/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 const (

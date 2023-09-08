@@ -1,4 +1,4 @@
-package api
+package v0
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"github.com/threeport/threeport/pkg/util/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 const (

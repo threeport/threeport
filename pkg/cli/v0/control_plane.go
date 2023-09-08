@@ -1,4 +1,4 @@
-package cli
+package v0
 
 import (
 	"errors"
@@ -19,14 +19,14 @@ import (
 	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"github.com/threeport/threeport/pkg/auth/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
-	"github.com/threeport/threeport/pkg/kube/v0"
-	"github.com/threeport/threeport/pkg/threeport-installer/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
-	"github.com/threeport/threeport/pkg/util/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 var ThreeportConfigAlreadyExistsErr = errors.New("threeport control plane with provided name already exists in threeport config")

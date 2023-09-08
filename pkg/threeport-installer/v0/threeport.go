@@ -1,4 +1,4 @@
-package threeport
+package v0
 
 import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"

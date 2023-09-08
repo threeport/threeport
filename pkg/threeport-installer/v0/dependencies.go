@@ -1,4 +1,4 @@
-package threeport
+package v0
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
-	"github.com/threeport/threeport/pkg/kube/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 // CreateThreeportControlPlaneNamespace creates the threeport control plane

@@ -1,4 +1,4 @@
-package threeport
+package v0
 
 import (
 	"bytes"
@@ -12,10 +12,10 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/version"
-	"github.com/threeport/threeport/pkg/auth/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	v0 "github.com/threeport/threeport/pkg/client/v0"
-	"github.com/threeport/threeport/pkg/kube/v0"
-	"github.com/threeport/threeport/pkg/util/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 const (

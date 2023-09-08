@@ -11,10 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/threeport/threeport/pkg/cli/v0"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
-	"github.com/threeport/threeport/pkg/util/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 var (

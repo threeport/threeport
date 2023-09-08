@@ -3,7 +3,7 @@ package provider
 import (
 	"fmt"
 
-	"github.com/threeport/threeport/pkg/kube/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 const (

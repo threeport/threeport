@@ -26,7 +26,7 @@ import (
 	"github.com/threeport/threeport/pkg/api-server/v0/routes"
 	"github.com/threeport/threeport/pkg/api-server/v0/versions"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"github.com/threeport/threeport/pkg/log/v0"
+	log "github.com/threeport/threeport/pkg/log/v0"
 )
 
 // @title Threeport RESTful API

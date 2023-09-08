@@ -12,11 +12,11 @@ import (
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"github.com/threeport/threeport/pkg/cli/v0"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
-	"github.com/threeport/threeport/pkg/kube/v0"
-	"github.com/threeport/threeport/pkg/threeport-installer/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 

@@ -11,8 +11,8 @@ import (
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gopkg.in/ini.v1"
 
-	"github.com/threeport/threeport/pkg/kube/v0"
-	"github.com/threeport/threeport/pkg/threeport-installer/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // KubernetesRuntimeInfraEKS represents the infrastructure for a threeport-managed EKS

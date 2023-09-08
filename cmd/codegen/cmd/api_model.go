@@ -16,7 +16,7 @@ import (
 
 	"github.com/threeport/threeport/internal/codegen"
 	"github.com/threeport/threeport/internal/codegen/models"
-	"github.com/threeport/threeport/pkg/util/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // nameFields returns a list of struct type fields that indicate a struct

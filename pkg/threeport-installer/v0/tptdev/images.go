@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/kind/pkg/exec"
 	"sigs.k8s.io/kind/pkg/fs"
 
-	"github.com/threeport/threeport/pkg/threeport-installer/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 type BuildErrorLine struct {
