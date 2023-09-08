@@ -75,7 +75,7 @@ func SetNamespaces(
 	if clientManagedNS == "" {
 		// we are managing namespaces for the client - create namespace and add to
 		// array of processed workload resource instances
-		namespace = fmt.Sprintf("%s-%s", *workloadInstance.Name, util.RandomString(10))
+		namespace = fmt.Sprintf("%s-%s", *workloadInstance.Name, util.RandomAlphaNumericString(10))
 	} else {
 		namespace = clientManagedNS
 	}

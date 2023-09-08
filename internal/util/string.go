@@ -7,7 +7,10 @@ import (
 	"time"
 )
 
-const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+const (
+	alphaCharset        = "abcdefghijklmnopqrstuvwxyz"
+	alphaNumericCharset = "abcdefghijklmnopqrstuvwxyz0123456789"
+)
 
 // SliceContains returns true if a slice contains a certain string.
 func StringSliceContains(sl []string, name string, caseSensitive bool) bool {
@@ -26,13 +29,27 @@ func StringSliceContains(sl []string, name string, caseSensitive bool) bool {
 	return false
 }
 
-// RandomString returns a random string with the provided length.
-func RandomString(length int) string {
+// RandomAlphaString returns a random string with the provided length
+// using alphabetic charcaters.
+func RandomAlphaString(length int) string {
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	bytes := make([]byte, length)
 	for i := range bytes {
-		bytes[i] = charset[seededRand.Intn(len(charset))]
+		bytes[i] = alphaCharset[seededRand.Intn(len(alphaCharset))]
+	}
+
+	return string(bytes)
+}
+
+// RandomAlphaNumericString returns a random string with the provided length
+// using alpha-numeric charcaters.
+func RandomAlphaNumericString(length int) string {
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	bytes := make([]byte, length)
+	for i := range bytes {
+		bytes[i] = alphaNumericCharset[seededRand.Intn(len(alphaNumericCharset))]
 	}
 
 	return string(bytes)

@@ -138,8 +138,8 @@ func awsRelationalDatabaseInstanceCreated(
 	dbPort := int32(*awsRelationalDatabaseDef.DatabasePort)
 	storageGb := int32(*awsRelationalDatabaseDef.StorageGb)
 	backupDays := int32(*awsRelationalDatabaseDef.BackupDays)
-	dbUser := util.RandomString(12)
-	dbPassword := util.RandomString(32)
+	dbUser := util.RandomAlphaString(12)
+	dbPassword := util.RandomAlphaNumericString(32)
 	rdsConfig := rds.RdsConfig{
 		AwsAccount:            *awsAccount.AccountID,
 		Region:                awsConfig.Region,
