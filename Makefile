@@ -18,9 +18,6 @@ help:
 build-codegen:
 	go build -o bin/threeport-codegen cmd/codegen/main.go
 
-install-codegen:
-	go build -o ${GOPATH}/bin/threeport-codegen cmd/codegen/main.go
-
 #build-tptdev: @ Build tptdev binary
 build-tptdev:
 	go build -o bin/tptdev cmd/tptdev/main.go
