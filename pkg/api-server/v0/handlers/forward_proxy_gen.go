@@ -41,7 +41,7 @@ func (h Handler) AddForwardProxyDefinition(c echo.Context) error {
 	var forwardProxyDefinition v0.ForwardProxyDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, forwardProxyDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -74,7 +74,7 @@ func (h Handler) AddForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, forwardProxyDefinition)
+	response, err := v0.CreateResponse(nil, forwardProxyDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -114,7 +114,7 @@ func (h Handler) GetForwardProxyDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -143,7 +143,7 @@ func (h Handler) GetForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, forwardProxyDefinition)
+	response, err := v0.CreateResponse(nil, forwardProxyDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -179,7 +179,7 @@ func (h Handler) UpdateForwardProxyDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingForwardProxyDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -194,7 +194,7 @@ func (h Handler) UpdateForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingForwardProxyDefinition)
+	response, err := v0.CreateResponse(nil, existingForwardProxyDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -231,7 +231,7 @@ func (h Handler) ReplaceForwardProxyDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingForwardProxyDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -260,7 +260,7 @@ func (h Handler) ReplaceForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingForwardProxyDefinition)
+	response, err := v0.CreateResponse(nil, existingForwardProxyDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -295,7 +295,7 @@ func (h Handler) DeleteForwardProxyDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, forwardProxyDefinition)
+	response, err := v0.CreateResponse(nil, forwardProxyDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -332,7 +332,7 @@ func (h Handler) AddForwardProxyInstance(c echo.Context) error {
 	var forwardProxyInstance v0.ForwardProxyInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, forwardProxyInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -365,7 +365,7 @@ func (h Handler) AddForwardProxyInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, forwardProxyInstance)
+	response, err := v0.CreateResponse(nil, forwardProxyInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -405,7 +405,7 @@ func (h Handler) GetForwardProxyInstances(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -434,7 +434,7 @@ func (h Handler) GetForwardProxyInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, forwardProxyInstance)
+	response, err := v0.CreateResponse(nil, forwardProxyInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -470,7 +470,7 @@ func (h Handler) UpdateForwardProxyInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingForwardProxyInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -485,7 +485,7 @@ func (h Handler) UpdateForwardProxyInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingForwardProxyInstance)
+	response, err := v0.CreateResponse(nil, existingForwardProxyInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -522,7 +522,7 @@ func (h Handler) ReplaceForwardProxyInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingForwardProxyInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -551,7 +551,7 @@ func (h Handler) ReplaceForwardProxyInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingForwardProxyInstance)
+	response, err := v0.CreateResponse(nil, existingForwardProxyInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -586,7 +586,7 @@ func (h Handler) DeleteForwardProxyInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, forwardProxyInstance)
+	response, err := v0.CreateResponse(nil, forwardProxyInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}

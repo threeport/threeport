@@ -44,7 +44,7 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 	var gatewayDefinition v0.GatewayDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, gatewayDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -90,7 +90,7 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 		h.JS.Publish(v0.GatewayDefinitionCreateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, gatewayDefinition)
+	response, err := v0.CreateResponse(nil, gatewayDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -130,7 +130,7 @@ func (h Handler) GetGatewayDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -159,7 +159,7 @@ func (h Handler) GetGatewayDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, gatewayDefinition)
+	response, err := v0.CreateResponse(nil, gatewayDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -195,7 +195,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingGatewayDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -223,7 +223,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 		h.JS.Publish(v0.GatewayDefinitionUpdateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, existingGatewayDefinition)
+	response, err := v0.CreateResponse(nil, existingGatewayDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -260,7 +260,7 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingGatewayDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -289,7 +289,7 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingGatewayDefinition)
+	response, err := v0.CreateResponse(nil, existingGatewayDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -367,7 +367,7 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 		}
 	}
 
-	response, err := v0.CreateResponse(nil, gatewayDefinition)
+	response, err := v0.CreateResponse(nil, gatewayDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -404,7 +404,7 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 	var gatewayInstance v0.GatewayInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, gatewayInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -450,7 +450,7 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 		h.JS.Publish(v0.GatewayInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, gatewayInstance)
+	response, err := v0.CreateResponse(nil, gatewayInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -490,7 +490,7 @@ func (h Handler) GetGatewayInstances(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -519,7 +519,7 @@ func (h Handler) GetGatewayInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, gatewayInstance)
+	response, err := v0.CreateResponse(nil, gatewayInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -555,7 +555,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingGatewayInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -583,7 +583,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 		h.JS.Publish(v0.GatewayInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, existingGatewayInstance)
+	response, err := v0.CreateResponse(nil, existingGatewayInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -620,7 +620,7 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingGatewayInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -649,7 +649,7 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingGatewayInstance)
+	response, err := v0.CreateResponse(nil, existingGatewayInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -721,7 +721,7 @@ func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := v0.CreateResponse(nil, gatewayInstance)
+	response, err := v0.CreateResponse(nil, gatewayInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -758,7 +758,7 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 	var domainNameDefinition v0.DomainNameDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, domainNameDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -791,7 +791,7 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, domainNameDefinition)
+	response, err := v0.CreateResponse(nil, domainNameDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -831,7 +831,7 @@ func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -860,7 +860,7 @@ func (h Handler) GetDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, domainNameDefinition)
+	response, err := v0.CreateResponse(nil, domainNameDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -896,7 +896,7 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingDomainNameDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -911,7 +911,7 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingDomainNameDefinition)
+	response, err := v0.CreateResponse(nil, existingDomainNameDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -948,7 +948,7 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingDomainNameDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -977,7 +977,7 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingDomainNameDefinition)
+	response, err := v0.CreateResponse(nil, existingDomainNameDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1012,7 +1012,7 @@ func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, domainNameDefinition)
+	response, err := v0.CreateResponse(nil, domainNameDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1049,7 +1049,7 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 	var domainNameInstance v0.DomainNameInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, domainNameInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1095,7 +1095,7 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 		h.JS.Publish(v0.DomainNameInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, domainNameInstance)
+	response, err := v0.CreateResponse(nil, domainNameInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1135,7 +1135,7 @@ func (h Handler) GetDomainNameInstances(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -1164,7 +1164,7 @@ func (h Handler) GetDomainNameInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, domainNameInstance)
+	response, err := v0.CreateResponse(nil, domainNameInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1200,7 +1200,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingDomainNameInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1228,7 +1228,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 		h.JS.Publish(v0.DomainNameInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, existingDomainNameInstance)
+	response, err := v0.CreateResponse(nil, existingDomainNameInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1265,7 +1265,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingDomainNameInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1294,7 +1294,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingDomainNameInstance)
+	response, err := v0.CreateResponse(nil, existingDomainNameInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1366,7 +1366,7 @@ func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := v0.CreateResponse(nil, domainNameInstance)
+	response, err := v0.CreateResponse(nil, domainNameInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}

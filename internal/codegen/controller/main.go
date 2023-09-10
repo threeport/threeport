@@ -301,7 +301,7 @@ func (cc *ControllerConfig) MainPackage() error {
 		List(
 			Id("apiClient"), Id("err"),
 		).Op(":=").Qual("github.com/threeport/threeport/pkg/client/v0", "GetHTTPClient").Call(
-			Op("*").Id("authEnabled").Op(",").Lit("").Op(",").Lit("").Op(",").Lit(""),
+			Op("*").Id("authEnabled").Op(",").Lit("").Op(",").Lit("").Op(",").Lit("").Op(",").Lit(""),
 		),
 		If(Err().Op("!=").Nil()).Block(
 			Id("log").Dot("Error").Call(

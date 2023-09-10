@@ -15,98 +15,42 @@ import (
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	v0 "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
-)
-
-const (
-	ThreeportImageRepo                        = "ghcr.io/threeport"
-	ThreeportAPIImage                         = "threeport-rest-api"
-	ThreeportWorkloadControllerImage          = "threeport-workload-controller"
-	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
-	ThreeportAwsControllerImage               = "threeport-aws-controller"
-	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
-	ThreeportAgentDeployName                  = "threeport-agent"
-	ThreeportAgentImage                       = "threeport-agent"
-	ThreeportAPIServiceResourceName           = "threeport-api-server"
-	ThreeportAPIIngressResourceName           = "threeport-api-ingress"
-	ThreeportLocalAPIEndpoint                 = "localhost"
 )
 
 // ThreeportDevImages returns a map of main package dirs to dev image names
-func ThreeportDevImages() map[string]string {
-	return getImages(true)
-}
+func (cpi *ControlPlaneInstaller) ThreeportDevImages() map[string]string {
+	devImageSuffix := "-dev"
+	devImages := make(map[string]string)
 
-// ThreeportImages returns a map of main package dirs to image names
-func ThreeportImages() map[string]string {
-	return getImages(false)
-}
-
-// getImages returns an image map depending on the dev environment flag
-func getImages(devEnvironment bool) map[string]string {
-
-	imageSuffix := ""
-
-	// set image suffix for dev environment
-	if devEnvironment {
-		imageSuffix = "-dev"
+	for _, c := range cpi.Opts.ControllerList {
+		devImages[c.Name] = fmt.Sprintf("%s%s:latest", c.ImageName, devImageSuffix)
 	}
 
-	images := map[string]string{
-		"rest-api":                      fmt.Sprintf("%s%s:latest", ThreeportAPIImage, imageSuffix),
-		"workload-controller":           fmt.Sprintf("%s%s:latest", ThreeportWorkloadControllerImage, imageSuffix),
-		"kubernetes-runtime-controller": fmt.Sprintf("%s%s:latest", ThreeportKubernetesRuntimeControllerImage, imageSuffix),
-		"aws-controller":                fmt.Sprintf("%s%s:latest", ThreeportAwsControllerImage, imageSuffix),
-		"gateway-controller":            fmt.Sprintf("%s%s:latest", ThreeportGatewayControllerImage, imageSuffix),
-		"agent":                         fmt.Sprintf("%s%s:latest", ThreeportAgentImage, imageSuffix),
-	}
+	devImages[cpi.Opts.RestApiInfo.Name] = fmt.Sprintf("%s%s:latest", cpi.Opts.RestApiInfo.ImageName, devImageSuffix)
+	devImages[cpi.Opts.AgentInfo.Name] = fmt.Sprintf("%s%s:latest", cpi.Opts.AgentInfo.ImageName, devImageSuffix)
 
-	return images
-}
-
-// GetThreeportControllerNames returns a list of all threeport controllers
-func GetThreeportControllerNames() []string {
-	return []string{
-		"workload-controller",
-		"kubernetes-runtime-controller",
-		"aws-controller",
-		"gateway-controller",
-	}
+	return devImages
 }
 
 // InstallComputeSpaceControlPlaneComponents
-func InstallComputeSpaceControlPlaneComponents(
+func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	runtimeInstanceName string,
-	agentImage string,
 ) error {
 	// threeport control plane namespace
-	if err := CreateThreeportControlPlaneNamespace(
+	if err := cpi.CreateThreeportControlPlaneNamespace(
 		kubeClient,
 		mapper,
 	); err != nil {
 		return fmt.Errorf("failed to create threeport control plane namespace: %w", err)
 	}
 
-	// threeport agent
-	var agentImageRegistry string
-	var agentImageTag string
-	if agentImage != "" {
-		agentRegistry, _, agentTag, err := util.ParseImage(agentImage)
-		if err != nil {
-			return fmt.Errorf("failed to parse custom threeport agent image: %w", err)
-		}
-		agentImageRegistry = agentRegistry
-		agentImageTag = agentTag
-	}
-	if err := InstallThreeportAgent(
+	if err := cpi.InstallThreeportAgent(
 		kubeClient,
 		mapper,
 		runtimeInstanceName,
 		false,
-		agentImageRegistry,
-		agentImageTag,
 		nil,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport agent: %w", err)
@@ -126,22 +70,20 @@ func InstallComputeSpaceControlPlaneComponents(
 
 // InstallThreeportControlPlaneAPI installs the threeport API in a Kubernetes
 // cluster.
-func InstallThreeportAPI(
+func (cpi *ControlPlaneInstaller) InstallThreeportAPI(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
-	customThreeportImageRepo string,
-	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
 	infraProvider string,
 	encryptionKey string,
 ) error {
-	apiImage := getAPIImage(devEnvironment, customThreeportImageRepo, customThreeportImageTag)
-	apiArgs := getAPIArgs(devEnvironment, authConfig)
-	apiVols, apiVolMounts := getAPIVolumes(devEnvironment, authConfig)
-	apiServiceType := getAPIServiceType(infraProvider)
+	apiImage := cpi.getImage(devEnvironment, cpi.Opts.RestApiInfo.Name, cpi.Opts.RestApiInfo.ImageName, cpi.Opts.RestApiInfo.ImageRepo, cpi.Opts.RestApiInfo.ImageTag)
+	apiArgs := cpi.getAPIArgs(devEnvironment, authConfig)
+	apiVols, apiVolMounts := cpi.getAPIVolumes(devEnvironment, authConfig)
+	apiServiceType := cpi.getAPIServiceType(infraProvider)
 	apiServiceAnnotations := getAPIServiceAnnotations(infraProvider)
-	apiServicePortName, apiServicePort := getAPIServicePort(infraProvider, authConfig)
+	apiServicePortName, apiServicePort := cpi.getAPIServicePort(infraProvider, authConfig)
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -149,7 +91,7 @@ func InstallThreeportAPI(
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":      "db-create",
-				"namespace": "threeport-control-plane",
+				"namespace": cpi.Opts.Namespace,
 			},
 			"data": map[string]interface{}{
 				"db.sql": `CREATE USER IF NOT EXISTS tp_rest_api
@@ -173,7 +115,7 @@ GRANT ALL ON DATABASE threeport_api TO tp_rest_api;
 			"kind":       "Secret",
 			"metadata": map[string]interface{}{
 				"name":      "db-config",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 			},
 			"stringData": map[string]interface{}{
 				"env": `DB_HOST=crdb
@@ -198,7 +140,7 @@ NATS_PORT=4222
 			"kind":       "Secret",
 			"metadata": map[string]interface{}{
 				"name":      "encryption-key",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 			},
 			"stringData": map[string]interface{}{
 				"ENCRYPTION_KEY": encryptionKey,
@@ -214,20 +156,20 @@ NATS_PORT=4222
 			"apiVersion": "apps/v1",
 			"kind":       "Deployment",
 			"metadata": map[string]interface{}{
-				"name":      "threeport-api-server",
-				"namespace": ControlPlaneNamespace,
+				"name":      cpi.Opts.RestApiInfo.ServiceResourceName,
+				"namespace": cpi.Opts.Namespace,
 			},
 			"spec": map[string]interface{}{
 				"replicas": 1,
 				"selector": map[string]interface{}{
 					"matchLabels": map[string]interface{}{
-						"app.kubernetes.io/name": "threeport-api-server",
+						"app.kubernetes.io/name": cpi.Opts.RestApiInfo.ServiceResourceName,
 					},
 				},
 				"template": map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"labels": map[string]interface{}{
-							"app.kubernetes.io/name": "threeport-api-server",
+							"app.kubernetes.io/name": cpi.Opts.RestApiInfo.ServiceResourceName,
 						},
 					},
 					"spec": map[string]interface{}{
@@ -273,7 +215,7 @@ NATS_PORT=4222
 									},
 								},
 								"volumeMounts":   apiVolMounts,
-								"readinessProbe": getReadinessProbe(),
+								"readinessProbe": cpi.getReadinessProbe(),
 							},
 						},
 						"volumes": apiVols,
@@ -301,13 +243,13 @@ NATS_PORT=4222
 			"apiVersion": "v1",
 			"kind":       "Service",
 			"metadata": map[string]interface{}{
-				"name":      ThreeportAPIServiceResourceName,
-				"namespace": ControlPlaneNamespace,
+				"name":      cpi.Opts.RestApiInfo.ServiceResourceName,
+				"namespace": cpi.Opts.Namespace,
 			},
 			"annotations": apiServiceAnnotations,
 			"spec": map[string]interface{}{
 				"selector": map[string]interface{}{
-					"app.kubernetes.io/name": "threeport-api-server",
+					"app.kubernetes.io/name": cpi.Opts.RestApiInfo.ServiceResourceName,
 				},
 				"ports": []interface{}{
 					port,
@@ -324,7 +266,7 @@ NATS_PORT=4222
 }
 
 // InstallThreeportAPITLS installs TLS assets for threeport API.
-func InstallThreeportAPITLS(
+func (cpi *ControlPlaneInstaller) InstallThreeportAPITLS(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	authConfig *auth.AuthConfig,
@@ -341,12 +283,12 @@ func InstallThreeportAPITLS(
 			return fmt.Errorf("failed to generate server certificate and private key: %w", err)
 		}
 
-		var apiCa = getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
+		var apiCa = cpi.getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
 		if _, err := kube.CreateResource(apiCa, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create API server secret: %w", err)
 		}
 
-		var apiCert = getTLSSecret("api-cert", serverCertificate, serverPrivateKey)
+		var apiCert = cpi.getTLSSecret("api-cert", serverCertificate, serverPrivateKey)
 		if _, err := kube.CreateResource(apiCert, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create API server secret: %w", err)
 		}
@@ -357,29 +299,23 @@ func InstallThreeportAPITLS(
 
 // InstallThreeportControllers installs the threeport controllers in a
 // Kubernetes cluster.
-func InstallThreeportControllers(
+func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
-	customThreeportImageRepo string,
-	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
 ) error {
-	controllerSecret := getControllerSecret("controller", ControlPlaneNamespace)
+	controllerSecret := cpi.getControllerSecret("controller", cpi.Opts.Namespace)
 	if _, err := kube.CreateResource(controllerSecret, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create workload controller secret: %w", err)
+		return fmt.Errorf("failed to create controller secret: %w", err)
 	}
 
-	controllers := GetThreeportControllerNames()
-
-	for _, controller := range controllers {
-		if err := InstallController(
-			controller,
+	for _, controller := range cpi.Opts.ControllerList {
+		if err := cpi.InstallController(
 			kubeClient,
 			mapper,
 			devEnvironment,
-			customThreeportImageRepo,
-			customThreeportImageTag,
+			controller,
 			authConfig,
 		); err != nil {
 			return fmt.Errorf("failed to install %s: %w", controller, err)
@@ -390,18 +326,16 @@ func InstallThreeportControllers(
 }
 
 // InstallController installs a threeport controller by name.
-func InstallController(
-	name string,
+func (cpi *ControlPlaneInstaller) InstallController(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
-	customThreeportImageRepo string,
-	customThreeportImageTag string,
+	installInfo InstallInfo,
 	authConfig *auth.AuthConfig,
 ) error {
-	controllerImage := getImage(name, devEnvironment, customThreeportImageRepo, customThreeportImageTag)
-	controllerVols, controllerVolMounts := getControllerVolumes(name, devEnvironment, authConfig)
-	controllerArgs := getControllerArgs(devEnvironment, authConfig)
+	controllerImage := cpi.getImage(devEnvironment, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
+	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, devEnvironment, authConfig)
+	controllerArgs := cpi.getControllerArgs(devEnvironment, authConfig)
 
 	// if auth is enabled on API, generate client cert and key and store in
 	// secrets
@@ -412,20 +346,31 @@ func InstallController(
 			return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
 		}
 
-		ca := getTLSSecret(fmt.Sprintf("%s-ca", name), authConfig.CAPemEncoded, "")
+		ca := cpi.getTLSSecret(fmt.Sprintf("%s-ca", installInfo.Name), authConfig.CAPemEncoded, "")
 		if _, err := kube.CreateResource(ca, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create API server secret for workload controller: %w", err)
 		}
 
-		cert := getTLSSecret(fmt.Sprintf("%s-cert", name), certificate, privateKey)
+		cert := cpi.getTLSSecret(fmt.Sprintf("%s-cert", installInfo.Name), certificate, privateKey)
 		if _, err := kube.CreateResource(cert, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create API server secret for workload controller: %w", err)
 		}
 	}
 
-	var controllerDeployment = getControllerDeployment(
-		name,
-		ControlPlaneNamespace,
+	serviceAccountName := installInfo.ServiceAccountName
+
+	var deployName string
+	if cpi.isThreeportManagedController(installInfo) {
+		deployName = fmt.Sprintf("threeport-%s", installInfo.Name)
+	} else {
+		deployName = fmt.Sprintf("%s-%s", cpi.Opts.Name, installInfo.Name)
+	}
+
+	var controllerDeployment = cpi.getControllerDeployment(
+		deployName,
+		installInfo.Name,
+		cpi.Opts.Namespace,
+		serviceAccountName,
 		controllerImage,
 		controllerArgs,
 		controllerVols,
@@ -439,18 +384,17 @@ func InstallController(
 }
 
 // InstallThreeportAgent installs the threeport agent on a Kubernetes cluster.
-func InstallThreeportAgent(
+func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	threeportInstanceName string,
 	devEnvironment bool,
-	customThreeportImageRepo string,
-	customThreeportImageTag string,
 	authConfig *auth.AuthConfig,
 ) error {
-	agentImage := getImage("agent", devEnvironment, customThreeportImageRepo, customThreeportImageTag)
-	agentArgs := getAgentArgs(devEnvironment, authConfig)
-	agentVols, agentVolMounts := getControllerVolumes("agent", devEnvironment, authConfig)
+
+	agentImage := cpi.getImage(devEnvironment, cpi.Opts.AgentInfo.Name, cpi.Opts.AgentInfo.ImageName, cpi.Opts.AgentInfo.ImageRepo, cpi.Opts.AgentInfo.ImageTag)
+	agentArgs := cpi.getAgentArgs(devEnvironment, authConfig)
+	agentVols, agentVolMounts := cpi.getControllerVolumes("agent", devEnvironment, authConfig)
 
 	// if auth is enabled on API, generate client cert and key and store in
 	// secrets
@@ -460,12 +404,12 @@ func InstallThreeportAgent(
 			return fmt.Errorf("failed to generate client certificate and private key for threeport agent: %w", err)
 		}
 
-		var agentCa = getTLSSecret("agent-ca", authConfig.CAPemEncoded, "")
+		var agentCa = cpi.getTLSSecret("agent-ca", authConfig.CAPemEncoded, "")
 		if _, err := kube.CreateResource(agentCa, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create API server secret for threeport agent: %w", err)
 		}
 
-		var agentCert = getTLSSecret("agent-cert", agentCertificate, agentPrivateKey)
+		var agentCert = cpi.getTLSSecret("agent-cert", agentCertificate, agentPrivateKey)
 		if _, err := kube.CreateResource(agentCert, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create API server secret for threeport agent: %w", err)
 		}
@@ -579,11 +523,11 @@ func InstallThreeportAgent(
 					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
-					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
 				"name":      "threeport-agent-controller-manager",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 			},
 		},
 	}
@@ -601,11 +545,11 @@ func InstallThreeportAgent(
 					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
-					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
 				"name":      "threeport-agent-leader-election-role",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 			},
 			"rules": []interface{}{
 				map[string]interface{}{
@@ -741,7 +685,7 @@ func InstallThreeportAgent(
 					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
-					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
 				"name": "threeport-agent-metrics-reader",
@@ -772,7 +716,7 @@ func InstallThreeportAgent(
 					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
-					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
 				"name": "threeport-agent-proxy-role",
@@ -817,11 +761,11 @@ func InstallThreeportAgent(
 					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
-					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
 				"name":      "threeport-agent-leader-election-rolebinding",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -832,7 +776,7 @@ func InstallThreeportAgent(
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
 					"name":      "threeport-agent-controller-manager",
-					"namespace": ControlPlaneNamespace,
+					"namespace": cpi.Opts.Namespace,
 				},
 			},
 		},
@@ -851,7 +795,7 @@ func InstallThreeportAgent(
 					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
-					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
 				"name": "threeport-agent-manager-rolebinding",
@@ -865,7 +809,7 @@ func InstallThreeportAgent(
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
 					"name":      "threeport-agent-controller-manager",
-					"namespace": ControlPlaneNamespace,
+					"namespace": cpi.Opts.Namespace,
 				},
 			},
 		},
@@ -884,7 +828,7 @@ func InstallThreeportAgent(
 					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
-					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
 				"name": "threeport-agent-proxy-rolebinding",
@@ -898,7 +842,7 @@ func InstallThreeportAgent(
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
 					"name":      "threeport-agent-controller-manager",
-					"namespace": ControlPlaneNamespace,
+					"namespace": cpi.Opts.Namespace,
 				},
 			},
 		},
@@ -917,11 +861,11 @@ func InstallThreeportAgent(
 					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
-					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
 				"name":      "threeport-agent-controller-manager-metrics-service",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 			},
 			"spec": map[string]interface{}{
 				"ports": []interface{}{
@@ -952,11 +896,11 @@ func InstallThreeportAgent(
 					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
-					"app.kubernetes.io/part-of":    "threeport-control-plane",
+					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
 				"name":      ThreeportAgentDeployName,
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 			},
 			"spec": map[string]interface{}{
 				"replicas": 1,
@@ -1105,12 +1049,12 @@ func InstallThreeportAgent(
 // that are tied to infrastructure.  It removes the threeport API's service
 // resource that removes the load balancer.  The load balancer must be removed
 // prior to deleting infra.
-func UnInstallThreeportControlPlaneComponents(
+func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
 	// get the service resource
-	apiService, err := getThreeportAPIService(kubeClient, *mapper)
+	apiService, err := cpi.getThreeportAPIService(kubeClient, *mapper)
 	if err != nil {
 		return fmt.Errorf("failed to get threeport API service resource: %w", err)
 	}
@@ -1163,7 +1107,7 @@ func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
 // when the external load balancer was provisioned by the infra provider.  It
 // will attempt to retrieve this value several times since the load balancer
 // value may not be available immediately.
-func GetThreeportAPIEndpoint(
+func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 	kubeClient dynamic.Interface,
 	mapper meta.RESTMapper,
 ) (string, error) {
@@ -1176,7 +1120,7 @@ func GetThreeportAPIEndpoint(
 	apiEndpointRetrieved := false
 	for attempts < maxAttempts {
 		// get the service resource
-		apiService, err := getThreeportAPIService(kubeClient, mapper)
+		apiService, err := cpi.getThreeportAPIService(kubeClient, mapper)
 		if err != nil {
 			getEndpointErr = err
 			time.Sleep(time.Second * time.Duration(waitSeconds))
@@ -1235,9 +1179,19 @@ func GetThreeportAPIEndpoint(
 	return apiEndpoint, nil
 }
 
+func (cpi *ControlPlaneInstaller) isThreeportManagedController(info InstallInfo) bool {
+	for _, i := range ThreeportControllerList {
+		if info.Name == i.Name {
+			return true
+		}
+	}
+
+	return false
+}
+
 // getThreeportAPIService returns the Kubernetes service resource for the
 // threeport API as an unstructured object.
-func getThreeportAPIService(
+func (cpi *ControlPlaneInstaller) getThreeportAPIService(
 	kubeClient dynamic.Interface,
 	mapper meta.RESTMapper,
 ) (*unstructured.Unstructured, error) {
@@ -1245,8 +1199,8 @@ func getThreeportAPIService(
 		"",
 		"v1",
 		"Service",
-		ControlPlaneNamespace,
-		ThreeportAPIServiceResourceName,
+		cpi.Opts.Namespace,
+		cpi.Opts.RestApiInfo.ServiceResourceName,
 		kubeClient,
 		mapper,
 	)
@@ -1257,35 +1211,8 @@ func getThreeportAPIService(
 	return apiService, nil
 }
 
-// getAPIImage returns the proper container image to use for the API.
-func getAPIImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
-	if devEnvironment {
-		devImages := ThreeportDevImages()
-		return devImages["rest-api"]
-	}
-
-	imageRepo := ThreeportImageRepo
-	if customThreeportImageRepo != "" {
-		imageRepo = customThreeportImageRepo
-	}
-
-	imageTag := version.GetVersion()
-	if customThreeportImageTag != "" {
-		imageTag = customThreeportImageTag
-	}
-
-	apiImage := fmt.Sprintf(
-		"%s/%s:%s",
-		imageRepo,
-		ThreeportAPIImage,
-		imageTag,
-	)
-
-	return apiImage
-}
-
 // getAPIArgs returns the args that are passed to the API server.
-func getAPIArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
+func (cpi *ControlPlaneInstaller) getAPIArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
 
 	// in devEnvironment, auth is disabled by default
 	// in tptctl, auth is enabled by default
@@ -1318,7 +1245,7 @@ func getAPIArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} 
 }
 
 // getControllerArgs returns the args that are passed to a controller.
-func getControllerArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
+func (cpi *ControlPlaneInstaller) getControllerArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
 
 	// in devEnvironment, auth is disabled by default
 	// in tptctl, auth is enabled by default
@@ -1343,7 +1270,7 @@ func getControllerArgs(devEnvironment bool, authConfig *auth.AuthConfig) []inter
 }
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
-func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
+func (cpi *ControlPlaneInstaller) getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
 	vols := []interface{}{
 		map[string]interface{}{
 			"name": "db-config",
@@ -1373,8 +1300,8 @@ func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interfac
 	}
 
 	if authConfig != nil {
-		caVol, caVolMount := getSecretVols("api-ca", "/etc/threeport/ca")
-		certVol, certVolMount := getSecretVols("api-cert", "/etc/threeport/cert")
+		caVol, caVolMount := cpi.getSecretVols("api-ca", "/etc/threeport/ca")
+		certVol, certVolMount := cpi.getSecretVols("api-cert", "/etc/threeport/cert")
 
 		vols = append(vols, caVol)
 		vols = append(vols, certVol)
@@ -1383,47 +1310,39 @@ func getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interfac
 	}
 
 	if devEnvironment {
-		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
+		vols, volMounts = cpi.getDevEnvironmentVolumes(vols, volMounts)
 	}
 
 	return vols, volMounts
 }
 
 // getImage returns the proper container image to use for the
-func getImage(name string, devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
+func (cpi *ControlPlaneInstaller) getImage(devEnvironment bool, name, imageName, imageRepo, imageTag string) string {
 	if devEnvironment {
-		return ThreeportDevImages()[name]
+		if devEnvironment {
+			return cpi.ThreeportDevImages()[name]
+		}
 	}
 
-	imageRepo := ThreeportImageRepo
-	if customThreeportImageRepo != "" {
-		imageRepo = customThreeportImageRepo
-	}
-
-	imageTag := version.GetVersion()
-	if customThreeportImageTag != "" {
-		imageTag = customThreeportImageTag
-	}
-
-	workloadControllerImage := fmt.Sprintf(
+	image := fmt.Sprintf(
 		"%s/%s:%s",
 		imageRepo,
-		fmt.Sprintf("threeport-%s", name),
+		imageName,
 		imageTag,
 	)
 
-	return workloadControllerImage
+	return image
 }
 
 // getControllerVolumes returns the volumes and volume mounts for the workload
 // controller.
-func getControllerVolumes(name string, devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
+func (cpi *ControlPlaneInstaller) getControllerVolumes(name string, devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
 	vols := []interface{}{}
 	volMounts := []interface{}{}
 
 	if authConfig != nil {
-		caVol, caVolMount := getSecretVols(fmt.Sprintf("%s-ca", name), "/etc/threeport/ca")
-		certVol, certVolMount := getSecretVols(fmt.Sprintf("%s-cert", name), "/etc/threeport/cert")
+		caVol, caVolMount := cpi.getSecretVols(fmt.Sprintf("%s-ca", name), "/etc/threeport/ca")
+		certVol, certVolMount := cpi.getSecretVols(fmt.Sprintf("%s-cert", name), "/etc/threeport/cert")
 
 		vols = append(vols, caVol)
 		vols = append(vols, certVol)
@@ -1432,192 +1351,15 @@ func getControllerVolumes(name string, devEnvironment bool, authConfig *auth.Aut
 	}
 
 	if devEnvironment {
-		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
+		vols, volMounts = cpi.getDevEnvironmentVolumes(vols, volMounts)
 	}
 
 	return vols, volMounts
-}
-
-// getWorkloadControllerArgs returns the args that are passed to the workload controller.
-func getWorkloadControllerArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
-
-	// in devEnvironment, auth is disabled by default
-	// in tptctl, auth is enabled by default
-
-	// enable auth if authConfig is set in dev environment
-	// if devEnvironment && authConfig != nil {
-	if devEnvironment && authConfig == nil {
-		return []interface{}{
-			"-build.args_bin",
-			"-auth-enabled=false",
-		}
-	}
-
-	// disable auth if authConfig is not set in tptctl
-	if authConfig == nil {
-		return []interface{}{
-			"-auth-enabled=false",
-		}
-	}
-
-	return []interface{}{}
-}
-
-// getKubernetesRuntimeControllerImage returns the proper container image to use for the
-// kubernetes runtime controller.
-func getKubernetesRuntimeControllerImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
-	if devEnvironment {
-		devImages := ThreeportDevImages()
-		return devImages["kubernetes-runtime-controller"]
-	}
-
-	imageRepo := ThreeportImageRepo
-	if customThreeportImageRepo != "" {
-		imageRepo = customThreeportImageRepo
-	}
-
-	imageTag := version.GetVersion()
-	if customThreeportImageTag != "" {
-		imageTag = customThreeportImageTag
-	}
-
-	kubernetesRuntimeControllerImage := fmt.Sprintf(
-		"%s/%s:%s",
-		imageRepo,
-		ThreeportKubernetesRuntimeControllerImage,
-		imageTag,
-	)
-
-	return kubernetesRuntimeControllerImage
-}
-
-// getKubernetesRuntimeControllerVolumes returns the volumes and volume mounts for the workload
-// controller.
-func getKubernetesRuntimeControllerVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
-	vols := []interface{}{}
-	volMounts := []interface{}{}
-
-	if authConfig != nil {
-		caVol, caVolMount := getSecretVols("kubernetes-runtime-ca", "/etc/threeport/ca")
-		certVol, certVolMount := getSecretVols("kubernetes-runtime-cert", "/etc/threeport/cert")
-
-		vols = append(vols, caVol)
-		vols = append(vols, certVol)
-		volMounts = append(volMounts, caVolMount)
-		volMounts = append(volMounts, certVolMount)
-	}
-
-	if devEnvironment {
-		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
-	}
-
-	return vols, volMounts
-}
-
-// getKubernetesRuntimeControllerArgs returns the args that are passed to the kubernetes runtime controller.
-func getKubernetesRuntimeControllerArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
-
-	// in devEnvironment, auth is disabled by default
-	// in tptctl, auth is enabled by default
-
-	// enable auth if authConfig is set in dev environment
-	// if devEnvironment && authConfig != nil {
-	if devEnvironment && authConfig == nil {
-		return []interface{}{
-			"-build.args_bin",
-			"-auth-enabled=false",
-		}
-	}
-
-	// disable auth if authConfig is not set in tptctl
-	if authConfig == nil {
-		return []interface{}{
-			"-auth-enabled=false",
-		}
-	}
-
-	return []interface{}{}
-}
-
-// getAwsControllerImage returns the proper container image to use for the
-// aws controller.
-func getAwsControllerImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
-	if devEnvironment {
-		devImages := ThreeportDevImages()
-		return devImages["aws-controller"]
-	}
-
-	imageRepo := ThreeportImageRepo
-	if customThreeportImageRepo != "" {
-		imageRepo = customThreeportImageRepo
-	}
-
-	imageTag := version.GetVersion()
-	if customThreeportImageTag != "" {
-		imageTag = customThreeportImageTag
-	}
-
-	awsControllerImage := fmt.Sprintf(
-		"%s/%s:%s",
-		imageRepo,
-		ThreeportAwsControllerImage,
-		imageTag,
-	)
-
-	return awsControllerImage
-}
-
-// getAwsControllerVolumes returns the volumes and volume mounts for the aws
-// controller.
-func getAwsControllerVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
-	vols := []interface{}{}
-	volMounts := []interface{}{}
-
-	if authConfig != nil {
-		caVol, caVolMount := getSecretVols("aws-ca", "/etc/threeport/ca")
-		certVol, certVolMount := getSecretVols("aws-cert", "/etc/threeport/cert")
-
-		vols = append(vols, caVol)
-		vols = append(vols, certVol)
-		volMounts = append(volMounts, caVolMount)
-		volMounts = append(volMounts, certVolMount)
-	}
-
-	if devEnvironment {
-		vols, volMounts = getDevEnvironmentVolumes(vols, volMounts)
-	}
-
-	return vols, volMounts
-}
-
-// getAwsControllerArgs returns the args that are passed to the aws controller.
-func getAwsControllerArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
-
-	// in devEnvironment, auth is disabled by default
-	// in tptctl, auth is enabled by default
-
-	// enable auth if authConfig is set in dev environment
-	// if devEnvironment && authConfig != nil {
-	if devEnvironment && authConfig == nil {
-		return []interface{}{
-			"-build.args_bin",
-			"-auth-enabled=false",
-		}
-	}
-
-	// disable auth if authConfig is not set in tptctl
-	if authConfig == nil {
-		return []interface{}{
-			"-auth-enabled=false",
-		}
-	}
-
-	return []interface{}{}
 }
 
 // getCodePathVols returns the volume and volume mount for dev environments to
 // mount local codebase for live reloads.
-func getCodePathVols() (map[string]interface{}, map[string]interface{}) {
+func (cpi *ControlPlaneInstaller) getCodePathVols() (map[string]interface{}, map[string]interface{}) {
 	codePathVol := map[string]interface{}{
 		"name": "code-path",
 		"hostPath": map[string]interface{}{
@@ -1635,7 +1377,7 @@ func getCodePathVols() (map[string]interface{}, map[string]interface{}) {
 
 // getGoPathVols returns the volume and volume mount for dev environments to
 // mount local go path.
-func getGoPathVols() (map[string]interface{}, map[string]interface{}) {
+func (cpi *ControlPlaneInstaller) getGoPathVols() (map[string]interface{}, map[string]interface{}) {
 	goPathVol := map[string]interface{}{
 		"name": "go-path",
 		"hostPath": map[string]interface{}{
@@ -1653,7 +1395,7 @@ func getGoPathVols() (map[string]interface{}, map[string]interface{}) {
 
 // getGoCacheVols returns the volume and volume mount for dev environments to
 // mount local go path.
-func getGoCacheVols() (map[string]interface{}, map[string]interface{}) {
+func (cpi *ControlPlaneInstaller) getGoCacheVols() (map[string]interface{}, map[string]interface{}) {
 	goCacheVol := map[string]interface{}{
 		"name": "go-cache",
 		"hostPath": map[string]interface{}{
@@ -1670,7 +1412,7 @@ func getGoCacheVols() (map[string]interface{}, map[string]interface{}) {
 }
 
 // getSecretVols returns volumes and volume mounts for secrets.
-func getSecretVols(name string, mountPath string) (map[string]interface{}, map[string]interface{}) {
+func (cpi *ControlPlaneInstaller) getSecretVols(name string, mountPath string) (map[string]interface{}, map[string]interface{}) {
 
 	vol := map[string]interface{}{
 		"name": name,
@@ -1689,7 +1431,7 @@ func getSecretVols(name string, mountPath string) (map[string]interface{}, map[s
 }
 
 // getTLSSecret returns a Kubernetes secret for the given certificate and private key.
-func getTLSSecret(name string, certificate string, privateKey string) *unstructured.Unstructured {
+func (cpi *ControlPlaneInstaller) getTLSSecret(name string, certificate string, privateKey string) *unstructured.Unstructured {
 
 	secret := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -1698,7 +1440,7 @@ func getTLSSecret(name string, certificate string, privateKey string) *unstructu
 			"type":       "kubernetes.io/tls",
 			"metadata": map[string]interface{}{
 				"name":      name,
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 			},
 			"stringData": map[string]interface{}{
 				"tls.crt": certificate,
@@ -1712,7 +1454,7 @@ func getTLSSecret(name string, certificate string, privateKey string) *unstructu
 
 // getAPIServiceType returns the threeport API's service type based on the infra
 // provider.
-func getAPIServiceType(infraProvider string) string {
+func (cpi *ControlPlaneInstaller) getAPIServiceType(infraProvider string) string {
 	if infraProvider == "kind" {
 		return "NodePort"
 	}
@@ -1735,7 +1477,7 @@ func getAPIServiceAnnotations(infraProvider string) map[string]interface{} {
 // getAPIServicePort returns threeport API's service port based on infra
 // provider.  For kind returns 80 or 443 based on whether authentication is
 // enabled.
-func getAPIServicePort(infraProvider string, authConfig *auth.AuthConfig) (string, int32) {
+func (cpi *ControlPlaneInstaller) getAPIServicePort(infraProvider string, authConfig *auth.AuthConfig) (string, int32) {
 	if infraProvider == "kind" {
 		if authConfig != nil {
 			return "https", 443
@@ -1749,7 +1491,7 @@ func getAPIServicePort(infraProvider string, authConfig *auth.AuthConfig) (strin
 // getAgentArgs returns the args that are passed to the threeport agent.  In
 // devEnvironment, auth is disabled by default.  In tptctl auth is enabled by
 // default.
-func getAgentArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
+func (cpi *ControlPlaneInstaller) getAgentArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
 	// set flags for dev environment
 	if devEnvironment {
 		if authConfig == nil {
@@ -1780,7 +1522,7 @@ func getAgentArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{
 	}
 }
 
-func getControllerSecret(name, namespace string) *unstructured.Unstructured {
+func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -1791,7 +1533,7 @@ func getControllerSecret(name, namespace string) *unstructured.Unstructured {
 			},
 			"type": "Opaque",
 			"stringData": map[string]interface{}{
-				"API_SERVER":      "threeport-api-server",
+				"API_SERVER":      cpi.Opts.RestApiInfo.ServiceResourceName,
 				"MSG_BROKER_HOST": "nats-js",
 				"MSG_BROKER_PORT": "4222",
 			},
@@ -1799,8 +1541,7 @@ func getControllerSecret(name, namespace string) *unstructured.Unstructured {
 	}
 }
 
-func getControllerDeployment(name, namespace, image string, args, volumes, volumeMounts []interface{}) *unstructured.Unstructured {
-	deployName := fmt.Sprintf("threeport-%s", name)
+func (cpi *ControlPlaneInstaller) getControllerDeployment(deployName, name, namespace, saName, image string, args, volumes, volumeMounts []interface{}) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -1823,6 +1564,7 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 						},
 					},
 					"spec": map[string]interface{}{
+						"serviceAccountName": saName,
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            name,
@@ -1842,7 +1584,7 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 									},
 								},
 								"volumeMounts":   volumeMounts,
-								"readinessProbe": getReadinessProbe(),
+								"readinessProbe": cpi.getReadinessProbe(),
 							},
 						},
 						"volumes": volumes,
@@ -1853,7 +1595,7 @@ func getControllerDeployment(name, namespace, image string, args, volumes, volum
 	}
 }
 
-func getReadinessProbe() map[string]interface{} {
+func (cpi *ControlPlaneInstaller) getReadinessProbe() map[string]interface{} {
 	var readinessProbe = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"failureThreshold": 1,
@@ -1871,16 +1613,16 @@ func getReadinessProbe() map[string]interface{} {
 	return readinessProbe.Object
 }
 
-func getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []interface{}) {
-	codePathVol, codePathVolMount := getCodePathVols()
+func (cpi *ControlPlaneInstaller) getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []interface{}) {
+	codePathVol, codePathVolMount := cpi.getCodePathVols()
 	vols = append(vols, codePathVol)
 	volMounts = append(volMounts, codePathVolMount)
 
-	goPathVol, goPathVolMount := getGoPathVols()
+	goPathVol, goPathVolMount := cpi.getGoPathVols()
 	vols = append(vols, goPathVol)
 	volMounts = append(volMounts, goPathVolMount)
 
-	goCacheVol, goCacheVolMount := getGoCacheVols()
+	goCacheVol, goCacheVolMount := cpi.getGoCacheVols()
 	vols = append(vols, goCacheVol)
 	volMounts = append(volMounts, goCacheVolMount)
 

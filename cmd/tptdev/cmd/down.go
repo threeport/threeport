@@ -18,7 +18,7 @@ var downCmd = &cobra.Command{
 	Short: "Spin down a threeport development environment",
 	Long:  `Spin down a threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := cliArgs.DeleteControlPlane()
+		err := cliArgs.DeleteControlPlane(nil)
 		if err != nil {
 			cli.Error("failed to delete threeport control plane", err)
 			os.Exit(1)

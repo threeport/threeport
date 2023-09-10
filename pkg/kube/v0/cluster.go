@@ -9,8 +9,12 @@ import (
 	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
@@ -18,6 +22,41 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 )
+
+// GetInClusterKubeClient creates a kubernetes clientset for an in cluster configuration
+func GetInClusterKubeClient() (*kubernetes.Clientset, error) {
+	kubeConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+// GetKubeClientForGroupNameVersion creates a kubernetes rest client for a given group name/version
+func GetKubeClientForGroupNameVersion(groupName string, groupVersion string) (*rest.RESTClient, error) {
+	cfg, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	config := *cfg
+	config.ContentConfig.GroupVersion = &schema.GroupVersion{Group: groupName, Version: groupVersion}
+	config.APIPath = "/apis"
+	config.NegotiatedSerializer = serializer.NewCodecFactory(scheme.Scheme)
+	config.UserAgent = rest.DefaultKubernetesUserAgent()
+	restClient, err := rest.UnversionedRESTClientFor(&config)
+	if err != nil {
+		return nil, err
+	}
+
+	return restClient, nil
+}
 
 // GetClient creates a dynamic client interface and rest mapper from a
 // kubernetes cluster instance.

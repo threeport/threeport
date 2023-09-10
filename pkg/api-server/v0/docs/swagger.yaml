@@ -778,56 +778,56 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - GatewayDefinition
-    - GatewayInstance
-    - DomainNameDefinition
-    - DomainNameInstance
+    - Profile
+    - Tier
     - ForwardProxyDefinition
     - ForwardProxyInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
+    - GatewayDefinition
+    - GatewayInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
-    - Profile
-    - Tier
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       Name:

@@ -82,7 +82,7 @@ func CreateMeta(params PageRequestParams, totalCount int64) *Meta {
 
 // CreateResponse creates an v0.Response from an Object or slice of Object of
 // ObjectType (i.e []Account, []Block etc.)
-func CreateResponse(meta *Meta, obj interface{}) (*Response, error) {
+func CreateResponse(meta *Meta, obj interface{}, objType ObjectType) (*Response, error) {
 
 	if obj == nil {
 		return nil, errors.New("obj must not be nil")
@@ -92,7 +92,7 @@ func CreateResponse(meta *Meta, obj interface{}) (*Response, error) {
 	var message = http.StatusText(code)
 
 	response := new(Response)
-	response.Type = GetObjectType(obj)
+	response.Type = objType
 
 	var page = 1
 	var size = 1

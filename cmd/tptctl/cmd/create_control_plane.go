@@ -27,7 +27,16 @@ var CreateControlPlaneCmd = &cobra.Command{
 	Long:         `Create a new instance of the Threeport control plane.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := cliArgs.CreateControlPlane()
+		cpi := threeport.NewInstaller()
+		if cliArgs.ControlPlaneImageRepo != "" {
+			cpi.SetAllImageRepo(cliArgs.ControlPlaneImageRepo)
+		}
+
+		if cliArgs.ControlPlaneImageTag != "" {
+			cpi.SetAllImageTags(cliArgs.ControlPlaneImageTag)
+		}
+
+		err := cliArgs.CreateControlPlane(cpi)
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
 			if errors.Is(cli.ThreeportConfigAlreadyExistsErr, err) {

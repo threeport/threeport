@@ -84,7 +84,7 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 			cli.Error("failed to get threeport certificates from config", err)
 			os.Exit(1)
 		}
-		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey)
+		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
 		if err != nil {
 			cli.Error("failed to create https client", err)
 			os.Exit(1)

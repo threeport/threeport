@@ -109,7 +109,7 @@ func getFieldNameByJsonTag(tag, key string, s interface{}) (fieldname string) {
 
 // CheckPayloadObject analyzes payload using Object model tags and returns providedGORMModelFields,
 // providedAssociationsFields, unsupportedFields for further decision making
-func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, objectType v0.ObjectType, providedGORMModelFields *[]string, providedAssociationsFields *[]string, unsupportedFields *[]string) (int, error) {
+func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, objectType v0.ObjectType, objectStruct interface{}, providedGORMModelFields *[]string, providedAssociationsFields *[]string, unsupportedFields *[]string) (int, error) {
 	var associatedFields = &[]string{}
 	var optionalFields = &[]string{}
 	var optionalAssociationsFields = &[]string{}
@@ -142,7 +142,7 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 			!util.StringSliceContains(*optionalAssociationsFields, k, false) &&
 			!util.StringSliceContains(*requiredFields, k, false) {
 			// now we need to check the same for the alias of the k
-			kAlias := getFieldNameByJsonTag(k, "json", v0.GetStructByObjectType(objectType))
+			kAlias := getFieldNameByJsonTag(k, "json", objectStruct)
 			if len(kAlias) > 0 {
 				if !util.StringSliceContains(*optionalFields, kAlias, false) &&
 					!util.StringSliceContains(*optionalAssociationsFields, kAlias, false) &&
@@ -164,7 +164,7 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 // - check for optional associations fields in they payload if checkAssociation parameter is true
 // - check for unsupported fields in the payload
 // and returns an error code and error message if any of the conditions above are met
-func PayloadCheck(c echo.Context, checkAssociation bool, objectType v0.ObjectType) (int, error) {
+func PayloadCheck(c echo.Context, checkAssociation bool, objectType v0.ObjectType, objectStruct interface{}) (int, error) {
 	var payload map[string]interface{}
 	var payloadArray []map[string]interface{}
 	var providedGORMModelFields []string
@@ -185,7 +185,7 @@ func PayloadCheck(c echo.Context, checkAssociation bool, objectType v0.ObjectTyp
 			}
 			// check array/slice of payload objects
 			for _, v := range payloadArray {
-				if id, err := CheckPayloadObject(apiVer, v, objectType, &providedGORMModelFields, &providedAssociationsFields, &unsupportedFields); err != nil {
+				if id, err := CheckPayloadObject(apiVer, v, objectType, objectStruct, &providedGORMModelFields, &providedAssociationsFields, &unsupportedFields); err != nil {
 					return id, err
 				}
 			}
@@ -195,7 +195,7 @@ func PayloadCheck(c echo.Context, checkAssociation bool, objectType v0.ObjectTyp
 			return 400, errors.New(v0.ErrMsgJSONPayloadEmpty)
 		}
 		// check single payload object
-		if id, err := CheckPayloadObject(apiVer, payload, objectType, &providedGORMModelFields, &providedAssociationsFields, &unsupportedFields); err != nil {
+		if id, err := CheckPayloadObject(apiVer, payload, objectType, objectStruct, &providedGORMModelFields, &providedAssociationsFields, &unsupportedFields); err != nil {
 			return id, err
 		}
 	}

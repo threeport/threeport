@@ -13,6 +13,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // kubernetesRuntimeInstanceCreated reconciles state for a new kubernetes
@@ -111,11 +112,23 @@ func kubernetesRuntimeInstanceUpdated(
 	if kubernetesRuntimeInstance.ThreeportAgentImage != nil {
 		agentImage = *kubernetesRuntimeInstance.ThreeportAgentImage
 	}
-	if err := threeport.InstallComputeSpaceControlPlaneComponents(
+
+	cpi := threeport.NewInstaller()
+
+	if agentImage != "" {
+		agentRegistry, _, agentTag, err := util.ParseImage(agentImage)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse custom threeport agent image: %w", err)
+		}
+
+		cpi.Opts.AgentInfo.ImageRepo = agentRegistry
+		cpi.Opts.AgentInfo.ImageTag = agentTag
+	}
+
+	if err := cpi.InstallComputeSpaceControlPlaneComponents(
 		dynamicKubeClient,
 		mapper,
 		*kubernetesRuntimeInstance.Name,
-		agentImage,
 	); err != nil {
 		return 0, fmt.Errorf("failed to insall compute space control plane components: %w", err)
 	}

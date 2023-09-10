@@ -44,7 +44,7 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 	var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, kubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -90,7 +90,7 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 		h.JS.Publish(v0.KubernetesRuntimeDefinitionCreateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, kubernetesRuntimeDefinition)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -130,7 +130,7 @@ func (h Handler) GetKubernetesRuntimeDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -159,7 +159,7 @@ func (h Handler) GetKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, kubernetesRuntimeDefinition)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -195,7 +195,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingKubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -223,7 +223,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 		h.JS.Publish(v0.KubernetesRuntimeDefinitionUpdateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeDefinition)
+	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -260,7 +260,7 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingKubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -289,7 +289,7 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeDefinition)
+	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -367,7 +367,7 @@ func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 		}
 	}
 
-	response, err := v0.CreateResponse(nil, kubernetesRuntimeDefinition)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -404,7 +404,7 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, kubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -450,7 +450,7 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 		h.JS.Publish(v0.KubernetesRuntimeInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, kubernetesRuntimeInstance)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -490,7 +490,7 @@ func (h Handler) GetKubernetesRuntimeInstances(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -519,7 +519,7 @@ func (h Handler) GetKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, kubernetesRuntimeInstance)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -555,7 +555,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingKubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -583,7 +583,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 		h.JS.Publish(v0.KubernetesRuntimeInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeInstance)
+	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -620,7 +620,7 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingKubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -649,7 +649,7 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeInstance)
+	response, err := v0.CreateResponse(nil, existingKubernetesRuntimeInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -721,7 +721,7 @@ func (h Handler) DeleteKubernetesRuntimeInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := v0.CreateResponse(nil, kubernetesRuntimeInstance)
+	response, err := v0.CreateResponse(nil, kubernetesRuntimeInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
