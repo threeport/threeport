@@ -431,11 +431,13 @@ func workloadInstanceDeleted(
 	}
 	for _, object := range *attachedObjectReferences {
 		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.Type, *object.ObjectID)
-		if errors.Is(err, client.ErrorObjectNotFound) {
-			// attached object has already been deleted
-			log.Info("attached object has already been deleted", "objectID", *object.ObjectID)
-		} else {
-			return 0, fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.Type, *object.ID, err)
+		if err != nil {
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				// attached object has already been deleted
+				log.Info("attached object has already been deleted", "objectID", *object.ObjectID)
+			} else {
+				return 0, fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.Type, *object.ID, err)
+			}
 		}
 		_, err = client.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *object.ID)
 		if err != nil {
