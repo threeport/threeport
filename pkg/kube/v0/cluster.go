@@ -42,7 +42,7 @@ func GetInClusterKubeClient() (*kubernetes.Clientset, error) {
 func GetKubeClientForGroupNameVersion(groupName string, groupVersion string) (*rest.RESTClient, error) {
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	config := *cfg
