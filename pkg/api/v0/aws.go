@@ -150,3 +150,36 @@ type AwsRelationalDatabaseInstance struct {
 	// The ID of the workload instance that the database instance serves.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 }
+
+// AwsObjectStorageBucketDefinition is the configuration for an S3 bucket
+// provided by AWS that is used for object storage by a workload.
+type AwsObjectStorageBucketDefinition struct {
+	Common     `swaggerignore:"true" mapstructure:",squash"`
+	Definition `mapstructure:",squash"`
+
+	// When true, objects in the bucket are publicly readable by anyone - for use
+	// cases such as storing static assets for public websites.  When false,
+	// only the workload attached to an AWSObjectStorageBucketInstance and the AWS users
+	// on the account may access the bucket for read or write.
+	PublicReadAccess *bool `json:"PublicReadAccess,omitempty" query:"publicreadaccess" gorm:"default: false" validate:"optional"`
+
+	// The AWS account in which the RDS instance will be provisioned.
+	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
+}
+
+// +threeport-codegen:reconciler
+// AwsObjectStorageBucketInstance is a deployed instance of an S3 bucket.
+type AwsObjectStorageBucketInstance struct {
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Instance       `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
+
+	// An inventory of all AWS resources for the S3 bucket.
+	ResourceInventory *datatypes.JSON `json:"ResourceInventory,omitempty" validate:"optional"`
+
+	// The definition that configures this instance.
+	AwsObjectStorageBucketDefinitionID *uint `json:"AwsRelationalDatabaseDefinitionID,omitempty" query:"awsrelationaldatabasedefinitionid" gorm:"not null" validate:"required"`
+
+	// The ID of the workload instance that uses the S3 bucket.
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
+}

@@ -168,3 +168,67 @@ func AddAwsRelationalDatabaseInstanceVersions() {
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)
 }
+
+// AddAwsObjectStorageBucketDefinitionVersions adds field validation info and adds it
+// to the REST API versions.
+func AddAwsObjectStorageBucketDefinitionVersions() {
+	iapi.AwsObjectStorageBucketDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.AwsObjectStorageBucketDefinition)),
+		"",
+		iapi.Translate,
+		iapi.AwsObjectStorageBucketDefinitionTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeAwsObjectStorageBucketDefinition),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.AwsObjectStorageBucketDefinitionTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
+// AddAwsObjectStorageBucketInstanceVersions adds field validation info and adds it
+// to the REST API versions.
+func AddAwsObjectStorageBucketInstanceVersions() {
+	iapi.AwsObjectStorageBucketInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.AwsObjectStorageBucketInstance)),
+		"",
+		iapi.Translate,
+		iapi.AwsObjectStorageBucketInstanceTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeAwsObjectStorageBucketInstance),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.AwsObjectStorageBucketInstanceTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}

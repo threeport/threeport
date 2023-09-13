@@ -1601,3 +1601,648 @@ func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 
 	return iapi.ResponseStatus200(c, *response)
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// AwsObjectStorageBucketDefinition
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetAwsObjectStorageBucketDefinitionVersions gets the supported versions for the aws object storage bucket definition API.
+// @Description Get the supported API versions for aws object storage bucket definitions.
+// @ID awsObjectStorageBucketDefinition-get-versions
+// @Produce json
+// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Router /aws-object-storage-bucket-definitions/versions [get]
+func (h Handler) GetAwsObjectStorageBucketDefinitionVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsObjectStorageBucketDefinition)])
+}
+
+// @Summary adds a new aws object storage bucket definition.
+// @Description Add a new aws object storage bucket definition to the Threeport database.
+// @ID add-awsObjectStorageBucketDefinition
+// @Accept json
+// @Produce json
+// @Param awsObjectStorageBucketDefinition body v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-definitions [post]
+func (h Handler) AddAwsObjectStorageBucketDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
+	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&awsObjectStorageBucketDefinition); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, awsObjectStorageBucketDefinition, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingAwsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsObjectStorageBucketDefinition.Name).First(&existingAwsObjectStorageBucketDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&awsObjectStorageBucketDefinition); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketDefinition)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all aws object storage bucket definitions.
+// @Description Get all aws object storage bucket definitions from the Threeport database.
+// @ID get-awsObjectStorageBucketDefinitions
+// @Accept json
+// @Produce json
+// @Param name query string false "aws object storage bucket definition search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-definitions [get]
+func (h Handler) GetAwsObjectStorageBucketDefinitions(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
+	params, err := c.(*iapi.CustomContext).GetPaginationParams()
+	if err != nil {
+		return iapi.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter v0.AwsObjectStorageBucketDefinition
+	if err := c.Bind(&filter); err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&v0.AwsObjectStorageBucketDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]v0.AwsObjectStorageBucketDefinition{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	if err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a aws object storage bucket definition.
+// @Description Get a particular aws object storage bucket definition from the database.
+// @ID get-awsObjectStorageBucketDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-definitions/{id} [get]
+func (h Handler) GetAwsObjectStorageBucketDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
+	awsObjectStorageBucketDefinitionID := c.Param("id")
+	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+	if result := h.DB.First(&awsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketDefinition)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing aws object storage bucket definition.
+// @Description Update a aws object storage bucket definition in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating aws object storage bucket definition objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-awsObjectStorageBucketDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param awsObjectStorageBucketDefinition body v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-definitions/{id} [patch]
+func (h Handler) UpdateAwsObjectStorageBucketDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
+	awsObjectStorageBucketDefinitionID := c.Param("id")
+	var existingAwsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+	if result := h.DB.First(&existingAwsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAwsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+	if err := c.Bind(&updatedAwsObjectStorageBucketDefinition); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingAwsObjectStorageBucketDefinition).Updates(updatedAwsObjectStorageBucketDefinition); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketDefinition)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing aws object storage bucket definition by replacing the entire object.
+// @Description Replace a aws object storage bucket definition in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating aws object storage bucket definition objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-awsObjectStorageBucketDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param awsObjectStorageBucketDefinition body v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-definitions/{id} [put]
+func (h Handler) ReplaceAwsObjectStorageBucketDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
+	awsObjectStorageBucketDefinitionID := c.Param("id")
+	var existingAwsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+	if result := h.DB.First(&existingAwsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAwsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+	if err := c.Bind(&updatedAwsObjectStorageBucketDefinition); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, updatedAwsObjectStorageBucketDefinition, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedAwsObjectStorageBucketDefinition.ID = existingAwsObjectStorageBucketDefinition.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsObjectStorageBucketDefinition); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingAwsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketDefinition)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a aws object storage bucket definition.
+// @Description Delete a aws object storage bucket definition by ID from the database.
+// @ID delete-awsObjectStorageBucketDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-definitions/{id} [delete]
+func (h Handler) DeleteAwsObjectStorageBucketDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
+	awsObjectStorageBucketDefinitionID := c.Param("id")
+	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+	if result := h.DB.First(&awsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&awsObjectStorageBucketDefinition); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketDefinition)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AwsObjectStorageBucketInstance
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetAwsObjectStorageBucketInstanceVersions gets the supported versions for the aws object storage bucket instance API.
+// @Description Get the supported API versions for aws object storage bucket instances.
+// @ID awsObjectStorageBucketInstance-get-versions
+// @Produce json
+// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Router /aws-object-storage-bucket-instances/versions [get]
+func (h Handler) GetAwsObjectStorageBucketInstanceVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsObjectStorageBucketInstance)])
+}
+
+// @Summary adds a new aws object storage bucket instance.
+// @Description Add a new aws object storage bucket instance to the Threeport database.
+// @ID add-awsObjectStorageBucketInstance
+// @Accept json
+// @Produce json
+// @Param awsObjectStorageBucketInstance body v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-instances [post]
+func (h Handler) AddAwsObjectStorageBucketInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
+	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&awsObjectStorageBucketInstance); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, awsObjectStorageBucketInstance, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingAwsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsObjectStorageBucketInstance.Name).First(&existingAwsObjectStorageBucketInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&awsObjectStorageBucketInstance); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*awsObjectStorageBucketInstance.Reconciled {
+		notifPayload, err := awsObjectStorageBucketInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsObjectStorageBucketInstanceCreateSubject, *notifPayload)
+	}
+
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketInstance)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all aws object storage bucket instances.
+// @Description Get all aws object storage bucket instances from the Threeport database.
+// @ID get-awsObjectStorageBucketInstances
+// @Accept json
+// @Produce json
+// @Param name query string false "aws object storage bucket instance search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-instances [get]
+func (h Handler) GetAwsObjectStorageBucketInstances(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
+	params, err := c.(*iapi.CustomContext).GetPaginationParams()
+	if err != nil {
+		return iapi.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter v0.AwsObjectStorageBucketInstance
+	if err := c.Bind(&filter); err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&v0.AwsObjectStorageBucketInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]v0.AwsObjectStorageBucketInstance{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	if err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a aws object storage bucket instance.
+// @Description Get a particular aws object storage bucket instance from the database.
+// @ID get-awsObjectStorageBucketInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-instances/{id} [get]
+func (h Handler) GetAwsObjectStorageBucketInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
+	awsObjectStorageBucketInstanceID := c.Param("id")
+	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+	if result := h.DB.First(&awsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketInstance)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing aws object storage bucket instance.
+// @Description Update a aws object storage bucket instance in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating aws object storage bucket instance objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-awsObjectStorageBucketInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param awsObjectStorageBucketInstance body v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-instances/{id} [patch]
+func (h Handler) UpdateAwsObjectStorageBucketInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
+	awsObjectStorageBucketInstanceID := c.Param("id")
+	var existingAwsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+	if result := h.DB.First(&existingAwsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAwsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+	if err := c.Bind(&updatedAwsObjectStorageBucketInstance); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingAwsObjectStorageBucketInstance).Updates(updatedAwsObjectStorageBucketInstance); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*existingAwsObjectStorageBucketInstance.Reconciled {
+		notifPayload, err := existingAwsObjectStorageBucketInstance.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsObjectStorageBucketInstanceUpdateSubject, *notifPayload)
+	}
+
+	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketInstance)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing aws object storage bucket instance by replacing the entire object.
+// @Description Replace a aws object storage bucket instance in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating aws object storage bucket instance objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-awsObjectStorageBucketInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param awsObjectStorageBucketInstance body v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-instances/{id} [put]
+func (h Handler) ReplaceAwsObjectStorageBucketInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
+	awsObjectStorageBucketInstanceID := c.Param("id")
+	var existingAwsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+	if result := h.DB.First(&existingAwsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAwsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+	if err := c.Bind(&updatedAwsObjectStorageBucketInstance); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, updatedAwsObjectStorageBucketInstance, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedAwsObjectStorageBucketInstance.ID = existingAwsObjectStorageBucketInstance.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsObjectStorageBucketInstance); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingAwsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketInstance)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a aws object storage bucket instance.
+// @Description Delete a aws object storage bucket instance by ID from the database.
+// @ID delete-awsObjectStorageBucketInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-object-storage-bucket-instances/{id} [delete]
+func (h Handler) DeleteAwsObjectStorageBucketInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
+	awsObjectStorageBucketInstanceID := c.Param("id")
+	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+	if result := h.DB.First(&awsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if awsObjectStorageBucketInstance.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledAwsObjectStorageBucketInstance := v0.AwsObjectStorageBucketInstance{
+			Reconciliation: v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&awsObjectStorageBucketInstance).Updates(scheduledAwsObjectStorageBucketInstance); result.Error != nil {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := awsObjectStorageBucketInstance.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.AwsObjectStorageBucketInstanceDeleteSubject, *notifPayload)
+	} else {
+		if awsObjectStorageBucketInstance.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return iapi.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*awsObjectStorageBucketInstance.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&awsObjectStorageBucketInstance); result.Error != nil {
+				return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
+	}
+
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketInstance)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}

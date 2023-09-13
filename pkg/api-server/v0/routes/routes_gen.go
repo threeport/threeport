@@ -15,6 +15,8 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	AwsEksKubernetesRuntimeInstanceRoutes(e, h)
 	AwsRelationalDatabaseDefinitionRoutes(e, h)
 	AwsRelationalDatabaseInstanceRoutes(e, h)
+	AwsObjectStorageBucketDefinitionRoutes(e, h)
+	AwsObjectStorageBucketInstanceRoutes(e, h)
 	ForwardProxyDefinitionRoutes(e, h)
 	ForwardProxyInstanceRoutes(e, h)
 	GatewayDefinitionRoutes(e, h)
