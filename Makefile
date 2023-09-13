@@ -1,9 +1,10 @@
-REST_API_IMG ?= threeport-rest-api:latest
-WORKLOAD_CONTROLLER_IMG ?= threeport-workload-controller:latest
-KUBERNETES_RUNTIME_CONTROLLER_IMG ?= threeport-kubernetes-runtime-controller:latest
-AWS_CONTROLLER_IMG ?= threeport-aws-controller:latest
-GATEWAY_CONTROLLER_IMG ?= threeport-gateway-controller:latest
-AGENT_IMG ?= threeport-agent:latest
+REST_API_IMG ?= hqleet/threeport-rest-api:latest
+WORKLOAD_CONTROLLER_IMG ?= hqleet/threeport-workload-controller:latest
+KUBERNETES_RUNTIME_CONTROLLER_IMG ?= hqleet/threeport-kubernetes-runtime-controller:latest
+CONTROL_PLANE_CONTROLLER_IMG ?= hqleet/threeport-control-plane-controller:latest
+AWS_CONTROLLER_IMG ?= hqleet/threeport-aws-controller:latest
+GATEWAY_CONTROLLER_IMG ?= hqleet/threeport-gateway-controller:latest
+AGENT_IMG ?= hqleet/threeport-agent:latest
 
 #help: @ List available make targets
 help:
@@ -46,6 +47,10 @@ test-build-gateway-controller:
 test-build-kubernetes-runtime-controller:
 	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-kubernetes-runtime-controller cmd/kubernetes-runtime-controller/main_gen.go
 
+#test-build-control-plane-controller: @ Build threeport control plane controller for container build
+test-build-control-plane-controller:
+	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-control-plane-controller cmd/control-plane-controller/main_gen.go
+
 #test-build-rest-api: @ Build threeport REST API for container build
 test-build-rest-api:
 	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-rest-api cmd/rest-api/main.go
@@ -55,7 +60,7 @@ test-build-workload-controller:
 	CGO_ENABLED=0 GOOS=linux go build -a -o bin/threeport-workload-controller cmd/workload-controller/main_gen.go
 
 #test-build-control-plane: @ Build all control plane images for container builds
-test-build-control-plane: test-build-agent test-build-aws-controller test-build-gateway-controller test-build-kubernetes-runtime-controller test-build-rest-api test-build-workload-controller
+test-build-control-plane: test-build-control-plane-controller test-build-agent test-build-aws-controller test-build-gateway-controller test-build-kubernetes-runtime-controller test-build-rest-api test-build-workload-controller
 
 ## code generation
 
@@ -161,7 +166,9 @@ dev-reset-crdb:
 		gateway_instances, \
 		gateway_definitions, \
 		domain_name_definitions, \
-		domain_name_instances; \
+		domain_name_instances, \
+		control_plane_definitions, \
+		control_plane_instances; \
 		set sql_safe_updates = false; \
 		update kubernetes_runtime_instances set gateway_controller_instance_id = NULL; \
 		update kubernetes_runtime_instances set dns_controller_instance_id = NULL; \
@@ -198,6 +205,10 @@ workload-controller-image-build:
 kubernetes-runtime-controller-image-build:
 	docker buildx build --platform linux/amd64 -t $(KUBERNETES_RUNTIME_CONTROLLER_IMG) -f cmd/kubernetes-runtime-controller/image/Dockerfile-test .
 
+#control-plane-controller-image-build: @ Build kubernetes runtime controller container image
+control-plane-controller-image-build:
+	docker buildx build --platform linux/amd64 -t $(CONTROL_PLANE_CONTROLLER_IMG) -f cmd/control-plane-controller/image/Dockerfile-test .
+
 #aws-controller-image-build: @ Build aws controller container image
 aws-controller-image-build:
 	docker buildx build --platform linux/amd64 -t $(AWS_CONTROLLER_IMG) -f cmd/aws-controller/image/Dockerfile-test .
@@ -215,7 +226,7 @@ agent-image-build-remote:
 	docker buildx build --build-arg BIN=bin/remote --platform linux/amd64 -t $(AGENT_IMG)-remote -f cmd/agent/image/Dockerfile-test .
 
 #control-plane-images-build: @ Build all control plane images
-control-plane-images-build: rest-api-image-build workload-controller-image-build kubernetes-runtime-controller-image-build aws-controller-image-build gateway-controller-image-build agent-image-build
+control-plane-images-build: rest-api-image-build workload-controller-image-build control-plane-controller-image-build kubernetes-runtime-controller-image-build aws-controller-image-build gateway-controller-image-build agent-image-build
 
 #rest-api-image-push: @ Push REST API container image
 rest-api-image-push:
@@ -228,6 +239,10 @@ workload-controller-image-push:
 #kubernetes-runtime-controller-image-push: @ Push kubernetes runtime controller container image
 kubernetes-runtime-controller-image-push:
 	docker push $(KUBERNETES_RUNTIME_CONTROLLER_IMG)
+
+#control-plane-controller-image-push: @ Push control plane controller container image
+control-plane-controller-image-push:
+	docker push $(CONTROL_PLANE_CONTROLLER_IMG)
 
 #aws-controller-image-push: @ Push aws controller container image
 aws-controller-image-push:
@@ -246,16 +261,19 @@ agent-image-push-remote:
 	docker push $(AGENT_IMG)-remote
 
 #control-plane-images-push: @ Push all control plane images
-control-plane-images-push: rest-api-image-push workload-controller-image-push kubernetes-runtime-controller-image-push aws-controller-image-push gateway-controller-image-push agent-image-push
+control-plane-images-push: rest-api-image-push workload-controller-image-push control-plane-controller-image-push kubernetes-runtime-controller-image-push aws-controller-image-push gateway-controller-image-push agent-image-push
 
 #rest-api-image: @ Build and push REST API container image
-rest-api-image: rest-api-image-build rest-api-image-push
+rest-api-image: test-build-rest-api rest-api-image-build rest-api-image-push
 
 #workload-controller-image: @ Build and push workload controller container image
 workload-controller-image: workload-controller-image-build workload-controller-image-push
 
 #kubernetes-runtime-controller-image: @ Build and push kubernetes runtime controller container image
 kubernetes-runtime-controller-image: kubernetes-runtime-controller-image-build kubernetes-runtime-controller-image-push
+
+#control-plane-controller-image: @ Build and push control plane controller container image
+control-plane-controller-image: test-build-control-plane-controller control-plane-controller-image-build control-plane-controller-image-push
 
 #aws-controller-image: @ Build and push aws controller container image
 aws-controller-image: aws-controller-image-build aws-controller-image-push

@@ -165,6 +165,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/control-plane-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for control plane definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetControlPlaneDefinitionVersions gets the supported versions for the control plane definition API.",
+                "operationId": "controlPlaneDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/control-plane-instances/versions": {
+            "get": {
+                "description": "Get the supported API versions for control plane instances.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetControlPlaneInstanceVersions gets the supported versions for the control plane instance API.",
+                "operationId": "controlPlaneInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/domain-name-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for domain name definitions.",
@@ -2616,6 +2652,568 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.AwsRelationalDatabaseInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/control-plane-definitions": {
+            "get": {
+                "description": "Get all control plane definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all control plane definitions.",
+                "operationId": "get-controlPlaneDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "control plane definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new control plane definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new control plane definition.",
+                "operationId": "add-controlPlaneDefinition",
+                "parameters": [
+                    {
+                        "description": "ControlPlaneDefinition object",
+                        "name": "controlPlaneDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ControlPlaneDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/control-plane-definitions/{id}": {
+            "get": {
+                "description": "Get a particular control plane definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a control plane definition.",
+                "operationId": "get-controlPlaneDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a control plane definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating control plane definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing control plane definition by replacing the entire object.",
+                "operationId": "replace-controlPlaneDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ControlPlaneDefinition object",
+                        "name": "controlPlaneDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ControlPlaneDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a control plane definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a control plane definition.",
+                "operationId": "delete-controlPlaneDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a control plane definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating control plane definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing control plane definition.",
+                "operationId": "update-controlPlaneDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ControlPlaneDefinition object",
+                        "name": "controlPlaneDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ControlPlaneDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/control-plane-instances": {
+            "get": {
+                "description": "Get all control plane instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all control plane instances.",
+                "operationId": "get-controlPlaneInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "control plane instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new control plane instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new control plane instance.",
+                "operationId": "add-controlPlaneInstance",
+                "parameters": [
+                    {
+                        "description": "ControlPlaneInstance object",
+                        "name": "controlPlaneInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ControlPlaneInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/control-plane-instances/{id}": {
+            "get": {
+                "description": "Get a particular control plane instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a control plane instance.",
+                "operationId": "get-controlPlaneInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a control plane instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating control plane instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing control plane instance by replacing the entire object.",
+                "operationId": "replace-controlPlaneInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ControlPlaneInstance object",
+                        "name": "controlPlaneInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ControlPlaneInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a control plane instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a control plane instance.",
+                "operationId": "delete-controlPlaneInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a control plane instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating control plane instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing control plane instance.",
+                "operationId": "update-controlPlaneInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ControlPlaneInstance object",
+                        "name": "controlPlaneInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ControlPlaneInstance"
                         }
                     }
                 ],
@@ -8117,6 +8715,10 @@ const docTemplate = `{
                     "description": "The definition that configures this instance.",
                     "type": "integer"
                 },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -8212,6 +8814,10 @@ const docTemplate = `{
                 "AwsObjectStorageBucketDefinitionID": {
                     "description": "The definition that configures this instance.",
                     "type": "integer"
+                },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
                 },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
@@ -8330,6 +8936,10 @@ const docTemplate = `{
                     "description": "The definition that configures this instance.",
                     "type": "integer"
                 },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -8371,6 +8981,191 @@ const docTemplate = `{
                 }
             }
         },
+        "v0.ControlPlaneDefinition": {
+            "type": "object",
+            "required": [
+                "Name"
+            ],
+            "properties": {
+                "AuthEnabled": {
+                    "type": "boolean"
+                },
+                "ControlPlaneInstances": {
+                    "description": "The associated workload instances that are deployed from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.ControlPlaneInstance"
+                    }
+                },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "Name": {
+                    "description": "An arbitrary name for the definition.",
+                    "type": "string"
+                },
+                "OnboardParent": {
+                    "type": "boolean"
+                },
+                "ProfileID": {
+                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
+                    "type": "integer"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "TierID": {
+                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                }
+            }
+        },
+        "v0.ControlPlaneInstallInfo": {
+            "type": "object",
+            "required": [
+                "ControlPlaneInstanceID",
+                "Name"
+            ],
+            "properties": {
+                "ControlPlaneInstanceID": {
+                    "type": "integer"
+                },
+                "Enabled": {
+                    "type": "boolean"
+                },
+                "ImageName": {
+                    "type": "string"
+                },
+                "ImageRepo": {
+                    "type": "string"
+                },
+                "ImageTag": {
+                    "type": "string"
+                },
+                "Name": {
+                    "type": "string"
+                },
+                "ServiceAccountName": {
+                    "type": "string"
+                },
+                "ServiceResourceName": {
+                    "type": "string"
+                }
+            }
+        },
+        "v0.ControlPlaneInstance": {
+            "type": "object",
+            "required": [
+                "ControlPlaneDefinitionID",
+                "KubernetesRuntimeInstanceID",
+                "Name",
+                "Namespace"
+            ],
+            "properties": {
+                "ApiServerEndpoint": {
+                    "description": "Information for connecting to the rest api for the control plane",
+                    "type": "string"
+                },
+                "CACert": {
+                    "type": "string"
+                },
+                "Children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.ControlPlaneInstance"
+                    }
+                },
+                "ClientCert": {
+                    "type": "string"
+                },
+                "ClientKey": {
+                    "type": "string"
+                },
+                "ControlPlaneDefinitionID": {
+                    "description": "The definition used to configure the control plane instance.",
+                    "type": "integer"
+                },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CustomInstallInfo": {
+                    "description": "Passed in information for the different components of the control plane i.e. controller etc\nWhen not provided, the default field will be used. If provided will override the provided field.\nDespite being a reference to another database entry, we dont validate association.\nThis is allows a user to provide CustomInstallInfo at instance creation time so the reconciler has the info it needs",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.ControlPlaneInstallInfo"
+                    }
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "Genesis": {
+                    "description": "Indicates whether this is was the first control plane that was spun up with a control plane group",
+                    "type": "boolean"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "IsSelf": {
+                    "description": "Used to indicate whether the control plane instance that",
+                    "type": "boolean"
+                },
+                "KubernetesRuntimeInstanceID": {
+                    "description": "Kubernetes runtime the control planei is running on",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Namespace": {
+                    "type": "string"
+                },
+                "Parent": {
+                    "$ref": "#/definitions/v0.ControlPlaneInstance"
+                },
+                "ParentControlPlaneInstanceID": {
+                    "description": "These are pointers to the parent and children of current control plane\nThis is useful to map out the topology between control planes being managed by one another",
+                    "type": "integer"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "Status": {
+                    "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                }
+            }
+        },
         "v0.DomainNameDefinition": {
             "type": "object",
             "required": [
@@ -8382,6 +9177,10 @@ const docTemplate = `{
             "properties": {
                 "AdminEmail": {
                     "description": "The email address of the domain administrator.",
+                    "type": "string"
+                },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
                 },
                 "DeletionAcknowledged": {
@@ -8442,6 +9241,10 @@ const docTemplate = `{
                 "WorkloadInstanceID"
             ],
             "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -8545,6 +9348,10 @@ const docTemplate = `{
                 "TCPPort"
             ],
             "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -8627,6 +9434,10 @@ const docTemplate = `{
                 "WorkloadInstanceID"
             ],
             "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -8676,6 +9487,10 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -8771,6 +9586,17 @@ const docTemplate = `{
                 },
                 "ConnectionTokenExpiration": {
                     "description": "ConnectionTokenExpiration is the time when a ConnectionToken will expire.\nUsed to ensure a token will not expire before it can be used.",
+                    "type": "string"
+                },
+                "ControlPlaneInstance": {
+                    "description": "The associated workload instances running on this kubernetes runtime.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.ControlPlaneInstance"
+                    }
+                },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
                 },
                 "DefaultRuntime": {
@@ -8940,6 +9766,10 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "Profile",
+                "Tier",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -8949,25 +9779,27 @@ const docTemplate = `{
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
-                "Profile",
-                "Tier",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance"
+                "AwsObjectStorageBucketInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
@@ -8977,23 +9809,21 @@ const docTemplate = `{
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance"
+                "ObjectTypeAwsObjectStorageBucketInstance"
             ]
         },
         "v0.Profile": {
@@ -9088,6 +9918,10 @@ const docTemplate = `{
                 "YAMLDocument"
             ],
             "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -9194,6 +10028,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/v0.AttachedObjectReference"
                     }
+                },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
                 },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
@@ -9337,6 +10175,8 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "Threeport RESTful API.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
+	LeftDelim:        "{{",
+	RightDelim:       "}}",
 }
 
 func init() {

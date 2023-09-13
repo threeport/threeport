@@ -29,13 +29,13 @@ and workload instance based on the workload config.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config and extract threeport API endpoint
 
-		threeportConfig, requestedInstance, err := config.GetThreeportConfig(cliArgs.InstanceName)
+		threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
 
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedInstance)
+		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)
 			os.Exit(1)
@@ -58,12 +58,12 @@ and workload instance based on the workload config.`,
 		workloadConfig.Workload.WorkloadConfigPath = createWorkloadConfigPath
 
 		// get threeport API client
-		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled(requestedInstance)
+		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to determine if auth is enabled on threeport API", err)
 			os.Exit(1)
 		}
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForInstance(requestedInstance)
+		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to get threeport certificates from config", err)
 			os.Exit(1)
@@ -97,7 +97,7 @@ func init() {
 	)
 	CreateWorkloadCmd.MarkFlagRequired("config")
 	CreateWorkloadCmd.Flags().StringVarP(
-		&cliArgs.InstanceName,
-		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
 }

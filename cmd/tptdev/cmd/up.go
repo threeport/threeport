@@ -18,7 +18,13 @@ var upCmd = &cobra.Command{
 	Short: "Spin up a new threeport development environment",
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := cliArgs.CreateControlPlane(nil)
+		cpi, err := cliArgs.CreateInstaller()
+		if err != nil {
+			cli.Error("failed to create threeport control plane installer", err)
+			os.Exit(1)
+		}
+
+		err = cli.CreateControlPlane(cpi)
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
 			os.Exit(1)
@@ -42,7 +48,7 @@ func init() {
 		"auth-enabled", false, "Enable client certificate authentication (default is false).",
 	)
 	upCmd.Flags().StringVarP(
-		&cliArgs.InstanceName,
+		&cliArgs.ControlPlaneName,
 		"name", "n", tptdev.DefaultInstanceName, "Name of dev control plane instance.",
 	)
 	upCmd.Flags().StringVarP(

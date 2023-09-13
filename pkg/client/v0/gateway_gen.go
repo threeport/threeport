@@ -138,6 +138,7 @@ func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 // CreateGatewayDefinition creates a new gateway definition.
 func CreateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefinition *v0.GatewayDefinition) (*v0.GatewayDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayDefinition)
 	jsonGatewayDefinition, err := util.MarshalObject(gatewayDefinition)
 	if err != nil {
 		return gatewayDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -170,6 +171,7 @@ func CreateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 
 // UpdateGatewayDefinition updates a gateway definition.
 func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefinition *v0.GatewayDefinition) (*v0.GatewayDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	gatewayDefinitionID := *gatewayDefinition.ID
@@ -364,6 +366,7 @@ func GetGatewayInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 // CreateGatewayInstance creates a new gateway instance.
 func CreateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstance *v0.GatewayInstance) (*v0.GatewayInstance, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayInstance)
 	jsonGatewayInstance, err := util.MarshalObject(gatewayInstance)
 	if err != nil {
 		return gatewayInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -396,6 +399,7 @@ func CreateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 
 // UpdateGatewayInstance updates a gateway instance.
 func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstance *v0.GatewayInstance) (*v0.GatewayInstance, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	gatewayInstanceID := *gatewayInstance.ID
@@ -590,6 +594,7 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 // CreateDomainNameDefinition creates a new domain name definition.
 func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(domainNameDefinition)
 	jsonDomainNameDefinition, err := util.MarshalObject(domainNameDefinition)
 	if err != nil {
 		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -622,6 +627,7 @@ func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 
 // UpdateDomainNameDefinition updates a domain name definition.
 func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(domainNameDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	domainNameDefinitionID := *domainNameDefinition.ID
@@ -816,6 +822,7 @@ func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 // CreateDomainNameInstance creates a new domain name instance.
 func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
+	ReplaceAssociatedObjectsWithNil(domainNameInstance)
 	jsonDomainNameInstance, err := util.MarshalObject(domainNameInstance)
 	if err != nil {
 		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -848,6 +855,7 @@ func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 
 // UpdateDomainNameInstance updates a domain name instance.
 func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
+	ReplaceAssociatedObjectsWithNil(domainNameInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	domainNameInstanceID := *domainNameInstance.ID

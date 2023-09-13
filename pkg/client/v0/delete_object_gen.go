@@ -47,6 +47,14 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteAwsObjectStorageBucketInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete AwsObjectStorageBucketInstance: %w", err)
 		}
+	case "v0.ControlPlaneDefinition":
+		if _, err := DeleteControlPlaneDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete ControlPlaneDefinition: %w", err)
+		}
+	case "v0.ControlPlaneInstance":
+		if _, err := DeleteControlPlaneInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete ControlPlaneInstance: %w", err)
+		}
 	case "v0.ForwardProxyDefinition":
 		if _, err := DeleteForwardProxyDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete ForwardProxyDefinition: %w", err)

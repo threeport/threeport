@@ -19,19 +19,25 @@ const (
 // ThreeportConfig is the client's configuration for connecting to Threeport instances
 type ThreeportConfig struct {
 	// All the threeport instances a user has available to use.
-	Instances []Instance `yaml:"Instances"`
+	ControlPlanes []ControlPlane `yaml:"ControlPlanes"`
 
-	// The name of the threeport instance currently in use.
-	CurrentInstance string `yaml:"CurrentInstance"`
+	// The name of the control plane currently in use.
+	CurrentControlPlane string `yaml:"CurrentControlPlane"`
+
+	// The name of the control plane group currently in use.
+	CurrentControlPlaneGroup string `yaml:"CurrentControlPlaneGroup"`
 }
 
-// ThreeportInstance is an instance of Threeport the client can use.
-type Instance struct {
-	// The unique name of the threeport instance.
+// Control plane is an instance of Threeport control plane the client can use.
+type ControlPlane struct {
+	// The unique name of the threeport control plane.
 	Name string `yaml:"Name"`
 
 	// If true client certificate authentication is used.
 	AuthEnabled bool `yaml:"AuthEnabled"`
+
+	// True used to indicate that the control plane was the first in the control plane group
+	Genesis bool `yaml:"Genesis"`
 
 	// The address for the threeport API.
 	APIServer string `yaml:"APIServer"`
@@ -42,10 +48,10 @@ type Instance struct {
 	// Kubernetes API and connection info.
 	KubeAPI KubeAPI `yaml:"KubeAPI"`
 
-	// The infra provider hosting the threeport instance.
+	// The infra provider hosting the threeport control plane.
 	Provider string `yaml:"Provider"`
 
-	// Provider configuration for EKS-hosted threeport instances.
+	// Provider configuration for EKS-hosted threeport control planes.
 	EKSProviderConfig EKSProviderConfig `yaml:"EKSProviderConfig"`
 
 	// Client authentication credentials to threeport API.
@@ -81,21 +87,21 @@ type Credential struct {
 	Token      string ``
 }
 
-// GetAllInstanceNames returns all instance names in a threeport config.
-func (cfg *ThreeportConfig) GetAllInstanceNames() []string {
-	var allInstances []string
-	for _, instance := range cfg.Instances {
-		allInstances = append(allInstances, instance.Name)
+// GetAllControlPlaneNames returns all control plane names in a threeport config.
+func (cfg *ThreeportConfig) GetAllControlPlaneNames() []string {
+	var allControlPlanes []string
+	for _, controlPlane := range cfg.ControlPlanes {
+		allControlPlanes = append(allControlPlanes, controlPlane.Name)
 	}
 
-	return allInstances
+	return allControlPlanes
 }
 
-// CheckThreeportConfigExists checks if a Threeport instance config exists.
-func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceName string) bool {
+// CheckThreeportConfigExists checks if a Threeport control plane config exists.
+func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportControlPlaneName string) bool {
 	threeportInstanceConfigExists := false
-	for _, instance := range cfg.Instances {
-		if instance.Name == createThreeportInstanceName {
+	for _, controlPlane := range cfg.ControlPlanes {
+		if controlPlane.Name == createThreeportControlPlaneName {
 			threeportInstanceConfigExists = true
 			break
 		}
@@ -106,69 +112,69 @@ func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportInstanceNa
 
 // GetThreeportAPIEndpoint returns the threeport API endpoint from threeport
 // config.
-func (cfg *ThreeportConfig) GetThreeportAPIEndpoint(requestedInstance string) (string, error) {
-	for i, instance := range cfg.Instances {
-		if instance.Name == requestedInstance {
-			return cfg.Instances[i].APIServer, nil
+func (cfg *ThreeportConfig) GetThreeportAPIEndpoint(requestedControlPlane string) (string, error) {
+	for i, controlPlane := range cfg.ControlPlanes {
+		if controlPlane.Name == requestedControlPlane {
+			return cfg.ControlPlanes[i].APIServer, nil
 		}
 	}
 
-	return "", errors.New("current instance not found when retrieving threeport API endpoint")
+	return "", errors.New("current control plane not found when retrieving threeport API endpoint")
 }
 
 // GetThreeportAuthEnabled returns a boolean that indicates whether current
-// instance has auth enabled.
-func (cfg *ThreeportConfig) GetThreeportAuthEnabled(requestedInstance string) (bool, error) {
-	for i, instance := range cfg.Instances {
-		if instance.Name == requestedInstance {
-			return cfg.Instances[i].AuthEnabled, nil
+// control plane has auth enabled.
+func (cfg *ThreeportConfig) GetThreeportAuthEnabled(requestedControlPlane string) (bool, error) {
+	for i, controlPlane := range cfg.ControlPlanes {
+		if controlPlane.Name == requestedControlPlane {
+			return cfg.ControlPlanes[i].AuthEnabled, nil
 		}
 	}
 
-	return false, errors.New("current instance not found when retrieving threeport API endpoint")
+	return false, errors.New("current control plane not found when retrieving threeport API endpoint")
 }
 
 // GetEncryptionKey returns the encryption key from the threeport
 // config.
-func (cfg *ThreeportConfig) GetEncryptionKey(requestedInstance string) (string, error) {
-	for i, instance := range cfg.Instances {
-		if instance.Name == requestedInstance {
-			return cfg.Instances[i].EncryptionKey, nil
+func (cfg *ThreeportConfig) GetEncryptionKey(requestedControlPlane string) (string, error) {
+	for i, controlPlane := range cfg.ControlPlanes {
+		if controlPlane.Name == requestedControlPlane {
+			return cfg.ControlPlanes[i].EncryptionKey, nil
 		}
 	}
 
 	return "", errors.New("current instance not found when retrieving encryption key")
 }
 
-// GetThreeportCertificatesForInstance returns the CA certificate, client
-// certificate, and client private key for a named threeport instance.
-func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName string) (string, string, string, error) {
-	// find instance
-	var instance Instance
-	instanceFound := false
-	for _, inst := range cfg.Instances {
-		if inst.Name == instanceName {
-			instance = inst
-			instanceFound = true
+// GetThreeportCertificatesForControlPlane returns the CA certificate, client
+// certificate, and client private key for a named threeport control plane.
+func (cfg *ThreeportConfig) GetThreeportCertificatesForControlPlane(controlPlaneName string) (string, string, string, error) {
+	// find controlPlane
+	var controlPlane ControlPlane
+	controlPlaneFound := false
+	for _, inst := range cfg.ControlPlanes {
+		if inst.Name == controlPlaneName {
+			controlPlane = inst
+			controlPlaneFound = true
 			break
 		}
 	}
-	if !instanceFound {
+	if !controlPlaneFound {
 		return "", "", "", errors.New(
-			fmt.Sprintf("could not find threeport instance name %s in threeport config", instanceName),
+			fmt.Sprintf("could not find threeport control plane name %s in threeport config", controlPlaneName),
 		)
 	}
 
 	// fetch certs from instance config
-	caCert, err := util.Base64Decode(instance.CACert)
+	caCert, err := util.Base64Decode(controlPlane.CACert)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to decode CA certificate: %w", err)
 	}
 	var clientCert string
 	var clientPrivateKey string
 	credsFound := false
-	for _, credential := range instance.Credentials {
-		if credential.Name == instanceName {
+	for _, credential := range controlPlane.Credentials {
+		if credential.Name == controlPlaneName {
 			cert, err := util.Base64Decode(credential.ClientCert)
 			if err != nil {
 				return "", "", "", fmt.Errorf("failed to decode client certificate: %w", err)
@@ -191,63 +197,63 @@ func (cfg *ThreeportConfig) GetThreeportCertificatesForInstance(instanceName str
 	return caCert, clientCert, clientPrivateKey, nil
 }
 
-// SetCurrentInstance updates the threeport config to set CurrentInstance as the
-// provided instance name.
-func (cfg *ThreeportConfig) SetCurrentInstance(instanceName string) {
-	viper.Set("CurrentInstance", instanceName)
+// SetCurrentControlPlane updates the threeport config to set CurrentControlPlane as the
+// provided control plane name.
+func (cfg *ThreeportConfig) SetCurrentControlPlane(controlPlaneName string) {
+	viper.Set("CurrentControlPlane", controlPlaneName)
 	viper.WriteConfig()
 }
 
 // GetThreeportConfig retrieves the threeport config and name of the
-// requested instance.
-func GetThreeportConfig(requestedInstance string) (*ThreeportConfig, string, error) {
+// requested control plane.
+func GetThreeportConfig(requestedControlPlane string) (*ThreeportConfig, string, error) {
 	threeportConfig := &ThreeportConfig{}
 	if err := viper.Unmarshal(threeportConfig); err != nil {
 		return nil, "", fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	instance := threeportConfig.CurrentInstance
-	if requestedInstance != "" {
-		instance = requestedInstance
+	controlPlaneName := threeportConfig.CurrentControlPlane
+	if requestedControlPlane != "" {
+		controlPlaneName = requestedControlPlane
 	}
 
-	return threeportConfig, instance, nil
+	return threeportConfig, controlPlaneName, nil
 }
 
 // UpdateThreeportConfig updates a threeport config to add or update a config
-// for a threeport instance and set it as the current instance.
+// for a threeport control plane and set it as the current control plane.
 func UpdateThreeportConfig(
 	threeportConfig *ThreeportConfig,
-	threeportInstanceConfig *Instance,
+	threeportControlPlaneConfig *ControlPlane,
 ) {
-	if threeportConfig.CheckThreeportConfigExists(threeportInstanceConfig.Name) {
-		for n, instance := range threeportConfig.Instances {
-			if instance.Name == threeportInstanceConfig.Name {
-				threeportConfig.Instances[n] = *threeportInstanceConfig
+	if threeportConfig.CheckThreeportConfigExists(threeportControlPlaneConfig.Name) {
+		for n, instance := range threeportConfig.ControlPlanes {
+			if instance.Name == threeportControlPlaneConfig.Name {
+				threeportConfig.ControlPlanes[n] = *threeportControlPlaneConfig
 			}
 		}
 	} else {
-		threeportConfig.Instances = append(threeportConfig.Instances, *threeportInstanceConfig)
+		threeportConfig.ControlPlanes = append(threeportConfig.ControlPlanes, *threeportControlPlaneConfig)
 	}
-	viper.Set("Instances", threeportConfig.Instances)
-	viper.Set("CurrentInstance", threeportInstanceConfig.Name)
+	viper.Set("ControlPlanes", threeportConfig.ControlPlanes)
+	viper.Set("CurrentControlPlane", threeportControlPlaneConfig.Name)
 	viper.WriteConfig()
 }
 
-// DeleteThreeportConfigInstance updates a threeport config to remove a deleted
-// threeport instance and the current instance.
-func DeleteThreeportConfigInstance(threeportConfig *ThreeportConfig, deleteThreeportInstanceName string) {
-	updatedInstances := []Instance{}
-	for _, instance := range threeportConfig.Instances {
-		if instance.Name == deleteThreeportInstanceName {
+// DeleteThreeportConfigControlPlane updates a threeport config to remove a deleted
+// threeport control plane and the current control plane.
+func DeleteThreeportConfigControlPlane(threeportConfig *ThreeportConfig, deleteThreeportControlPlaneName string) {
+	updatedControlPlanes := []ControlPlane{}
+	for _, controlPlane := range threeportConfig.ControlPlanes {
+		if controlPlane.Name == deleteThreeportControlPlaneName {
 			continue
 		} else {
-			updatedInstances = append(updatedInstances, instance)
+			updatedControlPlanes = append(updatedControlPlanes, controlPlane)
 		}
 	}
 
-	viper.Set("Instances", updatedInstances)
-	viper.Set("CurrentInstance", "")
+	viper.Set("ControlPlanes", updatedControlPlanes)
+	viper.Set("CurrentControlPlane", "")
 	viper.WriteConfig()
 }
 

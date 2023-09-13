@@ -138,6 +138,7 @@ func GetLogBackendByName(apiClient *http.Client, apiAddr, name string) (*v0.LogB
 
 // CreateLogBackend creates a new log backend.
 func CreateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.LogBackend) (*v0.LogBackend, error) {
+	ReplaceAssociatedObjectsWithNil(logBackend)
 	jsonLogBackend, err := util.MarshalObject(logBackend)
 	if err != nil {
 		return logBackend, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -170,6 +171,7 @@ func CreateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 
 // UpdateLogBackend updates a log backend.
 func UpdateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.LogBackend) (*v0.LogBackend, error) {
+	ReplaceAssociatedObjectsWithNil(logBackend)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	logBackendID := *logBackend.ID
@@ -364,6 +366,7 @@ func GetLogStorageDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 // CreateLogStorageDefinition creates a new log storage definition.
 func CreateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStorageDefinition *v0.LogStorageDefinition) (*v0.LogStorageDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(logStorageDefinition)
 	jsonLogStorageDefinition, err := util.MarshalObject(logStorageDefinition)
 	if err != nil {
 		return logStorageDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -396,6 +399,7 @@ func CreateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 
 // UpdateLogStorageDefinition updates a log storage definition.
 func UpdateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStorageDefinition *v0.LogStorageDefinition) (*v0.LogStorageDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(logStorageDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	logStorageDefinitionID := *logStorageDefinition.ID
@@ -590,6 +594,7 @@ func GetLogStorageInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 // CreateLogStorageInstance creates a new log storage instance.
 func CreateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorageInstance *v0.LogStorageInstance) (*v0.LogStorageInstance, error) {
+	ReplaceAssociatedObjectsWithNil(logStorageInstance)
 	jsonLogStorageInstance, err := util.MarshalObject(logStorageInstance)
 	if err != nil {
 		return logStorageInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -622,6 +627,7 @@ func CreateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 
 // UpdateLogStorageInstance updates a log storage instance.
 func UpdateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorageInstance *v0.LogStorageInstance) (*v0.LogStorageInstance, error) {
+	ReplaceAssociatedObjectsWithNil(logStorageInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	logStorageInstanceID := *logStorageInstance.ID

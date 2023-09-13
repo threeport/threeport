@@ -355,6 +355,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Error(),
 		)).Block(
+			Id("ReplaceAssociatedObjectsWithNil").Call(Id(strcase.ToLowerCamel(mc.TypeName))),
 			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/util/v0",
 				"MarshalObject",
@@ -433,6 +434,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Error(),
 		)).Block(
+			Id("ReplaceAssociatedObjectsWithNil").Call(Id(strcase.ToLowerCamel(mc.TypeName))),
 			Comment("capture the object ID, make a copy of the object, then remove fields that"),
 			Comment("cannot be updated in the API"),
 			Id(

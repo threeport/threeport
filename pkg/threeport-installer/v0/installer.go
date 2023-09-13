@@ -3,6 +3,8 @@ package v0
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 type InstallerOption func(o *Options)
@@ -10,22 +12,33 @@ type InstallerOption func(o *Options)
 type CustomInstallFunction func(dynamic.Interface, *meta.RESTMapper, *ControlPlaneInstaller) error
 
 type Options struct {
-	Name                string
-	Namespace           string
-	PreInstallFunction  CustomInstallFunction
-	PostInstallFunction CustomInstallFunction
-	ControllerList      []*InstallInfo
-	RestApiInfo         *InstallInfo
-	AgentInfo           *InstallInfo
-}
+	Name                        string
+	Namespace                   string
+	PreInstallFunction          CustomInstallFunction
+	PostInstallFunction         CustomInstallFunction
+	ControllerList              []*v0.ControlPlaneComponents
+	RestApiInfo                 *v0.ControlPlaneComponents
+	AgentInfo                   *v0.ControlPlaneComponents
+	InThreeport                 bool
+	CreateOrUpdateKubeResources bool
 
-type InstallInfo struct {
-	Name                string
-	ImageName           string
-	ImageRepo           string
-	ImageTag            string
-	ServiceAccountName  string
-	ServiceResourceName string
+	AuthEnabled             bool
+	AwsConfigProfile        string
+	AwsConfigEnv            bool
+	AwsRegion               string
+	CfgFile                 string
+	CreateRootDomain        string
+	CreateProviderAccountID string
+	CreateAdminEmail        string
+	DevEnvironment          bool
+	EncryptionKey           string
+	ForceOverwriteConfig    bool
+	InstanceName            string
+	InfraProvider           string
+	KubeconfigPath          string
+	NumWorkerNodes          int
+	ProviderConfigDir       string
+	ThreeportPath           string
 }
 
 type ControlPlaneInstaller struct {
@@ -60,13 +73,13 @@ func Namespace(n string) InstallerOption {
 	}
 }
 
-func RestApi(r *InstallInfo) InstallerOption {
+func RestApi(r *v0.ControlPlaneComponents) InstallerOption {
 	return func(o *Options) {
 		o.RestApiInfo = r
 	}
 }
 
-func CustomController(c *InstallInfo) InstallerOption {
+func CustomController(c *v0.ControlPlaneComponents) InstallerOption {
 	return func(o *Options) {
 		o.ControllerList = append(o.ControllerList, c)
 	}
@@ -91,11 +104,12 @@ func defaultInstallFunction(c dynamic.Interface, m *meta.RESTMapper, cpi *Contro
 var defaultInstallerOptions = Options{
 	Name:                ControlPlaneName,
 	Namespace:           ControlPlaneNamespace,
+	ControllerList:      ThreeportControllerList,
 	RestApiInfo:         ThreeportRestApi,
 	AgentInfo:           ThreeportAgent,
-	ControllerList:      ThreeportControllerList,
 	PreInstallFunction:  defaultInstallFunction,
 	PostInstallFunction: defaultInstallFunction,
+	InThreeport:         false,
 }
 
 func NewInstaller(os ...InstallerOption) *ControlPlaneInstaller {

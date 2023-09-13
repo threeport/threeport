@@ -18,7 +18,13 @@ var downCmd = &cobra.Command{
 	Short: "Spin down a threeport development environment",
 	Long:  `Spin down a threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := cliArgs.DeleteControlPlane(nil)
+		cpi, err := cliArgs.CreateInstaller()
+		if err != nil {
+			cli.Error("failed to create threeport control plane installer", err)
+			os.Exit(1)
+		}
+
+		err = cli.DeleteControlPlane(cpi)
 		if err != nil {
 			cli.Error("failed to delete threeport control plane", err)
 			os.Exit(1)
@@ -29,7 +35,7 @@ var downCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(downCmd)
 
-	downCmd.Flags().StringVarP(&cliArgs.InstanceName,
+	downCmd.Flags().StringVarP(&cliArgs.ControlPlaneName,
 		"name", "n", tptdev.DefaultInstanceName, "name of dev control plane instance")
 	downCmd.Flags().StringVarP(&cliArgs.KubeconfigPath,
 		"kubeconfig", "k", "", "path to kubeconfig - default is ~/.kube/config")

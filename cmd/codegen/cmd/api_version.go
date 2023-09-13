@@ -114,6 +114,29 @@ for all the models in the supplied version/s.  The generated code includes:
 				}
 			}
 			versionConf.RouteNames = routeNames
+
+			// this is a hack to ensure that there are order constraints satisfied for
+			// the db automigrate function to properly execute
+			swaps := map[string]string{
+				"ControlPlaneDefinition": "KubernetesRuntimeDefinition",
+				"ControlPlaneInstance":   "KubernetesRuntimeInstance",
+			}
+
+			for key, value := range swaps {
+				var keyIndex int
+				var valueIndex int
+				for i, name := range dbInitNames {
+					if name == key {
+						keyIndex = i
+					} else if name == value {
+						valueIndex = i
+					}
+				}
+
+				dbInitNames[keyIndex] = value
+				dbInitNames[valueIndex] = key
+			}
+
 			versionConf.DatabaseInitNames = dbInitNames
 			versionConf.ReconciledNames = reconciledNames
 			globalVersionConf.Versions = append(globalVersionConf.Versions, versionConf)

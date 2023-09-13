@@ -149,6 +149,10 @@ func main() {
 		Name:     v0.GatewayStreamName,
 		Subjects: v0.GetGatewaySubjects(),
 	})
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.ControlPlaneStreamName,
+		Subjects: v0.GetControlPlaneSubjects(),
+	})
 
 	// handlers
 	h := handlers.New(db, nc, js)

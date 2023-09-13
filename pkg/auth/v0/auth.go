@@ -107,6 +107,8 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 func GenerateCertificate(
 	caConfig *x509.Certificate,
 	caPrivateKey *rsa.PrivateKey,
+	// serviceName string,
+	// serviceNamespaceName string,
 	altNames ...string,
 ) (certificate string, privateKey string, err error) {
 	// generate a random identifier for use as a serial number

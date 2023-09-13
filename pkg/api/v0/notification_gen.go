@@ -15,6 +15,10 @@ func GetSubjectByReconcilerName(name string) (string, error) {
 		return AwsRelationalDatabaseInstanceSubject, nil
 	case "AwsObjectStorageBucketInstanceReconciler":
 		return AwsObjectStorageBucketInstanceSubject, nil
+	case "ControlPlaneDefinitionReconciler":
+		return ControlPlaneDefinitionSubject, nil
+	case "ControlPlaneInstanceReconciler":
+		return ControlPlaneInstanceSubject, nil
 	case "GatewayDefinitionReconciler":
 		return GatewayDefinitionSubject, nil
 	case "GatewayInstanceReconciler":

@@ -138,6 +138,7 @@ func GetForwardProxyDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 // CreateForwardProxyDefinition creates a new forward proxy definition.
 func CreateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwardProxyDefinition *v0.ForwardProxyDefinition) (*v0.ForwardProxyDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(forwardProxyDefinition)
 	jsonForwardProxyDefinition, err := util.MarshalObject(forwardProxyDefinition)
 	if err != nil {
 		return forwardProxyDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -170,6 +171,7 @@ func CreateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwar
 
 // UpdateForwardProxyDefinition updates a forward proxy definition.
 func UpdateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwardProxyDefinition *v0.ForwardProxyDefinition) (*v0.ForwardProxyDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(forwardProxyDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	forwardProxyDefinitionID := *forwardProxyDefinition.ID
@@ -364,6 +366,7 @@ func GetForwardProxyInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 // CreateForwardProxyInstance creates a new forward proxy instance.
 func CreateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardProxyInstance *v0.ForwardProxyInstance) (*v0.ForwardProxyInstance, error) {
+	ReplaceAssociatedObjectsWithNil(forwardProxyInstance)
 	jsonForwardProxyInstance, err := util.MarshalObject(forwardProxyInstance)
 	if err != nil {
 		return forwardProxyInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -396,6 +399,7 @@ func CreateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardP
 
 // UpdateForwardProxyInstance updates a forward proxy instance.
 func UpdateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardProxyInstance *v0.ForwardProxyInstance) (*v0.ForwardProxyInstance, error) {
+	ReplaceAssociatedObjectsWithNil(forwardProxyInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	forwardProxyInstanceID := *forwardProxyInstance.ID
