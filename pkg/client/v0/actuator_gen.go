@@ -71,6 +71,35 @@ func GetProfileByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Profil
 	return &profile, nil
 }
 
+// GetProfileByID fetches a profile by provided query string.
+func GetProfileByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.Profile, error) {
+	var profile v0.Profile
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/profiles?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &profile, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&profile); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &profile, nil
+}
+
 // GetProfileByName fetches a profile by name.
 func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile, error) {
 	var profiles []v0.Profile
@@ -246,6 +275,35 @@ func GetTierByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, err
 	response, err := GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &tier, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&tier); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &tier, nil
+}
+
+// GetTierByID fetches a tier by provided query string.
+func GetTierByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.Tier, error) {
+	var tier v0.Tier
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/tiers?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,

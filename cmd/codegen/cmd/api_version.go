@@ -139,11 +139,6 @@ for all the models in the supplied version/s.  The generated code includes:
 			return fmt.Errorf("failed to write add versions source code: %w", err)
 		}
 
-		// generate response object type conversions
-		if err := globalVersionConf.ResponseObjects(); err != nil {
-			return fmt.Errorf("failed to write response object source code: %w", err)
-		}
-
 		// generate client type switch functions
 		if err := globalVersionConf.DeleteObjects(); err != nil {
 			return fmt.Errorf("failed to generate model type switch functions: %w", err)

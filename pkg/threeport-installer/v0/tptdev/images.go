@@ -37,8 +37,8 @@ type imageTagFetcher func(nodes.Node, string) (map[string]bool, error)
 
 // PrepareDevImages builds and loads the threeport control plane images for
 // development use.
-func PrepareDevImages(threeportPath, kindKubernetesRuntimeName string) error {
-	devImages := threeport.ThreeportDevImages()
+func PrepareDevImages(threeportPath, kindKubernetesRuntimeName string, cpi *threeport.ControlPlaneInstaller) error {
+	devImages := cpi.ThreeportDevImages()
 
 	if err := BuildDevImages(threeportPath, devImages); err != nil {
 		return fmt.Errorf("failed to build dev images: %w", err)

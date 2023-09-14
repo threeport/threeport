@@ -41,7 +41,7 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 	var logBackend v0.LogBackend
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, logBackend); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -74,7 +74,7 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, logBackend)
+	response, err := v0.CreateResponse(nil, logBackend, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -114,7 +114,7 @@ func (h Handler) GetLogBackends(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -143,7 +143,7 @@ func (h Handler) GetLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, logBackend)
+	response, err := v0.CreateResponse(nil, logBackend, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -179,7 +179,7 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingLogBackend); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -194,7 +194,7 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingLogBackend)
+	response, err := v0.CreateResponse(nil, existingLogBackend, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -231,7 +231,7 @@ func (h Handler) ReplaceLogBackend(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingLogBackend); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -260,7 +260,7 @@ func (h Handler) ReplaceLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingLogBackend)
+	response, err := v0.CreateResponse(nil, existingLogBackend, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -295,7 +295,7 @@ func (h Handler) DeleteLogBackend(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, logBackend)
+	response, err := v0.CreateResponse(nil, logBackend, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -332,7 +332,7 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 	var logStorageDefinition v0.LogStorageDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, logStorageDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -365,7 +365,7 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, logStorageDefinition)
+	response, err := v0.CreateResponse(nil, logStorageDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -405,7 +405,7 @@ func (h Handler) GetLogStorageDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -434,7 +434,7 @@ func (h Handler) GetLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, logStorageDefinition)
+	response, err := v0.CreateResponse(nil, logStorageDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -470,7 +470,7 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingLogStorageDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -485,7 +485,7 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingLogStorageDefinition)
+	response, err := v0.CreateResponse(nil, existingLogStorageDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -522,7 +522,7 @@ func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingLogStorageDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -551,7 +551,7 @@ func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingLogStorageDefinition)
+	response, err := v0.CreateResponse(nil, existingLogStorageDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -586,7 +586,7 @@ func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, logStorageDefinition)
+	response, err := v0.CreateResponse(nil, logStorageDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -623,7 +623,7 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 	var logStorageInstance v0.LogStorageInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, logStorageInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -656,7 +656,7 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, logStorageInstance)
+	response, err := v0.CreateResponse(nil, logStorageInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -696,7 +696,7 @@ func (h Handler) GetLogStorageInstances(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -725,7 +725,7 @@ func (h Handler) GetLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, logStorageInstance)
+	response, err := v0.CreateResponse(nil, logStorageInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -761,7 +761,7 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingLogStorageInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -776,7 +776,7 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingLogStorageInstance)
+	response, err := v0.CreateResponse(nil, existingLogStorageInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -813,7 +813,7 @@ func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingLogStorageInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -842,7 +842,7 @@ func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingLogStorageInstance)
+	response, err := v0.CreateResponse(nil, existingLogStorageInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -877,7 +877,7 @@ func (h Handler) DeleteLogStorageInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, logStorageInstance)
+	response, err := v0.CreateResponse(nil, logStorageInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}

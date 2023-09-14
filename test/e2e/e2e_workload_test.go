@@ -103,7 +103,7 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error getting threeport config")
 		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForInstance(tptdev.DefaultInstanceName)
 		assert.Nil(err, "should have no error getting credentials for threeport API")
-		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey)
+		apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey, "")
 		assert.Nil(err, "should have no error creating http client")
 
 		gatewayDefinitionName := "gateway-definition"

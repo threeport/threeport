@@ -135,7 +135,7 @@ func main() {
 	notifChan := make(chan notify.ThreeportNotif, 10000)
 
 	// configure http client for calls to threeport API
-	threeportAPIClient, err := tpapiclient.GetHTTPClient(authEnabled, "", "", "")
+	threeportAPIClient, err := tpapiclient.GetHTTPClient(authEnabled, "", "", "", "")
 	if err != nil {
 		log.Error(err, "failed to create http client")
 		os.Exit(1)

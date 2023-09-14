@@ -18,7 +18,7 @@ var DeleteControlPlaneCmd = &cobra.Command{
 	Long:         `Delete an instance of the Threeport control plane.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := cliArgs.DeleteControlPlane()
+		err := cliArgs.DeleteControlPlane(nil)
 		if err != nil {
 			cli.Error("failed to delete threeport control plane", err)
 			os.Exit(1)

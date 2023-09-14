@@ -22,9 +22,15 @@ func GetHTTPClient(
 	ca string,
 	clientCertificate string,
 	clientPrivateKey string,
+	sessionToken string,
 ) (*http.Client, error) {
 	if !authEnabled {
-		return &http.Client{}, nil
+		return &http.Client{
+			Transport: &CustomTransport{
+				customRoundTripper: Chain(nil),
+				isTlsEnabled:       false,
+			},
+		}, nil
 	}
 
 	configDir := "/etc/threeport"
@@ -85,10 +91,29 @@ func GetHTTPClient(
 		RootCAs:      caCertPool,
 	}
 
-	apiClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
+	tlsTransport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
+	var apiClient *http.Client
+	var customTransport *CustomTransport
+
+	if sessionToken != "" {
+		customTransport = &CustomTransport{
+			customRoundTripper: Chain(tlsTransport),
+			isTlsEnabled:       true,
+		}
+	} else {
+		customTransport = &CustomTransport{
+			customRoundTripper: Chain(
+				tlsTransport,
+				AddHeader("Authorization", fmt.Sprintf("Bearer %s", sessionToken))),
+			isTlsEnabled: true,
+		}
+	}
+
+	apiClient = &http.Client{
+		Transport: customTransport,
 	}
 
 	return apiClient, nil

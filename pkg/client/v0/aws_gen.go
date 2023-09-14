@@ -71,6 +71,35 @@ func GetAwsAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Aws
 	return &awsAccount, nil
 }
 
+// GetAwsAccountByID fetches a aws account by provided query string.
+func GetAwsAccountByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AwsAccount, error) {
+	var awsAccount v0.AwsAccount
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-accounts?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsAccount); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsAccount, nil
+}
+
 // GetAwsAccountByName fetches a aws account by name.
 func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsAccount, error) {
 	var awsAccounts []v0.AwsAccount
@@ -246,6 +275,35 @@ func GetAwsEksKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr st
 	response, err := GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsEksKubernetesRuntimeDefinition, nil
+}
+
+// GetAwsEksKubernetesRuntimeDefinitionByID fetches a aws eks kubernetes runtime definition by provided query string.
+func GetAwsEksKubernetesRuntimeDefinitionByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -465,6 +523,35 @@ func GetAwsEksKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr stri
 	return &awsEksKubernetesRuntimeInstance, nil
 }
 
+// GetAwsEksKubernetesRuntimeInstanceByID fetches a aws eks kubernetes runtime instance by provided query string.
+func GetAwsEksKubernetesRuntimeInstanceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksKubernetesRuntimeInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsEksKubernetesRuntimeInstance, nil
+}
+
 // GetAwsEksKubernetesRuntimeInstanceByName fetches a aws eks kubernetes runtime instance by name.
 func GetAwsEksKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
 	var awsEksKubernetesRuntimeInstances []v0.AwsEksKubernetesRuntimeInstance
@@ -662,6 +749,35 @@ func GetAwsRelationalDatabaseDefinitionByID(apiClient *http.Client, apiAddr stri
 	return &awsRelationalDatabaseDefinition, nil
 }
 
+// GetAwsRelationalDatabaseDefinitionByID fetches a aws relational database definition by provided query string.
+func GetAwsRelationalDatabaseDefinitionByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AwsRelationalDatabaseDefinition, error) {
+	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-relational-database-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsRelationalDatabaseDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsRelationalDatabaseDefinition, nil
+}
+
 // GetAwsRelationalDatabaseDefinitionByName fetches a aws relational database definition by name.
 func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
@@ -837,6 +953,35 @@ func GetAwsRelationalDatabaseInstanceByID(apiClient *http.Client, apiAddr string
 	response, err := GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsRelationalDatabaseInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsRelationalDatabaseInstance, nil
+}
+
+// GetAwsRelationalDatabaseInstanceByID fetches a aws relational database instance by provided query string.
+func GetAwsRelationalDatabaseInstanceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AwsRelationalDatabaseInstance, error) {
+	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-relational-database-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,

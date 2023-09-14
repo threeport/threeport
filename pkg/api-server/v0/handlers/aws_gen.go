@@ -44,7 +44,7 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 	var awsAccount v0.AwsAccount
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, awsAccount); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -77,7 +77,7 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsAccount)
+	response, err := v0.CreateResponse(nil, awsAccount, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -117,7 +117,7 @@ func (h Handler) GetAwsAccounts(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -146,7 +146,7 @@ func (h Handler) GetAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsAccount)
+	response, err := v0.CreateResponse(nil, awsAccount, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -182,7 +182,7 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsAccount); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -197,7 +197,7 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsAccount)
+	response, err := v0.CreateResponse(nil, existingAwsAccount, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -234,7 +234,7 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsAccount); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -263,7 +263,7 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsAccount)
+	response, err := v0.CreateResponse(nil, existingAwsAccount, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -298,7 +298,7 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsAccount)
+	response, err := v0.CreateResponse(nil, awsAccount, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -335,7 +335,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, awsEksKubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -368,7 +368,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -408,7 +408,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -437,7 +437,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -473,7 +473,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsEksKubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -488,7 +488,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeDefinition)
+	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -525,7 +525,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error 
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsEksKubernetesRuntimeDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -554,7 +554,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error 
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeDefinition)
+	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -595,7 +595,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -632,7 +632,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, awsEksKubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -678,7 +678,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		h.JS.Publish(v0.AwsEksKubernetesRuntimeInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -718,7 +718,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstances(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -747,7 +747,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -783,7 +783,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsEksKubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -811,7 +811,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		h.JS.Publish(v0.AwsEksKubernetesRuntimeInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeInstance)
+	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -848,7 +848,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsEksKubernetesRuntimeInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -877,7 +877,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeInstance)
+	response, err := v0.CreateResponse(nil, existingAwsEksKubernetesRuntimeInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -949,7 +949,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance)
+	response, err := v0.CreateResponse(nil, awsEksKubernetesRuntimeInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -986,7 +986,7 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, awsRelationalDatabaseDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1019,7 +1019,7 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition)
+	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1059,7 +1059,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -1088,7 +1088,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition)
+	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1124,7 +1124,7 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsRelationalDatabaseDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1139,7 +1139,7 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseDefinition)
+	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1176,7 +1176,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsRelationalDatabaseDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1205,7 +1205,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseDefinition)
+	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1240,7 +1240,7 @@ func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition)
+	response, err := v0.CreateResponse(nil, awsRelationalDatabaseDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1277,7 +1277,7 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, awsRelationalDatabaseInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1323,7 +1323,7 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 		h.JS.Publish(v0.AwsRelationalDatabaseInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
+	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1363,7 +1363,7 @@ func (h Handler) GetAwsRelationalDatabaseInstances(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -1392,7 +1392,7 @@ func (h Handler) GetAwsRelationalDatabaseInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
+	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1428,7 +1428,7 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsRelationalDatabaseInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1456,7 +1456,7 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 		h.JS.Publish(v0.AwsRelationalDatabaseInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseInstance)
+	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1493,7 +1493,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsRelationalDatabaseInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1522,7 +1522,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseInstance)
+	response, err := v0.CreateResponse(nil, existingAwsRelationalDatabaseInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1594,7 +1594,7 @@ func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance)
+	response, err := v0.CreateResponse(nil, awsRelationalDatabaseInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}

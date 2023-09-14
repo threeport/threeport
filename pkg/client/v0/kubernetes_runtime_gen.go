@@ -71,6 +71,35 @@ func GetKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr string, 
 	return &kubernetesRuntimeDefinition, nil
 }
 
+// GetKubernetesRuntimeDefinitionByID fetches a kubernetes runtime definition by provided query string.
+func GetKubernetesRuntimeDefinitionByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.KubernetesRuntimeDefinition, error) {
+	var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &kubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &kubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&kubernetesRuntimeDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &kubernetesRuntimeDefinition, nil
+}
+
 // GetKubernetesRuntimeDefinitionByName fetches a kubernetes runtime definition by name.
 func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.KubernetesRuntimeDefinition, error) {
 	var kubernetesRuntimeDefinitions []v0.KubernetesRuntimeDefinition
@@ -246,6 +275,35 @@ func GetKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr string, id
 	response, err := GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &kubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &kubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&kubernetesRuntimeInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &kubernetesRuntimeInstance, nil
+}
+
+// GetKubernetesRuntimeInstanceByID fetches a kubernetes runtime instance by provided query string.
+func GetKubernetesRuntimeInstanceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.KubernetesRuntimeInstance, error) {
+	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/kubernetes-runtime-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,

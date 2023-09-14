@@ -71,6 +71,35 @@ func GetGatewayDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 	return &gatewayDefinition, nil
 }
 
+// GetGatewayDefinitionByID fetches a gateway definition by provided query string.
+func GetGatewayDefinitionByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.GatewayDefinition, error) {
+	var gatewayDefinition v0.GatewayDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &gatewayDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayDefinition, nil
+}
+
 // GetGatewayDefinitionByName fetches a gateway definition by name.
 func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.GatewayDefinition, error) {
 	var gatewayDefinitions []v0.GatewayDefinition
@@ -246,6 +275,35 @@ func GetGatewayInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 	response, err := GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/gateway-instances/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &gatewayInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayInstance, nil
+}
+
+// GetGatewayInstanceByID fetches a gateway instance by provided query string.
+func GetGatewayInstanceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.GatewayInstance, error) {
+	var gatewayInstance v0.GatewayInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,
@@ -465,6 +523,35 @@ func GetDomainNameDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 	return &domainNameDefinition, nil
 }
 
+// GetDomainNameDefinitionByID fetches a domain name definition by provided query string.
+func GetDomainNameDefinitionByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.DomainNameDefinition, error) {
+	var domainNameDefinition v0.DomainNameDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/domain-name-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &domainNameDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&domainNameDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &domainNameDefinition, nil
+}
+
 // GetDomainNameDefinitionByName fetches a domain name definition by name.
 func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinitions []v0.DomainNameDefinition
@@ -640,6 +727,35 @@ func GetDomainNameInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 	response, err := GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &domainNameInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&domainNameInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &domainNameInstance, nil
+}
+
+// GetDomainNameInstanceByID fetches a domain name instance by provided query string.
+func GetDomainNameInstanceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.DomainNameInstance, error) {
+	var domainNameInstance v0.DomainNameInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/domain-name-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		http.StatusOK,

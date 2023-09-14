@@ -2,6 +2,7 @@ package v0
 
 import (
 	"encoding/base64"
+	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -11,6 +12,21 @@ const (
 	alphaCharset        = "abcdefghijklmnopqrstuvwxyz"
 	alphaNumericCharset = "abcdefghijklmnopqrstuvwxyz0123456789"
 )
+
+// Given a map of key value pairs, creates a formatted http query string
+func CreateQueryStringFromMap(queryMap map[string]string) string {
+	queryString := ""
+	for k, v := range queryMap {
+		seperator := ""
+		if queryString != "" {
+			seperator = "&"
+		}
+
+		queryString += seperator + fmt.Sprintf("%s=%s", k, v)
+	}
+
+	return queryString
+}
 
 // SliceContains returns true if a slice contains a certain string.
 func StringSliceContains(sl []string, name string, caseSensitive bool) bool {

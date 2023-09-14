@@ -131,7 +131,7 @@ func main() {
 	var shutdownWait sync.WaitGroup
 
 	// configure http client for calls to threeport API
-	apiClient, err := client.GetHTTPClient(*authEnabled, "", "", "")
+	apiClient, err := client.GetHTTPClient(*authEnabled, "", "", "", "")
 	if err != nil {
 		log.Error(err, "failed to create http client")
 		os.Exit(1)

@@ -92,11 +92,17 @@ func InitArgs(args *ControlPlaneCLIArgs) {
 
 // CreateControlPlane uses the CLI arguments to create a new threeport control
 // plane.
-func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
+func (a *ControlPlaneCLIArgs) CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
 	// get the threeport config
 	threeportConfig, err := config.GetThreeportConfig()
 	if err != nil {
 		return fmt.Errorf("failed to get threeport config: %w", err)
+	}
+
+	// configure installer
+	cpi := customInstaller
+	if customInstaller == nil {
+		cpi = threeport.NewInstaller()
 	}
 
 	// check threeport config for existing instance config
@@ -158,7 +164,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			// first update the threeport config so the Delete method has
 			// something to reference
 			config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
-			if err := a.DeleteControlPlane(); err != nil {
+			if err := a.DeleteControlPlane(cpi); err != nil {
 				Error("failed to delete kind kubernetes runtime", err)
 			}
 			os.Exit(1)
@@ -253,7 +259,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		err = fmt.Errorf("%s: %w", msg, err)
 		// since we failed to complete kubernetes runtime creation, delete it to
 		// prevent dangling runtime resources
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
 			return err
 		}
 		return err
@@ -308,7 +314,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
 				return err
 			}
 			return err
@@ -347,14 +353,14 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
 			return err
 		}
 		return err
 	}
 
 	// install the threeport control plane dependencies
-	if err := threeport.InstallThreeportControlPlaneDependencies(
+	if err := cpi.InstallThreeportControlPlaneDependencies(
 		dynamicKubeClient,
 		mapper,
 		a.InfraProvider,
@@ -364,7 +370,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
 			return err
 		}
 		return err
@@ -381,7 +387,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
 				return err
 			}
 			return err
@@ -398,7 +404,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
 				return err
 			}
 			return err
@@ -427,7 +433,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
 			return err
 		}
 		return err
@@ -441,19 +447,19 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
 			return err
 		}
 		return err
 	}
-	apiClient, err := client.GetHTTPClient(a.AuthEnabled, ca, clientCertificate, clientPrivateKey)
+	apiClient, err := client.GetHTTPClient(a.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
 	if err != nil {
 		msg := "failed to create http client"
 		// print the error when it happens and then again post-deletion
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
 			return err
 		}
 		return err
@@ -461,13 +467,13 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 
 	// for dev environment, build and load dev images for API and controllers
 	if a.DevEnvironment {
-		if err := tptdev.PrepareDevImages(a.ThreeportPath, provider.ThreeportRuntimeName(a.InstanceName)); err != nil {
+		if err := tptdev.PrepareDevImages(a.ThreeportPath, provider.ThreeportRuntimeName(a.InstanceName), cpi); err != nil {
 			msg := "failed to build and load dev control plane images"
 			// print the error when it happens and then again post-deletion
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
 				return err
 			}
 			return err
@@ -475,12 +481,10 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	}
 
 	// install the API
-	if err := threeport.InstallThreeportAPI(
+	if err := cpi.InstallThreeportAPI(
 		dynamicKubeClient,
 		mapper,
 		a.DevEnvironment,
-		a.ControlPlaneImageRepo,
-		a.ControlPlaneImageTag,
 		authConfig,
 		a.InfraProvider,
 		encryptionKey,
@@ -490,7 +494,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 			return err
 		}
 		return err
@@ -501,14 +505,14 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	// server certificate's alt names when TLS assets are installed
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		tpapiEndpoint, err := threeport.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		tpapiEndpoint, err := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
 		if err != nil {
 			msg := "failed to get threeport API's public endpoint"
 			// print the error when it happens and then again post-deletion
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 				return err
 			}
 			return err
@@ -521,7 +525,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 	// name for the remote load balancer if applicable
 	if a.AuthEnabled {
 		// install the threeport API TLS assets
-		if err := threeport.InstallThreeportAPITLS(
+		if err := cpi.InstallThreeportAPITLS(
 			dynamicKubeClient,
 			mapper,
 			authConfig,
@@ -532,7 +536,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 				return err
 			}
 			return err
@@ -553,7 +557,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 			return err
 		}
 		return err
@@ -575,19 +579,31 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
+			return err
+		}
+		return err
+	}
+
+	err = cpi.Opts.PreInstallFunction(dynamicKubeClient, mapper, cpi)
+
+	if err != nil {
+		msg := "failed to run custom preInstall function"
+		// print the error when it happens and then again post-deletion
+		Error(msg, err)
+		err = fmt.Errorf("%s: %w", msg, err)
+		// delete control plane kubernetes runtime
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 			return err
 		}
 		return err
 	}
 
 	// install the controllers
-	if err := threeport.InstallThreeportControllers(
+	if err := cpi.InstallThreeportControllers(
 		dynamicKubeClient,
 		mapper,
 		a.DevEnvironment,
-		a.ControlPlaneImageRepo,
-		a.ControlPlaneImageTag,
 		authConfig,
 	); err != nil {
 		msg := "failed to install threeport controllers"
@@ -595,20 +611,32 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+			return err
+		}
+		return err
+	}
+
+	err = cpi.Opts.PostInstallFunction(dynamicKubeClient, mapper, cpi)
+
+	if err != nil {
+		msg := "failed to run custom postInstall function"
+		// print the error when it happens and then again post-deletion
+		Error(msg, err)
+		err = fmt.Errorf("%s: %w", msg, err)
+		// delete control plane kubernetes runtime
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 			return err
 		}
 		return err
 	}
 
 	// install the agent
-	if err := threeport.InstallThreeportAgent(
+	if err := cpi.InstallThreeportAgent(
 		dynamicKubeClient,
 		mapper,
 		a.InstanceName,
 		a.DevEnvironment,
-		a.ControlPlaneImageRepo,
-		a.ControlPlaneImageTag,
 		authConfig,
 	); err != nil {
 		msg := "failed to install threeport agent"
@@ -616,7 +644,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 			return err
 		}
 		return err
@@ -630,7 +658,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 			return err
 		}
 		return err
@@ -644,7 +672,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 			return err
 		}
 		return err
@@ -659,7 +687,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 			return err
 		}
 		return err
@@ -688,7 +716,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 			return err
 		}
 		return err
@@ -707,7 +735,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 			return err
 		}
 		return err
@@ -729,7 +757,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 				return err
 			}
 			return err
@@ -756,7 +784,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
 				return err
 			}
 			return err
@@ -838,11 +866,17 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane() error {
 }
 
 // DeleteControlPlane deletes a threeport control plane.
-func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
+func (a *ControlPlaneCLIArgs) DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
 	// get threeport config
 	threeportConfig, err := config.GetThreeportConfig()
 	if err != nil {
 		return fmt.Errorf("failed to get threeport config: %w", err)
+	}
+
+	// configure installer
+	cpi := customInstaller
+	if customInstaller == nil {
+		cpi = threeport.NewInstaller()
 	}
 
 	// check threeport config for existing instance
@@ -932,7 +966,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 		if err != nil {
 			return fmt.Errorf("failed to get threeport certificates from config: %w", err)
 		}
-		apiClient, err := client.GetHTTPClient(threeportInstanceConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey)
+		apiClient, err := client.GetHTTPClient(threeportInstanceConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
 		if err != nil {
 			return fmt.Errorf("failed to create http client: %w", err)
 		}
@@ -1003,7 +1037,7 @@ func (a *ControlPlaneCLIArgs) DeleteControlPlane() error {
 		}
 
 		// delete threeport API service to remove load balancer
-		if err := threeport.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
+		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete threeport API service: %w", err)
 		}
 	}
@@ -1093,11 +1127,12 @@ func (a *ControlPlaneCLIArgs) cleanOnCreateError(
 	dynamicKubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	cleanConfig bool,
+	cpi *threeport.ControlPlaneInstaller,
 ) error {
 	// if needed, delete control plane workloads to remove related infra, e.g. load
 	// balancers, that will prevent runtime infra deletion
 	if dynamicKubeClient != nil && mapper != nil {
-		if workloadErr := threeport.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); workloadErr != nil {
+		if workloadErr := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); workloadErr != nil {
 			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete threeport API service: %w", createErr, workloadErr)
 		}
 	}

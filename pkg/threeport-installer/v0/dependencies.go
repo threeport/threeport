@@ -12,7 +12,7 @@ import (
 
 // CreateThreeportControlPlaneNamespace creates the threeport control plane
 // namespace in a Kubernetes cluster.
-func CreateThreeportControlPlaneNamespace(
+func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
@@ -21,7 +21,7 @@ func CreateThreeportControlPlaneNamespace(
 			"apiVersion": "v1",
 			"kind":       "Namespace",
 			"metadata": map[string]interface{}{
-				"name": ControlPlaneNamespace,
+				"name": cpi.Opts.Namespace,
 			},
 		},
 	}
@@ -35,14 +35,14 @@ func CreateThreeportControlPlaneNamespace(
 // InstallThreeportControlPlaneDependencies installs the necessary components
 // for the threeport REST API and controllers to operate.  It includes the
 // database and message broker.
-func InstallThreeportControlPlaneDependencies(
+func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	infraProvider string,
 ) error {
-	crdbVolClaimTemplateSpec := getVolClaimTemplateSpec(infraProvider)
+	crdbVolClaimTemplateSpec := cpi.getVolClaimTemplateSpec(infraProvider)
 
-	if err := CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
+	if err := cpi.CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
 	}
 
@@ -52,7 +52,7 @@ func InstallThreeportControlPlaneDependencies(
 			"kind":       "PodDisruptionBudget",
 			"metadata": map[string]interface{}{
 				"name":      "nats-js",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":     "nats",
 					"app.kubernetes.io/instance": "nats-js",
@@ -80,7 +80,7 @@ func InstallThreeportControlPlaneDependencies(
 			"kind":       "ServiceAccount",
 			"metadata": map[string]interface{}{
 				"name":      "nats-js",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":     "nats",
 					"app.kubernetes.io/instance": "nats-js",
@@ -99,7 +99,7 @@ func InstallThreeportControlPlaneDependencies(
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
 				"name":      "nats-js-config",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":     "nats",
 					"app.kubernetes.io/instance": "nats-js",
@@ -145,7 +145,7 @@ store_dir: /data
 			"kind":       "Service",
 			"metadata": map[string]interface{}{
 				"name":      "nats-js",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":     "nats",
 					"app.kubernetes.io/instance": "nats-js",
@@ -204,7 +204,7 @@ store_dir: /data
 			"kind":       "Deployment",
 			"metadata": map[string]interface{}{
 				"name":      "nats-js-box",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app":   "nats-js-box",
 					"chart": "nats-0.18.2",
@@ -260,7 +260,7 @@ store_dir: /data
 			"kind":       "StatefulSet",
 			"metadata": map[string]interface{}{
 				"name":      "nats-js",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"helm.sh/chart":                "nats-0.18.2",
 					"app.kubernetes.io/name":       "nats",
@@ -511,7 +511,7 @@ store_dir: /data
 						"metadata": map[string]interface{}{
 							"name": "datadir",
 						},
-						"spec": getVolClaimTemplateSpec(infraProvider),
+						"spec": cpi.getVolClaimTemplateSpec(infraProvider),
 					},
 				},
 			},
@@ -527,7 +527,7 @@ store_dir: /data
 			"apiVersion": "policy/v1",
 			"metadata": map[string]interface{}{
 				"name":      "crdb-budget",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":     "cockroachdb",
 					"app.kubernetes.io/instance": "crdb",
@@ -555,7 +555,7 @@ store_dir: /data
 			"apiVersion": "v1",
 			"metadata": map[string]interface{}{
 				"name":      "crdb",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":      "cockroachdb",
 					"app.kubernetes.io/instance":  "crdb",
@@ -613,7 +613,7 @@ store_dir: /data
 			"apiVersion": "apps/v1",
 			"metadata": map[string]interface{}{
 				"name":      "crdb",
-				"namespace": ControlPlaneNamespace,
+				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"helm.sh/chart":                "cockroachdb-10.0.2",
 					"app.kubernetes.io/name":       "cockroachdb",
@@ -792,7 +792,7 @@ store_dir: /data
 
 // getVolClaimTemplateSpec returns the spec for the cockroach DB volume
 // claim template based on the infra provider.
-func getVolClaimTemplateSpec(infraProvider string) map[string]interface{} {
+func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(infraProvider string) map[string]interface{} {
 	volClaimTemplateSpec := map[string]interface{}{
 		"accessModes": []interface{}{
 			"ReadWriteOnce",

@@ -27,7 +27,7 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, v0.WorkloadResourceDefinition{}); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -56,7 +56,7 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, createdWRDs)
+	response, err := v0.CreateResponse(nil, createdWRDs, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -89,7 +89,7 @@ func (h Handler) GetWorkloadEventSet(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, *records)
+	response, err := v0.CreateResponse(nil, *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -122,7 +122,7 @@ func (h Handler) DeleteWorkloadEventSet(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadEvents)
+	response, err := v0.CreateResponse(nil, workloadEvents, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}

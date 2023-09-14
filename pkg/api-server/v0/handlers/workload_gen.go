@@ -44,7 +44,7 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 	var workloadDefinition v0.WorkloadDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, workloadDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -90,7 +90,7 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 		h.JS.Publish(v0.WorkloadDefinitionCreateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadDefinition)
+	response, err := v0.CreateResponse(nil, workloadDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -130,7 +130,7 @@ func (h Handler) GetWorkloadDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -159,7 +159,7 @@ func (h Handler) GetWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadDefinition)
+	response, err := v0.CreateResponse(nil, workloadDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -195,7 +195,7 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingWorkloadDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -223,7 +223,7 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 		h.JS.Publish(v0.WorkloadDefinitionUpdateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, existingWorkloadDefinition)
+	response, err := v0.CreateResponse(nil, existingWorkloadDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -260,7 +260,7 @@ func (h Handler) ReplaceWorkloadDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingWorkloadDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -289,7 +289,7 @@ func (h Handler) ReplaceWorkloadDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingWorkloadDefinition)
+	response, err := v0.CreateResponse(nil, existingWorkloadDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -367,7 +367,7 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 		}
 	}
 
-	response, err := v0.CreateResponse(nil, workloadDefinition)
+	response, err := v0.CreateResponse(nil, workloadDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -404,7 +404,7 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 	var workloadResourceDefinition v0.WorkloadResourceDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, workloadResourceDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -422,7 +422,7 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadResourceDefinition)
+	response, err := v0.CreateResponse(nil, workloadResourceDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -462,7 +462,7 @@ func (h Handler) GetWorkloadResourceDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -491,7 +491,7 @@ func (h Handler) GetWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadResourceDefinition)
+	response, err := v0.CreateResponse(nil, workloadResourceDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -527,7 +527,7 @@ func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingWorkloadResourceDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -542,7 +542,7 @@ func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingWorkloadResourceDefinition)
+	response, err := v0.CreateResponse(nil, existingWorkloadResourceDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -579,7 +579,7 @@ func (h Handler) ReplaceWorkloadResourceDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingWorkloadResourceDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -608,7 +608,7 @@ func (h Handler) ReplaceWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingWorkloadResourceDefinition)
+	response, err := v0.CreateResponse(nil, existingWorkloadResourceDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -643,7 +643,7 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadResourceDefinition)
+	response, err := v0.CreateResponse(nil, workloadResourceDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -680,7 +680,7 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 	var workloadInstance v0.WorkloadInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, workloadInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -726,7 +726,7 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 		h.JS.Publish(v0.WorkloadInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadInstance)
+	response, err := v0.CreateResponse(nil, workloadInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -766,7 +766,7 @@ func (h Handler) GetWorkloadInstances(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -795,7 +795,7 @@ func (h Handler) GetWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadInstance)
+	response, err := v0.CreateResponse(nil, workloadInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -831,7 +831,7 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingWorkloadInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -859,7 +859,7 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 		h.JS.Publish(v0.WorkloadInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, existingWorkloadInstance)
+	response, err := v0.CreateResponse(nil, existingWorkloadInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -896,7 +896,7 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingWorkloadInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -925,7 +925,7 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingWorkloadInstance)
+	response, err := v0.CreateResponse(nil, existingWorkloadInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -997,7 +997,7 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := v0.CreateResponse(nil, workloadInstance)
+	response, err := v0.CreateResponse(nil, workloadInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1034,7 +1034,7 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 	var attachedObjectReference v0.AttachedObjectReference
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, attachedObjectReference); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1052,7 +1052,7 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, attachedObjectReference)
+	response, err := v0.CreateResponse(nil, attachedObjectReference, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1092,7 +1092,7 @@ func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -1121,7 +1121,7 @@ func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, attachedObjectReference)
+	response, err := v0.CreateResponse(nil, attachedObjectReference, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1157,7 +1157,7 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAttachedObjectReference); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1172,7 +1172,7 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAttachedObjectReference)
+	response, err := v0.CreateResponse(nil, existingAttachedObjectReference, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1209,7 +1209,7 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAttachedObjectReference); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1238,7 +1238,7 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAttachedObjectReference)
+	response, err := v0.CreateResponse(nil, existingAttachedObjectReference, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1273,7 +1273,7 @@ func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, attachedObjectReference)
+	response, err := v0.CreateResponse(nil, attachedObjectReference, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1310,7 +1310,7 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 	var workloadResourceInstance v0.WorkloadResourceInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, workloadResourceInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1328,7 +1328,7 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadResourceInstance)
+	response, err := v0.CreateResponse(nil, workloadResourceInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1368,7 +1368,7 @@ func (h Handler) GetWorkloadResourceInstances(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -1397,7 +1397,7 @@ func (h Handler) GetWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadResourceInstance)
+	response, err := v0.CreateResponse(nil, workloadResourceInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1433,7 +1433,7 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingWorkloadResourceInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1448,7 +1448,7 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingWorkloadResourceInstance)
+	response, err := v0.CreateResponse(nil, existingWorkloadResourceInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1485,7 +1485,7 @@ func (h Handler) ReplaceWorkloadResourceInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingWorkloadResourceInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1514,7 +1514,7 @@ func (h Handler) ReplaceWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingWorkloadResourceInstance)
+	response, err := v0.CreateResponse(nil, existingWorkloadResourceInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1549,7 +1549,7 @@ func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadResourceInstance)
+	response, err := v0.CreateResponse(nil, workloadResourceInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1586,7 +1586,7 @@ func (h Handler) AddWorkloadEvent(c echo.Context) error {
 	var workloadEvent v0.WorkloadEvent
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, workloadEvent); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1604,7 +1604,7 @@ func (h Handler) AddWorkloadEvent(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadEvent)
+	response, err := v0.CreateResponse(nil, workloadEvent, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1644,7 +1644,7 @@ func (h Handler) GetWorkloadEvents(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -1673,7 +1673,7 @@ func (h Handler) GetWorkloadEvent(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadEvent)
+	response, err := v0.CreateResponse(nil, workloadEvent, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1709,7 +1709,7 @@ func (h Handler) UpdateWorkloadEvent(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingWorkloadEvent); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1724,7 +1724,7 @@ func (h Handler) UpdateWorkloadEvent(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingWorkloadEvent)
+	response, err := v0.CreateResponse(nil, existingWorkloadEvent, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1761,7 +1761,7 @@ func (h Handler) ReplaceWorkloadEvent(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingWorkloadEvent); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1790,7 +1790,7 @@ func (h Handler) ReplaceWorkloadEvent(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingWorkloadEvent)
+	response, err := v0.CreateResponse(nil, existingWorkloadEvent, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1825,7 +1825,7 @@ func (h Handler) DeleteWorkloadEvent(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, workloadEvent)
+	response, err := v0.CreateResponse(nil, workloadEvent, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}

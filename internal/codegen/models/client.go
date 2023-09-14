@@ -170,6 +170,74 @@ func (cc *ControllerConfig) ClientLib() error {
 			Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
 		)
 		f.Line()
+		// get object by query string
+		getByQueryStringFuncName := fmt.Sprintf("Get%sByQueryString", mc.TypeName)
+		f.Comment(fmt.Sprintf(
+			"%s fetches a %s by provided query string.",
+			getByIDFuncName,
+			strcase.ToDelimited(mc.TypeName, ' '),
+		))
+		f.Func().Id(getByQueryStringFuncName).Params(
+			Id("apiClient").Op("*").Qual("net/http", "Client"),
+			Id("apiAddr").String(),
+			Id("queryString").String(),
+		).Parens(List(
+			Op("*").Qual(
+				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
+				mc.TypeName,
+			),
+			Error(),
+		)).Block(
+			Var().Id(strcase.ToLowerCamel(mc.TypeName)).Qual(
+				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
+				mc.TypeName,
+			),
+			Line(),
+			Id("response").Op(",").Id("err").Op(":=").Id("GetResponse").Call(
+				Line().Id("apiClient"),
+				Line().Qual("fmt", "Sprintf").Call(
+					Lit(fmt.Sprintf(
+						"%%s/%%s/%s?%%s", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
+					)).Op(",").
+						Id("apiAddr").Op(",").Id("ApiVersion").Op(",").Id("queryString"),
+				),
+				Line().Qual("net/http", "MethodGet"),
+				Line().New(Qual("bytes", "Buffer")),
+				Line().Qual("net/http", "StatusOK"),
+				Line(),
+			),
+			If(Id("err").Op("!=").Nil().Block(
+				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(ResponseErr).Op(",").Id("err")),
+			)),
+			Line(),
+			Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
+				Id("response").Dot("Data").Index(Lit(0)),
+			),
+			If(Id("err").Op("!=").Nil().Block(
+				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
+			)),
+			Line(),
+			Id("decoder").Op(":=").Qual(
+				"encoding/json", "NewDecoder",
+			).Call(Qual(
+				"bytes", "NewReader",
+			).Call(Id("jsonData"))),
+			Id("decoder").Dot("UseNumber").Call(),
+			If(Id("err").Op(":=").Id("decoder").Dot("Decode").Call(
+				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
+			).Op(";").Id("err").Op("!=").Nil()).Block(
+				Return().Nil().Op(",").Qual(
+					"fmt", "Errorf",
+				).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
+			),
+			Line(),
+			Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
+		)
+		f.Line()
 		// get object by name
 		getByNameFuncName := fmt.Sprintf("Get%sByName", mc.TypeName)
 		f.Comment(fmt.Sprintf(

@@ -444,7 +444,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			If(Id("id").Op(",").Id("err").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/api-server/v0",
 				"PayloadCheck",
-			).Call(Id("c").Op(",").Lit(false).Op(",").Id("objectType")).Op(";").Id("err").Op("!=").Nil()).Block(
+			).Call(Id("c").Op(",").Lit(false).Op(",").Id("objectType").Op(",").Id(strcase.ToLowerCamel(mc.TypeName))).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return(Qual(
 					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatusErr",
@@ -500,7 +500,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					cc.ParsedModelFile.Name.Name,
 				),
 				"CreateResponse",
-			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName))),
+			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 			If(Id("err").Op("!=").Nil()).Block(
 				Return(Qual(
 					"github.com/threeport/threeport/pkg/api-server/v0",
@@ -646,7 +646,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					cc.ParsedModelFile.Name.Name,
 				),
 				"CreateMeta",
-			).Call(Id("params").Op(",").Id("totalCount")).Op(",").Op("*").Id("records")),
+			).Call(Id("params").Op(",").Id("totalCount")).Op(",").Op("*").Id("records").Op(",").Id("objectType")),
 			If(Id("err").Op("!=").Nil().Block(
 				Return(Qual(
 					"github.com/threeport/threeport/pkg/api-server/v0",
@@ -747,7 +747,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				Id("response").Op(",").Id("err").Op(":=").Qual(fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
 					cc.ParsedModelFile.Name.Name,
-				), "CreateResponse").Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName))),
+				), "CreateResponse").Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 				If(Id("err").Op("!=").Nil().Block(
 					Return(Qual(
 						"github.com/threeport/threeport/pkg/api-server/v0",
@@ -868,7 +868,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				Id("id").Op(",").Id("err").Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/api-server/v0",
 					"PayloadCheck",
-				).Call(Id("c").Op(",").Lit(true).Op(",").Id("objectType")).Op(";").Id("err").Op("!=").Nil().Block(
+				).Call(Id("c").Op(",").Lit(true).Op(",").Id("objectType").Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
 						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatusErr",
@@ -922,7 +922,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					cc.ParsedModelFile.Name.Name,
 				),
 				"CreateResponse",
-			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName))),
+			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName)).Op(",").Id("objectType")),
 			If(
 				Id("err").Op("!=").Nil().Block(
 					Return(Qual(
@@ -1044,7 +1044,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				Id("id").Op(",").Id("err").Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/api-server/v0",
 					"PayloadCheck",
-				).Call(Id("c").Op(",").Lit(true).Op(",").Id("objectType")).Op(";").Id("err").Op("!=").Nil().Block(
+				).Call(Id("c").Op(",").Lit(true).Op(",").Id("objectType").Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
 						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatusErr",
@@ -1144,7 +1144,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					cc.ParsedModelFile.Name.Name,
 				),
 				"CreateResponse",
-			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName))),
+			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName)).Op(",").Id("objectType")),
 			If(
 				Id("err").Op("!=").Nil().Block(
 					Return(Qual(
@@ -1234,7 +1234,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					cc.ParsedModelFile.Name.Name,
 				),
 				"CreateResponse",
-			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName))),
+			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 			If(
 				Id("err").Op("!=").Nil().Block(
 					Return(Qual(
