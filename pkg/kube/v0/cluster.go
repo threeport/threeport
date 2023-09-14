@@ -67,7 +67,7 @@ func GetClient(
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (dynamic.Interface, *meta.RESTMapper, error) {
-	restConfig, err := getRESTConfig(
+	restConfig, err := GetRestConfig(
 		runtime,
 		threeportControlPlane,
 		threeportAPIClient,
@@ -115,7 +115,7 @@ func GetDiscoveryClient(
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (*discovery.DiscoveryClient, error) {
-	restConfig, err := getRESTConfig(
+	restConfig, err := GetRestConfig(
 		runtime,
 		threeportControlPlane,
 		threeportAPIClient,
@@ -134,9 +134,9 @@ func GetDiscoveryClient(
 	return discoveryClient, nil
 }
 
-// getRESTConfig takes a kubernetes runtime instance and returns a REST config
+// GetRestConfig takes a kubernetes runtime instance and returns a REST config
 // for the kubernetes API.
-func getRESTConfig(
+func GetRestConfig(
 	runtime *v0.KubernetesRuntimeInstance,
 	threeportControlPlane bool,
 	threeportAPIClient *http.Client,

@@ -161,7 +161,12 @@ type AwsObjectStorageBucketDefinition struct {
 	// cases such as storing static assets for public websites.  When false,
 	// only the workload attached to an AWSObjectStorageBucketInstance and the AWS users
 	// on the account may access the bucket for read or write.
-	PublicReadAccess *bool `json:"PublicReadAccess,omitempty" query:"publicreadaccess" gorm:"default: false" validate:"optional"`
+	PublicReadAccess *bool `json:"PublicReadAccess,omitempty" query:"publicreadaccess" gorm:"default:false" validate:"optional"`
+
+	// The name of the Kubernetes service account for the workload that will
+	// access the S3 bucket.  Used to provide secure access using IAM roles for
+	// service accounts (IRSA).
+	WorkloadServiceAccountName *string `json:"WorkloadServiceAccountName,omitempty" query:"workloadserviceaccountname" gorm:"not null" validate:"required"`
 
 	// The AWS account in which the RDS instance will be provisioned.
 	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
@@ -178,7 +183,7 @@ type AwsObjectStorageBucketInstance struct {
 	ResourceInventory *datatypes.JSON `json:"ResourceInventory,omitempty" validate:"optional"`
 
 	// The definition that configures this instance.
-	AwsObjectStorageBucketDefinitionID *uint `json:"AwsRelationalDatabaseDefinitionID,omitempty" query:"awsrelationaldatabasedefinitionid" gorm:"not null" validate:"required"`
+	AwsObjectStorageBucketDefinitionID *uint `json:"AwsObjectStorageBucketDefinitionID,omitempty" query:"awsobjectstoragebucketdefinitionid" gorm:"not null" validate:"required"`
 
 	// The ID of the workload instance that uses the S3 bucket.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`

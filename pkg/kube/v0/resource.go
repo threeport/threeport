@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -10,6 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 // GetResource returns a specific Kubernetes resource.  If an empty string for
@@ -166,6 +169,41 @@ func DeleteResource(
 		Delete(context.Background(), kubeObject.GetName(), kubemetav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete kubernetes resource:%w", err)
+	}
+
+	return nil
+}
+
+// DeleteLabelledPodsInNamespace takes a namespace, set of labels, kube client
+// and mapper and deletes all the pods.
+func DeleteLabelledPodsInNamespace(
+	namespace string,
+	labels map[string]string,
+	restConfig *rest.Config,
+) error {
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to generate Kubernete clientset from REST config: %w", err)
+	}
+
+	var labelSelectorSlice []string
+	for k, v := range labels {
+		labelSelectorSlice = append(labelSelectorSlice, fmt.Sprintf("%s=%s", k, v))
+	}
+	labelSelectors := strings.Join(labelSelectorSlice, ",")
+
+	pods, err := clientset.CoreV1().Pods(namespace).List(context.Background(), kubemetav1.ListOptions{
+		LabelSelector: labelSelectors,
+	})
+	if err != nil {
+		return fmt.Errorf("failed get pods in namespace %s with desired labels: %w", namespace, err)
+	}
+
+	for _, pod := range pods.Items {
+		err := clientset.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, kubemetav1.DeleteOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to delete pod %s: %w", pod.Name, err)
+		}
 	}
 
 	return nil

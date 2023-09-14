@@ -8166,7 +8166,8 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "AwsAccountID",
-                "Name"
+                "Name",
+                "WorkloadServiceAccountName"
             ],
             "properties": {
                 "AwsAccountID": {
@@ -8188,18 +8189,22 @@ const docTemplate = `{
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
+                },
+                "WorkloadServiceAccountName": {
+                    "description": "The name of the Kubernetes service account for the workload that will\naccess the S3 bucket.  Used to provide secure access using IAM roles for\nservice accounts (IRSA).",
+                    "type": "string"
                 }
             }
         },
         "v0.AwsObjectStorageBucketInstance": {
             "type": "object",
             "required": [
-                "AwsRelationalDatabaseDefinitionID",
+                "AwsObjectStorageBucketDefinitionID",
                 "Name",
                 "WorkloadInstanceID"
             ],
             "properties": {
-                "AwsRelationalDatabaseDefinitionID": {
+                "AwsObjectStorageBucketDefinitionID": {
                     "description": "The definition that configures this instance.",
                     "type": "integer"
                 },
@@ -8911,19 +8916,19 @@ const docTemplate = `{
                 "Tier",
                 "KubernetesRuntimeDefinition",
                 "KubernetesRuntimeInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance"
+                "AwsObjectStorageBucketInstance"
             ],
             "x-enum-varnames": [
                 "ObjectTypeWorkloadDefinition",
@@ -8939,19 +8944,19 @@ const docTemplate = `{
                 "ObjectTypeTier",
                 "ObjectTypeKubernetesRuntimeDefinition",
                 "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance"
+                "ObjectTypeAwsObjectStorageBucketInstance"
             ]
         },
         "v0.Profile": {

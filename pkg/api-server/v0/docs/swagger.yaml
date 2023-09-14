@@ -193,13 +193,20 @@ definitions:
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
+      WorkloadServiceAccountName:
+        description: |-
+          The name of the Kubernetes service account for the workload that will
+          access the S3 bucket.  Used to provide secure access using IAM roles for
+          service accounts (IRSA).
+        type: string
     required:
     - AwsAccountID
     - Name
+    - WorkloadServiceAccountName
     type: object
   v0.AwsObjectStorageBucketInstance:
     properties:
-      AwsRelationalDatabaseDefinitionID:
+      AwsObjectStorageBucketDefinitionID:
         description: The definition that configures this instance.
         type: integer
       DeletionAcknowledged:
@@ -237,7 +244,7 @@ definitions:
         description: The ID of the workload instance that uses the S3 bucket.
         type: integer
     required:
-    - AwsRelationalDatabaseDefinitionID
+    - AwsObjectStorageBucketDefinitionID
     - Name
     - WorkloadInstanceID
     type: object
@@ -864,6 +871,12 @@ definitions:
     - Tier
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -871,12 +884,6 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     type: string
     x-enum-varnames:
     - ObjectTypeWorkloadDefinition
@@ -892,6 +899,12 @@ definitions:
     - ObjectTypeTier
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -899,12 +912,6 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
   v0.Profile:
     properties:
       Name:

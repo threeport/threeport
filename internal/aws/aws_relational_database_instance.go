@@ -15,15 +15,17 @@ import (
 	"gorm.io/datatypes"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/threeport/threeport/internal/aws/mapping"
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
-	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -156,6 +158,7 @@ func awsRelationalDatabaseInstanceCreated(
 		BackupDays:            backupDays,
 		DbUser:                dbUser,
 		DbUserPassword:        dbPassword,
+		Tags:                  provider.ThreeportProviderTags(),
 	}
 
 	if err := rdsClient.CreateRdsResourceStack(&rdsConfig); err != nil {
@@ -173,13 +176,19 @@ func awsRelationalDatabaseInstanceCreated(
 	}
 	var namespaces []string
 	for _, wri := range *workloadResourceInstances {
-		namespace, err := kube.GetNamespaceFromJSON(*wri.JSONDefinition)
+		decode := scheme.Codecs.UniversalDeserializer().Decode
+		kubeObj, _, err := decode(*wri.JSONDefinition, nil, nil)
 		if err != nil {
-			return 0, fmt.Errorf("failed to get namespace from workload resource instance JSON definition: %w", err)
+			return 0, fmt.Errorf("failed to decode JSON Kubernetes object: %w", err)
 		}
-		if namespace != "" {
-			if !util.StringSliceContains(namespaces, namespace, true) {
-				namespaces = append(namespaces, namespace)
+		unstructuredObj, ok := kubeObj.(*unstructured.Unstructured)
+		if !ok {
+			return 0, fmt.Errorf("failed to convert decoded JSON to unstructured Kubernetes object: %w", err)
+		}
+		ns := unstructuredObj.GetNamespace()
+		if ns != "" {
+			if !util.StringSliceContains(namespaces, ns, true) {
+				namespaces = append(namespaces, ns)
 			}
 		}
 	}
