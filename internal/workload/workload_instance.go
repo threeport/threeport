@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kubeerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -164,12 +165,12 @@ func workloadInstanceCreated(
 				Timestamp:          &timestamp,
 				WorkloadInstanceID: workloadInstance.ID,
 			}
-			_, err := client.CreateWorkloadEvent(
+			_, eventErr := client.CreateWorkloadEvent(
 				r.APIClient,
 				r.APIServer,
 				&createEvent,
 			)
-			if err != nil {
+			if eventErr != nil {
 				log.Error(err, "failed to create workload event for Kubernetes resource creation error")
 			}
 			return 0, fmt.Errorf("failed to create Kubernetes resource: %w", err)
@@ -492,8 +493,8 @@ func workloadInstanceDeleted(
 		context.Background(),
 		agent.ThreeportWorkloadName(*workloadInstance.ID),
 		metav1.DeleteOptions{},
-	); err != nil {
-		return 0, fmt.Errorf("failed to delete new ThreeportWorkload resource: %w", err)
+	); err != nil && !kubeerr.IsNotFound(err) {
+		return 0, fmt.Errorf("failed to delete ThreeportWorkload resource: %w", err)
 	}
 
 	// delete the workload instance that was scheduled for deletion
