@@ -1,7 +1,5 @@
 module github.com/threeport/threeport
 
-replace github.com/nukleros/aws-builder => /Users/lander2k2/Projects/src/github.com/nukleros/aws-builder
-
 go 1.20
 
 require (
@@ -21,7 +19,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/namsral/flag v1.7.4-pre
 	github.com/nats-io/nats.go v1.27.0
-	github.com/nukleros/aws-builder v0.2.0
+	github.com/nukleros/aws-builder v0.3.0
 	github.com/nukleros/eks-cluster v0.13.0
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
