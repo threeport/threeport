@@ -14,9 +14,9 @@ type Options struct {
 	Namespace           string
 	PreInstallFunction  CustomInstallFunction
 	PostInstallFunction CustomInstallFunction
-	ControllerList      []InstallInfo
-	RestApiInfo         InstallInfo
-	AgentInfo           InstallInfo
+	ControllerList      []*InstallInfo
+	RestApiInfo         *InstallInfo
+	AgentInfo           *InstallInfo
 }
 
 type InstallInfo struct {
@@ -56,13 +56,13 @@ func Namespace(n string) InstallerOption {
 	}
 }
 
-func RestApi(r InstallInfo) InstallerOption {
+func RestApi(r *InstallInfo) InstallerOption {
 	return func(o *Options) {
 		o.RestApiInfo = r
 	}
 }
 
-func CustomController(c InstallInfo) InstallerOption {
+func CustomController(c *InstallInfo) InstallerOption {
 	return func(o *Options) {
 		o.ControllerList = append(o.ControllerList, c)
 	}

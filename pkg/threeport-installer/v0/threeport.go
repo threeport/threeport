@@ -18,7 +18,7 @@ const (
 	ThreeportLocalAPIEndpoint                 = "localhost"
 )
 
-var ThreeportControllerList []InstallInfo = []InstallInfo{
+var ThreeportControllerList []*InstallInfo = []*InstallInfo{
 	{
 		Name:               "workload-controller",
 		ImageName:          ThreeportWorkloadControllerImage,
@@ -49,7 +49,7 @@ var ThreeportControllerList []InstallInfo = []InstallInfo{
 	},
 }
 
-var ThreeportRestApi InstallInfo = InstallInfo{
+var ThreeportRestApi *InstallInfo = &InstallInfo{
 	Name:                "rest-api",
 	ImageName:           ThreeportAPIImage,
 	ImageRepo:           ThreeportImageRepo,
@@ -58,7 +58,7 @@ var ThreeportRestApi InstallInfo = InstallInfo{
 	ServiceResourceName: ThreeportAPIServiceResourceName,
 }
 
-var ThreeportAgent InstallInfo = InstallInfo{
+var ThreeportAgent *InstallInfo = &InstallInfo{
 	Name:               "agent",
 	ImageName:          ThreeportAgentImage,
 	ImageRepo:          ThreeportImageRepo,

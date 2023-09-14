@@ -315,7 +315,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			kubeClient,
 			mapper,
 			devEnvironment,
-			controller,
+			*controller,
 			authConfig,
 		); err != nil {
 			return fmt.Errorf("failed to install %s: %w", controller, err)
