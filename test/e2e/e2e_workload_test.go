@@ -99,7 +99,7 @@ func TestWorkloadE2E(t *testing.T) {
 		cli.InitConfig("", "")
 
 		// get threeport config and configure http client for calls to threeport API
-		threeportConfig, err := config.GetThreeportConfig()
+		threeportConfig, _, err := config.GetThreeportConfig("")
 		assert.Nil(err, "should have no error getting threeport config")
 		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForInstance(tptdev.DefaultInstanceName)
 		assert.Nil(err, "should have no error getting credentials for threeport API")
@@ -321,7 +321,7 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error getting kubernetes runtime instance")
 		assert.NotNil(kubernetesRuntimeInstance, "should have a kubernetes runtime instance returned")
 
-		encryptionKey, err := threeportConfig.GetEncryptionKey()
+		encryptionKey, err := threeportConfig.GetEncryptionKey(tptdev.DefaultInstanceName)
 		assert.Nil(err, "should have no error getting encryption key")
 
 		// create a client to connect to kube API

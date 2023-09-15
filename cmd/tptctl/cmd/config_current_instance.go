@@ -27,7 +27,7 @@ instance.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig, err := config.GetThreeportConfig()
+		threeportConfig, _, err := config.GetThreeportConfig(cliArgs.InstanceName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)

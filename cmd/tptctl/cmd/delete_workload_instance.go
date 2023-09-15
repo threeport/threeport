@@ -31,12 +31,12 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config and extract threeport API endpoint
-		threeportConfig, err := config.GetThreeportConfig()
+		threeportConfig, requestedInstance, err := config.GetThreeportConfig(cliArgs.InstanceName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
+		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedInstance)
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)
 			os.Exit(1)
@@ -72,12 +72,12 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 		}
 
 		// get threeport API client
-		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled()
+		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled(requestedInstance)
 		if err != nil {
 			cli.Error("failed to determine if auth is enabled on threeport API", err)
 			os.Exit(1)
 		}
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
+		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForInstance(requestedInstance)
 		if err != nil {
 			cli.Error("failed to get threeport certificates from config", err)
 			os.Exit(1)
@@ -110,6 +110,10 @@ func init() {
 	DeleteWorkloadInstanceCmd.Flags().StringVarP(
 		&deleteWorkloadInstanceName,
 		"name", "n", "", "Name of workload instance.",
+	)
+	DeleteWorkloadInstanceCmd.Flags().StringVarP(
+		&cliArgs.InstanceName,
+		"threeport-instance", "i", "", "Optional. Name of control plane instance. Will default to current instance if not provided.",
 	)
 }
 

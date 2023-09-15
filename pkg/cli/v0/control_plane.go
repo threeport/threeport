@@ -94,7 +94,7 @@ func InitArgs(args *ControlPlaneCLIArgs) {
 // plane.
 func (a *ControlPlaneCLIArgs) CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
 	// get the threeport config
-	threeportConfig, err := config.GetThreeportConfig()
+	threeportConfig, _, err := config.GetThreeportConfig("")
 	if err != nil {
 		return fmt.Errorf("failed to get threeport config: %w", err)
 	}
@@ -426,7 +426,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane(customInstaller *threeport.Cont
 
 	// update threeport config and refresh threeport config to updated version
 	config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
-	threeportConfig, err = config.GetThreeportConfig()
+	threeportConfig, _, err = config.GetThreeportConfig("")
 	if err != nil {
 		msg := "failed to refresh threeport config"
 		// print the error when it happens and then again post-deletion
@@ -440,7 +440,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane(customInstaller *threeport.Cont
 	}
 
 	// get threeport API client
-	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
+	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForInstance(a.InstanceName)
 	if err != nil {
 		msg := "failed to get threeport certificates from config"
 		// print the error when it happens and then again post-deletion
@@ -680,7 +680,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane(customInstaller *threeport.Cont
 
 	// update threeport config and refresh threeport config to updated version
 	config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
-	threeportConfig, err = config.GetThreeportConfig()
+	threeportConfig, _, err = config.GetThreeportConfig("")
 	if err != nil {
 		msg := "failed to refresh threeport config"
 		// print the error when it happens and then again post-deletion
@@ -868,7 +868,7 @@ func (a *ControlPlaneCLIArgs) CreateControlPlane(customInstaller *threeport.Cont
 // DeleteControlPlane deletes a threeport control plane.
 func (a *ControlPlaneCLIArgs) DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
 	// get threeport config
-	threeportConfig, err := config.GetThreeportConfig()
+	threeportConfig, _, err := config.GetThreeportConfig("")
 	if err != nil {
 		return fmt.Errorf("failed to get threeport config: %w", err)
 	}
@@ -1167,7 +1167,7 @@ func (a *ControlPlaneCLIArgs) cleanOnCreateError(
 	}
 
 	if cleanConfig {
-		threeportConfig, configErr := config.GetThreeportConfig()
+		threeportConfig, _, configErr := config.GetThreeportConfig("")
 		if configErr != nil {
 			Warning("Threeport config may contain invalid instance for deleted control plane")
 			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to get threeport config: %w", createErr, configErr)

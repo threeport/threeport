@@ -104,13 +104,13 @@ func init() {
 		&cliArgs.CreateAdminEmail,
 		"admin-email", "", "Email address of control plane admin.  Provided to TLS provider.",
 	)
-	CreateControlPlaneCmd.Flags().StringVarP(
+	CreateControlPlaneCmd.Flags().StringVar(
 		&cliArgs.ControlPlaneImageRepo,
-		"control-plane-image-repo", "i", "", "Alternate image repo to pull threeport control plane images from.",
+		"control-plane-image-repo", "", "Alternate image repo to pull threeport control plane images from.",
 	)
-	CreateControlPlaneCmd.Flags().StringVarP(
+	CreateControlPlaneCmd.Flags().StringVar(
 		&cliArgs.ControlPlaneImageTag,
-		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
+		"control-plane-image-tag", "", "Alternate image tag to pull threeport control plane images from.",
 	)
 	CreateControlPlaneCmd.Flags().IntVar(
 		&cliArgs.NumWorkerNodes,
