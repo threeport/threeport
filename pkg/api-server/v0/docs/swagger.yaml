@@ -858,25 +858,10 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - Profile
-    - Tier
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
     - GatewayDefinition
     - GatewayInstance
     - DomainNameDefinition
     - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -884,27 +869,27 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - Profile
+    - Tier
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
     type: string
     x-enum-varnames:
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -912,6 +897,21 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
   v0.Profile:
     properties:
       Name:

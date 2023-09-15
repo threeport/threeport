@@ -1631,7 +1631,7 @@ func (h Handler) AddAwsObjectStorageBucketDefinition(c echo.Context) error {
 	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, awsObjectStorageBucketDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1664,7 +1664,7 @@ func (h Handler) AddAwsObjectStorageBucketDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsObjectStorageBucketDefinition)
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1704,7 +1704,7 @@ func (h Handler) GetAwsObjectStorageBucketDefinitions(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -1733,7 +1733,7 @@ func (h Handler) GetAwsObjectStorageBucketDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsObjectStorageBucketDefinition)
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1769,7 +1769,7 @@ func (h Handler) UpdateAwsObjectStorageBucketDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsObjectStorageBucketDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1784,7 +1784,7 @@ func (h Handler) UpdateAwsObjectStorageBucketDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketDefinition)
+	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1821,7 +1821,7 @@ func (h Handler) ReplaceAwsObjectStorageBucketDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsObjectStorageBucketDefinition); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1850,7 +1850,7 @@ func (h Handler) ReplaceAwsObjectStorageBucketDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketDefinition)
+	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1885,7 +1885,7 @@ func (h Handler) DeleteAwsObjectStorageBucketDefinition(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsObjectStorageBucketDefinition)
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketDefinition, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -1922,7 +1922,7 @@ func (h Handler) AddAwsObjectStorageBucketInstance(c echo.Context) error {
 	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, false, objectType, awsObjectStorageBucketInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1968,7 +1968,7 @@ func (h Handler) AddAwsObjectStorageBucketInstance(c echo.Context) error {
 		h.JS.Publish(v0.AwsObjectStorageBucketInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, awsObjectStorageBucketInstance)
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -2008,7 +2008,7 @@ func (h Handler) GetAwsObjectStorageBucketInstances(c echo.Context) error {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records)
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
 	}
@@ -2037,7 +2037,7 @@ func (h Handler) GetAwsObjectStorageBucketInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, awsObjectStorageBucketInstance)
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -2073,7 +2073,7 @@ func (h Handler) UpdateAwsObjectStorageBucketInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsObjectStorageBucketInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -2101,7 +2101,7 @@ func (h Handler) UpdateAwsObjectStorageBucketInstance(c echo.Context) error {
 		h.JS.Publish(v0.AwsObjectStorageBucketInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketInstance)
+	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -2138,7 +2138,7 @@ func (h Handler) ReplaceAwsObjectStorageBucketInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, true, objectType); err != nil {
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingAwsObjectStorageBucketInstance); err != nil {
 		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -2167,7 +2167,7 @@ func (h Handler) ReplaceAwsObjectStorageBucketInstance(c echo.Context) error {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketInstance)
+	response, err := v0.CreateResponse(nil, existingAwsObjectStorageBucketInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -2239,7 +2239,7 @@ func (h Handler) DeleteAwsObjectStorageBucketInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := v0.CreateResponse(nil, awsObjectStorageBucketInstance)
+	response, err := v0.CreateResponse(nil, awsObjectStorageBucketInstance, objectType)
 	if err != nil {
 		return iapi.ResponseStatus500(c, nil, err, objectType)
 	}
