@@ -71,9 +71,9 @@ func GetLogBackendByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Log
 	return &logBackend, nil
 }
 
-// GetLogBackendByID fetches a log backend by provided query string.
-func GetLogBackendByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.LogBackend, error) {
-	var logBackend v0.LogBackend
+// GetLogBackendsByQueryString fetches log backends by provided query string.
+func GetLogBackendsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.LogBackend, error) {
+	var logBackends []v0.LogBackend
 
 	response, err := GetResponse(
 		apiClient,
@@ -83,21 +83,21 @@ func GetLogBackendByQueryString(apiClient *http.Client, apiAddr string, queryStr
 		http.StatusOK,
 	)
 	if err != nil {
-		return &logBackend, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &logBackends, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &logBackend, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &logBackends, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&logBackend); err != nil {
+	if err := decoder.Decode(&logBackends); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &logBackend, nil
+	return &logBackends, nil
 }
 
 // GetLogBackendByName fetches a log backend by name.
@@ -297,9 +297,9 @@ func GetLogStorageDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 	return &logStorageDefinition, nil
 }
 
-// GetLogStorageDefinitionByID fetches a log storage definition by provided query string.
-func GetLogStorageDefinitionByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.LogStorageDefinition, error) {
-	var logStorageDefinition v0.LogStorageDefinition
+// GetLogStorageDefinitionsByQueryString fetches log storage definitions by provided query string.
+func GetLogStorageDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.LogStorageDefinition, error) {
+	var logStorageDefinitions []v0.LogStorageDefinition
 
 	response, err := GetResponse(
 		apiClient,
@@ -309,21 +309,21 @@ func GetLogStorageDefinitionByQueryString(apiClient *http.Client, apiAddr string
 		http.StatusOK,
 	)
 	if err != nil {
-		return &logStorageDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &logStorageDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &logStorageDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &logStorageDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&logStorageDefinition); err != nil {
+	if err := decoder.Decode(&logStorageDefinitions); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &logStorageDefinition, nil
+	return &logStorageDefinitions, nil
 }
 
 // GetLogStorageDefinitionByName fetches a log storage definition by name.
@@ -523,9 +523,9 @@ func GetLogStorageInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 	return &logStorageInstance, nil
 }
 
-// GetLogStorageInstanceByID fetches a log storage instance by provided query string.
-func GetLogStorageInstanceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.LogStorageInstance, error) {
-	var logStorageInstance v0.LogStorageInstance
+// GetLogStorageInstancesByQueryString fetches log storage instances by provided query string.
+func GetLogStorageInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.LogStorageInstance, error) {
+	var logStorageInstances []v0.LogStorageInstance
 
 	response, err := GetResponse(
 		apiClient,
@@ -535,21 +535,21 @@ func GetLogStorageInstanceByQueryString(apiClient *http.Client, apiAddr string, 
 		http.StatusOK,
 	)
 	if err != nil {
-		return &logStorageInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &logStorageInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &logStorageInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &logStorageInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&logStorageInstance); err != nil {
+	if err := decoder.Decode(&logStorageInstances); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &logStorageInstance, nil
+	return &logStorageInstances, nil
 }
 
 // GetLogStorageInstanceByName fetches a log storage instance by name.
