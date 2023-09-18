@@ -30,6 +30,7 @@ type WorkloadValues struct {
 	DomainName                *DomainNameDefinitionValues      `yaml:"DomainName"`
 	Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
 	AwsRelationalDatabase     *AwsRelationalDatabaseValues     `yaml:"AwsRelationalDatabase"`
+	AwsObjectStorageBucket    *AwsObjectStorageBucketValues    `yaml:"AwsObjectStorageBucket"`
 }
 
 // WorkloadDefinitionConfig contains the config for a workload definition.
@@ -153,6 +154,24 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create AWS relational database: %w", err)
+		}
+	}
+
+	// create AWS object storage bucket
+	if w.AwsObjectStorageBucket != nil {
+		awsObjectStorageBucket := AwsObjectStorageBucketValues{
+			Name:                       w.AwsObjectStorageBucket.Name,
+			AwsAccountName:             w.AwsObjectStorageBucket.AwsAccountName,
+			PublicReadAccess:           w.AwsObjectStorageBucket.PublicReadAccess,
+			WorkloadServiceAccountName: w.AwsObjectStorageBucket.WorkloadServiceAccountName,
+			WorkloadBucketConfigMap:    w.AwsObjectStorageBucket.WorkloadBucketConfigMap,
+			WorkloadInstance: &WorkloadInstanceValues{
+				Name: defaultInstanceName(w.Name),
+			},
+		}
+		_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create AWS object storage bucket: %w", err)
 		}
 	}
 

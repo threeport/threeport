@@ -86,12 +86,6 @@ type AwsEksKubernetesRuntimeInstance struct {
 
 	// The kubernetes runtime instance associated with the AWS EKS cluster.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
-
-	// InterruptReconciliation is used by the controller to indicated that future
-	// reconcilation should be interrupted.  Useful in cases where there is a
-	// situation where future reconciliation could be descructive such as
-	// spinning up more infrastructure when there is a unresolved problem.
-	InterruptReconciliation *bool `json:"InterruptReconciliation,omitempty" query:"interruptreconciliation" gorm:"default:false" validate:"optional"`
 }
 
 // AwsRelationalDatabaseDefinition is the configuration for an RDS instance
@@ -167,6 +161,10 @@ type AwsObjectStorageBucketDefinition struct {
 	// access the S3 bucket.  Used to provide secure access using IAM roles for
 	// service accounts (IRSA).
 	WorkloadServiceAccountName *string `json:"WorkloadServiceAccountName,omitempty" query:"workloadserviceaccountname" gorm:"not null" validate:"required"`
+
+	// The name of the Kubernetes configmap that will supply the name of the S3
+	// bucket to the workload.
+	WorkloadBucketConfigMap *string `json:"WorkloadBucketConfigMap,omitempty" query:"WorkloadBucketConfigMap" gorm:"not null" validate:"required"`
 
 	// The AWS account in which the RDS instance will be provisioned.
 	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`

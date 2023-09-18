@@ -36,12 +36,16 @@ func (cpi *ControlPlaneInstaller) SetAllImageRepo(imageRepo string) {
 	for _, c := range cpi.Opts.ControllerList {
 		c.ImageRepo = imageRepo
 	}
+	cpi.Opts.RestApiInfo.ImageRepo = imageRepo
+	cpi.Opts.AgentInfo.ImageRepo = imageRepo
 }
 
 func (cpi *ControlPlaneInstaller) SetAllImageTags(imageTag string) {
 	for _, c := range cpi.Opts.ControllerList {
 		c.ImageTag = imageTag
 	}
+	cpi.Opts.RestApiInfo.ImageTag = imageTag
+	cpi.Opts.AgentInfo.ImageTag = imageTag
 }
 
 func Name(n string) InstallerOption {

@@ -12,7 +12,11 @@ import (
 	"github.com/nukleros/aws-builder/pkg/s3"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gorm.io/datatypes"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	kubejson "k8s.io/apimachinery/pkg/util/json"
 
 	"github.com/threeport/threeport/internal/provider"
@@ -36,6 +40,14 @@ func awsObjectStorageBucketInstanceCreated(
 		"awsObjectStorageBucketInstanceID", *awsObjectStorageBucketInstance.ID,
 		"awsObjectStorageBucketInstanceName", *awsObjectStorageBucketInstance.Name,
 	)
+
+	// check to make sure reconciliation is not being interrupted - if it is
+	// return without error to exit reconciliation loop
+	// TDOO: add alerts for interrupted reconciliation so humans can intervene
+	if awsObjectStorageBucketInstance.InterruptReconciliation != nil && *awsObjectStorageBucketInstance.InterruptReconciliation {
+		reconLog.Info("reconciliation interrupted")
+		return 0, nil
+	}
 
 	// ensure attached object reference exists
 	err := client.EnsureAttachedObjectReferenceExists(
@@ -189,140 +201,85 @@ func awsObjectStorageBucketInstanceCreated(
 
 	// create S3 bucket
 	if err := s3Client.CreateS3ResourceStack(&s3Config); err != nil {
+		if deleteErr := getS3InventoryAndDelete(r, &s3Client, awsObjectStorageBucketInstance); deleteErr != nil {
+			// interrupt reconciliation
+			interrupt := true
+			awsObjectStorageBucketInstance.InterruptReconciliation = &interrupt
+			_, updateErr := client.UpdateAwsObjectStorageBucketInstance(
+				r.APIClient,
+				r.APIServer,
+				awsObjectStorageBucketInstance,
+			)
+			if updateErr != nil {
+				return 0, fmt.Errorf("failed to create S3 resource stack: %w and failed to delete S3 resource stack: %w and failed to update S3 storage bucket instance to interrupt reconciliation: %w", err, deleteErr, updateErr)
+			}
+			reconLog.Info("reconciliation interrupted after failed create and delete of resource stack")
+			return 0, fmt.Errorf("failed to create S3 resource stack: %w and failed to delete S3 resource stack: %w", err, deleteErr)
+		}
+		reconLog.Info("created resources deleted after error")
 		return 0, fmt.Errorf("failed to create S3 resource stack: %w", err)
 	}
 
-	// update workload service account resource instance to add annotation that
-	// will enable permission to manage S3 bucket
-	var annotations map[string]string
-	annotations = serviceAccountObject.GetAnnotations()
-	if annotations != nil {
-		annotations["eks.amazonaws.com/role-arn"] = fmt.Sprintf(
-			"arn:aws:iam::%s:role/%s",
-			*awsAccount.AccountID,
-			*awsObjectStorageBucketDefinition.WorkloadServiceAccountName,
-		)
-	} else {
-		annotations = map[string]string{
-			"eks.amazonaws.com/role-arn": fmt.Sprintf(
-				"arn:aws:iam::%s:role/%s",
-				*awsAccount.AccountID,
-				*awsObjectStorageBucketDefinition.WorkloadServiceAccountName,
-			),
-		}
-	}
-	serviceAccountObject.SetAnnotations(annotations)
-	serviceAccountJson, err := serviceAccountObject.MarshalJSON()
-	if err != nil {
-		return 0, fmt.Errorf("failed to marshal JSON from updated service account object: %s", err)
-	}
-	jsonDef := datatypes.JSON(serviceAccountJson)
-	serviceAccountWriReconciled := false
-	serviceAccountWri.JSONDefinition = &jsonDef
-	serviceAccountWri.Reconciled = &serviceAccountWriReconciled
-	_, err = client.UpdateWorkloadResourceInstance(
-		r.APIClient,
-		r.APIServer,
-		&serviceAccountWri,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to update service account workload resource instance in threeport API: %w", err)
-	}
-
-	// trigger reconciliation of the workload instance to update service acocunt
-	workloadInstanceReconciled := false
-	workloadInstance.Reconciled = &workloadInstanceReconciled
-	_, err = client.UpdateWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		workloadInstance,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to update workload instance to trigger reconcilation of service account: %w", err)
-	}
-
-	// wait for workload to be reconciled to ensure service account is updated
-	// the service account must be updated before any pods are restarted so they
-	// pick up the permissions for the bucket
-	workloadReconciledAttempts := 0
-	workloadReconciledAttemptsMax := 12
-	workloadReconciledDurationSeconds := 5
-	workloadReconciled := false
-	for workloadReconciledAttempts < workloadReconciledAttemptsMax {
-		latestWorkloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *workloadInstance.ID)
+	// get the S3 bucket name and role name from S3 resource inventory
+	invRetrieveAttempts := 0
+	invRetrieveAttemptsMax := 6
+	invRetrieveDurationSeconds := 5
+	invRetrieved := false
+	var s3BucketName string
+	var s3RoleName string
+	for invRetrieveAttempts < invRetrieveAttemptsMax {
+		s3Inventory, err := getS3Inventory(r, awsObjectStorageBucketInstance)
 		if err != nil {
-			reconLog.Error(err, "failed to get workload instance while waiting for reconciliation")
-		}
-		if *latestWorkloadInstance.Reconciled {
-			workloadReconciled = true
+			reconLog.Error(err, "failed to retrieve AWS relational database inventory")
+		} else if s3Inventory.BucketName != "" && s3Inventory.Role.RoleName != "" {
+			s3BucketName = s3Inventory.BucketName
+			s3RoleName = s3Inventory.Role.RoleName
+			invRetrieved = true
 			break
 		}
-		workloadReconciledAttempts += 1
-		time.Sleep(time.Second * time.Duration(workloadReconciledDurationSeconds))
+		invRetrieveAttempts += 1
+		time.Sleep(time.Second * time.Duration(invRetrieveDurationSeconds))
 	}
-	if !workloadReconciled {
+	if !invRetrieved {
 		return 0, fmt.Errorf(
-			"failed to confirm workload instance %s reconciled after %d seconds: %w",
-			*workloadInstance.Name,
-			workloadReconciledAttemptsMax*workloadReconciledDurationSeconds,
-			err,
+			"failed to retrieve S3 inventory info after %d seconds",
+			invRetrieveAttemptsMax*invRetrieveDurationSeconds,
 		)
 	}
 
-	// delete threeport pods to restart them so they pick up applied service
-	// account permissions
-	restConfig, err := kube.GetRestConfig(
+	// update workload resources to enable connection to S3 bucket
+	if err := updateS3ClientWorkloadConnection(
+		r,
+		awsAccount,
+		awsObjectStorageBucketDefinition,
 		kubernetesRuntimeInstance,
-		true,
-		r.APIClient,
-		r.APIServer,
-		r.EncryptionKey,
-	)
-	if err := kube.DeleteLabelledPodsInNamespace(
+		workloadInstance,
+		workloadResourceInstances,
+		&serviceAccountWri,
+		&serviceAccountObject,
 		workloadNamespace,
-		map[string]string{kube.ThreeportManagedByLabelKey: kube.ThreeportManagedByLabelValue},
-		restConfig,
+		s3BucketName,
+		s3RoleName,
+		&reconLog,
 	); err != nil {
-		return 0, fmt.Errorf("failed to delete pods to pick up applied service account permissions: %w", err)
-	}
-
-	// if any of the workload resource instances are pods, they will not be
-	// automatically restarted by their Kubernetes controllers - we need to mark
-	// them as unreconciled so they get re-created.
-	podsDeleted := false
-	for _, wri := range *workloadResourceInstances {
-		unstructuredObj := &unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := kubejson.Unmarshal(*wri.JSONDefinition, &unstructuredObj); err != nil {
-			return 0, fmt.Errorf("failed to unmarshal kubernetes resource JSON to unstructured object", err)
-		}
-		if unstructuredObj.GetKind() == "Pod" {
-			podsDeleted = true
-			wriReconciled := false
-			wri.Reconciled = &wriReconciled
-			_, err = client.UpdateWorkloadResourceInstance(
+		// delete resources
+		if deleteErr := getS3InventoryAndDelete(r, &s3Client, awsObjectStorageBucketInstance); deleteErr != nil {
+			// interrupt reconciliation
+			interrupt := true
+			awsObjectStorageBucketInstance.InterruptReconciliation = &interrupt
+			_, updateErr := client.UpdateAwsObjectStorageBucketInstance(
 				r.APIClient,
 				r.APIServer,
-				&wri,
+				awsObjectStorageBucketInstance,
 			)
-			if err != nil {
-				return 0, fmt.Errorf("failed to update pod resource that required restart and reconciliation: %w", err)
+			if updateErr != nil {
+				return 0, fmt.Errorf("failed to update workload connection: %w and failed to delete S3 resource stack: %w and failed to update S3 storage bucket instance to interrupt reconciliation: %w", err, deleteErr, updateErr)
 			}
+			reconLog.Info("reconciliation interrupted after failed create and delete of resource stack")
+			return 0, fmt.Errorf("failed to update workload connection: %w and failed to delete S3 resource stack: %w", err, deleteErr)
 		}
-	}
-
-	// if any Pod resources were deleted, trigger reconciliation of the workload
-	// instance to update them
-	if podsDeleted {
-		workloadInstanceReconciled := false
-		workloadInstance.Reconciled = &workloadInstanceReconciled
-		_, err = client.UpdateWorkloadInstance(
-			r.APIClient,
-			r.APIServer,
-			workloadInstance,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to update workload instance to trigger reconcilation of service account: %w", err)
-		}
+		reconLog.Info("created resources deleted after error")
+		return 0, fmt.Errorf("failed to update workload connection: %w", err)
 	}
 
 	return 0, nil
@@ -493,11 +450,15 @@ func awsObjectStorageBucketInstanceDeleted(
 	// get S3 inventory
 	s3Inventory, err := getS3Inventory(r, awsObjectStorageBucketInstance)
 	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve AWS relational databse inventory")
+		return 0, fmt.Errorf("failed to retrieve AWS relational database inventory for deletion")
 	}
 
 	// delete S3 bucket
-	go deleteS3Bucket(&s3Client, s3Inventory, &reconLog)
+	go func() {
+		if err := deleteS3Bucket(&s3Client, s3Inventory); err != nil {
+			reconLog.Error(err, "failed to delete S3 resources")
+		}
+	}()
 
 	// S3 bucket deletion initiated, return custom requeue to check resources
 	// in 10 seconds
@@ -508,11 +469,12 @@ func awsObjectStorageBucketInstanceDeleted(
 func deleteS3Bucket(
 	s3Client *s3.S3Client,
 	s3Inventory *s3.S3Inventory,
-	log *logr.Logger,
-) {
+) error {
 	if err := s3Client.DeleteS3ResourceStack(s3Inventory); err != nil {
-		log.Error(err, "failed to delete S3 resource stack")
+		return fmt.Errorf("failed to delete S3 resource stack: %w", err)
 	}
+
+	return nil
 }
 
 // getS3Inventory retrieves the inventory from the threeport API for an AWS
@@ -540,6 +502,26 @@ func getS3Inventory(
 	}
 
 	return &inventory, nil
+}
+
+// getS3InventoryAndDelete retrieves the latest inventory for an S3 bucket
+// resource stack and deletes it.
+func getS3InventoryAndDelete(
+	r *controller.Reconciler,
+	s3Client *s3.S3Client,
+	awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance,
+	//log *logr.Logger,
+) error {
+	inventory, err := getS3Inventory(r, awsObjectStorageBucketInstance)
+	if err != nil {
+		return fmt.Errorf("failed to get S3 inventory to deleted it: %w", err)
+	}
+
+	if err := deleteS3Bucket(s3Client, inventory); err != nil {
+		return fmt.Errorf("failed to delete S3 resources: %w", err)
+	}
+
+	return nil
 }
 
 // checkS3Deleted checks the inventory for an AWS S3 bucket
@@ -619,4 +601,195 @@ func getRequiredS3Objects(
 	}
 
 	return awsObjectStorageBucketDef, awsAccount, workloadInstance, kubernetesRuntimeInstance, awsEksKubernetesRuntimeInstance, nil
+}
+
+// updateS3ClientWorkloadConnection updates the workload resources to enable
+// connection to the S3 bucket.
+func updateS3ClientWorkloadConnection(
+	r *controller.Reconciler,
+	awsAccount *v0.AwsAccount,
+	awsObjectStorageBucketDefinition *v0.AwsObjectStorageBucketDefinition,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	workloadInstance *v0.WorkloadInstance,
+	workloadResourceInstances *[]v0.WorkloadResourceInstance,
+	serviceAccountWri *v0.WorkloadResourceInstance,
+	serviceAccountObject *unstructured.Unstructured,
+	workloadNamespace string,
+	s3BucketName string,
+	s3RoleName string,
+	log *logr.Logger,
+) error {
+	// update workload service account resource instance to add annotation that
+	// will enable permission to manage S3 bucket
+	var annotations map[string]string
+	annotations = serviceAccountObject.GetAnnotations()
+	if annotations != nil {
+		annotations["eks.amazonaws.com/role-arn"] = fmt.Sprintf(
+			"arn:aws:iam::%s:role/%s",
+			*awsAccount.AccountID,
+			s3RoleName,
+		)
+	} else {
+		annotations = map[string]string{
+			"eks.amazonaws.com/role-arn": fmt.Sprintf(
+				"arn:aws:iam::%s:role/%s",
+				*awsAccount.AccountID,
+				s3RoleName,
+			),
+		}
+	}
+	serviceAccountObject.SetAnnotations(annotations)
+	serviceAccountJson, err := serviceAccountObject.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON from updated service account object: %s", err)
+	}
+	serviceAccountJsonDef := datatypes.JSON(serviceAccountJson)
+	serviceAccountWriReconciled := false
+	serviceAccountWri.JSONDefinition = &serviceAccountJsonDef
+	serviceAccountWri.Reconciled = &serviceAccountWriReconciled
+	_, err = client.UpdateWorkloadResourceInstance(
+		r.APIClient,
+		r.APIServer,
+		serviceAccountWri,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update service account workload resource instance in threeport API: %w", err)
+	}
+
+	// create a config map to provide S3 bucket name to workload
+	workloadConfigMap := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      *awsObjectStorageBucketDefinition.WorkloadBucketConfigMap,
+			Namespace: workloadNamespace,
+		},
+		Data: map[string]string{
+			"s3BucketName": s3BucketName,
+		},
+	}
+
+	serializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
+		Yaml:   false,
+		Pretty: false,
+		Strict: true,
+	})
+	encodedConfigMap, err := runtime.Encode(serializer, workloadConfigMap)
+	if err != nil {
+		return fmt.Errorf("failed to encode bucket config map for workload: %w", err)
+	}
+
+	// create workload resource instance for config map
+	configMapJsonDef := datatypes.JSON(encodedConfigMap)
+	configMapWri := v0.WorkloadResourceInstance{
+		JSONDefinition:     &configMapJsonDef,
+		WorkloadInstanceID: workloadInstance.ID,
+	}
+	_, err = client.CreateWorkloadResourceInstance(
+		r.APIClient,
+		r.APIServer,
+		&configMapWri,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create workload resource instance for workload S3 bucket config map: %w", err)
+	}
+
+	// trigger reconciliation of the workload instance to update service acocunt
+	// and create configmap
+	workloadInstanceReconciled := false
+	workloadInstance.Reconciled = &workloadInstanceReconciled
+	_, err = client.UpdateWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		workloadInstance,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update workload instance to trigger reconcilation of service account: %w", err)
+	}
+
+	// wait for workload to be reconciled to ensure service account is updated
+	// the service account must be updated before any pods are restarted so they
+	// pick up the permissions for the bucket
+	workloadReconciledAttempts := 0
+	workloadReconciledAttemptsMax := 12
+	workloadReconciledDurationSeconds := 5
+	workloadReconciled := false
+	for workloadReconciledAttempts < workloadReconciledAttemptsMax {
+		latestWorkloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *workloadInstance.ID)
+		if err != nil {
+			log.Error(err, "failed to get workload instance while waiting for reconciliation")
+		} else if *latestWorkloadInstance.Reconciled {
+			workloadReconciled = true
+			break
+		}
+		workloadReconciledAttempts += 1
+		time.Sleep(time.Second * time.Duration(workloadReconciledDurationSeconds))
+	}
+	if !workloadReconciled {
+		return fmt.Errorf(
+			"failed to confirm workload instance %s reconciled after %d seconds",
+			*workloadInstance.Name,
+			workloadReconciledAttemptsMax*workloadReconciledDurationSeconds,
+		)
+	}
+
+	// delete threeport pods to restart them so they pick up applied service
+	// account permissions
+	restConfig, err := kube.GetRestConfig(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err := kube.DeleteLabelledPodsInNamespace(
+		workloadNamespace,
+		map[string]string{kube.ThreeportManagedByLabelKey: kube.ThreeportManagedByLabelValue},
+		restConfig,
+	); err != nil {
+		return fmt.Errorf("failed to delete pods to pick up applied service account permissions: %w", err)
+	}
+
+	// if any of the workload resource instances are pods, they will not be
+	// automatically restarted by their Kubernetes controllers - we need to mark
+	// them as unreconciled so they get re-created.
+	podsDeleted := false
+	for _, wri := range *workloadResourceInstances {
+		unstructuredObj := &unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := kubejson.Unmarshal(*wri.JSONDefinition, &unstructuredObj); err != nil {
+			return fmt.Errorf("failed to unmarshal kubernetes resource JSON to unstructured object", err)
+		}
+		if unstructuredObj.GetKind() == "Pod" {
+			podsDeleted = true
+			wriReconciled := false
+			wri.Reconciled = &wriReconciled
+			_, err = client.UpdateWorkloadResourceInstance(
+				r.APIClient,
+				r.APIServer,
+				&wri,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to update pod resource that required restart and reconciliation: %w", err)
+			}
+		}
+	}
+
+	// if any Pod resources were deleted, trigger reconciliation of the workload
+	// instance to update them
+	if podsDeleted {
+		workloadInstanceReconciled := false
+		workloadInstance.Reconciled = &workloadInstanceReconciled
+		_, err = client.UpdateWorkloadInstance(
+			r.APIClient,
+			r.APIServer,
+			workloadInstance,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update workload instance to trigger reconcilation of service account: %w", err)
+		}
+	}
+
+	return nil
 }

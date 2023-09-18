@@ -62,6 +62,8 @@ type AwsEksKubernetesRuntimeInstanceValues struct {
 	AwsEksKubernetesRuntimeDefinitionName string `yaml:"AwsEksKubernetesRuntimeDefinitionName"`
 }
 
+// AwsRelationalDatabaseConfig contains the config for an AWS relational
+// database.
 type AwsRelationalDatabaseConfig struct {
 	AwsRelationalDatabase AwsRelationalDatabaseValues `yaml:"AwsRelationalDatabase"`
 }
@@ -115,6 +117,53 @@ type AwsRelationalDatabaseInstanceValues struct {
 	Name                            string                                `yaml:"Name"`
 	AwsRelationalDatabaseDefinition AwsRelationalDatabaseDefinitionValues `yaml:"AwsRelationalDatabaseDefinition"`
 	WorkloadInstance                WorkloadInstanceValues                `yaml:"WorkloadInstance"`
+}
+
+// AwsObjectStorageBucketConfig contains the config for an AWS object storage
+// bucket.
+type AwsObjectStorageBucketConfig struct {
+	AwsObjectStorageBucket AwsObjectStorageBucketValues `yaml:"AwsObjectStorageBucket"`
+}
+
+// AwsObjectStorageBucketConfig contains the config for an abstraction of an S3
+// bucket instance and definition.
+type AwsObjectStorageBucketValues struct {
+	Name                       string                  `yaml:"Name"`
+	AwsAccountName             string                  `yaml:"AwsAccountName"`
+	PublicReadAccess           bool                    `yaml:"PublicReadAccess"`
+	WorkloadServiceAccountName string                  `yaml:"WorkloadServiceAccountName"`
+	WorkloadBucketConfigMap    string                  `yaml:"WorkloadBucketConfigMap"`
+	WorkloadInstance           *WorkloadInstanceValues `yaml:"WorkloadInstance"`
+}
+
+// AwsObjectStorageBucketDefinitionConfig contains the config for an AWS
+// S3 bucket definition.
+type AwsObjectStorageBucketDefinitionConfig struct {
+	AwsObjectStorageBucketDefinition AwsObjectStorageBucketDefinitionValues `yaml:"AwsObjectStorageBucketDefinition"`
+}
+
+// AwsObjectStorageBucketDefinitionValues contains the attributes needed to
+// configure an AWS S3 bucket.
+type AwsObjectStorageBucketDefinitionValues struct {
+	Name                       string `yaml:"Name"`
+	AwsAccountName             string `yaml:"AwsAccountName"`
+	PublicReadAccess           bool   `yaml:"PublicReadAccess"`
+	WorkloadServiceAccountName string `yaml:"WorkloadServiceAccountName"`
+	WorkloadBucketConfigMap    string `yaml:"WorkloadBucketConfigMap"`
+}
+
+// AwsObjectStorageBucketInstanceConfig contains the config for an AWS S3 bucket
+// instance.
+type AwsObjectStorageBucketInstanceConfig struct {
+	AwsObjectStorageBucketInstance AwsObjectStorageBucketInstanceValues `yaml:"AwsObjectStorageBucketInstance"`
+}
+
+// AwsObjectStorageBucketInstanceValues contains the attributes needed to
+// create an AWS S3 instance.
+type AwsObjectStorageBucketInstanceValues struct {
+	Name                             string                                 `yaml:"Name"`
+	AwsObjectStorageBucketDefinition AwsObjectStorageBucketDefinitionValues `yaml:"AwsObjectStorageBucketDefinition"`
+	WorkloadInstance                 WorkloadInstanceValues                 `yaml:"WorkloadInstance"`
 }
 
 // Create creates an AWS account in the Threeport API.
@@ -235,6 +284,7 @@ func (aa *AwsAccountValues) Delete(apiClient *http.Client, apiEndpoint string) (
 	return deletedAwsAccount, nil
 }
 
+// Create creates an AWS EKS kubernetes runtime definition in the threeport API.
 func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
 	// validate required fields
 	if aekrd.Name == "" || aekrd.AwsAccountName == "" || aekrd.ZoneCount == 0 ||
@@ -288,7 +338,7 @@ func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Create(apiClient *http.Cli
 	return createdAwsEksKubernetesRuntimeDefinition, nil
 }
 
-// Delete deletes a AWS EKS kubernetes definition from the Threeport API.
+// Delete deletes an AWS EKS kubernetes definition from the Threeport API.
 func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
 	// get AWS EKS kubernetes definition by name
 	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, aekrd.Name)
@@ -305,6 +355,7 @@ func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Cli
 	return deletedAwsEksKubernetesRuntimeDefinition, nil
 }
 
+// Create creates an AWS EKS kubernetes runtime instance in the threeport API.
 func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
 	// validate required fields
 	if aekri.Name == "" || aekri.AwsEksKubernetesRuntimeDefinitionName == "" {
@@ -354,7 +405,7 @@ func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Clien
 	return createdAwsEksKubernetesRuntimeInstance, nil
 }
 
-// Delete deletes a AWS EKS kubernetes runtime instance from the Threeport API.
+// Delete deletes an AWS EKS kubernetes runtime instance from the Threeport API.
 func (aekri *AwsEksKubernetesRuntimeInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
 	// get AWS EKS kubernetes runtime instance by name
 	awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, aekri.Name)
@@ -371,6 +422,8 @@ func (aekri *AwsEksKubernetesRuntimeInstanceValues) Delete(apiClient *http.Clien
 	return deletedAwsEksKubernetesRuntimeInstance, nil
 }
 
+// Create creates an AWS relational database definition and instance in the
+// threeport API.
 func (r *AwsRelationalDatabaseValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, *v0.AwsRelationalDatabaseInstance, error) {
 	// create the relational database definition
 	awsRelationalDatabaseDefinition := AwsRelationalDatabaseDefinitionValues{
@@ -406,6 +459,8 @@ func (r *AwsRelationalDatabaseValues) Create(apiClient *http.Client, apiEndpoint
 	return createdAwsRelationalDatabaseDefinition, createdAwsRelationalDatabaseInstance, nil
 }
 
+// Delete deletes an AWS EKS relational database definition and instance from
+// the threeport API.
 func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, *v0.AwsRelationalDatabaseInstance, error) {
 	// get AWS relational database definition by name
 	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, r.Name)
@@ -422,7 +477,8 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 
 	// ensure the AWS relational database definition has no more than one
 	// associated instance
-	awsRelationalDatabaseInsts, err := client.GetAwsRelationalDatabaseInstancesByAwsRelationalDatabaseDefinitionID(apiClient, apiEndpoint, *awsRelationalDatabaseDefinition.ID)
+	queryString := fmt.Sprintf("awsrelationaldatabasedefinitionid=%d", *awsRelationalDatabaseDefinition.ID)
+	awsRelationalDatabaseInsts, err := client.GetAwsRelationalDatabaseInstancesByQueryString(apiClient, apiEndpoint, queryString)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get AWS relational database instances by AWS relational database definition with ID: %d: %w", *awsRelationalDatabaseDefinition.ID, err)
 	}
@@ -472,6 +528,7 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 	return deletedAwsRelationalDatabaseDefinition, deletedAwsRelationalDatabaseInstance, nil
 }
 
+// Create creates an AWS relational database definition in the threeport API.
 func (r *AwsRelationalDatabaseDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	// validate required fields
 	if r.Name == "" || r.Engine == "" || r.EngineVersion == "" || r.DatabaseName == "" ||
@@ -510,6 +567,7 @@ func (r *AwsRelationalDatabaseDefinitionValues) Create(apiClient *http.Client, a
 	return createdAwsRelationalDatabaseDefinition, nil
 }
 
+// Delete deletes an AWS relational database definition from the threeport API.
 func (r *AwsRelationalDatabaseDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	// get AWS relational database definition by name
 	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, r.Name)
@@ -526,6 +584,7 @@ func (r *AwsRelationalDatabaseDefinitionValues) Delete(apiClient *http.Client, a
 	return deletedAwsRelationalDatabaseDefinition, nil
 }
 
+// Create creates an AWS relational database instance in the threeport API.
 func (r *AwsRelationalDatabaseInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseInstance, error) {
 	// validate required fields
 	if r.Name == "" || r.AwsRelationalDatabaseDefinition.Name == "" || r.WorkloadInstance.Name == "" {
@@ -570,6 +629,7 @@ func (r *AwsRelationalDatabaseInstanceValues) Create(apiClient *http.Client, api
 	return createdAwsRelationalDatabaseInstance, nil
 }
 
+// Delete deletes an AWS relational database instance from the threeport API.
 func (r *AwsRelationalDatabaseInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseInstance, error) {
 	// get AWS relational database instance by name
 	awsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByName(apiClient, apiEndpoint, r.Name)
@@ -584,4 +644,218 @@ func (r *AwsRelationalDatabaseInstanceValues) Delete(apiClient *http.Client, api
 	}
 
 	return deletedAwsRelationalDatabaseInstance, nil
+}
+
+// Create creates an AWS object storage bucket definition and instance in the
+// threeport API.
+func (o *AwsObjectStorageBucketValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, *v0.AwsObjectStorageBucketInstance, error) {
+	// create the object storage bucket definition
+	awsObjectStorageBucketDefinition := AwsObjectStorageBucketDefinitionValues{
+		Name:                       o.Name,
+		AwsAccountName:             o.AwsAccountName,
+		PublicReadAccess:           o.PublicReadAccess,
+		WorkloadServiceAccountName: o.WorkloadServiceAccountName,
+		WorkloadBucketConfigMap:    o.WorkloadBucketConfigMap,
+	}
+	createdAwsObjectStorageBucketDefinition, err := awsObjectStorageBucketDefinition.Create(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create AWS object storage bucket definition: %w", err)
+	}
+
+	// create the object storage bucket instance
+	awsObjectStorageBucketInstance := AwsObjectStorageBucketInstanceValues{
+		Name: defaultInstanceName(o.Name),
+		AwsObjectStorageBucketDefinition: AwsObjectStorageBucketDefinitionValues{
+			Name: o.Name,
+		},
+		WorkloadInstance: *o.WorkloadInstance,
+	}
+	createdAwsObjectStorageBucketInstance, err := awsObjectStorageBucketInstance.Create(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create AWS object storage bucket instance: %w", err)
+	}
+
+	return createdAwsObjectStorageBucketDefinition, createdAwsObjectStorageBucketInstance, nil
+}
+
+// Delete deletes an AWS object storage bucket defintiion and instance from the
+// threeport API.
+func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, *v0.AwsObjectStorageBucketInstance, error) {
+	// get AWS object storage bucket definition by name
+	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(apiClient, apiEndpoint, o.Name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", o.Name, err)
+	}
+
+	// get AWS object storage bucket instance by name
+	awsObjectStorageBucketInstName := defaultInstanceName(o.Name)
+	awsObjectStorageBucketInstance, err := client.GetAwsObjectStorageBucketInstanceByName(apiClient, apiEndpoint, awsObjectStorageBucketInstName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find AWS object storage bucket instance by name %s: %w", o.Name, err)
+	}
+
+	// ensure the AWS object storage bucket definition has no more than one
+	// associated instance
+	queryString := fmt.Sprintf("awsobjectstoragebucketdefinitionid=%d", *awsObjectStorageBucketDefinition.ID)
+	awsObjectStorageBucketInsts, err := client.GetAwsObjectStorageBucketInstancesByQueryString(apiClient, apiEndpoint, queryString)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get AWS object storage bucket instances by AWS object storage bucket definition with ID: %d: %w", *awsObjectStorageBucketDefinition.ID, err)
+	}
+	if len(*awsObjectStorageBucketInsts) > 1 {
+		err = errors.New("deletion using the AWS object storage bucket abstraction is only permitted when there is a one-to-one AWS object storage bucket defintion and instance relationship")
+		return nil, nil, fmt.Errorf("the AWS object storage bucket definition has more than one instance associated: %w", err)
+	}
+
+	// delete AWS object storage bucket instance
+	deletedAwsObjectStorageBucketInstance, err := client.DeleteAwsObjectStorageBucketInstance(apiClient, apiEndpoint, *awsObjectStorageBucketInstance.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to delete AWS object storage bucket instance from threeport API: %w", err)
+	}
+
+	// wait for AWS object storage bucket instance to be reconciled
+	deletedCheckAttempts := 0
+	deletedCheckAttemptsMax := 12
+	deletedCheckDurationSeconds := 5
+	awsObjectStorageBucketInstanceDeleted := false
+	for deletedCheckAttempts < deletedCheckAttemptsMax {
+		_, err := client.GetAwsObjectStorageBucketInstanceByID(apiClient, apiEndpoint, *awsObjectStorageBucketInstance.ID)
+		if err != nil {
+			if errors.Is(err, client.ErrorObjectNotFound) {
+				awsObjectStorageBucketInstanceDeleted = true
+				break
+			} else {
+				return nil, nil, fmt.Errorf("failed to get AWS object storage bucket instance from API when checking deletion: %w", err)
+			}
+		}
+		// no error means AWS object storage bucket instance was found - hasn't yet been deleted
+		deletedCheckAttempts += 1
+		time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
+	}
+	if !awsObjectStorageBucketInstanceDeleted {
+		return nil, nil, errors.New(fmt.Sprintf(
+			"AWS object storage bucket instance not deleted after %d seconds",
+			deletedCheckAttemptsMax*deletedCheckDurationSeconds,
+		))
+	}
+
+	// delete AWS object storage bucket definition
+	deletedAwsObjectStorageBucketDefinition, err := client.DeleteAwsObjectStorageBucketDefinition(apiClient, apiEndpoint, *awsObjectStorageBucketDefinition.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to delete AWS object storage bucket definition from threeport API: %w", err)
+	}
+
+	return deletedAwsObjectStorageBucketDefinition, deletedAwsObjectStorageBucketInstance, nil
+}
+
+// Create creates an AWS object storage bucket definition in the threeport API.
+func (o *AwsObjectStorageBucketDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, error) {
+	// validate required fields
+	if o.Name == "" || o.WorkloadServiceAccountName == "" || o.WorkloadBucketConfigMap == "" || o.AwsAccountName == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, WorkloadServiceAccountName, WorkloadBucketConfigMap, AwsAccountName")
+	}
+
+	// look up AWS account by name
+	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, o.AwsAccountName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", o.Name, err)
+	}
+
+	// construct AWS object storage bucket definition object
+	awsObjectStorageBucketDefinition := v0.AwsObjectStorageBucketDefinition{
+		Definition: v0.Definition{
+			Name: &o.Name,
+		},
+		PublicReadAccess:           &o.PublicReadAccess,
+		WorkloadServiceAccountName: &o.WorkloadServiceAccountName,
+		WorkloadBucketConfigMap:    &o.WorkloadBucketConfigMap,
+		AwsAccountID:               awsAccount.ID,
+	}
+
+	// create AWS object storage bucket definition
+	createdAwsObjectStorageBucketDefinition, err := client.CreateAwsObjectStorageBucketDefinition(apiClient, apiEndpoint, &awsObjectStorageBucketDefinition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AWS object storage bucket definition in threeport API: %w", err)
+	}
+
+	return createdAwsObjectStorageBucketDefinition, nil
+}
+
+// Delete deletes an AWS object storage bucket definition from the threeport
+// API.
+func (o *AwsObjectStorageBucketDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, error) {
+	// get AWS object storage bucket definition by name
+	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(apiClient, apiEndpoint, o.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", o.Name, err)
+	}
+
+	// delete AWS object storage bucket definition
+	deletedAwsObjectStorageBucketDefinition, err := client.DeleteAwsObjectStorageBucketDefinition(apiClient, apiEndpoint, *awsObjectStorageBucketDefinition.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete AWS object storage bucket definition from threeport API: %w", err)
+	}
+
+	return deletedAwsObjectStorageBucketDefinition, nil
+}
+
+// Create creates and AWS object storage bucket instance in the threeport API.
+func (o *AwsObjectStorageBucketInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketInstance, error) {
+	// validate required fields
+	if o.Name == "" || o.AwsObjectStorageBucketDefinition.Name == "" || o.WorkloadInstance.Name == "" {
+		return nil, errors.New("missing required fields in config - required fields: Name, AwsObjectStorageBucketDefinition.Name, WorkloadInstance.Name")
+	}
+
+	// get AWS object storage bucket definition by name
+	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(
+		apiClient,
+		apiEndpoint,
+		o.AwsObjectStorageBucketDefinition.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", o.AwsObjectStorageBucketDefinition.Name, err)
+	}
+
+	// get workload instance by name
+	workloadInstance, err := client.GetWorkloadInstanceByName(
+		apiClient,
+		apiEndpoint,
+		o.WorkloadInstance.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed find workload instance by name %s: %w", o.WorkloadInstance.Name, err)
+	}
+
+	// construct AWS object storage bucket instance object
+	awsObjectStorageBucketInstance := v0.AwsObjectStorageBucketInstance{
+		Instance: v0.Instance{
+			Name: &o.Name,
+		},
+		AwsObjectStorageBucketDefinitionID: awsObjectStorageBucketDefinition.ID,
+		WorkloadInstanceID:                 workloadInstance.ID,
+	}
+
+	// create AWS object storage bucket instance
+	createdAwsObjectStorageBucketInstance, err := client.CreateAwsObjectStorageBucketInstance(apiClient, apiEndpoint, &awsObjectStorageBucketInstance)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AWS object storage bucket instance in threeport API: %w", err)
+	}
+
+	return createdAwsObjectStorageBucketInstance, nil
+}
+
+// Delete deletes an AWS object storage bucket instance from the threeport API.
+func (o *AwsObjectStorageBucketInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketInstance, error) {
+	// get AWS object storage bucket instance by name
+	awsObjectStorageBucketInstance, err := client.GetAwsObjectStorageBucketInstanceByName(apiClient, apiEndpoint, o.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS object storage bucket instance by name %s: %w", o.Name, err)
+	}
+
+	// delete AWS object storage bucket instance
+	deletedAwsObjectStorageBucketInstance, err := client.DeleteAwsObjectStorageBucketInstance(apiClient, apiEndpoint, *awsObjectStorageBucketInstance.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete AWS object storage bucket instance from threeport API: %w", err)
+	}
+
+	return deletedAwsObjectStorageBucketInstance, nil
 }

@@ -8167,6 +8167,7 @@ const docTemplate = `{
             "required": [
                 "AwsAccountID",
                 "Name",
+                "WorkloadBucketConfigMap",
                 "WorkloadServiceAccountName"
             ],
             "properties": {
@@ -8189,6 +8190,10 @@ const docTemplate = `{
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
+                },
+                "WorkloadBucketConfigMap": {
+                    "description": "The name of the Kubernetes configmap that will supply the name of the S3\nbucket to the workload.",
+                    "type": "string"
                 },
                 "WorkloadServiceAccountName": {
                     "description": "The name of the Kubernetes service account for the workload that will\naccess the S3 bucket.  Used to provide secure access using IAM roles for\nservice accounts (IRSA).",
@@ -8219,6 +8224,10 @@ const docTemplate = `{
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
@@ -8333,6 +8342,10 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
@@ -8394,6 +8407,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/v0.DomainNameInstance"
                     }
                 },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -8440,6 +8457,10 @@ const docTemplate = `{
                 "DomainNameDefinitionID": {
                     "description": "The definition used to define the instance.",
                     "type": "integer"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
                 },
                 "KubernetesRuntimeInstanceID": {
                     "description": "The cluster where the workload that is using the domain name is running.",
@@ -8551,6 +8572,10 @@ const docTemplate = `{
                     "description": "Redirect all requests to HTTP port to HTTPS.",
                     "type": "boolean"
                 },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -8618,6 +8643,10 @@ const docTemplate = `{
                     "description": "GatewayDefinitionID is the definition used to configure the workload instance.",
                     "type": "integer"
                 },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
                 "KubernetesRuntimeInstanceID": {
                     "description": "The kubernetes runtime where the ingress layer is installed.",
                     "type": "integer"
@@ -8670,6 +8699,10 @@ const docTemplate = `{
                 "InfraProviderAccountName": {
                     "description": "The infra provider account ID.  Determines which account the infra is\ndeployed on.",
                     "type": "string"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
                 },
                 "KubernetesRuntimeInstances": {
                     "description": "The associated kubernetes runtime instances that are deployed from this\ndefinition.",
@@ -8767,6 +8800,10 @@ const docTemplate = `{
                 "GatewayWorkloadInstanceID": {
                     "description": "The WorkloadInstanceID of the gateway support service",
                     "type": "integer"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
                 },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for this instance.",
@@ -8903,6 +8940,9 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
                 "GatewayDefinition",
                 "GatewayInstance",
                 "DomainNameDefinition",
@@ -8914,23 +8954,23 @@ const docTemplate = `{
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
                 "AwsObjectStorageBucketInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
                 "Profile",
                 "Tier",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
-                "WorkloadEvent"
+                "WorkloadEvent",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeDomainNameDefinition",
@@ -8942,21 +8982,18 @@ const docTemplate = `{
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
                 "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent"
+                "ObjectTypeWorkloadEvent",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance"
             ]
         },
         "v0.Profile": {
@@ -9062,6 +9099,10 @@ const docTemplate = `{
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
@@ -9172,6 +9213,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/v0.WorkloadEvent"
                     }
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
                 },
                 "KubernetesRuntimeInstanceID": {
                     "description": "The kubernetes runtime to which the workload is deployed.",

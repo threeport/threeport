@@ -193,6 +193,11 @@ definitions:
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
+      WorkloadBucketConfigMap:
+        description: |-
+          The name of the Kubernetes configmap that will supply the name of the S3
+          bucket to the workload.
+        type: string
       WorkloadServiceAccountName:
         description: |-
           The name of the Kubernetes service account for the workload that will
@@ -202,6 +207,7 @@ definitions:
     required:
     - AwsAccountID
     - Name
+    - WorkloadBucketConfigMap
     - WorkloadServiceAccountName
     type: object
   v0.AwsObjectStorageBucketInstance:
@@ -223,6 +229,13 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       Name:
         description: An arbitrary name the instance
         type: string
@@ -329,6 +342,13 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       Name:
         description: An arbitrary name the instance
         type: string
@@ -384,6 +404,13 @@ definitions:
         items:
           $ref: '#/definitions/v0.DomainNameInstance'
         type: array
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -429,6 +456,13 @@ definitions:
       DomainNameDefinitionID:
         description: The definition used to define the instance.
         type: integer
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeInstanceID:
         description: The cluster where the workload that is using the domain name
           is running.
@@ -527,6 +561,13 @@ definitions:
       HTTPSRedirect:
         description: Redirect all requests to HTTP port to HTTPS.
         type: boolean
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -586,6 +627,13 @@ definitions:
         description: GatewayDefinitionID is the definition used to configure the workload
           instance.
         type: integer
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime where the ingress layer is installed.
         type: integer
@@ -642,6 +690,13 @@ definitions:
           The infra provider account ID.  Determines which account the infra is
           deployed on.
         type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeInstances:
         description: |-
           The associated kubernetes runtime instances that are deployed from this
@@ -736,6 +791,13 @@ definitions:
       GatewayWorkloadInstanceID:
         description: The WorkloadInstanceID of the gateway support service
         type: integer
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeDefinitionID:
         description: The kubernetes runtime definition for this instance.
         type: integer
@@ -858,6 +920,9 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - GatewayDefinition
     - GatewayInstance
     - DomainNameDefinition
@@ -869,23 +934,23 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - Profile
     - Tier
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
     - ObjectTypeDomainNameDefinition
@@ -897,21 +962,18 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
   v0.Profile:
     properties:
       Name:
@@ -990,6 +1052,13 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -1089,6 +1158,13 @@ definitions:
         items:
           $ref: '#/definitions/v0.WorkloadEvent'
         type: array
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime to which the workload is deployed.
         type: integer
