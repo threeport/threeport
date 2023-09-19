@@ -256,8 +256,8 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		awsConfServiceAccount, err := resource.LoadAWSConfigFromAPIKeys(
 			*accessKey.AccessKeyId,
 			*accessKey.SecretAccessKey,
-			a.AwsRegion,
 			"",
+			a.AwsRegion,
 			*runtimeManagementRole.Arn,
 		)
 		if err != nil {
@@ -1333,6 +1333,23 @@ func cleanOnCreateError(
 	// if eks provider, load inventory for deletion
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
+
+		awsConfig := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ResourceClient.AWSConfig
+		err := DeleteRole(a.InstanceName, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete role: %w", err)
+		}
+
+		err = DeleteServiceAccountPolicy(a.InstanceName, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete service account policy: %w", err)
+		}
+
+		err = DeleteServiceAccount(a.InstanceName, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete service account: %w", err)
+		}
+
 		// allow 2 seconds for pending inventory writes to complete
 		time.Sleep(time.Second * 2)
 		inventory, invErr := resource.ReadInventory(

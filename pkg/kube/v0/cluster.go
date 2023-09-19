@@ -1,11 +1,13 @@
 package v0
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -316,6 +318,16 @@ func refreshEKSConnection(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)
 	}
+
+	svc := sts.NewFromConfig(*awsConfig)
+	output, _ := svc.GetCallerIdentity(
+		context.Background(),
+		&sts.GetCallerIdentityInput{},
+	)
+	fmt.Println(*output.Account)
+	fmt.Println(*output.Arn)
+	fmt.Println(*output.UserId)
+	fmt.Println(*output)
 
 	// get connection info from AWS
 	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: *eksRuntimeInstance.Name}
