@@ -28,6 +28,16 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// requiredAwsObjectStorageBucketInstanceObjects holds all the required
+// threeport objects needed to reconcile state for AWS object storage buckets.
+type requiredAwsObjectStorageBucketInstanceObjects struct {
+	AwsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+	AwsAccount                       v0.AwsAccount
+	WorkloadInstance                 v0.WorkloadInstance
+	KubernetesRuntimeInstance        v0.KubernetesRuntimeInstance
+	AwsEksKubernetesRuntimeInstance  v0.AwsEksKubernetesRuntimeInstance
+}
+
 // awsObjectStorageBucketInstanceCreated reconciles state for an AWS object
 // storage bucket instance that has been created.
 func awsObjectStorageBucketInstanceCreated(
@@ -61,22 +71,18 @@ func awsObjectStorageBucketInstanceCreated(
 		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)
 	}
 
-	// get required object from the threeport API
-	awsObjectStorageBucketDefinition, awsAccount, workloadInstance,
-		kubernetesRuntimeInstance, awsEksKubernetesRuntimeInstance, err := getRequiredS3Objects(
-		r,
-		awsObjectStorageBucketInstance,
-	)
+	// get required objects from the threeport API
+	requiredObjects, err := getRequiredS3Objects(r, awsObjectStorageBucketInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get required objects for AWS object storage bucket instance reconciliation: %w", err)
 	}
 
 	// decrypt access key id and secret access key
-	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
+	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.AccessKeyID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
 	}
-	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
+	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.SecretAccessKey)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
 	}
@@ -86,7 +92,7 @@ func awsObjectStorageBucketInstanceCreated(
 		accessKeyID,
 		secretAccessKey,
 		"",
-		*awsEksKubernetesRuntimeInstance.Region,
+		*requiredObjects.AwsEksKubernetesRuntimeInstance.Region,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
@@ -135,7 +141,7 @@ func awsObjectStorageBucketInstanceCreated(
 	}
 
 	// extract kubernetes runtime resource inventory
-	runtimeInventoryJson := awsEksKubernetesRuntimeInstance.ResourceInventory
+	runtimeInventoryJson := requiredObjects.AwsEksKubernetesRuntimeInstance.ResourceInventory
 	var runtimeInventory resource.ResourceInventory
 	if err := resource.UnmarshalInventory([]byte(*runtimeInventoryJson), &runtimeInventory); err != nil {
 		return 0, fmt.Errorf("failed to unmarshal AWS EKS kubernetes runtime inventory: %w", err)
@@ -145,7 +151,7 @@ func awsObjectStorageBucketInstanceCreated(
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
 		r.APIClient,
 		r.APIServer,
-		*workloadInstance.ID,
+		*requiredObjects.WorkloadInstance.ID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to workload resource instances for workload using S3 bucket: %w", err)
@@ -167,7 +173,7 @@ func awsObjectStorageBucketInstanceCreated(
 			}
 		}
 		// service account
-		if unstructuredObj.GetKind() == "ServiceAccount" && unstructuredObj.GetName() == *awsObjectStorageBucketDefinition.WorkloadServiceAccountName {
+		if unstructuredObj.GetKind() == "ServiceAccount" && unstructuredObj.GetName() == *requiredObjects.AwsObjectStorageBucketDefinition.WorkloadServiceAccountName {
 			serviceAccountFound = true
 			serviceAccountObject = *unstructuredObj
 			serviceAccountWri = wri
@@ -181,18 +187,18 @@ func awsObjectStorageBucketInstanceCreated(
 	}
 	workloadNamespace := namespaces[0]
 	if !serviceAccountFound {
-		return 0, fmt.Errorf("no service account found with name %s", *awsObjectStorageBucketDefinition.WorkloadServiceAccountName)
+		return 0, fmt.Errorf("no service account found with name %s", *requiredObjects.AwsObjectStorageBucketDefinition.WorkloadServiceAccountName)
 	}
 
 	// create S3 config
 	s3Config := s3.S3Config{
-		AwsAccount:           *awsAccount.AccountID,
+		AwsAccount:           *requiredObjects.AwsAccount.AccountID,
 		Region:               awsConfig.Region,
 		Name:                 *awsObjectStorageBucketInstance.Name,
 		VpcIdReadWriteAccess: runtimeInventory.VPCID,
-		PublicReadAccess:     *awsObjectStorageBucketDefinition.PublicReadAccess,
+		PublicReadAccess:     *requiredObjects.AwsObjectStorageBucketDefinition.PublicReadAccess,
 		WorkloadReadWriteAccess: s3.WorkloadAccess{
-			ServiceAccountName:      *awsObjectStorageBucketDefinition.WorkloadServiceAccountName,
+			ServiceAccountName:      *requiredObjects.AwsObjectStorageBucketDefinition.WorkloadServiceAccountName,
 			ServiceAccountNamespace: workloadNamespace,
 			OidcUrl:                 runtimeInventory.Cluster.OIDCProviderURL,
 		},
@@ -250,10 +256,7 @@ func awsObjectStorageBucketInstanceCreated(
 	// update workload resources to enable connection to S3 bucket
 	if err := updateS3ClientWorkloadConnection(
 		r,
-		awsAccount,
-		awsObjectStorageBucketDefinition,
-		kubernetesRuntimeInstance,
-		workloadInstance,
+		requiredObjects,
 		workloadResourceInstances,
 		&serviceAccountWri,
 		&serviceAccountObject,
@@ -375,21 +378,18 @@ func awsObjectStorageBucketInstanceDeleted(
 		return 0, fmt.Errorf("failed to set deletion acknowledged timestamp: %w", err)
 	}
 
-	// get required object from the threeport API
-	_, awsAccount, _, _, awsEksKubernetesRuntimeInstance, err := getRequiredS3Objects(
-		r,
-		awsObjectStorageBucketInstance,
-	)
+	// get required objects from the threeport API
+	requiredObjects, err := getRequiredS3Objects(r, awsObjectStorageBucketInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get required objects for AWS object storage bucket instance reconciliation: %w", err)
 	}
 
 	// decrypt access key id and secret access key
-	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
+	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.AccessKeyID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
 	}
-	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
+	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.SecretAccessKey)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
 	}
@@ -399,7 +399,7 @@ func awsObjectStorageBucketInstanceDeleted(
 		accessKeyID,
 		secretAccessKey,
 		"",
-		*awsEksKubernetesRuntimeInstance.Region,
+		*requiredObjects.AwsEksKubernetesRuntimeInstance.Region,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
@@ -510,7 +510,6 @@ func getS3InventoryAndDelete(
 	r *controller.Reconciler,
 	s3Client *s3.S3Client,
 	awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance,
-	//log *logr.Logger,
 ) error {
 	inventory, err := getS3Inventory(r, awsObjectStorageBucketInstance)
 	if err != nil {
@@ -551,21 +550,14 @@ func checkS3Deleted(
 func getRequiredS3Objects(
 	r *controller.Reconciler,
 	awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance,
-) (
-	*v0.AwsObjectStorageBucketDefinition,
-	*v0.AwsAccount,
-	*v0.WorkloadInstance,
-	*v0.KubernetesRuntimeInstance,
-	*v0.AwsEksKubernetesRuntimeInstance,
-	error,
-) {
+) (*requiredAwsObjectStorageBucketInstanceObjects, error) {
 	awsObjectStorageBucketDef, err := client.GetAwsObjectStorageBucketDefinitionByID(
 		r.APIClient,
 		r.APIServer,
 		*awsObjectStorageBucketInstance.AwsObjectStorageBucketDefinitionID,
 	)
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("failed to retrieve AWS object storage definition by ID: %w", err)
+		return nil, fmt.Errorf("failed to retrieve AWS object storage definition by ID: %w", err)
 	}
 	awsAccount, err := client.GetAwsAccountByID(
 		r.APIClient,
@@ -573,7 +565,7 @@ func getRequiredS3Objects(
 		*awsObjectStorageBucketDef.AwsAccountID,
 	)
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("failed to retrieve AWS Account by ID: %w", err)
+		return nil, fmt.Errorf("failed to retrieve AWS Account by ID: %w", err)
 	}
 	workloadInstance, err := client.GetWorkloadInstanceByID(
 		r.APIClient,
@@ -581,7 +573,7 @@ func getRequiredS3Objects(
 		*awsObjectStorageBucketInstance.WorkloadInstanceID,
 	)
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("failed to retrieve associated workload for database by ID: %w", err)
+		return nil, fmt.Errorf("failed to retrieve associated workload for database by ID: %w", err)
 	}
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
@@ -589,7 +581,7 @@ func getRequiredS3Objects(
 		*workloadInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("failed to get kubernetes runtime instance for workload associated with database: %w", err)
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance for workload associated with database: %w", err)
 	}
 	awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(
 		r.APIClient,
@@ -597,20 +589,23 @@ func getRequiredS3Objects(
 		*kubernetesRuntimeInstance.ID,
 	)
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("failed to get AWS EKS kubernetes runtime instance hosting workload associated with database: %w", err)
+		return nil, fmt.Errorf("failed to get AWS EKS kubernetes runtime instance hosting workload associated with database: %w", err)
 	}
 
-	return awsObjectStorageBucketDef, awsAccount, workloadInstance, kubernetesRuntimeInstance, awsEksKubernetesRuntimeInstance, nil
+	return &requiredAwsObjectStorageBucketInstanceObjects{
+		AwsObjectStorageBucketDefinition: *awsObjectStorageBucketDef,
+		AwsAccount:                       *awsAccount,
+		WorkloadInstance:                 *workloadInstance,
+		KubernetesRuntimeInstance:        *kubernetesRuntimeInstance,
+		AwsEksKubernetesRuntimeInstance:  *awsEksKubernetesRuntimeInstance,
+	}, nil
 }
 
 // updateS3ClientWorkloadConnection updates the workload resources to enable
 // connection to the S3 bucket.
 func updateS3ClientWorkloadConnection(
 	r *controller.Reconciler,
-	awsAccount *v0.AwsAccount,
-	awsObjectStorageBucketDefinition *v0.AwsObjectStorageBucketDefinition,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	workloadInstance *v0.WorkloadInstance,
+	requiredObjects *requiredAwsObjectStorageBucketInstanceObjects,
 	workloadResourceInstances *[]v0.WorkloadResourceInstance,
 	serviceAccountWri *v0.WorkloadResourceInstance,
 	serviceAccountObject *unstructured.Unstructured,
@@ -626,14 +621,14 @@ func updateS3ClientWorkloadConnection(
 	if annotations != nil {
 		annotations["eks.amazonaws.com/role-arn"] = fmt.Sprintf(
 			"arn:aws:iam::%s:role/%s",
-			*awsAccount.AccountID,
+			*requiredObjects.AwsAccount.AccountID,
 			s3RoleName,
 		)
 	} else {
 		annotations = map[string]string{
 			"eks.amazonaws.com/role-arn": fmt.Sprintf(
 				"arn:aws:iam::%s:role/%s",
-				*awsAccount.AccountID,
+				*requiredObjects.AwsAccount.AccountID,
 				s3RoleName,
 			),
 		}
@@ -663,7 +658,7 @@ func updateS3ClientWorkloadConnection(
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      *awsObjectStorageBucketDefinition.WorkloadBucketConfigMap,
+			Name:      *requiredObjects.AwsObjectStorageBucketDefinition.WorkloadBucketConfigMap,
 			Namespace: workloadNamespace,
 		},
 		Data: map[string]string{
@@ -685,7 +680,7 @@ func updateS3ClientWorkloadConnection(
 	configMapJsonDef := datatypes.JSON(encodedConfigMap)
 	configMapWri := v0.WorkloadResourceInstance{
 		JSONDefinition:     &configMapJsonDef,
-		WorkloadInstanceID: workloadInstance.ID,
+		WorkloadInstanceID: requiredObjects.WorkloadInstance.ID,
 	}
 	_, err = client.CreateWorkloadResourceInstance(
 		r.APIClient,
@@ -699,11 +694,11 @@ func updateS3ClientWorkloadConnection(
 	// trigger reconciliation of the workload instance to update service acocunt
 	// and create configmap
 	workloadInstanceReconciled := false
-	workloadInstance.Reconciled = &workloadInstanceReconciled
+	requiredObjects.WorkloadInstance.Reconciled = &workloadInstanceReconciled
 	_, err = client.UpdateWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
-		workloadInstance,
+		&requiredObjects.WorkloadInstance,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update workload instance to trigger reconcilation of service account: %w", err)
@@ -717,7 +712,7 @@ func updateS3ClientWorkloadConnection(
 	workloadReconciledDurationSeconds := 5
 	workloadReconciled := false
 	for workloadReconciledAttempts < workloadReconciledAttemptsMax {
-		latestWorkloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *workloadInstance.ID)
+		latestWorkloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *requiredObjects.WorkloadInstance.ID)
 		if err != nil {
 			log.Error(err, "failed to get workload instance while waiting for reconciliation")
 		} else if *latestWorkloadInstance.Reconciled {
@@ -730,7 +725,7 @@ func updateS3ClientWorkloadConnection(
 	if !workloadReconciled {
 		return fmt.Errorf(
 			"failed to confirm workload instance %s reconciled after %d seconds",
-			*workloadInstance.Name,
+			*requiredObjects.WorkloadInstance.Name,
 			workloadReconciledAttemptsMax*workloadReconciledDurationSeconds,
 		)
 	}
@@ -738,7 +733,7 @@ func updateS3ClientWorkloadConnection(
 	// delete threeport pods to restart them so they pick up applied service
 	// account permissions
 	restConfig, err := kube.GetRestConfig(
-		kubernetesRuntimeInstance,
+		&requiredObjects.KubernetesRuntimeInstance,
 		true,
 		r.APIClient,
 		r.APIServer,
@@ -780,11 +775,11 @@ func updateS3ClientWorkloadConnection(
 	// instance to update them
 	if podsDeleted {
 		workloadInstanceReconciled := false
-		workloadInstance.Reconciled = &workloadInstanceReconciled
+		requiredObjects.WorkloadInstance.Reconciled = &workloadInstanceReconciled
 		_, err = client.UpdateWorkloadInstance(
 			r.APIClient,
 			r.APIServer,
-			workloadInstance,
+			&requiredObjects.WorkloadInstance,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to update workload instance to trigger reconcilation of service account: %w", err)
