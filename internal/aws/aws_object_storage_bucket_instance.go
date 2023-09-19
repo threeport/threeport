@@ -165,7 +165,7 @@ func awsObjectStorageBucketInstanceCreated(
 	for _, wri := range *workloadResourceInstances {
 		unstructuredObj := &unstructured.Unstructured{Object: map[string]interface{}{}}
 		if err := kubejson.Unmarshal(*wri.JSONDefinition, &unstructuredObj); err != nil {
-			return 0, fmt.Errorf("failed to unmarshal kubernetes resource JSON to unstructured object", err)
+			return 0, fmt.Errorf("failed to unmarshal kubernetes resource JSON to unstructured object: %w", err)
 		}
 		// namespace
 		namespace := unstructuredObj.GetNamespace()
@@ -746,7 +746,7 @@ func updateS3ClientWorkloadConnection(
 	for _, wri := range *workloadResourceInstances {
 		unstructuredObj := &unstructured.Unstructured{Object: map[string]interface{}{}}
 		if err := kubejson.Unmarshal(*wri.JSONDefinition, &unstructuredObj); err != nil {
-			return fmt.Errorf("failed to unmarshal kubernetes resource JSON to unstructured object", err)
+			return fmt.Errorf("failed to unmarshal kubernetes resource JSON to unstructured object: %w", err)
 		}
 
 		// check for pod abstraction kinds like Deployment, StatefulSet etc.
