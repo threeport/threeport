@@ -193,10 +193,10 @@ definitions:
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
-      WorkloadBucketConfigMap:
+      WorkloadBucketEnvVar:
         description: |-
-          The name of the Kubernetes configmap that will supply the name of the S3
-          bucket to the workload.
+          The environment variable key that the workload is expecting to reference
+          for the name of the S3 bucket managed by threeport.
         type: string
       WorkloadServiceAccountName:
         description: |-
@@ -207,7 +207,7 @@ definitions:
     required:
     - AwsAccountID
     - Name
-    - WorkloadBucketConfigMap
+    - WorkloadBucketEnvVar
     - WorkloadServiceAccountName
     type: object
   v0.AwsObjectStorageBucketInstance:
@@ -920,13 +920,19 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - DomainNameDefinition
-    - DomainNameInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - Profile
+    - Tier
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -934,27 +940,27 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - Profile
-    - Tier
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - DomainNameDefinition
+    - DomainNameInstance
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -962,16 +968,10 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
   v0.Profile:

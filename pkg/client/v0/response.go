@@ -55,7 +55,6 @@ func GetResponse(
 
 	var response v0.Response
 	if resp.StatusCode != expectedStatusCode {
-		fmt.Println(string(respBody))
 		if err := json.Unmarshal(respBody, &response); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal response body from threeport API: %w", err)
 		}

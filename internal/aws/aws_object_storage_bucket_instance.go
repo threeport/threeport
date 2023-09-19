@@ -28,6 +28,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+const s3BucketNameConfigMapKey = "s3BucketName"
+
 // requiredAwsObjectStorageBucketInstanceObjects holds all the required
 // threeport objects needed to reconcile state for AWS object storage buckets.
 type requiredAwsObjectStorageBucketInstanceObjects struct {
@@ -652,17 +654,22 @@ func updateS3ClientWorkloadConnection(
 	}
 
 	// create a config map to provide S3 bucket name to workload
+	configMapName := fmt.Sprintf(
+		"%s-s3-config-%s",
+		*requiredObjects.WorkloadInstance.Name,
+		util.RandomAlphaNumericString(6),
+	)
 	workloadConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      *requiredObjects.AwsObjectStorageBucketDefinition.WorkloadBucketConfigMap,
+			Name:      configMapName,
 			Namespace: workloadNamespace,
 		},
 		Data: map[string]string{
-			"s3BucketName": s3BucketName,
+			s3BucketNameConfigMapKey: s3BucketName,
 		},
 	}
 
@@ -730,34 +737,67 @@ func updateS3ClientWorkloadConnection(
 		)
 	}
 
-	// delete threeport pods to restart them so they pick up applied service
-	// account permissions
-	restConfig, err := kube.GetRestConfig(
-		&requiredObjects.KubernetesRuntimeInstance,
-		true,
-		r.APIClient,
-		r.APIServer,
-		r.EncryptionKey,
-	)
-	if err := kube.DeleteLabelledPodsInNamespace(
-		workloadNamespace,
-		map[string]string{kube.ThreeportManagedByLabelKey: kube.ThreeportManagedByLabelValue},
-		restConfig,
-	); err != nil {
-		return fmt.Errorf("failed to delete pods to pick up applied service account permissions: %w", err)
-	}
-
-	// if any of the workload resource instances are pods, they will not be
-	// automatically restarted by their Kubernetes controllers - we need to mark
-	// them as unreconciled so they get re-created.
-	podsDeleted := false
+	// update the workload resource instances for Pods or pod abstraction kinds
+	// (Deployments, StatefulSets etc.) to apply:
+	// 1) delete if a Pod kind
+	// 2) update to apply the env variable
+	// 3) update the workload resource instance and mark unreconciled so the
+	// workload gets updated
 	for _, wri := range *workloadResourceInstances {
 		unstructuredObj := &unstructured.Unstructured{Object: map[string]interface{}{}}
 		if err := kubejson.Unmarshal(*wri.JSONDefinition, &unstructuredObj); err != nil {
 			return fmt.Errorf("failed to unmarshal kubernetes resource JSON to unstructured object", err)
 		}
+
+		// check for pod abstraction kinds like Deployment, StatefulSet etc.
+		podAbstractionKind := false
+		for _, kind := range kube.GetPodAbstractionKinds() {
+			if unstructuredObj.GetKind() == kind {
+				podAbstractionKind = true
+			}
+		}
+
+		// if a Pod resource we need to delete it (will be re-created)
 		if unstructuredObj.GetKind() == "Pod" {
-			podsDeleted = true
+			// delete the pod
+			kubeClient, mapper, err := kube.GetClient(
+				&requiredObjects.KubernetesRuntimeInstance,
+				true,
+				r.APIClient,
+				r.APIServer,
+				r.EncryptionKey,
+			)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to get Kubernetes client and mapper to delete pod %s: %w", unstructuredObj.GetName(), err,
+				)
+			}
+			if err := kube.DeleteResource(
+				unstructuredObj,
+				kubeClient,
+				*mapper,
+			); err != nil {
+				return fmt.Errorf("failed to delete pod %s: %w", unstructuredObj.GetName(), err)
+			}
+		}
+
+		// update the workload resource instance
+		if unstructuredObj.GetKind() == "Pod" || podAbstractionKind {
+			// update the pod object to set env var
+			unstructuredObj, err := setPodS3EnvConfig(
+				unstructuredObj,
+				*requiredObjects.AwsObjectStorageBucketDefinition.WorkloadBucketEnvVar,
+				configMapName,
+				s3BucketNameConfigMapKey,
+			)
+			// update the pod's WRI with new resource config and mark
+			// unreconciled
+			wriJson, err := unstructuredObj.MarshalJSON()
+			if err != nil {
+				return fmt.Errorf("failed to marshal JSON from updated workload resource instance object: %s", err)
+			}
+			wriJsonDef := datatypes.JSON(wriJson)
+			wri.JSONDefinition = &wriJsonDef
 			wriReconciled := false
 			wri.Reconciled = &wriReconciled
 			_, err = client.UpdateWorkloadResourceInstance(
@@ -771,20 +811,131 @@ func updateS3ClientWorkloadConnection(
 		}
 	}
 
-	// if any Pod resources were deleted, trigger reconciliation of the workload
-	// instance to update them
-	if podsDeleted {
-		workloadInstanceReconciled := false
-		requiredObjects.WorkloadInstance.Reconciled = &workloadInstanceReconciled
-		_, err = client.UpdateWorkloadInstance(
-			r.APIClient,
-			r.APIServer,
-			&requiredObjects.WorkloadInstance,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to update workload instance to trigger reconcilation of service account: %w", err)
-		}
+	// mark workload instance as unreconciled to trigger reconciliation once
+	// more to update the pods to mount the config map and assume the new
+	// service account that now has access to the S3 bucket
+	workloadInstanceReconciled = false
+	requiredObjects.WorkloadInstance.Reconciled = &workloadInstanceReconciled
+	_, err = client.UpdateWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		&requiredObjects.WorkloadInstance,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update workload instance to trigger reconcilation of workload resource instances: %w", err)
 	}
 
 	return nil
+}
+
+// setPodS3EnvConfig updates a Job, Replicaset, Deployment, StatefulSet or
+// DaemonSet resources to set an environment variable mounted from a ConfigMap
+// on all containers.
+func setPodS3EnvConfig(
+	unstructuredObj *unstructured.Unstructured,
+	envVar string,
+	configMapName string,
+	configMapKey string,
+) (*unstructured.Unstructured, error) {
+	// create environment entry to add
+	s3EnvConfig := map[string]interface{}{
+		"name": envVar,
+		"valueFrom": map[string]interface{}{
+			"configMapKeyRef": map[string]interface{}{
+				"name": configMapName,
+				"key":  configMapKey,
+			},
+		},
+	}
+
+	// get containers
+	var containers []interface{}
+	if unstructuredObj.GetKind() == "Pod" {
+		ctrs, found, err := unstructured.NestedSlice(
+			unstructuredObj.Object,
+			"spec",
+			"containers",
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to find valid container slice in %s resource %s", unstructuredObj.GetKind(), unstructuredObj.GetName(),
+			)
+		}
+		if !found {
+			return nil, fmt.Errorf(
+				"no containers found in %s resource %s", unstructuredObj.GetKind(), unstructuredObj.GetName(),
+			)
+		}
+		containers = ctrs
+	} else {
+		ctrs, found, err := unstructured.NestedSlice(
+			unstructuredObj.Object,
+			"spec",
+			"template",
+			"spec",
+			"containers",
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to find valid container slice in %s resource %s", unstructuredObj.GetKind(), unstructuredObj.GetName(),
+			)
+		}
+		if !found {
+			return nil, fmt.Errorf(
+				"no containers found in %s resource %s", unstructuredObj.GetKind(), unstructuredObj.GetName(),
+			)
+		}
+		containers = ctrs
+	}
+
+	// iterate over containers and update env
+	for i, container := range containers {
+		ctr, ok := container.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf(
+				"failed to cast container into map[string]interface{} for %s resource %s", unstructuredObj.GetKind(), unstructuredObj.GetName(),
+			)
+		}
+
+		existingEnv, _, err := unstructured.NestedSlice(ctr, "env")
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to retrieve env config from container for %s resource %s", unstructuredObj.GetKind(), unstructuredObj.GetName(),
+			)
+		}
+		existingEnv = append(existingEnv, s3EnvConfig)
+
+		containerMap, ok := container.(map[string]interface{})
+		containerMap["env"] = existingEnv
+		containers[i] = containerMap
+	}
+
+	// replaced existing container slice with updated version
+	if unstructuredObj.GetKind() == "Pod" {
+		if err := unstructured.SetNestedSlice(
+			unstructuredObj.Object,
+			containers,
+			"spec",
+			"containers",
+		); err != nil {
+			return nil, fmt.Errorf(
+				"failed to set updated containers for pod resource %s", unstructuredObj.GetName(),
+			)
+		}
+	} else {
+		if err := unstructured.SetNestedSlice(
+			unstructuredObj.Object,
+			containers,
+			"spec",
+			"template",
+			"spec",
+			"containers",
+		); err != nil {
+			return nil, fmt.Errorf(
+				"failed to set updated containers for %s resource %s", unstructuredObj.GetKind(), unstructuredObj.GetName(),
+			)
+		}
+	}
+
+	return unstructuredObj, nil
 }

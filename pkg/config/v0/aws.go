@@ -132,7 +132,7 @@ type AwsObjectStorageBucketValues struct {
 	AwsAccountName             string                  `yaml:"AwsAccountName"`
 	PublicReadAccess           bool                    `yaml:"PublicReadAccess"`
 	WorkloadServiceAccountName string                  `yaml:"WorkloadServiceAccountName"`
-	WorkloadBucketConfigMap    string                  `yaml:"WorkloadBucketConfigMap"`
+	WorkloadBucketEnvVar       string                  `yaml:"WorkloadBucketEnvVar"`
 	WorkloadInstance           *WorkloadInstanceValues `yaml:"WorkloadInstance"`
 }
 
@@ -149,7 +149,7 @@ type AwsObjectStorageBucketDefinitionValues struct {
 	AwsAccountName             string `yaml:"AwsAccountName"`
 	PublicReadAccess           bool   `yaml:"PublicReadAccess"`
 	WorkloadServiceAccountName string `yaml:"WorkloadServiceAccountName"`
-	WorkloadBucketConfigMap    string `yaml:"WorkloadBucketConfigMap"`
+	WorkloadBucketEnvVar       string `yaml:"WorkloadBucketEnvVar"`
 }
 
 // AwsObjectStorageBucketInstanceConfig contains the config for an AWS S3 bucket
@@ -655,7 +655,7 @@ func (o *AwsObjectStorageBucketValues) Create(apiClient *http.Client, apiEndpoin
 		AwsAccountName:             o.AwsAccountName,
 		PublicReadAccess:           o.PublicReadAccess,
 		WorkloadServiceAccountName: o.WorkloadServiceAccountName,
-		WorkloadBucketConfigMap:    o.WorkloadBucketConfigMap,
+		WorkloadBucketEnvVar:       o.WorkloadBucketEnvVar,
 	}
 	createdAwsObjectStorageBucketDefinition, err := awsObjectStorageBucketDefinition.Create(apiClient, apiEndpoint)
 	if err != nil {
@@ -750,8 +750,8 @@ func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoin
 // Create creates an AWS object storage bucket definition in the threeport API.
 func (o *AwsObjectStorageBucketDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, error) {
 	// validate required fields
-	if o.Name == "" || o.WorkloadServiceAccountName == "" || o.WorkloadBucketConfigMap == "" || o.AwsAccountName == "" {
-		return nil, errors.New("missing required field/s in config - required fields: Name, WorkloadServiceAccountName, WorkloadBucketConfigMap, AwsAccountName")
+	if o.Name == "" || o.WorkloadServiceAccountName == "" || o.WorkloadBucketEnvVar == "" || o.AwsAccountName == "" {
+		return nil, errors.New("missing required field/s in config - required fields: Name, WorkloadServiceAccountName, WorkloadBucketEnvVar, AwsAccountName")
 	}
 
 	// look up AWS account by name
@@ -767,7 +767,7 @@ func (o *AwsObjectStorageBucketDefinitionValues) Create(apiClient *http.Client, 
 		},
 		PublicReadAccess:           &o.PublicReadAccess,
 		WorkloadServiceAccountName: &o.WorkloadServiceAccountName,
-		WorkloadBucketConfigMap:    &o.WorkloadBucketConfigMap,
+		WorkloadBucketEnvVar:       &o.WorkloadBucketEnvVar,
 		AwsAccountID:               awsAccount.ID,
 	}
 

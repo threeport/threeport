@@ -164,7 +164,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 			AwsAccountName:             w.AwsObjectStorageBucket.AwsAccountName,
 			PublicReadAccess:           w.AwsObjectStorageBucket.PublicReadAccess,
 			WorkloadServiceAccountName: w.AwsObjectStorageBucket.WorkloadServiceAccountName,
-			WorkloadBucketConfigMap:    w.AwsObjectStorageBucket.WorkloadBucketConfigMap,
+			WorkloadBucketEnvVar:       w.AwsObjectStorageBucket.WorkloadBucketEnvVar,
 			WorkloadInstance: &WorkloadInstanceValues{
 				Name: defaultInstanceName(w.Name),
 			},

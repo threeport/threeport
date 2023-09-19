@@ -162,9 +162,9 @@ type AwsObjectStorageBucketDefinition struct {
 	// service accounts (IRSA).
 	WorkloadServiceAccountName *string `json:"WorkloadServiceAccountName,omitempty" query:"workloadserviceaccountname" gorm:"not null" validate:"required"`
 
-	// The name of the Kubernetes configmap that will supply the name of the S3
-	// bucket to the workload.
-	WorkloadBucketConfigMap *string `json:"WorkloadBucketConfigMap,omitempty" query:"WorkloadBucketConfigMap" gorm:"not null" validate:"required"`
+	// The environment variable key that the workload is expecting to reference
+	// for the name of the S3 bucket managed by threeport.
+	WorkloadBucketEnvVar *string `json:"WorkloadBucketEnvVar,omitempty" query:"workloadbucketenvvar" gorm:"not null" validate:"required"`
 
 	// The AWS account in which the RDS instance will be provisioned.
 	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`

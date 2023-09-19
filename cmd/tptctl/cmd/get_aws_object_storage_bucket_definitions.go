@@ -84,7 +84,7 @@ var GetAwsObjectStorageBucketDefinitionsCmd = &cobra.Command{
 			}
 			fmt.Fprintln(
 				writer, *r.Name, "\t", *r.PublicReadAccess, "\t", *r.WorkloadServiceAccountName, "\t",
-				*r.WorkloadBucketConfigMap, "\t", awsAccountName, "\t", util.GetAge(r.CreatedAt),
+				*r.WorkloadBucketEnvVar, "\t", awsAccountName, "\t", util.GetAge(r.CreatedAt),
 			)
 		}
 		writer.Flush()
