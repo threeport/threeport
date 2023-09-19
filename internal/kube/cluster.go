@@ -281,6 +281,16 @@ func refreshEKSConnection(
 		return nil, fmt.Errorf("failed to get EKS cluster connection info for token refresh: %w", err)
 	}
 
+	// generate rest config
+	tlsConfig := rest.TLSClientConfig{
+		CAData: []byte(eksClusterConn.CACertificate),
+	}
+	restConfig := rest.Config{
+		Host:            eksClusterConn.APIEndpoint,
+		BearerToken:     eksClusterConn.Token,
+		TLSClientConfig: tlsConfig,
+	}
+
 	// update threeport API with new connection info
 	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
 	runtimeInstance.ConnectionToken = &eksClusterConn.Token
@@ -292,16 +302,6 @@ func refreshEKSConnection(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update kubernetes runtime instance kubernetes connection info: %w", err)
-	}
-
-	// generate rest config
-	tlsConfig := rest.TLSClientConfig{
-		CAData: []byte(eksClusterConn.CACertificate),
-	}
-	restConfig := rest.Config{
-		Host:            eksClusterConn.APIEndpoint,
-		BearerToken:     eksClusterConn.Token,
-		TLSClientConfig: tlsConfig,
 	}
 
 	return &restConfig, nil
