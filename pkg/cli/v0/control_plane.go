@@ -297,6 +297,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 				return fmt.Errorf("caller identity ARN %s does not match expected ARN %s", *callerIdentity.Arn, *runtimeManagementRole.Arn)
 			}
 
+			// wait 5 seconds to allow IAM resources to become available
+			time.Sleep(time.Second * 5)
+
 			Info("IAM resources created")
 			return nil
 		})
