@@ -319,16 +319,6 @@ func refreshEKSConnection(
 		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)
 	}
 
-	svc := sts.NewFromConfig(*awsConfig)
-	output, _ := svc.GetCallerIdentity(
-		context.Background(),
-		&sts.GetCallerIdentityInput{},
-	)
-	fmt.Println(*output.Account)
-	fmt.Println(*output.Arn)
-	fmt.Println(*output.UserId)
-	fmt.Println(*output)
-
 	// get connection info from AWS
 	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: *eksRuntimeInstance.Name}
 	if err := eksClusterConn.Get(awsConfig); err != nil {

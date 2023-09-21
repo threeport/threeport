@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gorm.io/datatypes"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -244,7 +246,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// IAM Service Account for runtime management
-		_, accessKey, err := CreateServiceAccount(
+		_, accessKey, err = CreateServiceAccount(
 			*serviceAccountPolicy.Arn,
 			cpi.Opts.Name,
 			awsConfig,
@@ -253,7 +255,8 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return err
 		}
 
-		awsConfServiceAccount, err := resource.LoadAWSConfigFromAPIKeys(
+		// update awsConfig to point to new service account
+		awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
 			*accessKey.AccessKeyId,
 			*accessKey.SecretAccessKey,
 			"",
@@ -262,6 +265,27 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with access and secret keys: %w", err)
+		}
+
+		// wait for IAM resources to be available
+		svc := sts.NewFromConfig(*awsConfig)
+		err = util.Retry(10, 1, func() error {
+			callerIdentity, err := svc.GetCallerIdentity(
+				context.Background(),
+				&sts.GetCallerIdentityInput{},
+			)
+			if err != nil {
+				return fmt.Errorf("failed to get caller identity: %w", err)
+			}
+
+			// check that the caller identity ARN matches the expected ARN
+			if callerIdentity.Arn != runtimeManagementRole.Arn {
+				return fmt.Errorf("caller identity ARN %s does not match expected ARN %s", *callerIdentity.Arn, *runtimeManagementRole.Arn)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
 		}
 
 		// create a resource client to create EKS resources
@@ -314,7 +338,6 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			AwsAccountID:                 cpi.Opts.CreateProviderAccountID,
 			AwsConfig:                    awsConfig,
 			ResourceClient:               resourceClient,
-			ServiceAccountAwsConfig:      awsConfServiceAccount,
 			ZoneCount:                    int32(2),
 			DefaultNodeGroupInstanceType: "t3.medium",
 			DefaultNodeGroupInitialNodes: int32(3),
