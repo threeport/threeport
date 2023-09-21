@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/smithy-go"
 	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gopkg.in/ini.v1"
@@ -173,21 +175,37 @@ func GetKeysFromLocalConfig(profile string) (string, string, error) {
 	return accessKeyID, secretAccessKey, nil
 }
 
+// DeleteThreeportIamResources deletes the IAM resources created by threeport
+// for a given cluster.
 func DeleteThreeportIamResources(instanceName string, awsConfig aws.Config) error {
 	var nse *types.NoSuchEntityException
 	var err error
-	if err = DeleteRole(instanceName, awsConfig); err != nil && !errors.As(err, &nse) {
+	if err = DeleteRole(instanceName, awsConfig); err != nil && !isException(&err, nse.ErrorCode()) {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
 
-	if err = DeleteServiceAccountPolicy(instanceName, awsConfig); err != nil && !errors.As(err, &nse) {
+	if err = DeleteServiceAccountPolicy(instanceName, awsConfig); err != nil && !isException(&err, nse.ErrorCode()) {
 		return fmt.Errorf("failed to delete service account policy: %w", err)
 	}
 
-	if err = DeleteServiceAccount(instanceName, awsConfig); err != nil && !errors.As(err, &nse) {
+	if err = DeleteServiceAccount(instanceName, awsConfig); err != nil && !isException(&err, nse.ErrorCode()) {
 		return fmt.Errorf("failed to delete service account: %w", err)
 	}
 	return nil
+}
+
+// isException checks if an error is an AWS API exception
+// and updates the existing error with the exception details.
+func isException(err *error, exception string) bool {
+	var ae smithy.APIError
+	if errors.As(*err, &ae) {
+		if exception != "" && strings.Contains((*err).Error(), exception) {
+			return true
+		}
+		newError := fmt.Errorf("code: %s, message: %s, fault: %s", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+		*err = newError
+	}
+	return false
 }
 
 // CreateServiceAccountPolicy creates the IAM policy to be used for the
@@ -231,6 +249,8 @@ func CreateServiceAccountPolicy(
 	return serviceAccountPolicyResp.Policy, nil
 }
 
+// DeleteServiceAccountPolicy deletes the IAM policy used by the threeport
+// service account.
 func DeleteServiceAccountPolicy(
 	clusterName string,
 	awsConfig aws.Config,
@@ -244,7 +264,7 @@ func DeleteServiceAccountPolicy(
 			UserName: &runtimeServiceAccount,
 		})
 	if err != nil {
-		return fmt.Errorf("failed to list attached user policies: %s\n", err)
+		return fmt.Errorf("failed to list attached user policies: %s", err)
 	}
 
 	for _, policy := range attachedPolicies.AttachedPolicies {
@@ -255,7 +275,7 @@ func DeleteServiceAccountPolicy(
 				UserName:  &runtimeServiceAccount,
 			})
 		if err != nil {
-			return fmt.Errorf("failed to detach user policy: %s\n", err)
+			return fmt.Errorf("failed to detach user policy: %s", err)
 		}
 		_, err = svc.DeletePolicy(
 			context.Background(),
@@ -263,13 +283,15 @@ func DeleteServiceAccountPolicy(
 				PolicyArn: policy.PolicyArn,
 			})
 		if err != nil {
-			return fmt.Errorf("failed to delete policy: %s\n", err)
+			return fmt.Errorf("failed to delete policy: %s", err)
 		}
 	}
 
 	return nil
 }
 
+// CreateServiceAccount creates the IAM user and access key for the threeport
+// service account.
 func CreateServiceAccount(serviceAccountPolicyArn, clusterName string, awsConfig *aws.Config) (*types.User, *types.AccessKey, error) {
 	svc := iam.NewFromConfig(*awsConfig)
 	runtimeServiceAccount := fmt.Sprintf("%s-%s", RuntimeServiceAccount, clusterName)
@@ -308,6 +330,8 @@ func CreateServiceAccount(serviceAccountPolicyArn, clusterName string, awsConfig
 	return createUserOutput.User, createAccessKeyOutput.AccessKey, nil
 }
 
+// DeleteServiceAccount deletes the IAM user and access key for the threeport
+// service account.
 func DeleteServiceAccount(
 	clusterName string,
 	awsConfig aws.Config,
@@ -512,6 +536,7 @@ func CreateRuntimeManagementRole(
 	return runtimeManagementRoleResp.Role, nil
 }
 
+// DeleteRole deletes the IAM role used by the threeport service account.
 func DeleteRole(
 	clusterName string,
 	awsConfig aws.Config,
