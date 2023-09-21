@@ -178,31 +178,39 @@ func GetKeysFromLocalConfig(profile string) (string, string, error) {
 // DeleteThreeportIamResources deletes the IAM resources created by threeport
 // for a given cluster.
 func DeleteThreeportIamResources(instanceName string, awsConfig aws.Config) error {
-	var nse *types.NoSuchEntityException
+	// var nse types.NoSuchEntityException
 	var err error
-	if err = DeleteRole(instanceName, awsConfig); err != nil && !isException(&err, nse.ErrorCode()) {
+	if err = DeleteRole(instanceName, awsConfig); err != nil && !IsException(&err, "NoSuchEntity") {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
 
-	if err = DeleteServiceAccountPolicy(instanceName, awsConfig); err != nil && !isException(&err, nse.ErrorCode()) {
+	if err = DeleteServiceAccountPolicy(instanceName, awsConfig); err != nil && !IsException(&err, "NoSuchEntity") {
 		return fmt.Errorf("failed to delete service account policy: %w", err)
 	}
 
-	if err = DeleteServiceAccount(instanceName, awsConfig); err != nil && !isException(&err, nse.ErrorCode()) {
+	if err = DeleteServiceAccount(instanceName, awsConfig); err != nil && !IsException(&err, "NoSuchEntity") {
 		return fmt.Errorf("failed to delete service account: %w", err)
 	}
 	return nil
 }
 
-// isException checks if an error is an AWS API exception
-// and updates the existing error with the exception details.
-func isException(err *error, exception string) bool {
+// IsException returns true if the error is a specific exception,
+// otherwise it returns false and updates the error with additional context.
+func IsException(err *error, exception string) bool {
 	var ae smithy.APIError
+	var oe *smithy.OperationError
 	if errors.As(*err, &ae) {
 		if exception != "" && strings.Contains((*err).Error(), exception) {
 			return true
 		}
 		newError := fmt.Errorf("code: %s, message: %s, fault: %s", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+		*err = newError
+	}
+	if errors.As(*err, &oe) {
+		if exception != "" && strings.Contains((*err).Error(), exception) {
+			return true
+		}
+		newError := fmt.Errorf("failed to call service: %s, operation: %s, error: %v", oe.Service(), oe.Operation(), oe.Unwrap())
 		*err = newError
 	}
 	return false

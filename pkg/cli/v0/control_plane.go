@@ -247,6 +247,10 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			awsConfigUser,
 		)
 		if err != nil {
+			if provider.IsException(&err, "EntityAlreadyExists") {
+				return fmt.Errorf("failed to create service account policy: %w", err)
+			}
+
 			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
 			if deleteErr != nil {
 				return fmt.Errorf("failed to create service account policy: %w, failed to delete IAM resources: %w", err, deleteErr)
@@ -261,6 +265,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			&awsConfigUser,
 		)
 		if err != nil {
+			if provider.IsException(&err, "EntityAlreadyExists") {
+				return fmt.Errorf("failed to create service account policy: %w", err)
+			}
 			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
 			if deleteErr != nil {
 				return fmt.Errorf("failed to create service account: %w, failed to delete IAM resources: %w", err, deleteErr)
@@ -1357,13 +1364,6 @@ func cleanOnCreateError(
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 
-		Info("Deleting Threeport AWS IAM")
-		err := provider.DeleteThreeportIamResources(a.InstanceName, awsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
-		}
-		Info("Threeport AWS IAM resources deleted")
-
 		// allow 2 seconds for pending inventory writes to complete
 		time.Sleep(time.Second * 2)
 		inventory, invErr := resource.ReadInventory(
@@ -1380,6 +1380,13 @@ func cleanOnCreateError(
 		return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", createErr, deleteErr)
 	}
 	Info("Created Threeport infra deleted due to error")
+
+	Info("Deleting Threeport AWS IAM")
+	err := provider.DeleteThreeportIamResources(a.InstanceName, awsConfig)
+	if err != nil {
+		return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
+	}
+	Info("Threeport AWS IAM resources deleted")
 
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
