@@ -29,9 +29,6 @@ type KubernetesRuntimeInfraEKS struct {
 	// The configuration containing credentials to connect to an AWS account.
 	AwsConfig *aws.Config
 
-	// The AWS config used by the workload controller.
-	ServiceAccountAwsConfig *aws.Config
-
 	// The eks-cluster client used to create AWS EKS resources.
 	ResourceClient *resource.ResourceClient
 
@@ -91,22 +88,9 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 		return nil, fmt.Errorf("failed to create eks resource stack: %w", err)
 	}
 
-	svc := sts.NewFromConfig(*i.ServiceAccountAwsConfig)
-	output, err := svc.GetCallerIdentity(
-		context.Background(),
-		&sts.GetCallerIdentityInput{},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get caller identity: %w", err)
-	}
-	fmt.Println(*output.Account)
-	fmt.Println(*output.Arn)
-	fmt.Println(*output.UserId)
-	fmt.Println(*output)
-
 	// get kubernetes API connection info
 	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: i.RuntimeInstanceName}
-	if err := eksClusterConn.Get(i.ServiceAccountAwsConfig); err != nil {
+	if err := eksClusterConn.Get(i.AwsConfig); err != nil {
 		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
 	}
 	kubeConnInfo := kube.KubeConnectionInfo{
