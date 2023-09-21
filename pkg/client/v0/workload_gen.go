@@ -71,9 +71,9 @@ func GetWorkloadDefinitionByID(apiClient *http.Client, apiAddr string, id uint) 
 	return &workloadDefinition, nil
 }
 
-// GetWorkloadDefinitionByID fetches a workload definition by provided query string.
-func GetWorkloadDefinitionByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.WorkloadDefinition, error) {
-	var workloadDefinition v0.WorkloadDefinition
+// GetWorkloadDefinitionsByQueryString fetches workload definitions by provided query string.
+func GetWorkloadDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadDefinition, error) {
+	var workloadDefinitions []v0.WorkloadDefinition
 
 	response, err := GetResponse(
 		apiClient,
@@ -83,21 +83,21 @@ func GetWorkloadDefinitionByQueryString(apiClient *http.Client, apiAddr string, 
 		http.StatusOK,
 	)
 	if err != nil {
-		return &workloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &workloadDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &workloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &workloadDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&workloadDefinition); err != nil {
+	if err := decoder.Decode(&workloadDefinitions); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &workloadDefinition, nil
+	return &workloadDefinitions, nil
 }
 
 // GetWorkloadDefinitionByName fetches a workload definition by name.
@@ -297,9 +297,9 @@ func GetWorkloadResourceDefinitionByID(apiClient *http.Client, apiAddr string, i
 	return &workloadResourceDefinition, nil
 }
 
-// GetWorkloadResourceDefinitionByID fetches a workload resource definition by provided query string.
-func GetWorkloadResourceDefinitionByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.WorkloadResourceDefinition, error) {
-	var workloadResourceDefinition v0.WorkloadResourceDefinition
+// GetWorkloadResourceDefinitionsByQueryString fetches workload resource definitions by provided query string.
+func GetWorkloadResourceDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadResourceDefinition, error) {
+	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 	response, err := GetResponse(
 		apiClient,
@@ -309,21 +309,21 @@ func GetWorkloadResourceDefinitionByQueryString(apiClient *http.Client, apiAddr 
 		http.StatusOK,
 	)
 	if err != nil {
-		return &workloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &workloadResourceDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &workloadResourceDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &workloadResourceDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&workloadResourceDefinition); err != nil {
+	if err := decoder.Decode(&workloadResourceDefinitions); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &workloadResourceDefinition, nil
+	return &workloadResourceDefinitions, nil
 }
 
 // GetWorkloadResourceDefinitionByName fetches a workload resource definition by name.
@@ -523,9 +523,9 @@ func GetWorkloadInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*
 	return &workloadInstance, nil
 }
 
-// GetWorkloadInstanceByID fetches a workload instance by provided query string.
-func GetWorkloadInstanceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.WorkloadInstance, error) {
-	var workloadInstance v0.WorkloadInstance
+// GetWorkloadInstancesByQueryString fetches workload instances by provided query string.
+func GetWorkloadInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadInstance, error) {
+	var workloadInstances []v0.WorkloadInstance
 
 	response, err := GetResponse(
 		apiClient,
@@ -535,21 +535,21 @@ func GetWorkloadInstanceByQueryString(apiClient *http.Client, apiAddr string, qu
 		http.StatusOK,
 	)
 	if err != nil {
-		return &workloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &workloadInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &workloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &workloadInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&workloadInstance); err != nil {
+	if err := decoder.Decode(&workloadInstances); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &workloadInstance, nil
+	return &workloadInstances, nil
 }
 
 // GetWorkloadInstanceByName fetches a workload instance by name.
@@ -749,9 +749,9 @@ func GetAttachedObjectReferenceByID(apiClient *http.Client, apiAddr string, id u
 	return &attachedObjectReference, nil
 }
 
-// GetAttachedObjectReferenceByID fetches a attached object reference by provided query string.
-func GetAttachedObjectReferenceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AttachedObjectReference, error) {
-	var attachedObjectReference v0.AttachedObjectReference
+// GetAttachedObjectReferencesByQueryString fetches attached object references by provided query string.
+func GetAttachedObjectReferencesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AttachedObjectReference, error) {
+	var attachedObjectReferences []v0.AttachedObjectReference
 
 	response, err := GetResponse(
 		apiClient,
@@ -761,21 +761,21 @@ func GetAttachedObjectReferenceByQueryString(apiClient *http.Client, apiAddr str
 		http.StatusOK,
 	)
 	if err != nil {
-		return &attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &attachedObjectReference, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&attachedObjectReference); err != nil {
+	if err := decoder.Decode(&attachedObjectReferences); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &attachedObjectReference, nil
+	return &attachedObjectReferences, nil
 }
 
 // GetAttachedObjectReferenceByName fetches a attached object reference by name.
@@ -975,9 +975,9 @@ func GetWorkloadResourceInstanceByID(apiClient *http.Client, apiAddr string, id 
 	return &workloadResourceInstance, nil
 }
 
-// GetWorkloadResourceInstanceByID fetches a workload resource instance by provided query string.
-func GetWorkloadResourceInstanceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.WorkloadResourceInstance, error) {
-	var workloadResourceInstance v0.WorkloadResourceInstance
+// GetWorkloadResourceInstancesByQueryString fetches workload resource instances by provided query string.
+func GetWorkloadResourceInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadResourceInstance, error) {
+	var workloadResourceInstances []v0.WorkloadResourceInstance
 
 	response, err := GetResponse(
 		apiClient,
@@ -987,21 +987,21 @@ func GetWorkloadResourceInstanceByQueryString(apiClient *http.Client, apiAddr st
 		http.StatusOK,
 	)
 	if err != nil {
-		return &workloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &workloadResourceInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &workloadResourceInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &workloadResourceInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&workloadResourceInstance); err != nil {
+	if err := decoder.Decode(&workloadResourceInstances); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &workloadResourceInstance, nil
+	return &workloadResourceInstances, nil
 }
 
 // GetWorkloadResourceInstanceByName fetches a workload resource instance by name.
@@ -1201,9 +1201,9 @@ func GetWorkloadEventByID(apiClient *http.Client, apiAddr string, id uint) (*v0.
 	return &workloadEvent, nil
 }
 
-// GetWorkloadEventByID fetches a workload event by provided query string.
-func GetWorkloadEventByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.WorkloadEvent, error) {
-	var workloadEvent v0.WorkloadEvent
+// GetWorkloadEventsByQueryString fetches workload events by provided query string.
+func GetWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadEvent, error) {
+	var workloadEvents []v0.WorkloadEvent
 
 	response, err := GetResponse(
 		apiClient,
@@ -1213,21 +1213,21 @@ func GetWorkloadEventByQueryString(apiClient *http.Client, apiAddr string, query
 		http.StatusOK,
 	)
 	if err != nil {
-		return &workloadEvent, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &workloadEvents, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &workloadEvent, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &workloadEvents, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&workloadEvent); err != nil {
+	if err := decoder.Decode(&workloadEvents); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &workloadEvent, nil
+	return &workloadEvents, nil
 }
 
 // GetWorkloadEventByName fetches a workload event by name.

@@ -71,9 +71,9 @@ func GetAwsAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Aws
 	return &awsAccount, nil
 }
 
-// GetAwsAccountByID fetches a aws account by provided query string.
-func GetAwsAccountByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AwsAccount, error) {
-	var awsAccount v0.AwsAccount
+// GetAwsAccountsByQueryString fetches aws accounts by provided query string.
+func GetAwsAccountsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsAccount, error) {
+	var awsAccounts []v0.AwsAccount
 
 	response, err := GetResponse(
 		apiClient,
@@ -83,21 +83,21 @@ func GetAwsAccountByQueryString(apiClient *http.Client, apiAddr string, queryStr
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsAccounts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsAccounts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsAccount); err != nil {
+	if err := decoder.Decode(&awsAccounts); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsAccount, nil
+	return &awsAccounts, nil
 }
 
 // GetAwsAccountByName fetches a aws account by name.
@@ -297,9 +297,9 @@ func GetAwsEksKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr st
 	return &awsEksKubernetesRuntimeDefinition, nil
 }
 
-// GetAwsEksKubernetesRuntimeDefinitionByID fetches a aws eks kubernetes runtime definition by provided query string.
-func GetAwsEksKubernetesRuntimeDefinitionByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
-	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
+// GetAwsEksKubernetesRuntimeDefinitionsByQueryString fetches aws eks kubernetes runtime definitions by provided query string.
+func GetAwsEksKubernetesRuntimeDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsEksKubernetesRuntimeDefinition, error) {
+	var awsEksKubernetesRuntimeDefinitions []v0.AwsEksKubernetesRuntimeDefinition
 
 	response, err := GetResponse(
 		apiClient,
@@ -309,21 +309,21 @@ func GetAwsEksKubernetesRuntimeDefinitionByQueryString(apiClient *http.Client, a
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsEksKubernetesRuntimeDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsEksKubernetesRuntimeDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinition); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinitions); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsEksKubernetesRuntimeDefinition, nil
+	return &awsEksKubernetesRuntimeDefinitions, nil
 }
 
 // GetAwsEksKubernetesRuntimeDefinitionByName fetches a aws eks kubernetes runtime definition by name.
@@ -523,9 +523,9 @@ func GetAwsEksKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr stri
 	return &awsEksKubernetesRuntimeInstance, nil
 }
 
-// GetAwsEksKubernetesRuntimeInstanceByID fetches a aws eks kubernetes runtime instance by provided query string.
-func GetAwsEksKubernetesRuntimeInstanceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
-	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+// GetAwsEksKubernetesRuntimeInstancesByQueryString fetches aws eks kubernetes runtime instances by provided query string.
+func GetAwsEksKubernetesRuntimeInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsEksKubernetesRuntimeInstance, error) {
+	var awsEksKubernetesRuntimeInstances []v0.AwsEksKubernetesRuntimeInstance
 
 	response, err := GetResponse(
 		apiClient,
@@ -535,21 +535,21 @@ func GetAwsEksKubernetesRuntimeInstanceByQueryString(apiClient *http.Client, api
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsEksKubernetesRuntimeInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsEksKubernetesRuntimeInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsEksKubernetesRuntimeInstance); err != nil {
+	if err := decoder.Decode(&awsEksKubernetesRuntimeInstances); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsEksKubernetesRuntimeInstance, nil
+	return &awsEksKubernetesRuntimeInstances, nil
 }
 
 // GetAwsEksKubernetesRuntimeInstanceByName fetches a aws eks kubernetes runtime instance by name.
@@ -749,9 +749,9 @@ func GetAwsRelationalDatabaseDefinitionByID(apiClient *http.Client, apiAddr stri
 	return &awsRelationalDatabaseDefinition, nil
 }
 
-// GetAwsRelationalDatabaseDefinitionByID fetches a aws relational database definition by provided query string.
-func GetAwsRelationalDatabaseDefinitionByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AwsRelationalDatabaseDefinition, error) {
-	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
+// GetAwsRelationalDatabaseDefinitionsByQueryString fetches aws relational database definitions by provided query string.
+func GetAwsRelationalDatabaseDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsRelationalDatabaseDefinition, error) {
+	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
 
 	response, err := GetResponse(
 		apiClient,
@@ -761,21 +761,21 @@ func GetAwsRelationalDatabaseDefinitionByQueryString(apiClient *http.Client, api
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsRelationalDatabaseDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsRelationalDatabaseDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsRelationalDatabaseDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsRelationalDatabaseDefinition); err != nil {
+	if err := decoder.Decode(&awsRelationalDatabaseDefinitions); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsRelationalDatabaseDefinition, nil
+	return &awsRelationalDatabaseDefinitions, nil
 }
 
 // GetAwsRelationalDatabaseDefinitionByName fetches a aws relational database definition by name.
@@ -975,9 +975,9 @@ func GetAwsRelationalDatabaseInstanceByID(apiClient *http.Client, apiAddr string
 	return &awsRelationalDatabaseInstance, nil
 }
 
-// GetAwsRelationalDatabaseInstanceByID fetches a aws relational database instance by provided query string.
-func GetAwsRelationalDatabaseInstanceByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.AwsRelationalDatabaseInstance, error) {
-	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
+// GetAwsRelationalDatabaseInstancesByQueryString fetches aws relational database instances by provided query string.
+func GetAwsRelationalDatabaseInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsRelationalDatabaseInstance, error) {
+	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
 
 	response, err := GetResponse(
 		apiClient,
@@ -987,21 +987,21 @@ func GetAwsRelationalDatabaseInstanceByQueryString(apiClient *http.Client, apiAd
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsRelationalDatabaseInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsRelationalDatabaseInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsRelationalDatabaseInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsRelationalDatabaseInstance); err != nil {
+	if err := decoder.Decode(&awsRelationalDatabaseInstances); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsRelationalDatabaseInstance, nil
+	return &awsRelationalDatabaseInstances, nil
 }
 
 // GetAwsRelationalDatabaseInstanceByName fetches a aws relational database instance by name.
@@ -1140,4 +1140,456 @@ func DeleteAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 	}
 
 	return &awsRelationalDatabaseInstance, nil
+}
+
+// GetAwsObjectStorageBucketDefinitions fetches all aws object storage bucket definitions.
+// TODO: implement pagination
+func GetAwsObjectStorageBucketDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.AwsObjectStorageBucketDefinition, error) {
+	var awsObjectStorageBucketDefinitions []v0.AwsObjectStorageBucketDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions", apiAddr, ApiVersion),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsObjectStorageBucketDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketDefinitions, nil
+}
+
+// GetAwsObjectStorageBucketDefinitionByID fetches a aws object storage bucket definition by ID.
+func GetAwsObjectStorageBucketDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsObjectStorageBucketDefinition, error) {
+	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketDefinition, nil
+}
+
+// GetAwsObjectStorageBucketDefinitionsByQueryString fetches aws object storage bucket definitions by provided query string.
+func GetAwsObjectStorageBucketDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsObjectStorageBucketDefinition, error) {
+	var awsObjectStorageBucketDefinitions []v0.AwsObjectStorageBucketDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsObjectStorageBucketDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketDefinitions, nil
+}
+
+// GetAwsObjectStorageBucketDefinitionByName fetches a aws object storage bucket definition by name.
+func GetAwsObjectStorageBucketDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsObjectStorageBucketDefinition, error) {
+	var awsObjectStorageBucketDefinitions []v0.AwsObjectStorageBucketDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions?name=%s", apiAddr, ApiVersion, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.AwsObjectStorageBucketDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.AwsObjectStorageBucketDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(awsObjectStorageBucketDefinitions) < 1:
+		return &v0.AwsObjectStorageBucketDefinition{}, errors.New(fmt.Sprintf("no aws object storage bucket definition with name %s", name))
+	case len(awsObjectStorageBucketDefinitions) > 1:
+		return &v0.AwsObjectStorageBucketDefinition{}, errors.New(fmt.Sprintf("more than one aws object storage bucket definition with name %s returned", name))
+	}
+
+	return &awsObjectStorageBucketDefinitions[0], nil
+}
+
+// CreateAwsObjectStorageBucketDefinition creates a new aws object storage bucket definition.
+func CreateAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr string, awsObjectStorageBucketDefinition *v0.AwsObjectStorageBucketDefinition) (*v0.AwsObjectStorageBucketDefinition, error) {
+	jsonAwsObjectStorageBucketDefinition, err := util.MarshalObject(awsObjectStorageBucketDefinition)
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions", apiAddr, ApiVersion),
+		http.MethodPost,
+		bytes.NewBuffer(jsonAwsObjectStorageBucketDefinition),
+		http.StatusCreated,
+	)
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return awsObjectStorageBucketDefinition, nil
+}
+
+// UpdateAwsObjectStorageBucketDefinition updates a aws object storage bucket definition.
+func UpdateAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr string, awsObjectStorageBucketDefinition *v0.AwsObjectStorageBucketDefinition) (*v0.AwsObjectStorageBucketDefinition, error) {
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	awsObjectStorageBucketDefinitionID := *awsObjectStorageBucketDefinition.ID
+	payloadAwsObjectStorageBucketDefinition := *awsObjectStorageBucketDefinition
+	payloadAwsObjectStorageBucketDefinition.ID = nil
+	payloadAwsObjectStorageBucketDefinition.CreatedAt = nil
+	payloadAwsObjectStorageBucketDefinition.UpdatedAt = nil
+
+	jsonAwsObjectStorageBucketDefinition, err := util.MarshalObject(payloadAwsObjectStorageBucketDefinition)
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions/%d", apiAddr, ApiVersion, awsObjectStorageBucketDefinitionID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonAwsObjectStorageBucketDefinition),
+		http.StatusOK,
+	)
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAwsObjectStorageBucketDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAwsObjectStorageBucketDefinition.ID = &awsObjectStorageBucketDefinitionID
+	return &payloadAwsObjectStorageBucketDefinition, nil
+}
+
+// DeleteAwsObjectStorageBucketDefinition deletes a aws object storage bucket definition by ID.
+func DeleteAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsObjectStorageBucketDefinition, error) {
+	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions/%d", apiAddr, ApiVersion, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketDefinition, nil
+}
+
+// GetAwsObjectStorageBucketInstances fetches all aws object storage bucket instances.
+// TODO: implement pagination
+func GetAwsObjectStorageBucketInstances(apiClient *http.Client, apiAddr string) (*[]v0.AwsObjectStorageBucketInstance, error) {
+	var awsObjectStorageBucketInstances []v0.AwsObjectStorageBucketInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances", apiAddr, ApiVersion),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsObjectStorageBucketInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketInstances, nil
+}
+
+// GetAwsObjectStorageBucketInstanceByID fetches a aws object storage bucket instance by ID.
+func GetAwsObjectStorageBucketInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsObjectStorageBucketInstance, error) {
+	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketInstance, nil
+}
+
+// GetAwsObjectStorageBucketInstancesByQueryString fetches aws object storage bucket instances by provided query string.
+func GetAwsObjectStorageBucketInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsObjectStorageBucketInstance, error) {
+	var awsObjectStorageBucketInstances []v0.AwsObjectStorageBucketInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsObjectStorageBucketInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketInstances, nil
+}
+
+// GetAwsObjectStorageBucketInstanceByName fetches a aws object storage bucket instance by name.
+func GetAwsObjectStorageBucketInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsObjectStorageBucketInstance, error) {
+	var awsObjectStorageBucketInstances []v0.AwsObjectStorageBucketInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances?name=%s", apiAddr, ApiVersion, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.AwsObjectStorageBucketInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.AwsObjectStorageBucketInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(awsObjectStorageBucketInstances) < 1:
+		return &v0.AwsObjectStorageBucketInstance{}, errors.New(fmt.Sprintf("no aws object storage bucket instance with name %s", name))
+	case len(awsObjectStorageBucketInstances) > 1:
+		return &v0.AwsObjectStorageBucketInstance{}, errors.New(fmt.Sprintf("more than one aws object storage bucket instance with name %s returned", name))
+	}
+
+	return &awsObjectStorageBucketInstances[0], nil
+}
+
+// CreateAwsObjectStorageBucketInstance creates a new aws object storage bucket instance.
+func CreateAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string, awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance) (*v0.AwsObjectStorageBucketInstance, error) {
+	jsonAwsObjectStorageBucketInstance, err := util.MarshalObject(awsObjectStorageBucketInstance)
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances", apiAddr, ApiVersion),
+		http.MethodPost,
+		bytes.NewBuffer(jsonAwsObjectStorageBucketInstance),
+		http.StatusCreated,
+	)
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return awsObjectStorageBucketInstance, nil
+}
+
+// UpdateAwsObjectStorageBucketInstance updates a aws object storage bucket instance.
+func UpdateAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string, awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance) (*v0.AwsObjectStorageBucketInstance, error) {
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	awsObjectStorageBucketInstanceID := *awsObjectStorageBucketInstance.ID
+	payloadAwsObjectStorageBucketInstance := *awsObjectStorageBucketInstance
+	payloadAwsObjectStorageBucketInstance.ID = nil
+	payloadAwsObjectStorageBucketInstance.CreatedAt = nil
+	payloadAwsObjectStorageBucketInstance.UpdatedAt = nil
+
+	jsonAwsObjectStorageBucketInstance, err := util.MarshalObject(payloadAwsObjectStorageBucketInstance)
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances/%d", apiAddr, ApiVersion, awsObjectStorageBucketInstanceID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonAwsObjectStorageBucketInstance),
+		http.StatusOK,
+	)
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAwsObjectStorageBucketInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAwsObjectStorageBucketInstance.ID = &awsObjectStorageBucketInstanceID
+	return &payloadAwsObjectStorageBucketInstance, nil
+}
+
+// DeleteAwsObjectStorageBucketInstance deletes a aws object storage bucket instance by ID.
+func DeleteAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsObjectStorageBucketInstance, error) {
+	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances/%d", apiAddr, ApiVersion, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketInstance, nil
 }

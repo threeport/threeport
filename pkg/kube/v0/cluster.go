@@ -67,7 +67,7 @@ func GetClient(
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (dynamic.Interface, *meta.RESTMapper, error) {
-	restConfig, err := getRESTConfig(
+	restConfig, err := GetRestConfig(
 		runtime,
 		threeportControlPlane,
 		threeportAPIClient,
@@ -115,7 +115,7 @@ func GetDiscoveryClient(
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (*discovery.DiscoveryClient, error) {
-	restConfig, err := getRESTConfig(
+	restConfig, err := GetRestConfig(
 		runtime,
 		threeportControlPlane,
 		threeportAPIClient,
@@ -134,9 +134,9 @@ func GetDiscoveryClient(
 	return discoveryClient, nil
 }
 
-// getRESTConfig takes a kubernetes runtime instance and returns a REST config
+// GetRestConfig takes a kubernetes runtime instance and returns a REST config
 // for the kubernetes API.
-func getRESTConfig(
+func GetRestConfig(
 	runtime *v0.KubernetesRuntimeInstance,
 	threeportControlPlane bool,
 	threeportAPIClient *http.Client,
@@ -320,6 +320,16 @@ func refreshEKSConnection(
 		return nil, fmt.Errorf("failed to get EKS cluster connection info for token refresh: %w", err)
 	}
 
+	// generate updated rest config
+	tlsConfig := rest.TLSClientConfig{
+		CAData: []byte(eksClusterConn.CACertificate),
+	}
+	restConfig := rest.Config{
+		Host:            eksClusterConn.APIEndpoint,
+		BearerToken:     eksClusterConn.Token,
+		TLSClientConfig: tlsConfig,
+	}
+
 	// update threeport API with new connection info
 	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
 	runtimeInstance.ConnectionToken = &eksClusterConn.Token
@@ -331,16 +341,6 @@ func refreshEKSConnection(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update kubernetes runtime instance kubernetes connection info: %w", err)
-	}
-
-	// generate rest config
-	tlsConfig := rest.TLSClientConfig{
-		CAData: []byte(eksClusterConn.CACertificate),
-	}
-	restConfig := rest.Config{
-		Host:            eksClusterConn.APIEndpoint,
-		BearerToken:     eksClusterConn.Token,
-		TLSClientConfig: tlsConfig,
 	}
 
 	return &restConfig, nil

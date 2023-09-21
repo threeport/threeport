@@ -10,6 +10,8 @@ func AddVersions() {
 	AddAwsEksKubernetesRuntimeInstanceVersions()
 	AddAwsRelationalDatabaseDefinitionVersions()
 	AddAwsRelationalDatabaseInstanceVersions()
+	AddAwsObjectStorageBucketDefinitionVersions()
+	AddAwsObjectStorageBucketInstanceVersions()
 	AddForwardProxyDefinitionVersions()
 	AddForwardProxyInstanceVersions()
 	AddGatewayDefinitionVersions()

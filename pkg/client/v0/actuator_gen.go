@@ -71,9 +71,9 @@ func GetProfileByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Profil
 	return &profile, nil
 }
 
-// GetProfileByID fetches a profile by provided query string.
-func GetProfileByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.Profile, error) {
-	var profile v0.Profile
+// GetProfilesByQueryString fetches profiles by provided query string.
+func GetProfilesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.Profile, error) {
+	var profiles []v0.Profile
 
 	response, err := GetResponse(
 		apiClient,
@@ -83,21 +83,21 @@ func GetProfileByQueryString(apiClient *http.Client, apiAddr string, queryString
 		http.StatusOK,
 	)
 	if err != nil {
-		return &profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &profiles, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &profile, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &profiles, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&profile); err != nil {
+	if err := decoder.Decode(&profiles); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &profile, nil
+	return &profiles, nil
 }
 
 // GetProfileByName fetches a profile by name.
@@ -297,9 +297,9 @@ func GetTierByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, err
 	return &tier, nil
 }
 
-// GetTierByID fetches a tier by provided query string.
-func GetTierByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*v0.Tier, error) {
-	var tier v0.Tier
+// GetTiersByQueryString fetches tiers by provided query string.
+func GetTiersByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.Tier, error) {
+	var tiers []v0.Tier
 
 	response, err := GetResponse(
 		apiClient,
@@ -309,21 +309,21 @@ func GetTierByQueryString(apiClient *http.Client, apiAddr string, queryString st
 		http.StatusOK,
 	)
 	if err != nil {
-		return &tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &tiers, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &tier, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &tiers, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&tier); err != nil {
+	if err := decoder.Decode(&tiers); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &tier, nil
+	return &tiers, nil
 }
 
 // GetTierByName fetches a tier by name.

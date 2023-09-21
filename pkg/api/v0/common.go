@@ -32,4 +32,10 @@ type Reconciliation struct {
 
 	// Used by controllers to confirm deletion of an object.
 	DeletionConfirmed *time.Time `json:"DeletionConfirmed,omitempty" query:"deletionconfirmed" validate:"optional"`
+
+	// InterruptReconciliation is used by the controller to indicated that future
+	// reconcilation should be interrupted.  Useful in cases where there is a
+	// situation where future reconciliation could be descructive such as
+	// spinning up more infrastructure when there is a unresolved problem.
+	InterruptReconciliation *bool `json:"InterruptReconciliation,omitempty" query:"interruptreconciliation" gorm:"default:false" validate:"optional"`
 }

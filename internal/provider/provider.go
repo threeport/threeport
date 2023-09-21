@@ -24,3 +24,9 @@ type KubernetesRuntimeInfra interface {
 func ThreeportRuntimeName(threeportInstanceName string) string {
 	return fmt.Sprintf("threeport-%s", threeportInstanceName)
 }
+
+// ThreeportProviderTags returns the standard tags applied to cloud provider
+// infrastructure resources to properly identify them.
+func ThreeportProviderTags() map[string]string {
+	return map[string]string{"ProvisionedBy": "threeport"}
+}

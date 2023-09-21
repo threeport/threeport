@@ -168,6 +168,99 @@ definitions:
     - KubernetesRuntimeInstanceID
     - Name
     type: object
+  v0.AwsObjectStorageBucketDefinition:
+    properties:
+      AwsAccountID:
+        description: The AWS account in which the RDS instance will be provisioned.
+        type: integer
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      PublicReadAccess:
+        description: |-
+          When true, objects in the bucket are publicly readable by anyone - for use
+          cases such as storing static assets for public websites.  When false,
+          only the workload attached to an AWSObjectStorageBucketInstance and the AWS users
+          on the account may access the bucket for read or write.
+        type: boolean
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      WorkloadBucketEnvVar:
+        description: |-
+          The environment variable key that the workload is expecting to reference
+          for the name of the S3 bucket managed by threeport.
+        type: string
+      WorkloadServiceAccountName:
+        description: |-
+          The name of the Kubernetes service account for the workload that will
+          access the S3 bucket.  Used to provide secure access using IAM roles for
+          service accounts (IRSA).
+        type: string
+    required:
+    - AwsAccountID
+    - Name
+    - WorkloadBucketEnvVar
+    - WorkloadServiceAccountName
+    type: object
+  v0.AwsObjectStorageBucketInstance:
+    properties:
+      AwsObjectStorageBucketDefinitionID:
+        description: The definition that configures this instance.
+        type: integer
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      ResourceInventory:
+        description: An inventory of all AWS resources for the S3 bucket.
+        items:
+          type: integer
+        type: array
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      WorkloadInstanceID:
+        description: The ID of the workload instance that uses the S3 bucket.
+        type: integer
+    required:
+    - AwsObjectStorageBucketDefinitionID
+    - Name
+    - WorkloadInstanceID
+    type: object
   v0.AwsRelationalDatabaseDefinition:
     properties:
       AwsAccountID:
@@ -249,6 +342,13 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       Name:
         description: An arbitrary name the instance
         type: string
@@ -304,6 +404,13 @@ definitions:
         items:
           $ref: '#/definitions/v0.DomainNameInstance'
         type: array
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -349,6 +456,13 @@ definitions:
       DomainNameDefinitionID:
         description: The definition used to define the instance.
         type: integer
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeInstanceID:
         description: The cluster where the workload that is using the domain name
           is running.
@@ -447,6 +561,13 @@ definitions:
       HTTPSRedirect:
         description: Redirect all requests to HTTP port to HTTPS.
         type: boolean
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -506,6 +627,13 @@ definitions:
         description: GatewayDefinitionID is the definition used to configure the workload
           instance.
         type: integer
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime where the ingress layer is installed.
         type: integer
@@ -562,6 +690,13 @@ definitions:
           The infra provider account ID.  Determines which account the infra is
           deployed on.
         type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeInstances:
         description: |-
           The associated kubernetes runtime instances that are deployed from this
@@ -656,6 +791,13 @@ definitions:
       GatewayWorkloadInstanceID:
         description: The WorkloadInstanceID of the gateway support service
         type: integer
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeDefinitionID:
         description: The kubernetes runtime definition for this instance.
         type: integer
@@ -778,56 +920,60 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - Profile
-    - Tier
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
-    - GatewayDefinition
-    - GatewayInstance
-    - DomainNameDefinition
-    - DomainNameInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - Profile
+    - Tier
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
     - AwsRelationalDatabaseDefinition
     - AwsRelationalDatabaseInstance
+    - AwsObjectStorageBucketDefinition
+    - AwsObjectStorageBucketInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
     - ObjectTypeAwsRelationalDatabaseDefinition
     - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeAwsObjectStorageBucketDefinition
+    - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
   v0.Profile:
     properties:
       Name:
@@ -906,6 +1052,13 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -1005,6 +1158,13 @@ definitions:
         items:
           $ref: '#/definitions/v0.WorkloadEvent'
         type: array
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime to which the workload is deployed.
         type: integer
@@ -1157,6 +1317,32 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetAwsEksKubernetesRuntimeInstanceVersions gets the supported versions
         for the aws eks kubernetes runtime instance API.
+  /aws-object-storage-bucket-definitions/versions:
+    get:
+      description: Get the supported API versions for aws object storage bucket definitions.
+      operationId: awsObjectStorageBucketDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetAwsObjectStorageBucketDefinitionVersions gets the supported versions
+        for the aws object storage bucket definition API.
+  /aws-object-storage-bucket-instances/versions:
+    get:
+      description: Get the supported API versions for aws object storage bucket instances.
+      operationId: awsObjectStorageBucketInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetAwsObjectStorageBucketInstanceVersions gets the supported versions
+        for the aws object storage bucket instance API.
   /aws-relational-database-definitions/versions:
     get:
       description: Get the supported API versions for aws relational database definitions.
@@ -2155,6 +2341,410 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing aws eks kubernetes runtime instance by replacing
+        the entire object.
+  /v0/aws-object-storage-bucket-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all aws object storage bucket definitions from the Threeport
+        database.
+      operationId: get-awsObjectStorageBucketDefinitions
+      parameters:
+      - description: aws object storage bucket definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all aws object storage bucket definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new aws object storage bucket definition to the Threeport
+        database.
+      operationId: add-awsObjectStorageBucketDefinition
+      parameters:
+      - description: AwsObjectStorageBucketDefinition object
+        in: body
+        name: awsObjectStorageBucketDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsObjectStorageBucketDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new aws object storage bucket definition.
+  /v0/aws-object-storage-bucket-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a aws object storage bucket definition by ID from the database.
+      operationId: delete-awsObjectStorageBucketDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a aws object storage bucket definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular aws object storage bucket definition from the
+        database.
+      operationId: get-awsObjectStorageBucketDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a aws object storage bucket definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a aws object storage bucket definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating aws object storage bucket definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-awsObjectStorageBucketDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsObjectStorageBucketDefinition object
+        in: body
+        name: awsObjectStorageBucketDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsObjectStorageBucketDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing aws object storage bucket definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a aws object storage bucket definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating aws object storage bucket definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-awsObjectStorageBucketDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsObjectStorageBucketDefinition object
+        in: body
+        name: awsObjectStorageBucketDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsObjectStorageBucketDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing aws object storage bucket definition by replacing
+        the entire object.
+  /v0/aws-object-storage-bucket-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all aws object storage bucket instances from the Threeport
+        database.
+      operationId: get-awsObjectStorageBucketInstances
+      parameters:
+      - description: aws object storage bucket instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all aws object storage bucket instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new aws object storage bucket instance to the Threeport database.
+      operationId: add-awsObjectStorageBucketInstance
+      parameters:
+      - description: AwsObjectStorageBucketInstance object
+        in: body
+        name: awsObjectStorageBucketInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsObjectStorageBucketInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new aws object storage bucket instance.
+  /v0/aws-object-storage-bucket-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a aws object storage bucket instance by ID from the database.
+      operationId: delete-awsObjectStorageBucketInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a aws object storage bucket instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular aws object storage bucket instance from the database.
+      operationId: get-awsObjectStorageBucketInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a aws object storage bucket instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a aws object storage bucket instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating aws object storage bucket instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-awsObjectStorageBucketInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsObjectStorageBucketInstance object
+        in: body
+        name: awsObjectStorageBucketInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsObjectStorageBucketInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing aws object storage bucket instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a aws object storage bucket instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating aws object storage bucket instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-awsObjectStorageBucketInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AwsObjectStorageBucketInstance object
+        in: body
+        name: awsObjectStorageBucketInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.AwsObjectStorageBucketInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing aws object storage bucket instance by replacing
         the entire object.
   /v0/aws-relational-database-definitions:
     get:

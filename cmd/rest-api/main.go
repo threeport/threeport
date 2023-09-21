@@ -97,10 +97,7 @@ func main() {
 	e.Use(middleware.Recover())
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
-		// Take required information from error and context and send it to a service like New Relic etc.
-		fmt.Println(c.Path(), c.QueryParams(), err.Error())
-
-		// Call the default handler to return the HTTP response
+		// call the default handler to return the HTTP response
 		e.DefaultHTTPErrorHandler(err, c)
 	}
 

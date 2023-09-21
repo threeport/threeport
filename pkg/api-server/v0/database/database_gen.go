@@ -54,6 +54,8 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 			&v0.AwsEksKubernetesRuntimeInstance{},
 			&v0.AwsRelationalDatabaseDefinition{},
 			&v0.AwsRelationalDatabaseInstance{},
+			&v0.AwsObjectStorageBucketDefinition{},
+			&v0.AwsObjectStorageBucketInstance{},
 			&v0.Definition{},
 			&v0.Instance{},
 			&v0.ForwardProxyDefinition{},

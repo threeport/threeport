@@ -9,7 +9,11 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-const KubeManagedByLabel = "threeport"
+const (
+	KubeManagedByLabelValue      = "threeport"
+	ThreeportManagedByLabelKey   = "control-plane.threeport.io/managed-by"
+	ThreeportManagedByLabelValue = "threeport"
+)
 
 // AddLabels sets the labels used by threeport to identify managed resources in
 // Kubernetes.
@@ -19,7 +23,7 @@ func AddLabels(
 	workloadInst *v0.WorkloadInstance,
 ) (*unstructured.Unstructured, error) {
 	newLabels := map[string]string{
-		"app.kubernetes.io/managed-by": KubeManagedByLabel,
+		"app.kubernetes.io/managed-by": KubeManagedByLabelValue,
 		"app.kubernetes.io/name":       workloadDefName,
 		"app.kubernetes.io/instance":   *workloadInst.Name,
 		agent.WorkloadInstanceLabelKey: fmt.Sprintf("%d", *workloadInst.ID),
@@ -36,9 +40,12 @@ func AddLabels(
 		kubeObject.SetLabels(labels)
 	}
 
-	for _, kind := range getPodAbstractionKinds() {
+	// ensure the threeport managed-by label is always present
+	kubeObject.SetLabels(map[string]string{ThreeportManagedByLabelKey: ThreeportManagedByLabelValue})
+
+	for _, kind := range GetPodAbstractionKinds() {
 		if kubeObject.GetKind() == kind {
-			obj, err := setPodTemplateLabel(kubeObject, *workloadInst.ID)
+			obj, err := setPodTemplateLabels(kubeObject, *workloadInst.ID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to set pod template label: %w", err)
 			}
@@ -50,7 +57,9 @@ func AddLabels(
 	return kubeObject, nil
 }
 
-func getPodAbstractionKinds() []string {
+// GetPodAbstractionKinds returns the Kuberentes kinds that manaage pods with
+// templates.
+func GetPodAbstractionKinds() []string {
 	return []string{
 		"Job",
 		"ReplicaSet",
@@ -60,14 +69,15 @@ func getPodAbstractionKinds() []string {
 	}
 }
 
-// setPodTemplateLabel sets a label on the pod template for a Deployment,
-// StatefulSet or DaemonSet.
-func setPodTemplateLabel(kubeObject *unstructured.Unstructured, workloadInstID uint) (*unstructured.Unstructured, error) {
+// setPodTemplateLabels sets required labels on the pod template for a Deployment,
+// StatefulSet, DaemonSet, ReplicaSet or Job.
+func setPodTemplateLabels(kubeObject *unstructured.Unstructured, workloadInstID uint) (*unstructured.Unstructured, error) {
 	podLabels, _, err := unstructured.NestedStringMap(kubeObject.Object, "spec", "template", "metadata", "labels")
 	if err != nil {
 		return nil, err
 	}
 	podLabels[agent.WorkloadInstanceLabelKey] = fmt.Sprintf("%d", workloadInstID)
+	podLabels[ThreeportManagedByLabelKey] = ThreeportManagedByLabelValue
 
 	if err := unstructured.SetNestedStringMap(kubeObject.Object, podLabels, "spec", "template", "metadata", "labels"); err != nil {
 		return nil, err

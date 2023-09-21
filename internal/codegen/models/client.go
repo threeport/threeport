@@ -171,24 +171,24 @@ func (cc *ControllerConfig) ClientLib() error {
 		)
 		f.Line()
 		// get object by query string
-		getByQueryStringFuncName := fmt.Sprintf("Get%sByQueryString", mc.TypeName)
+		getByQueryStringFuncName := fmt.Sprintf("Get%sByQueryString", pluralize.Pluralize(mc.TypeName, 2, false))
 		f.Comment(fmt.Sprintf(
-			"%s fetches a %s by provided query string.",
-			getByIDFuncName,
-			strcase.ToDelimited(mc.TypeName, ' '),
+			"%s fetches %s by provided query string.",
+			getByQueryStringFuncName,
+			pluralize.Pluralize(strcase.ToDelimited(mc.TypeName, ' '), 2, false),
 		))
 		f.Func().Id(getByQueryStringFuncName).Params(
 			Id("apiClient").Op("*").Qual("net/http", "Client"),
 			Id("apiAddr").String(),
 			Id("queryString").String(),
 		).Parens(List(
-			Op("*").Qual(
+			Op("*").Index().Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
 			),
 			Error(),
 		)).Block(
-			Var().Id(strcase.ToLowerCamel(mc.TypeName)).Qual(
+			Var().Id(pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false)).Index().Qual(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 				mc.TypeName,
 			),
@@ -207,7 +207,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				Line(),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+				Return().Op("&").Id(pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false)).Op(",").Qual(
 					"fmt", "Errorf",
 				).Call(Lit(ResponseErr).Op(",").Id("err")),
 			)),
@@ -216,7 +216,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				Id("response").Dot("Data").Index(Lit(0)),
 			),
 			If(Id("err").Op("!=").Nil().Block(
-				Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Qual(
+				Return().Op("&").Id(pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false)).Op(",").Qual(
 					"fmt", "Errorf",
 				).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
 			)),
@@ -228,14 +228,14 @@ func (cc *ControllerConfig) ClientLib() error {
 			).Call(Id("jsonData"))),
 			Id("decoder").Dot("UseNumber").Call(),
 			If(Id("err").Op(":=").Id("decoder").Dot("Decode").Call(
-				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
+				Op("&").Id(pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false)),
 			).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return().Nil().Op(",").Qual(
 					"fmt", "Errorf",
 				).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
 			),
 			Line(),
-			Return().Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Nil(),
+			Return().Op("&").Id(pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false)).Op(",").Nil(),
 		)
 		f.Line()
 		// get object by name

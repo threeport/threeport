@@ -67,3 +67,27 @@ func AwsRelationalDatabaseInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.PUT(v0.PathAwsRelationalDatabaseInstances+"/:id", h.ReplaceAwsRelationalDatabaseInstance)
 	e.DELETE(v0.PathAwsRelationalDatabaseInstances+"/:id", h.DeleteAwsRelationalDatabaseInstance)
 }
+
+// AwsObjectStorageBucketDefinitionRoutes sets up all routes for the AwsObjectStorageBucketDefinition handlers.
+func AwsObjectStorageBucketDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/aws-object-storage-bucket-definitions/versions", h.GetAwsObjectStorageBucketDefinitionVersions)
+
+	e.POST(v0.PathAwsObjectStorageBucketDefinitions, h.AddAwsObjectStorageBucketDefinition)
+	e.GET(v0.PathAwsObjectStorageBucketDefinitions, h.GetAwsObjectStorageBucketDefinitions)
+	e.GET(v0.PathAwsObjectStorageBucketDefinitions+"/:id", h.GetAwsObjectStorageBucketDefinition)
+	e.PATCH(v0.PathAwsObjectStorageBucketDefinitions+"/:id", h.UpdateAwsObjectStorageBucketDefinition)
+	e.PUT(v0.PathAwsObjectStorageBucketDefinitions+"/:id", h.ReplaceAwsObjectStorageBucketDefinition)
+	e.DELETE(v0.PathAwsObjectStorageBucketDefinitions+"/:id", h.DeleteAwsObjectStorageBucketDefinition)
+}
+
+// AwsObjectStorageBucketInstanceRoutes sets up all routes for the AwsObjectStorageBucketInstance handlers.
+func AwsObjectStorageBucketInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/aws-object-storage-bucket-instances/versions", h.GetAwsObjectStorageBucketInstanceVersions)
+
+	e.POST(v0.PathAwsObjectStorageBucketInstances, h.AddAwsObjectStorageBucketInstance)
+	e.GET(v0.PathAwsObjectStorageBucketInstances, h.GetAwsObjectStorageBucketInstances)
+	e.GET(v0.PathAwsObjectStorageBucketInstances+"/:id", h.GetAwsObjectStorageBucketInstance)
+	e.PATCH(v0.PathAwsObjectStorageBucketInstances+"/:id", h.UpdateAwsObjectStorageBucketInstance)
+	e.PUT(v0.PathAwsObjectStorageBucketInstances+"/:id", h.ReplaceAwsObjectStorageBucketInstance)
+	e.DELETE(v0.PathAwsObjectStorageBucketInstances+"/:id", h.DeleteAwsObjectStorageBucketInstance)
+}

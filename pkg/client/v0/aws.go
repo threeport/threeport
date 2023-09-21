@@ -134,33 +134,3 @@ func GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient *http.Client, 
 
 	return &awsEksKubernetesRuntimeInstance, nil
 }
-
-// GetAwsRelationalDatabaseInstancesByAwsRelationalDatabaseDefinitionID fetches
-// AWS relational database instances by AWS relational database definition ID.
-func GetAwsRelationalDatabaseInstancesByAwsRelationalDatabaseDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.AwsRelationalDatabaseInstance, error) {
-	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
-
-	response, err := GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s?awsrelationaldatabasedefinitionid=%d", apiAddr, v0.PathAwsRelationalDatabaseInstances, id),
-		http.MethodGet,
-		new(bytes.Buffer),
-		http.StatusOK,
-	)
-	if err != nil {
-		return &awsRelationalDatabaseInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &awsRelationalDatabaseInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&awsRelationalDatabaseInstances); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &awsRelationalDatabaseInstances, nil
-}
