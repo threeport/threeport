@@ -2,8 +2,6 @@ module github.com/threeport/threeport
 
 go 1.20
 
-replace github.com/nukleros/eks-cluster => ../eks-cluster
-
 require (
 	github.com/aws/aws-sdk-go-v2 v1.21.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.22.5
