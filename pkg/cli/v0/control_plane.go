@@ -284,6 +284,10 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			*resourceManagerRole.Arn,
 		)
 		if err != nil {
+			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
+			if deleteErr != nil {
+				return fmt.Errorf("failed to load AWS configuration with access and secret keys: %w, failed to delete IAM resources: %w", err, deleteErr)
+			}
 			return fmt.Errorf("failed to load AWS configuration with access and secret keys: %w", err)
 		}
 
