@@ -1,13 +1,11 @@
 package v0
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"k8s.io/apimachinery/pkg/api/meta"
