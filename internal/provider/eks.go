@@ -144,37 +144,6 @@ func EKSInventoryFilepath(providerConfigDir, instanceName string) string {
 	return filepath.Join(providerConfigDir, inventoryFilename)
 }
 
-// GetKeysFromLocalConfig returns the access key ID and secret access key from
-// either the environment or local AWS credentials.
-func GetKeysFromLocalConfig(profile string) (string, string, error) {
-	envAccessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
-	envSecretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-
-	if envAccessKeyID != "" && envSecretAccessKey != "" {
-		return envAccessKeyID, envSecretAccessKey, nil
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get user home directory: %w", err)
-	}
-	awsCredentials, err := ini.Load(filepath.Join(homeDir, ".aws", "credentials"))
-	if err != nil {
-		return "", "", fmt.Errorf("failed to load aws credentials: %w", err)
-	}
-	var accessKeyID string
-	var secretAccessKey string
-	if awsCredentials.Section(profile).HasKey("aws_access_key_id") &&
-		awsCredentials.Section(profile).HasKey("aws_secret_access_key") {
-		accessKeyID = awsCredentials.Section(profile).Key("aws_access_key_id").String()
-		secretAccessKey = awsCredentials.Section(profile).Key("aws_secret_access_key").String()
-	} else {
-		return "", "", errors.New("unable to get AWS credentials from environment or local credentials")
-	}
-
-	return accessKeyID, secretAccessKey, nil
-}
-
 // DeleteThreeportIamResources deletes the IAM resources created by threeport
 // for a given cluster.
 func DeleteThreeportIamResources(instanceName string, awsConfig aws.Config) error {
