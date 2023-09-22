@@ -561,5 +561,5 @@ func DeleteRole(
 const (
 	ServiceAccountPolicyName = "ThreeportServiceAccount"
 	RuntimeServiceAccount    = "ThreeportRuntime"
-	ResourceManagerRoleName  = "ThreeportResourceManager"
+	ResourceManagerRoleName  = "resource-manager-threeport"
 )
