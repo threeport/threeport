@@ -178,17 +178,17 @@ func GetKeysFromLocalConfig(profile string) (string, string, error) {
 // DeleteThreeportIamResources deletes the IAM resources created by threeport
 // for a given cluster.
 func DeleteThreeportIamResources(instanceName string, awsConfig aws.Config) error {
-	// var nse types.NoSuchEntityException
+	var nse types.NoSuchEntityException
 	var err error
-	if err = DeleteRole(instanceName, awsConfig); err != nil && !IsException(&err, "NoSuchEntity") {
+	if err = DeleteRole(instanceName, awsConfig); err != nil && !IsException(&err, nse.ErrorCode()) {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
 
-	if err = DeleteServiceAccountPolicy(instanceName, awsConfig); err != nil && !IsException(&err, "NoSuchEntity") {
+	if err = DeleteServiceAccountPolicy(instanceName, awsConfig); err != nil && !IsException(&err, nse.ErrorCode()) {
 		return fmt.Errorf("failed to delete service account policy: %w", err)
 	}
 
-	if err = DeleteServiceAccount(instanceName, awsConfig); err != nil && !IsException(&err, "NoSuchEntity") {
+	if err = DeleteServiceAccount(instanceName, awsConfig); err != nil && !IsException(&err, nse.ErrorCode()) {
 		return fmt.Errorf("failed to delete service account: %w", err)
 	}
 	return nil
