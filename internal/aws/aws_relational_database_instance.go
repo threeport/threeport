@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
-	"k8s.io/client-go/kubernetes/scheme"
+	kubejson "k8s.io/apimachinery/pkg/util/json"
 
 	"github.com/threeport/threeport/internal/aws/mapping"
 	"github.com/threeport/threeport/internal/provider"
@@ -176,14 +176,9 @@ func awsRelationalDatabaseInstanceCreated(
 	}
 	var namespaces []string
 	for _, wri := range *workloadResourceInstances {
-		decode := scheme.Codecs.UniversalDeserializer().Decode
-		kubeObj, _, err := decode(*wri.JSONDefinition, nil, nil)
-		if err != nil {
-			return 0, fmt.Errorf("failed to decode JSON Kubernetes object: %w", err)
-		}
-		unstructuredObj, ok := kubeObj.(*unstructured.Unstructured)
-		if !ok {
-			return 0, fmt.Errorf("failed to convert decoded JSON to unstructured Kubernetes object: %w", err)
+		unstructuredObj := &unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := kubejson.Unmarshal(*wri.JSONDefinition, &unstructuredObj); err != nil {
+			return 0, fmt.Errorf("failed to unmarshal kubernetes resource JSON to unstructured object: %w", err)
 		}
 		ns := unstructuredObj.GetNamespace()
 		if ns != "" {
