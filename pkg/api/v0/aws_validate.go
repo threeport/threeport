@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
+	"github.com/google/uuid"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
@@ -128,6 +129,7 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 	createdObj := *a
 	objVal := reflect.ValueOf(&createdObj).Elem()
 	objType := objVal.Type()
+	ns := schema.NamingStrategy{}
 	for i := 0; i < objType.NumField(); i++ {
 		field := objType.Field(i)
 		fieldVal := objVal.Field(i)
@@ -144,9 +146,21 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 					return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
 				}
 				// use gorm to get column name from field name
-				ns := schema.NamingStrategy{}
 				columnName := ns.ColumnName("", field.Name)
 				tx.Statement.SetColumn(columnName, encryptedVal)
+			}
+		}
+
+		// if role_arn is set, generate an external ID
+		if field.Name == "role_arn" {
+			if fieldVal.Kind() == reflect.Ptr && !fieldVal.IsNil() {
+
+				// generate external ID
+				uuid := uuid.New().String()
+
+				// set external id
+				columnName := ns.ColumnName("", "external_id")
+				tx.Statement.SetColumn(columnName, uuid)
 			}
 		}
 	}
