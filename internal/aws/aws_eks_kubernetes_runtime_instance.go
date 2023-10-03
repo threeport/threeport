@@ -126,19 +126,29 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	// TODO: add a wait group that prevents the AWS controller from terminating
 	// until this process is complete
 	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-sigs
-		reconLog.Info("controller terminated mid resource creation, removing resources...")
+		select {
+		case <-sigs:
+			reconLog.Info("controller terminated mid resource creation, removing resources...")
 
-		inventory, err := getInventory(r, awsEksKubernetesRuntimeInstance)
-		if err != nil {
-			reconLog.Error(err, "aws controller interrupted and failed to retrieve AWS resource inventory")
-		}
+			inventory, err := getInventory(r, awsEksKubernetesRuntimeInstance)
+			if err != nil {
+				reconLog.Error(err, "aws controller interrupted and failed to retrieve AWS resource inventory")
+			}
 
-		if err = resourceClient.DeleteResourceStack(inventory); err != nil {
-			reconLog.Error(err, "failed to delete eks cluster resources")
+			if err = resourceClient.DeleteResourceStack(inventory); err != nil {
+				reconLog.Error(err, "failed to delete eks cluster resources")
+			}
+		case <-done:
+			return
 		}
+	}()
+
+	// ensure the resource cleanup goroutine returns once we exit this function
+	defer func() {
+		done <- true
 	}()
 
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
