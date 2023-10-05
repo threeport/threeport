@@ -322,7 +322,7 @@ func DeleteServiceAccount(
 			UserName: &runtimeServiceAccount,
 		})
 	if err != nil {
-		return fmt.Errorf("failed to list access keys: %s\n", err)
+		return fmt.Errorf("failed to list access keys: %s", err)
 	}
 
 	for _, accessKey := range accessKeys.AccessKeyMetadata {
@@ -333,7 +333,7 @@ func DeleteServiceAccount(
 				UserName:    &runtimeServiceAccount,
 			})
 		if err != nil {
-			return fmt.Errorf("failed to delete access key: %s\n", err)
+			return fmt.Errorf("failed to delete access key: %s", err)
 		}
 	}
 
@@ -343,7 +343,7 @@ func DeleteServiceAccount(
 			UserName: &runtimeServiceAccount,
 		})
 	if err != nil {
-		return fmt.Errorf("failed to delete service account: %s\n", err)
+		return fmt.Errorf("failed to delete service account: %s", err)
 	}
 	return nil
 }
@@ -437,7 +437,7 @@ func DeleteRole(
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to list attached role policies: %s\n", err)
+		return fmt.Errorf("failed to list attached role policies: %s", err)
 	}
 	for _, role := range roles.AttachedPolicies {
 		_, err := svc.DetachRolePolicy(
@@ -447,7 +447,7 @@ func DeleteRole(
 				RoleName:  &resourceManagerRoleName,
 			})
 		if err != nil {
-			return fmt.Errorf("failed to detach role policy: %s\n", err)
+			return fmt.Errorf("failed to detach role policy: %s", err)
 		}
 		_, err = svc.DeletePolicy(
 			context.Background(),
@@ -455,7 +455,7 @@ func DeleteRole(
 				PolicyArn: role.PolicyArn,
 			})
 		if err != nil {
-			return fmt.Errorf("failed to delete policy: %s\n", err)
+			return fmt.Errorf("failed to delete policy: %s", err)
 		}
 	}
 
@@ -465,7 +465,7 @@ func DeleteRole(
 			RoleName: &resourceManagerRoleName,
 		})
 	if err != nil {
-		return fmt.Errorf("failed to delete role: %s\n", err)
+		return fmt.Errorf("failed to delete role: %s", err)
 	}
 	return nil
 }
