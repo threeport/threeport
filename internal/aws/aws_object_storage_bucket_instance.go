@@ -77,23 +77,6 @@ func awsObjectStorageBucketInstanceCreated(
 		return 0, fmt.Errorf("failed to get required objects for AWS object storage bucket instance reconciliation: %w", err)
 	}
 
-	// // decrypt access key id and secret access key
-	// accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.AccessKeyID)
-	// if err != nil {
-	// 	return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
-	// }
-	// secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.SecretAccessKey)
-	// if err != nil {
-	// 	return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
-	// }
-
-	// // create AWS config
-	// awsConfig, err := config.LoadAWSConfigFromAPIKeys(
-	// 	accessKeyID,
-	// 	secretAccessKey,
-	// 	"",
-	// 	*requiredObjects.AwsEksKubernetesRuntimeInstance.Region,
-	// )
 	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *requiredObjects.AwsEksKubernetesRuntimeInstance.Region, &requiredObjects.AwsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
@@ -385,23 +368,6 @@ func awsObjectStorageBucketInstanceDeleted(
 		return 0, fmt.Errorf("failed to get required objects for AWS object storage bucket instance reconciliation: %w", err)
 	}
 
-	// // decrypt access key id and secret access key
-	// accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.AccessKeyID)
-	// if err != nil {
-	// 	return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
-	// }
-	// secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.SecretAccessKey)
-	// if err != nil {
-	// 	return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
-	// }
-
-	// // create AWS config
-	// awsConfig, err := config.LoadAWSConfigFromAPIKeys(
-	// 	accessKeyID,
-	// 	secretAccessKey,
-	// 	"",
-	// 	*requiredObjects.AwsEksKubernetesRuntimeInstance.Region,
-	// )
 	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *requiredObjects.AwsEksKubernetesRuntimeInstance.Region, &requiredObjects.AwsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)

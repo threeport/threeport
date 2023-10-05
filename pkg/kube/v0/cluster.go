@@ -292,24 +292,6 @@ func RefreshEKSConnection(
 		return nil, fmt.Errorf("failed to get AWS account by ID %d: %w", eksRuntimeDefinition.AwsAccountID, err)
 	}
 
-	// // decrypt access key id and secret access key
-	// accessKeyID, err := encryption.Decrypt(encryptionKey, *awsAccount.AccessKeyID)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to decrypt access key id: %w", err)
-	// }
-	// secretAccessKey, err := encryption.Decrypt(encryptionKey, *awsAccount.SecretAccessKey)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to decrypt secret access key: %w", err)
-	// }
-
-	// // create AWS config to get new token
-	// awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
-	// 	accessKeyID,
-	// 	secretAccessKey,
-	// 	"",
-	// 	*eksRuntimeInstance.Region,
-	// 	*awsAccount.RoleArn,
-	// )
 	awsConfig, err := client.GetAwsConfigFromAwsAccount(encryptionKey, *eksRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)
