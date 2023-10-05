@@ -6,7 +6,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -58,7 +57,7 @@ the AWS relational database config or name.`,
 		var awsRelationalDatabaseConfig config.AwsRelationalDatabaseConfig
 		if deleteAwsRelationalDatabaseConfigPath != "" {
 			// load AWS relational database definition config
-			configContent, err := ioutil.ReadFile(deleteAwsRelationalDatabaseConfigPath)
+			configContent, err := os.ReadFile(deleteAwsRelationalDatabaseConfigPath)
 			if err != nil {
 				cli.Error("failed to read config file", err)
 				os.Exit(1)

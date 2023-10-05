@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -177,7 +176,7 @@ func main() {
 		}
 
 		// load server root certificate authority
-		caCert, err := ioutil.ReadFile(filepath.Join(configDir, "ca/tls.crt"))
+		caCert, err := os.ReadFile(filepath.Join(configDir, "ca/tls.crt"))
 		if err != nil {
 			e.Logger.Fatal(err)
 		}

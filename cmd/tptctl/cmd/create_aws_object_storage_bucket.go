@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -41,7 +40,7 @@ and AWS object storage bucket instance based on the AWS object storage bucket co
 		}
 
 		// load AWS object storage bucket config
-		configContent, err := ioutil.ReadFile(createAwsObjectStorageBucketConfigPath)
+		configContent, err := os.ReadFile(createAwsObjectStorageBucketConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)

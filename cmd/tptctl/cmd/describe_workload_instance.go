@@ -6,7 +6,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"text/tabwriter"
 
@@ -57,7 +56,7 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 		var workloadInstanceConfig config.WorkloadInstanceConfig
 		if describeWorkloadInstanceConfigPath != "" {
 			// load workload instance config
-			configContent, err := ioutil.ReadFile(describeWorkloadInstanceConfigPath)
+			configContent, err := os.ReadFile(describeWorkloadInstanceConfigPath)
 			if err != nil {
 				cli.Error("failed to read config file", err)
 				os.Exit(1)

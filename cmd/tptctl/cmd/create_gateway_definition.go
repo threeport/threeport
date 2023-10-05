@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,7 +38,7 @@ var CreateGatewayDefinitionCmd = &cobra.Command{
 		}
 
 		// load gateway definition config
-		configContent, err := ioutil.ReadFile(createGatewayDefinitionConfigPath)
+		configContent, err := os.ReadFile(createGatewayDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)

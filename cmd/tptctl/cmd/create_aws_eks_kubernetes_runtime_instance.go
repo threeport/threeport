@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,7 +38,7 @@ var CreateAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 		}
 
 		// load AWS EKS kubernetes runtime instance config
-		configContent, err := ioutil.ReadFile(createAwsEksKubernetesRuntimeInstanceConfigPath)
+		configContent, err := os.ReadFile(createAwsEksKubernetesRuntimeInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)

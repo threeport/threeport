@@ -6,7 +6,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -58,7 +57,7 @@ the AWS object storage bucket config or name.`,
 		var awsObjectStorageBucketConfig config.AwsObjectStorageBucketConfig
 		if deleteAwsObjectStorageBucketConfigPath != "" {
 			// load AWS object storage bucket definition config
-			configContent, err := ioutil.ReadFile(deleteAwsObjectStorageBucketConfigPath)
+			configContent, err := os.ReadFile(deleteAwsObjectStorageBucketConfigPath)
 			if err != nil {
 				cli.Error("failed to read config file", err)
 				os.Exit(1)

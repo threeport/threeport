@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,7 +38,7 @@ var CreateDomainNameDefinitionCmd = &cobra.Command{
 		}
 
 		// load domain name definition config
-		configContent, err := ioutil.ReadFile(createDomainNameDefinitionConfigPath)
+		configContent, err := os.ReadFile(createDomainNameDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)

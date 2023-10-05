@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -18,7 +17,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	content, err := ioutil.ReadFile(*filePath)
+	content, err := os.ReadFile(*filePath)
 	if err != nil {
 		panic(err)
 	}

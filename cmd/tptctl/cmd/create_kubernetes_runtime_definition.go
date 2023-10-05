@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,7 +38,7 @@ var CreateKubernetesRuntimeDefinitionCmd = &cobra.Command{
 		}
 
 		// load kubernetes runtime definition config
-		configContent, err := ioutil.ReadFile(createKubernetesRuntimeDefinitionConfigPath)
+		configContent, err := os.ReadFile(createKubernetesRuntimeDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)

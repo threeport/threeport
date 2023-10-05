@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,7 +38,7 @@ var CreateWorkloadDefinitionCmd = &cobra.Command{
 		}
 
 		// load workload definition config
-		configContent, err := ioutil.ReadFile(createWorkloadDefinitionConfigPath)
+		configContent, err := os.ReadFile(createWorkloadDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)

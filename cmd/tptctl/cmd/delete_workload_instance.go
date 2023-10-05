@@ -6,7 +6,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -54,7 +53,7 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 		var workloadInstanceConfig config.WorkloadInstanceConfig
 		if deleteWorkloadInstanceConfigPath != "" {
 			// load workload instance config
-			configContent, err := ioutil.ReadFile(deleteWorkloadInstanceConfigPath)
+			configContent, err := os.ReadFile(deleteWorkloadInstanceConfigPath)
 			if err != nil {
 				cli.Error("failed to read config file", err)
 				os.Exit(1)
