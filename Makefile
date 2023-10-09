@@ -1,10 +1,10 @@
-REST_API_IMG ?= hqleet/threeport-rest-api:latest
-WORKLOAD_CONTROLLER_IMG ?= hqleet/threeport-workload-controller:latest
-KUBERNETES_RUNTIME_CONTROLLER_IMG ?= hqleet/threeport-kubernetes-runtime-controller:latest
-CONTROL_PLANE_CONTROLLER_IMG ?= hqleet/threeport-control-plane-controller:latest
-AWS_CONTROLLER_IMG ?= hqleet/threeport-aws-controller:latest
-GATEWAY_CONTROLLER_IMG ?= hqleet/threeport-gateway-controller:latest
-AGENT_IMG ?= hqleet/threeport-agent:latest
+REST_API_IMG = threeport-rest-api:latest
+WORKLOAD_CONTROLLER_IMG = threeport-workload-controller:latest
+KUBERNETES_RUNTIME_CONTROLLER_IMG = threeport-kubernetes-runtime-controller:latest
+CONTROL_PLANE_CONTROLLER_IMG = threeport-control-plane-controller:latest
+AWS_CONTROLLER_IMG = threeport-aws-controller:latest
+GATEWAY_CONTROLLER_IMG = threeport-gateway-controller:latest
+AGENT_IMG = threeport-agent:latest
 
 #help: @ List available make targets
 help:
@@ -168,6 +168,7 @@ dev-reset-crdb:
 		domain_name_definitions, \
 		domain_name_instances, \
 		control_plane_definitions, \
+		control_plane_components, \
 		control_plane_instances; \
 		set sql_safe_updates = false; \
 		update kubernetes_runtime_instances set gateway_controller_instance_id = NULL; \
@@ -264,7 +265,7 @@ agent-image-push-remote:
 control-plane-images-push: rest-api-image-push workload-controller-image-push control-plane-controller-image-push kubernetes-runtime-controller-image-push aws-controller-image-push gateway-controller-image-push agent-image-push
 
 #rest-api-image: @ Build and push REST API container image
-rest-api-image: test-build-rest-api rest-api-image-build rest-api-image-push
+rest-api-image: rest-api-image-build rest-api-image-push
 
 #workload-controller-image: @ Build and push workload controller container image
 workload-controller-image: workload-controller-image-build workload-controller-image-push
@@ -273,7 +274,7 @@ workload-controller-image: workload-controller-image-build workload-controller-i
 kubernetes-runtime-controller-image: kubernetes-runtime-controller-image-build kubernetes-runtime-controller-image-push
 
 #control-plane-controller-image: @ Build and push control plane controller container image
-control-plane-controller-image: test-build-control-plane-controller control-plane-controller-image-build control-plane-controller-image-push
+control-plane-controller-image: control-plane-controller-image-build control-plane-controller-image-push
 
 #aws-controller-image: @ Build and push aws controller container image
 aws-controller-image: aws-controller-image-build aws-controller-image-push

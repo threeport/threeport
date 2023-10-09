@@ -1,13 +1,9 @@
 ControlPlane:
-  Name: "testport4"
-  Namespace: "testport4"
+  Name: "testport"
+  Namespace: "testport"
   AuthEnabled: true
   CustomComponentInfo:
     - Name: "rest-api"
-      ImageTag: "latest"
-      ImageRepo: "hqleet"
-    - Name: "control-plane-controller"
-      ImageTag: "latest"
-      ImageRepo: "hqleet"
-    - Name: "workload-controller"
+      ImageTag: "v0.2"
+    - Name: "gateway-controller"
       Enabled: false
