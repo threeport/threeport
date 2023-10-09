@@ -21,7 +21,7 @@ const (
 
 var enabled bool = true
 
-var ThreeportControllerList []*v0.ControlPlaneComponents = []*v0.ControlPlaneComponents{
+var ThreeportControllerList []*v0.ControlPlaneComponent = []*v0.ControlPlaneComponent{
 	{
 		Name:               "workload-controller",
 		ImageName:          ThreeportWorkloadControllerImage,
@@ -64,7 +64,7 @@ var ThreeportControllerList []*v0.ControlPlaneComponents = []*v0.ControlPlaneCom
 	},
 }
 
-var ThreeportRestApi *v0.ControlPlaneComponents = &v0.ControlPlaneComponents{
+var ThreeportRestApi *v0.ControlPlaneComponent = &v0.ControlPlaneComponent{
 	Name:                "rest-api",
 	ImageName:           ThreeportAPIImage,
 	ImageRepo:           ThreeportImageRepo,
@@ -74,7 +74,7 @@ var ThreeportRestApi *v0.ControlPlaneComponents = &v0.ControlPlaneComponents{
 	Enabled:             &enabled,
 }
 
-var ThreeportAgent *v0.ControlPlaneComponents = &v0.ControlPlaneComponents{
+var ThreeportAgent *v0.ControlPlaneComponent = &v0.ControlPlaneComponent{
 	Name:               "agent",
 	ImageName:          ThreeportAgentImage,
 	ImageRepo:          ThreeportImageRepo,

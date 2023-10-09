@@ -100,7 +100,6 @@ control plane.`,
 			}
 
 			for _, controlPlane := range *controlPlaneInstance.Children {
-				fmt.Println(controlPlane.Name)
 				if *controlPlane.Name == configCurrentControlPlaneName {
 					controlPlaneInstanceToSet = &controlPlane
 					cli.Info("found requested control plane in children of current control plane")

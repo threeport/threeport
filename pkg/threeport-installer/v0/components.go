@@ -373,7 +373,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			*controller,
 			authConfig,
 		); err != nil {
-			return fmt.Errorf("failed to install %s: %w", controller, err)
+			return fmt.Errorf("failed to install %s: %w", *&controller.Name, err)
 		}
 	}
 
@@ -385,7 +385,7 @@ func (cpi *ControlPlaneInstaller) InstallController(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
-	installInfo v0.ControlPlaneComponents,
+	installInfo v0.ControlPlaneComponent,
 	authConfig *auth.AuthConfig,
 ) error {
 	controllerImage := cpi.getImage(devEnvironment, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
@@ -1341,7 +1341,7 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 	return apiEndpoint, nil
 }
 
-func (cpi *ControlPlaneInstaller) isThreeportManagedController(info v0.ControlPlaneComponents) bool {
+func (cpi *ControlPlaneInstaller) isThreeportManagedController(info v0.ControlPlaneComponent) bool {
 	for _, i := range ThreeportControllerList {
 		if info.Name == i.Name {
 			return true
@@ -1380,7 +1380,7 @@ func (cpi *ControlPlaneInstaller) getAPIArgs(devEnvironment bool, authConfig *au
 	// in tptctl, auth is enabled by default
 
 	// enable auth if authConfig is set in dev environment
-	if devEnvironment && !cpi.Opts.InThreeport {
+	if devEnvironment {
 		args := "-auto-migrate=true -verbose=true"
 
 		if authConfig == nil {
@@ -1471,7 +1471,7 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes(devEnvironment bool, authConfig 
 		volMounts = append(volMounts, certVolMount)
 	}
 
-	if devEnvironment && !cpi.Opts.InThreeport {
+	if devEnvironment {
 		vols, volMounts = cpi.getDevEnvironmentVolumes(vols, volMounts)
 	}
 
@@ -1481,9 +1481,7 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes(devEnvironment bool, authConfig 
 // getImage returns the proper container image to use for the
 func (cpi *ControlPlaneInstaller) getImage(devEnvironment bool, name, imageName, imageRepo, imageTag string) string {
 	if devEnvironment {
-		if !cpi.Opts.InThreeport {
-			return cpi.ThreeportDevImages()[name]
-		}
+		return cpi.ThreeportDevImages()[name]
 	}
 
 	image := fmt.Sprintf(

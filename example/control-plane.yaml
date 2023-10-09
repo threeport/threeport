@@ -2,7 +2,7 @@ ControlPlane:
   Name: "testport4"
   Namespace: "testport4"
   AuthEnabled: true
-  CustomInstallInfo:
+  CustomComponentInfo:
     - Name: "rest-api"
       ImageTag: "latest"
       ImageRepo: "hqleet"

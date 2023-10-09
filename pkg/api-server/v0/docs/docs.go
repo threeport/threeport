@@ -8981,6 +8981,47 @@ const docTemplate = `{
                 }
             }
         },
+        "v0.ControlPlaneComponent": {
+            "type": "object",
+            "required": [
+                "ControlPlaneInstanceID",
+                "Name"
+            ],
+            "properties": {
+                "ControlPlaneInstanceID": {
+                    "description": "The control plane instance ID that this component belongs to",
+                    "type": "integer"
+                },
+                "Enabled": {
+                    "description": "Indicate whether the component is enabled to be deployed. Currently only respected by controllers",
+                    "type": "boolean"
+                },
+                "ImageName": {
+                    "description": "The image name of the component",
+                    "type": "string"
+                },
+                "ImageRepo": {
+                    "description": "The image repo of the component",
+                    "type": "string"
+                },
+                "ImageTag": {
+                    "description": "The image tag of the component",
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "The name of the component",
+                    "type": "string"
+                },
+                "ServiceAccountName": {
+                    "description": "The service account name to use when deploying",
+                    "type": "string"
+                },
+                "ServiceResourceName": {
+                    "description": "The service resource name to use when deploying",
+                    "type": "string"
+                }
+            }
+        },
         "v0.ControlPlaneDefinition": {
             "type": "object",
             "required": [
@@ -8988,6 +9029,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "AuthEnabled": {
+                    "description": "Used to indicate whether the control plane is deployed with auth settings",
                     "type": "boolean"
                 },
                 "ControlPlaneInstances": {
@@ -9022,6 +9064,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "OnboardParent": {
+                    "description": "When instances of this control plane are deployed, Object representing control plane and its parent are\nonboarded as part of deployment, using this we can disable that process and simply spin a new instance with\na clean DB.",
                     "type": "boolean"
                 },
                 "ProfileID": {
@@ -9035,39 +9078,6 @@ const docTemplate = `{
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
-                }
-            }
-        },
-        "v0.ControlPlaneInstallInfo": {
-            "type": "object",
-            "required": [
-                "ControlPlaneInstanceID",
-                "Name"
-            ],
-            "properties": {
-                "ControlPlaneInstanceID": {
-                    "type": "integer"
-                },
-                "Enabled": {
-                    "type": "boolean"
-                },
-                "ImageName": {
-                    "type": "string"
-                },
-                "ImageRepo": {
-                    "type": "string"
-                },
-                "ImageTag": {
-                    "type": "string"
-                },
-                "Name": {
-                    "type": "string"
-                },
-                "ServiceAccountName": {
-                    "type": "string"
-                },
-                "ServiceResourceName": {
-                    "type": "string"
                 }
             }
         },
@@ -9085,6 +9095,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "CACert": {
+                    "description": "The CA Cert that is associated with the control plane",
                     "type": "string"
                 },
                 "Children": {
@@ -9094,9 +9105,11 @@ const docTemplate = `{
                     }
                 },
                 "ClientCert": {
+                    "description": "The client cert that is associated with the control plane",
                     "type": "string"
                 },
                 "ClientKey": {
+                    "description": "The client Key that is associated with the control plane",
                     "type": "string"
                 },
                 "ControlPlaneDefinitionID": {
@@ -9107,11 +9120,11 @@ const docTemplate = `{
                     "description": "Used by controllers to acknowledge creation and indicate that creation\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
                 },
-                "CustomInstallInfo": {
-                    "description": "Passed in information for the different components of the control plane i.e. controller etc\nWhen not provided, the default field will be used. If provided will override the provided field.\nDespite being a reference to another database entry, we dont validate association.\nThis is allows a user to provide CustomInstallInfo at instance creation time so the reconciler has the info it needs",
+                "CustomComponentInfo": {
+                    "description": "Passed in information for the different components of the control plane i.e. controller etc\nWhen not provided, the default field will be used. If provided will override the provided field.\nDespite being a reference to another database entry, we dont validate association.\nThis is allows a user to provide CustomComponentInfo at instance creation time so the reconciler has the info it needs",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/v0.ControlPlaneInstallInfo"
+                        "$ref": "#/definitions/v0.ControlPlaneComponent"
                     }
                 },
                 "DeletionAcknowledged": {
@@ -9135,7 +9148,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "IsSelf": {
-                    "description": "Used to indicate whether the control plane instance that",
+                    "description": "Used to indicate whether the control plane instance that the reconciler is deployed on",
                     "type": "boolean"
                 },
                 "KubernetesRuntimeInstanceID": {
@@ -9147,6 +9160,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Namespace": {
+                    "description": "The namespace to deploy the control plane in",
                     "type": "string"
                 },
                 "Parent": {
@@ -9768,14 +9782,19 @@ const docTemplate = `{
             "enum": [
                 "Profile",
                 "Tier",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "AwsObjectStorageBucketDefinition",
+                "AwsObjectStorageBucketInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
@@ -9783,29 +9802,29 @@ const docTemplate = `{
                 "GatewayInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance"
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance"
             ],
             "x-enum-varnames": [
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeAwsObjectStorageBucketDefinition",
+                "ObjectTypeAwsObjectStorageBucketInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
@@ -9813,17 +9832,12 @@ const docTemplate = `{
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance"
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance"
             ]
         },
         "v0.Profile": {

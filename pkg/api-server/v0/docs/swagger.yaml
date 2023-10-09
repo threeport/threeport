@@ -392,9 +392,42 @@ definitions:
     - Name
     - WorkloadInstanceID
     type: object
+  v0.ControlPlaneComponent:
+    properties:
+      ControlPlaneInstanceID:
+        description: The control plane instance ID that this component belongs to
+        type: integer
+      Enabled:
+        description: Indicate whether the component is enabled to be deployed. Currently
+          only respected by controllers
+        type: boolean
+      ImageName:
+        description: The image name of the component
+        type: string
+      ImageRepo:
+        description: The image repo of the component
+        type: string
+      ImageTag:
+        description: The image tag of the component
+        type: string
+      Name:
+        description: The name of the component
+        type: string
+      ServiceAccountName:
+        description: The service account name to use when deploying
+        type: string
+      ServiceResourceName:
+        description: The service resource name to use when deploying
+        type: string
+    required:
+    - ControlPlaneInstanceID
+    - Name
+    type: object
   v0.ControlPlaneDefinition:
     properties:
       AuthEnabled:
+        description: Used to indicate whether the control plane is deployed with auth
+          settings
         type: boolean
       ControlPlaneInstances:
         description: The associated workload instances that are deployed from this
@@ -433,6 +466,10 @@ definitions:
         description: An arbitrary name for the definition.
         type: string
       OnboardParent:
+        description: |-
+          When instances of this control plane are deployed, Object representing control plane and its parent are
+          onboarded as part of deployment, using this we can disable that process and simply spin a new instance with
+          a clean DB.
         type: boolean
       ProfileID:
         description: |-
@@ -451,42 +488,23 @@ definitions:
     required:
     - Name
     type: object
-  v0.ControlPlaneInstallInfo:
-    properties:
-      ControlPlaneInstanceID:
-        type: integer
-      Enabled:
-        type: boolean
-      ImageName:
-        type: string
-      ImageRepo:
-        type: string
-      ImageTag:
-        type: string
-      Name:
-        type: string
-      ServiceAccountName:
-        type: string
-      ServiceResourceName:
-        type: string
-    required:
-    - ControlPlaneInstanceID
-    - Name
-    type: object
   v0.ControlPlaneInstance:
     properties:
       ApiServerEndpoint:
         description: Information for connecting to the rest api for the control plane
         type: string
       CACert:
+        description: The CA Cert that is associated with the control plane
         type: string
       Children:
         items:
           $ref: '#/definitions/v0.ControlPlaneInstance'
         type: array
       ClientCert:
+        description: The client cert that is associated with the control plane
         type: string
       ClientKey:
+        description: The client Key that is associated with the control plane
         type: string
       ControlPlaneDefinitionID:
         description: The definition used to configure the control plane instance.
@@ -497,14 +515,14 @@ definitions:
           reconciliation has begun so that subsequent reconciliation attempts can
           act accordingly.
         type: string
-      CustomInstallInfo:
+      CustomComponentInfo:
         description: |-
           Passed in information for the different components of the control plane i.e. controller etc
           When not provided, the default field will be used. If provided will override the provided field.
           Despite being a reference to another database entry, we dont validate association.
-          This is allows a user to provide CustomInstallInfo at instance creation time so the reconciler has the info it needs
+          This is allows a user to provide CustomComponentInfo at instance creation time so the reconciler has the info it needs
         items:
-          $ref: '#/definitions/v0.ControlPlaneInstallInfo'
+          $ref: '#/definitions/v0.ControlPlaneComponent'
         type: array
       DeletionAcknowledged:
         description: |-
@@ -532,7 +550,8 @@ definitions:
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       IsSelf:
-        description: Used to indicate whether the control plane instance that
+        description: Used to indicate whether the control plane instance that the
+          reconciler is deployed on
         type: boolean
       KubernetesRuntimeInstanceID:
         description: Kubernetes runtime the control planei is running on
@@ -541,6 +560,7 @@ definitions:
         description: An arbitrary name the instance
         type: string
       Namespace:
+        description: The namespace to deploy the control plane in
         type: string
       Parent:
         $ref: '#/definitions/v0.ControlPlaneInstance'
@@ -1154,25 +1174,12 @@ definitions:
     enum:
     - Profile
     - Tier
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1180,29 +1187,29 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     type: string
     x-enum-varnames:
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1210,6 +1217,19 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
   v0.Profile:
     properties:
       Name:

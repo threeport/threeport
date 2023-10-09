@@ -23,9 +23,6 @@ type ThreeportConfig struct {
 
 	// The name of the control plane currently in use.
 	CurrentControlPlane string `yaml:"CurrentControlPlane"`
-
-	// The name of the control plane group currently in use.
-	CurrentControlPlaneGroup string `yaml:"CurrentControlPlaneGroup"`
 }
 
 // Control plane is an instance of Threeport control plane the client can use.

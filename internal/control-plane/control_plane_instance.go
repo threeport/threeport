@@ -30,8 +30,6 @@ func controlPlaneInstanceCreated(
 	var firstRun bool
 	if controlPlaneRuntimeInstance.CreationAcknowledged == nil {
 		firstRun = true
-	} else {
-		firstRun = false
 		// acknowledge the control plane instance is being created
 		createdReconciliation := true
 		creationTimestamp := time.Now().UTC()
@@ -52,7 +50,8 @@ func controlPlaneInstanceCreated(
 		if err != nil {
 			return 0, fmt.Errorf("failed to confirm creation of control plane instance in threeport API: %w", err)
 		}
-
+	} else {
+		firstRun = false
 	}
 
 	// ensure control plane definition is reconciled before working on an instance
@@ -117,14 +116,14 @@ func controlPlaneInstanceCreated(
 	cpi.Opts.InThreeport = true
 	cpi.Opts.CreateOrUpdateKubeResources = firstRun
 
-	componentMap := make(map[string]*v0.ControlPlaneComponents, 0)
+	componentMap := make(map[string]*v0.ControlPlaneComponent, 0)
 	componentMap["rest-api"] = cpi.Opts.RestApiInfo
 	componentMap["agent"] = cpi.Opts.AgentInfo
 	for _, info := range cpi.Opts.ControllerList {
 		componentMap[info.Name] = info
 	}
 
-	for _, customInfo := range controlPlaneRuntimeInstance.CustomInstallInfo {
+	for _, customInfo := range controlPlaneRuntimeInstance.CustomComponentInfo {
 		installInfo, exists := componentMap[customInfo.Name]
 
 		if !exists {
@@ -200,10 +199,8 @@ func controlPlaneInstanceCreated(
 		}
 	}
 
-	// determine if installing in a dev enironment
-	devEnvironment := false
+	// determine the threeport api endpoint based on infra provider
 	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderKind {
-		devEnvironment = true
 		threeportAPIEndpoint = fmt.Sprintf("%s.%s", r.APIServer, *controlPlaneRuntimeInstance.Namespace)
 	} else if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
 		tpapiEndpoint, err := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
@@ -214,6 +211,7 @@ func controlPlaneInstanceCreated(
 	}
 
 	controlPlaneRuntimeInstance.ApiServerEndpoint = &threeportAPIEndpoint
+	devEnvironment := false
 
 	// install the threeport control plane dependencies
 	if err := cpi.InstallThreeportControlPlaneDependencies(

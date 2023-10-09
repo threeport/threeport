@@ -933,7 +933,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		CACert:                      caCert,
 		ClientCert:                  clientCert,
 		ClientKey:                   clientKey,
-		CustomInstallInfo:           componentList,
+		CustomComponentInfo:         componentList,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
 

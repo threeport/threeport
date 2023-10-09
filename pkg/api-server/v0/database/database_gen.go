@@ -5,17 +5,16 @@ package database
 import (
 	"context"
 	"fmt"
-	"os"
-	"reflect"
-	"strings"
-	"time"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	zap "go.uber.org/zap"
 	postgres "gorm.io/driver/postgres"
 	gorm "gorm.io/gorm"
 	logger "gorm.io/gorm/logger"
+	"os"
+	"reflect"
+	"strings"
+	"time"
 )
 
 // ZapLogger is a custom GORM logger that forwards log messages to a Zap logger.
@@ -61,7 +60,7 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 			&v0.Instance{},
 			&v0.KubernetesRuntimeDefinition{},
 			&v0.KubernetesRuntimeInstance{},
-			&v0.ControlPlaneComponents{},
+			&v0.ControlPlaneComponent{},
 			&v0.ForwardProxyDefinition{},
 			&v0.ForwardProxyInstance{},
 			&v0.GatewayDefinition{},

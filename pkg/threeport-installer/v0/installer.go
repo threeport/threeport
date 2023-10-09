@@ -16,9 +16,9 @@ type Options struct {
 	Namespace                   string
 	PreInstallFunction          CustomInstallFunction
 	PostInstallFunction         CustomInstallFunction
-	ControllerList              []*v0.ControlPlaneComponents
-	RestApiInfo                 *v0.ControlPlaneComponents
-	AgentInfo                   *v0.ControlPlaneComponents
+	ControllerList              []*v0.ControlPlaneComponent
+	RestApiInfo                 *v0.ControlPlaneComponent
+	AgentInfo                   *v0.ControlPlaneComponent
 	InThreeport                 bool
 	CreateOrUpdateKubeResources bool
 
@@ -73,13 +73,13 @@ func Namespace(n string) InstallerOption {
 	}
 }
 
-func RestApi(r *v0.ControlPlaneComponents) InstallerOption {
+func RestApi(r *v0.ControlPlaneComponent) InstallerOption {
 	return func(o *Options) {
 		o.RestApiInfo = r
 	}
 }
 
-func CustomController(c *v0.ControlPlaneComponents) InstallerOption {
+func CustomController(c *v0.ControlPlaneComponent) InstallerOption {
 	return func(o *Options) {
 		o.ControllerList = append(o.ControllerList, c)
 	}
