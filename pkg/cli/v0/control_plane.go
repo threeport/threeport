@@ -242,7 +242,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
-		Info("Creating Threeport IAM role and service account")
+		Info("Creating Threeport IAM role")
 
 		// create IAM Role for runtime management
 		resourceManagerRole, err = provider.CreateResourceManagerRole(
@@ -256,10 +256,10 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			awsConfigUser,
 		)
 		if err != nil {
-			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
-			if deleteErr != nil {
-				return fmt.Errorf("failed to create runtime manager role: %w, failed to delete IAM resources: %w", err, deleteErr)
-			}
+			// deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
+			// if deleteErr != nil {
+			// 	return fmt.Errorf("failed to create runtime manager role: %w, failed to delete IAM resources: %w", err, deleteErr)
+			// }
 			return fmt.Errorf("failed to create runtime manager role: %w", err)
 		}
 
@@ -476,6 +476,18 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Certificate:   util.Base64Encode(kubeConnectionInfo.Certificate),
 		Key:           util.Base64Encode(kubeConnectionInfo.Key),
 		EKSToken:      util.Base64Encode(kubeConnectionInfo.EKSToken),
+	}
+
+	// update resource manager role to allow pods to assume it
+	inventory, err := resource.ReadInventory(
+		provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to read eks kubernetes runtime inventory for inventory update: %w", err)
+	}
+	err = provider.UpdateResourceManagerRole(a.InstanceName, *callerIdentity.Account, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
+	if err != nil {
+		return fmt.Errorf("failed to update resource manager role: %w", err)
 	}
 
 	// generate encryption key
@@ -1085,19 +1097,14 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to create new AWS EKS kubernetes runtime instance for control plane cluster: %w", err)
 		}
 
-		err = provider.UpdateResourceManagerRole(a.InstanceName, *callerIdentity.Account, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
-		if err != nil {
-			return fmt.Errorf("failed to update resource manager role: %w", err)
-		}
-
 		// refresh EKS connection
 		// TODO: Figure out why this refresh is required and remove it. It is
 		// currently required because the initial token throws Unauthorized errors until
 		// it is refreshed by the workload controller.
-		// _, err = kube.RefreshEKSConnection(kubernetesRuntimeInstResult, apiClient, threeportAPIEndpoint, threeportInstanceConfig.EncryptionKey)
-		// if err != nil {
-		// 	return fmt.Errorf("failed to refresh EKS connection: %w", err)
-		// }
+		_, err = kube.RefreshEKSConnection(kubernetesRuntimeInstResult, apiClient, threeportAPIEndpoint, threeportInstanceConfig.EncryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to refresh EKS connection: %w", err)
+		}
 	}
 
 	reconciled := true

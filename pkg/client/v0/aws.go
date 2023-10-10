@@ -2,12 +2,15 @@ package v0
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
@@ -141,17 +144,38 @@ func GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient *http.Client, 
 // GetAwsConfigFromAwsAccount returns an aws config from an aws account.
 func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.AwsAccount) (*aws.Config, error) {
 
-	roleArn := ""
-	externalId := ""
-
-	// Only use role arn if account is not default. If account is default,
-	// we will assume the resource-manager-threeport role via environment
-	// variables. If not, we will use role-chaining to assume the requested
-	// role after assuming the resource-manager-threeport role.
-	if !*awsAccount.DefaultAccount && awsAccount.RoleArn != nil {
-		roleArn = *awsAccount.RoleArn
+	// load aws config via default credentials
+	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+		"",
+		"",
+		"",
+		region,
+		"",
+		"",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
 
+	svc := sts.NewFromConfig(*awsConfig)
+	callerIdentity, err := svc.GetCallerIdentity(
+		context.Background(),
+		&sts.GetCallerIdentityInput{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get caller identity: %w", err)
+	}
+
+	// if caller identity is an assumed role, return current aws config
+	if strings.Contains(*callerIdentity.Arn, "assumed-role") {
+		return awsConfig, nil
+	}
+
+	roleArn := ""
+	externalId := ""
+	if awsAccount.RoleArn != nil {
+		roleArn = *awsAccount.RoleArn
+	}
 	if awsAccount.RoleArn != nil && awsAccount.ExternalId != nil {
 		externalId = *awsAccount.ExternalId
 	}
@@ -183,7 +207,7 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	}
 
 	// otherwise, rely on environment variables to construct aws config
-	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+	awsConfig, err = resource.LoadAWSConfigFromAPIKeys(
 		"",
 		"",
 		"",
