@@ -86,7 +86,7 @@ func GetLogBackendsByQueryString(apiClient *http.Client, apiAddr string, querySt
 		return &logBackends, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &logBackends, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -314,7 +314,7 @@ func GetLogStorageDefinitionsByQueryString(apiClient *http.Client, apiAddr strin
 		return &logStorageDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &logStorageDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -542,7 +542,7 @@ func GetLogStorageInstancesByQueryString(apiClient *http.Client, apiAddr string,
 		return &logStorageInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &logStorageInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

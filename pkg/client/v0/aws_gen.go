@@ -86,7 +86,7 @@ func GetAwsAccountsByQueryString(apiClient *http.Client, apiAddr string, querySt
 		return &awsAccounts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsAccounts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -314,7 +314,7 @@ func GetAwsEksKubernetesRuntimeDefinitionsByQueryString(apiClient *http.Client, 
 		return &awsEksKubernetesRuntimeDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsEksKubernetesRuntimeDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -542,7 +542,7 @@ func GetAwsEksKubernetesRuntimeInstancesByQueryString(apiClient *http.Client, ap
 		return &awsEksKubernetesRuntimeInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsEksKubernetesRuntimeInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -770,7 +770,7 @@ func GetAwsRelationalDatabaseDefinitionsByQueryString(apiClient *http.Client, ap
 		return &awsRelationalDatabaseDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsRelationalDatabaseDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -998,7 +998,7 @@ func GetAwsRelationalDatabaseInstancesByQueryString(apiClient *http.Client, apiA
 		return &awsRelationalDatabaseInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsRelationalDatabaseInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -1226,7 +1226,7 @@ func GetAwsObjectStorageBucketDefinitionsByQueryString(apiClient *http.Client, a
 		return &awsObjectStorageBucketDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsObjectStorageBucketDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -1454,7 +1454,7 @@ func GetAwsObjectStorageBucketInstancesByQueryString(apiClient *http.Client, api
 		return &awsObjectStorageBucketInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsObjectStorageBucketInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

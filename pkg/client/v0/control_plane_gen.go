@@ -86,7 +86,7 @@ func GetControlPlaneDefinitionsByQueryString(apiClient *http.Client, apiAddr str
 		return &controlPlaneDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &controlPlaneDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -314,7 +314,7 @@ func GetControlPlaneInstancesByQueryString(apiClient *http.Client, apiAddr strin
 		return &controlPlaneInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &controlPlaneInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

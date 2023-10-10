@@ -86,7 +86,7 @@ func GetGatewayDefinitionsByQueryString(apiClient *http.Client, apiAddr string, 
 		return &gatewayDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &gatewayDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -314,7 +314,7 @@ func GetGatewayInstancesByQueryString(apiClient *http.Client, apiAddr string, qu
 		return &gatewayInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &gatewayInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -542,7 +542,7 @@ func GetDomainNameDefinitionsByQueryString(apiClient *http.Client, apiAddr strin
 		return &domainNameDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &domainNameDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -770,7 +770,7 @@ func GetDomainNameInstancesByQueryString(apiClient *http.Client, apiAddr string,
 		return &domainNameInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &domainNameInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

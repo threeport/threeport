@@ -86,7 +86,7 @@ func GetForwardProxyDefinitionsByQueryString(apiClient *http.Client, apiAddr str
 		return &forwardProxyDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &forwardProxyDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -314,7 +314,7 @@ func GetForwardProxyInstancesByQueryString(apiClient *http.Client, apiAddr strin
 		return &forwardProxyInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &forwardProxyInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

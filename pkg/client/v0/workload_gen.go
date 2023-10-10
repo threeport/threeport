@@ -86,7 +86,7 @@ func GetWorkloadDefinitionsByQueryString(apiClient *http.Client, apiAddr string,
 		return &workloadDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &workloadDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -314,7 +314,7 @@ func GetWorkloadResourceDefinitionsByQueryString(apiClient *http.Client, apiAddr
 		return &workloadResourceDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &workloadResourceDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -542,7 +542,7 @@ func GetWorkloadInstancesByQueryString(apiClient *http.Client, apiAddr string, q
 		return &workloadInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &workloadInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -770,7 +770,7 @@ func GetAttachedObjectReferencesByQueryString(apiClient *http.Client, apiAddr st
 		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -998,7 +998,7 @@ func GetWorkloadResourceInstancesByQueryString(apiClient *http.Client, apiAddr s
 		return &workloadResourceInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &workloadResourceInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -1226,7 +1226,7 @@ func GetWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, quer
 		return &workloadEvents, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &workloadEvents, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

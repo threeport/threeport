@@ -86,7 +86,7 @@ func GetProfilesByQueryString(apiClient *http.Client, apiAddr string, queryStrin
 		return &profiles, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &profiles, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -314,7 +314,7 @@ func GetTiersByQueryString(apiClient *http.Client, apiAddr string, queryString s
 		return &tiers, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &tiers, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

@@ -213,7 +213,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			)),
 			Line(),
 			Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
-				Id("response").Dot("Data").Index(Lit(0)),
+				Id("response").Dot("Data"),
 			),
 			If(Id("err").Op("!=").Nil().Block(
 				Return().Op("&").Id(pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false)).Op(",").Qual(
