@@ -87,8 +87,14 @@ controllers each time 'make generate' is called.`,
 		}
 
 		// generate the controller's main package
-		if err := controllerConfig.MainPackage(); err != nil {
-			return fmt.Errorf("failed to generate code for controller's main package: %w", err)
+		if extension {
+			if err := controllerConfig.ExtensionMainPackage(); err != nil {
+				return fmt.Errorf("failed to generate code for controller's main package for extension: %w", err)
+			}
+		} else {
+			if err := controllerConfig.MainPackage(); err != nil {
+				return fmt.Errorf("failed to generate code for controller's main package: %w", err)
+			}
 		}
 
 		// generate the controller's internal package general source code
@@ -97,8 +103,14 @@ controllers each time 'make generate' is called.`,
 		}
 
 		// generate the controller's reconcile functions
-		if err := controllerConfig.Reconcilers(); err != nil {
-			return fmt.Errorf("failed to generate code for controller's reconcilers: %w", err)
+		if extension {
+			if err := controllerConfig.ExtensionReconcilers(); err != nil {
+				return fmt.Errorf("failed to generate code for controller's reconcilers for extension: %w", err)
+			}
+		} else {
+			if err := controllerConfig.Reconcilers(); err != nil {
+				return fmt.Errorf("failed to generate code for controller's reconcilers: %w", err)
+			}
 		}
 
 		//// generate the controller's reconcile functions
@@ -116,5 +128,6 @@ func init() {
 	rootCmd.AddCommand(controllerCmd)
 
 	controllerCmd.Flags().StringVarP(&modelFilenameForController, "filename", "f", "", "The filename for the file containing the API models")
+	controllerCmd.Flags().BoolVarP(&extension, "extension", "e", false, "Indicate whether code being generated is for an extension")
 	controllerCmd.MarkFlagRequired("filename")
 }
