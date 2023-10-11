@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
@@ -23,6 +22,7 @@ type ControlPlaneValues struct {
 	Name                      string                           `yaml:"Name"`
 	Namespace                 string                           `yaml:"Namespace"`
 	AuthEnabled               bool                             `yaml:"AuthEnabled"`
+	OnboardParent             bool                             `yaml:"OnboardParent"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	CustomComponentInfo       []*v0.ControlPlaneComponent      `yaml:"CustomComponentInfo"`
 }
@@ -35,8 +35,9 @@ type ControlPlaneDefinitionConfig struct {
 // ControlPlaneDefinitionValues contains the attributes needed to manage a control plane
 // definition.
 type ControlPlaneDefinitionValues struct {
-	Name        string `yaml:"Name"`
-	AuthEnabled bool   `yaml:"AuthEnabled"`
+	Name          string `yaml:"Name"`
+	AuthEnabled   bool   `yaml:"AuthEnabled"`
+	OnboardParent bool   `yaml:"OnboardParent"`
 }
 
 // ControlPlaneInstanceConfig contains the config for a control plane instance.
@@ -58,8 +59,9 @@ type ControlPlaneInstanceValues struct {
 func (c *ControlPlaneValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.ControlPlaneDefinition, *v0.ControlPlaneInstance, error) {
 	// create the control plane definition
 	controlPlaneDefinition := ControlPlaneDefinitionValues{
-		Name:        c.Name,
-		AuthEnabled: c.AuthEnabled,
+		Name:          c.Name,
+		AuthEnabled:   c.AuthEnabled,
+		OnboardParent: c.OnboardParent,
 	}
 	createdControlPlaneDefinition, err := controlPlaneDefinition.Create(apiClient, apiEndpoint)
 	if err != nil {
@@ -162,7 +164,8 @@ func (cd *ControlPlaneDefinitionValues) Create(apiClient *http.Client, apiEndpoi
 		Definition: v0.Definition{
 			Name: &cd.Name,
 		},
-		AuthEnabled: &cd.AuthEnabled,
+		AuthEnabled:   &cd.AuthEnabled,
+		OnboardParent: &cd.OnboardParent,
 	}
 
 	// create control plane definition
@@ -248,12 +251,6 @@ func (ci *ControlPlaneInstanceValues) Create(apiClient *http.Client, apiEndpoint
 
 	return createdControlPlaneInstance, nil
 
-}
-
-// Describe returns important failure events related to a control plane instance.
-func (wi *ControlPlaneInstanceValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.WorkloadInstanceStatusDetail, error) {
-
-	return nil, nil
 }
 
 // Delete deletes a control plane instance from the Threeport API.
