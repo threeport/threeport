@@ -1096,15 +1096,6 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		if err != nil {
 			return fmt.Errorf("failed to create new AWS EKS kubernetes runtime instance for control plane cluster: %w", err)
 		}
-
-		// refresh EKS connection
-		// TODO: Figure out why this refresh is required and remove it. It is
-		// currently required because the initial token throws Unauthorized errors until
-		// it is refreshed by the workload controller.
-		_, err = kube.RefreshEKSConnection(kubernetesRuntimeInstResult, apiClient, threeportAPIEndpoint, threeportInstanceConfig.EncryptionKey)
-		if err != nil {
-			return fmt.Errorf("failed to refresh EKS connection: %w", err)
-		}
 	}
 
 	reconciled := true
