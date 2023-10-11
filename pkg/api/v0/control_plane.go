@@ -1,5 +1,5 @@
-//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate ../../../bin/threeport-codegen controller --filename $GOFILE
+//go:generate threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate threeport-codegen controller --filename $GOFILE
 package v0
 
 // +threeport-codegen:reconciler

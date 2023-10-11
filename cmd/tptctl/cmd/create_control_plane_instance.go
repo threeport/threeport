@@ -69,7 +69,7 @@ var CreateControlPlaneInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateControlPlaneInstanceCmd)
+	CreateCmd.AddCommand(CreateControlPlaneInstanceCmd)
 
 	CreateControlPlaneInstanceCmd.Flags().StringVarP(
 		&createControlPlaneInstanceConfigPath,

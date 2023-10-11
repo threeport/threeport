@@ -105,7 +105,7 @@ var GetKubernetesRuntimeInstancesCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetKubernetesRuntimeInstancesCmd)
+	GetCmd.AddCommand(GetKubernetesRuntimeInstancesCmd)
 	GetKubernetesRuntimeInstancesCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",

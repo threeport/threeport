@@ -70,7 +70,7 @@ control plane so that it may be used to manage infrastructure.`,
 }
 
 func init() {
-	createCmd.AddCommand(CreateAwsAccountCmd)
+	CreateCmd.AddCommand(CreateAwsAccountCmd)
 
 	CreateAwsAccountCmd.Flags().StringVarP(
 		&createAwsAccountConfigPath,

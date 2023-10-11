@@ -91,5 +91,5 @@ var GetAwsRelationalDatabaseDefinitionsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetAwsRelationalDatabaseDefinitionsCmd)
+	GetCmd.AddCommand(GetAwsRelationalDatabaseDefinitionsCmd)
 }

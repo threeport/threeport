@@ -72,7 +72,7 @@ and AWS object storage bucket instance based on the AWS object storage bucket co
 }
 
 func init() {
-	createCmd.AddCommand(CreateAwsObjectStorageBucketCmd)
+	CreateCmd.AddCommand(CreateAwsObjectStorageBucketCmd)
 
 	CreateAwsObjectStorageBucketCmd.Flags().StringVarP(
 		&createAwsObjectStorageBucketConfigPath,

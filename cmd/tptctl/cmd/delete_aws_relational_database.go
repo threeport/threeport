@@ -96,7 +96,7 @@ the AWS relational database config or name.`,
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteAwsRelationalDatabaseCmd)
+	DeleteCmd.AddCommand(DeleteAwsRelationalDatabaseCmd)
 
 	DeleteAwsRelationalDatabaseCmd.Flags().StringVarP(
 		&deleteAwsRelationalDatabaseConfigPath,

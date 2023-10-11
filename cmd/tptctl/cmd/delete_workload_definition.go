@@ -91,7 +91,7 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteWorkloadDefinitionCmd)
+	DeleteCmd.AddCommand(DeleteWorkloadDefinitionCmd)
 
 	DeleteWorkloadDefinitionCmd.Flags().StringVarP(
 		&deleteWorkloadDefinitionConfigPath,

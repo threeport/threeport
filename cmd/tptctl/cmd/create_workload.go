@@ -77,7 +77,7 @@ and workload instance based on the workload config.`,
 }
 
 func init() {
-	createCmd.AddCommand(CreateWorkloadCmd)
+	CreateCmd.AddCommand(CreateWorkloadCmd)
 
 	CreateWorkloadCmd.Flags().StringVarP(
 		&createWorkloadConfigPath,

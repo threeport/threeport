@@ -94,7 +94,7 @@ and workload instance based on the workload config or name.`,
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteWorkloadCmd)
+	DeleteCmd.AddCommand(DeleteWorkloadCmd)
 
 	DeleteWorkloadCmd.Flags().StringVarP(
 		&deleteWorkloadConfigPath,

@@ -71,7 +71,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateControlPlaneCmd)
+	CreateCmd.AddCommand(CreateControlPlaneCmd)
 	CreateControlPlaneCmd.Flags().StringVarP(
 		&createControlPlaneConfigPath,
 		"config", "c", "", "Path to file with control plane config.",

@@ -107,5 +107,5 @@ This command displays all instances and the definitions used to configure them.`
 }
 
 func init() {
-	getCmd.AddCommand(GetControlPlanesCmd)
+	GetCmd.AddCommand(GetControlPlanesCmd)
 }

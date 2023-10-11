@@ -63,7 +63,7 @@ var DeleteAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteAwsRelationalDatabaseInstanceCmd)
+	DeleteCmd.AddCommand(DeleteAwsRelationalDatabaseInstanceCmd)
 
 	DeleteAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
 		&deleteAwsRelationalDatabaseInstanceName,

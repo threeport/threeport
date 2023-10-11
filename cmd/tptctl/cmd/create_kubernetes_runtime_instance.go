@@ -68,7 +68,7 @@ var CreateKubernetesRuntimeInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateKubernetesRuntimeInstanceCmd)
+	CreateCmd.AddCommand(CreateKubernetesRuntimeInstanceCmd)
 
 	CreateKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&createKubernetesRuntimeInstanceConfigPath,

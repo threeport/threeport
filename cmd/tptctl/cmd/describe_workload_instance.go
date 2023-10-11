@@ -118,7 +118,7 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	describeCmd.AddCommand(DescribeWorkloadInstanceCmd)
+	DescribeCmd.AddCommand(DescribeWorkloadInstanceCmd)
 
 	DescribeWorkloadInstanceCmd.Flags().StringVarP(
 		&describeWorkloadInstanceConfigPath,

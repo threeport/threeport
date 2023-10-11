@@ -72,7 +72,7 @@ and AWS relational database instance based on the AWS relational database config
 }
 
 func init() {
-	createCmd.AddCommand(CreateAwsRelationalDatabaseCmd)
+	CreateCmd.AddCommand(CreateAwsRelationalDatabaseCmd)
 
 	CreateAwsRelationalDatabaseCmd.Flags().StringVarP(
 		&createAwsRelationalDatabaseConfigPath,

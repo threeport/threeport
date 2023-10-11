@@ -133,7 +133,7 @@ for all the models in the supplied version/s.  The generated code includes:
 					}
 				}
 
-				if keyIndex == -1 && valueIndex == -1 {
+				if keyIndex == -1 && valueIndex == -1 && !extension {
 					return fmt.Errorf("could not find items to swap in db automigrate: %s and %s", key, value)
 				}
 
@@ -149,18 +149,36 @@ for all the models in the supplied version/s.  The generated code includes:
 		}
 
 		// generate all the APIs REST route mappings
-		if err := globalVersionConf.AllRoutes(); err != nil {
-			return fmt.Errorf("failed to write all routes source code: %w", err)
+		if extension {
+			if err := globalVersionConf.ExtensionAllRoutes(); err != nil {
+				return fmt.Errorf("failed to write all routes source code for extension: %w", err)
+			}
+		} else {
+			if err := globalVersionConf.AllRoutes(); err != nil {
+				return fmt.Errorf("failed to write all routes source code: %w", err)
+			}
 		}
 
 		// generate the database init code incl the automigrate calls
-		if err := globalVersionConf.DatabaseInit(); err != nil {
-			return fmt.Errorf("failed to write database init source code: %w", err)
+		if extension {
+			if err := globalVersionConf.ExtensionDatabaseInit(); err != nil {
+				return fmt.Errorf("failed to write database init source code for extension: %w", err)
+			}
+		} else {
+			if err := globalVersionConf.DatabaseInit(); err != nil {
+				return fmt.Errorf("failed to write database init source code: %w", err)
+			}
 		}
 
 		// generate the tagged fields code
-		if err := globalVersionConf.TaggedFields(); err != nil {
-			return fmt.Errorf("failed to write tagged field source code: %w", err)
+		if extension {
+			if err := globalVersionConf.ExtensionTaggedFields(); err != nil {
+				return fmt.Errorf("failed to write tagged field source code for extension: %w", err)
+			}
+		} else {
+			if err := globalVersionConf.TaggedFields(); err != nil {
+				return fmt.Errorf("failed to write tagged field source code: %w", err)
+			}
 		}
 
 		// generate the version maps
@@ -184,4 +202,5 @@ for all the models in the supplied version/s.  The generated code includes:
 
 func init() {
 	rootCmd.AddCommand(apiVersionCmd)
+	apiVersionCmd.Flags().BoolVarP(&extension, "extension", "e", false, "Indicate whether code being generated is for an extension")
 }

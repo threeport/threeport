@@ -68,7 +68,7 @@ var CreateAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateAwsObjectStorageBucketInstanceCmd)
+	CreateCmd.AddCommand(CreateAwsObjectStorageBucketInstanceCmd)
 
 	CreateAwsObjectStorageBucketInstanceCmd.Flags().StringVarP(
 		&createAwsObjectStorageBucketInstanceConfigPath,

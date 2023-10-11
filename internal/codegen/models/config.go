@@ -16,10 +16,11 @@ type ControllerConfig struct {
 
 // ModelConfig contains the values for a particular model.
 type ModelConfig struct {
-	TypeName        string
-	NameField       bool
-	Reconciler      bool
-	ReconciledField bool
+	TypeName            string
+	AllowDuplicateNames bool
+	NameField           bool
+	Reconciler          bool
+	ReconciledField     bool
 
 	// notification subjects
 	CreateSubject string

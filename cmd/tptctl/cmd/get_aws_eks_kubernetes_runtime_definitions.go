@@ -104,7 +104,7 @@ var GetAwsEksKubernetesRuntimeInstancesCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetAwsEksKubernetesRuntimeInstancesCmd)
+	GetCmd.AddCommand(GetAwsEksKubernetesRuntimeInstancesCmd)
 	GetAwsEksKubernetesRuntimeInstancesCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",

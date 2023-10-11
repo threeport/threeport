@@ -7,9 +7,9 @@ help:
 
 ## builds
 
-#build-codegen: @ Build codegen binary
-build-codegen:
-	go build -o bin/threeport-codegen cmd/codegen/main.go
+#install-codegen: @ Build codegen binary and install in GOPATH
+install-codegen:
+	go build -o $(GOPATH)/bin/threeport-codegen cmd/codegen/main.go
 
 #build-tptdev: @ Build tptdev binary
 build-tptdev:
@@ -25,7 +25,7 @@ build-tptctl:
 generate: generate-code generate-docs
 
 #generate-code: @ Generate code
-generate-code: build-codegen
+generate-code: install-codegen
 	go generate ./...
 
 #generate-docs: @ Generate swagger docs

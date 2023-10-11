@@ -68,7 +68,7 @@ var CreateGatewayInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateGatewayInstanceCmd)
+	CreateCmd.AddCommand(CreateGatewayInstanceCmd)
 
 	CreateGatewayInstanceCmd.Flags().StringVarP(
 		&createGatewayInstanceConfigPath,

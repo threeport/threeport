@@ -63,7 +63,7 @@ var DeleteAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteAwsObjectStorageBucketInstanceCmd)
+	DeleteCmd.AddCommand(DeleteAwsObjectStorageBucketInstanceCmd)
 
 	DeleteAwsObjectStorageBucketInstanceCmd.Flags().StringVarP(
 		&deleteAwsObjectStorageBucketInstanceName,

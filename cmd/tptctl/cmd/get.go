@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// getCmd represents the get command
-var getCmd = &cobra.Command{
+// GetCmd represents the get command
+var GetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get Threeport objects",
 	Long: `Get Threeport objects.
@@ -18,5 +18,5 @@ to get different objects from the system.`,
 }
 
 func init() {
-	rootCmd.AddCommand(getCmd)
+	rootCmd.AddCommand(GetCmd)
 }

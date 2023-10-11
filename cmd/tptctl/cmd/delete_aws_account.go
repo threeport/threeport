@@ -63,7 +63,7 @@ var DeleteAwsAccountCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteAwsAccountCmd)
+	DeleteCmd.AddCommand(DeleteAwsAccountCmd)
 
 	DeleteAwsAccountCmd.Flags().StringVarP(
 		&deleteAwsAccountName,

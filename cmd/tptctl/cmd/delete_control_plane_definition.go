@@ -92,7 +92,7 @@ var DeleteControlPlaneDefinitionCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteControlPlaneDefinitionCmd)
+	DeleteCmd.AddCommand(DeleteControlPlaneDefinitionCmd)
 
 	DeleteControlPlaneDefinitionCmd.Flags().StringVarP(
 		&deleteControlPlaneDefinitionConfigPath,

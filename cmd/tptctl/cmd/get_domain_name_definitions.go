@@ -68,7 +68,7 @@ var GetDomainNameDefinitionsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetDomainNameDefinitionsCmd)
+	GetCmd.AddCommand(GetDomainNameDefinitionsCmd)
 	GetDomainNameDefinitionsCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",

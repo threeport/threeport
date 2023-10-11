@@ -68,7 +68,7 @@ var CreateWorkloadDefinitionCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateWorkloadDefinitionCmd)
+	CreateCmd.AddCommand(CreateWorkloadDefinitionCmd)
 
 	CreateWorkloadDefinitionCmd.Flags().StringVarP(
 		&createWorkloadDefinitionConfigPath,

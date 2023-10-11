@@ -68,7 +68,7 @@ var CreateDomainNameInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateDomainNameInstanceCmd)
+	CreateCmd.AddCommand(CreateDomainNameInstanceCmd)
 
 	CreateDomainNameInstanceCmd.Flags().StringVarP(
 		&createDomainNameInstanceConfigPath,

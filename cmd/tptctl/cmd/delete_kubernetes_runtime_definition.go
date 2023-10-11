@@ -63,7 +63,7 @@ var DeleteKubernetesRuntimeDefinitionCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteKubernetesRuntimeDefinitionCmd)
+	DeleteCmd.AddCommand(DeleteKubernetesRuntimeDefinitionCmd)
 
 	DeleteKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&deleteKubernetesRuntimeDefinitionName,
