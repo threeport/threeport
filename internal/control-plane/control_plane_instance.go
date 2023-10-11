@@ -27,9 +27,9 @@ func controlPlaneInstanceCreated(
 	log *logr.Logger,
 ) (int64, error) {
 
-	var firstRun bool
+	var notFirstRun bool
 	if controlPlaneRuntimeInstance.CreationAcknowledged == nil {
-		firstRun = true
+		notFirstRun = true
 		// acknowledge the control plane instance is being created
 		createdReconciliation := true
 		creationTimestamp := time.Now().UTC()
@@ -51,7 +51,7 @@ func controlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to confirm creation of control plane instance in threeport API: %w", err)
 		}
 	} else {
-		firstRun = false
+		notFirstRun = false
 	}
 
 	// ensure control plane definition is reconciled before working on an instance
@@ -114,7 +114,8 @@ func controlPlaneInstanceCreated(
 	var threeportAPIEndpoint string
 	cpi := threeport.NewInstaller(threeport.Namespace(*controlPlaneRuntimeInstance.Namespace))
 	cpi.Opts.InThreeport = true
-	cpi.Opts.CreateOrUpdateKubeResources = firstRun
+	// If this is not the first run of the creation reconciler, we want to use createOrUpdate mode
+	cpi.Opts.CreateOrUpdateKubeResources = notFirstRun
 
 	componentMap := make(map[string]*v0.ControlPlaneComponent, 0)
 	componentMap["rest-api"] = cpi.Opts.RestApiInfo

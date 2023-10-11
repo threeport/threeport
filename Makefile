@@ -1,10 +1,10 @@
-REST_API_IMG = threeport-rest-api:latest
-WORKLOAD_CONTROLLER_IMG = threeport-workload-controller:latest
-KUBERNETES_RUNTIME_CONTROLLER_IMG = threeport-kubernetes-runtime-controller:latest
-CONTROL_PLANE_CONTROLLER_IMG = threeport-control-plane-controller:latest
-AWS_CONTROLLER_IMG = threeport-aws-controller:latest
-GATEWAY_CONTROLLER_IMG = threeport-gateway-controller:latest
-AGENT_IMG = threeport-agent:latest
+REST_API_IMG ?= threeport-rest-api:latest
+WORKLOAD_CONTROLLER_IMG ?= threeport-workload-controller:latest
+KUBERNETES_RUNTIME_CONTROLLER_IMG ?= threeport-kubernetes-runtime-controller:latest
+CONTROL_PLANE_CONTROLLER_IMG ?= threeport-control-plane-controller:latest
+AWS_CONTROLLER_IMG ?= threeport-aws-controller:latest
+GATEWAY_CONTROLLER_IMG ?= threeport-gateway-controller:latest
+AGENT_IMG ?= threeport-agent:latest
 
 #help: @ List available make targets
 help:

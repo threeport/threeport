@@ -123,8 +123,8 @@ for all the models in the supplied version/s.  The generated code includes:
 			}
 
 			for key, value := range swaps {
-				var keyIndex int
-				var valueIndex int
+				var keyIndex int = -1
+				var valueIndex int = -1
 				for i, name := range dbInitNames {
 					if name == key {
 						keyIndex = i
@@ -133,8 +133,14 @@ for all the models in the supplied version/s.  The generated code includes:
 					}
 				}
 
-				dbInitNames[keyIndex] = value
-				dbInitNames[valueIndex] = key
+				if keyIndex == -1 && valueIndex == -1 {
+					return fmt.Errorf("could not find items to swap in db automigrate: %s and %s", key, value)
+				}
+
+				if keyIndex != -1 && valueIndex != -1 {
+					dbInitNames[keyIndex] = value
+					dbInitNames[valueIndex] = key
+				}
 			}
 
 			versionConf.DatabaseInitNames = dbInitNames
