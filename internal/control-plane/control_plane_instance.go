@@ -29,7 +29,7 @@ func controlPlaneInstanceCreated(
 
 	var notFirstRun bool
 	if controlPlaneRuntimeInstance.CreationAcknowledged == nil {
-		notFirstRun = true
+		notFirstRun = false
 		// acknowledge the control plane instance is being created
 		createdReconciliation := true
 		creationTimestamp := time.Now().UTC()
@@ -51,7 +51,7 @@ func controlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to confirm creation of control plane instance in threeport API: %w", err)
 		}
 	} else {
-		notFirstRun = false
+		notFirstRun = true
 	}
 
 	// ensure control plane definition is reconciled before working on an instance
