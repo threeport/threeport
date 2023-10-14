@@ -417,6 +417,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			AwsRegion:        a.AwsRegion,
 			AwsAccountID:     *callerIdentity.Account,
 		}
+		config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
 
 		// configure preinstallfunction to update service account names and deploy service
 		// account objects within cluster
@@ -1215,7 +1216,8 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	}
 
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
-	var awsConfig *aws.Config
+	var awsConfigUser *aws.Config
+	var awsConfigResourceManager aws.Config
 	switch threeportInstanceConfig.Provider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
@@ -1229,14 +1231,11 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		//   persisted in threeport config
 		// * AwsConfigProfile and AwsRegion cannot be passed in through CLI for
 		// deletion opertion as these are stored in threeport config
-		awsConfig, err = resource.LoadAWSConfig(
+		awsConfigUser, err = resource.LoadAWSConfig(
 			a.AwsConfigEnv,
 			threeportInstanceConfig.EKSProviderConfig.AwsConfigProfile,
 			threeportInstanceConfig.EKSProviderConfig.AwsRegion,
-			provider.GetResourceManagerRoleArn(
-				threeportInstanceConfig.Name,
-				threeportInstanceConfig.EKSProviderConfig.AwsAccountID,
-			),
+			"",
 			"",
 			a.AwsSerialNumber,
 		)
@@ -1244,7 +1243,22 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
 
-		svc := sts.NewFromConfig(*awsConfig)
+		awsConfigResourceManager, err = resource.AssumeRole(
+			provider.GetResourceManagerRoleArn(
+				threeportInstanceConfig.Name,
+				threeportInstanceConfig.EKSProviderConfig.AwsAccountID,
+			),
+			"",
+			*awsConfigUser,
+			[]func(*awsSdkConfig.LoadOptions) error{
+				awsSdkConfig.WithRegion(threeportInstanceConfig.EKSProviderConfig.AwsRegion),
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to assume role for AWS resource manager: %w", err)
+		}
+
+		svc := sts.NewFromConfig(*awsConfigUser)
 		callerIdentity, err := svc.GetCallerIdentity(
 			context.Background(),
 			&sts.GetCallerIdentityInput{},
@@ -1254,8 +1268,8 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
-		// create a resource client to create EKS resources
-		resourceClient := resource.CreateResourceClient(awsConfig)
+		// create a resource client to delete EKS resources
+		resourceClient := resource.CreateResourceClient(awsConfigUser)
 
 		// capture messages as resources are created and return to user
 		go func() {
@@ -1286,7 +1300,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportInstanceConfig.Name),
 			AwsAccountID:        *callerIdentity.Account,
-			AwsConfig:           awsConfig,
+			AwsConfig:           awsConfigUser,
 			ResourceClient:      resourceClient,
 			ResourceInventory:   inventory,
 		}
@@ -1329,7 +1343,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
 		}
 
-		updatedKubernetesRuntimeInstance, err := refreshEKSConnectionWithLocalConfig(awsConfig, kubernetesRuntimeInstance, apiClient, threeportInstanceConfig.APIServer)
+		updatedKubernetesRuntimeInstance, err := refreshEKSConnectionWithLocalConfig(&awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportInstanceConfig.APIServer)
 		if err != nil {
 			return fmt.Errorf("failed to refresh EKS connection with local config: %w", err)
 		}
