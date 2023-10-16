@@ -63,13 +63,11 @@ secrets and the Release Clone github app.
 The automated testing defined in `.github/workflows/test.yml` builds all
 container images for the threeport control plane in the `build-*` jobs.  These
 images are based on the latest commit for the PR and use the that commit hash
-for the image tag.  They are pushed to ghcr and, in the `test` job a new
+for the image tag.  They are pushed to ghcr and, in the `test` job, a new
 threeport control plane is spun up using those images.  Finally, the `clean` job
 removes those images from ghcr after tests are complete.  That job uses the
-`PACKAGES_PAT` secret to authenticate to ghcr.  This is a personal access token
-that I have created on my `lander2k2` github account.  Any time that token is
-regenerated, the secret in the `threeport/threeport` repo needs to be updated.
-We can put this on a shared qleetbot account at some point, but any owner can
-generate a new personal access token and update the secret any time they wish
-(if they want to be responsible for it).
+`PACKAGES_PAT` secret to delete images.  This is a personal access token on the
+`qleetbot` github account that can be accessed with credentials in 1password.
+Any time that token is re-generated, the `PACKAGES_PAT` token in the Actions
+secrets on the `threeport/threeport` repo needs to be updated.
 
