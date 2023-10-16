@@ -337,6 +337,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		awsConfigResourceManager, err = resource.AssumeRole(
 			*resourceManagerRole.Arn,
 			"",
+			3600,
 			awsConfigUser,
 			[]func(*awsSdkConfig.LoadOptions) error{
 				awsSdkConfig.WithRegion(a.AwsRegion),
@@ -1055,6 +1056,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 				threeportInstanceConfig.EKSProviderConfig.AwsAccountID,
 			),
 			"",
+			3600,
 			*awsConfigUser,
 			[]func(*awsSdkConfig.LoadOptions) error{
 				awsSdkConfig.WithRegion(threeportInstanceConfig.EKSProviderConfig.AwsRegion),
