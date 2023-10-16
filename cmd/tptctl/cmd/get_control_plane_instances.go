@@ -114,5 +114,5 @@ var GetControlPlaneInstancesCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetControlPlaneInstancesCmd)
+	GetCmd.AddCommand(GetControlPlaneInstancesCmd)
 }

@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// createCmd represents the create command
-var createCmd = &cobra.Command{
+// CreateCmd represents the create command
+var CreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create Threeport objects",
 	Long: `Create Threeport objects.
@@ -18,5 +18,5 @@ to create different objects in the system.`,
 }
 
 func init() {
-	rootCmd.AddCommand(createCmd)
+	rootCmd.AddCommand(CreateCmd)
 }

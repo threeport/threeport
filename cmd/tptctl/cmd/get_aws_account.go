@@ -79,7 +79,7 @@ var GetAwsAccountsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetAwsAccountsCmd)
+	GetCmd.AddCommand(GetAwsAccountsCmd)
 	GetAwsAccountsCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",

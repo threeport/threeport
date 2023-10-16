@@ -108,7 +108,7 @@ the AWS object storage bucket config or name.`,
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteAwsObjectStorageBucketCmd)
+	DeleteCmd.AddCommand(DeleteAwsObjectStorageBucketCmd)
 
 	DeleteAwsObjectStorageBucketCmd.Flags().StringVarP(
 		&deleteAwsObjectStorageBucketConfigPath,

@@ -80,7 +80,7 @@ var CreateAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateAwsRelationalDatabaseInstanceCmd)
+	CreateCmd.AddCommand(CreateAwsRelationalDatabaseInstanceCmd)
 
 	CreateAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
 		&createAwsRelationalDatabaseInstanceConfigPath,

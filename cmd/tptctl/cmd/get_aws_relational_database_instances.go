@@ -120,5 +120,5 @@ var GetAwsRelationalDatabaseInstancesCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetAwsRelationalDatabaseInstancesCmd)
+	GetCmd.AddCommand(GetAwsRelationalDatabaseInstancesCmd)
 }

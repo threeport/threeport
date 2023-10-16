@@ -78,5 +78,5 @@ var GetControlPlaneDefinitionsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetControlPlaneDefinitionsCmd)
+	GetCmd.AddCommand(GetControlPlaneDefinitionsCmd)
 }

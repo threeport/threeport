@@ -84,7 +84,7 @@ and kubernetes runtime instance based on the kubernetes runtime config.`,
 }
 
 func init() {
-	createCmd.AddCommand(CreateKubernetesRuntimeCmd)
+	CreateCmd.AddCommand(CreateKubernetesRuntimeCmd)
 
 	CreateKubernetesRuntimeCmd.Flags().StringVarP(
 		&createKubernetesRuntimeConfigPath,

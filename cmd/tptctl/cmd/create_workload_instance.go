@@ -80,7 +80,7 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateWorkloadInstanceCmd)
+	CreateCmd.AddCommand(CreateWorkloadInstanceCmd)
 
 	CreateWorkloadInstanceCmd.Flags().StringVarP(
 		&createWorkloadInstanceConfigPath,

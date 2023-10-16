@@ -74,7 +74,7 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteAwsEksKubernetesRuntimeInstanceCmd)
+	DeleteCmd.AddCommand(DeleteAwsEksKubernetesRuntimeInstanceCmd)
 
 	DeleteAwsEksKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&deleteAwsEksKubernetesRuntimeInstanceName,

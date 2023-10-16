@@ -78,7 +78,7 @@ var GetWorkloadDefinitionsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetWorkloadDefinitionsCmd)
+	GetCmd.AddCommand(GetWorkloadDefinitionsCmd)
 	GetWorkloadDefinitionsCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",

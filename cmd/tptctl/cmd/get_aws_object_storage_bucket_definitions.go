@@ -99,5 +99,5 @@ var GetAwsObjectStorageBucketDefinitionsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetAwsObjectStorageBucketDefinitionsCmd)
+	GetCmd.AddCommand(GetAwsObjectStorageBucketDefinitionsCmd)
 }

@@ -80,7 +80,7 @@ var CreateAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateAwsEksKubernetesRuntimeDefinitionCmd)
+	CreateCmd.AddCommand(CreateAwsEksKubernetesRuntimeDefinitionCmd)
 
 	CreateAwsEksKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&createAwsEksKubernetesRuntimeDefinitionConfigPath,

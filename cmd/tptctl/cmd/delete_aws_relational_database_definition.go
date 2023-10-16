@@ -74,7 +74,7 @@ var DeleteAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteAwsRelationalDatabaseDefinitionCmd)
+	DeleteCmd.AddCommand(DeleteAwsRelationalDatabaseDefinitionCmd)
 
 	DeleteAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
 		&deleteAwsRelationalDatabaseDefinitionName,

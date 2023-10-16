@@ -131,7 +131,7 @@ This command displays all instances and the definitions used to configure them.`
 }
 
 func init() {
-	getCmd.AddCommand(GetWorkloadsCmd)
+	GetCmd.AddCommand(GetWorkloadsCmd)
 	GetWorkloadsCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
