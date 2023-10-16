@@ -29,7 +29,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-var ThreeportConfigAlreadyExistsErr = errors.New("threeport control plane with provided name already exists in threeport config")
+var ErrThreeportConfigAlreadyExists = errors.New("threeport config already contains deployed control planes")
 
 // ControlPlaneCLIArgs is the set of control plane arguments passed to one of
 // the CLI tools.
@@ -137,11 +137,13 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		cpi = threeport.NewInstaller()
 	}
 
-	// check threeport config for existing instance config
-	threeportInstanceConfigExists := threeportConfig.CheckThreeportConfigExists(cpi.Opts.InstanceName)
-	if threeportInstanceConfigExists && !cpi.Opts.ForceOverwriteConfig {
-		return ThreeportConfigAlreadyExistsErr
+	// check threeport config to see if it is empty
+	threeportInstanceConfigEmpty := threeportConfig.CheckThreeportConfigEmpty()
+	if !threeportInstanceConfigEmpty && !cpi.Opts.ForceOverwriteConfig {
+		return ErrThreeportConfigAlreadyExists
 	}
+
+	threeportConfig.ControlPlanes = []config.ControlPlane{}
 
 	genesis := true
 
@@ -954,9 +956,18 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 // DeleteControlPlane deletes a threeport control plane.
 func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
 	// get threeport config
-	threeportConfig, _, err := config.GetThreeportConfig("")
+	threeportConfig, requestedControlPlane, err := config.GetThreeportConfig("")
 	if err != nil {
 		return fmt.Errorf("failed to get threeport config: %w", err)
+	}
+
+	genesis, err := threeportConfig.CheckThreeportGenesisControlPlane(requestedControlPlane)
+	if err != nil {
+		return fmt.Errorf("could not check for genesis info: %w", err)
+	}
+
+	if !genesis {
+		return errors.New("could not delete current control plane because it is not a genesis control plane")
 	}
 
 	// configure installer

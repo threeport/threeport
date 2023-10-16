@@ -96,7 +96,7 @@ func TestWorkloadE2E(t *testing.T) {
 		threeportAPIEndpoint := threeport.GetLocalThreeportAPIEndpoint(authEnabled)
 
 		// initialize config so we can pull credentials from it
-		cli.InitConfig("", "")
+		cli.InitConfig("")
 
 		// get threeport config and configure http client for calls to threeport API
 		threeportConfig, _, err := config.GetThreeportConfig("")

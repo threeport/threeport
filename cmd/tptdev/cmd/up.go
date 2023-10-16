@@ -68,6 +68,6 @@ func init() {
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
 	)
 	cobra.OnInitialize(func() {
-		cli.InitConfig(cliArgs.CfgFile, cliArgs.ProviderConfigDir)
+		cli.InitConfig(cliArgs.CfgFile)
 	})
 }

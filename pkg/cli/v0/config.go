@@ -13,7 +13,7 @@ import (
 )
 
 // InitConfig sets up the threeport config for a CLI.
-func InitConfig(cfgFile, providerConfigDir string) {
+func InitConfig(cfgFile string) {
 	// determine user home dir
 	home, err := homedir.Dir()
 	if err != nil {

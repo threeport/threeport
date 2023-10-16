@@ -94,17 +94,23 @@ func (cfg *ThreeportConfig) GetAllControlPlaneNames() []string {
 	return allControlPlanes
 }
 
-// CheckThreeportConfigExists checks if a Threeport control plane config exists.
-func (cfg *ThreeportConfig) CheckThreeportConfigExists(createThreeportControlPlaneName string) bool {
-	threeportInstanceConfigExists := false
+// CheckThreeportControlPlaneExists checks if a Threeport control plane within a config already contains
+// control plane information
+func (cfg *ThreeportConfig) CheckThreeportConfigEmpty() bool {
+	return len(cfg.ControlPlanes) == 0
+}
+
+// CheckThreeportControlPlaneExists checks if a Threeport control plane within a config exists.
+func (cfg *ThreeportConfig) CheckThreeportControlPlaneExists(createThreeportControlPlaneName string) bool {
+	threeportControlPlaneExists := false
 	for _, controlPlane := range cfg.ControlPlanes {
 		if controlPlane.Name == createThreeportControlPlaneName {
-			threeportInstanceConfigExists = true
+			threeportControlPlaneExists = true
 			break
 		}
 	}
 
-	return threeportInstanceConfigExists
+	return threeportControlPlaneExists
 }
 
 // GetThreeportAPIEndpoint returns the threeport API endpoint from threeport
@@ -129,6 +135,18 @@ func (cfg *ThreeportConfig) GetThreeportAuthEnabled(requestedControlPlane string
 	}
 
 	return false, errors.New("current control plane not found when retrieving threeport API endpoint")
+}
+
+// CheckThreeportGenesisControlPlane returns a boolean that indicates whether current
+// control plane is the genesis control plane.
+func (cfg *ThreeportConfig) CheckThreeportGenesisControlPlane(requestedControlPlane string) (bool, error) {
+	for i, controlPlane := range cfg.ControlPlanes {
+		if controlPlane.Name == requestedControlPlane {
+			return cfg.ControlPlanes[i].Genesis, nil
+		}
+	}
+
+	return false, errors.New("current control plane not found when checking for genesis info")
 }
 
 // GetEncryptionKey returns the encryption key from the threeport
@@ -223,7 +241,7 @@ func UpdateThreeportConfig(
 	threeportConfig *ThreeportConfig,
 	threeportControlPlaneConfig *ControlPlane,
 ) {
-	if threeportConfig.CheckThreeportConfigExists(threeportControlPlaneConfig.Name) {
+	if threeportConfig.CheckThreeportControlPlaneExists(threeportControlPlaneConfig.Name) {
 		for n, instance := range threeportConfig.ControlPlanes {
 			if instance.Name == threeportControlPlaneConfig.Name {
 				threeportConfig.ControlPlanes[n] = *threeportControlPlaneConfig
