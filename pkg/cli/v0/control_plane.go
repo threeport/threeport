@@ -798,8 +798,6 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			AccountID:      callerIdentity.Account,
 			DefaultAccount: &defaultAccount,
 			DefaultRegion:  &awsConfigResourceManager.Region,
-			// AccessKeyID:     accessKey.AccessKeyId,
-			// SecretAccessKey: accessKey.SecretAccessKey,
 			RoleArn: resourceManagerRole.Arn,
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
