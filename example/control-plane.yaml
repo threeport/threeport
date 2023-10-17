@@ -2,6 +2,7 @@ ControlPlane:
   Name: "testport"
   Namespace: "testport"
   AuthEnabled: true
+  OnboardParent: true
   CustomComponentInfo:
     - Name: "rest-api"
       ImageTag: "v0.2"
