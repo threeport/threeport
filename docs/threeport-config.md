@@ -9,7 +9,7 @@ The root of this tree is considered the genesis control plane. The diagram below
 ![threeport-config](img/threeport-config.png)
 
 In the above diagram, `cp-0` is a control plane that is the genesis control plane and is managing other control planes
-which in turn can be managing others. All other control planes apart from the genesis are created via the control plane API.
+which, in turn, can be managing others. All other control planes apart from the genesis are created via the control plane API.
 
 When a new control plane is spun up using `tptctl up`, you are orchestrating the creation
 of a control plane that is considered a genesis control plane within a new group. Hence if the 
