@@ -11,7 +11,7 @@ TODO
 As a distributed system, theeport relies heavily on automated e2e testing.  It
 is essential to maintaining stability in the control plane.
 
-In order to run tests, you'll need a dev environment with the default instance
+In order to run tests, you'll need a dev environment with the default control plane
 name which is used with:
 
 ```bash

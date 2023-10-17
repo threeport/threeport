@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
-	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
+	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 

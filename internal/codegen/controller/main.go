@@ -63,7 +63,7 @@ func (cc *ControllerConfig) MainPackage() error {
 				fmt.Sprintf("ObjectType%s", obj),
 			),
 			Id("ReconcileFunc"): Qual(
-				fmt.Sprintf("github.com/threeport/threeport/internal/%s", cc.PackageName),
+				fmt.Sprintf("github.com/threeport/threeport/internal/%s", cc.ShortName),
 				fmt.Sprintf("%sReconciler", obj),
 			),
 			Id("ConcurrentReconciles"): Op("*").Id(fmt.Sprintf(
@@ -223,14 +223,14 @@ func (cc *ControllerConfig) MainPackage() error {
 			Id("Bucket"): Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/internal/%s",
-					cc.PackageName,
+					cc.ShortName,
 				),
 				"LockBucketName",
 			),
 			Id("Description"): Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/internal/%s",
-					cc.PackageName,
+					cc.ShortName,
 				),
 				"LockBucketDescr",
 			),
@@ -247,7 +247,7 @@ func (cc *ControllerConfig) MainPackage() error {
 				Qual(
 					fmt.Sprintf(
 						"github.com/threeport/threeport/internal/%s",
-						cc.PackageName,
+						cc.ShortName,
 					),
 					"LockBucketName",
 				),
@@ -397,7 +397,7 @@ func (cc *ControllerConfig) MainPackage() error {
 			Line().Lit("lockBucketName"), Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/internal/%s",
-					cc.PackageName,
+					cc.ShortName,
 				),
 				"LockBucketName",
 			),

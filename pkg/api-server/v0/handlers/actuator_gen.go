@@ -9,6 +9,7 @@ import (
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gorm "gorm.io/gorm"
+	clause "gorm.io/gorm/clause"
 	"net/http"
 )
 
@@ -105,12 +106,12 @@ func (h Handler) GetProfiles(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&v0.Profile{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Preload(clause.Associations).Model(&v0.Profile{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.Profile{}
-	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -136,7 +137,7 @@ func (h Handler) GetProfile(c echo.Context) error {
 	objectType := v0.ObjectTypeProfile
 	profileID := c.Param("id")
 	var profile v0.Profile
-	if result := h.DB.First(&profile, profileID); result.Error != nil {
+	if result := h.DB.Preload(clause.Associations).First(&profile, profileID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -396,12 +397,12 @@ func (h Handler) GetTiers(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&v0.Tier{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Preload(clause.Associations).Model(&v0.Tier{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.Tier{}
-	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -427,7 +428,7 @@ func (h Handler) GetTier(c echo.Context) error {
 	objectType := v0.ObjectTypeTier
 	tierID := c.Param("id")
 	var tier v0.Tier
-	if result := h.DB.First(&tier, tierID); result.Error != nil {
+	if result := h.DB.Preload(clause.Associations).First(&tier, tierID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}

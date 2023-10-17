@@ -86,7 +86,7 @@ func GetKubernetesRuntimeDefinitionsByQueryString(apiClient *http.Client, apiAdd
 		return &kubernetesRuntimeDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &kubernetesRuntimeDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -138,6 +138,7 @@ func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name 
 
 // CreateKubernetesRuntimeDefinition creates a new kubernetes runtime definition.
 func CreateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition) (*v0.KubernetesRuntimeDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(kubernetesRuntimeDefinition)
 	jsonKubernetesRuntimeDefinition, err := util.MarshalObject(kubernetesRuntimeDefinition)
 	if err != nil {
 		return kubernetesRuntimeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -170,6 +171,7 @@ func CreateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 
 // UpdateKubernetesRuntimeDefinition updates a kubernetes runtime definition.
 func UpdateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition) (*v0.KubernetesRuntimeDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(kubernetesRuntimeDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	kubernetesRuntimeDefinitionID := *kubernetesRuntimeDefinition.ID
@@ -312,7 +314,7 @@ func GetKubernetesRuntimeInstancesByQueryString(apiClient *http.Client, apiAddr 
 		return &kubernetesRuntimeInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &kubernetesRuntimeInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -364,6 +366,7 @@ func GetKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name st
 
 // CreateKubernetesRuntimeInstance creates a new kubernetes runtime instance.
 func CreateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) (*v0.KubernetesRuntimeInstance, error) {
+	ReplaceAssociatedObjectsWithNil(kubernetesRuntimeInstance)
 	jsonKubernetesRuntimeInstance, err := util.MarshalObject(kubernetesRuntimeInstance)
 	if err != nil {
 		return kubernetesRuntimeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -396,6 +399,7 @@ func CreateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 
 // UpdateKubernetesRuntimeInstance updates a kubernetes runtime instance.
 func UpdateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) (*v0.KubernetesRuntimeInstance, error) {
+	ReplaceAssociatedObjectsWithNil(kubernetesRuntimeInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	kubernetesRuntimeInstanceID := *kubernetesRuntimeInstance.ID

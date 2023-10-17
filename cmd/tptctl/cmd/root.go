@@ -41,7 +41,7 @@ func init() {
 	)
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	cobra.OnInitialize(func() {
-		cli.InitConfig(cliArgs.CfgFile, cliArgs.ProviderConfigDir)
+		cli.InitConfig(cliArgs.CfgFile)
 		cli.InitArgs(cliArgs)
 	})
 }

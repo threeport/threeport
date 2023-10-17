@@ -116,6 +116,12 @@ definitions:
       AwsEksKubernetesRuntimeDefinitionID:
         description: The definition that configures this instance.
         type: integer
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -215,6 +221,12 @@ definitions:
       AwsObjectStorageBucketDefinitionID:
         description: The definition that configures this instance.
         type: integer
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -328,6 +340,12 @@ definitions:
       AwsRelationalDatabaseDefinitionID:
         description: The definition that configures this instance.
         type: integer
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -374,10 +392,208 @@ definitions:
     - Name
     - WorkloadInstanceID
     type: object
+  v0.ControlPlaneComponent:
+    properties:
+      ControlPlaneInstanceID:
+        description: The control plane instance ID that this component belongs to
+        type: integer
+      Enabled:
+        description: Indicate whether the component is enabled to be deployed. Currently
+          only respected by controllers
+        type: boolean
+      ImageName:
+        description: The image name of the component
+        type: string
+      ImageRepo:
+        description: The image repo of the component
+        type: string
+      ImageTag:
+        description: The image tag of the component
+        type: string
+      Name:
+        description: The name of the component
+        type: string
+      ServiceAccountName:
+        description: The service account name to use when deploying
+        type: string
+      ServiceResourceName:
+        description: The service resource name to use when deploying
+        type: string
+    required:
+    - ControlPlaneInstanceID
+    - Name
+    type: object
+  v0.ControlPlaneDefinition:
+    properties:
+      AuthEnabled:
+        description: Used to indicate whether the control plane is deployed with auth
+          settings
+        type: boolean
+      ControlPlaneInstances:
+        description: The associated workload instances that are deployed from this
+          definition.
+        items:
+          $ref: '#/definitions/v0.ControlPlaneInstance'
+        type: array
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      OnboardParent:
+        description: |-
+          When instances of this control plane are deployed, Object representing control plane and its parent are
+          onboarded as part of deployment, using this we can disable that process and simply spin a new instance with
+          a clean DB.
+        type: boolean
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.ControlPlaneInstance:
+    properties:
+      ApiServerEndpoint:
+        description: Information for connecting to the rest api for the control plane
+        type: string
+      CACert:
+        description: The CA Cert that is associated with the control plane
+        type: string
+      Children:
+        items:
+          $ref: '#/definitions/v0.ControlPlaneInstance'
+        type: array
+      ClientCert:
+        description: The client cert that is associated with the control plane
+        type: string
+      ClientKey:
+        description: The client Key that is associated with the control plane
+        type: string
+      ControlPlaneDefinitionID:
+        description: The definition used to configure the control plane instance.
+        type: integer
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CustomComponentInfo:
+        description: |-
+          Passed in information for the different components of the control plane i.e. controller etc
+          When not provided, the default field will be used. If provided will override the provided field.
+          Despite being a reference to another database entry, we dont validate association.
+          This is allows a user to provide CustomComponentInfo at instance creation time so the reconciler has the info it needs
+        items:
+          $ref: '#/definitions/v0.ControlPlaneComponent'
+        type: array
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      Genesis:
+        description: Indicates whether this is was the first control plane that was
+          spun up with a control plane group
+        type: boolean
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      IsSelf:
+        description: Used to indicate whether the control plane instance that the
+          reconciler is deployed on
+        type: boolean
+      KubernetesRuntimeInstanceID:
+        description: Kubernetes runtime the control planei is running on
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Namespace:
+        description: The namespace to deploy the control plane in
+        type: string
+      Parent:
+        $ref: '#/definitions/v0.ControlPlaneInstance'
+      ParentControlPlaneInstanceID:
+        description: |-
+          These are pointers to the parent and children of current control plane
+          This is useful to map out the topology between control planes being managed by one another
+        type: integer
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+    required:
+    - ControlPlaneDefinitionID
+    - KubernetesRuntimeInstanceID
+    - Name
+    - Namespace
+    type: object
   v0.DomainNameDefinition:
     properties:
       AdminEmail:
         description: The email address of the domain administrator.
+        type: string
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DeletionAcknowledged:
         description: |-
@@ -439,6 +655,12 @@ definitions:
     type: object
   v0.DomainNameInstance:
     properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -535,6 +757,12 @@ definitions:
     type: object
   v0.GatewayDefinition:
     properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -609,6 +837,12 @@ definitions:
     type: object
   v0.GatewayInstance:
     properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -660,6 +894,12 @@ definitions:
     type: object
   v0.KubernetesRuntimeDefinition:
     properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -762,6 +1002,18 @@ definitions:
         description: |-
           ConnectionTokenExpiration is the time when a ConnectionToken will expire.
           Used to ensure a token will not expire before it can be used.
+        type: string
+      ControlPlaneInstance:
+        description: The associated workload instances running on this kubernetes
+          runtime.
+        items:
+          $ref: '#/definitions/v0.ControlPlaneInstance'
+        type: array
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
         type: string
       DefaultRuntime:
         description: |-
@@ -920,19 +1172,14 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - Profile
+    - Tier
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - Profile
-    - Tier
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -940,27 +1187,29 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - GatewayDefinition
     - GatewayInstance
     - DomainNameDefinition
     - DomainNameInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -968,10 +1217,17 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
   v0.Profile:
@@ -1038,6 +1294,12 @@ definitions:
     type: object
   v0.WorkloadDefinition:
     properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -1137,6 +1399,12 @@ definitions:
         items:
           $ref: '#/definitions/v0.AttachedObjectReference'
         type: array
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge creation and indicate that creation
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
       DeletionAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -1369,6 +1637,32 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetAwsRelationalDatabaseInstanceVersions gets the supported versions
         for the aws relational database instance API.
+  /control-plane-definitions/versions:
+    get:
+      description: Get the supported API versions for control plane definitions.
+      operationId: controlPlaneDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetControlPlaneDefinitionVersions gets the supported versions for the
+        control plane definition API.
+  /control-plane-instances/versions:
+    get:
+      description: Get the supported API versions for control plane instances.
+      operationId: controlPlaneInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetControlPlaneInstanceVersions gets the supported versions for the
+        control plane instance API.
   /domain-name-definitions/versions:
     get:
       description: Get the supported API versions for domain name definitions.
@@ -3147,6 +3441,406 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing aws relational database instance by replacing the
         entire object.
+  /v0/control-plane-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all control plane definitions from the Threeport database.
+      operationId: get-controlPlaneDefinitions
+      parameters:
+      - description: control plane definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all control plane definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new control plane definition to the Threeport database.
+      operationId: add-controlPlaneDefinition
+      parameters:
+      - description: ControlPlaneDefinition object
+        in: body
+        name: controlPlaneDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ControlPlaneDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new control plane definition.
+  /v0/control-plane-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a control plane definition by ID from the database.
+      operationId: delete-controlPlaneDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a control plane definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular control plane definition from the database.
+      operationId: get-controlPlaneDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a control plane definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a control plane definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating control plane definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-controlPlaneDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ControlPlaneDefinition object
+        in: body
+        name: controlPlaneDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ControlPlaneDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing control plane definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a control plane definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating control plane definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-controlPlaneDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ControlPlaneDefinition object
+        in: body
+        name: controlPlaneDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ControlPlaneDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing control plane definition by replacing the entire
+        object.
+  /v0/control-plane-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all control plane instances from the Threeport database.
+      operationId: get-controlPlaneInstances
+      parameters:
+      - description: control plane instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all control plane instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new control plane instance to the Threeport database.
+      operationId: add-controlPlaneInstance
+      parameters:
+      - description: ControlPlaneInstance object
+        in: body
+        name: controlPlaneInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ControlPlaneInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new control plane instance.
+  /v0/control-plane-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a control plane instance by ID from the database.
+      operationId: delete-controlPlaneInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a control plane instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular control plane instance from the database.
+      operationId: get-controlPlaneInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a control plane instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a control plane instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating control plane instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-controlPlaneInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ControlPlaneInstance object
+        in: body
+        name: controlPlaneInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ControlPlaneInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing control plane instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a control plane instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating control plane instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-controlPlaneInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ControlPlaneInstance object
+        in: body
+        name: controlPlaneInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ControlPlaneInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing control plane instance by replacing the entire
+        object.
   /v0/domain-name-definitions:
     get:
       consumes:

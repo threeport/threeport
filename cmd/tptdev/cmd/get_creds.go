@@ -29,16 +29,16 @@ var getCredsCmd = &cobra.Command{
 	Long:  `Get user client client cert, key and server CA for threeport instance API.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig, _, err := config.GetThreeportConfig(cliArgs.InstanceName)
+		threeportConfig, _, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
-		var threeportInstanceConfig config.Instance
+		var threeportInstanceConfig config.ControlPlane
 		instanceConfigFound := false
-		for i, instance := range threeportConfig.Instances {
+		for i, instance := range threeportConfig.ControlPlanes {
 			if instance.Name == getCredsThreeportName {
-				threeportInstanceConfig = threeportConfig.Instances[i]
+				threeportInstanceConfig = threeportConfig.ControlPlanes[i]
 				instanceConfigFound = true
 			}
 		}

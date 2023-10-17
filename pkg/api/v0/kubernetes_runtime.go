@@ -93,6 +93,9 @@ type KubernetesRuntimeInstance struct {
 	// The associated workload instances running on this kubernetes runtime.
 	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstance,omitempty" validate:"optional,association"`
 
+	// The associated control plane instances running on this kubernetes runtime instance.
+	ControlPlaneInstances []*ControlPlaneInstance `json:"ControlPlaneInstance,omitempty" validate:"optional,association"`
+
 	// If true, delete the runtime even if there are workloads present.
 	ForceDelete *bool `json:"ForceDelete,omitempty" query:"forcedelete" gorm:"default:false" validate:"optional"`
 

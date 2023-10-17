@@ -17,6 +17,8 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	AwsRelationalDatabaseInstanceRoutes(e, h)
 	AwsObjectStorageBucketDefinitionRoutes(e, h)
 	AwsObjectStorageBucketInstanceRoutes(e, h)
+	ControlPlaneDefinitionRoutes(e, h)
+	ControlPlaneInstanceRoutes(e, h)
 	ForwardProxyDefinitionRoutes(e, h)
 	ForwardProxyInstanceRoutes(e, h)
 	GatewayDefinitionRoutes(e, h)

@@ -86,7 +86,7 @@ func GetWorkloadDefinitionsByQueryString(apiClient *http.Client, apiAddr string,
 		return &workloadDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &workloadDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -138,6 +138,7 @@ func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (
 
 // CreateWorkloadDefinition creates a new workload definition.
 func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(workloadDefinition)
 	jsonWorkloadDefinition, err := util.MarshalObject(workloadDefinition)
 	if err != nil {
 		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -170,6 +171,7 @@ func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 
 // UpdateWorkloadDefinition updates a workload definition.
 func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(workloadDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	workloadDefinitionID := *workloadDefinition.ID
@@ -312,7 +314,7 @@ func GetWorkloadResourceDefinitionsByQueryString(apiClient *http.Client, apiAddr
 		return &workloadResourceDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &workloadResourceDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -364,6 +366,7 @@ func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name s
 
 // CreateWorkloadResourceDefinition creates a new workload resource definition.
 func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(workloadResourceDefinition)
 	jsonWorkloadResourceDefinition, err := util.MarshalObject(workloadResourceDefinition)
 	if err != nil {
 		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -396,6 +399,7 @@ func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 
 // UpdateWorkloadResourceDefinition updates a workload resource definition.
 func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(workloadResourceDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	workloadResourceDefinitionID := *workloadResourceDefinition.ID
@@ -538,7 +542,7 @@ func GetWorkloadInstancesByQueryString(apiClient *http.Client, apiAddr string, q
 		return &workloadInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &workloadInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -590,6 +594,7 @@ func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v
 
 // CreateWorkloadInstance creates a new workload instance.
 func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
+	ReplaceAssociatedObjectsWithNil(workloadInstance)
 	jsonWorkloadInstance, err := util.MarshalObject(workloadInstance)
 	if err != nil {
 		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -622,6 +627,7 @@ func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 
 // UpdateWorkloadInstance updates a workload instance.
 func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
+	ReplaceAssociatedObjectsWithNil(workloadInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	workloadInstanceID := *workloadInstance.ID
@@ -764,7 +770,7 @@ func GetAttachedObjectReferencesByQueryString(apiClient *http.Client, apiAddr st
 		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -816,6 +822,7 @@ func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name stri
 
 // CreateAttachedObjectReference creates a new attached object reference.
 func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attachedObjectReference *v0.AttachedObjectReference) (*v0.AttachedObjectReference, error) {
+	ReplaceAssociatedObjectsWithNil(attachedObjectReference)
 	jsonAttachedObjectReference, err := util.MarshalObject(attachedObjectReference)
 	if err != nil {
 		return attachedObjectReference, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -848,6 +855,7 @@ func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 
 // UpdateAttachedObjectReference updates a attached object reference.
 func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attachedObjectReference *v0.AttachedObjectReference) (*v0.AttachedObjectReference, error) {
+	ReplaceAssociatedObjectsWithNil(attachedObjectReference)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	attachedObjectReferenceID := *attachedObjectReference.ID
@@ -990,7 +998,7 @@ func GetWorkloadResourceInstancesByQueryString(apiClient *http.Client, apiAddr s
 		return &workloadResourceInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &workloadResourceInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -1042,6 +1050,7 @@ func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name str
 
 // CreateWorkloadResourceInstance creates a new workload resource instance.
 func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
+	ReplaceAssociatedObjectsWithNil(workloadResourceInstance)
 	jsonWorkloadResourceInstance, err := util.MarshalObject(workloadResourceInstance)
 	if err != nil {
 		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -1074,6 +1083,7 @@ func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 
 // UpdateWorkloadResourceInstance updates a workload resource instance.
 func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
+	ReplaceAssociatedObjectsWithNil(workloadResourceInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	workloadResourceInstanceID := *workloadResourceInstance.ID
@@ -1216,7 +1226,7 @@ func GetWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, quer
 		return &workloadEvents, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &workloadEvents, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -1268,6 +1278,7 @@ func GetWorkloadEventByName(apiClient *http.Client, apiAddr, name string) (*v0.W
 
 // CreateWorkloadEvent creates a new workload event.
 func CreateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *v0.WorkloadEvent) (*v0.WorkloadEvent, error) {
+	ReplaceAssociatedObjectsWithNil(workloadEvent)
 	jsonWorkloadEvent, err := util.MarshalObject(workloadEvent)
 	if err != nil {
 		return workloadEvent, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -1300,6 +1311,7 @@ func CreateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 
 // UpdateWorkloadEvent updates a workload event.
 func UpdateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *v0.WorkloadEvent) (*v0.WorkloadEvent, error) {
+	ReplaceAssociatedObjectsWithNil(workloadEvent)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	workloadEventID := *workloadEvent.ID

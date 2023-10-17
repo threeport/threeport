@@ -86,7 +86,7 @@ func GetProfilesByQueryString(apiClient *http.Client, apiAddr string, queryStrin
 		return &profiles, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &profiles, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -138,6 +138,7 @@ func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile
 
 // CreateProfile creates a new profile.
 func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) (*v0.Profile, error) {
+	ReplaceAssociatedObjectsWithNil(profile)
 	jsonProfile, err := util.MarshalObject(profile)
 	if err != nil {
 		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -170,6 +171,7 @@ func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 
 // UpdateProfile updates a profile.
 func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) (*v0.Profile, error) {
+	ReplaceAssociatedObjectsWithNil(profile)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	profileID := *profile.ID
@@ -312,7 +314,7 @@ func GetTiersByQueryString(apiClient *http.Client, apiAddr string, queryString s
 		return &tiers, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &tiers, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -364,6 +366,7 @@ func GetTierByName(apiClient *http.Client, apiAddr, name string) (*v0.Tier, erro
 
 // CreateTier creates a new tier.
 func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier, error) {
+	ReplaceAssociatedObjectsWithNil(tier)
 	jsonTier, err := util.MarshalObject(tier)
 	if err != nil {
 		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -396,6 +399,7 @@ func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 
 // UpdateTier updates a tier.
 func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier, error) {
+	ReplaceAssociatedObjectsWithNil(tier)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	tierID := *tier.ID

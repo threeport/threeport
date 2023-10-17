@@ -491,7 +491,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 
 		// write code to file
 		genFilename := fmt.Sprintf("%s_gen.go", strcase.ToSnake(obj))
-		genFilepath := filepath.Join(controllerInternalPackagePath(cc.PackageName), genFilename)
+		genFilepath := filepath.Join(controllerInternalPackagePath(cc.ShortName), genFilename)
 		file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open file to write generated code for %s reconciler: %w", obj, err)

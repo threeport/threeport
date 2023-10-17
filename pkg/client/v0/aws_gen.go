@@ -86,7 +86,7 @@ func GetAwsAccountsByQueryString(apiClient *http.Client, apiAddr string, querySt
 		return &awsAccounts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsAccounts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -138,6 +138,7 @@ func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsA
 
 // CreateAwsAccount creates a new aws account.
 func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
+	ReplaceAssociatedObjectsWithNil(awsAccount)
 	jsonAwsAccount, err := util.MarshalObject(awsAccount)
 	if err != nil {
 		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -170,6 +171,7 @@ func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 
 // UpdateAwsAccount updates a aws account.
 func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
+	ReplaceAssociatedObjectsWithNil(awsAccount)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsAccountID := *awsAccount.ID
@@ -312,7 +314,7 @@ func GetAwsEksKubernetesRuntimeDefinitionsByQueryString(apiClient *http.Client, 
 		return &awsEksKubernetesRuntimeDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsEksKubernetesRuntimeDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -364,6 +366,7 @@ func GetAwsEksKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr,
 
 // CreateAwsEksKubernetesRuntimeDefinition creates a new aws eks kubernetes runtime definition.
 func CreateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeDefinition)
 	jsonAwsEksKubernetesRuntimeDefinition, err := util.MarshalObject(awsEksKubernetesRuntimeDefinition)
 	if err != nil {
 		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -396,6 +399,7 @@ func CreateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 
 // UpdateAwsEksKubernetesRuntimeDefinition updates a aws eks kubernetes runtime definition.
 func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsEksKubernetesRuntimeDefinitionID := *awsEksKubernetesRuntimeDefinition.ID
@@ -538,7 +542,7 @@ func GetAwsEksKubernetesRuntimeInstancesByQueryString(apiClient *http.Client, ap
 		return &awsEksKubernetesRuntimeInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsEksKubernetesRuntimeInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -590,6 +594,7 @@ func GetAwsEksKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, n
 
 // CreateAwsEksKubernetesRuntimeInstance creates a new aws eks kubernetes runtime instance.
 func CreateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeInstance)
 	jsonAwsEksKubernetesRuntimeInstance, err := util.MarshalObject(awsEksKubernetesRuntimeInstance)
 	if err != nil {
 		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -622,6 +627,7 @@ func CreateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 
 // UpdateAwsEksKubernetesRuntimeInstance updates a aws eks kubernetes runtime instance.
 func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsEksKubernetesRuntimeInstanceID := *awsEksKubernetesRuntimeInstance.ID
@@ -764,7 +770,7 @@ func GetAwsRelationalDatabaseDefinitionsByQueryString(apiClient *http.Client, ap
 		return &awsRelationalDatabaseDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsRelationalDatabaseDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -816,6 +822,7 @@ func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, n
 
 // CreateAwsRelationalDatabaseDefinition creates a new aws relational database definition.
 func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition) (*v0.AwsRelationalDatabaseDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsRelationalDatabaseDefinition)
 	jsonAwsRelationalDatabaseDefinition, err := util.MarshalObject(awsRelationalDatabaseDefinition)
 	if err != nil {
 		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -848,6 +855,7 @@ func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 
 // UpdateAwsRelationalDatabaseDefinition updates a aws relational database definition.
 func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition) (*v0.AwsRelationalDatabaseDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsRelationalDatabaseDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsRelationalDatabaseDefinitionID := *awsRelationalDatabaseDefinition.ID
@@ -990,7 +998,7 @@ func GetAwsRelationalDatabaseInstancesByQueryString(apiClient *http.Client, apiA
 		return &awsRelationalDatabaseInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsRelationalDatabaseInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -1042,6 +1050,7 @@ func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, nam
 
 // CreateAwsRelationalDatabaseInstance creates a new aws relational database instance.
 func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance) (*v0.AwsRelationalDatabaseInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsRelationalDatabaseInstance)
 	jsonAwsRelationalDatabaseInstance, err := util.MarshalObject(awsRelationalDatabaseInstance)
 	if err != nil {
 		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -1074,6 +1083,7 @@ func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 
 // UpdateAwsRelationalDatabaseInstance updates a aws relational database instance.
 func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance) (*v0.AwsRelationalDatabaseInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsRelationalDatabaseInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsRelationalDatabaseInstanceID := *awsRelationalDatabaseInstance.ID
@@ -1216,7 +1226,7 @@ func GetAwsObjectStorageBucketDefinitionsByQueryString(apiClient *http.Client, a
 		return &awsObjectStorageBucketDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsObjectStorageBucketDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -1268,6 +1278,7 @@ func GetAwsObjectStorageBucketDefinitionByName(apiClient *http.Client, apiAddr, 
 
 // CreateAwsObjectStorageBucketDefinition creates a new aws object storage bucket definition.
 func CreateAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr string, awsObjectStorageBucketDefinition *v0.AwsObjectStorageBucketDefinition) (*v0.AwsObjectStorageBucketDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsObjectStorageBucketDefinition)
 	jsonAwsObjectStorageBucketDefinition, err := util.MarshalObject(awsObjectStorageBucketDefinition)
 	if err != nil {
 		return awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -1300,6 +1311,7 @@ func CreateAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr stri
 
 // UpdateAwsObjectStorageBucketDefinition updates a aws object storage bucket definition.
 func UpdateAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr string, awsObjectStorageBucketDefinition *v0.AwsObjectStorageBucketDefinition) (*v0.AwsObjectStorageBucketDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsObjectStorageBucketDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsObjectStorageBucketDefinitionID := *awsObjectStorageBucketDefinition.ID
@@ -1442,7 +1454,7 @@ func GetAwsObjectStorageBucketInstancesByQueryString(apiClient *http.Client, api
 		return &awsObjectStorageBucketInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &awsObjectStorageBucketInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -1494,6 +1506,7 @@ func GetAwsObjectStorageBucketInstanceByName(apiClient *http.Client, apiAddr, na
 
 // CreateAwsObjectStorageBucketInstance creates a new aws object storage bucket instance.
 func CreateAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string, awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance) (*v0.AwsObjectStorageBucketInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsObjectStorageBucketInstance)
 	jsonAwsObjectStorageBucketInstance, err := util.MarshalObject(awsObjectStorageBucketInstance)
 	if err != nil {
 		return awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -1526,6 +1539,7 @@ func CreateAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string
 
 // UpdateAwsObjectStorageBucketInstance updates a aws object storage bucket instance.
 func UpdateAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string, awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance) (*v0.AwsObjectStorageBucketInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsObjectStorageBucketInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsObjectStorageBucketInstanceID := *awsObjectStorageBucketInstance.ID
