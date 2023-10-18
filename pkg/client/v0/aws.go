@@ -141,6 +141,21 @@ func GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient *http.Client, 
 // GetAwsConfigFromAwsAccount returns an aws config from an aws account.
 func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.AwsAccount) (*aws.Config, error) {
 
+	roleArn := ""
+	externalId := ""
+
+	// Only use role arn if account is not default. If account is default,
+	// we will assume the resource-manager-threeport role via environment
+	// variables. If not, we will use role-chaining to assume the requested
+	// role after assuming the resource-manager-threeport role.
+	if !*awsAccount.DefaultAccount && awsAccount.RoleArn != nil {
+		roleArn = *awsAccount.RoleArn
+	}
+
+	if awsAccount.RoleArn != nil && awsAccount.ExternalId != nil {
+		externalId = *awsAccount.ExternalId
+	}
+
 	// if keys are provided, decrypt and return aws config
 	if awsAccount.AccessKeyID != nil && awsAccount.SecretAccessKey != nil {
 
@@ -158,7 +173,8 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 			secretAccessKey,
 			"",
 			region,
-			*awsAccount.RoleArn,
+			roleArn,
+			externalId,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create AWS config from API keys: %w", err)
@@ -172,7 +188,8 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 		"",
 		"",
 		region,
-		*awsAccount.RoleArn,
+		roleArn,
+		externalId,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config from API keys: %w", err)

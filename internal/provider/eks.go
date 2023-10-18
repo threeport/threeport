@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
@@ -153,13 +154,13 @@ func DeleteThreeportIamResources(instanceName string, awsConfig aws.Config) erro
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
 
-	if err = DeleteServiceAccountPolicy(instanceName, awsConfig); err != nil && !IsException(&err, nse.ErrorCode()) {
-		return fmt.Errorf("failed to delete service account policy: %w", err)
-	}
+	// if err = DeleteServiceAccountPolicy(instanceName, awsConfig); err != nil && !IsException(&err, nse.ErrorCode()) {
+	// 	return fmt.Errorf("failed to delete service account policy: %w", err)
+	// }
 
-	if err = DeleteServiceAccount(instanceName, awsConfig); err != nil && !IsException(&err, nse.ErrorCode()) {
-		return fmt.Errorf("failed to delete service account: %w", err)
-	}
+	// if err = DeleteServiceAccount(instanceName, awsConfig); err != nil && !IsException(&err, nse.ErrorCode()) {
+	// 	return fmt.Errorf("failed to delete service account: %w", err)
+	// }
 	return nil
 }
 
@@ -362,7 +363,7 @@ func CreateResourceManagerRole(
 	if err := checkRoleName(resourceManagerRoleName); err != nil {
 		return nil, err
 	}
-	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument(accountId, externalId)
+	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument(accountId, externalId, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
@@ -398,6 +399,28 @@ func CreateResourceManagerRole(
 	}
 
 	return resourceManagerRoleResp.Role, nil
+}
+
+func UpdateResourceManagerRole(clusterName, accountId, externalId, oidcProviderUrl string, awsConfig aws.Config) error {
+	svc := iam.NewFromConfig(awsConfig)
+
+	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
+	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument(accountId, externalId, oidcProviderUrl)
+	if err != nil {
+		return fmt.Errorf("failed to get role trust policy document: %w", err)
+	}
+
+	updateResourceManagerRoleInput := iam.UpdateAssumeRolePolicyInput{
+		RoleName:       &resourceManagerRoleName,
+		PolicyDocument: &runtimeManagerTrustPolicyDocument,
+	}
+	_, err = svc.UpdateAssumeRolePolicy(context.Background(), &updateResourceManagerRoleInput)
+	if err != nil {
+		return fmt.Errorf("failed to update role %s: %w", resourceManagerRoleName, err)
+	}
+
+	return nil
+
 }
 
 // DeleteRole deletes the runtime manager IAM role.
@@ -451,35 +474,60 @@ func GetResourceManagerRoleName(clusterName string) string {
 	return fmt.Sprintf("%s-%s", ResourceManagerRoleName, clusterName)
 }
 
-func GetExternalResourceManagerRoleName(clusterName string) string {
-	return fmt.Sprintf("%s-%s", ExternalResourceManagerRoleName, clusterName)
-}
-
 // getRuntimeManagerTrustPolicyDocument returns the trust policy document for the
 // runtime manager role.
-func getRuntimeManagerTrustPolicyDocument(accountId, externalId string) (string, error) {
+func getRuntimeManagerTrustPolicyDocument(accountId, externalId, oidcProviderUrl string) (string, error) {
 
-	statement := map[string]interface{}{
+	statements := []interface{}{}
+
+	allowAccountAccessStatement := map[string]interface{}{
 		"Effect": "Allow",
 		"Principal": map[string]interface{}{
-			"AWS": "arn:aws:iam::575822346426:root",
+			"AWS": "arn:aws:iam::" + accountId + ":root",
 		},
 		"Action": "sts:AssumeRole",
 	}
 
 	if externalId != "" {
-		statement["Condition"] = map[string]interface{}{
+		allowAccountAccessStatement["Condition"] = map[string]interface{}{
 			"StringEquals": map[string]interface{}{
 				"sts:ExternalId": externalId,
 			},
 		}
 	}
+	statements = append(statements, allowAccountAccessStatement)
+
+	if oidcProviderUrl != "" {
+
+		// remove scheme prefix from url
+		url, err := url.Parse(oidcProviderUrl)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse oidc provider url: %w", err)
+		}
+		basenameAndPath := url.Hostname() + url.Path
+
+		allowServiceAccountStatement := map[string]interface{}{
+			"Effect": "Allow",
+			"Principal": map[string]interface{}{
+				"Federated": "arn:aws:iam::" + accountId + ":oidc-provider/" + basenameAndPath,
+			},
+			"Action": "sts:AssumeRoleWithWebIdentity",
+			"Condition": map[string]interface{}{
+				"StringEquals": map[string]interface{}{
+					basenameAndPath + ":sub": []interface{}{
+						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":workload-controller",
+						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":aws-controller",
+					},
+				},
+			},
+		}
+
+		statements = append(statements, allowServiceAccountStatement)
+	}
 
 	document := map[string]interface{}{
-		"Version": "2012-10-17",
-		"Statement": []interface{}{
-			statement,
-		},
+		"Version":   "2012-10-17",
+		"Statement": statements,
 	}
 
 	documentJson, err := json.Marshal(document)
@@ -504,11 +552,10 @@ func checkRoleName(name string) error {
 }
 
 const (
-	ServiceAccountPolicyName        = "ThreeportServiceAccount"
-	RuntimeServiceAccount           = "ThreeportRuntime"
-	ResourceManagerRoleName         = "resource-manager-threeport"
-	ExternalResourceManagerRoleName = "external-resource-manager-threeport"
-	RuntimeManagerPolicyDocument    = `{
+	ServiceAccountPolicyName     = "ThreeportServiceAccount"
+	RuntimeServiceAccount        = "ThreeportRuntime"
+	ResourceManagerRoleName      = "resource-manager-threeport"
+	RuntimeManagerPolicyDocument = `{
 		"Version": "2012-10-17",
 		"Statement": [
 			{

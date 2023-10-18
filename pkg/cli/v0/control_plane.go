@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsSdkConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/nukleros/eks-cluster/pkg/resource"
@@ -168,11 +169,12 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	}
 
 	// configure the infra provider
-	var runtimeManagementRole *types.Role
+	// var accessKey *types.AccessKey
+	var resourceManagerRole *types.Role
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
 	awsConfigUser := aws.Config{}
-	awsConfigServiceAccount := &aws.Config{}
+	awsConfigResourceManager := &aws.Config{}
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled)
@@ -209,12 +211,12 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create AWS config
 		awsConf, err := resource.LoadAWSConfig(
-			cpi.Opts.AwsConfigEnv,
-			cpi.Opts.AwsConfigProfile,
-			cpi.Opts.AwsRegion,
+			a.AwsConfigEnv,
+			a.AwsConfigProfile,
+			a.AwsRegion,
+			a.AwsRoleArn,
 			"",
-			"",
-			"",
+			a.AwsSerialNumber,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
@@ -242,53 +244,56 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to create runtime manager role: %w", err)
 		}
 
-		// create IAM Policy for runtime service account
-		serviceAccountPolicy, err := provider.CreateServiceAccountPolicy(
-			resource.CreateIAMTags(
-				cpi.Opts.Name,
-				map[string]string{},
-			),
-			cpi.Opts.Name,
-			*runtimeManagementRole.Arn,
-			awsConfigUser,
-		)
-		if err != nil {
-			if provider.IsException(&err, "EntityAlreadyExists") {
-				return fmt.Errorf("failed to create service account policy: %w", err)
-			}
+		// // create IAM Policy for runtime service account
+		// serviceAccountPolicy, err := provider.CreateServiceAccountPolicy(
+		// 	resource.CreateIAMTags(
+		// 		a.InstanceName,
+		// 		map[string]string{},
+		// 	),
+		// 	a.InstanceName,
+		// 	*resourceManagerRole.Arn,
+		// 	awsConfigUser,
+		// )
+		// if err != nil {
+		// 	if provider.IsException(&err, "EntityAlreadyExists") {
+		// 		return fmt.Errorf("failed to create service account policy: %w", err)
+		// 	}
 
-			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
-			if deleteErr != nil {
-				return fmt.Errorf("failed to create service account policy: %w, failed to delete IAM resources: %w", err, deleteErr)
-			}
-			return fmt.Errorf("failed to create service account policy: %w", err)
-		}
+		// 	deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
+		// 	if deleteErr != nil {
+		// 		return fmt.Errorf("failed to create service account policy: %w, failed to delete IAM resources: %w", err, deleteErr)
+		// 	}
+		// 	return fmt.Errorf("failed to create service account policy: %w", err)
+		// }
 
-		// create IAM Service Account for runtime management
-		_, accessKey, err = provider.CreateServiceAccount(
-			*serviceAccountPolicy.Arn,
-			a.InstanceName,
-			&awsConfigUser,
-		)
-		if err != nil {
-			if provider.IsException(&err, "EntityAlreadyExists") {
-				return fmt.Errorf("failed to create service account policy: %w", err)
-			}
-			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
-			if deleteErr != nil {
-				return fmt.Errorf("failed to create service account: %w, failed to delete IAM resources: %w", err, deleteErr)
-			}
-			return fmt.Errorf("failed to create service account: %w", err)
-		}
+		// // create IAM Service Account for runtime management
+		// _, accessKey, err = provider.CreateServiceAccount(
+		// 	*serviceAccountPolicy.Arn,
+		// 	a.InstanceName,
+		// 	&awsConfigUser,
+		// )
+		// if err != nil {
+		// 	if provider.IsException(&err, "EntityAlreadyExists") {
+		// 		return fmt.Errorf("failed to create service account policy: %w", err)
+		// 	}
+		// 	deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
+		// 	if deleteErr != nil {
+		// 		return fmt.Errorf("failed to create service account: %w, failed to delete IAM resources: %w", err, deleteErr)
+		// 	}
+		// 	return fmt.Errorf("failed to create service account: %w", err)
+		// }
 
 		// update awsConfig to point to new service account
-		awsConfigServiceAccount, err = resource.LoadAWSConfigFromAPIKeys(
-			*accessKey.AccessKeyId,
-			*accessKey.SecretAccessKey,
-			"",
-			a.AwsRegion,
-			*resourceManagerRole.Arn,
-		)
+		// awsConfigResourceManager, err = resource.LoadAWSConfigFromAPIKeys(
+		// 	*accessKey.AccessKeyId,
+		// 	*accessKey.SecretAccessKey,
+		// 	"",
+		// 	a.AwsRegion,
+		// 	*resourceManagerRole.Arn,
+		// )
+
+		awsConfigResourceManager, err := resource.AssumeRole(*resourceManagerRole.Arn, "", awsConfigUser, []func(*awsSdkConfig.LoadOptions) error{})
+
 		if err != nil {
 			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
 			if deleteErr != nil {
@@ -298,7 +303,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// wait for IAM resources to be available
-		svc := sts.NewFromConfig(*awsConfigServiceAccount)
+		svc := sts.NewFromConfig(awsConfigResourceManager)
 		Info("Waiting for IAM resources to become available...")
 		err = util.Retry(30, 1, func() error {
 			callerIdentity, err := svc.GetCallerIdentity(
@@ -329,7 +334,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// create a resource client to create EKS resources
-		resourceClient := resource.CreateResourceClient(awsConfigServiceAccount)
+		resourceClient := resource.CreateResourceClient(&awsConfigResourceManager)
 
 		// capture messages as resources are created and return to user
 		go func() {
@@ -369,7 +374,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 			RuntimeInstanceName:          provider.ThreeportRuntimeName(a.InstanceName),
 			AwsAccountID:                 a.CreateProviderAccountID,
-			AwsConfig:                    awsConfigServiceAccount,
+			AwsConfig:                    &awsConfigResourceManager,
 			ResourceClient:               resourceClient,
 			ZoneCount:                    int32(2),
 			DefaultNodeGroupInstanceType: "t3.medium",
@@ -414,7 +419,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 								"eks.amazonaws.com/role-arn": fmt.Sprintf(
 									"arn:aws:iam::%s:role/%s",
 									a.CreateProviderAccountID,
-									provider.GetExternalResourceManagerRoleName(a.InstanceName),
+									provider.GetResourceManagerRoleName(a.InstanceName),
 								),
 							},
 						},
@@ -489,9 +494,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Location:                  &location,
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		location, err := mapping.GetLocationForAwsRegion(awsConfigServiceAccount.Region)
+		location, err := mapping.GetLocationForAwsRegion(awsConfigResourceManager.Region)
 		if err != nil {
-			msg := fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigServiceAccount.Region)
+			msg := fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigResourceManager.Region)
 			// print the error when it happens and then again post-deletion
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
@@ -968,13 +973,13 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		defaultAccount := true
 
 		awsAccount := v0.AwsAccount{
-			Name:            &awsAccountName,
-			AccountID:       &cpi.Opts.CreateProviderAccountID,
-			DefaultAccount:  &defaultAccount,
-			DefaultRegion:   &awsConfigServiceAccount.Region,
-			AccessKeyID:     accessKey.AccessKeyId,
-			SecretAccessKey: accessKey.SecretAccessKey,
-			RoleArn:         resourceManagerRole.Arn,
+			Name:           &awsAccountName,
+			AccountID:      &a.CreateProviderAccountID,
+			DefaultAccount: &defaultAccount,
+			DefaultRegion:  &awsConfigResourceManager.Region,
+			// AccessKeyID:     accessKey.AccessKeyId,
+			// SecretAccessKey: accessKey.SecretAccessKey,
+			RoleArn: resourceManagerRole.Arn,
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,
@@ -994,7 +999,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// set region in threeport config
-		threeportInstanceConfig.EKSProviderConfig.AwsRegion = awsConfigServiceAccount.Region
+		threeportInstanceConfig.EKSProviderConfig.AwsRegion = awsConfigResourceManager.Region
 		config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
 
 		// create aws eks k8s runtime definition
@@ -1046,7 +1051,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Reconciliation: v0.Reconciliation{
 				Reconciled: &reconciled,
 			},
-			Region:                              &awsConfigServiceAccount.Region,
+			Region:                              &awsConfigResourceManager.Region,
 			AwsEksKubernetesRuntimeDefinitionID: createdAwsEksKubernetesRuntimeDef.ID,
 			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
 			ResourceInventory:                   &dbInventory,
@@ -1060,14 +1065,19 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to create new AWS EKS kubernetes runtime instance for control plane cluster: %w", err)
 		}
 
+		err = provider.UpdateResourceManagerRole(a.InstanceName, a.CreateProviderAccountID, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
+		if err != nil {
+			return fmt.Errorf("failed to update resource manager role: %w", err)
+		}
+
 		// refresh EKS connection
 		// TODO: Figure out why this refresh is required and remove it. It is
 		// currently required because the initial token throws Unauthorized errors until
 		// it is refreshed by the workload controller.
-		_, err = kube.RefreshEKSConnection(kubernetesRuntimeInstResult, apiClient, threeportAPIEndpoint, threeportInstanceConfig.EncryptionKey)
-		if err != nil {
-			return fmt.Errorf("failed to refresh EKS connection: %w", err)
-		}
+		// _, err = kube.RefreshEKSConnection(kubernetesRuntimeInstResult, apiClient, threeportAPIEndpoint, threeportInstanceConfig.EncryptionKey)
+		// if err != nil {
+		// 	return fmt.Errorf("failed to refresh EKS connection: %w", err)
+		// }
 	}
 
 	reconciled := true
@@ -1195,9 +1205,9 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			cpi.Opts.AwsConfigEnv,
 			threeportInstanceConfig.EKSProviderConfig.AwsConfigProfile,
 			threeportInstanceConfig.EKSProviderConfig.AwsRegion,
+			a.AwsRoleArn,
 			"",
-			"",
-			"",
+			a.AwsSerialNumber,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)

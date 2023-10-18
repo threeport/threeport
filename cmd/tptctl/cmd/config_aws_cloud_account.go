@@ -73,6 +73,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			providerRegion,
 			"",
 			"",
+			"",
 		)
 		if err != nil {
 			cli.Error("failed to load AWS configuration with local config", err)
@@ -109,8 +110,8 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		}
 
 		createdAwsAccount, err := client.CreateAwsAccount(apiClient, apiEndpoint, &v0.AwsAccount{
-			Name:      ptr.String("my-account"),
-			AccountID: callerIdentity.Account,
+			Name:           ptr.String("my-account"),
+			AccountID:      callerIdentity.Account,
 			DefaultAccount: ptr.Bool(true),
 		})
 
