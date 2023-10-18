@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	awsclient "github.com/nukleros/aws-builder/pkg/client"
-	"github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/s3"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gorm.io/datatypes"
@@ -23,7 +22,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -79,23 +77,24 @@ func awsObjectStorageBucketInstanceCreated(
 		return 0, fmt.Errorf("failed to get required objects for AWS object storage bucket instance reconciliation: %w", err)
 	}
 
-	// decrypt access key id and secret access key
-	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.AccessKeyID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
-	}
-	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.SecretAccessKey)
-	if err != nil {
-		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
-	}
+	// // decrypt access key id and secret access key
+	// accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.AccessKeyID)
+	// if err != nil {
+	// 	return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
+	// }
+	// secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.SecretAccessKey)
+	// if err != nil {
+	// 	return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
+	// }
 
-	// create AWS config
-	awsConfig, err := config.LoadAWSConfigFromAPIKeys(
-		accessKeyID,
-		secretAccessKey,
-		"",
-		*requiredObjects.AwsEksKubernetesRuntimeInstance.Region,
-	)
+	// // create AWS config
+	// awsConfig, err := config.LoadAWSConfigFromAPIKeys(
+	// 	accessKeyID,
+	// 	secretAccessKey,
+	// 	"",
+	// 	*requiredObjects.AwsEksKubernetesRuntimeInstance.Region,
+	// )
+	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *requiredObjects.AwsEksKubernetesRuntimeInstance.Region, &requiredObjects.AwsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
@@ -386,23 +385,24 @@ func awsObjectStorageBucketInstanceDeleted(
 		return 0, fmt.Errorf("failed to get required objects for AWS object storage bucket instance reconciliation: %w", err)
 	}
 
-	// decrypt access key id and secret access key
-	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.AccessKeyID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
-	}
-	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.SecretAccessKey)
-	if err != nil {
-		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
-	}
+	// // decrypt access key id and secret access key
+	// accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.AccessKeyID)
+	// if err != nil {
+	// 	return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
+	// }
+	// secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *requiredObjects.AwsAccount.SecretAccessKey)
+	// if err != nil {
+	// 	return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
+	// }
 
-	// create AWS config
-	awsConfig, err := config.LoadAWSConfigFromAPIKeys(
-		accessKeyID,
-		secretAccessKey,
-		"",
-		*requiredObjects.AwsEksKubernetesRuntimeInstance.Region,
-	)
+	// // create AWS config
+	// awsConfig, err := config.LoadAWSConfigFromAPIKeys(
+	// 	accessKeyID,
+	// 	secretAccessKey,
+	// 	"",
+	// 	*requiredObjects.AwsEksKubernetesRuntimeInstance.Region,
+	// )
+	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *requiredObjects.AwsEksKubernetesRuntimeInstance.Region, &requiredObjects.AwsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}

@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/nukleros/eks-cluster/pkg/resource"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
 // GetAwsAccountByDefaultAccount fetches the default AWS account.
@@ -133,4 +136,47 @@ func GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient *http.Client, 
 	}
 
 	return &awsEksKubernetesRuntimeInstance, nil
+}
+
+// GetAwsConfigFromAwsAccount returns an aws config from an aws account.
+func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.AwsAccount) (*aws.Config, error) {
+
+	// if keys are provided, decrypt and return aws config
+	if awsAccount.AccessKeyID != nil && awsAccount.SecretAccessKey != nil {
+
+		// decrypt access key id and secret access key
+		accessKeyID, err := encryption.Decrypt(encryptionKey, *awsAccount.AccessKeyID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt access key id: %w", err)
+		}
+		secretAccessKey, err := encryption.Decrypt(encryptionKey, *awsAccount.SecretAccessKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt secret access key: %w", err)
+		}
+		awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+			accessKeyID,
+			secretAccessKey,
+			"",
+			region,
+			*awsAccount.RoleArn,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create AWS config from API keys: %w", err)
+		}
+		return awsConfig, nil
+	}
+
+	// otherwise, rely on environment variables to construct aws config
+	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+		"",
+		"",
+		"",
+		region,
+		*awsAccount.RoleArn,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AWS config from API keys: %w", err)
+	}
+	return awsConfig, nil
+
 }

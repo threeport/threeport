@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nukleros/eks-cluster/pkg/connection"
-	"github.com/nukleros/eks-cluster/pkg/resource"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -18,6 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
+	"github.com/nukleros/eks-cluster/pkg/connection"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
@@ -293,26 +292,25 @@ func RefreshEKSConnection(
 		return nil, fmt.Errorf("failed to get AWS account by ID %d: %w", eksRuntimeDefinition.AwsAccountID, err)
 	}
 
-	// decrypt access key id and secret access key
-	accessKeyID, err := encryption.Decrypt(encryptionKey, *awsAccount.AccessKeyID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt access key id: %w", err)
-	}
-	secretAccessKey, err := encryption.Decrypt(encryptionKey, *awsAccount.SecretAccessKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt secret access key: %w", err)
-	}
+	// // decrypt access key id and secret access key
+	// accessKeyID, err := encryption.Decrypt(encryptionKey, *awsAccount.AccessKeyID)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to decrypt access key id: %w", err)
+	// }
+	// secretAccessKey, err := encryption.Decrypt(encryptionKey, *awsAccount.SecretAccessKey)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to decrypt secret access key: %w", err)
+	// }
 
-	// create AWS config to get new token
-	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
-		accessKeyID,
-		secretAccessKey,
-		"",
-		*eksRuntimeInstance.Region,
-		"",
-		"",
-		"",
-	)
+	// // create AWS config to get new token
+	// awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+	// 	accessKeyID,
+	// 	secretAccessKey,
+	// 	"",
+	// 	*eksRuntimeInstance.Region,
+	// 	*awsAccount.RoleArn,
+	// )
+	awsConfig, err := client.GetAwsConfigFromAwsAccount(encryptionKey, *eksRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)
 	}

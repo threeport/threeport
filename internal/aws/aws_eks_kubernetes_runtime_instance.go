@@ -16,7 +16,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
 // awsEksKubernetesRuntimeInstanceCreated reconciles state for created AWS EKS
@@ -65,24 +64,25 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 	)
 
-	// decrypt access key id and secret access key
-	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
-	}
-	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
-	if err != nil {
-		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
-	}
+	// // decrypt access key id and secret access key
+	// accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
+	// if err != nil {
+	// 	return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
+	// }
+	// secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
+	// if err != nil {
+	// 	return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
+	// }
 
-	// create AWS config
-	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
-		accessKeyID,
-		secretAccessKey,
-		"",
-		*awsEksKubernetesRuntimeInstance.Region,
-		*awsAccount.RoleArn,
-	)
+	// // create AWS config
+	// awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+	// 	accessKeyID,
+	// 	secretAccessKey,
+	// 	"",
+	// 	*awsEksKubernetesRuntimeInstance.Region,
+	// 	*awsAccount.RoleArn,
+	// )
+	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
@@ -323,24 +323,25 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 		return 0, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
 	}
 
-	// decrypt access key id and secret access key
-	accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
-	}
-	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
-	if err != nil {
-		return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
-	}
+	// // decrypt access key id and secret access key
+	// accessKeyID, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
+	// if err != nil {
+	// 	return 0, fmt.Errorf("failed to decrypt access key id: %w", err)
+	// }
+	// secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
+	// if err != nil {
+	// 	return 0, fmt.Errorf("failed to decrypt secret access key: %w", err)
+	// }
 
-	// create AWS config
-	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
-		accessKeyID,
-		secretAccessKey,
-		"",
-		*awsEksKubernetesRuntimeInstance.Region,
-		*awsAccount.RoleArn,
-	)
+	// // create AWS config
+	// awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+	// 	accessKeyID,
+	// 	secretAccessKey,
+	// 	"",
+	// 	*awsEksKubernetesRuntimeInstance.Region,
+	// 	*awsAccount.RoleArn,
+	// )
+	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
