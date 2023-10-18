@@ -235,6 +235,25 @@ func GetThreeportConfig(requestedControlPlane string) (*ThreeportConfig, string,
 	return threeportConfig, controlPlaneName, nil
 }
 
+// UpdateThreeportConfigInstance updates a threeport instance config
+// and returns the updated threeport config.
+func (c *Instance) UpdateThreeportConfigInstance(f func(*Instance)) (*ThreeportConfig, error) {
+
+	// make requested changes to threeport instance config
+	f(c)
+
+	// pull latest threeport config from disk
+	threeportConfig, _, err := GetThreeportConfig("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get threeport config: %w", err)
+	}
+
+	// sync threeport instance config changes to disk
+	UpdateThreeportConfig(threeportConfig, c)
+
+	return threeportConfig, nil
+}
+
 // UpdateThreeportConfig updates a threeport config to add or update a config
 // for a threeport control plane and set it as the current control plane.
 func UpdateThreeportConfig(
