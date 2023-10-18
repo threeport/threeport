@@ -151,18 +151,12 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 			}
 		}
 
-		// if RoleArn is set, generate an external ID
-		if field.Name == "RoleArn" &&
-			fieldVal.Kind() == reflect.Ptr &&
-			!fieldVal.IsNil() {
+		// generate external ID
+		uuid := uuid.New().String()
 
-			// generate external ID
-			uuid := uuid.New().String()
-
-			// set external id
-			columnName := ns.ColumnName("", "ExternalId")
-			tx.Statement.SetColumn(columnName, uuid)
-		}
+		// set external id
+		columnName := ns.ColumnName("", "ExternalId")
+		tx.Statement.SetColumn(columnName, uuid)
 	}
 
 	return nil

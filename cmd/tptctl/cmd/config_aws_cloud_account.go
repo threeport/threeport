@@ -21,14 +21,14 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-var providerAccountProfile string
+var awsProfile string
 var providerRegion string
-var externalAwsAccountId int
 var runtimeManagerRoleName string
+var externalAwsAccountId string
 
 // ConfigCurrentInstanceCmd represents the current-instance command
 var ConfigAwsCloudAccountCmd = &cobra.Command{
-	Use:     "provider-account",
+	Use:     "aws-account",
 	Example: "tptctl config aws-account --name my-account",
 	Short:   "Configure an aws account",
 	Long: `Configure AWS account permissions. This ensures that
@@ -50,26 +50,16 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		}
 
 		// get threeport API client
-		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled(requestedInstance)
+		apiClient, err := threeportConfig.GetHTTPClient(requestedInstance)
 		if err != nil {
-			cli.Error("failed to determine if auth is enabled on threeport API", err)
-			os.Exit(1)
-		}
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForInstance(requestedInstance)
-		if err != nil {
-			cli.Error("failed to get threeport certificates from config", err)
-			os.Exit(1)
-		}
-		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
-		if err != nil {
-			cli.Error("failed to create threeport API client", err)
+			cli.Error("failed to get threeport API client", err)
 			os.Exit(1)
 		}
 
-		resourceManagerRoleName := provider.GetResourceManagerRoleName(requestedInstance)
+		// load AWS configuration
 		awsConf, err := resource.LoadAWSConfig(
 			false,
-			providerAccountProfile,
+			awsProfile,
 			providerRegion,
 			"",
 			"",
@@ -80,6 +70,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// test AWS configuration by getting caller identity
 		svcSts := sts.NewFromConfig(*awsConf)
 		callerIdentity, err := svcSts.GetCallerIdentity(
 			context.Background(),
@@ -94,10 +85,16 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		var nse types.NoSuchEntityException
 
 		// ensure role doesn't exist
+		if runtimeManagerRoleName == "" {
+			runtimeManagerRoleName = provider.GetResourceManagerRoleName(requestedInstance)
+		}
 		var existingRole *iam.GetRoleOutput
+		getRoleInput := iam.GetRoleInput{
+			RoleName: &runtimeManagerRoleName,
+		}
 		if existingRole, err = svcIam.GetRole(
 			context.Background(),
-			&iam.GetRoleInput{RoleName: &resourceManagerRoleName},
+			&getRoleInput,
 		); err != nil && !provider.IsException(&err, nse.ErrorCode()) {
 			cli.Error("failed to get role", err)
 			os.Exit(1)
@@ -109,12 +106,14 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		createdAwsAccount, err := client.CreateAwsAccount(apiClient, apiEndpoint, &v0.AwsAccount{
+		// create aws account in threeport API to generate an external ID value
+		awsAccount := v0.AwsAccount{
 			Name:           ptr.String("my-account"),
 			AccountID:      callerIdentity.Account,
 			DefaultAccount: ptr.Bool(true),
-		})
-
+			DefaultRegion:  ptr.String("us-east-1"),
+		}
+		createdAwsAccount, err := client.CreateAwsAccount(apiClient, apiEndpoint, &awsAccount)
 		if err != nil {
 			cli.Error("failed to create aws account", err)
 			os.Exit(1)
@@ -127,7 +126,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 				map[string]string{},
 			),
 			requestedInstance,
-			*createdAwsAccount.AccountID,
+			externalAwsAccountId,
 			*createdAwsAccount.ExternalId,
 			*awsConf,
 		)
@@ -136,24 +135,39 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// update aws account with role arn
+		createdAwsAccount.RoleArn = role.Arn
+		_, err = client.UpdateAwsAccount(apiClient, apiEndpoint, createdAwsAccount)
+		if err != nil {
+			cli.Error("failed to update aws account", err)
+			os.Exit(1)
+		}
+
 		cli.Complete(fmt.Sprintf("Configured AWS cloud account with runtime manager role: %s", *role.Arn))
 	},
 }
 
 func init() {
-	configCmd.AddCommand(ConfigCurrentInstanceCmd)
+	configCmd.AddCommand(ConfigAwsCloudAccountCmd)
 
-	ConfigAwsCloudAccountCmd.Flags().StringVarP(
-		&configCurrentInstanceName,
-		"instance-name", "i", "", "The name of the Threeport instance to set as current.",
-	)
 	ConfigAwsCloudAccountCmd.Flags().StringVar(
 		&runtimeManagerRoleName,
-		"runtime-manage-role-name", "", fmt.Sprintf("The name of the runtime manager role to create. Defaults to %s-<instance-name>", provider.ResourceManagerRoleName),
+		"runtime-manager-role-name",
+		"",
+		fmt.Sprintf("The name of the runtime manager role to create. Defaults to %s-<instance-name>", provider.ResourceManagerRoleName),
 	)
-	ConfigAwsCloudAccountCmd.Flags().IntVar(
+	ConfigAwsCloudAccountCmd.Flags().StringVar(
+		&awsProfile,
+		"aws-profile",
+		"",
+		"The AWS profile to use. Defaults to the default profile.",
+	)
+	ConfigAwsCloudAccountCmd.Flags().StringVar(
 		&externalAwsAccountId,
-		"aws-account-id", 0, "The AWS account ID of the external account.",
+		"external-account-id",
+		"",
+		"The AWS profile to use. Defaults to the default profile.",
 	)
-	ConfigAwsCloudAccountCmd.MarkFlagRequired("instance-name")
+	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-profile")
+	ConfigAwsCloudAccountCmd.MarkFlagRequired("external-account-id")
 }
