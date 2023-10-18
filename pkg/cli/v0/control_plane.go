@@ -311,7 +311,14 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// 	*resourceManagerRole.Arn,
 		// )
 
-		awsConfigResourceManager, err := resource.AssumeRole(*resourceManagerRole.Arn, "", awsConfigUser, []func(*awsSdkConfig.LoadOptions) error{})
+		awsConfigResourceManager, err := resource.AssumeRole(
+			*resourceManagerRole.Arn,
+			"",
+			awsConfigUser,
+			[]func(*awsSdkConfig.LoadOptions) error{
+				awsSdkConfig.WithRegion(a.AwsRegion),
+			},
+		)
 
 		if err != nil {
 			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
@@ -478,18 +485,6 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		EKSToken:      util.Base64Encode(kubeConnectionInfo.EKSToken),
 	}
 
-	// update resource manager role to allow pods to assume it
-	inventory, err := resource.ReadInventory(
-		provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to read eks kubernetes runtime inventory for inventory update: %w", err)
-	}
-	err = provider.UpdateResourceManagerRole(a.InstanceName, *callerIdentity.Account, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
-	if err != nil {
-		return fmt.Errorf("failed to update resource manager role: %w", err)
-	}
-
 	// generate encryption key
 	encryptionKey, err := encryption.GenerateKey()
 	if err != nil {
@@ -526,6 +521,19 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Location:                  &location,
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
+
+		// update resource manager role to allow pods to assume it
+		inventory, err := resource.ReadInventory(
+			provider.EKSInventoryFilepath(a.ProviderConfigDir, a.InstanceName),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to read eks kubernetes runtime inventory for inventory update: %w", err)
+		}
+		err = provider.UpdateResourceManagerRole(a.InstanceName, *callerIdentity.Account, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
+		if err != nil {
+			return fmt.Errorf("failed to update resource manager role: %w", err)
+		}
+
 		location, err := mapping.GetLocationForAwsRegion(awsConfigResourceManager.Region)
 		if err != nil {
 			msg := fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigResourceManager.Region)
@@ -1481,15 +1489,15 @@ func cleanOnCreateError(
 	}
 	Info("Created Threeport infra deleted due to error")
 
-	Info("Deleting Threeport AWS IAM")
-	err := provider.DeleteThreeportIamResources(a.InstanceName, awsConfig)
-	if err != nil {
-		return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
-	}
-	Info("Threeport AWS IAM resources deleted")
-
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
+		Info("Deleting Threeport AWS IAM")
+		err := provider.DeleteThreeportIamResources(a.InstanceName, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
+		}
+		Info("Threeport AWS IAM resources deleted")
+
 		// remove inventory file
 		invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName)
 		if err := os.Remove(invFile); err != nil {
