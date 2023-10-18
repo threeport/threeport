@@ -223,7 +223,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Info("Creating Threeport IAM role and service account")
 
 		// create IAM Role for runtime management
-		runtimeManagementRole, err = provider.CreateRuntimeManagementRole(
+		resourceManagerRole, err = provider.CreateResourceManagerRole(
 			resource.CreateIAMTags(
 				cpi.Opts.Name,
 				map[string]string{},
@@ -281,7 +281,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			*accessKey.SecretAccessKey,
 			"",
 			a.AwsRegion,
-			*runtimeManagementRole.Arn,
+			*resourceManagerRole.Arn,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with access and secret keys: %w", err)
@@ -300,8 +300,8 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			}
 
 			// check that the caller identity ARN matches the expected ARN
-			if strings.Contains(*callerIdentity.Arn, *runtimeManagementRole.Arn) {
-				return fmt.Errorf("caller identity ARN %s does not match expected ARN %s", *callerIdentity.Arn, *runtimeManagementRole.Arn)
+			if strings.Contains(*callerIdentity.Arn, *resourceManagerRole.Arn) {
+				return fmt.Errorf("caller identity ARN %s does not match expected ARN %s", *callerIdentity.Arn, *resourceManagerRole.Arn)
 			}
 
 			// wait 5 seconds to allow IAM resources to become available
@@ -921,7 +921,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			DefaultRegion:   &awsConfigServiceAccount.Region,
 			AccessKeyID:     accessKey.AccessKeyId,
 			SecretAccessKey: accessKey.SecretAccessKey,
-			RoleArn:         runtimeManagementRole.Arn,
+			RoleArn:         resourceManagerRole.Arn,
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,

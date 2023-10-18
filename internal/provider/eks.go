@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
-	"gopkg.in/ini.v1"
 
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -190,7 +188,7 @@ func IsException(err *error, exception string) bool {
 func CreateServiceAccountPolicy(
 	tags *[]types.Tag,
 	clusterName string,
-	runtimeManagementRoleArn string,
+	resourceManagerRoleArn string,
 	awsConfig aws.Config,
 ) (*types.Policy, error) {
 	svc := iam.NewFromConfig(awsConfig)
@@ -211,7 +209,7 @@ func CreateServiceAccountPolicy(
 				]
 			}
 		]
-}`, runtimeManagementRoleArn)
+}`, resourceManagerRoleArn)
 
 	createServiceAccountPolicyInput := iam.CreatePolicyInput{
 		PolicyName:     &serviceAccountPolicyName,
@@ -350,7 +348,7 @@ func DeleteServiceAccount(
 // CreateStorageManagementRole creates the IAM role needed for storage
 // management by the CSI driver's service account using IRSA (IAM role for
 // service accounts).
-func CreateRuntimeManagementRole(
+func CreateResourceManagerRole(
 	tags *[]types.Tag,
 	clusterName string,
 	accountId string,
@@ -358,8 +356,8 @@ func CreateRuntimeManagementRole(
 ) (*types.Role, error) {
 	svc := iam.NewFromConfig(awsConfig)
 
-	runtimeManagementRoleName := fmt.Sprintf("%s-%s", RuntimeManagementRoleName, clusterName)
-	// if err := checkRoleName(runtimeManagementRoleName); err != nil {
+	resourceManagerRoleName := fmt.Sprintf("%s-%s", ResourceManagerRoleName, clusterName)
+	// if err := checkRoleName(resourceManagerRoleName); err != nil {
 	// 	return nil, err
 	// }
 	runtimeManagerTrustPolicyDocument := fmt.Sprintf(`{
@@ -480,37 +478,37 @@ func CreateRuntimeManagementRole(
 		]
 	}`
 
-	createRuntimeManagementRoleInput := iam.CreateRoleInput{
+	createResourceManagerRoleInput := iam.CreateRoleInput{
 		AssumeRolePolicyDocument: &runtimeManagerTrustPolicyDocument,
-		RoleName:                 &runtimeManagementRoleName,
+		RoleName:                 &resourceManagerRoleName,
 		Tags:                     *tags,
 	}
-	runtimeManagementRoleResp, err := svc.CreateRole(context.Background(), &createRuntimeManagementRoleInput)
+	resourceManagerRoleResp, err := svc.CreateRole(context.Background(), &createResourceManagerRoleInput)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create role %s: %w", runtimeManagementRoleName, err)
+		return nil, fmt.Errorf("failed to create role %s: %w", resourceManagerRoleName, err)
 	}
 
 	rolePolicyInput := iam.CreatePolicyInput{
-		PolicyName:     &runtimeManagementRoleName,
-		Description:    &runtimeManagementRoleName,
+		PolicyName:     &resourceManagerRoleName,
+		Description:    &resourceManagerRoleName,
 		PolicyDocument: &runtimeManagerPolicyDocument,
 	}
 
 	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
 	if err != nil {
-		return runtimeManagementRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", runtimeManagementRoleName, err)
+		return resourceManagerRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", resourceManagerRoleName, err)
 	}
 
-	attachRuntimeManagementRolePolicyInput := iam.AttachRolePolicyInput{
+	attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
 		PolicyArn: createdRolePolicy.Policy.Arn,
-		RoleName:  runtimeManagementRoleResp.Role.RoleName,
+		RoleName:  resourceManagerRoleResp.Role.RoleName,
 	}
-	_, err = svc.AttachRolePolicy(context.Background(), &attachRuntimeManagementRolePolicyInput)
+	_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
 	if err != nil {
-		return runtimeManagementRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, runtimeManagementRoleName, err)
+		return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, resourceManagerRoleName, err)
 	}
 
-	return runtimeManagementRoleResp.Role, nil
+	return resourceManagerRoleResp.Role, nil
 }
 
 // DeleteRole deletes the IAM role used by the threeport service account.
@@ -519,11 +517,11 @@ func DeleteRole(
 	awsConfig aws.Config,
 ) error {
 	svc := iam.NewFromConfig(awsConfig)
-	runtimeManagementRoleName := fmt.Sprintf("%s-%s", RuntimeManagementRoleName, clusterName)
+	resourceManagerRoleName := fmt.Sprintf("%s-%s", ResourceManagerRoleName, clusterName)
 	roles, err := svc.ListAttachedRolePolicies(
 		context.Background(),
 		&iam.ListAttachedRolePoliciesInput{
-			RoleName: &runtimeManagementRoleName,
+			RoleName: &resourceManagerRoleName,
 		},
 	)
 	if err != nil {
@@ -534,7 +532,7 @@ func DeleteRole(
 			context.Background(),
 			&iam.DetachRolePolicyInput{
 				PolicyArn: role.PolicyArn,
-				RoleName:  &runtimeManagementRoleName,
+				RoleName:  &resourceManagerRoleName,
 			})
 		if err != nil {
 			return fmt.Errorf("failed to detach role policy: %s\n", err)
@@ -552,7 +550,7 @@ func DeleteRole(
 	_, err = svc.DeleteRole(
 		context.Background(),
 		&iam.DeleteRoleInput{
-			RoleName: &runtimeManagementRoleName,
+			RoleName: &resourceManagerRoleName,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to delete role: %s\n", err)
@@ -561,7 +559,7 @@ func DeleteRole(
 }
 
 const (
-	ServiceAccountPolicyName  = "ThreeportServiceAccount"
-	RuntimeServiceAccount     = "ThreeportRuntime"
-	RuntimeManagementRoleName = "ThreeportRuntimeManagement"
+	ServiceAccountPolicyName = "ThreeportServiceAccount"
+	RuntimeServiceAccount    = "ThreeportRuntime"
+	ResourceManagerRoleName  = "ThreeportResourceManager"
 )
