@@ -164,7 +164,6 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	}
 
 	// configure the infra provider
-	var accessKey *types.AccessKey
 	var runtimeManagementRole *types.Role
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
@@ -245,7 +244,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// IAM Service Account for runtime management
-		_, accessKey, err = CreateServiceAccount(
+		_, _, err = CreateServiceAccount(
 			*serviceAccountPolicy.Arn,
 			cpi.Opts.Name,
 			awsConfig,

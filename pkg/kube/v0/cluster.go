@@ -309,13 +309,9 @@ func refreshEKSConnection(
 		secretAccessKey,
 		"",
 		*eksRuntimeInstance.Region,
-<<<<<<< HEAD
 		"",
 		"",
 		"",
-=======
-		*awsAccount.RoleArn,
->>>>>>> fa29c9a (feat: add delete methods for threeport role and service account)
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)
