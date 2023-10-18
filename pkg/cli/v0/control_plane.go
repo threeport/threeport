@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 	"unicode/utf8"
@@ -169,7 +170,8 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	var runtimeManagementRole *types.Role
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
-	awsConfig := &aws.Config{}
+	awsConfigUser := aws.Config{}
+	awsConfigServiceAccount := &aws.Config{}
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled)
@@ -216,47 +218,58 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
-		awsConfig = awsConf
+		awsConfigUser = *awsConf
 
-		runtimeManagementRole, err = CreateRuntimeManagementRole(
+		Info("Creating Threeport IAM role and service account")
+
+		// create IAM Role for runtime management
+		runtimeManagementRole, err = provider.CreateRuntimeManagementRole(
 			resource.CreateIAMTags(
 				cpi.Opts.Name,
 				map[string]string{},
 			),
-			cpi.Opts.Name,
-			cpi.Opts.CreateProviderAccountID,
-			awsConfig,
+			a.InstanceName,
+			a.CreateProviderAccountID,
+			awsConfigUser,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create runtime management role: %w", err)
 		}
 
-		// IAM Policy for runtime service account
-		serviceAccountPolicy, err := CreateServiceAccountPolicy(
+		// create IAM Policy for runtime service account
+		serviceAccountPolicy, err := provider.CreateServiceAccountPolicy(
 			resource.CreateIAMTags(
 				cpi.Opts.Name,
 				map[string]string{},
 			),
 			cpi.Opts.Name,
 			*runtimeManagementRole.Arn,
-			awsConfig,
+			awsConfigUser,
 		)
 		if err != nil {
-			return err
+			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
+			if deleteErr != nil {
+				return fmt.Errorf("failed to create service account policy: %w, failed to delete IAM resources: %w", err, deleteErr)
+			}
+			return fmt.Errorf("failed to create service account policy: %w", err)
 		}
 
-		// IAM Service Account for runtime management
-		_, accessKey, err = CreateServiceAccount(
+		// create IAM Service Account for runtime management
+		_, accessKey, err = provider.CreateServiceAccount(
 			*serviceAccountPolicy.Arn,
-			cpi.Opts.Name,
-			awsConfig,
+			a.InstanceName,
+			&awsConfigUser,
 		)
 		if err != nil {
-			return err
+			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
+			if deleteErr != nil {
+				return fmt.Errorf("failed to create service account: %w, failed to delete IAM resources: %w", err, deleteErr)
+			}
+			return fmt.Errorf("failed to create service account: %w", err)
 		}
 
 		// update awsConfig to point to new service account
-		awsConfig, err := resource.LoadAWSConfigFromAPIKeys(
+		awsConfigServiceAccount, err = resource.LoadAWSConfigFromAPIKeys(
 			*accessKey.AccessKeyId,
 			*accessKey.SecretAccessKey,
 			"",
@@ -268,8 +281,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// wait for IAM resources to be available
-		svc := sts.NewFromConfig(*awsConfig)
-		err = util.Retry(10, 1, func() error {
+		svc := sts.NewFromConfig(*awsConfigServiceAccount)
+		Info("Waiting for IAM resources to become available...")
+		err = util.Retry(30, 1, func() error {
 			callerIdentity, err := svc.GetCallerIdentity(
 				context.Background(),
 				&sts.GetCallerIdentityInput{},
@@ -279,17 +293,23 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			}
 
 			// check that the caller identity ARN matches the expected ARN
-			if callerIdentity.Arn != runtimeManagementRole.Arn {
+			if strings.Contains(*callerIdentity.Arn, *runtimeManagementRole.Arn) {
 				return fmt.Errorf("caller identity ARN %s does not match expected ARN %s", *callerIdentity.Arn, *runtimeManagementRole.Arn)
 			}
+
+			Info("IAM resources created")
 			return nil
 		})
 		if err != nil {
+			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
+			if deleteErr != nil {
+				return fmt.Errorf("failed to wait for IAM resources to be available: %w, failed to delete IAM resources: %w", err, deleteErr)
+			}
 			return fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
 		}
 
 		// create a resource client to create EKS resources
-		resourceClient := resource.CreateResourceClient(awsConfig)
+		resourceClient := resource.CreateResourceClient(awsConfigServiceAccount)
 
 		// capture messages as resources are created and return to user
 		go func() {
@@ -317,15 +337,8 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			<-sigs
 			Warning("received Ctrl+C, cleaning up resources...")
 			// allow 2 seconds for pending inventory writes to complete
-			time.Sleep(time.Second * 2)
-			inventory, err := resource.ReadInventory(
-				provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName),
-			)
-			if err != nil {
-				Error("failed to read eks kubernetes runtime inventory for resource deletion", err)
-			}
-			if err = resourceClient.DeleteResourceStack(inventory); err != nil {
-				Error("failed to delete eks kubernetes runtime resources", err)
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser); err != nil {
+				Error("failed to clean up resources: ", err)
 			}
 			os.Exit(1)
 		}()
@@ -334,9 +347,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// deterimine these values
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-			RuntimeInstanceName:          provider.ThreeportRuntimeName(cpi.Opts.InstanceName),
-			AwsAccountID:                 cpi.Opts.CreateProviderAccountID,
-			AwsConfig:                    awsConfig,
+			RuntimeInstanceName:          provider.ThreeportRuntimeName(a.InstanceName),
+			AwsAccountID:                 a.CreateProviderAccountID,
+			AwsConfig:                    awsConfigServiceAccount,
 			ResourceClient:               resourceClient,
 			ZoneCount:                    int32(2),
 			DefaultNodeGroupInstanceType: "t3.medium",
@@ -364,7 +377,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		err = fmt.Errorf("%s: %w", msg, err)
 		// since we failed to complete kubernetes runtime creation, delete it to
 		// prevent dangling runtime resources
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -413,14 +426,14 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Location:                  &location,
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		location, err := mapping.GetLocationForAwsRegion(awsConfig.Region)
+		location, err := mapping.GetLocationForAwsRegion(awsConfigServiceAccount.Region)
 		if err != nil {
-			msg := fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfig.Region)
+			msg := fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigServiceAccount.Region)
 			// print the error when it happens and then again post-deletion
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser); err != nil {
 				return err
 			}
 			return err
@@ -459,7 +472,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -476,7 +489,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -494,7 +507,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser); err != nil {
 				return err
 			}
 			return err
@@ -511,7 +524,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser); err != nil {
 				return err
 			}
 			return err
@@ -540,7 +553,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -554,7 +567,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -566,7 +579,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -580,7 +593,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi, awsConfigUser); err != nil {
 				return err
 			}
 			return err
@@ -601,7 +614,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -619,7 +632,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 				return err
 			}
 			return err
@@ -643,7 +656,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 				return err
 			}
 			return err
@@ -664,7 +677,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -686,7 +699,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -700,7 +713,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -718,7 +731,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -732,7 +745,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -751,7 +764,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -765,7 +778,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -779,7 +792,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -794,7 +807,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -823,7 +836,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -842,7 +855,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Error(msg, err)
 		err = fmt.Errorf("%s: %w", msg, err)
 		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+		if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 			return err
 		}
 		return err
@@ -895,7 +908,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Name:            &awsAccountName,
 			AccountID:       &cpi.Opts.CreateProviderAccountID,
 			DefaultAccount:  &defaultAccount,
-			DefaultRegion:   &awsConfig.Region,
+			DefaultRegion:   &awsConfigServiceAccount.Region,
 			AccessKeyID:     accessKey.AccessKeyId,
 			SecretAccessKey: accessKey.SecretAccessKey,
 			RoleArn:         runtimeManagementRole.Arn,
@@ -911,14 +924,14 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Error(msg, err)
 			err = fmt.Errorf("%s: %w", msg, err)
 			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+			if err := a.cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser); err != nil {
 				return err
 			}
 			return err
 		}
 
 		// set region in threeport config
-		threeportInstanceConfig.EKSProviderConfig.AwsRegion = awsConfig.Region
+		threeportInstanceConfig.EKSProviderConfig.AwsRegion = awsConfigServiceAccount.Region
 		config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
 
 		// create aws eks k8s runtime definition
@@ -969,7 +982,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Reconciliation: v0.Reconciliation{
 				Reconciled: &reconciled,
 			},
-			Region:                              &awsConfig.Region,
+			Region:                              &awsConfigServiceAccount.Region,
 			AwsEksKubernetesRuntimeDefinitionID: createdAwsEksKubernetesRuntimeDef.ID,
 			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
 			ResourceInventory:                   &dbInventory,
@@ -1239,23 +1252,6 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete threeport API service: %w", err)
 		}
-
-		awsConfig := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ResourceClient.AWSConfig
-		err = DeleteRole(a.InstanceName, awsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to delete role: %w", err)
-		}
-
-		err = DeleteServiceAccountPolicy(a.InstanceName, awsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to delete service account policy: %w", err)
-		}
-
-		err = DeleteServiceAccount(a.InstanceName, awsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to delete service account: %w", err)
-		}
-
 	}
 
 	// delete control plane infra
@@ -1344,6 +1340,7 @@ func cleanOnCreateError(
 	mapper *meta.RESTMapper,
 	cleanConfig bool,
 	cpi *threeport.ControlPlaneInstaller,
+	awsConfig aws.Config,
 ) error {
 	// if needed, delete control plane workloads to remove related infra, e.g. load
 	// balancers, that will prevent runtime infra deletion
@@ -1357,21 +1354,12 @@ func cleanOnCreateError(
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 
-		awsConfig := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ResourceClient.AWSConfig
-		err := DeleteRole(a.InstanceName, awsConfig)
+		Info("Deleting Threeport AWS IAM")
+		err := provider.DeleteThreeportIamResources(a.InstanceName, awsConfig)
 		if err != nil {
-			return fmt.Errorf("failed to delete role: %w", err)
+			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}
-
-		err = DeleteServiceAccountPolicy(a.InstanceName, awsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to delete service account policy: %w", err)
-		}
-
-		err = DeleteServiceAccount(a.InstanceName, awsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to delete service account: %w", err)
-		}
+		Info("Threeport AWS IAM resources deleted")
 
 		// allow 2 seconds for pending inventory writes to complete
 		time.Sleep(time.Second * 2)
