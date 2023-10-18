@@ -21,15 +21,17 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
+var awsAccountName string
 var awsProfile string
+var awsRegion string
 var providerRegion string
-var runtimeManagerRoleName string
+var roleName string
 var externalAwsAccountId string
 
 // ConfigCurrentInstanceCmd represents the current-instance command
 var ConfigAwsCloudAccountCmd = &cobra.Command{
 	Use:     "aws-account",
-	Example: "tptctl config aws-account --name my-account",
+	Example: "tptctl config aws-account --aws-account-name my-account --aws-region us-east-1 --aws-profile my-profile --external-account-id 123456789012",
 	Short:   "Configure an aws account",
 	Long: `Configure AWS account permissions. This ensures that
 	a configured AWS account in Threeport can access and manage resources within
@@ -81,20 +83,20 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		svcIam := iam.NewFromConfig(*awsConf)
-		var nse types.NoSuchEntityException
+		// if runtime manager role name is not provided, generate it
+		if roleName == "" {
+			roleName = provider.GetResourceManagerRoleName(requestedInstance)
+		}
 
 		// ensure role doesn't exist
-		if runtimeManagerRoleName == "" {
-			runtimeManagerRoleName = provider.GetResourceManagerRoleName(requestedInstance)
-		}
+		var nse types.NoSuchEntityException
 		var existingRole *iam.GetRoleOutput
-		getRoleInput := iam.GetRoleInput{
-			RoleName: &runtimeManagerRoleName,
-		}
+		svcIam := iam.NewFromConfig(*awsConf)
 		if existingRole, err = svcIam.GetRole(
 			context.Background(),
-			&getRoleInput,
+			&iam.GetRoleInput{
+				RoleName: &roleName,
+			},
 		); err != nil && !provider.IsException(&err, nse.ErrorCode()) {
 			cli.Error("failed to get role", err)
 			os.Exit(1)
@@ -108,10 +110,10 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 
 		// create aws account in threeport API to generate an external ID value
 		awsAccount := v0.AwsAccount{
-			Name:           ptr.String("my-account"),
+			Name:           ptr.String(awsAccountName),
 			AccountID:      callerIdentity.Account,
-			DefaultAccount: ptr.Bool(true),
-			DefaultRegion:  ptr.String("us-east-1"),
+			DefaultAccount: ptr.Bool(false),
+			DefaultRegion:  ptr.String(awsRegion),
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(apiClient, apiEndpoint, &awsAccount)
 		if err != nil {
@@ -125,13 +127,24 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 				requestedInstance,
 				map[string]string{},
 			),
-			requestedInstance,
+			roleName,
 			externalAwsAccountId,
+			provider.GetResourceManagerRoleName(requestedInstance),
 			*createdAwsAccount.ExternalId,
 			*awsConf,
 		)
 		if err != nil {
 			cli.Error("failed to create role", err)
+
+			_, err = client.DeleteAwsAccount(apiClient, apiEndpoint, *createdAwsAccount.ID)
+			if err != nil {
+				cli.Error("failed to delete aws account", err)
+			}
+
+			err = provider.DeleteResourceManagerRole(roleName, *awsConf)
+			if err != nil {
+				cli.Error("failed to delete threeport role", err)
+			}
 			os.Exit(1)
 		}
 
@@ -140,10 +153,20 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		_, err = client.UpdateAwsAccount(apiClient, apiEndpoint, createdAwsAccount)
 		if err != nil {
 			cli.Error("failed to update aws account", err)
+
+			_, err = client.DeleteAwsAccount(apiClient, apiEndpoint, *createdAwsAccount.ID)
+			if err != nil {
+				cli.Error("failed to delete aws account", err)
+			}
+
+			err = provider.DeleteResourceManagerRole(roleName, *awsConf)
+			if err != nil {
+				cli.Error("failed to delete threeport role", err)
+			}
 			os.Exit(1)
 		}
 
-		cli.Complete(fmt.Sprintf("Configured AWS cloud account with runtime manager role: %s", *role.Arn))
+		cli.Complete(fmt.Sprintf("Configured AWS account with runtime manager role: %s", *role.Arn))
 	},
 }
 
@@ -151,10 +174,16 @@ func init() {
 	configCmd.AddCommand(ConfigAwsCloudAccountCmd)
 
 	ConfigAwsCloudAccountCmd.Flags().StringVar(
-		&runtimeManagerRoleName,
-		"runtime-manager-role-name",
+		&awsAccountName,
+		"aws-account-name",
 		"",
-		fmt.Sprintf("The name of the runtime manager role to create. Defaults to %s-<instance-name>", provider.ResourceManagerRoleName),
+		"The name of the AwsAccount object to create in the Threeport API.",
+	)
+	ConfigAwsCloudAccountCmd.Flags().StringVar(
+		&awsRegion,
+		"aws-region",
+		"",
+		"AWS region code to install threeport runtimes in.",
 	)
 	ConfigAwsCloudAccountCmd.Flags().StringVar(
 		&awsProfile,
@@ -163,11 +192,19 @@ func init() {
 		"The AWS profile to use. Defaults to the default profile.",
 	)
 	ConfigAwsCloudAccountCmd.Flags().StringVar(
+		&roleName,
+		"runtime-manager-role-name",
+		"",
+		fmt.Sprintf("The name of the runtime manager role to create. Defaults to %s-<instance-name>", provider.ResourceManagerRoleName),
+	)
+	ConfigAwsCloudAccountCmd.Flags().StringVar(
 		&externalAwsAccountId,
 		"external-account-id",
 		"",
-		"The AWS profile to use. Defaults to the default profile.",
+		"The external account to grant access to.",
 	)
+	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-account-name")
+	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-region")
 	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-profile")
 	ConfigAwsCloudAccountCmd.MarkFlagRequired("external-account-id")
 }

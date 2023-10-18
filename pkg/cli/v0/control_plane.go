@@ -269,13 +269,15 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Info("Creating Threeport IAM role")
 
 		// create IAM Role for runtime management
+		resourceManagerRoleName := provider.GetResourceManagerRoleName(a.InstanceName)
 		resourceManagerRole, err = provider.CreateResourceManagerRole(
 			resource.CreateIAMTags(
 				cpi.Opts.Name,
 				map[string]string{},
 			),
-			a.InstanceName,
+			resourceManagerRoleName,
 			*callerIdentity.Account,
+			"",
 			"",
 			awsConfigUser,
 		)
@@ -286,6 +288,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		awsConfigResourceManager, err = resource.AssumeRole(
 			*resourceManagerRole.Arn,
 			"",
+			"",
 			3600,
 			awsConfigUser,
 			[]func(*awsSdkConfig.LoadOptions) error{
@@ -294,7 +297,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		)
 
 		if err != nil {
-			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
+			deleteErr := provider.DeleteResourceManagerRole(a.InstanceName, awsConfigUser)
 			if deleteErr != nil {
 				return fmt.Errorf("failed to load AWS configuration with access and secret keys: %w, failed to delete IAM resources: %w", err, deleteErr)
 			}
@@ -325,7 +328,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Info("IAM resources created")
 			return nil
 		}); err != nil {
-			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
+			deleteErr := provider.DeleteResourceManagerRole(a.InstanceName, awsConfigUser)
 			if deleteErr != nil {
 				return fmt.Errorf("failed to wait for IAM resources to be available: %w, failed to delete IAM resources: %w", err, deleteErr)
 			}
@@ -798,7 +801,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			AccountID:      callerIdentity.Account,
 			DefaultAccount: &defaultAccount,
 			DefaultRegion:  &awsConfigResourceManager.Region,
-			RoleArn: resourceManagerRole.Arn,
+			RoleArn:        resourceManagerRole.Arn,
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,
@@ -1014,6 +1017,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 				threeportInstanceConfig.EKSProviderConfig.AwsAccountID,
 			),
 			"",
+			"",
 			3600,
 			*awsConfigUser,
 			[]func(*awsSdkConfig.LoadOptions) error{
@@ -1136,7 +1140,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// delete AWS IAM resources
-		err = provider.DeleteThreeportIamResources(a.InstanceName, *kubernetesRuntimeInfraEKS.AwsConfig)
+		err = provider.DeleteResourceManagerRole(a.InstanceName, *kubernetesRuntimeInfraEKS.AwsConfig)
 		if err != nil {
 			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}
@@ -1283,7 +1287,7 @@ func (a *ControlPlaneCLIArgs) cleanOnCreateError(
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		Info("Deleting Threeport AWS IAM")
-		err := provider.DeleteThreeportIamResources(a.InstanceName, awsConfig)
+		err := provider.DeleteResourceManagerRole(a.InstanceName, awsConfig)
 		if err != nil {
 			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}

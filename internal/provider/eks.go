@@ -145,22 +145,18 @@ func EKSInventoryFilepath(providerConfigDir, instanceName string) string {
 	return filepath.Join(providerConfigDir, inventoryFilename)
 }
 
-// DeleteThreeportIamResources deletes the IAM resources created by threeport
+// DeleteResourceManagerRole deletes the IAM resources created by threeport
 // for a given cluster.
-func DeleteThreeportIamResources(instanceName string, awsConfig aws.Config) error {
+func DeleteResourceManagerRole(instanceName string, awsConfig aws.Config) error {
 	var nse types.NoSuchEntityException
 	var err error
-	if err = DeleteRole(instanceName, awsConfig); err != nil && !IsException(&err, nse.ErrorCode()) {
+	if err = deleteRole(
+		GetResourceManagerRoleName(instanceName),
+		awsConfig,
+	); err != nil && !IsException(&err, nse.ErrorCode()) {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
 
-	// if err = DeleteServiceAccountPolicy(instanceName, awsConfig); err != nil && !IsException(&err, nse.ErrorCode()) {
-	// 	return fmt.Errorf("failed to delete service account policy: %w", err)
-	// }
-
-	// if err = DeleteServiceAccount(instanceName, awsConfig); err != nil && !IsException(&err, nse.ErrorCode()) {
-	// 	return fmt.Errorf("failed to delete service account: %w", err)
-	// }
 	return nil
 }
 
@@ -352,41 +348,41 @@ func DeleteServiceAccount(
 // management.
 func CreateResourceManagerRole(
 	tags *[]types.Tag,
-	clusterName,
+	roleName,
 	accountId,
+	principalRoleName,
 	externalId string,
 	awsConfig aws.Config,
 ) (*types.Role, error) {
 	svc := iam.NewFromConfig(awsConfig)
 
-	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
-	if err := checkRoleName(resourceManagerRoleName); err != nil {
+	if err := checkRoleName(roleName); err != nil {
 		return nil, err
 	}
-	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument(accountId, externalId, "")
+	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument(principalRoleName, accountId, externalId, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
 	createResourceManagerRoleInput := iam.CreateRoleInput{
 		AssumeRolePolicyDocument: &runtimeManagerTrustPolicyDocument,
-		RoleName:                 &resourceManagerRoleName,
+		RoleName:                 &roleName,
 		Tags:                     *tags,
 	}
 	resourceManagerRoleResp, err := svc.CreateRole(context.Background(), &createResourceManagerRoleInput)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create role %s: %w", resourceManagerRoleName, err)
+		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
 	}
 
 	runtimeManagerPolicyDocument := RuntimeManagerPolicyDocument
 	rolePolicyInput := iam.CreatePolicyInput{
-		PolicyName:     &resourceManagerRoleName,
-		Description:    &resourceManagerRoleName,
+		PolicyName:     &roleName,
+		Description:    &roleName,
 		PolicyDocument: &runtimeManagerPolicyDocument,
 	}
 
 	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
 	if err != nil {
-		return resourceManagerRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", resourceManagerRoleName, err)
+		return resourceManagerRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", roleName, err)
 	}
 
 	attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
@@ -395,7 +391,7 @@ func CreateResourceManagerRole(
 	}
 	_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
 	if err != nil {
-		return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, resourceManagerRoleName, err)
+		return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, roleName, err)
 	}
 
 	return resourceManagerRoleResp.Role, nil
@@ -405,7 +401,7 @@ func UpdateResourceManagerRole(clusterName, accountId, externalId, oidcProviderU
 	svc := iam.NewFromConfig(awsConfig)
 
 	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
-	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument(accountId, externalId, oidcProviderUrl)
+	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument("", accountId, externalId, oidcProviderUrl)
 	if err != nil {
 		return fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
@@ -423,17 +419,16 @@ func UpdateResourceManagerRole(clusterName, accountId, externalId, oidcProviderU
 
 }
 
-// DeleteRole deletes the runtime manager IAM role.
-func DeleteRole(
-	clusterName string,
+// deleteRole deletes the runtime manager IAM role.
+func deleteRole(
+	roleName string,
 	awsConfig aws.Config,
 ) error {
 	svc := iam.NewFromConfig(awsConfig)
-	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
 	roles, err := svc.ListAttachedRolePolicies(
 		context.Background(),
 		&iam.ListAttachedRolePoliciesInput{
-			RoleName: &resourceManagerRoleName,
+			RoleName: &roleName,
 		},
 	)
 	if err != nil {
@@ -444,7 +439,7 @@ func DeleteRole(
 			context.Background(),
 			&iam.DetachRolePolicyInput{
 				PolicyArn: role.PolicyArn,
-				RoleName:  &resourceManagerRoleName,
+				RoleName:  &roleName,
 			})
 		if err != nil {
 			return fmt.Errorf("failed to detach role policy: %s", err)
@@ -462,7 +457,7 @@ func DeleteRole(
 	_, err = svc.DeleteRole(
 		context.Background(),
 		&iam.DeleteRoleInput{
-			RoleName: &resourceManagerRoleName,
+			RoleName: &roleName,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to delete role: %s", err)
@@ -480,14 +475,21 @@ func GetResourceManagerRoleArn(clusterName, accountId string) string {
 
 // getRuntimeManagerTrustPolicyDocument returns the trust policy document for the
 // runtime manager role.
-func getRuntimeManagerTrustPolicyDocument(accountId, externalId, oidcProviderUrl string) (string, error) {
+func getRuntimeManagerTrustPolicyDocument(externalRoleName, accountId, externalId, oidcProviderUrl string) (string, error) {
 
 	statements := []interface{}{}
+
+	accountEntity := "root"
+	identityService := "iam"
+	if externalRoleName != "" {
+		identityService = "sts"
+		accountEntity = "assumed-role/" + externalRoleName + "/" + ResourceManagerRoleSessionName
+	}
 
 	allowAccountAccessStatement := map[string]interface{}{
 		"Effect": "Allow",
 		"Principal": map[string]interface{}{
-			"AWS": "arn:aws:iam::" + accountId + ":root",
+			"AWS": "arn:aws:" + identityService + "::" + accountId + ":" + accountEntity,
 		},
 		"Action": "sts:AssumeRole",
 	}
@@ -556,12 +558,19 @@ func checkRoleName(name string) error {
 }
 
 const (
-	ServiceAccountPolicyName     = "ThreeportServiceAccount"
-	RuntimeServiceAccount        = "ThreeportRuntime"
-	ResourceManagerRoleName      = "resource-manager-threeport"
-	RuntimeManagerPolicyDocument = `{
+	ServiceAccountPolicyName       = "ThreeportServiceAccount"
+	RuntimeServiceAccount          = "ThreeportRuntime"
+	ResourceManagerRoleName        = "resource-manager-threeport"
+	ResourceManagerRoleSessionName = "cross-account-access"
+	RuntimeManagerPolicyDocument   = `{
 		"Version": "2012-10-17",
 		"Statement": [
+			{
+				"Sid": "AssumeAnyRole",
+				"Effect": "Allow",
+				"Action": "sts:AssumeRole",
+				"Resource": "arn:aws:iam::*:role/*"
+			},
 			{
 				"Sid": "EC2andIAMPermissions",
 				"Effect": "Allow",

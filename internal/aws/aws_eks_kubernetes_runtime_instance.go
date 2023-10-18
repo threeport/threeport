@@ -59,9 +59,9 @@ func awsEksKubernetesRuntimeInstanceCreated(
 
 	// add log metadata
 	reconLog = log.WithValues(
-		"awsEksClsuterDefinitionRegion", *awsEksKubernetesRuntimeInstance.Region,
-		"awsEksClsuterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
-		"awsEksClsuterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
+		"awsEksClusterDefinitionRegion", *awsEksKubernetesRuntimeInstance.Region,
+		"awsEksClusterDefinitionZoneCount", *awsEksKubernetesRuntimeDefinition.ZoneCount,
+		"awsEksClusterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 	)
 
 	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
