@@ -1,10 +1,8 @@
 package v0
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -1224,42 +1222,6 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	// delete the service
 	if err := kube.DeleteResource(apiService, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to delete the threeport API service resource: %w", err)
-	}
-
-	return nil
-}
-
-// WaitForThreeportAPI waits for the threeport API to respond to a request.
-func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
-	var waitError error
-
-	attempts := 0
-	maxAttempts := 30
-	waitSeconds := 10
-	apiReady := false
-	for attempts < maxAttempts {
-		_, err := clientv0.GetResponse(
-			apiClient,
-			fmt.Sprintf("%s/version", apiEndpoint),
-			http.MethodGet,
-			new(bytes.Buffer),
-			http.StatusOK,
-		)
-		if err != nil {
-			waitError = err
-			time.Sleep(time.Second * time.Duration(waitSeconds))
-			attempts += 1
-			continue
-		}
-		apiReady = true
-		break
-	}
-	if !apiReady {
-		msg := fmt.Sprintf(
-			"timed out after %d seconds waiting for 200 response from threeport API",
-			maxAttempts*waitSeconds,
-		)
-		return fmt.Errorf("%s: %w", msg, waitError)
 	}
 
 	return nil

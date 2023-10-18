@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -279,60 +280,8 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			awsConfigUser,
 		)
 		if err != nil {
-			// deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
-			// if deleteErr != nil {
-			// 	return fmt.Errorf("failed to create runtime manager role: %w, failed to delete IAM resources: %w", err, deleteErr)
-			// }
 			return fmt.Errorf("failed to create runtime manager role: %w", err)
 		}
-
-		// // create IAM Policy for runtime service account
-		// serviceAccountPolicy, err := provider.CreateServiceAccountPolicy(
-		// 	resource.CreateIAMTags(
-		// 		a.InstanceName,
-		// 		map[string]string{},
-		// 	),
-		// 	a.InstanceName,
-		// 	*resourceManagerRole.Arn,
-		// 	awsConfigUser,
-		// )
-		// if err != nil {
-		// 	if provider.IsException(&err, "EntityAlreadyExists") {
-		// 		return fmt.Errorf("failed to create service account policy: %w", err)
-		// 	}
-
-		// 	deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
-		// 	if deleteErr != nil {
-		// 		return fmt.Errorf("failed to create service account policy: %w, failed to delete IAM resources: %w", err, deleteErr)
-		// 	}
-		// 	return fmt.Errorf("failed to create service account policy: %w", err)
-		// }
-
-		// // create IAM Service Account for runtime management
-		// _, accessKey, err = provider.CreateServiceAccount(
-		// 	*serviceAccountPolicy.Arn,
-		// 	a.InstanceName,
-		// 	&awsConfigUser,
-		// )
-		// if err != nil {
-		// 	if provider.IsException(&err, "EntityAlreadyExists") {
-		// 		return fmt.Errorf("failed to create service account policy: %w", err)
-		// 	}
-		// 	deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
-		// 	if deleteErr != nil {
-		// 		return fmt.Errorf("failed to create service account: %w, failed to delete IAM resources: %w", err, deleteErr)
-		// 	}
-		// 	return fmt.Errorf("failed to create service account: %w", err)
-		// }
-
-		// update awsConfig to point to new service account
-		// awsConfigResourceManager, err = resource.LoadAWSConfigFromAPIKeys(
-		// 	*accessKey.AccessKeyId,
-		// 	*accessKey.SecretAccessKey,
-		// 	"",
-		// 	a.AwsRegion,
-		// 	*resourceManagerRole.Arn,
-		// )
 
 		awsConfigResourceManager, err = resource.AssumeRole(
 			*resourceManagerRole.Arn,
@@ -355,7 +304,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// wait for IAM resources to be available
 		svc = sts.NewFromConfig(*awsConfigResourceManager)
 		Info("Waiting for IAM resources to become available...")
-		err = util.Retry(30, 1, func() error {
+		if err = util.Retry(30, 1, func() error {
 			callerIdentity, err := svc.GetCallerIdentity(
 				context.Background(),
 				&sts.GetCallerIdentityInput{},
@@ -375,8 +324,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 
 			Info("IAM resources created")
 			return nil
-		})
-		if err != nil {
+		}); err != nil {
 			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
 			if deleteErr != nil {
 				return fmt.Errorf("failed to wait for IAM resources to be available: %w, failed to delete IAM resources: %w", err, deleteErr)
@@ -413,7 +361,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			<-sigs
 			Warning("received Ctrl+C, cleaning up resources...")
 			// allow 2 seconds for pending inventory writes to complete
-			time.Sleep(2)
+			time.Sleep(time.Duration(2) * time.Second)
 			if err := a.cleanOnCreateError("", nil, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser); err != nil {
 				Error("failed to clean up resources: ", err)
 			}
@@ -676,11 +624,10 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	// server certificate's alt names when TLS assets are installed
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		tpapiEndpoint, err := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
 		if err != nil {
 			return a.cleanOnCreateError("failed to get threeport API's public endpoint", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
-		threeportAPIEndpoint = tpapiEndpoint
 		if threeportConfig, err = threeportInstanceConfig.UpdateThreeportConfigInstance(func(c *config.Instance) {
 			c.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
 		}); err != nil {
@@ -707,11 +654,24 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	// it is helpful for dev environments and harmless otherwise since the
 	// controllers need the API to be running in order to start
 	Info("Waiting for threeport API to start running...")
-	if err := threeport.WaitForThreeportAPI(
-		apiClient,
-		threeportAPIEndpoint,
-	); err != nil {
-		return a.cleanOnCreateError("threeport API did not come up", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
+	attemptsMax := 30
+	waitDurationSeconds := 10
+	if err = util.Retry(attemptsMax, waitDurationSeconds, func() error {
+		_, err := client.GetResponse(
+			apiClient,
+			fmt.Sprintf("%s/version", threeportAPIEndpoint),
+			http.MethodGet,
+			new(bytes.Buffer),
+			http.StatusOK,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get threeport API version: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return a.cleanOnCreateError(
+			fmt.Sprintf("timed out after %d seconds waiting for 200 response from threeport API", attemptsMax*waitDurationSeconds),
+			err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 	Info("Threeport API is running")
 
