@@ -28,6 +28,9 @@ type AwsAccount struct {
 	// The secret key credentials for the AWS account.
 	SecretAccessKey *string `json:"SecretAccessKey,omitempty" gorm:"not null" validate:"required" encrypt:"true"`
 
+	// The RoleArn to assume for the AWS account.
+	RoleArn *string `json:"RoleArn,omitempty" gorm:"not null" query:"rolearn"`
+
 	// The cluster instances deployed in this AWS account.
 	AwsEksKubernetesRuntimeDefinitions []*AwsEksKubernetesRuntimeDefinition `json:"AwsEksKubernetesRuntimeDefinitions,omitempty" validate:"optional,association"`
 }

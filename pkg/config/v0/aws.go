@@ -25,6 +25,7 @@ type AwsAccountValues struct {
 	DefaultRegion    string `yaml:"DefaultRegion"`
 	AccessKeyID      string `yaml:"AccessKeyID"`
 	SecretAccessKey  string `yaml:"SecretAccessKey"`
+	RoleArn          string `yaml:"RoleArn"`
 	LocalConfig      string `yaml:"LocalConfig"`
 	LocalCredentials string `yaml:"LocalCredentials"`
 	LocalProfile     string `yaml:"LocalProfile"`
@@ -256,6 +257,7 @@ LocalConfig, LocalCredentials and LocalProfile
 		AccountID:       &aa.AccountID,
 		AccessKeyID:     &accessKeyID,
 		SecretAccessKey: &secretAccessKey,
+		RoleArn:         &aa.RoleArn,
 	}
 
 	// create AWS account

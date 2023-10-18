@@ -81,6 +81,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		secretAccessKey,
 		"",
 		*awsEksKubernetesRuntimeInstance.Region,
+		*awsAccount.RoleArn,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
@@ -338,6 +339,7 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 		secretAccessKey,
 		"",
 		*awsEksKubernetesRuntimeInstance.Region,
+		*awsAccount.RoleArn,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)

@@ -38,6 +38,8 @@ type ControlPlaneCLIArgs struct {
 	AwsConfigProfile        string
 	AwsConfigEnv            bool
 	AwsRegion               string
+	AwsRoleArn              string
+	AwsSerialNumber         string
 	CfgFile                 string
 	ControlPlaneImageRepo   string
 	ControlPlaneImageTag    string
@@ -203,6 +205,8 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			cpi.Opts.AwsConfigEnv,
 			cpi.Opts.AwsConfigProfile,
 			cpi.Opts.AwsRegion,
+			"",
+			"",
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
@@ -1010,6 +1014,8 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			cpi.Opts.AwsConfigEnv,
 			threeportInstanceConfig.EKSProviderConfig.AwsConfigProfile,
 			threeportInstanceConfig.EKSProviderConfig.AwsRegion,
+			"",
+			"",
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
