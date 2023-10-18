@@ -356,7 +356,7 @@ func CreateResourceManagerRole(
 ) (*types.Role, error) {
 	svc := iam.NewFromConfig(awsConfig)
 
-	resourceManagerRoleName := fmt.Sprintf("%s-%s", ResourceManagerRoleName, clusterName)
+	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
 	// if err := checkRoleName(resourceManagerRoleName); err != nil {
 	// 	return nil, err
 	// }
@@ -372,7 +372,96 @@ func CreateResourceManagerRole(
 			}
 		]
 	}`, accountId)
-	runtimeManagerPolicyDocument := `{
+	createResourceManagerRoleInput := iam.CreateRoleInput{
+		AssumeRolePolicyDocument: &runtimeManagerTrustPolicyDocument,
+		RoleName:                 &resourceManagerRoleName,
+		Tags:                     *tags,
+	}
+	resourceManagerRoleResp, err := svc.CreateRole(context.Background(), &createResourceManagerRoleInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create role %s: %w", resourceManagerRoleName, err)
+	}
+
+	runtimeManagerPolicyDocument := RuntimeManagerPolicyDocument
+	rolePolicyInput := iam.CreatePolicyInput{
+		PolicyName:     &resourceManagerRoleName,
+		Description:    &resourceManagerRoleName,
+		PolicyDocument: &runtimeManagerPolicyDocument,
+	}
+
+	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
+	if err != nil {
+		return resourceManagerRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", resourceManagerRoleName, err)
+	}
+
+	attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
+		PolicyArn: createdRolePolicy.Policy.Arn,
+		RoleName:  resourceManagerRoleResp.Role.RoleName,
+	}
+	_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
+	if err != nil {
+		return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, resourceManagerRoleName, err)
+	}
+
+	return resourceManagerRoleResp.Role, nil
+}
+
+// DeleteRole deletes the IAM role used by the threeport service account.
+func DeleteRole(
+	clusterName string,
+	awsConfig aws.Config,
+) error {
+	svc := iam.NewFromConfig(awsConfig)
+	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
+	roles, err := svc.ListAttachedRolePolicies(
+		context.Background(),
+		&iam.ListAttachedRolePoliciesInput{
+			RoleName: &resourceManagerRoleName,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to list attached role policies: %s\n", err)
+	}
+	for _, role := range roles.AttachedPolicies {
+		_, err := svc.DetachRolePolicy(
+			context.Background(),
+			&iam.DetachRolePolicyInput{
+				PolicyArn: role.PolicyArn,
+				RoleName:  &resourceManagerRoleName,
+			})
+		if err != nil {
+			return fmt.Errorf("failed to detach role policy: %s\n", err)
+		}
+		_, err = svc.DeletePolicy(
+			context.Background(),
+			&iam.DeletePolicyInput{
+				PolicyArn: role.PolicyArn,
+			})
+		if err != nil {
+			return fmt.Errorf("failed to delete policy: %s\n", err)
+		}
+	}
+
+	_, err = svc.DeleteRole(
+		context.Background(),
+		&iam.DeleteRoleInput{
+			RoleName: &resourceManagerRoleName,
+		})
+	if err != nil {
+		return fmt.Errorf("failed to delete role: %s\n", err)
+	}
+	return nil
+}
+
+func GetResourceManagerRoleName(clusterName string) string {
+	return fmt.Sprintf("%s-%s", ResourceManagerRoleName, clusterName)
+}
+
+const (
+	ServiceAccountPolicyName     = "ThreeportServiceAccount"
+	RuntimeServiceAccount        = "ThreeportRuntime"
+	ResourceManagerRoleName      = "resource-manager-threeport"
+	RuntimeManagerPolicyDocument = `{
 		"Version": "2012-10-17",
 		"Statement": [
 			{
@@ -477,89 +566,4 @@ func CreateResourceManagerRole(
 			}
 		]
 	}`
-
-	createResourceManagerRoleInput := iam.CreateRoleInput{
-		AssumeRolePolicyDocument: &runtimeManagerTrustPolicyDocument,
-		RoleName:                 &resourceManagerRoleName,
-		Tags:                     *tags,
-	}
-	resourceManagerRoleResp, err := svc.CreateRole(context.Background(), &createResourceManagerRoleInput)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create role %s: %w", resourceManagerRoleName, err)
-	}
-
-	rolePolicyInput := iam.CreatePolicyInput{
-		PolicyName:     &resourceManagerRoleName,
-		Description:    &resourceManagerRoleName,
-		PolicyDocument: &runtimeManagerPolicyDocument,
-	}
-
-	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
-	if err != nil {
-		return resourceManagerRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", resourceManagerRoleName, err)
-	}
-
-	attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
-		PolicyArn: createdRolePolicy.Policy.Arn,
-		RoleName:  resourceManagerRoleResp.Role.RoleName,
-	}
-	_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
-	if err != nil {
-		return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, resourceManagerRoleName, err)
-	}
-
-	return resourceManagerRoleResp.Role, nil
-}
-
-// DeleteRole deletes the IAM role used by the threeport service account.
-func DeleteRole(
-	clusterName string,
-	awsConfig aws.Config,
-) error {
-	svc := iam.NewFromConfig(awsConfig)
-	resourceManagerRoleName := fmt.Sprintf("%s-%s", ResourceManagerRoleName, clusterName)
-	roles, err := svc.ListAttachedRolePolicies(
-		context.Background(),
-		&iam.ListAttachedRolePoliciesInput{
-			RoleName: &resourceManagerRoleName,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to list attached role policies: %s\n", err)
-	}
-	for _, role := range roles.AttachedPolicies {
-		_, err := svc.DetachRolePolicy(
-			context.Background(),
-			&iam.DetachRolePolicyInput{
-				PolicyArn: role.PolicyArn,
-				RoleName:  &resourceManagerRoleName,
-			})
-		if err != nil {
-			return fmt.Errorf("failed to detach role policy: %s\n", err)
-		}
-		_, err = svc.DeletePolicy(
-			context.Background(),
-			&iam.DeletePolicyInput{
-				PolicyArn: role.PolicyArn,
-			})
-		if err != nil {
-			return fmt.Errorf("failed to delete policy: %s\n", err)
-		}
-	}
-
-	_, err = svc.DeleteRole(
-		context.Background(),
-		&iam.DeleteRoleInput{
-			RoleName: &resourceManagerRoleName,
-		})
-	if err != nil {
-		return fmt.Errorf("failed to delete role: %s\n", err)
-	}
-	return nil
-}
-
-const (
-	ServiceAccountPolicyName = "ThreeportServiceAccount"
-	RuntimeServiceAccount    = "ThreeportRuntime"
-	ResourceManagerRoleName  = "resource-manager-threeport"
 )
