@@ -30,12 +30,32 @@ func (cc *ControllerConfig) ModelRoutes() error {
 		routeFuncName := fmt.Sprintf("%sRoutes", mc.TypeName)
 		mc.GetVersionHandlerName = fmt.Sprintf("Get%sVersions", mc.TypeName)
 		mc.AddHandlerName = fmt.Sprintf("Add%s", mc.TypeName)
+		mc.AddMiddlewareFuncName = fmt.Sprintf("Add%sMiddleware", mc.TypeName)
 		mc.GetAllHandlerName = fmt.Sprintf("Get%s", pluralize.Pluralize(mc.TypeName, 2, false))
 		mc.GetOneHandlerName = fmt.Sprintf("Get%s", mc.TypeName)
+		mc.GetMiddlewareFuncName = fmt.Sprintf("Get%sMiddleware", mc.TypeName)
 		mc.PatchHandlerName = fmt.Sprintf("Update%s", mc.TypeName)
+		mc.PatchMiddlewareFuncName = fmt.Sprintf("Patch%sMiddleware", mc.TypeName)
 		mc.PutHandlerName = fmt.Sprintf("Replace%s", mc.TypeName)
+		mc.PutMiddlewareFuncName = fmt.Sprintf("Put%sMiddleware", mc.TypeName)
 		mc.DeleteHandlerName = fmt.Sprintf("Delete%s", mc.TypeName)
+		mc.DeleteMiddlewareFuncName = fmt.Sprintf("Delete%sMiddleware", mc.TypeName)
 		cc.ModelConfigs[i] = mc
+
+		addMiddleware := Null()
+		getMiddleware := Null()
+		patchMiddleware := Null()
+		putMiddleware := Null()
+		deleteMiddleware := Null()
+
+		if mc.AllowCustomMiddleware {
+			addMiddleware = Id("h").Dot(mc.AddMiddlewareFuncName).Call().Op("...")
+			getMiddleware = Id("h").Dot(mc.GetMiddlewareFuncName).Call().Op("...")
+			patchMiddleware = Id("h").Dot(mc.PatchMiddlewareFuncName).Call().Op("...")
+			putMiddleware = Id("h").Dot(mc.PutMiddlewareFuncName).Call().Op("...")
+			deleteMiddleware = Id("h").Dot(mc.DeleteMiddlewareFuncName).Call().Op("...")
+		}
+
 		f.Comment(fmt.Sprintf(
 			"%s sets up all routes for the %s handlers.", routeFuncName, mc.TypeName,
 		))
@@ -65,6 +85,7 @@ func (cc *ControllerConfig) ModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				),
 				Id("h").Dot(mc.AddHandlerName),
+				addMiddleware,
 			),
 			Id("e").Dot("GET").Call(
 				Qual(
@@ -75,6 +96,7 @@ func (cc *ControllerConfig) ModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				),
 				Id("h").Dot(mc.GetAllHandlerName),
+				getMiddleware,
 			),
 			Id("e").Dot("GET").Call(
 				Qual(
@@ -85,6 +107,7 @@ func (cc *ControllerConfig) ModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				).Op("+").Lit("/:id"),
 				Id("h").Dot(mc.GetOneHandlerName),
+				getMiddleware,
 			),
 			Id("e").Dot("PATCH").Call(
 				Qual(
@@ -95,6 +118,7 @@ func (cc *ControllerConfig) ModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				).Op("+").Lit("/:id"),
 				Id("h").Dot(mc.PatchHandlerName),
+				patchMiddleware,
 			),
 			Id("e").Dot("PUT").Call(
 				Qual(
@@ -105,6 +129,7 @@ func (cc *ControllerConfig) ModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				).Op("+").Lit("/:id"),
 				Id("h").Dot(mc.PutHandlerName),
+				putMiddleware,
 			),
 			Id("e").Dot("DELETE").Call(
 				Qual(
@@ -115,6 +140,7 @@ func (cc *ControllerConfig) ModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				).Op("+").Lit("/:id"),
 				Id("h").Dot(mc.DeleteHandlerName),
+				deleteMiddleware,
 			),
 		)
 	}
@@ -147,12 +173,32 @@ func (cc *ControllerConfig) ExtensionModelRoutes() error {
 		routeFuncName := fmt.Sprintf("%sRoutes", mc.TypeName)
 		mc.GetVersionHandlerName = fmt.Sprintf("Get%sVersions", mc.TypeName)
 		mc.AddHandlerName = fmt.Sprintf("Add%s", mc.TypeName)
+		mc.AddMiddlewareFuncName = fmt.Sprintf("Add%sMiddleware", mc.TypeName)
 		mc.GetAllHandlerName = fmt.Sprintf("Get%s", pluralize.Pluralize(mc.TypeName, 2, false))
 		mc.GetOneHandlerName = fmt.Sprintf("Get%s", mc.TypeName)
+		mc.GetMiddlewareFuncName = fmt.Sprintf("Get%sMiddleware", mc.TypeName)
 		mc.PatchHandlerName = fmt.Sprintf("Update%s", mc.TypeName)
+		mc.PatchMiddlewareFuncName = fmt.Sprintf("Patch%sMiddleware", mc.TypeName)
 		mc.PutHandlerName = fmt.Sprintf("Replace%s", mc.TypeName)
+		mc.PutMiddlewareFuncName = fmt.Sprintf("Put%sMiddleware", mc.TypeName)
 		mc.DeleteHandlerName = fmt.Sprintf("Delete%s", mc.TypeName)
+		mc.DeleteMiddlewareFuncName = fmt.Sprintf("Delete%sMiddleware", mc.TypeName)
 		cc.ModelConfigs[i] = mc
+
+		addMiddleware := Null()
+		getMiddleware := Null()
+		patchMiddleware := Null()
+		putMiddleware := Null()
+		deleteMiddleware := Null()
+
+		if mc.AllowCustomMiddleware {
+			addMiddleware = Id("h").Dot(mc.AddMiddlewareFuncName).Call().Op("...")
+			getMiddleware = Id("h").Dot(mc.GetMiddlewareFuncName).Call().Op("...")
+			patchMiddleware = Id("h").Dot(mc.PatchMiddlewareFuncName).Call().Op("...")
+			putMiddleware = Id("h").Dot(mc.PutMiddlewareFuncName).Call().Op("...")
+			deleteMiddleware = Id("h").Dot(mc.DeleteMiddlewareFuncName).Call().Op("...")
+		}
+
 		f.Comment(fmt.Sprintf(
 			"%s sets up all routes for the %s handlers.", routeFuncName, mc.TypeName,
 		))
@@ -182,6 +228,7 @@ func (cc *ControllerConfig) ExtensionModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				),
 				Id("h").Dot(mc.AddHandlerName),
+				addMiddleware,
 			),
 			Id("e").Dot("GET").Call(
 				Qual(
@@ -192,6 +239,7 @@ func (cc *ControllerConfig) ExtensionModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				),
 				Id("h").Dot(mc.GetAllHandlerName),
+				getMiddleware,
 			),
 			Id("e").Dot("GET").Call(
 				Qual(
@@ -202,6 +250,7 @@ func (cc *ControllerConfig) ExtensionModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				).Op("+").Lit("/:id"),
 				Id("h").Dot(mc.GetOneHandlerName),
+				getMiddleware,
 			),
 			Id("e").Dot("PATCH").Call(
 				Qual(
@@ -212,6 +261,7 @@ func (cc *ControllerConfig) ExtensionModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				).Op("+").Lit("/:id"),
 				Id("h").Dot(mc.PatchHandlerName),
+				patchMiddleware,
 			),
 			Id("e").Dot("PUT").Call(
 				Qual(
@@ -222,6 +272,7 @@ func (cc *ControllerConfig) ExtensionModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				).Op("+").Lit("/:id"),
 				Id("h").Dot(mc.PutHandlerName),
+				putMiddleware,
 			),
 			Id("e").Dot("DELETE").Call(
 				Qual(
@@ -232,6 +283,7 @@ func (cc *ControllerConfig) ExtensionModelRoutes() error {
 					fmt.Sprintf("Path%s", pluralize.Pluralize(mc.TypeName, 2, false)),
 				).Op("+").Lit("/:id"),
 				Id("h").Dot(mc.DeleteHandlerName),
+				deleteMiddleware,
 			),
 		)
 	}

@@ -22,6 +22,7 @@ func GetLogBackends(apiClient *http.Client, apiAddr string) (*[]v0.LogBackend, e
 		fmt.Sprintf("%s/%s/log-backends", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetLogBackendByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Log
 		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -80,6 +82,7 @@ func GetLogBackendsByQueryString(apiClient *http.Client, apiAddr string, querySt
 		fmt.Sprintf("%s/%s/log-backends?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +112,7 @@ func GetLogBackendByName(apiClient *http.Client, apiAddr, name string) (*v0.LogB
 		fmt.Sprintf("%s/%s/log-backends?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -149,6 +153,7 @@ func CreateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 		fmt.Sprintf("%s/%s/log-backends", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonLogBackend),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -190,6 +195,7 @@ func UpdateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, logBackendID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogBackend),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -220,6 +226,7 @@ func DeleteLogBackend(apiClient *http.Client, apiAddr string, id uint) (*v0.LogB
 		fmt.Sprintf("%s/%s/log-backends/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -250,6 +257,7 @@ func GetLogStorageDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Log
 		fmt.Sprintf("%s/%s/log-storage-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -279,6 +287,7 @@ func GetLogStorageDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -308,6 +317,7 @@ func GetLogStorageDefinitionsByQueryString(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/log-storage-definitions?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -337,6 +347,7 @@ func GetLogStorageDefinitionByName(apiClient *http.Client, apiAddr, name string)
 		fmt.Sprintf("%s/%s/log-storage-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -377,6 +388,7 @@ func CreateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 		fmt.Sprintf("%s/%s/log-storage-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonLogStorageDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -418,6 +430,7 @@ func UpdateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, logStorageDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogStorageDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -448,6 +461,7 @@ func DeleteLogStorageDefinition(apiClient *http.Client, apiAddr string, id uint)
 		fmt.Sprintf("%s/%s/log-storage-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -478,6 +492,7 @@ func GetLogStorageInstances(apiClient *http.Client, apiAddr string) (*[]v0.LogSt
 		fmt.Sprintf("%s/%s/log-storage-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -507,6 +522,7 @@ func GetLogStorageInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -536,6 +552,7 @@ func GetLogStorageInstancesByQueryString(apiClient *http.Client, apiAddr string,
 		fmt.Sprintf("%s/%s/log-storage-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -565,6 +582,7 @@ func GetLogStorageInstanceByName(apiClient *http.Client, apiAddr, name string) (
 		fmt.Sprintf("%s/%s/log-storage-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -605,6 +623,7 @@ func CreateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 		fmt.Sprintf("%s/%s/log-storage-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonLogStorageInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -646,6 +665,7 @@ func UpdateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, logStorageInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLogStorageInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -676,6 +696,7 @@ func DeleteLogStorageInstance(apiClient *http.Client, apiAddr string, id uint) (
 		fmt.Sprintf("%s/%s/log-storage-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

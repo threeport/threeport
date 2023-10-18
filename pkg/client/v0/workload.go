@@ -28,6 +28,7 @@ func CreateWorkloadResourceDefinitions(
 		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceDefinitionSets),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadResourceDefinitions),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -58,6 +59,7 @@ func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(apiClient *http.Client
 		fmt.Sprintf("%s%s?workloaddefinitionid=%d", apiAddr, v0.PathWorkloadResourceDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -88,6 +90,7 @@ func GetWorkloadInstancesByWorkloadDefinitionID(apiClient *http.Client, apiAddr 
 		fmt.Sprintf("%s%s?workloaddefinitionid=%d", apiAddr, v0.PathWorkloadInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -118,6 +121,7 @@ func GetWorkloadResourceInstancesByWorkloadInstanceID(apiClient *http.Client, ap
 		fmt.Sprintf("%s%s?workloadinstanceid=%d", apiAddr, v0.PathWorkloadResourceInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -148,6 +152,7 @@ func GetWorkloadEventsByWorkloadInstanceID(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/workload-event-sets/%d", apiAddr, ApiVersion, workloadInstanceID),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -177,6 +182,7 @@ func GetWorkloadInstancesByKubernetesRuntimeInstanceID(apiClient *http.Client, a
 		fmt.Sprintf("%s%s?kubernetesruntimeinstanceid=%d", apiAddr, v0.PathWorkloadInstances, kubernetesRuntimeID),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -207,6 +213,7 @@ func DeleteWorkloadEventsByWorkloadInstanceID(apiClient *http.Client, apiAddr st
 		fmt.Sprintf("%s/%s/workload-event-sets/%d", apiAddr, ApiVersion, workloadInstanceID),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -237,6 +244,7 @@ func GetAttachedObjectReferencesByWorkloadInstanceID(apiClient *http.Client, api
 		fmt.Sprintf("%s%s?workloadinstanceid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

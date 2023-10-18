@@ -22,6 +22,7 @@ func GetGatewayDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Gatewa
 		fmt.Sprintf("%s/%s/gateway-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetGatewayDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 		fmt.Sprintf("%s/%s/gateway-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -80,6 +82,7 @@ func GetGatewayDefinitionsByQueryString(apiClient *http.Client, apiAddr string, 
 		fmt.Sprintf("%s/%s/gateway-definitions?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +112,7 @@ func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 		fmt.Sprintf("%s/%s/gateway-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -149,6 +153,7 @@ func CreateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 		fmt.Sprintf("%s/%s/gateway-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonGatewayDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -190,6 +195,7 @@ func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 		fmt.Sprintf("%s/%s/gateway-definitions/%d", apiAddr, ApiVersion, gatewayDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonGatewayDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -220,6 +226,7 @@ func DeleteGatewayDefinition(apiClient *http.Client, apiAddr string, id uint) (*
 		fmt.Sprintf("%s/%s/gateway-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -250,6 +257,7 @@ func GetGatewayInstances(apiClient *http.Client, apiAddr string) (*[]v0.GatewayI
 		fmt.Sprintf("%s/%s/gateway-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -279,6 +287,7 @@ func GetGatewayInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 		fmt.Sprintf("%s/%s/gateway-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -308,6 +317,7 @@ func GetGatewayInstancesByQueryString(apiClient *http.Client, apiAddr string, qu
 		fmt.Sprintf("%s/%s/gateway-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -337,6 +347,7 @@ func GetGatewayInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 		fmt.Sprintf("%s/%s/gateway-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -377,6 +388,7 @@ func CreateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 		fmt.Sprintf("%s/%s/gateway-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonGatewayInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -418,6 +430,7 @@ func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 		fmt.Sprintf("%s/%s/gateway-instances/%d", apiAddr, ApiVersion, gatewayInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonGatewayInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -448,6 +461,7 @@ func DeleteGatewayInstance(apiClient *http.Client, apiAddr string, id uint) (*v0
 		fmt.Sprintf("%s/%s/gateway-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -478,6 +492,7 @@ func GetDomainNameDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Dom
 		fmt.Sprintf("%s/%s/domain-name-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -507,6 +522,7 @@ func GetDomainNameDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -536,6 +552,7 @@ func GetDomainNameDefinitionsByQueryString(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/domain-name-definitions?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -565,6 +582,7 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string)
 		fmt.Sprintf("%s/%s/domain-name-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -605,6 +623,7 @@ func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 		fmt.Sprintf("%s/%s/domain-name-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -646,6 +665,7 @@ func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, domainNameDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -676,6 +696,7 @@ func DeleteDomainNameDefinition(apiClient *http.Client, apiAddr string, id uint)
 		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -706,6 +727,7 @@ func GetDomainNameInstances(apiClient *http.Client, apiAddr string) (*[]v0.Domai
 		fmt.Sprintf("%s/%s/domain-name-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -735,6 +757,7 @@ func GetDomainNameInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -764,6 +787,7 @@ func GetDomainNameInstancesByQueryString(apiClient *http.Client, apiAddr string,
 		fmt.Sprintf("%s/%s/domain-name-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -793,6 +817,7 @@ func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (
 		fmt.Sprintf("%s/%s/domain-name-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -833,6 +858,7 @@ func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 		fmt.Sprintf("%s/%s/domain-name-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -874,6 +900,7 @@ func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, domainNameInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -904,6 +931,7 @@ func DeleteDomainNameInstance(apiClient *http.Client, apiAddr string, id uint) (
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

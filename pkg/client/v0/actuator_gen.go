@@ -22,6 +22,7 @@ func GetProfiles(apiClient *http.Client, apiAddr string) (*[]v0.Profile, error) 
 		fmt.Sprintf("%s/%s/profiles", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetProfileByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Profil
 		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -80,6 +82,7 @@ func GetProfilesByQueryString(apiClient *http.Client, apiAddr string, queryStrin
 		fmt.Sprintf("%s/%s/profiles?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +112,7 @@ func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile
 		fmt.Sprintf("%s/%s/profiles?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -149,6 +153,7 @@ func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 		fmt.Sprintf("%s/%s/profiles", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonProfile),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -190,6 +195,7 @@ func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, profileID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonProfile),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -220,6 +226,7 @@ func DeleteProfile(apiClient *http.Client, apiAddr string, id uint) (*v0.Profile
 		fmt.Sprintf("%s/%s/profiles/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -250,6 +257,7 @@ func GetTiers(apiClient *http.Client, apiAddr string) (*[]v0.Tier, error) {
 		fmt.Sprintf("%s/%s/tiers", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -279,6 +287,7 @@ func GetTierByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, err
 		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -308,6 +317,7 @@ func GetTiersByQueryString(apiClient *http.Client, apiAddr string, queryString s
 		fmt.Sprintf("%s/%s/tiers?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -337,6 +347,7 @@ func GetTierByName(apiClient *http.Client, apiAddr, name string) (*v0.Tier, erro
 		fmt.Sprintf("%s/%s/tiers?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -377,6 +388,7 @@ func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 		fmt.Sprintf("%s/%s/tiers", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonTier),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -418,6 +430,7 @@ func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, tierID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonTier),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -448,6 +461,7 @@ func DeleteTier(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, erro
 		fmt.Sprintf("%s/%s/tiers/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

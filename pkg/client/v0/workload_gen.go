@@ -22,6 +22,7 @@ func GetWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Workl
 		fmt.Sprintf("%s/%s/workload-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetWorkloadDefinitionByID(apiClient *http.Client, apiAddr string, id uint) 
 		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -80,6 +82,7 @@ func GetWorkloadDefinitionsByQueryString(apiClient *http.Client, apiAddr string,
 		fmt.Sprintf("%s/%s/workload-definitions?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +112,7 @@ func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (
 		fmt.Sprintf("%s/%s/workload-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -149,6 +153,7 @@ func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 		fmt.Sprintf("%s/%s/workload-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -190,6 +195,7 @@ func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, workloadDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -220,6 +226,7 @@ func DeleteWorkloadDefinition(apiClient *http.Client, apiAddr string, id uint) (
 		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -250,6 +257,7 @@ func GetWorkloadResourceDefinitions(apiClient *http.Client, apiAddr string) (*[]
 		fmt.Sprintf("%s/%s/workload-resource-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -279,6 +287,7 @@ func GetWorkloadResourceDefinitionByID(apiClient *http.Client, apiAddr string, i
 		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -308,6 +317,7 @@ func GetWorkloadResourceDefinitionsByQueryString(apiClient *http.Client, apiAddr
 		fmt.Sprintf("%s/%s/workload-resource-definitions?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -337,6 +347,7 @@ func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name s
 		fmt.Sprintf("%s/%s/workload-resource-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -377,6 +388,7 @@ func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 		fmt.Sprintf("%s/%s/workload-resource-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -418,6 +430,7 @@ func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, workloadResourceDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -448,6 +461,7 @@ func DeleteWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, id
 		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -478,6 +492,7 @@ func GetWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]v0.Workloa
 		fmt.Sprintf("%s/%s/workload-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -507,6 +522,7 @@ func GetWorkloadInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*
 		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -536,6 +552,7 @@ func GetWorkloadInstancesByQueryString(apiClient *http.Client, apiAddr string, q
 		fmt.Sprintf("%s/%s/workload-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -565,6 +582,7 @@ func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v
 		fmt.Sprintf("%s/%s/workload-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -605,6 +623,7 @@ func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 		fmt.Sprintf("%s/%s/workload-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -646,6 +665,7 @@ func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, workloadInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -676,6 +696,7 @@ func DeleteWorkloadInstance(apiClient *http.Client, apiAddr string, id uint) (*v
 		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -706,6 +727,7 @@ func GetAttachedObjectReferences(apiClient *http.Client, apiAddr string) (*[]v0.
 		fmt.Sprintf("%s/%s/attached-object-references", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -735,6 +757,7 @@ func GetAttachedObjectReferenceByID(apiClient *http.Client, apiAddr string, id u
 		fmt.Sprintf("%s/%s/attached-object-references/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -764,6 +787,7 @@ func GetAttachedObjectReferencesByQueryString(apiClient *http.Client, apiAddr st
 		fmt.Sprintf("%s/%s/attached-object-references?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -793,6 +817,7 @@ func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name stri
 		fmt.Sprintf("%s/%s/attached-object-references?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -833,6 +858,7 @@ func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 		fmt.Sprintf("%s/%s/attached-object-references", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAttachedObjectReference),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -874,6 +900,7 @@ func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 		fmt.Sprintf("%s/%s/attached-object-references/%d", apiAddr, ApiVersion, attachedObjectReferenceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAttachedObjectReference),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -904,6 +931,7 @@ func DeleteAttachedObjectReference(apiClient *http.Client, apiAddr string, id ui
 		fmt.Sprintf("%s/%s/attached-object-references/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -934,6 +962,7 @@ func GetWorkloadResourceInstances(apiClient *http.Client, apiAddr string) (*[]v0
 		fmt.Sprintf("%s/%s/workload-resource-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -963,6 +992,7 @@ func GetWorkloadResourceInstanceByID(apiClient *http.Client, apiAddr string, id 
 		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -992,6 +1022,7 @@ func GetWorkloadResourceInstancesByQueryString(apiClient *http.Client, apiAddr s
 		fmt.Sprintf("%s/%s/workload-resource-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1021,6 +1052,7 @@ func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name str
 		fmt.Sprintf("%s/%s/workload-resource-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1061,6 +1093,7 @@ func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 		fmt.Sprintf("%s/%s/workload-resource-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -1102,6 +1135,7 @@ func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, workloadResourceInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1132,6 +1166,7 @@ func DeleteWorkloadResourceInstance(apiClient *http.Client, apiAddr string, id u
 		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1162,6 +1197,7 @@ func GetWorkloadEvents(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadEv
 		fmt.Sprintf("%s/%s/workload-events", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1191,6 +1227,7 @@ func GetWorkloadEventByID(apiClient *http.Client, apiAddr string, id uint) (*v0.
 		fmt.Sprintf("%s/%s/workload-events/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1220,6 +1257,7 @@ func GetWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, quer
 		fmt.Sprintf("%s/%s/workload-events?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1249,6 +1287,7 @@ func GetWorkloadEventByName(apiClient *http.Client, apiAddr, name string) (*v0.W
 		fmt.Sprintf("%s/%s/workload-events?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1289,6 +1328,7 @@ func CreateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 		fmt.Sprintf("%s/%s/workload-events", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadEvent),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -1330,6 +1370,7 @@ func UpdateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 		fmt.Sprintf("%s/%s/workload-events/%d", apiAddr, ApiVersion, workloadEventID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadEvent),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1360,6 +1401,7 @@ func DeleteWorkloadEvent(apiClient *http.Client, apiAddr string, id uint) (*v0.W
 		fmt.Sprintf("%s/%s/workload-events/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

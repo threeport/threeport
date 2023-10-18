@@ -1404,7 +1404,15 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{})
 		},
 	}
 
-	if cpi.Opts.AuthEnabled {
+	for _, v := range cpi.Opts.AdditionalRestApiVolumes {
+		vols = append(vols, v)
+	}
+
+	for _, vm := range cpi.Opts.AdditionalRestApiVolumeMounts {
+		volMounts = append(volMounts, vm)
+	}
+
+	if cpi.Opts.AuthEnabled { {
 		caVol, caVolMount := cpi.getSecretVols("api-ca", "/etc/threeport/ca")
 		certVol, certVolMount := cpi.getSecretVols("api-cert", "/etc/threeport/cert")
 

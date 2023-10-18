@@ -581,6 +581,20 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	}
 
+	err = cpi.Opts.PreInstallFunction(dynamicKubeClient, mapper, cpi)
+
+	if err != nil {
+		msg := "failed to run custom preInstall function"
+		// print the error when it happens and then again post-deletion
+		Error(msg, err)
+		err = fmt.Errorf("%s: %w", msg, err)
+		// delete control plane kubernetes runtime
+		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
+			return err
+		}
+		return err
+	}
+
 	// install the API
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,

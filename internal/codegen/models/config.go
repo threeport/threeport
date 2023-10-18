@@ -16,11 +16,12 @@ type ControllerConfig struct {
 
 // ModelConfig contains the values for a particular model.
 type ModelConfig struct {
-	TypeName            string
-	AllowDuplicateNames bool
-	NameField           bool
-	Reconciler          bool
-	ReconciledField     bool
+	TypeName              string
+	AllowDuplicateNames   bool
+	AllowCustomMiddleware bool
+	NameField             bool
+	Reconciler            bool
+	ReconciledField       bool
 
 	// notification subjects
 	CreateSubject string
@@ -28,11 +29,16 @@ type ModelConfig struct {
 	DeleteSubject string
 
 	// handler names
-	GetVersionHandlerName string
-	AddHandlerName        string
-	GetAllHandlerName     string
-	GetOneHandlerName     string
-	PatchHandlerName      string
-	PutHandlerName        string
-	DeleteHandlerName     string
+	GetVersionHandlerName    string
+	AddHandlerName           string
+	AddMiddlewareFuncName    string
+	GetAllHandlerName        string
+	GetOneHandlerName        string
+	GetMiddlewareFuncName    string
+	PatchHandlerName         string
+	PatchMiddlewareFuncName  string
+	PutHandlerName           string
+	PutMiddlewareFuncName    string
+	DeleteHandlerName        string
+	DeleteMiddlewareFuncName string
 }

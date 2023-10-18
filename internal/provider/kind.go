@@ -137,6 +137,16 @@ nodeRegistration:
 				HostPort:      int32(hostPort),
 				Protocol:      v1alpha4.PortMappingProtocolTCP,
 			},
+			{
+				ContainerPort: int32(31500),
+				HostPort:      int32(31500),
+				Protocol:      v1alpha4.PortMappingProtocolTCP,
+			},
+			{
+				ContainerPort: int32(32500),
+				HostPort:      int32(32500),
+				Protocol:      v1alpha4.PortMappingProtocolTCP,
+			},
 		},
 	}
 
@@ -192,6 +202,34 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 				ContainerPath: "/root/.cache/go-build",
 				HostPath:      goCache,
 			})
+		}
+	}
+
+	return &nodes
+}
+
+// devEnvKindWorkers returns worker nodes with host path mount for live code
+// reloads.
+func devEnvKindWorkers(threeportPath string, numWorkerNodes int, goPath, goCache string) *[]v1alpha4.Node {
+
+	nodes := make([]v1alpha4.Node, numWorkerNodes)
+	for i := range nodes {
+		nodes[i] = v1alpha4.Node{
+			Role: v1alpha4.WorkerRole,
+			ExtraMounts: []v1alpha4.Mount{
+				{
+					ContainerPath: "/threeport",
+					HostPath:      threeportPath,
+				},
+				{
+					ContainerPath: "/go",
+					HostPath:      goPath,
+				},
+				{
+					ContainerPath: "/root/.cache/go-build",
+					HostPath:      goCache,
+				},
+			},
 		}
 	}
 

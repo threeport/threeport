@@ -19,6 +19,7 @@ func GetDefaultKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string)
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances?defaultruntime=true", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -55,6 +56,7 @@ func GetKubernetesRuntimeInstancesByKubernetesRuntimeDefinitionID(apiClient *htt
 		fmt.Sprintf("%s%s?kubernetesruntimedefinitionid=%d", apiAddr, v0.PathKubernetesRuntimeInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -85,6 +87,7 @@ func GetThreeportControlPlaneKubernetesRuntimeInstance(apiClient *http.Client, a
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances?threeportcontrolplanehost=true", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

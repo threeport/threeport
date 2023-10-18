@@ -82,6 +82,7 @@ When 'make generate' is run, the following code is generated for API:
 		var modelConfigs []models.ModelConfig
 		var reconcilerModels []string
 		var allowDuplicateNameModels []string
+		var allowCustomMiddleware []string
 		for _, node := range pf.Decls {
 			switch node.(type) {
 			case *ast.GenDecl:
@@ -135,6 +136,8 @@ When 'make generate' is run, the following code is generated for API:
 							reconcilerModels = append(reconcilerModels, objectName)
 						} else if strings.Contains(comment.Text, codegen.AllowDuplicateNamesMarkerText) {
 							allowDuplicateNameModels = append(allowDuplicateNameModels, objectName)
+						} else if strings.Contains(comment.Text, codegen.AllowCustomMiddleware) {
+							allowCustomMiddleware = append(allowCustomMiddleware, objectName)
 						}
 					}
 				}
@@ -188,6 +191,16 @@ When 'make generate' is run, the following code is generated for API:
 			for i, mc := range controllerConfig.ModelConfigs {
 				if nm == mc.TypeName {
 					controllerConfig.ModelConfigs[i].AllowDuplicateNames = true
+				}
+			}
+		}
+
+		// for all objects with we allow custom middleware for:
+		// * set AllowCustomMiddleware field in model config to true
+		for _, nm := range allowCustomMiddleware {
+			for i, mc := range controllerConfig.ModelConfigs {
+				if nm == mc.TypeName {
+					controllerConfig.ModelConfigs[i].AllowCustomMiddleware = true
 				}
 			}
 		}

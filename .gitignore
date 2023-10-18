@@ -3,3 +3,4 @@ tmp
 example/draft
 __debug_bin
 .envrc
+**/.DS_Store
