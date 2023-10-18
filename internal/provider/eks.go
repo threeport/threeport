@@ -474,6 +474,10 @@ func GetResourceManagerRoleName(clusterName string) string {
 	return fmt.Sprintf("%s-%s", ResourceManagerRoleName, clusterName)
 }
 
+func GetResourceManagerRoleArn(clusterName, accountId string) string {
+	return fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, GetResourceManagerRoleName(clusterName))
+}
+
 // getRuntimeManagerTrustPolicyDocument returns the trust policy document for the
 // runtime manager role.
 func getRuntimeManagerTrustPolicyDocument(accountId, externalId, oidcProviderUrl string) (string, error) {
