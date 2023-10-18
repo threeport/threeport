@@ -244,13 +244,24 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// IAM Service Account for runtime management
-		_, _, err = CreateServiceAccount(
+		_, accessKey, err := CreateServiceAccount(
 			*serviceAccountPolicy.Arn,
 			cpi.Opts.Name,
 			awsConfig,
 		)
 		if err != nil {
 			return err
+		}
+
+		awsConfServiceAccount, err := resource.LoadAWSConfigFromAPIKeys(
+			*accessKey.AccessKeyId,
+			*accessKey.SecretAccessKey,
+			a.AwsRegion,
+			"",
+			*runtimeManagementRole.Arn,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to load AWS configuration with access and secret keys: %w", err)
 		}
 
 		// create a resource client to create EKS resources
@@ -303,6 +314,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			AwsAccountID:                 cpi.Opts.CreateProviderAccountID,
 			AwsConfig:                    awsConfig,
 			ResourceClient:               resourceClient,
+			ServiceAccountAwsConfig:      awsConfServiceAccount,
 			ZoneCount:                    int32(2),
 			DefaultNodeGroupInstanceType: "t3.medium",
 			DefaultNodeGroupInitialNodes: int32(3),
@@ -1082,21 +1094,6 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
 
-		err = DeleteRole(cpi.Opts.Name, awsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to delete role: %w", err)
-		}
-
-		err = DeleteServiceAccountPolicy(cpi.Opts.Name, awsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to delete service account policy: %w", err)
-		}
-
-		err = DeleteServiceAccount(cpi.Opts.Name, awsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to delete service account: %w", err)
-		}
-
 		// create a resource client to create EKS resources
 		resourceClient := resource.CreateResourceClient(awsConfig)
 
@@ -1219,6 +1216,23 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete threeport API service: %w", err)
 		}
+
+		awsConfig := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ResourceClient.AWSConfig
+		err = DeleteRole(a.InstanceName, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete role: %w", err)
+		}
+
+		err = DeleteServiceAccountPolicy(a.InstanceName, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete service account policy: %w", err)
+		}
+
+		err = DeleteServiceAccount(a.InstanceName, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete service account: %w", err)
+		}
+
 	}
 
 	// delete control plane infra
