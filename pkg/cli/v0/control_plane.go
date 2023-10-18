@@ -949,18 +949,19 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
 
 		// create aws eks k8s runtime definition
-		eksRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.InstanceName)
-		zoneCount := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ZoneCount)
-		defaultNodeGroupInitialSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupInitialNodes)
-		defaultNodeGroupMinSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupMinNodes)
-		defaultNodeGroupMaxSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupMaxNodes)
+		eksRuntimeDefName := provider.ThreeportRuntimeName(a.InstanceName)
+		kubernetesRuntimeInfraEKS := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS)
+		zoneCount := int(kubernetesRuntimeInfraEKS.ZoneCount)
+		defaultNodeGroupInitialSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)
+		defaultNodeGroupMinSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)
+		defaultNodeGroupMaxSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)
 		awsEksKubernetesRuntimeDef := v0.AwsEksKubernetesRuntimeDefinition{
 			Definition: v0.Definition{
 				Name: &eksRuntimeDefName,
 			},
 			AwsAccountID:                  createdAwsAccount.ID,
 			ZoneCount:                     &zoneCount,
-			DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupInstanceType,
+			DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:   &defaultNodeGroupMinSize,
 			DefaultNodeGroupMaximumSize:   &defaultNodeGroupMaxSize,
@@ -1008,6 +1009,15 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create new AWS EKS kubernetes runtime instance for control plane cluster: %w", err)
+		}
+
+		// refresh EKS connection
+		// TODO: Figure out why this refresh is required and remove it. It is
+		// currently required because the initial token throws Unauthorized errors until
+		// it is refreshed by the workload controller.
+		_, err = kube.RefreshEKSConnection(kubernetesRuntimeInstResult, apiClient, threeportAPIEndpoint, threeportInstanceConfig.EncryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to refresh EKS connection: %w", err)
 		}
 	}
 
@@ -1223,6 +1233,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// API for deleting resources
 		var dynamicKubeClient dynamic.Interface
 		var mapper *meta.RESTMapper
+		kubernetesRuntimeInfraEKS := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS)
 		dynamicKubeClient, mapper, err = kube.GetClient(
 			kubernetesRuntimeInstance,
 			false,
@@ -1233,7 +1244,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		if err != nil {
 			if kubeerrors.IsUnauthorized(err) {
 				// refresh token, save to kubernetes runtime instance and get kube client
-				kubeConn, err := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).RefreshConnection()
+				kubeConn, err := kubernetesRuntimeInfraEKS.RefreshConnection()
 				if err != nil {
 					return fmt.Errorf("failed to refresh token to connect to EKS kubernetes runtime: %w", err)
 				}
@@ -1265,6 +1276,12 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// delete threeport API service to remove load balancer
 		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete threeport API service: %w", err)
+		}
+
+		// delete AWS IAM resources
+		err = provider.DeleteThreeportIamResources(a.InstanceName, *kubernetesRuntimeInfraEKS.AwsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}
 	}
 
