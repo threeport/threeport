@@ -25,6 +25,12 @@ var UpCmd = &cobra.Command{
 	Short:        "Spin up a new deployment of the Threeport control plane",
 	Long:         `Spin up a new deployment of the Threeport control plane.`,
 	SilenceUsage: true,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		switch cliArgs.InfraProvider {
+		case v0.KubernetesRuntimeInfraProviderEKS:
+			cmd.MarkFlagRequired("aws-region")
+		}
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// flag validation
 		if err := cli.ValidateCreateControlPlaneFlags(

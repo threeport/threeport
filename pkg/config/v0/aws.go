@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/ini.v1"
 
-	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
+	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )

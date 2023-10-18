@@ -1,6 +1,7 @@
 package controlplane
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
@@ -278,10 +279,19 @@ func controlPlaneInstanceCreated(
 	}
 
 	fmt.Println("Waiting for threeport API to start running...")
-	if err := threeport.WaitForThreeportAPI(
-		newApiClient,
-		threeportAPIEndpoint,
-	); err != nil {
+	if err = util.Retry(30, 10, func() error {
+		_, err := client.GetResponse(
+			newApiClient,
+			fmt.Sprintf("%s/version", threeportAPIEndpoint),
+			http.MethodGet,
+			new(bytes.Buffer),
+			http.StatusOK,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get threeport API version: %w", err)
+		}
+		return nil
+	}); err != nil {
 		return 0, fmt.Errorf("threeport API did not come up: %w", err)
 	}
 	fmt.Println("Threeport API is running")

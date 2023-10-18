@@ -227,7 +227,7 @@ func (cfg *ThreeportConfig) GetHTTPClient(requestedInstance string) (*http.Clien
 		return nil, fmt.Errorf("failed to get auth enabled: %w", err)
 	}
 
-	ca, clientCertificate, clientPrivateKey, err := cfg.GetThreeportCertificatesForInstance(requestedInstance)
+	ca, clientCertificate, clientPrivateKey, err := cfg.GetThreeportCertificatesForControlPlane(requestedInstance)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get threeport certificates: %w", err)
 	}
@@ -265,7 +265,7 @@ func GetThreeportConfig(requestedControlPlane string) (*ThreeportConfig, string,
 
 // UpdateThreeportConfigInstance updates a threeport instance config
 // and returns the updated threeport config.
-func (c *Instance) UpdateThreeportConfigInstance(f func(*Instance)) (*ThreeportConfig, error) {
+func (c *ControlPlane) UpdateThreeportConfigInstance(f func(*ControlPlane)) (*ThreeportConfig, error) {
 
 	// make requested changes to threeport instance config
 	f(c)

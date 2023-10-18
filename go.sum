@@ -390,8 +390,6 @@ github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OS
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nukleros/aws-builder v0.3.1 h1:KAs/vnHMk0t8fETsD29FloDJjzmHGS7i8HjLSvcrLY4=
 github.com/nukleros/aws-builder v0.3.1/go.mod h1:j/w7LU5iNZbtwmL7svHWrnddrJAzgZCSjw9BereEGic=
-github.com/nukleros/eks-cluster v0.15.0 h1:tncjJnEbnB/csNcNlpuUgW0K+hqbByezpOtXX8p/sow=
-github.com/nukleros/eks-cluster v0.15.0/go.mod h1:tju5bjQ2hDBO/AAXu81IwyaGNo5qxWHQOh1loL/Nj6M=
 github.com/onsi/ginkgo/v2 v2.11.0 h1:WgqUCUt/lT6yXoQ8Wef0fsNn5cAuMK7+KT9UFRz2tcU=
 github.com/onsi/ginkgo/v2 v2.11.0/go.mod h1:ZhrRA5XmEE3x3rhlzamx/JJvujdZoJ2uvgI7kR0iZvM=
 github.com/onsi/gomega v1.27.8 h1:gegWiwZjBsf2DgiSbf5hpokZ98JVDMcWkUiigk6/KXc=

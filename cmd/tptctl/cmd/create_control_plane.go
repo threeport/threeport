@@ -25,12 +25,6 @@ var CreateControlPlaneCmd = &cobra.Command{
 	Short:        "Create a new Threeport control plane",
 	Long:         `Create a new control plane.`,
 	SilenceUsage: true,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		switch cliArgs.InfraProvider {
-		case v0.KubernetesRuntimeInfraProviderEKS:
-			cmd.MarkFlagRequired("aws-region")
-		}
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {

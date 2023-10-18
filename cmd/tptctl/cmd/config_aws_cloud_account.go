@@ -40,7 +40,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// get threeport config and extract threeport API endpoint
-		threeportConfig, requestedInstance, err := config.GetThreeportConfig(cliArgs.InstanceName)
+		threeportConfig, requestedInstance, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)

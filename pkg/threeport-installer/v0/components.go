@@ -12,7 +12,6 @@ import (
 	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
-	clientv0 "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
@@ -1655,9 +1654,9 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 			},
 			"type": "Opaque",
 			"stringData": map[string]interface{}{
-				"API_SERVER":      cpi.Opts.RestApiInfo.ServiceResourceName,
-				"MSG_BROKER_HOST": "nats-js",
-				"MSG_BROKER_PORT": "4222",
+				"API_SERVER":            cpi.Opts.RestApiInfo.ServiceResourceName,
+				"MSG_BROKER_HOST":       "nats-js",
+				"MSG_BROKER_PORT":       "4222",
 				"AWS_ROLE_SESSION_NAME": "cross-account-access",
 			},
 		},
