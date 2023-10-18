@@ -310,6 +310,8 @@ func refreshEKSConnection(
 		"",
 		*eksRuntimeInstance.Region,
 		"",
+		"",
+		"",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)

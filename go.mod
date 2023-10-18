@@ -2,8 +2,11 @@ module github.com/threeport/threeport
 
 go 1.20
 
+replace github.com/nukleros/eks-cluster => ../eks-cluster
+
 require (
 	github.com/aws/aws-sdk-go-v2 v1.21.0
+	github.com/aws/aws-sdk-go-v2/service/iam v1.22.5
 	github.com/dave/jennifer v1.6.1
 	github.com/docker/docker v24.0.2+incompatible
 	github.com/gertd/go-pluralize v0.2.1
@@ -59,7 +62,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.115.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/eks v1.27.14 // indirect
-	github.com/aws/aws-sdk-go-v2/service/iam v1.22.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.14 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.36 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.35 // indirect
