@@ -96,7 +96,7 @@ func GetClient(
 		return nil, nil, fmt.Errorf("failed to get discovery client for kube API: %w", err)
 	}
 
-	// the rest mapper allows us to deterimine resource types
+	// the rest mapper allows us to determine resource types
 	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get kube API group resources: %w", err)
@@ -309,9 +309,13 @@ func refreshEKSConnection(
 		secretAccessKey,
 		"",
 		*eksRuntimeInstance.Region,
+<<<<<<< HEAD
 		"",
 		"",
 		"",
+=======
+		*awsAccount.RoleArn,
+>>>>>>> fa29c9a (feat: add delete methods for threeport role and service account)
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)

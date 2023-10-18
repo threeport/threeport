@@ -1,7 +1,6 @@
 package v0
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gorm.io/datatypes"
@@ -166,6 +164,8 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	}
 
 	// configure the infra provider
+	var accessKey *types.AccessKey
+	var runtimeManagementRole *types.Role
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
 	awsConfig := &aws.Config{}
@@ -216,6 +216,43 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
 		awsConfig = awsConf
+
+		runtimeManagementRole, err = CreateRuntimeManagementRole(
+			resource.CreateIAMTags(
+				cpi.Opts.Name,
+				map[string]string{},
+			),
+			cpi.Opts.Name,
+			cpi.Opts.CreateProviderAccountID,
+			awsConfig,
+		)
+		if err != nil {
+			return err
+		}
+
+		// IAM Policy for runtime service account
+		serviceAccountPolicy, err := CreateServiceAccountPolicy(
+			resource.CreateIAMTags(
+				cpi.Opts.Name,
+				map[string]string{},
+			),
+			cpi.Opts.Name,
+			*runtimeManagementRole.Arn,
+			awsConfig,
+		)
+		if err != nil {
+			return err
+		}
+
+		// IAM Service Account for runtime management
+		_, accessKey, err = CreateServiceAccount(
+			*serviceAccountPolicy.Arn,
+			cpi.Opts.Name,
+			awsConfig,
+		)
+		if err != nil {
+			return err
+		}
 
 		// create a resource client to create EKS resources
 		resourceClient := resource.CreateResourceClient(awsConfig)
@@ -789,6 +826,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		runtimeManagementRole, err := CreateRuntimeManagementRole(
 			resource.CreateIAMTags(cpi.Opts.InstanceName, map[string]string{}),
 			cpi.Opts.InstanceName,
+			cpi.Opts.CreateProviderAccountID,
 			awsConfig,
 		)
 		if err != nil {
@@ -826,6 +864,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			DefaultRegion:   &awsConfig.Region,
 			AccessKeyID:     accessKey.AccessKeyId,
 			SecretAccessKey: accessKey.SecretAccessKey,
+			RoleArn:         runtimeManagementRole.Arn,
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,
@@ -1042,6 +1081,21 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
+		}
+
+		err = DeleteRole(cpi.Opts.Name, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete role: %w", err)
+		}
+
+		err = DeleteServiceAccountPolicy(cpi.Opts.Name, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete service account policy: %w", err)
+		}
+
+		err = DeleteServiceAccount(cpi.Opts.Name, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete service account: %w", err)
 		}
 
 		// create a resource client to create EKS resources
@@ -1303,229 +1357,3 @@ func cleanOnCreateError(
 
 	return nil
 }
-
-// CreateServiceAccountPolicy creates the IAM policy to be used for the
-// threeport service account policy.
-func CreateServiceAccountPolicy(
-	tags *[]types.Tag,
-	clusterName string,
-	runtimeManagementRoleArn string,
-	awsConfig *aws.Config,
-) (*types.Policy, error) {
-	svc := iam.NewFromConfig(*awsConfig)
-
-	serviceAccountPolicyName := fmt.Sprintf("%s-%s", ServiceAccountPolicyName, clusterName)
-	serviceAccountPolicyDescription := "Allow Threeport to manage runtimes."
-	serviceAccountPolicyDocument := fmt.Sprintf(`{
-		"Version": "2012-10-17",
-		"Statement": [
-						{
-				"Sid": "AssumeRole",
-				"Effect": "Allow",
-				"Action": [
-					"sts:AssumeRole"
-				],
-				"Resource": [
-					"%s"
-				]
-			}
-		]
-}`, runtimeManagementRoleArn)
-
-	createServiceAccountPolicyInput := iam.CreatePolicyInput{
-		PolicyName:     &serviceAccountPolicyName,
-		Description:    &serviceAccountPolicyDescription,
-		PolicyDocument: &serviceAccountPolicyDocument,
-	}
-	serviceAccountPolicyResp, err := svc.CreatePolicy(context.Background(), &createServiceAccountPolicyInput)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cluster autoscaler management policy %s: %w", serviceAccountPolicyName, err)
-	}
-
-	return serviceAccountPolicyResp.Policy, nil
-}
-
-func CreateServiceAccount(serviceAccountPolicyArn, clusterName string, awsConfig *aws.Config) (*types.User, *types.AccessKey, error) {
-	svc := iam.NewFromConfig(*awsConfig)
-	runtimeServiceAccount := fmt.Sprintf("%s-%s", RuntimeServiceAccount, clusterName)
-
-	// create the service account
-	createUserInput := iam.CreateUserInput{
-		UserName: &clusterName,
-	}
-	createUserOutput, err := svc.CreateUser(context.Background(), &createUserInput)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create IAM user: %w", err)
-	}
-
-	// attach the policy to the user
-	_, err = svc.AttachUserPolicy(
-		context.Background(),
-		&iam.AttachUserPolicyInput{
-			UserName:  &runtimeServiceAccount,
-			PolicyArn: &serviceAccountPolicyArn,
-		},
-	)
-
-	// create an access key for the user
-	createAccessKeyOutput, err := svc.CreateAccessKey(
-		context.Background(),
-		&iam.CreateAccessKeyInput{
-			UserName: createUserOutput.User.UserName,
-		},
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create IAM access key: %w", err)
-	}
-	return createUserOutput.User, createAccessKeyOutput.AccessKey, nil
-}
-
-// CreateStorageManagementRole creates the IAM role needed for storage
-// management by the CSI driver's service account using IRSA (IAM role for
-// service accounts).
-func CreateRuntimeManagementRole(
-	tags *[]types.Tag,
-	clusterName string,
-	awsConfig *aws.Config,
-) (*types.Role, error) {
-	svc := iam.NewFromConfig(*awsConfig)
-
-	runtimeManagementRoleName := fmt.Sprintf("%s-%s", RuntimeManagementRoleName, clusterName)
-	// if err := checkRoleName(runtimeManagementRoleName); err != nil {
-	// 	return nil, err
-	// }
-	runtimePolicyARN := "arn:aws:iam::aws:policy/AmazonEKSRuntimeManagementPolicy"
-	runtimeManagerPolicyDocument := `{
-		"Version": "2012-10-17",
-		"Statement": [
-			{
-				"Sid": "EC2andIAMPermissions",
-				"Effect": "Allow",
-				"Action": [
-					"ec2:CreateVpc",
-					"ec2:DeleteVpc",
-					"ec2:ModifyVpcAttribute",
-					"ec2:CreateSubnet",
-					"ec2:DeleteSubnet",
-					"ec2:ModifySubnetAttribute",
-					"ec2:DescribeSubnets",
-					"ec2:CreateRouteTable",
-					"ec2:DeleteRouteTable",
-					"ec2:CreateRoute",
-					"ec2:DeleteRoute",
-					"ec2:AssociateRouteTable",
-					"ec2:DisassociateRouteTable",
-					"ec2:AllocateAddress",
-					"ec2:ReleaseAddress",
-					"ec2:AssociateAddress",
-					"ec2:DisassociateAddress",
-					"ec2:CreateInternetGateway",
-					"ec2:DeleteInternetGateway",
-					"ec2:AttachInternetGateway",
-					"ec2:DetachInternetGateway",
-					"ec2:CreateNatGateway",
-					"ec2:DeleteNatGateway",
-					"ec2:CreateTags",
-					"ec2:DeleteTags",
-					"ec2:DescribeTags",
-					"ec2:DescribeNatGateways",
-					"ec2:DescribeAvailabilityZones",
-					"ec2:DescribeSecurityGroups"
-				],
-				"Resource": "*"
-			},
-			{
-				"Sid": "EKSPermissions",
-				"Effect": "Allow",
-				"Action": [
-					"eks:CreateCluster",
-					"eks:DeleteCluster",
-					"eks:UpdateClusterConfig",
-					"eks:CreateNodegroup",
-					"eks:DeleteNodegroup",
-					"eks:UpdateNodegroupConfig",
-					"eks:DescribeNodegroup",
-					"eks:TagResource",
-					"eks:UntagResource",
-					"eks:DescribeCluster",
-					"eks:CreateAddon",
-					"eks:DeleteAddon",
-					"eks:UpdateAddon"
-				],
-				"Resource": "*"
-			},
-			{
-				"Sid": "IAMPermissions",
-				"Effect": "Allow",
-				"Action": [
-					"iam:CreateOpenIDConnectProvider",
-					"iam:DeleteOpenIDConnectProvider",
-					"iam:UpdateOpenIDConnectProviderThumbprint",
-					"iam:CreatePolicy",
-					"iam:DeletePolicy",
-					"iam:CreatePolicyVersion",
-					"iam:DeletePolicyVersion",
-					"iam:SetDefaultPolicyVersion",
-					"iam:GetRole",
-					"iam:CreateRole",
-					"iam:DeleteRole",
-					"iam:UpdateRole",
-					"iam:PutRolePolicy",
-					"iam:DeleteRolePolicy",
-					"iam:AttachRolePolicy",
-					"iam:DetachRolePolicy",
-					"iam:TagRole",
-					"iam:UntagRole",
-					"iam:ListAttachedRolePolicies",
-					"iam:DescribeSecurityGroups"
-				],
-				"Resource": "*"
-			},
-			{
-				"Sid": "IAMPassRolePermissions",
-				"Effect": "Allow",
-				"Action": "iam:PassRole",
-				"Resource": "*",
-				"Condition": {
-					"StringEquals": {
-						"iam:PassedToService": [
-							"ec2.amazonaws.com",
-							"vpc.amazonaws.com",
-							"eks.amazonaws.com",
-							"ebs.amazonaws.com",
-							"route53.amazonaws.com"
-						]
-					}
-				}
-			}
-		]
-	}`
-
-	createRuntimeManagementRoleInput := iam.CreateRoleInput{
-		AssumeRolePolicyDocument: &runtimeManagerPolicyDocument,
-		RoleName:                 &runtimeManagementRoleName,
-		PermissionsBoundary:      &runtimePolicyARN,
-		Tags:                     *tags,
-	}
-	runtimeManagementRoleResp, err := svc.CreateRole(context.Background(), &createRuntimeManagementRoleInput)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create role %s: %w", runtimeManagementRoleName, err)
-	}
-
-	attachRuntimeManagementRolePolicyInput := iam.AttachRolePolicyInput{
-		PolicyArn: &runtimePolicyARN,
-		RoleName:  runtimeManagementRoleResp.Role.RoleName,
-	}
-	_, err = svc.AttachRolePolicy(context.Background(), &attachRuntimeManagementRolePolicyInput)
-	if err != nil {
-		return runtimeManagementRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", runtimePolicyARN, runtimeManagementRoleName, err)
-	}
-
-	return runtimeManagementRoleResp.Role, nil
-}
-
-const (
-	RuntimeServiceAccount     = "runtime-service-account"
-	ServiceAccountPolicyName  = "ServiceAccount"
-	RuntimeManagementRoleName = "runtime-mgmt-role"
-)
