@@ -424,14 +424,14 @@ func (cpi *ControlPlaneInstaller) InstallController(
 		}
 	}
 
-	serviceAccountName := installInfo.ServiceAccountName
-
 	var deployName string
 	if cpi.isThreeportManagedController(installInfo) {
 		deployName = fmt.Sprintf("threeport-%s", installInfo.Name)
 	} else {
 		deployName = fmt.Sprintf("%s-%s", cpi.Opts.Name, installInfo.Name)
 	}
+
+	serviceAccountName := installInfo.ServiceAccountName
 
 	var controllerDeployment = cpi.getControllerDeployment(
 		deployName,

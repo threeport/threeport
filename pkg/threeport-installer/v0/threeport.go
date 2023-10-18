@@ -17,13 +17,15 @@ const (
 	ThreeportAgentImage                       = "threeport-agent"
 	ThreeportAPIServiceResourceName           = "threeport-api-server"
 	ThreeportLocalAPIEndpoint                 = "localhost"
+	ThreeportWorkloadControllerName           = "workload-controller"
+	ThreeportAwsControllerName                = "aws-controller"
 )
 
 var enabled bool = true
 
 var ThreeportControllerList []*v0.ControlPlaneComponent = []*v0.ControlPlaneComponent{
 	{
-		Name:               "workload-controller",
+		Name:               ThreeportWorkloadControllerName,
 		ImageName:          ThreeportWorkloadControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
@@ -39,7 +41,7 @@ var ThreeportControllerList []*v0.ControlPlaneComponent = []*v0.ControlPlaneComp
 		Enabled:            &enabled,
 	},
 	{
-		Name:               "aws-controller",
+		Name:               ThreeportAwsControllerName,
 		ImageName:          ThreeportAwsControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),

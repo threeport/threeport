@@ -23,10 +23,10 @@ type AwsAccount struct {
 	DefaultRegion *string `json:"DefaultRegion,omitempty" query:"defaultregion" gorm:"not null" validate:"required"`
 
 	// The access key ID credentials for the AWS account.
-	AccessKeyID *string `json:"AccessKeyID,omitempty" gorm:"not null" validate:"required" encrypt:"true"`
+	AccessKeyID *string `json:"AccessKeyID,omitempty" validate:"optional" encrypt:"true"`
 
 	// The secret key credentials for the AWS account.
-	SecretAccessKey *string `json:"SecretAccessKey,omitempty" gorm:"not null" validate:"required" encrypt:"true"`
+	SecretAccessKey *string `json:"SecretAccessKey,omitempty" validate:"optional" encrypt:"true"`
 
 	// The RoleArn to assume for the AWS account.
 	RoleArn *string `json:"RoleArn,omitempty" query:"rolearn" validate:"optional"`

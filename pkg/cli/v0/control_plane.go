@@ -18,6 +18,7 @@ import (
 	"gorm.io/datatypes"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
@@ -230,10 +231,15 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			),
 			a.InstanceName,
 			a.CreateProviderAccountID,
+			"",
 			awsConfigUser,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to create runtime management role: %w", err)
+			deleteErr := provider.DeleteThreeportIamResources(a.InstanceName, awsConfigUser)
+			if deleteErr != nil {
+				return fmt.Errorf("failed to create runtime manager role: %w, failed to delete IAM resources: %w", err, deleteErr)
+			}
+			return fmt.Errorf("failed to create runtime manager role: %w", err)
 		}
 
 		// create IAM Policy for runtime service account
@@ -377,6 +383,49 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			AwsConfigProfile: cpi.Opts.AwsConfigProfile,
 			AwsRegion:        cpi.Opts.AwsRegion,
 			AwsAccountID:     cpi.Opts.CreateProviderAccountID,
+		}
+
+		// configure preinstallfunction to update service account names and deploy service
+		// account objects within cluster
+		cpi.Opts.PreInstallFunction = func(kubeClient dynamic.Interface, mapper *meta.RESTMapper, cpi *threeport.ControlPlaneInstaller) error {
+
+			for _, controller := range cpi.Opts.ControllerList {
+				if controller.Name == threeport.ThreeportWorkloadControllerName {
+					controller.ServiceAccountName = threeport.ThreeportWorkloadControllerName
+				}
+
+				if controller.Name == threeport.ThreeportAwsControllerName {
+					controller.ServiceAccountName = threeport.ThreeportAwsControllerName
+				}
+			}
+
+			for _, name := range []string{
+				threeport.ThreeportWorkloadControllerName,
+				threeport.ThreeportAwsControllerName,
+			} {
+				serviceAccount := &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "ServiceAccount",
+						"metadata": map[string]interface{}{
+							"name":      name,
+							"namespace": cpi.Opts.Namespace,
+							"annotations": map[string]interface{}{
+								"eks.amazonaws.com/role-arn": fmt.Sprintf(
+									"arn:aws:iam::%s:role/%s",
+									a.CreateProviderAccountID,
+									provider.GetExternalResourceManagerRoleName(a.InstanceName),
+								),
+							},
+						},
+					},
+				}
+				if _, err := kube.CreateResource(serviceAccount, kubeClient, *mapper); err != nil {
+					return fmt.Errorf("failed to create threeport api service account: %w", err)
+				}
+			}
+
+			return nil
 		}
 
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS

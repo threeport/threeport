@@ -1,5 +1,7 @@
 module github.com/threeport/threeport
 
+replace github.com/nukleros/eks-cluster => ../eks-cluster
+
 go 1.20
 
 require (

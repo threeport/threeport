@@ -2,10 +2,12 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -345,33 +347,25 @@ func DeleteServiceAccount(
 	return nil
 }
 
-// CreateStorageManagementRole creates the IAM role needed for storage
-// management by the CSI driver's service account using IRSA (IAM role for
-// service accounts).
+// CreateStorageManagementRole creates the IAM role needed for resource
+// management.
 func CreateResourceManagerRole(
 	tags *[]types.Tag,
-	clusterName string,
-	accountId string,
+	clusterName,
+	accountId,
+	externalId string,
 	awsConfig aws.Config,
 ) (*types.Role, error) {
 	svc := iam.NewFromConfig(awsConfig)
 
 	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
-	// if err := checkRoleName(resourceManagerRoleName); err != nil {
-	// 	return nil, err
-	// }
-	runtimeManagerTrustPolicyDocument := fmt.Sprintf(`{
-		"Version": "2012-10-17",
-		"Statement": [
-			{
-				"Effect": "Allow",
-				"Principal": {
-					"AWS": "arn:aws:iam::%s:root"
-				},
-				"Action": "sts:AssumeRole"
-			}
-		]
-	}`, accountId)
+	if err := checkRoleName(resourceManagerRoleName); err != nil {
+		return nil, err
+	}
+	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument(accountId, externalId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role trust policy document: %w", err)
+	}
 	createResourceManagerRoleInput := iam.CreateRoleInput{
 		AssumeRolePolicyDocument: &runtimeManagerTrustPolicyDocument,
 		RoleName:                 &resourceManagerRoleName,
@@ -406,7 +400,7 @@ func CreateResourceManagerRole(
 	return resourceManagerRoleResp.Role, nil
 }
 
-// DeleteRole deletes the IAM role used by the threeport service account.
+// DeleteRole deletes the runtime manager IAM role.
 func DeleteRole(
 	clusterName string,
 	awsConfig aws.Config,
@@ -457,11 +451,64 @@ func GetResourceManagerRoleName(clusterName string) string {
 	return fmt.Sprintf("%s-%s", ResourceManagerRoleName, clusterName)
 }
 
+func GetExternalResourceManagerRoleName(clusterName string) string {
+	return fmt.Sprintf("%s-%s", ExternalResourceManagerRoleName, clusterName)
+}
+
+// getRuntimeManagerTrustPolicyDocument returns the trust policy document for the
+// runtime manager role.
+func getRuntimeManagerTrustPolicyDocument(accountId, externalId string) (string, error) {
+
+	statement := map[string]interface{}{
+		"Effect": "Allow",
+		"Principal": map[string]interface{}{
+			"AWS": "arn:aws:iam::575822346426:root",
+		},
+		"Action": "sts:AssumeRole",
+	}
+
+	if externalId != "" {
+		statement["Condition"] = map[string]interface{}{
+			"StringEquals": map[string]interface{}{
+				"sts:ExternalId": externalId,
+			},
+		}
+	}
+
+	document := map[string]interface{}{
+		"Version": "2012-10-17",
+		"Statement": []interface{}{
+			statement,
+		},
+	}
+
+	documentJson, err := json.Marshal(document)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshall trust policy document: %w", err)
+	}
+
+	return string(documentJson), nil
+
+}
+
+// checkRoleName ensures role names do not exceed the AWS limit for role name
+// lengths (64 characters).
+func checkRoleName(name string) error {
+	if utf8.RuneCountInString(name) > 64 {
+		return errors.New(fmt.Sprintf(
+			"role name %s too long, must be 64 characters or less", name,
+		))
+	}
+
+	return nil
+}
+
 const (
-	ServiceAccountPolicyName     = "ThreeportServiceAccount"
-	RuntimeServiceAccount        = "ThreeportRuntime"
-	ResourceManagerRoleName      = "resource-manager-threeport"
-	RuntimeManagerPolicyDocument = `{
+	ServiceAccountPolicyName        = "ThreeportServiceAccount"
+	RuntimeServiceAccount           = "ThreeportRuntime"
+	ResourceManagerRoleName         = "resource-manager-threeport"
+	ExternalResourceManagerRoleName = "external-resource-manager-threeport"
+	RuntimeManagerPolicyDocument    = `{
 		"Version": "2012-10-17",
 		"Statement": [
 			{
