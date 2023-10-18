@@ -154,6 +154,15 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	threeportConfig.ControlPlanes = []config.ControlPlane{}
 
 	genesis := true
+	// flag validation
+	if err := validateCreateControlPlaneFlags(
+		a.InstanceName,
+		a.InfraProvider,
+		a.CreateRootDomain,
+		a.AuthEnabled,
+	); err != nil {
+		return fmt.Errorf("flag validation failed: %w", err)
+	}
 
 	// create threeport config for new instance
 	threeportInstanceConfig := &config.ControlPlane{
@@ -173,6 +182,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	var resourceManagerRole *types.Role
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
+	var callerIdentity *sts.GetCallerIdentityOutput
 	awsConfigUser := aws.Config{}
 	awsConfigResourceManager := &aws.Config{}
 	switch controlPlane.InfraProvider {
@@ -222,6 +232,15 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
 		awsConfigUser = *awsConf
+		svc := sts.NewFromConfig(awsConfigUser)
+		callerIdentity, err = svc.GetCallerIdentity(
+			context.Background(),
+			&sts.GetCallerIdentityInput{},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get caller identity: %w", err)
+		}
+		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 		Info("Creating Threeport IAM role and service account")
 
@@ -232,7 +251,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 				map[string]string{},
 			),
 			a.InstanceName,
-			a.CreateProviderAccountID,
+			*callerIdentity.Account,
 			"",
 			awsConfigUser,
 		)
@@ -303,7 +322,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// wait for IAM resources to be available
-		svc := sts.NewFromConfig(awsConfigResourceManager)
+		svc = sts.NewFromConfig(awsConfigResourceManager)
 		Info("Waiting for IAM resources to become available...")
 		err = util.Retry(30, 1, func() error {
 			callerIdentity, err := svc.GetCallerIdentity(
@@ -313,6 +332,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			if err != nil {
 				return fmt.Errorf("failed to get caller identity: %w", err)
 			}
+			Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 			// check that the caller identity ARN matches the expected ARN
 			if strings.Contains(*callerIdentity.Arn, *resourceManagerRole.Arn) {
@@ -373,7 +393,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 			RuntimeInstanceName:          provider.ThreeportRuntimeName(a.InstanceName),
-			AwsAccountID:                 a.CreateProviderAccountID,
+			AwsAccountID:                 *callerIdentity.Account,
 			AwsConfig:                    &awsConfigResourceManager,
 			ResourceClient:               resourceClient,
 			ZoneCount:                    int32(2),
@@ -385,9 +405,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 
 		// update threeport config
 		threeportInstanceConfig.EKSProviderConfig = config.EKSProviderConfig{
-			AwsConfigProfile: cpi.Opts.AwsConfigProfile,
-			AwsRegion:        cpi.Opts.AwsRegion,
-			AwsAccountID:     cpi.Opts.CreateProviderAccountID,
+			AwsConfigProfile: a.AwsConfigProfile,
+			AwsRegion:        a.AwsRegion,
+			AwsAccountID:     *callerIdentity.Account,
 		}
 
 		// configure preinstallfunction to update service account names and deploy service
@@ -418,7 +438,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 							"annotations": map[string]interface{}{
 								"eks.amazonaws.com/role-arn": fmt.Sprintf(
 									"arn:aws:iam::%s:role/%s",
-									a.CreateProviderAccountID,
+									*callerIdentity.Account,
 									provider.GetResourceManagerRoleName(a.InstanceName),
 								),
 							},
@@ -974,7 +994,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 
 		awsAccount := v0.AwsAccount{
 			Name:           &awsAccountName,
-			AccountID:      &a.CreateProviderAccountID,
+			AccountID:      &*callerIdentity.Account,
 			DefaultAccount: &defaultAccount,
 			DefaultRegion:  &awsConfigResourceManager.Region,
 			// AccessKeyID:     accessKey.AccessKeyId,
@@ -1065,7 +1085,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to create new AWS EKS kubernetes runtime instance for control plane cluster: %w", err)
 		}
 
-		err = provider.UpdateResourceManagerRole(a.InstanceName, a.CreateProviderAccountID, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
+		err = provider.UpdateResourceManagerRole(a.InstanceName, *callerIdentity.Account, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
 		if err != nil {
 			return fmt.Errorf("failed to update resource manager role: %w", err)
 		}
@@ -1213,6 +1233,16 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
 
+		svc := sts.NewFromConfig(*awsConfig)
+		callerIdentity, err := svc.GetCallerIdentity(
+			context.Background(),
+			&sts.GetCallerIdentityInput{},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get caller identity: %w", err)
+		}
+		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
+
 		// create a resource client to create EKS resources
 		resourceClient := resource.CreateResourceClient(awsConfig)
 
@@ -1244,7 +1274,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportInstanceConfig.Name),
-			AwsAccountID:        cpi.Opts.CreateProviderAccountID,
+			AwsAccountID:        *callerIdentity.Account,
 			AwsConfig:           awsConfig,
 			ResourceClient:      resourceClient,
 			ResourceInventory:   inventory,
@@ -1372,7 +1402,6 @@ func ValidateCreateControlPlaneFlags(
 	instanceName string,
 	infraProvider string,
 	createRootDomain string,
-	createProviderAccountID string,
 	authEnabled bool,
 ) error {
 	// ensure name length doesn't exceed maximum
@@ -1407,13 +1436,6 @@ func ValidateCreateControlPlaneFlags(
 	if infraProvider != v0.KubernetesRuntimeInfraProviderKind && !authEnabled {
 		return errors.New(
 			"cannot turn off client certificate authentication unless using the kind provider",
-		)
-	}
-
-	// ensure that AWS account ID is provided if using EKS provider
-	if infraProvider == v0.KubernetesRuntimeInfraProviderEKS && createProviderAccountID == "" {
-		return errors.New(
-			"your AWS account ID must be provided if deploying using the eks provider",
 		)
 	}
 
