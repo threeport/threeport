@@ -42,26 +42,25 @@ var ErrThreeportConfigAlreadyExists = errors.New("threeport config already conta
 // ControlPlaneCLIArgs is the set of control plane arguments passed to one of
 // the CLI tools.
 type ControlPlaneCLIArgs struct {
-	AuthEnabled             bool
-	AwsConfigProfile        string
-	AwsConfigEnv            bool
-	AwsRegion               string
-	AwsRoleArn              string
-	AwsSerialNumber         string
-	CfgFile                 string
-	ControlPlaneImageRepo   string
-	ControlPlaneImageTag    string
-	CreateRootDomain        string
-	CreateProviderAccountID string
-	CreateAdminEmail        string
-	DevEnvironment          bool
-	ForceOverwriteConfig    bool
-	ControlPlaneName        string
-	InfraProvider           string
-	KubeconfigPath          string
-	NumWorkerNodes          int
-	ProviderConfigDir       string
-	ThreeportPath           string
+	AuthEnabled           bool
+	AwsConfigProfile      string
+	AwsConfigEnv          bool
+	AwsRegion             string
+	AwsRoleArn            string
+	AwsSerialNumber       string
+	CfgFile               string
+	ControlPlaneImageRepo string
+	ControlPlaneImageTag  string
+	CreateRootDomain      string
+	CreateAdminEmail      string
+	DevEnvironment        bool
+	ForceOverwriteConfig  bool
+	ControlPlaneName      string
+	InfraProvider         string
+	KubeconfigPath        string
+	NumWorkerNodes        int
+	ProviderConfigDir     string
+	ThreeportPath         string
 }
 
 const tier = threeport.ControlPlaneTierDev
@@ -117,7 +116,6 @@ func (a *ControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneInstalle
 	cpi.Opts.AwsRegion = a.AwsRegion
 	cpi.Opts.CfgFile = a.CfgFile
 	cpi.Opts.CreateRootDomain = a.CreateRootDomain
-	cpi.Opts.CreateProviderAccountID = a.CreateProviderAccountID
 	cpi.Opts.CreateAdminEmail = a.CreateAdminEmail
 	cpi.Opts.DevEnvironment = a.DevEnvironment
 	cpi.Opts.ForceOverwriteConfig = a.ForceOverwriteConfig
@@ -148,7 +146,6 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		cpi.Opts.InstanceName,
 		cpi.Opts.InfraProvider,
 		cpi.Opts.CreateRootDomain,
-		cpi.Opts.CreateProviderAccountID,
 		cpi.Opts.AuthEnabled,
 	); err != nil {
 		return fmt.Errorf("flag validation failed: %w", err)
@@ -375,49 +372,6 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			DefaultNodeGroupMaxNodes:     int32(250),
 		}
 
-		// configure preinstallfunction to update service account names and deploy service
-		// account objects within cluster
-		cpi.Opts.PreInstallFunction = func(kubeClient dynamic.Interface, mapper *meta.RESTMapper, cpi *threeport.ControlPlaneInstaller) error {
-
-			for _, controller := range cpi.Opts.ControllerList {
-				if controller.Name == threeport.ThreeportWorkloadControllerName {
-					controller.ServiceAccountName = threeport.ThreeportWorkloadControllerName
-				}
-
-				if controller.Name == threeport.ThreeportAwsControllerName {
-					controller.ServiceAccountName = threeport.ThreeportAwsControllerName
-				}
-			}
-
-			for _, name := range []string{
-				threeport.ThreeportWorkloadControllerName,
-				threeport.ThreeportAwsControllerName,
-			} {
-				serviceAccount := &unstructured.Unstructured{
-					Object: map[string]interface{}{
-						"apiVersion": "v1",
-						"kind":       "ServiceAccount",
-						"metadata": map[string]interface{}{
-							"name":      name,
-							"namespace": cpi.Opts.Namespace,
-							"annotations": map[string]interface{}{
-								"eks.amazonaws.com/role-arn": fmt.Sprintf(
-									"arn:aws:iam::%s:role/%s",
-									*callerIdentity.Account,
-									provider.GetResourceManagerRoleName(cpi.Opts.InstanceName),
-								),
-							},
-						},
-					},
-				}
-				if _, err := kube.CreateResource(serviceAccount, kubeClient, *mapper); err != nil {
-					return fmt.Errorf("failed to create threeport api service account: %w", err)
-				}
-			}
-
-			return nil
-		}
-
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 	}
 
@@ -611,9 +565,11 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		return cleanOnCreateError("failed to install threeport API server", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
-	// for a cloud provider installed control plane, determine the threeport
-	// API's remote endpoint to add to the threeport config and to add to the
-	// server certificate's alt names when TLS assets are installed
+	// for a cloud provider installed control plane:
+	// * determine the threeport API's remote endpoint to add to the threeport
+	//   config and to add to the server certificate's alt names when TLS
+	//   assets are installed
+	// * install provider-specific kubernetes resources
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
@@ -624,6 +580,44 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			c.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
 		}); err != nil {
 			return fmt.Errorf("failed to update threeport config: %w", err)
+		}
+
+		// create and configure service accounts for workload and aws controllers,
+		// which will be used to authenticate to AWS via IRSA
+		for _, controller := range cpi.Opts.ControllerList {
+			if controller.Name == threeport.ThreeportWorkloadControllerName {
+				controller.ServiceAccountName = threeport.ThreeportWorkloadControllerName
+			}
+
+			if controller.Name == threeport.ThreeportAwsControllerName {
+				controller.ServiceAccountName = threeport.ThreeportAwsControllerName
+			}
+		}
+
+		for _, name := range []string{
+			threeport.ThreeportWorkloadControllerName,
+			threeport.ThreeportAwsControllerName,
+		} {
+			serviceAccount := &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ServiceAccount",
+					"metadata": map[string]interface{}{
+						"name":      name,
+						"namespace": cpi.Opts.Namespace,
+						"annotations": map[string]interface{}{
+							"eks.amazonaws.com/role-arn": fmt.Sprintf(
+								"arn:aws:iam::%s:role/%s",
+								*callerIdentity.Account,
+								provider.GetResourceManagerRoleName(cpi.Opts.InstanceName),
+							),
+						},
+					},
+				},
+			}
+			if _, err := kube.CreateResource(serviceAccount, dynamicKubeClient, *mapper); err != nil {
+				return fmt.Errorf("failed to create threeport api service account: %w", err)
+			}
 		}
 	}
 
@@ -1157,7 +1151,6 @@ func ValidateCreateControlPlaneFlags(
 	instanceName string,
 	infraProvider string,
 	createRootDomain string,
-	createProviderAccountID string,
 	authEnabled bool,
 ) error {
 	// ensure name length doesn't exceed maximum
@@ -1195,19 +1188,12 @@ func ValidateCreateControlPlaneFlags(
 		)
 	}
 
-	// ensure that AWS account ID is provided if using EKS provider
-	if infraProvider == v0.KubernetesRuntimeInfraProviderEKS && createProviderAccountID == "" {
-		return errors.New(
-			"your AWS account ID must be provided if deploying using the eks provider",
-		)
-	}
-
 	return nil
 }
 
 // cleanOnCreateError cleans up created infra for a control plane when a
 // provisioning error of any kind occurs.
-func  cleanOnCreateError(
+func cleanOnCreateError(
 	createErrMsg string,
 	createErr error,
 	controlPlane *threeport.ControlPlane,
@@ -1249,7 +1235,7 @@ func  cleanOnCreateError(
 	}
 
 	// delete infra
-	if deleteErr := kubernetesRuntimeInfra.Delete(); deleteErr != nil {
+if deleteErr := kubernetesRuntimeInfra.Delete(); deleteErr != nil {
 		return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", createErr, deleteErr)
 	}
 	Info("Created Threeport infra deleted due to error")
