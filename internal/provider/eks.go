@@ -16,6 +16,7 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
+	util "github.com/threeport/threeport/pkg/util/v0"
 
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -483,7 +484,7 @@ func getRuntimeManagerTrustPolicyDocument(externalRoleName, accountId, externalI
 	identityService := "iam"
 	if externalRoleName != "" {
 		identityService = "sts"
-		accountEntity = "assumed-role/" + externalRoleName + "/" + ResourceManagerRoleSessionName
+		accountEntity = "assumed-role/" + externalRoleName + "/" + util.ResourceManagerRoleSessionName
 	}
 
 	allowAccountAccessStatement := map[string]interface{}{
@@ -558,11 +559,10 @@ func checkRoleName(name string) error {
 }
 
 const (
-	ServiceAccountPolicyName       = "ThreeportServiceAccount"
-	RuntimeServiceAccount          = "ThreeportRuntime"
-	ResourceManagerRoleName        = "resource-manager-threeport"
-	ResourceManagerRoleSessionName = "cross-account-access"
-	RuntimeManagerPolicyDocument   = `{
+	ServiceAccountPolicyName     = "ThreeportServiceAccount"
+	RuntimeServiceAccount        = "ThreeportRuntime"
+	ResourceManagerRoleName      = "resource-manager-threeport"
+	RuntimeManagerPolicyDocument = `{
 		"Version": "2012-10-17",
 		"Statement": [
 			{

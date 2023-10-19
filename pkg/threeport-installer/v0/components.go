@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -1657,7 +1658,7 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 				"API_SERVER":            cpi.Opts.RestApiInfo.ServiceResourceName,
 				"MSG_BROKER_HOST":       "nats-js",
 				"MSG_BROKER_PORT":       "4222",
-				"AWS_ROLE_SESSION_NAME": "cross-account-access",
+				"AWS_ROLE_SESSION_NAME": util.ResourceManagerRoleSessionName,
 			},
 		},
 	}

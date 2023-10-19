@@ -185,12 +185,6 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 		}
 	}
 
-	// if the caller identity is not in the same AWS account as the
-	// aws account, use the resource manager role session name
-	// if *callerIdentity.Account != *awsAccount.AccountID {
-	// 	roleSessionName = "cross-account-access"
-	// }
-
 	// if keys are provided, decrypt and return aws config
 	if awsAccount.AccessKeyID != nil && awsAccount.SecretAccessKey != nil {
 
