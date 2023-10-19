@@ -441,7 +441,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		if err != nil {
 			return fmt.Errorf("failed to read eks kubernetes runtime inventory for inventory update: %w", err)
 		}
-		err = provider.UpdateResourceManagerRole(cpi.Opts.InstanceName, *callerIdentity.Account, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
+		err = provider.UpdateResourceManagerRoleTrustPolicy(cpi.Opts.InstanceName, *callerIdentity.Account, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
 		if err != nil {
 			return fmt.Errorf("failed to update resource manager role: %w", err)
 		}

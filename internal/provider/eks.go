@@ -357,9 +357,12 @@ func CreateResourceManagerRole(
 ) (*types.Role, error) {
 	svc := iam.NewFromConfig(awsConfig)
 
+	// ensure role name is valid
 	if err := checkRoleName(roleName); err != nil {
 		return nil, err
 	}
+
+	// create trust policy document
 	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument(principalRoleName, accountId, externalId, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role trust policy document: %w", err)
@@ -369,23 +372,26 @@ func CreateResourceManagerRole(
 		RoleName:                 &roleName,
 		Tags:                     *tags,
 	}
+
+	// create the role
 	resourceManagerRoleResp, err := svc.CreateRole(context.Background(), &createResourceManagerRoleInput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
 	}
 
+	// create role policy
 	runtimeManagerPolicyDocument := RuntimeManagerPolicyDocument
 	rolePolicyInput := iam.CreatePolicyInput{
 		PolicyName:     &roleName,
 		Description:    &roleName,
 		PolicyDocument: &runtimeManagerPolicyDocument,
 	}
-
 	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
 	if err != nil {
 		return resourceManagerRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", roleName, err)
 	}
 
+	// attach role policy
 	attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
 		PolicyArn: createdRolePolicy.Policy.Arn,
 		RoleName:  resourceManagerRoleResp.Role.RoleName,
@@ -398,15 +404,20 @@ func CreateResourceManagerRole(
 	return resourceManagerRoleResp.Role, nil
 }
 
-func UpdateResourceManagerRole(clusterName, accountId, externalId, oidcProviderUrl string, awsConfig aws.Config) error {
+// UpdateResourceManagerRoleTrustPolicy updates the IAM role needed for resource
+// management.
+func UpdateResourceManagerRoleTrustPolicy(clusterName, accountId, externalId, oidcProviderUrl string, awsConfig aws.Config) error {
 	svc := iam.NewFromConfig(awsConfig)
 
 	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
+
+	// update trust policy document
 	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument("", accountId, externalId, oidcProviderUrl)
 	if err != nil {
 		return fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
 
+	// update role trust policy
 	updateResourceManagerRoleInput := iam.UpdateAssumeRolePolicyInput{
 		RoleName:       &resourceManagerRoleName,
 		PolicyDocument: &runtimeManagerTrustPolicyDocument,
@@ -417,7 +428,6 @@ func UpdateResourceManagerRole(clusterName, accountId, externalId, oidcProviderU
 	}
 
 	return nil
-
 }
 
 // deleteRole deletes the runtime manager IAM role.
