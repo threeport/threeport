@@ -492,13 +492,20 @@ func getRuntimeManagerTrustPolicyDocument(externalRoleName, accountId, externalI
 
 	statements := []interface{}{}
 
+	// default account entity to root account
 	accountEntity := "root"
+
+	// default identity service to iam
 	identityService := "iam"
+
+	//  if role name is provided, set identity service to sts
+	// and set account entity to the expected role and session name
 	if externalRoleName != "" {
 		identityService = "sts"
 		accountEntity = "assumed-role/" + externalRoleName + "/" + util.ResourceManagerRoleSessionName
 	}
 
+	// construct statement for allowing account access
 	allowAccountAccessStatement := map[string]interface{}{
 		"Effect": "Allow",
 		"Principal": map[string]interface{}{
@@ -507,6 +514,8 @@ func getRuntimeManagerTrustPolicyDocument(externalRoleName, accountId, externalI
 		"Action": "sts:AssumeRole",
 	}
 
+	// if externalId is provided, add a conditional statement
+	// that requires the externalId to be provided
 	if externalId != "" {
 		allowAccountAccessStatement["Condition"] = map[string]interface{}{
 			"StringEquals": map[string]interface{}{
@@ -514,8 +523,12 @@ func getRuntimeManagerTrustPolicyDocument(externalRoleName, accountId, externalI
 			},
 		}
 	}
+
+	// append the allow account access statement
 	statements = append(statements, allowAccountAccessStatement)
 
+	// if oidcProviderUrl is provided, add a statement that allows
+	// a kubernetes service account to assume the role
 	if oidcProviderUrl != "" {
 
 		// remove scheme prefix from url
@@ -525,6 +538,8 @@ func getRuntimeManagerTrustPolicyDocument(externalRoleName, accountId, externalI
 		}
 		basenameAndPath := url.Hostname() + url.Path
 
+		// construct statement for allowing a kubernetes service account
+		// to assume the role via a federated OIDC provider
 		allowServiceAccountStatement := map[string]interface{}{
 			"Effect": "Allow",
 			"Principal": map[string]interface{}{
@@ -544,6 +559,7 @@ func getRuntimeManagerTrustPolicyDocument(externalRoleName, accountId, externalI
 		statements = append(statements, allowServiceAccountStatement)
 	}
 
+	// construct the trust policy document
 	document := map[string]interface{}{
 		"Version":   "2012-10-17",
 		"Statement": statements,
@@ -555,7 +571,6 @@ func getRuntimeManagerTrustPolicyDocument(externalRoleName, accountId, externalI
 	}
 
 	return string(documentJson), nil
-
 }
 
 // checkRoleName ensures role names do not exceed the AWS limit for role name
