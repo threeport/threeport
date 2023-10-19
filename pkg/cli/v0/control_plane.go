@@ -1118,6 +1118,8 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	return nil
 }
 
+// refreshEKSConnectionWithLocalConfig uses the local AWS config to refresh
+// EKS connection info on the kubernetes runtime instance object
 func refreshEKSConnectionWithLocalConfig(
 	awsConfig *aws.Config,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
