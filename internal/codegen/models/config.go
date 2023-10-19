@@ -19,6 +19,7 @@ type ModelConfig struct {
 	TypeName              string
 	AllowDuplicateNames   bool
 	AllowCustomMiddleware bool
+	DbLoadAssociations    bool
 	NameField             bool
 	Reconciler            bool
 	ReconciledField       bool

@@ -11,7 +11,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 	"time"
 )
@@ -122,12 +121,12 @@ func (h Handler) GetGatewayDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.GatewayDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.GatewayDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.GatewayDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -153,7 +152,7 @@ func (h Handler) GetGatewayDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayDefinition
 	gatewayDefinitionID := c.Param("id")
 	var gatewayDefinition v0.GatewayDefinition
-	if result := h.DB.Preload(clause.Associations).First(&gatewayDefinition, gatewayDefinitionID); result.Error != nil {
+	if result := h.DB.First(&gatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -482,12 +481,12 @@ func (h Handler) GetGatewayInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.GatewayInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.GatewayInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.GatewayInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -513,7 +512,7 @@ func (h Handler) GetGatewayInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayInstance
 	gatewayInstanceID := c.Param("id")
 	var gatewayInstance v0.GatewayInstance
-	if result := h.DB.Preload(clause.Associations).First(&gatewayInstance, gatewayInstanceID); result.Error != nil {
+	if result := h.DB.First(&gatewayInstance, gatewayInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -823,12 +822,12 @@ func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.DomainNameDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.DomainNameDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.DomainNameDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -854,7 +853,7 @@ func (h Handler) GetDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	domainNameDefinitionID := c.Param("id")
 	var domainNameDefinition v0.DomainNameDefinition
-	if result := h.DB.Preload(clause.Associations).First(&domainNameDefinition, domainNameDefinitionID); result.Error != nil {
+	if result := h.DB.First(&domainNameDefinition, domainNameDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1127,12 +1126,12 @@ func (h Handler) GetDomainNameInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.DomainNameInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.DomainNameInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.DomainNameInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1158,7 +1157,7 @@ func (h Handler) GetDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	domainNameInstanceID := c.Param("id")
 	var domainNameInstance v0.DomainNameInstance
-	if result := h.DB.Preload(clause.Associations).First(&domainNameInstance, domainNameInstanceID); result.Error != nil {
+	if result := h.DB.First(&domainNameInstance, domainNameInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}

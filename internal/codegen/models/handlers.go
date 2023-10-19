@@ -90,6 +90,12 @@ func (cc *ControllerConfig) ModelHandlers() error {
 		notifyControllersUpdateHandler := &Statement{}
 		deleteObjectExecution := &Statement{}
 
+		dbLoadAssociationStatement := Null()
+
+		if mc.DbLoadAssociations {
+			dbLoadAssociationStatement = Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations"))
+		}
+
 		if mc.Reconciler {
 			// configure controller notifications
 			// create notifications
@@ -597,7 +603,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			)),
 			Line(),
 			Var().Id("totalCount").Int64(),
-			If(Id("result").Op(":=").Id("h").Dot("DB").Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations")).Dot("Model").Call(
+			If(Id("result").Op(":=").Id("h").Dot("DB").Add(dbLoadAssociationStatement).Dot("Model").Call(
 				Op("&").Qual(
 					fmt.Sprintf(
 						"github.com/threeport/threeport/pkg/api/%s",
@@ -621,7 +627,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 				mc.TypeName,
 			).Values(),
-			If(Id("result").Op(":=").Id("h").Dot("DB").Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations")).Dot("Order").Call(
+			If(Id("result").Op(":=").Id("h").Dot("DB").Add(dbLoadAssociationStatement).Dot("Order").Call(
 				Lit("ID asc")).Dot("Where").Call(Op("&").Id("filter")).
 				Dot("Limit").Call(Id("params").Dot("Size")).
 				Dot("Offset").Call(Call(
@@ -723,7 +729,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			),
 			If(
 				// TODO: figure out preload objects
-				Id("result").Op(":=").Id("h").Dot("DB").Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations")).
+				Id("result").Op(":=").Id("h").Dot("DB").Add(dbLoadAssociationStatement).
 					Dot("First").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id(fmt.Sprintf(
 					"%sID", strcase.ToLowerCamel(mc.TypeName),
 				))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
@@ -1328,6 +1334,12 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 		notifyControllersUpdateHandler := &Statement{}
 		deleteObjectExecution := &Statement{}
 
+		dbLoadAssociationStatement := Null()
+
+		if mc.DbLoadAssociations {
+			dbLoadAssociationStatement = Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations"))
+		}
+
 		if mc.Reconciler {
 			// configure controller notifications
 			// create notifications
@@ -1835,7 +1847,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 			)),
 			Line(),
 			Var().Id("totalCount").Int64(),
-			If(Id("result").Op(":=").Id("h").Dot("Handler").Dot("DB").Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations")).Dot("Model").Call(
+			If(Id("result").Op(":=").Id("h").Dot("Handler").Dot("DB").Add(dbLoadAssociationStatement).Dot("Model").Call(
 				Op("&").Qual(
 					fmt.Sprintf(
 						"github.com/qleet/qleetport/pkg/api/%s",
@@ -1859,7 +1871,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 				),
 				mc.TypeName,
 			).Values(),
-			If(Id("result").Op(":=").Id("h").Dot("Handler").Dot("DB").Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations")).Dot("Order").Call(
+			If(Id("result").Op(":=").Id("h").Dot("Handler").Dot("DB").Add(dbLoadAssociationStatement).Dot("Order").Call(
 				Lit("ID asc")).Dot("Where").Call(Op("&").Id("filter")).
 				Dot("Limit").Call(Id("params").Dot("Size")).
 				Dot("Offset").Call(Call(
@@ -1961,7 +1973,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 			),
 			If(
 				// TODO: figure out preload objects
-				Id("result").Op(":=").Id("h").Dot("Handler").Dot("DB").Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations")).
+				Id("result").Op(":=").Id("h").Dot("Handler").Dot("DB").Add(dbLoadAssociationStatement).
 					Dot("First").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id(fmt.Sprintf(
 					"%sID", strcase.ToLowerCamel(mc.TypeName),
 				))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(

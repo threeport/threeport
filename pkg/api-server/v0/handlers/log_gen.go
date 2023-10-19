@@ -9,7 +9,6 @@ import (
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 )
 
@@ -106,12 +105,12 @@ func (h Handler) GetLogBackends(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.LogBackend{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.LogBackend{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.LogBackend{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -137,7 +136,7 @@ func (h Handler) GetLogBackend(c echo.Context) error {
 	objectType := v0.ObjectTypeLogBackend
 	logBackendID := c.Param("id")
 	var logBackend v0.LogBackend
-	if result := h.DB.Preload(clause.Associations).First(&logBackend, logBackendID); result.Error != nil {
+	if result := h.DB.First(&logBackend, logBackendID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -397,12 +396,12 @@ func (h Handler) GetLogStorageDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.LogStorageDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.LogStorageDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.LogStorageDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -428,7 +427,7 @@ func (h Handler) GetLogStorageDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageDefinition
 	logStorageDefinitionID := c.Param("id")
 	var logStorageDefinition v0.LogStorageDefinition
-	if result := h.DB.Preload(clause.Associations).First(&logStorageDefinition, logStorageDefinitionID); result.Error != nil {
+	if result := h.DB.First(&logStorageDefinition, logStorageDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -688,12 +687,12 @@ func (h Handler) GetLogStorageInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.LogStorageInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.LogStorageInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.LogStorageInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -719,7 +718,7 @@ func (h Handler) GetLogStorageInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeLogStorageInstance
 	logStorageInstanceID := c.Param("id")
 	var logStorageInstance v0.LogStorageInstance
-	if result := h.DB.Preload(clause.Associations).First(&logStorageInstance, logStorageInstanceID); result.Error != nil {
+	if result := h.DB.First(&logStorageInstance, logStorageInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}

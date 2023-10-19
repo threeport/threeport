@@ -83,6 +83,7 @@ When 'make generate' is run, the following code is generated for API:
 		var reconcilerModels []string
 		var allowDuplicateNameModels []string
 		var allowCustomMiddleware []string
+		var dbLoadAssociations []string
 		for _, node := range pf.Decls {
 			switch node.(type) {
 			case *ast.GenDecl:
@@ -138,6 +139,8 @@ When 'make generate' is run, the following code is generated for API:
 							allowDuplicateNameModels = append(allowDuplicateNameModels, objectName)
 						} else if strings.Contains(comment.Text, codegen.AllowCustomMiddleware) {
 							allowCustomMiddleware = append(allowCustomMiddleware, objectName)
+						} else if strings.Contains(comment.Text, codegen.DbLoadAssociations) {
+							dbLoadAssociations = append(dbLoadAssociations, objectName)
 						}
 					}
 				}
@@ -201,6 +204,16 @@ When 'make generate' is run, the following code is generated for API:
 			for i, mc := range controllerConfig.ModelConfigs {
 				if nm == mc.TypeName {
 					controllerConfig.ModelConfigs[i].AllowCustomMiddleware = true
+				}
+			}
+		}
+
+		// for all objects that load associated data from db in handlers:
+		// * set DbLoadAssociations field in model config to true
+		for _, nm := range dbLoadAssociations {
+			for i, mc := range controllerConfig.ModelConfigs {
+				if nm == mc.TypeName {
+					controllerConfig.ModelConfigs[i].DbLoadAssociations = true
 				}
 			}
 		}

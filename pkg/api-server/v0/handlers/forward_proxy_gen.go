@@ -9,7 +9,6 @@ import (
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 )
 
@@ -106,12 +105,12 @@ func (h Handler) GetForwardProxyDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.ForwardProxyDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.ForwardProxyDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.ForwardProxyDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -137,7 +136,7 @@ func (h Handler) GetForwardProxyDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyDefinition
 	forwardProxyDefinitionID := c.Param("id")
 	var forwardProxyDefinition v0.ForwardProxyDefinition
-	if result := h.DB.Preload(clause.Associations).First(&forwardProxyDefinition, forwardProxyDefinitionID); result.Error != nil {
+	if result := h.DB.First(&forwardProxyDefinition, forwardProxyDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -397,12 +396,12 @@ func (h Handler) GetForwardProxyInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.ForwardProxyInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.ForwardProxyInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.ForwardProxyInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -428,7 +427,7 @@ func (h Handler) GetForwardProxyInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyInstance
 	forwardProxyInstanceID := c.Param("id")
 	var forwardProxyInstance v0.ForwardProxyInstance
-	if result := h.DB.Preload(clause.Associations).First(&forwardProxyInstance, forwardProxyInstanceID); result.Error != nil {
+	if result := h.DB.First(&forwardProxyInstance, forwardProxyInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}

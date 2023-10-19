@@ -11,7 +11,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 	"time"
 )
@@ -109,12 +108,12 @@ func (h Handler) GetAwsAccounts(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsAccount{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsAccount{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsAccount{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -140,7 +139,7 @@ func (h Handler) GetAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	awsAccountID := c.Param("id")
 	var awsAccount v0.AwsAccount
-	if result := h.DB.Preload(clause.Associations).First(&awsAccount, awsAccountID); result.Error != nil {
+	if result := h.DB.First(&awsAccount, awsAccountID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -400,12 +399,12 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsEksKubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsEksKubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsEksKubernetesRuntimeDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -431,7 +430,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
 	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
-	if result := h.DB.Preload(clause.Associations).First(&awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
+	if result := h.DB.First(&awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -710,12 +709,12 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsEksKubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsEksKubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsEksKubernetesRuntimeInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -741,7 +740,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
 	awsEksKubernetesRuntimeInstanceID := c.Param("id")
 	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
-	if result := h.DB.Preload(clause.Associations).First(&awsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
+	if result := h.DB.First(&awsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1051,12 +1050,12 @@ func (h Handler) GetAwsRelationalDatabaseDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsRelationalDatabaseDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsRelationalDatabaseDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsRelationalDatabaseDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1082,7 +1081,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	awsRelationalDatabaseDefinitionID := c.Param("id")
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
-	if result := h.DB.Preload(clause.Associations).First(&awsRelationalDatabaseDefinition, awsRelationalDatabaseDefinitionID); result.Error != nil {
+	if result := h.DB.First(&awsRelationalDatabaseDefinition, awsRelationalDatabaseDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1355,12 +1354,12 @@ func (h Handler) GetAwsRelationalDatabaseInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsRelationalDatabaseInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsRelationalDatabaseInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsRelationalDatabaseInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1386,7 +1385,7 @@ func (h Handler) GetAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	awsRelationalDatabaseInstanceID := c.Param("id")
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
-	if result := h.DB.Preload(clause.Associations).First(&awsRelationalDatabaseInstance, awsRelationalDatabaseInstanceID); result.Error != nil {
+	if result := h.DB.First(&awsRelationalDatabaseInstance, awsRelationalDatabaseInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1696,12 +1695,12 @@ func (h Handler) GetAwsObjectStorageBucketDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsObjectStorageBucketDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsObjectStorageBucketDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsObjectStorageBucketDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1727,7 +1726,7 @@ func (h Handler) GetAwsObjectStorageBucketDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
 	awsObjectStorageBucketDefinitionID := c.Param("id")
 	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
-	if result := h.DB.Preload(clause.Associations).First(&awsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
+	if result := h.DB.First(&awsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -2000,12 +1999,12 @@ func (h Handler) GetAwsObjectStorageBucketInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsObjectStorageBucketInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsObjectStorageBucketInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsObjectStorageBucketInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -2031,7 +2030,7 @@ func (h Handler) GetAwsObjectStorageBucketInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
 	awsObjectStorageBucketInstanceID := c.Param("id")
 	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
-	if result := h.DB.Preload(clause.Associations).First(&awsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
+	if result := h.DB.First(&awsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}

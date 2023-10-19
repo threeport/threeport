@@ -11,7 +11,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 	"time"
 )
@@ -122,12 +121,12 @@ func (h Handler) GetKubernetesRuntimeDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.KubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.KubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.KubernetesRuntimeDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -153,7 +152,7 @@ func (h Handler) GetKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
 	kubernetesRuntimeDefinitionID := c.Param("id")
 	var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
-	if result := h.DB.Preload(clause.Associations).First(&kubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
+	if result := h.DB.First(&kubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -482,12 +481,12 @@ func (h Handler) GetKubernetesRuntimeInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.KubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.KubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.KubernetesRuntimeInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -513,7 +512,7 @@ func (h Handler) GetKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeInstance
 	kubernetesRuntimeInstanceID := c.Param("id")
 	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
-	if result := h.DB.Preload(clause.Associations).First(&kubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
+	if result := h.DB.First(&kubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}

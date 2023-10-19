@@ -11,7 +11,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 	"time"
 )
@@ -122,12 +121,12 @@ func (h Handler) GetControlPlaneDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.ControlPlaneDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.ControlPlaneDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.ControlPlaneDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -153,7 +152,7 @@ func (h Handler) GetControlPlaneDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneDefinition
 	controlPlaneDefinitionID := c.Param("id")
 	var controlPlaneDefinition v0.ControlPlaneDefinition
-	if result := h.DB.Preload(clause.Associations).First(&controlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
+	if result := h.DB.First(&controlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -482,12 +481,12 @@ func (h Handler) GetControlPlaneInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.ControlPlaneInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.ControlPlaneInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.ControlPlaneInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -513,7 +512,7 @@ func (h Handler) GetControlPlaneInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneInstance
 	controlPlaneInstanceID := c.Param("id")
 	var controlPlaneInstance v0.ControlPlaneInstance
-	if result := h.DB.Preload(clause.Associations).First(&controlPlaneInstance, controlPlaneInstanceID); result.Error != nil {
+	if result := h.DB.First(&controlPlaneInstance, controlPlaneInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}

@@ -11,7 +11,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 	"time"
 )
@@ -122,12 +121,12 @@ func (h Handler) GetWorkloadDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.WorkloadDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.WorkloadDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.WorkloadDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -153,7 +152,7 @@ func (h Handler) GetWorkloadDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadDefinition
 	workloadDefinitionID := c.Param("id")
 	var workloadDefinition v0.WorkloadDefinition
-	if result := h.DB.Preload(clause.Associations).First(&workloadDefinition, workloadDefinitionID); result.Error != nil {
+	if result := h.DB.First(&workloadDefinition, workloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -454,12 +453,12 @@ func (h Handler) GetWorkloadResourceDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.WorkloadResourceDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.WorkloadResourceDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.WorkloadResourceDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -485,7 +484,7 @@ func (h Handler) GetWorkloadResourceDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceDefinition
 	workloadResourceDefinitionID := c.Param("id")
 	var workloadResourceDefinition v0.WorkloadResourceDefinition
-	if result := h.DB.Preload(clause.Associations).First(&workloadResourceDefinition, workloadResourceDefinitionID); result.Error != nil {
+	if result := h.DB.First(&workloadResourceDefinition, workloadResourceDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -758,12 +757,12 @@ func (h Handler) GetWorkloadInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.WorkloadInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.WorkloadInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.WorkloadInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -789,7 +788,7 @@ func (h Handler) GetWorkloadInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadInstance
 	workloadInstanceID := c.Param("id")
 	var workloadInstance v0.WorkloadInstance
-	if result := h.DB.Preload(clause.Associations).First(&workloadInstance, workloadInstanceID); result.Error != nil {
+	if result := h.DB.First(&workloadInstance, workloadInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1084,12 +1083,12 @@ func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AttachedObjectReference{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AttachedObjectReference{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AttachedObjectReference{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1115,7 +1114,7 @@ func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 	objectType := v0.ObjectTypeAttachedObjectReference
 	attachedObjectReferenceID := c.Param("id")
 	var attachedObjectReference v0.AttachedObjectReference
-	if result := h.DB.Preload(clause.Associations).First(&attachedObjectReference, attachedObjectReferenceID); result.Error != nil {
+	if result := h.DB.First(&attachedObjectReference, attachedObjectReferenceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1360,12 +1359,12 @@ func (h Handler) GetWorkloadResourceInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.WorkloadResourceInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.WorkloadResourceInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.WorkloadResourceInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1391,7 +1390,7 @@ func (h Handler) GetWorkloadResourceInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceInstance
 	workloadResourceInstanceID := c.Param("id")
 	var workloadResourceInstance v0.WorkloadResourceInstance
-	if result := h.DB.Preload(clause.Associations).First(&workloadResourceInstance, workloadResourceInstanceID); result.Error != nil {
+	if result := h.DB.First(&workloadResourceInstance, workloadResourceInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1636,12 +1635,12 @@ func (h Handler) GetWorkloadEvents(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.WorkloadEvent{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.WorkloadEvent{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.WorkloadEvent{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1667,7 +1666,7 @@ func (h Handler) GetWorkloadEvent(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadEvent
 	workloadEventID := c.Param("id")
 	var workloadEvent v0.WorkloadEvent
-	if result := h.DB.Preload(clause.Associations).First(&workloadEvent, workloadEventID); result.Error != nil {
+	if result := h.DB.First(&workloadEvent, workloadEventID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
