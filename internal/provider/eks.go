@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -358,7 +357,7 @@ func CreateResourceManagerRole(
 	svc := iam.NewFromConfig(awsConfig)
 
 	// ensure role name is valid
-	if err := checkRoleName(roleName); err != nil {
+	if err := resource.CheckRoleName(roleName); err != nil {
 		return nil, err
 	}
 
@@ -571,18 +570,6 @@ func getRuntimeManagerTrustPolicyDocument(externalRoleName, accountId, externalI
 	}
 
 	return string(documentJson), nil
-}
-
-// checkRoleName ensures role names do not exceed the AWS limit for role name
-// lengths (64 characters).
-func checkRoleName(name string) error {
-	if utf8.RuneCountInString(name) > 64 {
-		return errors.New(fmt.Sprintf(
-			"role name %s too long, must be 64 characters or less", name,
-		))
-	}
-
-	return nil
 }
 
 const (
