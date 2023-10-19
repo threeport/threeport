@@ -34,11 +34,11 @@ var getCredsCmd = &cobra.Command{
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
-		var threeportInstanceConfig config.ControlPlane
+		var threeportControlPlaneConfig config.ControlPlane
 		instanceConfigFound := false
 		for i, instance := range threeportConfig.ControlPlanes {
 			if instance.Name == getCredsThreeportName {
-				threeportInstanceConfig = threeportConfig.ControlPlanes[i]
+				threeportControlPlaneConfig = threeportConfig.ControlPlanes[i]
 				instanceConfigFound = true
 			}
 		}
@@ -52,11 +52,11 @@ var getCredsCmd = &cobra.Command{
 		}
 
 		// extract values from threeport config
-		caCertEncoded := threeportInstanceConfig.CACert
+		caCertEncoded := threeportControlPlaneConfig.CACert
 		var certEncoded string
 		var keyEncoded string
 		credsFound := false
-		for _, creds := range threeportInstanceConfig.Credentials {
+		for _, creds := range threeportControlPlaneConfig.Credentials {
 			if creds.Name == getCredsThreeportName {
 				certEncoded = creds.ClientCert
 				keyEncoded = creds.ClientKey

@@ -155,10 +155,10 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 		os.Exit(1)
 	}
 
-	var threeportInstanceConfig *config.ControlPlane
+	var threeportControlPlaneConfig *config.ControlPlane
 
 	if !*controlPlaneDefinition.AuthEnabled {
-		threeportInstanceConfig = &config.ControlPlane{
+		threeportControlPlaneConfig = &config.ControlPlane{
 			Name:        *controlPlaneInstanceToSet.Name,
 			APIServer:   *controlPlaneInstanceToSet.ApiServerEndpoint,
 			AuthEnabled: *controlPlaneDefinition.AuthEnabled,
@@ -167,7 +167,7 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 	} else {
 
 		// we construct the instance info for the threeport config and add it
-		threeportInstanceConfig = &config.ControlPlane{
+		threeportControlPlaneConfig = &config.ControlPlane{
 			Name:        *controlPlaneInstanceToSet.Name,
 			APIServer:   *controlPlaneInstanceToSet.ApiServerEndpoint,
 			AuthEnabled: *controlPlaneDefinition.AuthEnabled,
@@ -183,7 +183,7 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 		}
 	}
 
-	config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
+	config.UpdateThreeportConfig(threeportConfig, threeportControlPlaneConfig)
 }
 
 func init() {
