@@ -160,6 +160,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	if threeportConfig, err = threeportInstanceConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
 		c.Name = cpi.Opts.InstanceName
 		c.Provider = cpi.Opts.InfraProvider
+		c.Genesis = genesis
 	}); err != nil {
 		return fmt.Errorf("failed to update threeport config: %w", err)
 	}

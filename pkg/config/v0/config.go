@@ -296,12 +296,6 @@ func UpdateThreeportConfig(
 		}
 	} else {
 		threeportConfig.ControlPlanes = append(threeportConfig.ControlPlanes, *threeportControlPlaneConfig)
-
-		// if there is only one control plane in the config,
-		// set it as the genesis control plane
-		if len(threeportConfig.ControlPlanes) == 1 {
-			threeportConfig.ControlPlanes[0].Genesis = true
-		}
 	}
 	viper.Set("ControlPlanes", threeportConfig.ControlPlanes)
 	viper.Set("CurrentControlPlane", threeportControlPlaneConfig.Name)
