@@ -216,7 +216,7 @@ func GetRestConfig(
 
 				switch *definition.InfraProvider {
 				case v0.KubernetesRuntimeInfraProviderEKS:
-					config, err := RefreshEKSConnection(
+					config, err := refreshEKSConnection(
 						runtime,
 						threeportAPIClient,
 						threeportAPIEndpoint,
@@ -255,8 +255,8 @@ func checkTokenExpiring(
 	return expiring, nil
 }
 
-// RefreshEKSConnection retrieves a new EKS token when it expires.
-func RefreshEKSConnection(
+// refreshEKSConnection retrieves a new EKS token when it expires.
+func refreshEKSConnection(
 	runtimeInstance *v0.KubernetesRuntimeInstance,
 	threeportAPIClient *http.Client,
 	threeportAPIEndpoint string,
