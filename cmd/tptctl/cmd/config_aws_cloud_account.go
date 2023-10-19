@@ -40,19 +40,19 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// get threeport config and extract threeport API endpoint
-		threeportConfig, requestedInstance, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+		threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedInstance)
+		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)
 			os.Exit(1)
 		}
 
 		// get threeport API client
-		apiClient, err := threeportConfig.GetHTTPClient(requestedInstance)
+		apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to get threeport API client", err)
 			os.Exit(1)
@@ -85,7 +85,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 
 		// if runtime manager role name is not provided, generate it
 		if roleName == "" {
-			roleName = provider.GetResourceManagerRoleName(requestedInstance)
+			roleName = provider.GetResourceManagerRoleName(requestedControlPlane)
 		}
 
 		// ensure role doesn't exist
@@ -124,12 +124,12 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		// create resource manager role
 		role, err := provider.CreateResourceManagerRole(
 			resource.CreateIAMTags(
-				requestedInstance,
+				requestedControlPlane,
 				map[string]string{},
 			),
 			roleName,
 			externalAwsAccountId,
-			provider.GetResourceManagerRoleName(requestedInstance),
+			provider.GetResourceManagerRoleName(requestedControlPlane),
 			*createdAwsAccount.ExternalId,
 			*awsConf,
 		)

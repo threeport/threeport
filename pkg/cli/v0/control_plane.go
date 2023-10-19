@@ -537,13 +537,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	}
 
 	// get threeport API client
-	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.InstanceName)
+	apiClient, err := threeportConfig.GetHTTPClient(cpi.Opts.InstanceName)
 	if err != nil {
 		return cleanOnCreateError("failed to get threeport certificates from config", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
-	}
-	apiClient, err := client.GetHTTPClient(cpi.Opts.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
-	if err != nil {
-		return cleanOnCreateError("failed to create http client", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
 	// for dev environment, build and load dev images for API and controllers
@@ -1235,7 +1231,7 @@ func cleanOnCreateError(
 	}
 
 	// delete infra
-if deleteErr := kubernetesRuntimeInfra.Delete(); deleteErr != nil {
+	if deleteErr := kubernetesRuntimeInfra.Delete(); deleteErr != nil {
 		return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", createErr, deleteErr)
 	}
 	Info("Created Threeport infra deleted due to error")

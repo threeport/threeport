@@ -221,13 +221,13 @@ func (cfg *ThreeportConfig) SetCurrentControlPlane(controlPlaneName string) {
 }
 
 // GetThreeportHTTPClient returns an HTTP client for a named threeport instance.
-func (cfg *ThreeportConfig) GetHTTPClient(requestedInstance string) (*http.Client, error) {
-	authEnabled, err := cfg.GetThreeportAuthEnabled(requestedInstance)
+func (cfg *ThreeportConfig) GetHTTPClient(requestedControlPlane string) (*http.Client, error) {
+	authEnabled, err := cfg.GetThreeportAuthEnabled(requestedControlPlane)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get auth enabled: %w", err)
 	}
 
-	ca, clientCertificate, clientPrivateKey, err := cfg.GetThreeportCertificatesForControlPlane(requestedInstance)
+	ca, clientCertificate, clientPrivateKey, err := cfg.GetThreeportCertificatesForControlPlane(requestedControlPlane)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get threeport certificates: %w", err)
 	}
