@@ -575,6 +575,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 
 		// create and configure service accounts for workload and aws controllers,
 		// which will be used to authenticate to AWS via IRSA
+
 		for _, controller := range cpi.Opts.ControllerList {
 			if controller.Name == threeport.ThreeportWorkloadControllerName {
 				controller.ServiceAccountName = threeport.ThreeportWorkloadControllerName
@@ -583,11 +584,16 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			if controller.Name == threeport.ThreeportAwsControllerName {
 				controller.ServiceAccountName = threeport.ThreeportAwsControllerName
 			}
+
+			if controller.Name == threeport.ThreeportControlPlaneControllerName {
+				controller.ServiceAccountName = threeport.ThreeportControlPlaneControllerName
+			}
 		}
 
 		for _, name := range []string{
 			threeport.ThreeportWorkloadControllerName,
 			threeport.ThreeportAwsControllerName,
+			threeport.ThreeportControlPlaneControllerName,
 		} {
 			serviceAccount := &unstructured.Unstructured{
 				Object: map[string]interface{}{

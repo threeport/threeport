@@ -18,6 +18,7 @@ const (
 	ThreeportAPIServiceResourceName           = "threeport-api-server"
 	ThreeportLocalAPIEndpoint                 = "localhost"
 	ThreeportWorkloadControllerName           = "workload-controller"
+	ThreeportControlPlaneControllerName       = "control-plane-controller"
 	ThreeportAwsControllerName                = "aws-controller"
 )
 
@@ -57,7 +58,7 @@ var ThreeportControllerList []*v0.ControlPlaneComponent = []*v0.ControlPlaneComp
 		Enabled:            &enabled,
 	},
 	{
-		Name:               "control-plane-controller",
+		Name:               ThreeportControlPlaneControllerName,
 		ImageName:          ThreeportControlPlaneControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
