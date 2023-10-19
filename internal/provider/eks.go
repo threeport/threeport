@@ -476,10 +476,12 @@ func deleteRole(
 	return nil
 }
 
+// GetResourceManagerRoleName returns the name of the runtime manager role.
 func GetResourceManagerRoleName(clusterName string) string {
 	return fmt.Sprintf("%s-%s", ResourceManagerRoleName, clusterName)
 }
 
+// GetResourceManagerRoleArn returns the ARN for the runtime manager role.
 func GetResourceManagerRoleArn(clusterName, accountId string) string {
 	return fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, GetResourceManagerRoleName(clusterName))
 }
