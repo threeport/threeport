@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 	"unicode/utf8"
@@ -254,7 +253,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 
 		Info("Creating Threeport IAM role")
 
-		// create IAM Role for runtime management
+		// create IAM role for runtime management
 		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.InstanceName)
 		resourceManagerRole, err = provider.CreateResourceManagerRole(
 			resource.CreateIAMTags(
@@ -271,6 +270,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to create runtime manager role: %w", err)
 		}
 
+		// assume IAM role for runtime management
 		awsConfigResourceManager, err = resource.AssumeRole(
 			*resourceManagerRole.Arn,
 			"",
@@ -281,7 +281,6 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 				awsSdkConfig.WithRegion(cpi.Opts.AwsRegion),
 			},
 		)
-
 		if err != nil {
 			deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.InstanceName, awsConfigUser)
 			if deleteErr != nil {
@@ -290,9 +289,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to load AWS configuration with access and secret keys: %w", err)
 		}
 
-		// wait for IAM resources to be available
+		// wait for IAM role to be available
 		svc = sts.NewFromConfig(*awsConfigResourceManager)
-		Info("Waiting for IAM resources to become available...")
+		Info("Waiting for IAM role to become available...")
 		if err = util.Retry(30, 1, func() error {
 			callerIdentity, err := svc.GetCallerIdentity(
 				context.Background(),
@@ -301,12 +300,8 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			if err != nil {
 				return fmt.Errorf("failed to get caller identity: %w", err)
 			}
-			Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
-			// check that the caller identity ARN matches the expected ARN
-			if strings.Contains(*callerIdentity.Arn, *resourceManagerRole.Arn) {
-				return fmt.Errorf("caller identity ARN %s does not match expected ARN %s", *callerIdentity.Arn, *resourceManagerRole.Arn)
-			}
+			Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 			// wait 5 seconds to allow IAM resources to become available
 			time.Sleep(time.Second * 5)
@@ -391,20 +386,20 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			EKSToken:      util.Base64Encode(kubeConnectionInfo.EKSToken),
 		}
 	}); err != nil {
-		return fmt.Errorf("failed to update threeport config: %w", err)
+		return cleanOnCreateError("failed to update threeport config", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
 	// generate encryption key
 	encryptionKey, err := encryption.GenerateKey()
 	if err != nil {
-		return fmt.Errorf("failed to generate encryption key: %w", err)
+		return cleanOnCreateError("failed to generate encryption key", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
 	// update threeport config with encryption key
 	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
 		c.EncryptionKey = encryptionKey
 	}); err != nil {
-		return fmt.Errorf("failed to update threeport config: %w", err)
+		return cleanOnCreateError("failed to update threeport config", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
 	// the kubernetes runtime instance is the default compute space kubernetes runtime to be added
@@ -439,11 +434,11 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName),
 		)
 		if err != nil {
-			return fmt.Errorf("failed to read eks kubernetes runtime inventory for inventory update: %w", err)
+			return cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
 		err = provider.UpdateResourceManagerRoleTrustPolicy(cpi.Opts.InstanceName, *callerIdentity.Account, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
 		if err != nil {
-			return fmt.Errorf("failed to update resource manager role: %w", err)
+			return cleanOnCreateError("failed to update resource manager role", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
 
 		location, err := mapping.GetLocationForAwsRegion(awsConfigResourceManager.Region)
