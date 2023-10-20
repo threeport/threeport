@@ -26,12 +26,12 @@ var awsProfile string
 var awsRegion string
 var providerRegion string
 var roleName string
-var externalAwsAccountId string
+var awsAccountId string
 
 // ConfigCurrentInstanceCmd represents the current-instance command
 var ConfigAwsCloudAccountCmd = &cobra.Command{
 	Use:     "aws-account",
-	Example: "tptctl config aws-account --aws-account-name my-account --aws-region us-east-1 --aws-profile my-profile --external-account-id 123456789012",
+	Example: "tptctl config aws-account --aws-account-name my-account --aws-region us-east-1 --aws-profile my-profile --aws-account-id 123456789012",
 	Short:   "Configure an aws account",
 	Long: `Configure AWS account permissions. This ensures that
 	a configured AWS account in Threeport can access and manage resources within
@@ -128,7 +128,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 				map[string]string{},
 			),
 			roleName,
-			externalAwsAccountId,
+			awsAccountId,
 			provider.GetResourceManagerRoleName(requestedControlPlane),
 			*createdAwsAccount.ExternalId,
 			*awsConf,
@@ -198,13 +198,13 @@ func init() {
 		fmt.Sprintf("The name of the runtime manager role to create. Defaults to %s-<instance-name>", provider.ResourceManagerRoleName),
 	)
 	ConfigAwsCloudAccountCmd.Flags().StringVar(
-		&externalAwsAccountId,
-		"external-account-id",
+		&awsAccountId,
+		"aws-account-id",
 		"",
 		"The external account to grant access to.",
 	)
 	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-account-name")
 	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-region")
 	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-profile")
-	ConfigAwsCloudAccountCmd.MarkFlagRequired("external-account-id")
+	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-account-id")
 }
