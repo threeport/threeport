@@ -179,7 +179,7 @@ func controlPlaneInstanceCreated(
 		}
 
 		clientCredentials := &config.Credential{
-			Name:       cpi.Opts.InstanceName,
+			Name:       cpi.Opts.ControlPlaneName,
 			ClientCert: util.Base64Encode(clientCertificate),
 			ClientKey:  util.Base64Encode(clientPrivateKey),
 		}
