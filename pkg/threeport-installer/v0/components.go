@@ -1658,7 +1658,7 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 				"API_SERVER":            cpi.Opts.RestApiInfo.ServiceResourceName,
 				"MSG_BROKER_HOST":       "nats-js",
 				"MSG_BROKER_PORT":       "4222",
-				"AWS_ROLE_SESSION_NAME": util.ResourceManagerRoleSessionName,
+				"AWS_ROLE_SESSION_NAME": util.AwsResourceManagerRoleSessionName,
 			},
 		},
 	}

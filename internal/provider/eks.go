@@ -516,7 +516,7 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 	// and set account entity to the expected role and session name
 	if externalRoleName != "" {
 		identityService = "sts"
-		accountEntity = "assumed-role/" + externalRoleName + "/" + util.ResourceManagerRoleSessionName
+		accountEntity = "assumed-role/" + externalRoleName + "/" + util.AwsResourceManagerRoleSessionName
 	}
 
 	// construct statement for allowing account access
