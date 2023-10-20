@@ -548,8 +548,9 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 			"Condition": map[string]interface{}{
 				"StringEquals": map[string]interface{}{
 					basenameAndPath + ":sub": []interface{}{
-						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":workload-controller",
-						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":aws-controller",
+						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + threeport.ThreeportWorkloadControllerName,
+						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + threeport.ThreeportAwsControllerName,
+						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + threeport.ThreeportControlPlaneControllerName,
 					},
 				},
 			},
