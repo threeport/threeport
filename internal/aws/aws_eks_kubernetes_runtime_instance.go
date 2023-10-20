@@ -64,7 +64,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		"awsEksClusterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 	)
 
-	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
+	awsConfig, err := GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
@@ -305,7 +305,7 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 		return 0, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
 	}
 
-	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
+	awsConfig, err := GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}

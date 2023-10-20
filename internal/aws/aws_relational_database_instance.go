@@ -58,7 +58,7 @@ func awsRelationalDatabaseInstanceCreated(
 		return 0, fmt.Errorf("failed to get required objects for AWS relational database instance creation reconciliation: %w", err)
 	}
 
-	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
+	awsConfig, err := GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
@@ -339,7 +339,7 @@ func awsRelationalDatabaseInstanceDeleted(
 		return 0, fmt.Errorf("failed to get required objects for AWS relational database instance creation reconciliation: %w", err)
 	}
 
-	awsConfig, err := client.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
+	awsConfig, err := GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}

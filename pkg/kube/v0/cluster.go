@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/restmapper"
 
 	"github.com/nukleros/eks-cluster/pkg/connection"
+	"github.com/threeport/threeport/internal/aws"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
@@ -292,7 +293,7 @@ func refreshEKSConnection(
 		return nil, fmt.Errorf("failed to get AWS account by ID %d: %w", eksRuntimeDefinition.AwsAccountID, err)
 	}
 
-	awsConfig, err := client.GetAwsConfigFromAwsAccount(encryptionKey, *eksRuntimeInstance.Region, awsAccount)
+	awsConfig, err := aws.GetAwsConfigFromAwsAccount(encryptionKey, *eksRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)
 	}
