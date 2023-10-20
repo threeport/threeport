@@ -27,6 +27,7 @@ var awsRegion string
 var providerRegion string
 var roleName string
 var awsAccountId string
+var defaultAccount bool
 
 // ConfigCurrentInstanceCmd represents the current-instance command
 var ConfigAwsCloudAccountCmd = &cobra.Command{
@@ -111,7 +112,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		awsAccount := v0.AwsAccount{
 			Name:           ptr.String(awsAccountName),
 			AccountID:      callerIdentity.Account,
-			DefaultAccount: ptr.Bool(false),
+			DefaultAccount: ptr.Bool(defaultAccount),
 			DefaultRegion:  ptr.String(awsRegion),
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(apiClient, apiEndpoint, &awsAccount)
@@ -201,6 +202,12 @@ func init() {
 		"aws-account-id",
 		"",
 		"The external account to grant access to.",
+	)
+	ConfigAwsCloudAccountCmd.Flags().BoolVar(
+		&defaultAccount,
+		"default-account",
+		false,
+		"Set whether the created AwsAccount object in Threeport should be used by default.",
 	)
 	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-account-name")
 	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-region")
