@@ -31,7 +31,7 @@ type Options struct {
 	DevEnvironment              bool
 	EncryptionKey               string
 	ForceOverwriteConfig        bool
-	InstanceName                string
+	ControlPlaneName            string
 	InfraProvider               string
 	KubeconfigPath              string
 	NumWorkerNodes              int
