@@ -2,18 +2,12 @@ package v0
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/nukleros/eks-cluster/pkg/resource"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"github.com/threeport/threeport/pkg/encryption/v0"
 )
 
 // GetAwsAccountByDefaultAccount fetches the default AWS account.

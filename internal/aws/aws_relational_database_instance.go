@@ -24,6 +24,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -58,7 +59,7 @@ func awsRelationalDatabaseInstanceCreated(
 		return 0, fmt.Errorf("failed to get required objects for AWS relational database instance creation reconciliation: %w", err)
 	}
 
-	awsConfig, err := GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
+	awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
@@ -339,7 +340,7 @@ func awsRelationalDatabaseInstanceDeleted(
 		return 0, fmt.Errorf("failed to get required objects for AWS relational database instance creation reconciliation: %w", err)
 	}
 
-	awsConfig, err := GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
+	awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}

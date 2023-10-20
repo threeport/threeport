@@ -77,7 +77,7 @@ func awsObjectStorageBucketInstanceCreated(
 		return 0, fmt.Errorf("failed to get required objects for AWS object storage bucket instance reconciliation: %w", err)
 	}
 
-	awsConfig, err := GetAwsConfigFromAwsAccount(r.EncryptionKey, *requiredObjects.AwsEksKubernetesRuntimeInstance.Region, &requiredObjects.AwsAccount)
+	awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *requiredObjects.AwsEksKubernetesRuntimeInstance.Region, &requiredObjects.AwsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
@@ -368,7 +368,7 @@ func awsObjectStorageBucketInstanceDeleted(
 		return 0, fmt.Errorf("failed to get required objects for AWS object storage bucket instance reconciliation: %w", err)
 	}
 
-	awsConfig, err := GetAwsConfigFromAwsAccount(r.EncryptionKey, *requiredObjects.AwsEksKubernetesRuntimeInstance.Region, &requiredObjects.AwsAccount)
+	awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *requiredObjects.AwsEksKubernetesRuntimeInstance.Region, &requiredObjects.AwsAccount)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
