@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
 	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
@@ -483,6 +484,20 @@ func GetResourceManagerRoleName(clusterName string) string {
 // GetResourceManagerRoleArn returns the ARN for the runtime manager role.
 func GetResourceManagerRoleArn(clusterName, accountId string) string {
 	return fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, GetResourceManagerRoleName(clusterName))
+}
+
+// GetCallerIdentity returns the caller identity for the AWS account.
+func GetCallerIdentity(awsConfig *aws.Config) (*sts.GetCallerIdentityOutput, error) {
+	svc := sts.NewFromConfig(*awsConfig)
+	callerIdentity, err := svc.GetCallerIdentity(
+		context.Background(),
+		&sts.GetCallerIdentityInput{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get caller identity: %w", err)
+	}
+
+	return callerIdentity, nil
 }
 
 // getResourceManagerTrustPolicyDocument returns the trust policy document for the

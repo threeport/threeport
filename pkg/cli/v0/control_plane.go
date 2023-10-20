@@ -2,7 +2,6 @@ package v0
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -230,12 +229,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		awsConfigUser = *awsConf
 
 		// get account ID
-		svc := sts.NewFromConfig(awsConfigUser)
-		callerIdentity, err = svc.GetCallerIdentity(
-			context.Background(),
-			&sts.GetCallerIdentityInput{},
-		)
-		if err != nil {
+		if callerIdentity, err = provider.GetCallerIdentity(awsConf); err != nil {
 			return fmt.Errorf("failed to get caller identity: %w", err)
 		}
 		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
@@ -290,17 +284,11 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// wait for IAM role to be available
-		svc = sts.NewFromConfig(*awsConfigResourceManager)
 		Info("Waiting for IAM role to become available...")
 		if err = util.Retry(30, 1, func() error {
-			callerIdentity, err := svc.GetCallerIdentity(
-				context.Background(),
-				&sts.GetCallerIdentityInput{},
-			)
-			if err != nil {
+			if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
 				return fmt.Errorf("failed to get caller identity: %w", err)
 			}
-
 			Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 			// wait 5 seconds to allow IAM resources to become available
@@ -960,6 +948,14 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
 
+		// test credentials for awsConfigUser
+		var callerIdentity *sts.GetCallerIdentityOutput
+		if callerIdentity, err = provider.GetCallerIdentity(awsConfigUser); err != nil {
+			return fmt.Errorf("failed to get caller identity: %w", err)
+		}
+		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
+
+		// assume role for AWS resource manager for infra teardown
 		awsConfigResourceManager, err = resource.AssumeRole(
 			provider.GetResourceManagerRoleArn(
 				threeportControlPlaneConfig.Name,
@@ -977,12 +973,8 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to assume role for AWS resource manager: %w", err)
 		}
 
-		svc := sts.NewFromConfig(*awsConfigUser)
-		callerIdentity, err := svc.GetCallerIdentity(
-			context.Background(),
-			&sts.GetCallerIdentityInput{},
-		)
-		if err != nil {
+		// test credentials for awsConfigResourceManager
+		if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
 			return fmt.Errorf("failed to get caller identity: %w", err)
 		}
 		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
@@ -1019,7 +1011,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
 			AwsAccountID:        *callerIdentity.Account,
-			AwsConfig:           awsConfigUser,
+			AwsConfig:           awsConfigResourceManager,
 			ResourceClient:      resourceClient,
 			ResourceInventory:   inventory,
 		}
