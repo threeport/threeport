@@ -253,7 +253,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 
 		Info("Creating Threeport IAM role")
 
-		// create IAM role for runtime management
+		// create IAM role for resource management
 		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 		resourceManagerRole, err = provider.CreateResourceManagerRole(
 			resource.CreateIAMTags(
@@ -270,7 +270,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			return fmt.Errorf("failed to create runtime manager role: %w", err)
 		}
 
-		// assume IAM role for runtime management
+		// assume IAM role for resource management
 		awsConfigResourceManager, err = resource.AssumeRole(
 			*resourceManagerRole.Arn,
 			"",
