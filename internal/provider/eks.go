@@ -362,7 +362,7 @@ func CreateResourceManagerRole(
 	}
 
 	// create trust policy document
-	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument(principalRoleName, accountId, externalId, "")
+	runtimeManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument(principalRoleName, accountId, externalId, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
@@ -411,7 +411,7 @@ func UpdateResourceManagerRoleTrustPolicy(clusterName, accountId, externalId, oi
 	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
 
 	// update trust policy document
-	runtimeManagerTrustPolicyDocument, err := getRuntimeManagerTrustPolicyDocument("", accountId, externalId, oidcProviderUrl)
+	runtimeManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument("", accountId, externalId, oidcProviderUrl)
 	if err != nil {
 		return fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
@@ -485,9 +485,9 @@ func GetResourceManagerRoleArn(clusterName, accountId string) string {
 	return fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, GetResourceManagerRoleName(clusterName))
 }
 
-// getRuntimeManagerTrustPolicyDocument returns the trust policy document for the
+// getResourceManagerTrustPolicyDocument returns the trust policy document for the
 // runtime manager role.
-func getRuntimeManagerTrustPolicyDocument(externalRoleName, accountId, externalId, oidcProviderUrl string) (string, error) {
+func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, externalId, oidcProviderUrl string) (string, error) {
 
 	statements := []interface{}{}
 
