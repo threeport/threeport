@@ -33,9 +33,8 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 	Use:     "aws-account",
 	Example: "tptctl config aws-account --aws-account-name my-account --aws-region us-east-1 --aws-profile my-profile --aws-account-id 123456789012",
 	Short:   "Configure an aws account",
-	Long: `Configure AWS account permissions. This ensures that
-	a configured AWS account in Threeport can access and manage resources within
-	the respective customer-managed AWS account.`,
+	Long: `Configure AWS account permissions. This creates an account in the Threeport API
+	and the configures the respective customer-managed AWS account.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 
