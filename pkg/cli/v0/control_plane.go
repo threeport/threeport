@@ -131,11 +131,22 @@ func (a *ControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneInstalle
 // CreateControlPlane uses the CLI arguments to create a new threeport control
 // plane.
 func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
+	// get the threeport config
+	threeportConfig, _, err := config.GetThreeportConfig("")
+	if err != nil {
+		return fmt.Errorf("failed to get threeport config: %w", err)
+	}
 
 	// configure installer
 	cpi := customInstaller
 	if customInstaller == nil {
 		cpi = threeport.NewInstaller()
+	}
+
+	// check threeport config to see if it is empty
+	threeportInstanceConfigEmpty := threeportConfig.CheckThreeportConfigEmpty()
+	if !threeportInstanceConfigEmpty && !cpi.Opts.ForceOverwriteConfig {
+		return ErrThreeportConfigAlreadyExists
 	}
 
 	genesis := true
@@ -149,8 +160,6 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		return fmt.Errorf("flag validation failed: %w", err)
 	}
 
-	var err error
-	threeportConfig := &config.ThreeportConfig{}
 	threeportConfig.ControlPlanes = []config.ControlPlane{}
 	threeportControlPlaneConfig := &config.ControlPlane{}
 
