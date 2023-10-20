@@ -284,9 +284,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		if err != nil {
 			deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.InstanceName, awsConfigUser)
 			if deleteErr != nil {
-				return fmt.Errorf("failed to load AWS configuration with access and secret keys: %w, failed to delete IAM resources: %w", err, deleteErr)
+				return fmt.Errorf("failed to assume role for AWS resource manager: %w, failed to delete IAM resources: %w", err, deleteErr)
 			}
-			return fmt.Errorf("failed to load AWS configuration with access and secret keys: %w", err)
+			return fmt.Errorf("failed to assume role for AWS resource manager: %w", err)
 		}
 
 		// wait for IAM role to be available
@@ -988,7 +988,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 		// create a resource client to delete EKS resources
-		resourceClient := resource.CreateResourceClient(awsConfigUser)
+		resourceClient := resource.CreateResourceClient(awsConfigResourceManager)
 
 		// capture messages as resources are created and return to user
 		go func() {
@@ -1071,7 +1071,6 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// API for deleting resources
 		var dynamicKubeClient dynamic.Interface
 		var mapper *meta.RESTMapper
-		kubernetesRuntimeInfraEKS := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS)
 		dynamicKubeClient, mapper, err = kube.GetClient(
 			updatedKubernetesRuntimeInstance,
 			false,
@@ -1089,7 +1088,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}
 
 		// delete AWS IAM resources
-		err = provider.DeleteResourceManagerRole(cpi.Opts.InstanceName, *kubernetesRuntimeInfraEKS.AwsConfig)
+		err = provider.DeleteResourceManagerRole(cpi.Opts.InstanceName, *awsConfigUser)
 		if err != nil {
 			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}
