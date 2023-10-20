@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	util "github.com/threeport/threeport/pkg/util/v0"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -14,6 +13,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // ThreeportDevImages returns a map of main package dirs to dev image names
