@@ -144,7 +144,6 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 			continue
 		}
 
-		fmt.Println("1")
 		// check if AccessKeyID is set
 		if field.Name == "AccessKeyID" {
 			underlyingValue, err := util.GetStringPtrValue(fieldVal)
@@ -157,7 +156,6 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 			}
 		}
 
-		fmt.Println("2")
 		// check if SecretAccessKey is set
 		if field.Name == "SecretAccessKey" {
 			underlyingValue, err := util.GetStringPtrValue(fieldVal)
