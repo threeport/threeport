@@ -103,7 +103,7 @@ func (k *KubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
 		fieldVal := objVal.Field(i)
 
 		// skip nil fields
-		if fieldVal.IsNil() {
+		if !util.IsNonNilPtr(fieldVal) {
 			continue
 		}
 
@@ -150,7 +150,7 @@ func (k *KubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
 		fieldVal := objVal.Field(i)
 
 		// skip nil fields
-		if fieldVal.IsNil() {
+		if !util.IsNonNilPtr(fieldVal) {
 			continue
 		}
 
