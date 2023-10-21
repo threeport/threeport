@@ -98,137 +98,132 @@ func BuildDevImage(threeportPath string) error {
 
 // BuildDevImage builds all the threeport control plane container images using
 // the dev dockerfile to provide live reload of code in the container.
-func BuildImage(threeportPath, imageRepo, imageTag, imageNames string) error {
+func BuildImage(threeportPath, imageRepo, imageTag, imageName string) error {
 
-	images := strings.Split(imageNames, ",")
+	main := "main_gen.go"
+	if imageName == "rest-api" || imageName == "agent" {
+		main = "main.go"
+	}
 
-	for _, imageName := range images {
+	buildArgs := []string{"build", "-o", "bin/threeport-" + imageName, "cmd/" + imageName + "/" + main}
+	fmt.Printf("Running: go %s \n", strings.Join(buildArgs, " "))
 
-		main := "main_gen.go"
-		if imageName == "rest-api" || imageName == "agent" {
-			main = "main.go"
-		}
+	cmd := exec.Command("go", buildArgs...)
+	cmd.Dir = threeportPath
 
-		buildArgs := []string{"build", "-o", "bin/threeport-" + imageName, "cmd/" + imageName + "/" + main}
-		fmt.Printf("Running: go %s \n", strings.Join(buildArgs, " "))
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-		cmd := exec.Command("go", buildArgs...)
-		cmd.Dir = threeportPath
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-		// stdout, err := cmd.StdoutPipe()
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to build threeport-%s: %v", imageName, err)
+	}
 
-		// stderr, err := cmd.StderrPipe()
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("failed to build threeport-%s: %v", imageName, err)
+	}
 
-		if err := cmd.Start(); err != nil {
-			log.Fatal(err)
-		}
+	outputBytes, _ := io.ReadAll(stdout)
+	fmt.Println(string(outputBytes))
 
-		if err := cmd.Wait(); err != nil {
-			log.Fatal(err)
-		}
+	errorBytes, _ := io.ReadAll(stderr)
+	fmt.Println(string(errorBytes))
 
-		// outputBytes, _ := io.ReadAll(stdout)
-		// fmt.Println(string(outputBytes))
+	dockerClient, err := client.NewClientWithOpts(
+		client.FromEnv,
+		client.WithAPIVersionNegotiation(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create docker client for building images: %w", err)
+	}
 
-		// errorBytes, _ := io.ReadAll(stderr)
-		// fmt.Println(string(errorBytes))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300)
+	defer cancel()
 
-		dockerClient, err := client.NewClientWithOpts(
-			client.FromEnv,
-			client.WithAPIVersionNegotiation(),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create docker client for building images: %w", err)
-		}
+	tar, err := archive.TarWithOptions(threeportPath, &archive.TarOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to build tarball of threeport repo: %w", err)
+	}
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*300)
-		defer cancel()
+	tag := imageRepo + "/threeport-" + imageName + ":" + imageTag
+	buildOpts := types.ImageBuildOptions{
+		Dockerfile: filepath.Join("cmd", imageName, "image", "Dockerfile-test"),
+		Tags:       []string{tag},
+		Remove:     true,
+	}
 
-		tar, err := archive.TarWithOptions(threeportPath, &archive.TarOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to build tarball of threeport repo: %w", err)
-		}
+	result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
+	if err != nil {
+		return fmt.Errorf("failed to build docker image %s: %w", imageName, err)
+	}
+	defer result.Body.Close()
 
-		tag := imageRepo + "/threeport-" + imageName + ":" + imageTag
-		buildOpts := types.ImageBuildOptions{
-			Dockerfile: filepath.Join("cmd", imageName, "image", "Dockerfile-test"),
-			Tags:       []string{tag},
-			Remove:     true,
-		}
+	if err := buildOutput(result.Body); err != nil {
+		return fmt.Errorf("failed to write output from docker build for %s: %w", imageName, err)
+	}
 
-		result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
-		if err != nil {
-			return fmt.Errorf("failed to build docker image %s: %w", imageName, err)
-		}
-		defer result.Body.Close()
+	configFilePath := os.ExpandEnv("$HOME/.docker/config.json")
 
-		if err := buildOutput(result.Body); err != nil {
-			return fmt.Errorf("failed to write output from docker build for %s: %w", imageName, err)
-		}
+	// Read the Docker configuration file
+	configFile, err := ioutil.ReadFile(configFilePath)
+	if err != nil {
+		fmt.Println("Error reading Docker config file:", err)
+		return err
+	}
 
-		configFilePath := os.ExpandEnv("$HOME/.docker/config.json")
+	// Parse the JSON content of the configuration file
+	var dockerConfig map[string]interface{}
+	if err := json.Unmarshal(configFile, &dockerConfig); err != nil {
+		fmt.Println("Error parsing Docker config JSON:", err)
+		return err
+	}
 
-		// Read the Docker configuration file
-		configFile, err := ioutil.ReadFile(configFilePath)
-		if err != nil {
-			fmt.Println("Error reading Docker config file:", err)
-			return err
-		}
+	// Type assert sourceMap to targetMap
+	ok := false
+	targetMap := map[string]interface{}{}
+	if targetMap, ok = dockerConfig["auths"].(map[string]interface{}); !ok {
+		fmt.Println("Type assertion failed.")
+	}
+	if targetMap, ok = targetMap["https://index.docker.io/v1/"].(map[string]interface{}); !ok {
+		fmt.Println("Type assertion failed 1.")
+	}
 
-		// Parse the JSON content of the configuration file
-		var dockerConfig map[string]interface{}
-		if err := json.Unmarshal(configFile, &dockerConfig); err != nil {
-			fmt.Println("Error parsing Docker config JSON:", err)
-			return err
-		}
+	// Decode the Base64 string
+	decodedBytes, err := base64.StdEncoding.DecodeString(targetMap["auth"].(string))
+	if err != nil {
+		fmt.Println("Error decoding Base64:", err)
+		return err
+	}
 
-		// Type assert sourceMap to targetMap
-		ok := false
-		targetMap := map[string]interface{}{}
-		if targetMap, ok = dockerConfig["auths"].(map[string]interface{}); !ok {
-			fmt.Println("Type assertion failed.")
-		}
-		if targetMap, ok = targetMap["https://index.docker.io/v1/"].(map[string]interface{}); !ok {
-			fmt.Println("Type assertion failed 1.")
-		}
+	credentials := strings.Split(string(decodedBytes), ":")
 
-		// Decode the Base64 string
-		decodedBytes, err := base64.StdEncoding.DecodeString(targetMap["auth"].(string))
-		if err != nil {
-			fmt.Println("Error decoding Base64:", err)
-			return err
-		}
+	var authConfig = types.AuthConfig{
+		Username:      credentials[0],
+		Password:      credentials[1],
+		ServerAddress: "https://index.docker.io/v1/",
+	}
+	authConfigBytes, _ := json.Marshal(authConfig)
+	authConfigEncoded := base64.URLEncoding.EncodeToString(authConfigBytes)
 
-		credentials := strings.Split(string(decodedBytes), ":")
+	out, err := dockerClient.ImagePush(ctx, tag, types.ImagePushOptions{
+		All:          true,
+		RegistryAuth: authConfigEncoded,
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer out.Close()
 
-		var authConfig = types.AuthConfig{
-			Username:      credentials[0],
-			Password:      credentials[1],
-			ServerAddress: "https://index.docker.io/v1/",
-		}
-		authConfigBytes, _ := json.Marshal(authConfig)
-		authConfigEncoded := base64.URLEncoding.EncodeToString(authConfigBytes)
-
-		out, err := dockerClient.ImagePush(ctx, tag, types.ImagePushOptions{
-			All:          true,
-			RegistryAuth: authConfigEncoded,
-		})
-		if err != nil {
-			panic(err)
-		}
-		defer out.Close()
-
-		// Copy the push output to the console
-		_, err = io.Copy(os.Stdout, out)
-		if err != nil {
-			panic(err)
-		}
+	// Copy the push output to the console
+	_, err = io.Copy(os.Stdout, out)
+	if err != nil {
+		panic(err)
 	}
 
 	return nil
