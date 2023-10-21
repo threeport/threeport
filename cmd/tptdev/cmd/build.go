@@ -25,32 +25,88 @@ var buildCmd = &cobra.Command{
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
+		// create list of images to build
 		imageNamesList := []string{}
 		switch all {
 		case true:
 			for _, controller := range v0.ThreeportControllerList {
 				imageNamesList = append(imageNamesList, controller.Name)
 			}
+			imageNamesList = append(imageNamesList, "rest-api")
+			imageNamesList = append(imageNamesList, "agent")
 		case false:
 			imageNamesList = strings.Split(imageNames, ",")
 		}
 
+		// configure concurrency for parallel builds
 		jobs := make(chan string)
 		output := make(chan string)
 		var wg sync.WaitGroup
 
-		go outputHandler(output)
+		// configure output handler
+		go func() {
+			for {
+				message, ok := <-output
+				if !ok {
+					// Channel is closed, so exit the Goroutine
+					return
+				}
+				fmt.Println("Received:", message)
+			}
+		}()
 
+		// configure installer
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {
 			cli.Error("failed to create threeport control plane installer", err)
 		}
-		// Start worker goroutines
-		for i := 1; i <= parallel; i++ {
-			wg.Add(1)
-			go worker(cpi, i, jobs, output, &wg)
+
+		// configure parallel builds
+		if parallel == -1 {
+			parallel = len(imageNamesList)
 		}
 
+		// start build workers
+		for i := 1; i <= parallel; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for image := range jobs {
+
+					// build go binary
+					if err := tptdev.BuildGoBinary(
+						cpi.Opts.ThreeportPath,
+						image,
+					); err != nil {
+						output <- fmt.Sprintf("failed to build go binary: %v", err)
+					}
+
+					// configure image tag
+					tag := fmt.Sprintf(
+						"%s/threeport-%s:%s",
+						cliArgs.ControlPlaneImageRepo,
+						image,
+						cliArgs.ControlPlaneImageTag,
+					)
+
+					// build docker image
+					if err := tptdev.BuildDockerImage(
+						cpi.Opts.ThreeportPath,
+						image,
+						tag,
+					); err != nil {
+						output <- fmt.Sprintf("failed to build docker image: %v", err)
+					}
+
+					// push docker image
+					if err := tptdev.PushDockerImage(tag); err != nil {
+						output <- fmt.Sprintf("failed to push docker image: %v", err)
+					}
+				}
+			}()
+		}
+
+		// assign build jobs to workers
 		for _, imageName := range imageNamesList {
 			jobs <- imageName
 		}
@@ -60,32 +116,6 @@ var buildCmd = &cobra.Command{
 		wg.Wait()
 
 	},
-}
-
-func worker(cpi *v0.ControlPlaneInstaller, id int, jobs <-chan string, output chan<- string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for image := range jobs {
-
-		if err := tptdev.BuildImage(
-			cpi.Opts.ThreeportPath,
-			cliArgs.ControlPlaneImageRepo,
-			cliArgs.ControlPlaneImageTag,
-			image); err != nil {
-			output <- fmt.Sprintf("failed to create threeport control plane : %v", err)
-			continue
-		}
-	}
-}
-
-func outputHandler(output <-chan string) {
-	for {
-		message, ok := <-output
-		if !ok {
-			// Channel is closed, so exit the Goroutine
-			return
-		}
-		fmt.Println("Received:", message)
-	}
 }
 
 func init() {
@@ -104,7 +134,7 @@ func init() {
 	)
 	buildCmd.Flags().IntVar(
 		&parallel,
-		"parallel", 3, "Alternate image tag to pull threeport control plane images from.",
+		"parallel", -1, "Number of parallel builds to run. Defaults to number of images specified.",
 	)
 	buildCmd.Flags().BoolVar(
 		&all,
