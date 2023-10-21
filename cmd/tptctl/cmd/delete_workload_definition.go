@@ -6,14 +6,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
-	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
@@ -56,7 +54,7 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 		var workloadDefinitionConfig config.WorkloadDefinitionConfig
 		if deleteWorkloadDefinitionConfigPath != "" {
 			// load workload definition config
-			configContent, err := ioutil.ReadFile(deleteWorkloadDefinitionConfigPath)
+			configContent, err := os.ReadFile(deleteWorkloadDefinitionConfigPath)
 			if err != nil {
 				cli.Error("failed to read config file", err)
 				os.Exit(1)
@@ -74,19 +72,9 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 		}
 
 		// get threeport API client
-		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled(requestedControlPlane)
+		apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
 		if err != nil {
-			cli.Error("failed to determine if auth is enabled on threeport API", err)
-			os.Exit(1)
-		}
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport certificates from config", err)
-			os.Exit(1)
-		}
-		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
-		if err != nil {
-			cli.Error("failed to create https client", err)
+			cli.Error("failed to get threeport API client", err)
 			os.Exit(1)
 		}
 

@@ -25,13 +25,18 @@ var UpCmd = &cobra.Command{
 	Short:        "Spin up a new deployment of the Threeport control plane",
 	Long:         `Spin up a new deployment of the Threeport control plane.`,
 	SilenceUsage: true,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		switch cliArgs.InfraProvider {
+		case v0.KubernetesRuntimeInfraProviderEKS:
+			cmd.MarkFlagRequired("aws-region")
+		}
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// flag validation
 		if err := cli.ValidateCreateControlPlaneFlags(
 			cliArgs.ControlPlaneName,
 			cliArgs.InfraProvider,
 			cliArgs.CreateRootDomain,
-			cliArgs.CreateProviderAccountID,
 			cliArgs.AuthEnabled,
 		); err != nil {
 			cli.Error("flag validation failed:", err)
@@ -100,10 +105,6 @@ func init() {
 	UpCmd.Flags().StringVar(
 		&cliArgs.CreateRootDomain,
 		"root-domain", "", "The root domain name to use for the Threeport API. Requires a public hosted zone in AWS Route53. A subdomain for the Threeport API will be added to the root domain.",
-	)
-	UpCmd.Flags().StringVar(
-		&cliArgs.CreateProviderAccountID,
-		"provider-account-id", "", "The provider account ID.  Required if providing a root domain for automated DNS management.",
 	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.CreateAdminEmail,

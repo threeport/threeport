@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -71,7 +70,7 @@ func GetHTTPClient(
 		}
 
 		// load root certificate authority
-		caCertBytes, err := ioutil.ReadFile(caFilePath)
+		caCertBytes, err := os.ReadFile(caFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load root CA: %w", err)
 		}

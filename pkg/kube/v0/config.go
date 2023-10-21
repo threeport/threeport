@@ -3,7 +3,6 @@ package v0
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -38,7 +37,7 @@ func GetConnectionInfoFromKubeconfig(kubeconfig string) (*KubeConnectionInfo, er
 	var kubeConnInfo KubeConnectionInfo
 
 	// read kubeconfig
-	kubeconfigContent, err := ioutil.ReadFile(kubeconfig)
+	kubeconfigContent, err := os.ReadFile(kubeconfig)
 	if err != nil {
 		return &kubeConnInfo, fmt.Errorf("failed to read kubeconfig file: %w", err)
 	}

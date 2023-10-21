@@ -3,8 +3,8 @@ package v0
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"time"
@@ -311,8 +311,8 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	relativeYamlPath := path.Join(configPath, wd.YAMLDocument)
 
 	// load YAML document
-	//definitionContent, err := ioutil.ReadFile(wd.YAMLDocument)
-	definitionContent, err := ioutil.ReadFile(relativeYamlPath)
+	//definitionContent, err := os.ReadFile(wd.YAMLDocument)
+	definitionContent, err := os.ReadFile(relativeYamlPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read definition YAMLDocument file %s: %w", wd.YAMLDocument, err)
 	}

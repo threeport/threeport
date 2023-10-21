@@ -21,24 +21,22 @@ type Options struct {
 	AgentInfo                   *v0.ControlPlaneComponent
 	InThreeport                 bool
 	CreateOrUpdateKubeResources bool
-
-	AuthEnabled             bool
-	AwsConfigProfile        string
-	AwsConfigEnv            bool
-	AwsRegion               string
-	CfgFile                 string
-	CreateRootDomain        string
-	CreateProviderAccountID string
-	CreateAdminEmail        string
-	DevEnvironment          bool
-	EncryptionKey           string
-	ForceOverwriteConfig    bool
-	InstanceName            string
-	InfraProvider           string
-	KubeconfigPath          string
-	NumWorkerNodes          int
-	ProviderConfigDir       string
-	ThreeportPath           string
+	AuthEnabled                 bool
+	AwsConfigProfile            string
+	AwsConfigEnv                bool
+	AwsRegion                   string
+	CfgFile                     string
+	CreateRootDomain            string
+	CreateAdminEmail            string
+	DevEnvironment              bool
+	EncryptionKey               string
+	ForceOverwriteConfig        bool
+	ControlPlaneName            string
+	InfraProvider               string
+	KubeconfigPath              string
+	NumWorkerNodes              int
+	ProviderConfigDir           string
+	ThreeportPath               string
 }
 
 type ControlPlaneInstaller struct {

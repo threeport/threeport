@@ -8,6 +8,7 @@ import (
 
 	"gopkg.in/ini.v1"
 
+	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
@@ -25,6 +26,7 @@ type AwsAccountValues struct {
 	DefaultRegion    string `yaml:"DefaultRegion"`
 	AccessKeyID      string `yaml:"AccessKeyID"`
 	SecretAccessKey  string `yaml:"SecretAccessKey"`
+	RoleArn          string `yaml:"RoleArn"`
 	LocalConfig      string `yaml:"LocalConfig"`
 	LocalCredentials string `yaml:"LocalCredentials"`
 	LocalProfile     string `yaml:"LocalProfile"`
@@ -58,7 +60,7 @@ type AwsEksKubernetesRuntimeInstanceConfig struct {
 // manage an AWS EKS kubernetes runtime instance.
 type AwsEksKubernetesRuntimeInstanceValues struct {
 	Name                                  string `yaml:"Name"`
-	Region                                string `yaml:"Region"`
+	Location                              string `yaml:"Location"`
 	AwsEksKubernetesRuntimeDefinitionName string `yaml:"AwsEksKubernetesRuntimeDefinitionName"`
 }
 
@@ -256,6 +258,7 @@ LocalConfig, LocalCredentials and LocalProfile
 		AccountID:       &aa.AccountID,
 		AccessKeyID:     &accessKeyID,
 		SecretAccessKey: &secretAccessKey,
+		RoleArn:         &aa.RoleArn,
 	}
 
 	// create AWS account
@@ -375,6 +378,7 @@ func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Clien
 		Instance: v0.Instance{
 			Name: &aekri.Name,
 		},
+		Location:                      &aekri.Location,
 		ThreeportControlPlaneHost:     &controlPlaneHost,
 		DefaultRuntime:                &defaultRuntime,
 		KubernetesRuntimeDefinitionID: awsEksKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
@@ -387,11 +391,15 @@ func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Clien
 	}
 
 	// construct AWS EKS kubernetes runtime instance object
+	region, err := mapping.GetProviderRegionForLocation("aws", aekri.Location)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get region for location %s: %w", aekri.Location, err)
+	}
 	awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
 		Instance: v0.Instance{
 			Name: &aekri.Name,
 		},
-		Region:                              &aekri.Region,
+		Region:                              &region,
 		KubernetesRuntimeInstanceID:         createdKubernetesRuntimeInstance.ID,
 		AwsEksKubernetesRuntimeDefinitionID: awsEksKubernetesRuntimeDefinition.ID,
 	}

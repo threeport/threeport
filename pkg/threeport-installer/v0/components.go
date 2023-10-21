@@ -1,10 +1,8 @@
 package v0
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -14,8 +12,8 @@ import (
 	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
-	clientv0 "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // ThreeportDevImages returns a map of main package dirs to dev image names
@@ -424,14 +422,14 @@ func (cpi *ControlPlaneInstaller) InstallController(
 		}
 	}
 
-	serviceAccountName := installInfo.ServiceAccountName
-
 	var deployName string
 	if cpi.isThreeportManagedController(installInfo) {
 		deployName = fmt.Sprintf("threeport-%s", installInfo.Name)
 	} else {
 		deployName = fmt.Sprintf("%s-%s", cpi.Opts.Name, installInfo.Name)
 	}
+
+	serviceAccountName := installInfo.ServiceAccountName
 
 	var controllerDeployment = cpi.getControllerDeployment(
 		deployName,
@@ -1229,42 +1227,6 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	return nil
 }
 
-// WaitForThreeportAPI waits for the threeport API to respond to a request.
-func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
-	var waitError error
-
-	attempts := 0
-	maxAttempts := 30
-	waitSeconds := 10
-	apiReady := false
-	for attempts < maxAttempts {
-		_, err := clientv0.GetResponse(
-			apiClient,
-			fmt.Sprintf("%s/version", apiEndpoint),
-			http.MethodGet,
-			new(bytes.Buffer),
-			http.StatusOK,
-		)
-		if err != nil {
-			waitError = err
-			time.Sleep(time.Second * time.Duration(waitSeconds))
-			attempts += 1
-			continue
-		}
-		apiReady = true
-		break
-	}
-	if !apiReady {
-		msg := fmt.Sprintf(
-			"timed out after %d seconds waiting for 200 response from threeport API",
-			maxAttempts*waitSeconds,
-		)
-		return fmt.Errorf("%s: %w", msg, waitError)
-	}
-
-	return nil
-}
-
 // GetThreeportAPIEndpoint retrieves the endpoint given to the threeport API
 // when the external load balancer was provisioned by the infra provider.  It
 // will attempt to retrieve this value several times since the load balancer
@@ -1693,9 +1655,10 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 			},
 			"type": "Opaque",
 			"stringData": map[string]interface{}{
-				"API_SERVER":      cpi.Opts.RestApiInfo.ServiceResourceName,
-				"MSG_BROKER_HOST": "nats-js",
-				"MSG_BROKER_PORT": "4222",
+				"API_SERVER":            cpi.Opts.RestApiInfo.ServiceResourceName,
+				"MSG_BROKER_HOST":       "nats-js",
+				"MSG_BROKER_PORT":       "4222",
+				"AWS_ROLE_SESSION_NAME": util.AwsResourceManagerRoleSessionName,
 			},
 		},
 	}

@@ -1,8 +1,10 @@
 package v0
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,10 +12,14 @@ import (
 	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsSdkConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gorm.io/datatypes"
-	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
@@ -34,24 +40,25 @@ var ErrThreeportConfigAlreadyExists = errors.New("threeport config already conta
 // ControlPlaneCLIArgs is the set of control plane arguments passed to one of
 // the CLI tools.
 type ControlPlaneCLIArgs struct {
-	AuthEnabled             bool
-	AwsConfigProfile        string
-	AwsConfigEnv            bool
-	AwsRegion               string
-	CfgFile                 string
-	ControlPlaneImageRepo   string
-	ControlPlaneImageTag    string
-	CreateRootDomain        string
-	CreateProviderAccountID string
-	CreateAdminEmail        string
-	DevEnvironment          bool
-	ForceOverwriteConfig    bool
-	ControlPlaneName        string
-	InfraProvider           string
-	KubeconfigPath          string
-	NumWorkerNodes          int
-	ProviderConfigDir       string
-	ThreeportPath           string
+	AuthEnabled           bool
+	AwsConfigProfile      string
+	AwsConfigEnv          bool
+	AwsRegion             string
+	AwsRoleArn            string
+	AwsSerialNumber       string
+	CfgFile               string
+	ControlPlaneImageRepo string
+	ControlPlaneImageTag  string
+	CreateRootDomain      string
+	CreateAdminEmail      string
+	DevEnvironment        bool
+	ForceOverwriteConfig  bool
+	ControlPlaneName      string
+	InfraProvider         string
+	KubeconfigPath        string
+	NumWorkerNodes        int
+	ProviderConfigDir     string
+	ThreeportPath         string
 }
 
 const tier = threeport.ControlPlaneTierDev
@@ -107,11 +114,10 @@ func (a *ControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneInstalle
 	cpi.Opts.AwsRegion = a.AwsRegion
 	cpi.Opts.CfgFile = a.CfgFile
 	cpi.Opts.CreateRootDomain = a.CreateRootDomain
-	cpi.Opts.CreateProviderAccountID = a.CreateProviderAccountID
 	cpi.Opts.CreateAdminEmail = a.CreateAdminEmail
 	cpi.Opts.DevEnvironment = a.DevEnvironment
 	cpi.Opts.ForceOverwriteConfig = a.ForceOverwriteConfig
-	cpi.Opts.InstanceName = a.ControlPlaneName
+	cpi.Opts.ControlPlaneName = a.ControlPlaneName
 	cpi.Opts.InfraProvider = a.InfraProvider
 	cpi.Opts.KubeconfigPath = a.KubeconfigPath
 	cpi.Opts.NumWorkerNodes = a.NumWorkerNodes
@@ -143,15 +149,27 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		return ErrThreeportConfigAlreadyExists
 	}
 
-	threeportConfig.ControlPlanes = []config.ControlPlane{}
-
 	genesis := true
+	// flag validation
+	if err := ValidateCreateControlPlaneFlags(
+		cpi.Opts.ControlPlaneName,
+		cpi.Opts.InfraProvider,
+		cpi.Opts.CreateRootDomain,
+		cpi.Opts.AuthEnabled,
+	); err != nil {
+		return fmt.Errorf("flag validation failed: %w", err)
+	}
+
+	threeportConfig.ControlPlanes = []config.ControlPlane{}
+	threeportControlPlaneConfig := &config.ControlPlane{}
 
 	// create threeport config for new instance
-	threeportInstanceConfig := &config.ControlPlane{
-		Name:     cpi.Opts.InstanceName,
-		Provider: cpi.Opts.InfraProvider,
-		Genesis:  genesis,
+	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+		c.Name = cpi.Opts.ControlPlaneName
+		c.Provider = cpi.Opts.InfraProvider
+		c.Genesis = genesis
+	}); err != nil {
+		return fmt.Errorf("failed to update threeport config: %w", err)
 	}
 
 	// configure the control plane
@@ -161,16 +179,18 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	}
 
 	// configure the infra provider
+	var resourceManagerRole *types.Role
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
-	awsConfig := &aws.Config{}
+	var callerIdentity *sts.GetCallerIdentityOutput
+	awsConfigUser := aws.Config{}
+	awsConfigResourceManager := &aws.Config{}
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
-		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled)
 
 		// construct kind infra provider object
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
-			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.InstanceName),
+			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 			KubeconfigPath:      cpi.Opts.KubeconfigPath,
 			DevEnvironment:      cpi.Opts.DevEnvironment,
 			ThreeportPath:       cpi.Opts.ThreeportPath,
@@ -178,8 +198,13 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			AuthEnabled:         cpi.Opts.AuthEnabled,
 		}
 
-		// update threerport config
-		threeportInstanceConfig.APIServer = threeportAPIEndpoint
+		// update threeport config with api endpoint
+		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled)
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+			c.APIServer = threeportAPIEndpoint
+		}); err != nil {
+			return fmt.Errorf("failed to update threeport config: %w", err)
+		}
 
 		// delete kind kubernetes runtime if interrupted
 		sigs := make(chan os.Signal, 1)
@@ -189,7 +214,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Warning("received Ctrl+C, removing kind kubernetes runtime...")
 			// first update the threeport config so the Delete method has
 			// something to reference
-			config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
+			threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {})
 			if err := DeleteControlPlane(cpi); err != nil {
 				Error("failed to delete kind kubernetes runtime", err)
 			}
@@ -203,14 +228,93 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			cpi.Opts.AwsConfigEnv,
 			cpi.Opts.AwsConfigProfile,
 			cpi.Opts.AwsRegion,
+			"",
+			"",
+			"",
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
-		awsConfig = awsConf
+		awsConfigUser = *awsConf
+
+		// get account ID
+		if callerIdentity, err = provider.GetCallerIdentity(awsConf); err != nil {
+			return fmt.Errorf("failed to get caller identity: %w", err)
+		}
+		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
+
+		// update threeport config with eks provider info
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+			c.EKSProviderConfig = config.EKSProviderConfig{
+				AwsConfigProfile: cpi.Opts.AwsConfigProfile,
+				AwsRegion:        cpi.Opts.AwsRegion,
+				AwsAccountID:     *callerIdentity.Account,
+			}
+		}); err != nil {
+			return fmt.Errorf("failed to update threeport config: %w", err)
+		}
+
+		Info("Creating Threeport IAM role")
+
+		// create IAM role for resource management
+		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
+		resourceManagerRole, err = provider.CreateResourceManagerRole(
+			resource.CreateIAMTags(
+				cpi.Opts.Name,
+				map[string]string{},
+			),
+			resourceManagerRoleName,
+			*callerIdentity.Account,
+			"",
+			"",
+			awsConfigUser,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create runtime manager role: %w", err)
+		}
+
+		// assume IAM role for resource management
+		awsConfigResourceManager, err = resource.AssumeRole(
+			*resourceManagerRole.Arn,
+			"",
+			"",
+			3600,
+			awsConfigUser,
+			[]func(*awsSdkConfig.LoadOptions) error{
+				awsSdkConfig.WithRegion(cpi.Opts.AwsRegion),
+			},
+		)
+		if err != nil {
+			deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, awsConfigUser)
+			if deleteErr != nil {
+				return fmt.Errorf("failed to assume role for AWS resource manager: %w, failed to delete IAM resources: %w", err, deleteErr)
+			}
+			return fmt.Errorf("failed to assume role for AWS resource manager: %w", err)
+		}
+
+		// wait for IAM role to be available
+		Info("Waiting for IAM role to become available...")
+		if err = util.Retry(30, 1, func() error {
+			if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
+				return fmt.Errorf("failed to get caller identity: %w", err)
+			}
+			Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
+
+			// wait 5 seconds to allow IAM resources to become available
+			time.Sleep(time.Second * 5)
+
+			Info("IAM resources created")
+			return nil
+		}); err != nil {
+			deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, awsConfigUser)
+			if deleteErr != nil {
+				return fmt.Errorf("failed to wait for IAM resources to be available: %w, failed to delete IAM resources: %w", err, deleteErr)
+			}
+			return fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
+		}
 
 		// create a resource client to create EKS resources
-		resourceClient := resource.CreateResourceClient(awsConfig)
+		resourceClient := resource.CreateResourceClient(awsConfigResourceManager)
 
 		// capture messages as resources are created and return to user
 		go func() {
@@ -223,7 +327,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		go func() {
 			for inventory := range *resourceClient.InventoryChan {
 				if err := resource.WriteInventory(
-					provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName),
+					provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
 					&inventory,
 				); err != nil {
 					Error("failed to write inventory file", err)
@@ -238,15 +342,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			<-sigs
 			Warning("received Ctrl+C, cleaning up resources...")
 			// allow 2 seconds for pending inventory writes to complete
-			time.Sleep(time.Second * 2)
-			inventory, err := resource.ReadInventory(
-				provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName),
-			)
-			if err != nil {
-				Error("failed to read eks kubernetes runtime inventory for resource deletion", err)
-			}
-			if err = resourceClient.DeleteResourceStack(inventory); err != nil {
-				Error("failed to delete eks kubernetes runtime resources", err)
+			time.Sleep(time.Duration(2) * time.Second)
+			if err := cleanOnCreateError("", nil, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser); err != nil {
+				Error("failed to clean up resources: ", err)
 			}
 			os.Exit(1)
 		}()
@@ -255,9 +353,9 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// deterimine these values
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-			RuntimeInstanceName:          provider.ThreeportRuntimeName(cpi.Opts.InstanceName),
-			AwsAccountID:                 cpi.Opts.CreateProviderAccountID,
-			AwsConfig:                    awsConfig,
+			RuntimeInstanceName:          provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			AwsAccountID:                 *callerIdentity.Account,
+			AwsConfig:                    awsConfigResourceManager,
 			ResourceClient:               resourceClient,
 			ZoneCount:                    int32(2),
 			DefaultNodeGroupInstanceType: "t3.medium",
@@ -266,51 +364,44 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			DefaultNodeGroupMaxNodes:     int32(250),
 		}
 
-		// update threeport config
-		threeportInstanceConfig.EKSProviderConfig = config.EKSProviderConfig{
-			AwsConfigProfile: cpi.Opts.AwsConfigProfile,
-			AwsRegion:        cpi.Opts.AwsRegion,
-			AwsAccountID:     cpi.Opts.CreateProviderAccountID,
-		}
-
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 	}
 
 	// create control plane infra
 	kubeConnectionInfo, err := kubernetesRuntimeInfra.Create()
 	if err != nil {
-		msg := "failed to create control plane infra for threeport"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// since we failed to complete kubernetes runtime creation, delete it to
-		// prevent dangling runtime resources
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to create control plane infra for threeport", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
-	threeportInstanceConfig.KubeAPI = config.KubeAPI{
-		APIEndpoint:   kubeConnectionInfo.APIEndpoint,
-		CACertificate: util.Base64Encode(kubeConnectionInfo.CACertificate),
-		Certificate:   util.Base64Encode(kubeConnectionInfo.Certificate),
-		Key:           util.Base64Encode(kubeConnectionInfo.Key),
-		EKSToken:      util.Base64Encode(kubeConnectionInfo.EKSToken),
+
+	// update threeport config with kube API info
+	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+		c.KubeAPI = config.KubeAPI{
+			APIEndpoint:   kubeConnectionInfo.APIEndpoint,
+			CACertificate: util.Base64Encode(kubeConnectionInfo.CACertificate),
+			Certificate:   util.Base64Encode(kubeConnectionInfo.Certificate),
+			Key:           util.Base64Encode(kubeConnectionInfo.Key),
+			EKSToken:      util.Base64Encode(kubeConnectionInfo.EKSToken),
+		}
+	}); err != nil {
+		return cleanOnCreateError("failed to update threeport config", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
 	// generate encryption key
 	encryptionKey, err := encryption.GenerateKey()
 	if err != nil {
-		return fmt.Errorf("failed to generate encryption key: %w", err)
+		return cleanOnCreateError("failed to generate encryption key", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
-	// set encryption key in threeport config
-	threeportInstanceConfig.EncryptionKey = encryptionKey
-	cpi.Opts.EncryptionKey = encryptionKey
+	// update threeport config with encryption key
+	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+		c.EncryptionKey = encryptionKey
+	}); err != nil {
+		return cleanOnCreateError("failed to update threeport config", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
+	}
 
 	// the kubernetes runtime instance is the default compute space kubernetes runtime to be added
 	// to the API
-	kubernetesRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.InstanceName)
+	kubernetesRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	controlPlaneHost := true
 	defaultRuntime := true
 	instReconciled := true // this instance exists already - we don't need the k8s runtime instance doing anything
@@ -334,17 +425,25 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Location:                  &location,
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		location, err := mapping.GetLocationForAwsRegion(awsConfig.Region)
+
+		// update resource manager role to allow pods to assume it
+		inventory, err := resource.ReadInventory(
+			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
+		)
 		if err != nil {
-			msg := fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfig.Region)
-			// print the error when it happens and then again post-deletion
-			Error(msg, err)
-			err = fmt.Errorf("%s: %w", msg, err)
-			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
-				return err
-			}
-			return err
+			return cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
+		}
+		err = provider.UpdateResourceManagerRoleTrustPolicy(cpi.Opts.ControlPlaneName, *callerIdentity.Account, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
+		if err != nil {
+			return cleanOnCreateError("failed to update resource manager role", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
+		}
+
+		location, err := mapping.GetLocationForAwsRegion(awsConfigResourceManager.Region)
+		if err != nil {
+			return cleanOnCreateError(
+				fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigResourceManager.Region),
+				err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser,
+			)
 		}
 
 		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
@@ -375,15 +474,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		"",
 	)
 	if err != nil {
-		msg := "failed to get a Kubernetes client and mapper"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to get a Kubernetes client and mapper", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
 	// install the threeport control plane dependencies
@@ -392,15 +483,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		mapper,
 		cpi.Opts.InfraProvider,
 	); err != nil {
-		msg := "failed to install threeport control plane dependencies"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to install threeport control plane dependencies", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
 	// if auth is enabled, generate client certificate and add to local config
@@ -410,15 +493,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// get auth config
 		authConfig, err = auth.GetAuthConfig()
 		if err != nil {
-			msg := "failed to get auth config"
-			// print the error when it happens and then again post-deletion
-			Error(msg, err)
-			err = fmt.Errorf("%s: %w", msg, err)
-			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
-				return err
-			}
-			return err
+			return cleanOnCreateError("failed to get auth config", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
 
 		// generate client certificate
@@ -427,84 +502,42 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			&authConfig.CAPrivateKey,
 		)
 		if err != nil {
-			msg := "failed to generate client certificate and private key"
-			// print the error when it happens and then again post-deletion
-			Error(msg, err)
-			err = fmt.Errorf("%s: %w", msg, err)
-			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
-				return err
-			}
-			return err
+			return cleanOnCreateError("failed to generate client certificate and private key", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
 
 		clientCredentials = &config.Credential{
-			Name:       cpi.Opts.InstanceName,
+			Name:       cpi.Opts.ControlPlaneName,
 			ClientCert: util.Base64Encode(clientCertificate),
 			ClientKey:  util.Base64Encode(clientPrivateKey),
 		}
 
-		threeportInstanceConfig.AuthEnabled = true
-		threeportInstanceConfig.Credentials = append(threeportInstanceConfig.Credentials, *clientCredentials)
-		threeportInstanceConfig.CACert = authConfig.CABase64Encoded
-
-	} else {
-		threeportInstanceConfig.AuthEnabled = false
-	}
-
-	// update threeport config and refresh threeport config to updated version
-	config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
-	threeportConfig, _, err = config.GetThreeportConfig("")
-	if err != nil {
-		msg := "failed to refresh threeport config"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
-			return err
+		// update threeport config with auth info
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+			c.AuthEnabled = true
+			c.Credentials = append(c.Credentials, *clientCredentials)
+			c.CACert = authConfig.CABase64Encoded
+		}); err != nil {
+			return fmt.Errorf("failed to update threeport config: %w", err)
 		}
-		return err
+	} else {
+		// update threeport config with auth info
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+			c.AuthEnabled = false
+		}); err != nil {
+			return fmt.Errorf("failed to update threeport config: %w", err)
+		}
 	}
 
 	// get threeport API client
-	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.InstanceName)
+	apiClient, err := threeportConfig.GetHTTPClient(cpi.Opts.ControlPlaneName)
 	if err != nil {
-		msg := "failed to get threeport certificates from config"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
-			return err
-		}
-		return err
-	}
-	apiClient, err := client.GetHTTPClient(cpi.Opts.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
-	if err != nil {
-		msg := "failed to create http client"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to get threeport certificates from config", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
 	// for dev environment, build and load dev images for API and controllers
 	if cpi.Opts.DevEnvironment {
-		if err := tptdev.PrepareDevImages(cpi.Opts.ThreeportPath, provider.ThreeportRuntimeName(cpi.Opts.InstanceName), cpi); err != nil {
-			msg := "failed to build and load dev control plane images"
-			// print the error when it happens and then again post-deletion
-			Error(msg, err)
-			err = fmt.Errorf("%s: %w", msg, err)
-			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, true, cpi); err != nil {
-				return err
-			}
-			return err
+		if err := tptdev.PrepareDevImages(cpi.Opts.ThreeportPath, provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName), cpi); err != nil {
+			return cleanOnCreateError("failed to build and load dev control plane images", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
 	}
 
@@ -517,36 +550,69 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		cpi.Opts.InfraProvider,
 		encryptionKey,
 	); err != nil {
-		msg := "failed to install threeport API server"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to install threeport API server", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
-	// for a cloud provider installed control plane, determine the threeport
-	// API's remote endpoint to add to the threeport config and to add to the
-	// server certificate's alt names when TLS assets are installed
+	// for a cloud provider installed control plane:
+	// * determine the threeport API's remote endpoint to add to the threeport
+	//   config and to add to the server certificate's alt names when TLS
+	//   assets are installed
+	// * install provider-specific kubernetes resources
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		tpapiEndpoint, err := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
 		if err != nil {
-			msg := "failed to get threeport API's public endpoint"
-			// print the error when it happens and then again post-deletion
-			Error(msg, err)
-			err = fmt.Errorf("%s: %w", msg, err)
-			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-				return err
-			}
-			return err
+			return cleanOnCreateError("failed to get threeport API's public endpoint", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
-		threeportAPIEndpoint = tpapiEndpoint
-		threeportInstanceConfig.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+			c.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
+		}); err != nil {
+			return fmt.Errorf("failed to update threeport config: %w", err)
+		}
+
+		// create and configure service accounts for workload and aws controllers,
+		// which will be used to authenticate to AWS via IRSA
+
+		for _, controller := range cpi.Opts.ControllerList {
+			if controller.Name == threeport.ThreeportWorkloadControllerName {
+				controller.ServiceAccountName = threeport.ThreeportWorkloadControllerName
+			}
+
+			if controller.Name == threeport.ThreeportAwsControllerName {
+				controller.ServiceAccountName = threeport.ThreeportAwsControllerName
+			}
+
+			if controller.Name == threeport.ThreeportControlPlaneControllerName {
+				controller.ServiceAccountName = threeport.ThreeportControlPlaneControllerName
+			}
+		}
+
+		for _, name := range []string{
+			threeport.ThreeportWorkloadControllerName,
+			threeport.ThreeportAwsControllerName,
+			threeport.ThreeportControlPlaneControllerName,
+		} {
+			serviceAccount := &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ServiceAccount",
+					"metadata": map[string]interface{}{
+						"name":      name,
+						"namespace": cpi.Opts.Namespace,
+						"annotations": map[string]interface{}{
+							"eks.amazonaws.com/role-arn": fmt.Sprintf(
+								"arn:aws:iam::%s:role/%s",
+								*callerIdentity.Account,
+								provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
+							),
+						},
+					},
+				},
+			}
+			if _, err := kube.CreateResource(serviceAccount, dynamicKubeClient, *mapper); err != nil {
+				return fmt.Errorf("failed to create threeport api service account: %w", err)
+			}
+		}
 	}
 
 	// if auth enabled install the threeport API TLS assets that include the alt
@@ -559,15 +625,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			authConfig,
 			threeportAPIEndpoint,
 		); err != nil {
-			msg := "failed to install threeport API TLS assets"
-			// print the error when it happens and then again post-deletion
-			Error(msg, err)
-			err = fmt.Errorf("%s: %w", msg, err)
-			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-				return err
-			}
-			return err
+			return cleanOnCreateError("failed to install threeport API TLS assets", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 		}
 	}
 
@@ -576,55 +634,30 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	// it is helpful for dev environments and harmless otherwise since the
 	// controllers need the API to be running in order to start
 	Info("Waiting for threeport API to start running...")
-	if err := threeport.WaitForThreeportAPI(
-		apiClient,
-		threeportAPIEndpoint,
-	); err != nil {
-		msg := "threeport API did not come up"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
+	attemptsMax := 30
+	waitDurationSeconds := 10
+	if err = util.Retry(attemptsMax, waitDurationSeconds, func() error {
+		_, err := client.GetResponse(
+			apiClient,
+			fmt.Sprintf("%s/version", threeportAPIEndpoint),
+			http.MethodGet,
+			new(bytes.Buffer),
+			http.StatusOK,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get threeport API version: %w", err)
 		}
-		return err
+		return nil
+	}); err != nil {
+		return cleanOnCreateError(
+			fmt.Sprintf("timed out after %d seconds waiting for 200 response from threeport API", attemptsMax*waitDurationSeconds),
+			err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 	Info("Threeport API is running")
 
-	// get a new kubernetes API client to ensure the connection token does not
-	// expire
-	dynamicKubeClient, mapper, err = kube.GetClient(
-		&kubernetesRuntimeInstance,
-		false,
-		apiClient,
-		threeportAPIEndpoint,
-		"",
-	)
-	if err != nil {
-		msg := "failed to get a new Kubernetes client and mapper"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi); err != nil {
-			return err
-		}
-		return err
-	}
-
 	err = cpi.Opts.PreInstallFunction(dynamicKubeClient, mapper, cpi)
-
 	if err != nil {
-		msg := "failed to run custom preInstall function"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to run custom preInstall function", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
 	// install the controllers
@@ -634,95 +667,39 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		cpi.Opts.DevEnvironment,
 		authConfig,
 	); err != nil {
-		msg := "failed to install threeport controllers"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to install threeport controllers", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
 	err = cpi.Opts.PostInstallFunction(dynamicKubeClient, mapper, cpi)
-
 	if err != nil {
-		msg := "failed to run custom postInstall function"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to run custom postInstall function", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
 	// install the agent
 	if err := cpi.InstallThreeportAgent(
 		dynamicKubeClient,
 		mapper,
-		cpi.Opts.InstanceName,
+		cpi.Opts.ControlPlaneName,
 		cpi.Opts.DevEnvironment,
 		authConfig,
 	); err != nil {
-		msg := "failed to install threeport agent"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to install threeport agent", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
 	// install support services CRDs
 	err = threeport.InstallThreeportCRDs(dynamicKubeClient, mapper)
 	if err != nil {
-		msg := "failed to install threeport support services CRDs"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to install threeport support services CRDs", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
 	// install the support services operator
 	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
 	if err != nil {
-		msg := "failed to install threeport support services operator"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
-		}
-		return err
-	}
-
-	// update threeport config and refresh threeport config to updated version
-	config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
-	threeportConfig, _, err = config.GetThreeportConfig("")
-	if err != nil {
-		msg := "failed to refresh threeport config"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to install threeport support services operator", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
 	// create the default compute space kubernetes runtime definition in threeport API
-	kubernetesRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.InstanceName)
+	kubernetesRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	defReconciled := true // this definition for the bootstrap cluster does not require reconcilation
 	kubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
 		Definition: v0.Definition{
@@ -739,15 +716,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		&kubernetesRuntimeDefinition,
 	)
 	if err != nil {
-		msg := "failed to create new kubernetes runtime definition for default compute space"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to create new kubernetes runtime definition for default compute space", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
 	// create default compute space kubernetes runtime instance in threeport API
@@ -758,15 +727,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		&kubernetesRuntimeInstance,
 	)
 	if err != nil {
-		msg := "failed to create new kubernetes runtime instance for default compute space"
-		// print the error when it happens and then again post-deletion
-		Error(msg, err)
-		err = fmt.Errorf("%s: %w", msg, err)
-		// delete control plane kubernetes runtime
-		if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-			return err
-		}
-		return err
+		return cleanOnCreateError("failed to create new kubernetes runtime instance for default compute space", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
 	// for eks clusters:
@@ -777,29 +738,16 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	// * copy aws eks resource inventory to cluster
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		// create aws account
-		accessKeyID, secretAccessKey, err := provider.GetKeysFromLocalConfig(cpi.Opts.AwsConfigProfile)
-		if err != nil {
-			msg := "failed to get AWS credentials to create default AWS Account"
-			// print the error when it happens and then again post-deletion
-			Error(msg, err)
-			err = fmt.Errorf("%s: %w", msg, err)
-			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-				return err
-			}
-			return err
-		}
+
 		awsAccountName := "default-account"
 		defaultAccount := true
 
 		awsAccount := v0.AwsAccount{
-			Name:            &awsAccountName,
-			AccountID:       &cpi.Opts.CreateProviderAccountID,
-			DefaultAccount:  &defaultAccount,
-			DefaultRegion:   &awsConfig.Region,
-			AccessKeyID:     &accessKeyID,
-			SecretAccessKey: &secretAccessKey,
+			Name:           &awsAccountName,
+			AccountID:      callerIdentity.Account,
+			DefaultAccount: &defaultAccount,
+			DefaultRegion:  &awsConfigResourceManager.Region,
+			RoleArn:        resourceManagerRole.Arn,
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,
@@ -807,34 +755,23 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			&awsAccount,
 		)
 		if err != nil {
-			msg := "failed to create new default AWS account"
-			// print the error when it happens and then again post-deletion
-			Error(msg, err)
-			err = fmt.Errorf("%s: %w", msg, err)
-			// delete control plane kubernetes runtime
-			if err := cleanOnCreateError(err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi); err != nil {
-				return err
-			}
-			return err
+			return cleanOnCreateError("failed to create new default AWS account", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 		}
 
-		// set region in threeport config
-		threeportInstanceConfig.EKSProviderConfig.AwsRegion = awsConfig.Region
-		config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
-
 		// create aws eks k8s runtime definition
-		eksRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.InstanceName)
-		zoneCount := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ZoneCount)
-		defaultNodeGroupInitialSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupInitialNodes)
-		defaultNodeGroupMinSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupMinNodes)
-		defaultNodeGroupMaxSize := int(kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupMaxNodes)
+		eksRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
+		kubernetesRuntimeInfraEKS := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS)
+		zoneCount := int(kubernetesRuntimeInfraEKS.ZoneCount)
+		defaultNodeGroupInitialSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)
+		defaultNodeGroupMinSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)
+		defaultNodeGroupMaxSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)
 		awsEksKubernetesRuntimeDef := v0.AwsEksKubernetesRuntimeDefinition{
 			Definition: v0.Definition{
 				Name: &eksRuntimeDefName,
 			},
 			AwsAccountID:                  createdAwsAccount.ID,
 			ZoneCount:                     &zoneCount,
-			DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).DefaultNodeGroupInstanceType,
+			DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,
 			DefaultNodeGroupMinimumSize:   &defaultNodeGroupMinSize,
 			DefaultNodeGroupMaximumSize:   &defaultNodeGroupMaxSize,
@@ -846,22 +783,22 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			&awsEksKubernetesRuntimeDef,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to create new AWS EKS kubernetes runtime definition for control plane cluster: %w", err)
+			return cleanOnCreateError("failed to create new AWS EKS kubernetes runtime definition for control plane cluster", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 		}
 
 		// create aws eks k8s runtime instance
 		inventory, err := resource.ReadInventory(
-			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName),
+			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
 		)
 		if err != nil {
-			return fmt.Errorf("failed to read eks kubernetes runtime inventory for inventory update: %w", err)
+			return cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 		}
 		inventoryJSON, err := resource.MarshalInventory(inventory)
 		if err != nil {
-			return fmt.Errorf("failed to marshal eks kubernetes runtime inventory for inventory update: %w", err)
+			return cleanOnCreateError("failed to marshal eks kubernetes runtime inventory for inventory update", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 		}
 		dbInventory := datatypes.JSON(inventoryJSON)
-		eksRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.InstanceName)
+		eksRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 		reconciled := true
 		awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
 			Instance: v0.Instance{
@@ -870,7 +807,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			Reconciliation: v0.Reconciliation{
 				Reconciled: &reconciled,
 			},
-			Region:                              &awsConfig.Region,
+			Region:                              &awsConfigResourceManager.Region,
 			AwsEksKubernetesRuntimeDefinitionID: createdAwsEksKubernetesRuntimeDef.ID,
 			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
 			ResourceInventory:                   &dbInventory,
@@ -881,7 +818,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			&awsEksKubernetesRuntimeInstance,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to create new AWS EKS kubernetes runtime instance for control plane cluster: %w", err)
+			return cleanOnCreateError("failed to create new AWS EKS kubernetes runtime instance for control plane cluster", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 		}
 	}
 
@@ -889,7 +826,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	// create control plane definitons and instance for the newly create control plane
 	controlPlaneDefinition := v0.ControlPlaneDefinition{
 		Definition: v0.Definition{
-			Name: &cpi.Opts.InstanceName,
+			Name: &cpi.Opts.ControlPlaneName,
 		},
 		Reconciliation: v0.Reconciliation{
 			Reconciled: &reconciled,
@@ -922,7 +859,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	// construct control plane instance object
 	controlPlaneInstance := v0.ControlPlaneInstance{
 		Instance: v0.Instance{
-			Name: &cpi.Opts.InstanceName,
+			Name: &cpi.Opts.ControlPlaneName,
 		},
 		Reconciliation: v0.Reconciliation{
 			Reconciled: &reconciled,
@@ -948,7 +885,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	Info("Threeport control plane installed")
 	Info("Threeport config updated")
 
-	Complete(fmt.Sprintf("Threeport instance %s created", cpi.Opts.InstanceName))
+	Complete(fmt.Sprintf("Threeport instance %s created", cpi.Opts.ControlPlaneName))
 
 	return nil
 }
@@ -978,25 +915,27 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 
 	// check threeport config for existing instance
 	// find the threeport instance by name
-	threeportInstanceConfigExists := false
-	var threeportInstanceConfig config.ControlPlane
+	threeportControlPlaneConfigExists := false
+	var threeportControlPlaneConfig config.ControlPlane
 	for _, instance := range threeportConfig.ControlPlanes {
-		if instance.Name == cpi.Opts.InstanceName {
-			threeportInstanceConfig = instance
-			threeportInstanceConfigExists = true
+		if instance.Name == cpi.Opts.ControlPlaneName {
+			threeportControlPlaneConfig = instance
+			threeportControlPlaneConfigExists = true
 		}
 	}
-	if !threeportInstanceConfigExists {
-		return errors.New(fmt.Sprintf(
-			"config for threeport instance with name %s not found", cpi.Opts.InstanceName,
-		))
+	if !threeportControlPlaneConfigExists {
+		return fmt.Errorf(
+			"config for threeport instance with name %s not found", cpi.Opts.ControlPlaneName,
+		)
 	}
 
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
-	switch threeportInstanceConfig.Provider {
+	var awsConfigUser *aws.Config
+	var awsConfigResourceManager *aws.Config
+	switch threeportControlPlaneConfig.Provider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
-			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportInstanceConfig.Name),
+			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
 			KubeconfigPath:      cpi.Opts.KubeconfigPath,
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
@@ -1006,17 +945,51 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		//   persisted in threeport config
 		// * AwsConfigProfile and AwsRegion cannot be passed in through CLI for
 		// deletion opertion as these are stored in threeport config
-		awsConfig, err := resource.LoadAWSConfig(
+		awsConfigUser, err = resource.LoadAWSConfig(
 			cpi.Opts.AwsConfigEnv,
-			threeportInstanceConfig.EKSProviderConfig.AwsConfigProfile,
-			threeportInstanceConfig.EKSProviderConfig.AwsRegion,
+			threeportControlPlaneConfig.EKSProviderConfig.AwsConfigProfile,
+			threeportControlPlaneConfig.EKSProviderConfig.AwsRegion,
+			"",
+			"",
+			"",
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
 
-		// create a resource client to create EKS resources
-		resourceClient := resource.CreateResourceClient(awsConfig)
+		// test credentials for awsConfigUser
+		var callerIdentity *sts.GetCallerIdentityOutput
+		if callerIdentity, err = provider.GetCallerIdentity(awsConfigUser); err != nil {
+			return fmt.Errorf("failed to get caller identity: %w", err)
+		}
+		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
+
+		// assume role for AWS resource manager for infra teardown
+		awsConfigResourceManager, err = resource.AssumeRole(
+			provider.GetResourceManagerRoleArn(
+				threeportControlPlaneConfig.Name,
+				threeportControlPlaneConfig.EKSProviderConfig.AwsAccountID,
+			),
+			"",
+			"",
+			3600,
+			*awsConfigUser,
+			[]func(*awsSdkConfig.LoadOptions) error{
+				awsSdkConfig.WithRegion(threeportControlPlaneConfig.EKSProviderConfig.AwsRegion),
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to assume role for AWS resource manager: %w", err)
+		}
+
+		// test credentials for awsConfigResourceManager
+		if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
+			return fmt.Errorf("failed to get caller identity: %w", err)
+		}
+		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
+
+		// create a resource client to delete EKS resources
+		resourceClient := resource.CreateResourceClient(awsConfigResourceManager)
 
 		// capture messages as resources are created and return to user
 		go func() {
@@ -1029,7 +1002,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		go func() {
 			for inventory := range *resourceClient.InventoryChan {
 				if err := resource.WriteInventory(
-					provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName),
+					provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
 					&inventory,
 				); err != nil {
 					Error("failed to write inventory file", err)
@@ -1038,16 +1011,16 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		}()
 
 		// read inventory to delete
-		inventory, err := resource.ReadInventory(provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName))
+		inventory, err := resource.ReadInventory(provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName))
 		if err != nil {
 			return fmt.Errorf("failed to read inventory file for deleting eks kubernetes runtime resources: %w", err)
 		}
 
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportInstanceConfig.Name),
-			AwsAccountID:        cpi.Opts.CreateProviderAccountID,
-			AwsConfig:           awsConfig,
+			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
+			AwsAccountID:        *callerIdentity.Account,
+			AwsConfig:           awsConfigResourceManager,
 			ResourceClient:      resourceClient,
 			ResourceInventory:   inventory,
 		}
@@ -1057,13 +1030,13 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	// if provider is EKS we need to delete the threeport API service to
 	// remove the AWS load balancer before deleting the rest of the infra and
 	// check for existing workload instances that may prevent deletion
-	switch threeportInstanceConfig.Provider {
+	switch threeportControlPlaneConfig.Provider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.InstanceName)
+		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
 		if err != nil {
 			return fmt.Errorf("failed to get threeport certificates from config: %w", err)
 		}
-		apiClient, err := client.GetHTTPClient(threeportInstanceConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
+		apiClient, err := client.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
 		if err != nil {
 			return fmt.Errorf("failed to create http client: %w", err)
 		}
@@ -1072,7 +1045,7 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// any are present
 		workloadInstances, err := client.GetWorkloadInstances(
 			apiClient,
-			threeportInstanceConfig.APIServer,
+			threeportControlPlaneConfig.APIServer,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve workload instances from threeport API: %w", err)
@@ -1084,10 +1057,15 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		// get the kubernetes runtime instance object
 		kubernetesRuntimeInstance, err := client.GetThreeportControlPlaneKubernetesRuntimeInstance(
 			apiClient,
-			threeportInstanceConfig.APIServer,
+			threeportControlPlaneConfig.APIServer,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
+		}
+
+		updatedKubernetesRuntimeInstance, err := refreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
+		if err != nil {
+			return fmt.Errorf("failed to refresh EKS connection with local config: %w", err)
 		}
 
 		// create a client and resource mapper to connect to kubernetes cluster
@@ -1095,47 +1073,25 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		var dynamicKubeClient dynamic.Interface
 		var mapper *meta.RESTMapper
 		dynamicKubeClient, mapper, err = kube.GetClient(
-			kubernetesRuntimeInstance,
+			updatedKubernetesRuntimeInstance,
 			false,
 			apiClient,
-			threeportInstanceConfig.APIServer,
-			threeportInstanceConfig.EncryptionKey,
+			threeportControlPlaneConfig.APIServer,
+			threeportControlPlaneConfig.EncryptionKey,
 		)
 		if err != nil {
-			if kubeerrors.IsUnauthorized(err) {
-				// refresh token, save to kubernetes runtime instance and get kube client
-				kubeConn, err := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).RefreshConnection()
-				if err != nil {
-					return fmt.Errorf("failed to refresh token to connect to EKS kubernetes runtime: %w", err)
-				}
-
-				kubernetesRuntimeInstance.ConnectionToken = &kubeConn.EKSToken
-				updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
-					apiClient,
-					threeportInstanceConfig.APIServer,
-					kubernetesRuntimeInstance,
-				)
-				if err != nil {
-					return fmt.Errorf("failed to update EKS token on kubernetes runtime instance: %w", err)
-				}
-				dynamicKubeClient, mapper, err = kube.GetClient(
-					updatedKubernetesRuntimeInst,
-					false,
-					apiClient,
-					threeportInstanceConfig.APIServer,
-					threeportInstanceConfig.EncryptionKey,
-				)
-				if err != nil {
-					return fmt.Errorf("failed to get a Kubernetes client and mapper with refreshed token: %w", err)
-				}
-			} else {
-				return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
-			}
+			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 		}
 
 		// delete threeport API service to remove load balancer
 		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete threeport API service: %w", err)
+		}
+
+		// delete AWS IAM resources
+		err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
+		if err != nil {
+			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}
 	}
 
@@ -1144,22 +1100,49 @@ func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 		return fmt.Errorf("failed to delete control plane infra: %w", err)
 	}
 
-	switch threeportInstanceConfig.Provider {
+	switch threeportControlPlaneConfig.Provider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// remove inventory file
-		invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName)
+		invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
 		if err := os.Remove(invFile); err != nil {
 			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
 		}
 	}
 
 	// update threeport config to remove deleted threeport instance
-	config.DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.InstanceName)
+	config.DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
 	Info("Threeport config updated")
 
-	Complete(fmt.Sprintf("Threeport instance %s deleted", cpi.Opts.InstanceName))
+	Complete(fmt.Sprintf("Threeport instance %s deleted", cpi.Opts.ControlPlaneName))
 
 	return nil
+}
+
+// refreshEKSConnectionWithLocalConfig uses the local AWS config to refresh
+// EKS connection info on the kubernetes runtime instance object
+func refreshEKSConnectionWithLocalConfig(
+	awsConfig *aws.Config,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	apiClient *http.Client,
+	threeportAPIEndpoint string,
+) (*v0.KubernetesRuntimeInstance, error) {
+	// use local AWS config to get EKS cluster connection info
+	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: *kubernetesRuntimeInstance.Name}
+	if err := eksClusterConn.Get(awsConfig); err != nil {
+		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
+	}
+
+	kubernetesRuntimeInstance.ConnectionToken = &eksClusterConn.Token
+	kubernetesRuntimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
+	updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
+		apiClient,
+		threeportAPIEndpoint,
+		kubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update EKS token on kubernetes runtime instance: %w", err)
+	}
+	return updatedKubernetesRuntimeInst, nil
 }
 
 // validateCreateControlPlaneFlags validates flag inputs as needed
@@ -1167,7 +1150,6 @@ func ValidateCreateControlPlaneFlags(
 	instanceName string,
 	infraProvider string,
 	createRootDomain string,
-	createProviderAccountID string,
 	authEnabled bool,
 ) error {
 	// ensure name length doesn't exceed maximum
@@ -1205,19 +1187,13 @@ func ValidateCreateControlPlaneFlags(
 		)
 	}
 
-	// ensure that AWS account ID is provided if using EKS provider
-	if infraProvider == v0.KubernetesRuntimeInfraProviderEKS && createProviderAccountID == "" {
-		return errors.New(
-			"your AWS account ID must be provided if deploying using the eks provider",
-		)
-	}
-
 	return nil
 }
 
 // cleanOnCreateError cleans up created infra for a control plane when a
 // provisioning error of any kind occurs.
 func cleanOnCreateError(
+	createErrMsg string,
 	createErr error,
 	controlPlane *threeport.ControlPlane,
 	kubernetesRuntimeInfra provider.KubernetesRuntimeInfra,
@@ -1225,7 +1201,15 @@ func cleanOnCreateError(
 	mapper *meta.RESTMapper,
 	cleanConfig bool,
 	cpi *threeport.ControlPlaneInstaller,
+	awsConfig aws.Config,
 ) error {
+
+	if createErrMsg != "" {
+		// print the error when it happens and then again post-deletion
+		Error(createErrMsg, createErr)
+		createErr = fmt.Errorf("%s: %w", createErrMsg, createErr)
+	}
+
 	// if needed, delete control plane workloads to remove related infra, e.g. load
 	// balancers, that will prevent runtime infra deletion
 	if dynamicKubeClient != nil && mapper != nil {
@@ -1237,10 +1221,11 @@ func cleanOnCreateError(
 	// if eks provider, load inventory for deletion
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
+
 		// allow 2 seconds for pending inventory writes to complete
 		time.Sleep(time.Second * 2)
 		inventory, invErr := resource.ReadInventory(
-			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName),
+			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
 		)
 		if invErr != nil {
 			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to read eks kubernetes runtime inventory for resource deletion: %w", createErr, invErr)
@@ -1256,8 +1241,15 @@ func cleanOnCreateError(
 
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
+		Info("Deleting Threeport AWS IAM")
+		err := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, awsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
+		}
+		Info("Threeport AWS IAM resources deleted")
+
 		// remove inventory file
-		invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.InstanceName)
+		invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
 		if err := os.Remove(invFile); err != nil {
 			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
 		}
@@ -1269,8 +1261,8 @@ func cleanOnCreateError(
 			Warning("Threeport config may contain invalid instance for deleted control plane")
 			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to get threeport config: %w", createErr, configErr)
 		}
-		config.DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.InstanceName)
+		config.DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
 	}
 
-	return nil
+	return createErr
 }

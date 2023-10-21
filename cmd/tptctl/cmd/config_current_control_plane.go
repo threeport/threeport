@@ -64,6 +64,13 @@ control plane.`,
 
 		cli.Info("Control plane not found in config")
 
+		// get threeport API client
+		apiClient, err := threeportConfig.GetHTTPClient(currentControlPlane.Name)
+		if err != nil {
+			cli.Error("failed to get threeport API client", err)
+			os.Exit(1)
+		}
+
 		var controlPlaneInstanceToSet *v0.ControlPlaneInstance
 		if currentControlPlane != nil {
 			cli.Info("Checking if child of current control plane")
@@ -72,23 +79,6 @@ control plane.`,
 			apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(currentControlPlane.Name)
 			if err != nil {
 				cli.Error("failed to get threeport API endpoint from config", err)
-				os.Exit(1)
-			}
-
-			// get threeport API client
-			cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled(currentControlPlane.Name)
-			if err != nil {
-				cli.Error("failed to determine if auth is enabled on threeport API", err)
-				os.Exit(1)
-			}
-			ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(currentControlPlane.Name)
-			if err != nil {
-				cli.Error("failed to get threeport certificates from config", err)
-				os.Exit(1)
-			}
-			apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
-			if err != nil {
-				cli.Error("failed to create threeport API client", err)
 				os.Exit(1)
 			}
 
@@ -131,23 +121,6 @@ control plane.`,
 			os.Exit(1)
 		}
 
-		// get threeport API client
-		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled(anyControlPlane.Name)
-		if err != nil {
-			cli.Error("failed to determine if auth is enabled on threeport API", err)
-			os.Exit(1)
-		}
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(anyControlPlane.Name)
-		if err != nil {
-			cli.Error("failed to get threeport certificates from config", err)
-			os.Exit(1)
-		}
-		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
-		if err != nil {
-			cli.Error("failed to create threeport API client", err)
-			os.Exit(1)
-		}
-
 		// get control plane instances
 		controlPlaneInstanceToSet, err = client.GetGenesisControlPlaneInstance(apiClient, apiEndpoint)
 		if err != nil {
@@ -182,10 +155,10 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 		os.Exit(1)
 	}
 
-	var threeportInstanceConfig *config.ControlPlane
+	var threeportControlPlaneConfig *config.ControlPlane
 
 	if !*controlPlaneDefinition.AuthEnabled {
-		threeportInstanceConfig = &config.ControlPlane{
+		threeportControlPlaneConfig = &config.ControlPlane{
 			Name:        *controlPlaneInstanceToSet.Name,
 			APIServer:   *controlPlaneInstanceToSet.ApiServerEndpoint,
 			AuthEnabled: *controlPlaneDefinition.AuthEnabled,
@@ -194,7 +167,7 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 	} else {
 
 		// we construct the instance info for the threeport config and add it
-		threeportInstanceConfig = &config.ControlPlane{
+		threeportControlPlaneConfig = &config.ControlPlane{
 			Name:        *controlPlaneInstanceToSet.Name,
 			APIServer:   *controlPlaneInstanceToSet.ApiServerEndpoint,
 			AuthEnabled: *controlPlaneDefinition.AuthEnabled,
@@ -210,7 +183,7 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 		}
 	}
 
-	config.UpdateThreeportConfig(threeportConfig, threeportInstanceConfig)
+	config.UpdateThreeportConfig(threeportConfig, threeportControlPlaneConfig)
 }
 
 func init() {

@@ -3,11 +3,13 @@ package v0
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -216,6 +218,32 @@ func (cfg *ThreeportConfig) GetThreeportCertificatesForControlPlane(controlPlane
 // provided control plane name.
 func (cfg *ThreeportConfig) SetCurrentControlPlane(controlPlaneName string) {
 	viper.Set("CurrentControlPlane", controlPlaneName)
+}
+
+// GetThreeportHTTPClient returns an HTTP client for a named threeport instance.
+func (cfg *ThreeportConfig) GetHTTPClient(requestedControlPlane string) (*http.Client, error) {
+	authEnabled, err := cfg.GetThreeportAuthEnabled(requestedControlPlane)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get auth enabled: %w", err)
+	}
+
+	ca, clientCertificate, clientPrivateKey, err := cfg.GetThreeportCertificatesForControlPlane(requestedControlPlane)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get threeport certificates: %w", err)
+	}
+
+	apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get http client: %w", err)
+	}
+
+	return apiClient, nil
+}
+
+// SetCurrentInstance updates the threeport config to set CurrentInstance as the
+// provided instance name.
+func (cfg *ThreeportConfig) SetCurrentInstance(instanceName string) {
+	viper.Set("CurrentInstance", instanceName)
 	viper.WriteConfig()
 }
 
@@ -233,6 +261,25 @@ func GetThreeportConfig(requestedControlPlane string) (*ThreeportConfig, string,
 	}
 
 	return threeportConfig, controlPlaneName, nil
+}
+
+// UpdateThreeportConfigInstance updates a threeport instance config
+// and returns the updated threeport config.
+func (c *ControlPlane) UpdateThreeportConfigInstance(f func(*ControlPlane)) (*ThreeportConfig, error) {
+
+	// make requested changes to threeport instance config
+	f(c)
+
+	// pull latest threeport config from disk
+	threeportConfig, _, err := GetThreeportConfig("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get threeport config: %w", err)
+	}
+
+	// sync threeport instance config changes to disk
+	UpdateThreeportConfig(threeportConfig, c)
+
+	return threeportConfig, nil
 }
 
 // UpdateThreeportConfig updates a threeport config to add or update a config

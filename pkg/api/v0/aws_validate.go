@@ -9,7 +9,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
+	"github.com/google/uuid"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // SupportedAwsRelationalDatabaseEngines returns the supported database engines
@@ -125,31 +127,76 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 	if encryptionKey == "" {
 		return errors.New("environment variable ENCRYPTION_KEY is not set")
 	}
+
+	isAccessKeyIDSet := false
+	isSecretAccessKeySet := false
+
 	createdObj := *a
 	objVal := reflect.ValueOf(&createdObj).Elem()
 	objType := objVal.Type()
+	ns := schema.NamingStrategy{}
 	for i := 0; i < objType.NumField(); i++ {
 		field := objType.Field(i)
 		fieldVal := objVal.Field(i)
-		encrypt := field.Tag.Get("encrypt")
-		if encrypt == "true" {
-			if fieldVal.Kind() == reflect.Ptr && !fieldVal.IsNil() {
-				underlyingVal := fieldVal.Elem()
-				createdVal, ok := underlyingVal.Interface().(string)
-				if !ok {
-					return fmt.Errorf("%s field tagged for encryption but not a string value", field.Name)
-				}
-				encryptedVal, err := encryption.Encrypt(encryptionKey, createdVal)
-				if err != nil {
-					return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
-				}
-				// use gorm to get column name from field name
-				ns := schema.NamingStrategy{}
-				columnName := ns.ColumnName("", field.Name)
-				tx.Statement.SetColumn(columnName, encryptedVal)
+
+		// skip nil fields
+		if !util.IsNonNilPtr(fieldVal) {
+			continue
+		}
+
+		// check if AccessKeyID is set
+		if field.Name == "AccessKeyID" {
+			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			if err != nil {
+				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
+			}
+
+			if underlyingValue != "" {
+				isAccessKeyIDSet = true
 			}
 		}
+
+		// check if SecretAccessKey is set
+		if field.Name == "SecretAccessKey" {
+			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			if err != nil {
+				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
+			}
+
+			if underlyingValue != "" {
+				isSecretAccessKeySet = true
+			}
+		}
+
+		// encrypt field if encrypt tag is present
+		encrypt := field.Tag.Get("encrypt")
+		if encrypt == "true" {
+			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			if err != nil {
+				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
+			}
+
+			encryptedVal, err := encryption.Encrypt(encryptionKey, underlyingValue)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
+			}
+
+			// use gorm to get column name from field name
+			columnName := ns.ColumnName("", field.Name)
+			tx.Statement.SetColumn(columnName, encryptedVal)
+		}
 	}
+
+	// validate access & secret access keys
+	if isAccessKeyIDSet && !isSecretAccessKeySet ||
+		!isAccessKeyIDSet && isSecretAccessKeySet {
+		return errors.New("both access key id and secret access key must be set if one of them is provided")
+	}
+
+	// generate and set external ID
+	uuid := uuid.New().String()
+	columnName := ns.ColumnName("", "ExternalId")
+	tx.Statement.SetColumn(columnName, uuid)
 
 	return nil
 }
@@ -168,23 +215,26 @@ func (a *AwsAccount) BeforeUpdate(tx *gorm.DB) error {
 	for i := 0; i < objType.NumField(); i++ {
 		field := objType.Field(i)
 		fieldVal := objVal.Field(i)
+
+		// skip nil fields
+		if !util.IsNonNilPtr(fieldVal) {
+			continue
+		}
+
 		encrypt := field.Tag.Get("encrypt")
 		if encrypt == "true" && tx.Statement.Changed(field.Name) {
-			if fieldVal.Kind() == reflect.Ptr && !fieldVal.IsNil() {
-				underlyingVal := fieldVal.Elem()
-				updatedVal, ok := underlyingVal.Interface().(string)
-				if !ok {
-					return fmt.Errorf("%s field tagged for encryption but not a string value", field.Name)
-				}
-				encryptedVal, err := encryption.Encrypt(encryptionKey, updatedVal)
-				if err != nil {
-					return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
-				}
-				// use gorm to get column name from field name
-				ns := schema.NamingStrategy{}
-				columnName := ns.ColumnName("", field.Name)
-				tx.Statement.SetColumn(columnName, encryptedVal)
+			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			if err != nil {
+				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
+			encryptedVal, err := encryption.Encrypt(encryptionKey, underlyingValue)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
+			}
+			// use gorm to get column name from field name
+			ns := schema.NamingStrategy{}
+			columnName := ns.ColumnName("", field.Name)
+			tx.Statement.SetColumn(columnName, encryptedVal)
 		}
 	}
 
