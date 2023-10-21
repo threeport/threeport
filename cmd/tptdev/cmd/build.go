@@ -9,10 +9,14 @@ import (
 	"sync"
 
 	"github.com/spf13/cobra"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
+	v0 "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 
 var imageNames string
+var parallel int
+var all bool
 
 // buildCmd represents the up command
 var buildCmd = &cobra.Command{
@@ -20,18 +24,31 @@ var buildCmd = &cobra.Command{
 	Short: "Spin up a new threeport development environment",
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		numWorkers := 1 // Number of goroutines to run in parallel
+
+		imageNamesList := []string{}
+		switch all {
+		case true:
+			for _, controller := range v0.ThreeportControllerList {
+				imageNamesList = append(imageNamesList, controller.Name)
+			}
+		case false:
+			imageNamesList = strings.Split(imageNames, ",")
+		}
+
 		jobs := make(chan string)
 		output := make(chan string)
 		var wg sync.WaitGroup
 
-		imageNamesList := strings.Split(imageNames, ",")
 		go outputHandler(output)
 
+		cpi, err := cliArgs.CreateInstaller()
+		if err != nil {
+			cli.Error("failed to create threeport control plane installer", err)
+		}
 		// Start worker goroutines
-		for i := 1; i <= numWorkers; i++ {
+		for i := 1; i <= parallel; i++ {
 			wg.Add(1)
-			go worker(i, jobs, output, &wg)
+			go worker(cpi, i, jobs, output, &wg)
 		}
 
 		for _, imageName := range imageNamesList {
@@ -45,23 +62,15 @@ var buildCmd = &cobra.Command{
 	},
 }
 
-func worker(id int, jobs <-chan string, output chan<- string, wg *sync.WaitGroup) {
+func worker(cpi *v0.ControlPlaneInstaller, id int, jobs <-chan string, output chan<- string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for image := range jobs {
-		cpi, err := cliArgs.CreateInstaller()
-		if err != nil {
-			// cli.Error("failed to create threeport control plane installer", err)
-			output <- fmt.Sprintf("failed to create threeport control plane installer: %v", err)
-			continue
-		}
 
-		tptdev.BuildImage(
+		if err := tptdev.BuildImage(
 			cpi.Opts.ThreeportPath,
 			cliArgs.ControlPlaneImageRepo,
 			cliArgs.ControlPlaneImageTag,
-			image)
-		if err != nil {
-			// cli.Error("failed to create threeport control plane", err)
+			image); err != nil {
 			output <- fmt.Sprintf("failed to create threeport control plane : %v", err)
 			continue
 		}
@@ -92,6 +101,14 @@ func init() {
 	buildCmd.Flags().StringVar(
 		&cliArgs.ControlPlaneImageTag,
 		"control-plane-image-tag", "", "Alternate image tag to pull threeport control plane images from.",
+	)
+	buildCmd.Flags().IntVar(
+		&parallel,
+		"parallel", 3, "Alternate image tag to pull threeport control plane images from.",
+	)
+	buildCmd.Flags().BoolVar(
+		&all,
+		"all", true, "Alternate image tag to pull threeport control plane images from.",
 	)
 	// buildCmd.Flags().BoolVar(
 	// 	&cliArgs.AuthEnabled,
