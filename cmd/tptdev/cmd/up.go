@@ -24,7 +24,7 @@ var upCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		err = cli.CreateControlPlane(cpi)
+		err = cli.CreateGenesisControlPlane(cpi)
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
 			os.Exit(1)

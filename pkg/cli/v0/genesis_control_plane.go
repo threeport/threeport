@@ -37,9 +37,9 @@ import (
 
 var ErrThreeportConfigAlreadyExists = errors.New("threeport config already contains deployed control planes")
 
-// ControlPlaneCLIArgs is the set of control plane arguments passed to one of
+// GenesisControlPlaneCLIArgs is the set of control plane arguments passed to one of
 // the CLI tools.
-type ControlPlaneCLIArgs struct {
+type GenesisControlPlaneCLIArgs struct {
 	AuthEnabled           bool
 	AwsConfigProfile      string
 	AwsConfigEnv          bool
@@ -65,7 +65,7 @@ const tier = threeport.ControlPlaneTierDev
 
 // InitArgs sets the default provider config directory, kubeconfig path and path
 // to threeport repo as needed in the CLI arguments.
-func InitArgs(args *ControlPlaneCLIArgs) {
+func InitArgs(args *GenesisControlPlaneCLIArgs) {
 	// provider config dir
 	if args.ProviderConfigDir == "" {
 		providerConf, err := config.DefaultProviderConfigDir()
@@ -97,7 +97,7 @@ func InitArgs(args *ControlPlaneCLIArgs) {
 	}
 }
 
-func (a *ControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneInstaller, error) {
+func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneInstaller, error) {
 	cpi := threeport.NewInstaller()
 
 	if a.ControlPlaneImageRepo != "" {
@@ -128,9 +128,9 @@ func (a *ControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneInstalle
 	return cpi, nil
 }
 
-// CreateControlPlane uses the CLI arguments to create a new threeport control
+// CreateGenesisControlPlane uses the CLI arguments to create a new threeport control
 // plane.
-func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
+func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
 	// get the threeport config
 	threeportConfig, _, err := config.GetThreeportConfig("")
 	if err != nil {
@@ -151,7 +151,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 
 	genesis := true
 	// flag validation
-	if err := ValidateCreateControlPlaneFlags(
+	if err := ValidateCreateGenesisControlPlaneFlags(
 		cpi.Opts.ControlPlaneName,
 		cpi.Opts.InfraProvider,
 		cpi.Opts.CreateRootDomain,
@@ -215,7 +215,7 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 			// first update the threeport config so the Delete method has
 			// something to reference
 			threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {})
-			if err := DeleteControlPlane(cpi); err != nil {
+			if err := DeleteGenesisControlPlane(cpi); err != nil {
 				Error("failed to delete kind kubernetes runtime", err)
 			}
 			os.Exit(1)
@@ -890,8 +890,8 @@ func CreateControlPlane(customInstaller *threeport.ControlPlaneInstaller) error 
 	return nil
 }
 
-// DeleteControlPlane deletes a threeport control plane.
-func DeleteControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
+// DeleteGenesisControlPlane deletes a threeport control plane.
+func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
 	// get threeport config
 	threeportConfig, requestedControlPlane, err := config.GetThreeportConfig("")
 	if err != nil {
@@ -1146,7 +1146,7 @@ func refreshEKSConnectionWithLocalConfig(
 }
 
 // validateCreateControlPlaneFlags validates flag inputs as needed
-func ValidateCreateControlPlaneFlags(
+func ValidateCreateGenesisControlPlaneFlags(
 	instanceName string,
 	infraProvider string,
 	createRootDomain string,

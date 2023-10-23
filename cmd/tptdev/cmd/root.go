@@ -17,7 +17,7 @@ var rootCmd = &cobra.Command{
 	Long:  `Manage threeport development environments.`,
 }
 
-var cliArgs = &cli.ControlPlaneCLIArgs{}
+var cliArgs = &cli.GenesisControlPlaneCLIArgs{}
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.

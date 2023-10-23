@@ -24,7 +24,7 @@ var DownCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		err = cli.DeleteControlPlane(cpi)
+		err = cli.DeleteGenesisControlPlane(cpi)
 		if err != nil {
 			cli.Error("failed to delete threeport control plane", err)
 			os.Exit(1)
