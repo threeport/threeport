@@ -33,25 +33,25 @@ var upCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(buildCmd)
+	rootCmd.AddCommand(upCmd)
 
-	buildCmd.Flags().StringVarP(
+	upCmd.Flags().StringVarP(
 		&cliArgs.KubeconfigPath,
 		"kubeconfig", "k", "", "Path to kubeconfig (default is ~/.kube/config).",
 	)
-	buildCmd.Flags().BoolVar(
+	upCmd.Flags().BoolVar(
 		&cliArgs.ForceOverwriteConfig,
 		"force-overwrite-config", false, "Force the overwrite of an existing Threeport instance config. Warning: this will erase the connection info for the existing instance.  Only do this if the existing instance has already been deleted and is no longer in use.",
 	)
-	buildCmd.Flags().BoolVar(
+	upCmd.Flags().BoolVar(
 		&cliArgs.AuthEnabled,
 		"auth-enabled", false, "Enable client certificate authentication (default is false).",
 	)
-	buildCmd.Flags().StringVarP(
+	upCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"name", "n", tptdev.DefaultInstanceName, "Name of dev control plane instance.",
 	)
-	buildCmd.Flags().StringVarP(
+	upCmd.Flags().StringVarP(
 		&cliArgs.ThreeportPath,
 		"threeport-path", "t", "", "Path to threeport repository root (default is './').",
 	)
@@ -63,7 +63,7 @@ func init() {
 		&cliArgs.ProviderConfigDir,
 		"provider-config", "", "Path to infra provider config directory (default is $HOME/.config/threeport/).",
 	)
-	buildCmd.Flags().IntVar(
+	upCmd.Flags().IntVar(
 		&cliArgs.NumWorkerNodes,
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
 	)
