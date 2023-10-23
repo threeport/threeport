@@ -17,6 +17,7 @@ import (
 var imageNames string
 var parallel int
 var all bool
+var arch string
 
 // buildCmd represents the up command
 var buildCmd = &cobra.Command{
@@ -77,8 +78,10 @@ var buildCmd = &cobra.Command{
 					if err := tptdev.BuildGoBinary(
 						cpi.Opts.ThreeportPath,
 						image,
+						arch,
 					); err != nil {
 						output <- fmt.Sprintf("failed to build go binary: %v", err)
+						continue
 					}
 
 					// configure image tag
@@ -90,17 +93,20 @@ var buildCmd = &cobra.Command{
 					)
 
 					// build docker image
-					if err := tptdev.BuildDockerImage(
+					if err := tptdev.BuildDockerxImage(
 						cpi.Opts.ThreeportPath,
 						image,
 						tag,
+						arch,
 					); err != nil {
 						output <- fmt.Sprintf("failed to build docker image: %v", err)
+						continue
 					}
 
 					// push docker image
 					if err := tptdev.PushDockerImage(tag); err != nil {
 						output <- fmt.Sprintf("failed to push docker image: %v", err)
+						continue
 					}
 				}
 			}()
@@ -132,13 +138,17 @@ func init() {
 		&cliArgs.ControlPlaneImageTag,
 		"control-plane-image-tag", "", "Alternate image tag to pull threeport control plane images from.",
 	)
+	buildCmd.Flags().StringVar(
+		&arch,
+		"arch", "arm64", "Which architecture to build images for. Defaults to x86. Options are amd64 and arm64.",
+	)
 	buildCmd.Flags().IntVar(
 		&parallel,
 		"parallel", -1, "Number of parallel builds to run. Defaults to number of images specified.",
 	)
 	buildCmd.Flags().BoolVar(
 		&all,
-		"all", true, "Alternate image tag to pull threeport control plane images from.",
+		"all", false, "Alternate image tag to pull threeport control plane images from.",
 	)
 	// buildCmd.Flags().BoolVar(
 	// 	&cliArgs.AuthEnabled,

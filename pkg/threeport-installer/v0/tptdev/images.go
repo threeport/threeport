@@ -97,7 +97,7 @@ func BuildDevImage(threeportPath string) error {
 
 // BuildDevImage builds all the threeport control plane container images using
 // the dev dockerfile to provide live reload of code in the container.
-func BuildGoBinary(threeportPath, imageName string) error {
+func BuildGoBinary(threeportPath, imageName, arch string) error {
 	// set name of main.go file
 	main := "main_gen.go"
 	if imageName == "rest-api" || imageName == "agent" {
@@ -115,6 +115,64 @@ func BuildGoBinary(threeportPath, imageName string) error {
 
 	// construct build command
 	cmd := exec.Command("go", buildArgs...)
+	cmd.Env = os.Environ()
+	goEnv := []string{"GOOS=linux", "GOARCH=" + arch}
+	cmd.Env = append(cmd.Env, goEnv...)
+	cmd.Dir = threeportPath
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to read stdout pipe: %v", err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to read stderr pipe: %v", err)
+	}
+
+	// start build command
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to build threeport-%s: %v", imageName, err)
+	}
+
+	// wait for build command to finish
+	if err := cmd.Wait(); err != nil {
+
+		// capture stdout
+		outputBytes, _ := io.ReadAll(stdout)
+		if len(outputBytes) > 0 {
+			fmt.Println(string(outputBytes))
+		}
+
+		// capture stderr
+		errorBytes, _ := io.ReadAll(stderr)
+		if len(outputBytes) > 0 {
+			fmt.Println(string(errorBytes))
+		}
+		return fmt.Errorf("failed to build threeport-%s: %v", imageName, err)
+	}
+
+	return nil
+}
+
+// BuildDockerxImage builds a specified docker image
+// with the 'docker buildx' command.
+func BuildDockerxImage(threeportPath, imageName, tag, arch string) error {
+
+	// construct build arguments
+	buildArgs := []string{
+		"sudo",
+		"docker",
+		"buildx",
+		"build",
+		"--load",
+		"--platform=linux/" + arch,
+		"-t " + tag,
+		"-f " + "cmd/" + imageName + "/image/Dockerfile-test",
+		threeportPath,
+	}
+	fmt.Printf(strings.Join(buildArgs, " "))
+
+	cmdStr := strings.Join(buildArgs, (" "))
+	cmd := exec.Command("/bin/sh", "-c", cmdStr)
 	cmd.Dir = threeportPath
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
