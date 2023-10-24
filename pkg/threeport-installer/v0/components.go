@@ -1,10 +1,8 @@
 package v0
 
 import (
-	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -1111,68 +1109,46 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 	mapper meta.RESTMapper,
 ) (string, error) {
 	var apiEndpoint string
-	var getEndpointErr error
 
-	attempts := 0
 	maxAttempts := 12
 	waitSeconds := 5
-	apiEndpointRetrieved := false
-	for attempts < maxAttempts {
-		// get the service resource
-		apiService, err := cpi.GetThreeportAPIService(kubeClient, mapper)
-		if err != nil {
-			getEndpointErr = err
-			time.Sleep(time.Second * time.Duration(waitSeconds))
-			attempts += 1
-			continue
-		}
+	if err := util.Retry(maxAttempts, waitSeconds,
+		func() error {
+			apiService, err := cpi.GetThreeportAPIService(kubeClient, mapper)
+			if err != nil {
+				return fmt.Errorf("failed to get threeport API service resource: %w", err)
+			}
 
-		// find the ingress hostname in the service resource
-		status, found, err := unstructured.NestedMap(apiService.Object, "status")
-		if err != nil || !found {
-			getEndpointErr = err
-			time.Sleep(time.Second * time.Duration(waitSeconds))
-			attempts += 1
-			continue
-		}
+			// find the ingress hostname in the service resource
+			status, found, err := unstructured.NestedMap(apiService.Object, "status")
+			if err != nil || !found {
+				return fmt.Errorf("failed to retrieve threeport API service status: %w", err)
+			}
 
-		loadBalancer, found, err := unstructured.NestedMap(status, "loadBalancer")
-		if err != nil || !found {
-			getEndpointErr = err
-			time.Sleep(time.Second * time.Duration(waitSeconds))
-			attempts += 1
-			continue
-		}
+			loadBalancer, found, err := unstructured.NestedMap(status, "loadBalancer")
+			if err != nil || !found {
+				return fmt.Errorf("failed to retrieve threeport API load balancer: %w", err)
+			}
 
-		ingress, found, err := unstructured.NestedSlice(loadBalancer, "ingress")
-		if err != nil || !found || len(ingress) == 0 {
-			getEndpointErr = err
-			time.Sleep(time.Second * time.Duration(waitSeconds))
-			attempts += 1
-			continue
-		}
+			ingress, found, err := unstructured.NestedSlice(loadBalancer, "ingress")
+			if err != nil || !found || len(ingress) == 0 {
+				return fmt.Errorf("failed to retrieve threeport API load balancer ingress: %w", err)
+			}
 
-		firstIngress := ingress[0].(map[string]interface{})
-		apiEndpoint, found, err = unstructured.NestedString(firstIngress, "hostname")
-		if err != nil || !found {
-			getEndpointErr = err
-			time.Sleep(time.Second * time.Duration(waitSeconds))
-			attempts += 1
-			continue
-		}
-		apiEndpointRetrieved = true
-		break
-	}
+			firstIngress := ingress[0].(map[string]interface{})
+			apiEndpoint, found, err = unstructured.NestedString(firstIngress, "hostname")
+			if err != nil || !found {
+				return fmt.Errorf("failed to retrieve threeport API load balancer hostname: %w", err)
+			}
 
-	if !apiEndpointRetrieved {
-		if getEndpointErr == nil {
-			errors.New("hostname for load balancer not found in threeport API service")
-		}
+			return nil
+		},
+	); err != nil {
 		msg := fmt.Sprintf(
 			"timed out after %d seconds trying to retrieve threeport API load balancer endpoint",
 			maxAttempts*waitSeconds,
 		)
-		return apiEndpoint, fmt.Errorf("%s: %w", msg, getEndpointErr)
+		return "", fmt.Errorf("%s: %w", msg, err)
 	}
 
 	return apiEndpoint, nil
