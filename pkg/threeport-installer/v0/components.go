@@ -2,7 +2,6 @@ package v0
 
 import (
 	"fmt"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -397,7 +396,6 @@ func (cpi *ControlPlaneInstaller) InstallController(
 		controllerArgs,
 		controllerVols,
 		controllerVolMounts,
-		false,
 	)
 
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
@@ -1515,7 +1513,7 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 	}
 }
 
-func (cpi *ControlPlaneInstaller) getControllerDeployment(deployName, name, namespace, saName, image string, args, volumes, volumeMounts []interface{}, debug bool) *unstructured.Unstructured {
+func (cpi *ControlPlaneInstaller) getControllerDeployment(deployName, name, namespace, saName, image string, args, volumes, volumeMounts []interface{}) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
