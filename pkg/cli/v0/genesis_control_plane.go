@@ -1060,12 +1060,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete threeport API service: %w", err)
 		}
-
-		// delete AWS IAM resources
-		err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
-		if err != nil {
-			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
-		}
 	}
 
 	// delete control plane infra
@@ -1079,6 +1073,12 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
 		if err := os.Remove(invFile); err != nil {
 			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
+		}
+
+		// delete AWS IAM resources
+		err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
+		if err != nil {
+			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}
 	}
 
