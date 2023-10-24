@@ -201,17 +201,6 @@ func controlPlaneInstanceCreated(
 		}
 	}
 
-	// determine the threeport api endpoint based on infra provider
-	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderKind {
-		threeportAPIEndpoint = fmt.Sprintf("%s.%s", r.APIServer, *controlPlaneRuntimeInstance.Namespace)
-	} else if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
-		tpapiEndpoint, err := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get threeport API's public endpoint: %w", err)
-		}
-		threeportAPIEndpoint = fmt.Sprintf("%s:443", tpapiEndpoint)
-	}
-
 	controlPlaneRuntimeInstance.ApiServerEndpoint = &threeportAPIEndpoint
 	devEnvironment := false
 
@@ -240,6 +229,17 @@ func controlPlaneInstanceCreated(
 		encryptionKey,
 	); err != nil {
 		return 0, fmt.Errorf("failed to install threeport API server: %w", err)
+	}
+
+	// determine the threeport api endpoint based on infra provider
+	switch *kubernetesRuntimeDefinition.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderKind:
+		threeportAPIEndpoint = fmt.Sprintf("%s.%s", r.APIServer, *controlPlaneRuntimeInstance.Namespace)
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get threeport API's public endpoint: %w", err)
+		}
 	}
 
 	// if auth enabled install the threeport API TLS assets that include the alt
