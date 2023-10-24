@@ -259,7 +259,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 		resourceManagerRole, err = provider.CreateResourceManagerRole(
 			resource.CreateIAMTags(
-				cpi.Opts.Name,
+				cpi.Opts.ControlPlaneName,
 				map[string]string{},
 			),
 			resourceManagerRoleName,
@@ -580,10 +580,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		for _, serviceAccount := range provider.GetIRSAServiceAccounts(
 			cpi.Opts.Namespace,
 			*callerIdentity.Account,
-			provider.GetResourceManagerRoleName(cpi.Opts.Name),
+			provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
 		) {
 			if err := cpi.CreateOrUpdateKubeResource(serviceAccount, dynamicKubeClient, mapper); err != nil {
-				return fmt.Errorf("failed to create threeport api service account: %w", err)
+				return cleanOnCreateError("failed to get threeport API's public endpoint", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 			}
 		}
 	}

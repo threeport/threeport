@@ -117,6 +117,7 @@ func controlPlaneInstanceCreated(
 	// Configure installer for new control plane instance
 	var threeportAPIEndpoint string
 	cpi := threeport.NewInstaller(threeport.Namespace(*controlPlaneRuntimeInstance.Namespace))
+	cpi.Opts.ControlPlaneName = *controlPlaneRuntimeInstance.Name
 	cpi.Opts.InThreeport = true
 	// If this is not the first run of the creation reconciler, we want to use createOrUpdate mode
 	cpi.Opts.CreateOrUpdateKubeResources = notFirstRun
@@ -178,10 +179,10 @@ func controlPlaneInstanceCreated(
 		}
 
 		// create resource manager role
-		resourceManagerRoleName := provider.GetResourceManagerRoleName(*controlPlaneRuntimeInstance.Name)
+		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 		_, err = provider.CreateResourceManagerRole(
 			resource.CreateIAMTags(
-				*controlPlaneRuntimeInstance.Name,
+				cpi.Opts.ControlPlaneName,
 				map[string]string{},
 			),
 			resourceManagerRoleName,
@@ -218,7 +219,7 @@ func controlPlaneInstanceCreated(
 		}
 
 		clientCredentials := &config.Credential{
-			Name:       cpi.Opts.Name,
+			Name:       cpi.Opts.ControlPlaneName,
 			ClientCert: util.Base64Encode(clientCertificate),
 			ClientKey:  util.Base64Encode(clientPrivateKey),
 		}
@@ -277,7 +278,7 @@ func controlPlaneInstanceCreated(
 	// * install provider-specific kubernetes resources
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
-		threeportAPIEndpoint = fmt.Sprintf("%s.%s", r.APIServer, *controlPlaneRuntimeInstance.Namespace)
+		threeportAPIEndpoint = fmt.Sprintf("%s.%s", r.APIServer, cpi.Opts.Namespace)
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
 		if err != nil {
@@ -294,7 +295,7 @@ func controlPlaneInstanceCreated(
 		for _, serviceAccount := range provider.GetIRSAServiceAccounts(
 			cpi.Opts.Namespace,
 			*callerIdentity.Account,
-			provider.GetResourceManagerRoleName(cpi.Opts.Name),
+			provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
 		) {
 			if err := cpi.CreateOrUpdateKubeResource(serviceAccount, dynamicKubeClient, mapper); err != nil {
 				return 0, fmt.Errorf("failed to create threeport api service account: %w", err)
