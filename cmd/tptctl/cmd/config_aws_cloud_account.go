@@ -131,6 +131,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			awsAccountId,
 			provider.GetResourceManagerRoleName(requestedControlPlane),
 			*createdAwsAccount.ExternalId,
+			true,
 			*awsConf,
 		)
 		if err != nil {

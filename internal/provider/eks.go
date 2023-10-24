@@ -353,6 +353,7 @@ func CreateResourceManagerRole(
 	accountId,
 	principalRoleName,
 	externalId string,
+	attachPolicy bool,
 	awsConfig aws.Config,
 ) (*types.Role, error) {
 	svc := iam.NewFromConfig(awsConfig)
@@ -379,26 +380,30 @@ func CreateResourceManagerRole(
 		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
 	}
 
-	// create role policy
-	resourceManagerPolicyDocument := ResourceManagerPolicyDocument
-	rolePolicyInput := iam.CreatePolicyInput{
-		PolicyName:     &roleName,
-		Description:    &roleName,
-		PolicyDocument: &resourceManagerPolicyDocument,
-	}
-	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
-	if err != nil {
-		return resourceManagerRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", roleName, err)
-	}
+	// attach policy if requested
+	if attachPolicy {
 
-	// attach role policy
-	attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
-		PolicyArn: createdRolePolicy.Policy.Arn,
-		RoleName:  resourceManagerRoleResp.Role.RoleName,
-	}
-	_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
-	if err != nil {
-		return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, roleName, err)
+		// create role policy
+		resourceManagerPolicyDocument := ResourceManagerPolicyDocument
+		rolePolicyInput := iam.CreatePolicyInput{
+			PolicyName:     &roleName,
+			Description:    &roleName,
+			PolicyDocument: &resourceManagerPolicyDocument,
+		}
+		createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
+		if err != nil {
+			return resourceManagerRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", roleName, err)
+		}
+
+		// attach role policy
+		attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
+			PolicyArn: createdRolePolicy.Policy.Arn,
+			RoleName:  resourceManagerRoleResp.Role.RoleName,
+		}
+		_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
+		if err != nil {
+			return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, roleName, err)
+		}
 	}
 
 	return resourceManagerRoleResp.Role, nil
@@ -589,9 +594,9 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 }
 
 const (
-	ServiceAccountPolicyName     = "ThreeportServiceAccount"
-	RuntimeServiceAccount        = "ThreeportRuntime"
-	ResourceManagerRoleName      = "resource-manager-threeport"
+	ServiceAccountPolicyName      = "ThreeportServiceAccount"
+	RuntimeServiceAccount         = "ThreeportRuntime"
+	ResourceManagerRoleName       = "resource-manager-threeport"
 	ResourceManagerPolicyDocument = `{
 		"Version": "2012-10-17",
 		"Statement": [
