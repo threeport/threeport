@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
+	"github.com/nukleros/eks-cluster/pkg/resource"
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -158,6 +161,49 @@ func controlPlaneInstanceCreated(
 		}
 	}
 
+	// perform provider specific configuration
+	var callerIdentity *sts.GetCallerIdentityOutput
+	switch *kubernetesRuntimeDefinition.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		// create AWS config
+		awsConf, err := resource.LoadAWSConfig(
+			cpi.Opts.AwsConfigEnv,
+			cpi.Opts.AwsConfigProfile,
+			cpi.Opts.AwsRegion,
+			"",
+			"",
+			"",
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
+		}
+		awsConfigResourceManager := *awsConf
+
+		// get account ID
+		if callerIdentity, err = provider.GetCallerIdentity(awsConf); err != nil {
+			return 0, fmt.Errorf("failed to get caller identity: %w", err)
+		}
+
+		// create resource manager role
+		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
+		_, err = provider.CreateResourceManagerRole(
+			resource.CreateIAMTags(
+				cpi.Opts.Name,
+				map[string]string{},
+			),
+			resourceManagerRoleName,
+			*callerIdentity.Account,
+			"",
+			"",
+			false, // don't attach internal resource manager policy
+			awsConfigResourceManager,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create runtime manager role: %w", err)
+		}
+
+	}
+
 	// Determine auth enabled and create config if needed
 	var authConfig *auth.AuthConfig
 	var newApiClient *http.Client
@@ -231,7 +277,11 @@ func controlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to install threeport API server: %w", err)
 	}
 
-	// determine the threeport api endpoint based on infra provider
+	// for a cloud provider installed control plane:
+	// * determine the threeport API's remote endpoint to add to the threeport
+	//   config and to add to the server certificate's alt names when TLS
+	//   assets are installed
+	// * install provider-specific kubernetes resources
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		threeportAPIEndpoint = fmt.Sprintf("%s.%s", r.APIServer, *controlPlaneRuntimeInstance.Namespace)
@@ -239,6 +289,25 @@ func controlPlaneInstanceCreated(
 		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get threeport API's public endpoint: %w", err)
+		}
+
+		// create and configure service accounts for workload and aws controllers,
+		// which will be used to authenticate to AWS via IRSA
+
+		// configure IRSA controllers to use appropriate service account names
+		provider.UpdateIRSAControllerList(cpi.Opts.ControllerList)
+
+		// create IRSA service accounts
+		for _, name := range provider.GetIRSAServiceAccountList() {
+			serviceAccount := provider.GetIRSAServiceAccount(
+				name,
+				cpi.Opts.Namespace,
+				*callerIdentity.Account,
+				provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
+			)
+			if err := cpi.CreateOrUpdateKubeResource(serviceAccount, dynamicKubeClient, mapper); err != nil {
+				return 0, fmt.Errorf("failed to create threeport api service account: %w", err)
+			}
 		}
 	}
 

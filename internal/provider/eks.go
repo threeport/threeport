@@ -16,7 +16,9 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -591,6 +593,56 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 	}
 
 	return string(documentJson), nil
+}
+
+// UpdateIRSAControllerList updates the list of control plane components
+// to be configured for IRSA authentication.
+func UpdateIRSAControllerList(list []*v0.ControlPlaneComponent) {
+	for _, controller := range list {
+		if controller.Name == threeport.ThreeportWorkloadControllerName {
+			controller.ServiceAccountName = threeport.ThreeportWorkloadControllerName
+		}
+
+		if controller.Name == threeport.ThreeportAwsControllerName {
+			controller.ServiceAccountName = threeport.ThreeportAwsControllerName
+		}
+
+		if controller.Name == threeport.ThreeportControlPlaneControllerName {
+			controller.ServiceAccountName = threeport.ThreeportControlPlaneControllerName
+		}
+	}
+}
+
+// GetIRSAServiceAccountList returns the list of service accounts
+// that should be configured for IRSA authentication.
+func GetIRSAServiceAccountList() []string {
+	return []string{
+		threeport.ThreeportWorkloadControllerName,
+		threeport.ThreeportAwsControllerName,
+		threeport.ThreeportControlPlaneControllerName,
+	}
+}
+
+// GetIRSAServiceAccount returns the service account
+// configured for IRSA authentication.
+func GetIRSAServiceAccount(name, namespace, accountId, roleName string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ServiceAccount",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+				"annotations": map[string]interface{}{
+					"eks.amazonaws.com/role-arn": fmt.Sprintf(
+						"arn:aws:iam::%s:role/%s",
+						accountId,
+						roleName,
+					),
+				},
+			},
+		},
+	}
 }
 
 const (

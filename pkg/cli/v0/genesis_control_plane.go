@@ -19,7 +19,6 @@ import (
 	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
@@ -574,43 +573,18 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		// create and configure service accounts for workload and aws controllers,
 		// which will be used to authenticate to AWS via IRSA
 
-		for _, controller := range cpi.Opts.ControllerList {
-			if controller.Name == threeport.ThreeportWorkloadControllerName {
-				controller.ServiceAccountName = threeport.ThreeportWorkloadControllerName
-			}
+		// configure IRSA controllers to use appropriate service account names
+		provider.UpdateIRSAControllerList(cpi.Opts.ControllerList)
 
-			if controller.Name == threeport.ThreeportAwsControllerName {
-				controller.ServiceAccountName = threeport.ThreeportAwsControllerName
-			}
-
-			if controller.Name == threeport.ThreeportControlPlaneControllerName {
-				controller.ServiceAccountName = threeport.ThreeportControlPlaneControllerName
-			}
-		}
-
-		for _, name := range []string{
-			threeport.ThreeportWorkloadControllerName,
-			threeport.ThreeportAwsControllerName,
-			threeport.ThreeportControlPlaneControllerName,
-		} {
-			serviceAccount := &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "v1",
-					"kind":       "ServiceAccount",
-					"metadata": map[string]interface{}{
-						"name":      name,
-						"namespace": cpi.Opts.Namespace,
-						"annotations": map[string]interface{}{
-							"eks.amazonaws.com/role-arn": fmt.Sprintf(
-								"arn:aws:iam::%s:role/%s",
-								*callerIdentity.Account,
-								provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
-							),
-						},
-					},
-				},
-			}
-			if _, err := kube.CreateResource(serviceAccount, dynamicKubeClient, *mapper); err != nil {
+		// create IRSA service accounts
+		for _, name := range provider.GetIRSAServiceAccountList() {
+			serviceAccount := provider.GetIRSAServiceAccount(
+				name,
+				cpi.Opts.Namespace,
+				*callerIdentity.Account,
+				provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
+			)
+			if err := cpi.CreateOrUpdateKubeResource(serviceAccount, dynamicKubeClient, mapper); err != nil {
 				return fmt.Errorf("failed to create threeport api service account: %w", err)
 			}
 		}
