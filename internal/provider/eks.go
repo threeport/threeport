@@ -382,33 +382,46 @@ func CreateResourceManagerRole(
 		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
 	}
 
-	// attach policy if requested
+	// attach assume any role policy
+	if err := AttachPolicy(AssumeAnyRolePolicyDocument, roleName, "assume-any-role", svc); err != nil {
+		return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+	}
+
+	// attach resource manager policy if requested
 	if attachPolicy {
-
-		// create role policy
-		resourceManagerPolicyDocument := ResourceManagerPolicyDocument
-		rolePolicyInput := iam.CreatePolicyInput{
-			PolicyName:     &roleName,
-			Description:    &roleName,
-			PolicyDocument: &resourceManagerPolicyDocument,
-		}
-		createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
-		if err != nil {
-			return resourceManagerRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", roleName, err)
-		}
-
-		// attach role policy
-		attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
-			PolicyArn: createdRolePolicy.Policy.Arn,
-			RoleName:  resourceManagerRoleResp.Role.RoleName,
-		}
-		_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
-		if err != nil {
-			return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, roleName, err)
+		if err := AttachPolicy(ResourceManagerPolicyDocument, roleName, "resource-manager", svc); err != nil {
+			return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
 		}
 	}
 
 	return resourceManagerRoleResp.Role, nil
+}
+
+// AttachPolicy attaches a given document to a role.
+func AttachPolicy(document, roleName, policyName string, svc *iam.Client) error {
+	policyInputName := fmt.Sprintf("%s-%s", roleName, policyName)
+	// create role policy
+	rolePolicyInput := iam.CreatePolicyInput{
+		PolicyName:     &policyInputName,
+		Description:    &roleName,
+		PolicyDocument: &document,
+	}
+	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
+	if err != nil {
+		return fmt.Errorf("failed to create role policy %s: %w", roleName, err)
+	}
+
+	// attach role policy
+	attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
+		PolicyArn: createdRolePolicy.Policy.Arn,
+		RoleName:  &roleName,
+	}
+	_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
+	if err != nil {
+		return fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, roleName, err)
+	}
+
+	return nil
 }
 
 // UpdateResourceManagerRoleTrustPolicy updates the IAM role needed for resource
@@ -646,10 +659,10 @@ func GetIRSAServiceAccount(name, namespace, accountId, roleName string) *unstruc
 }
 
 const (
-	ServiceAccountPolicyName      = "ThreeportServiceAccount"
-	RuntimeServiceAccount         = "ThreeportRuntime"
-	ResourceManagerRoleName       = "resource-manager-threeport"
-	ResourceManagerPolicyDocument = `{
+	ServiceAccountPolicyName    = "ThreeportServiceAccount"
+	RuntimeServiceAccount       = "ThreeportRuntime"
+	ResourceManagerRoleName     = "resource-manager-threeport"
+	AssumeAnyRolePolicyDocument = `{
 		"Version": "2012-10-17",
 		"Statement": [
 			{
@@ -657,7 +670,12 @@ const (
 				"Effect": "Allow",
 				"Action": "sts:AssumeRole",
 				"Resource": "arn:aws:iam::*:role/*"
-			},
+			}
+		]
+	}`
+	ResourceManagerPolicyDocument = `{
+		"Version": "2012-10-17",
+		"Statement": [
 			{
 				"Sid": "EC2andIAMPermissions",
 				"Effect": "Allow",
