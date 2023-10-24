@@ -363,12 +363,12 @@ func CreateResourceManagerRole(
 	}
 
 	// create trust policy document
-	runtimeManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument(principalRoleName, accountId, externalId, "")
+	resourceManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument(principalRoleName, accountId, externalId, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
 	createResourceManagerRoleInput := iam.CreateRoleInput{
-		AssumeRolePolicyDocument: &runtimeManagerTrustPolicyDocument,
+		AssumeRolePolicyDocument: &resourceManagerTrustPolicyDocument,
 		RoleName:                 &roleName,
 		Tags:                     *tags,
 	}
@@ -380,11 +380,11 @@ func CreateResourceManagerRole(
 	}
 
 	// create role policy
-	runtimeManagerPolicyDocument := RuntimeManagerPolicyDocument
+	resourceManagerPolicyDocument := ResourceManagerPolicyDocument
 	rolePolicyInput := iam.CreatePolicyInput{
 		PolicyName:     &roleName,
 		Description:    &roleName,
-		PolicyDocument: &runtimeManagerPolicyDocument,
+		PolicyDocument: &resourceManagerPolicyDocument,
 	}
 	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
 	if err != nil {
@@ -592,7 +592,7 @@ const (
 	ServiceAccountPolicyName     = "ThreeportServiceAccount"
 	RuntimeServiceAccount        = "ThreeportRuntime"
 	ResourceManagerRoleName      = "resource-manager-threeport"
-	RuntimeManagerPolicyDocument = `{
+	ResourceManagerPolicyDocument = `{
 		"Version": "2012-10-17",
 		"Statement": [
 			{
