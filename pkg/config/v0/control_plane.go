@@ -52,7 +52,7 @@ type ControlPlaneInstanceValues struct {
 	Namespace                 string                           `yaml:"Namespace"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	ControlPlaneDefinition    ControlPlaneDefinitionValues     `yaml:"ControlPlaneDefinition"`
-	CustomComponentInfo       []*v0.ControlPlaneComponent      `yaml:"CustomInstallInfo"`
+	CustomComponentInfo       []*v0.ControlPlaneComponent      `yaml:"CustomComponentInfo"`
 }
 
 // Create creates a control plane definition and instance in the Threeport API.
