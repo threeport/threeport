@@ -608,20 +608,23 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 	return string(documentJson), nil
 }
 
+// IRSAServiceAccounts maps a controller to the service
+// account configured for IRSA authentication.
+func IRSAServiceAccounts() map[string]string {
+	return map[string]string{
+		threeport.ThreeportWorkloadControllerName:     threeport.ThreeportWorkloadControllerName,
+		threeport.ThreeportAwsControllerName:          threeport.ThreeportAwsControllerName,
+		threeport.ThreeportControlPlaneControllerName: threeport.ThreeportControlPlaneControllerName,
+	}
+}
+
 // UpdateIRSAControllerList updates the list of control plane components
 // to be configured for IRSA authentication.
 func UpdateIRSAControllerList(list []*v0.ControlPlaneComponent) {
+	serviceAccountsMap := IRSAServiceAccounts()
 	for _, controller := range list {
-		if controller.Name == threeport.ThreeportWorkloadControllerName {
-			controller.ServiceAccountName = threeport.ThreeportWorkloadControllerName
-		}
-
-		if controller.Name == threeport.ThreeportAwsControllerName {
-			controller.ServiceAccountName = threeport.ThreeportAwsControllerName
-		}
-
-		if controller.Name == threeport.ThreeportControlPlaneControllerName {
-			controller.ServiceAccountName = threeport.ThreeportControlPlaneControllerName
+		if _, ok := serviceAccountsMap[controller.Name]; ok {
+			controller.ServiceAccountName = serviceAccountsMap[controller.Name]
 		}
 	}
 }
@@ -630,19 +633,15 @@ func UpdateIRSAControllerList(list []*v0.ControlPlaneComponent) {
 // configured for IRSA authentication.
 func GetIRSAServiceAccounts(namespace, accountId, roleName string) []*unstructured.Unstructured {
 	serviceAccounts := []*unstructured.Unstructured{}
+	serviceAccountsMap := IRSAServiceAccounts()
 
-	for _, name := range []string{
-		threeport.ThreeportWorkloadControllerName,
-		threeport.ThreeportAwsControllerName,
-		threeport.ThreeportControlPlaneControllerName,
-	} {
-
+	for key, _ := range serviceAccountsMap {
 		serviceAccounts = append(serviceAccounts, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",
 				"kind":       "ServiceAccount",
 				"metadata": map[string]interface{}{
-					"name":      name,
+					"name":      key,
 					"namespace": namespace,
 					"annotations": map[string]interface{}{
 						"eks.amazonaws.com/role-arn": fmt.Sprintf(
