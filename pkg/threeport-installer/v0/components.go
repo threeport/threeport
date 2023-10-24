@@ -3,6 +3,7 @@ package v0
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -378,6 +379,24 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 	return nil
 }
 
+// CreateOrUpdateKubeResource creates or updates a Kubernetes resource.
+func (cpi *ControlPlaneInstaller) CreateOrUpdateKubeResource(
+	resource *unstructured.Unstructured,
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	if cpi.Opts.CreateOrUpdateKubeResources {
+		if _, err := kube.CreateOrUpdateResource(resource, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		}
+	} else {
+		if _, err := kube.CreateResource(resource, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to create API server secret for workload controller: %w", err)
+		}
+	}
+	return nil
+}
+
 // InstallController installs a threeport controller by name.
 func (cpi *ControlPlaneInstaller) InstallController(
 	kubeClient dynamic.Interface,
@@ -440,6 +459,7 @@ func (cpi *ControlPlaneInstaller) InstallController(
 		controllerArgs,
 		controllerVols,
 		controllerVolMounts,
+		false,
 	)
 
 	if cpi.Opts.CreateOrUpdateKubeResources {
@@ -1664,7 +1684,7 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 	}
 }
 
-func (cpi *ControlPlaneInstaller) getControllerDeployment(deployName, name, namespace, saName, image string, args, volumes, volumeMounts []interface{}) *unstructured.Unstructured {
+func (cpi *ControlPlaneInstaller) getControllerDeployment(deployName, name, namespace, saName, image string, args, volumes, volumeMounts []interface{}, debug bool) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
