@@ -626,36 +626,36 @@ func UpdateIRSAControllerList(list []*v0.ControlPlaneComponent) {
 	}
 }
 
-// GetIRSAServiceAccountList returns the list of service accounts
-// that should be configured for IRSA authentication.
-func GetIRSAServiceAccountList() []string {
-	return []string{
+// GetIRSAServiceAccounts returns the service account
+// configured for IRSA authentication.
+func GetIRSAServiceAccounts(namespace, accountId, roleName string) []*unstructured.Unstructured {
+	serviceAccounts := []*unstructured.Unstructured{}
+
+	for _, name := range []string{
 		threeport.ThreeportWorkloadControllerName,
 		threeport.ThreeportAwsControllerName,
 		threeport.ThreeportControlPlaneControllerName,
-	}
-}
+	} {
 
-// GetIRSAServiceAccount returns the service account
-// configured for IRSA authentication.
-func GetIRSAServiceAccount(name, namespace, accountId, roleName string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "ServiceAccount",
-			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
-				"annotations": map[string]interface{}{
-					"eks.amazonaws.com/role-arn": fmt.Sprintf(
-						"arn:aws:iam::%s:role/%s",
-						accountId,
-						roleName,
-					),
+		serviceAccounts = append(serviceAccounts, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "ServiceAccount",
+				"metadata": map[string]interface{}{
+					"name":      name,
+					"namespace": namespace,
+					"annotations": map[string]interface{}{
+						"eks.amazonaws.com/role-arn": fmt.Sprintf(
+							"arn:aws:iam::%s:role/%s",
+							accountId,
+							roleName,
+						),
+					},
 				},
 			},
-		},
+		})
 	}
+	return serviceAccounts
 }
 
 const (

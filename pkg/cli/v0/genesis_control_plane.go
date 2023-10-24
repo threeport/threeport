@@ -577,13 +577,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		provider.UpdateIRSAControllerList(cpi.Opts.ControllerList)
 
 		// create IRSA service accounts
-		for _, name := range provider.GetIRSAServiceAccountList() {
-			serviceAccount := provider.GetIRSAServiceAccount(
-				name,
-				cpi.Opts.Namespace,
-				*callerIdentity.Account,
-				provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
-			)
+		for _, serviceAccount := range provider.GetIRSAServiceAccounts(
+			cpi.Opts.Namespace,
+			*callerIdentity.Account,
+			provider.GetResourceManagerRoleName(cpi.Opts.Name),
+		) {
 			if err := cpi.CreateOrUpdateKubeResource(serviceAccount, dynamicKubeClient, mapper); err != nil {
 				return fmt.Errorf("failed to create threeport api service account: %w", err)
 			}
