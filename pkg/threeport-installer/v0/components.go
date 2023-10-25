@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -1094,6 +1095,18 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	if err := kube.DeleteResource(apiService, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to delete the threeport API service resource: %w", err)
 	}
+
+	// wait until the service is deleted
+	util.Retry(24, 5, func() error {
+
+		// get the service resource
+		_, err := cpi.GetThreeportAPIService(kubeClient, *mapper)
+		if err == nil {
+			return errors.New("service still prresent in cluster")
+		}
+
+		return nil
+	})
 
 	return nil
 }
