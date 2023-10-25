@@ -1027,6 +1027,18 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return errors.New("found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane")
 		}
 
+		// get control plane instances
+		controlPlaneInstances, err := client.GetControlPlaneInstances(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve control plane instances from threeport API: %w", err)
+		}
+		if len(*controlPlaneInstances) > 1 {
+			return errors.New("found non-genesis control plane instance(s) that could prevent control plane deletion - delete all non-genesis control plane instances before deleting genesis control plane")
+		}
+
 		// get the kubernetes runtime instance object
 		kubernetesRuntimeInstance, err := client.GetThreeportControlPlaneKubernetesRuntimeInstance(
 			apiClient,
