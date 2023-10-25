@@ -572,6 +572,13 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 		}
 		basenameAndPath := url.Hostname() + url.Path
 
+		// build list of valid condition values
+		conditionValues := []interface{}{}
+		for _, serviceAccount := range IrsaControllerNames() {
+			conditionValue := "system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + serviceAccount
+			conditionValues = append(conditionValues, conditionValue)
+		}
+
 		// construct statement for allowing a kubernetes service account
 		// to assume the role via a federated OIDC provider
 		allowServiceAccountStatement := map[string]interface{}{
@@ -582,11 +589,7 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 			"Action": "sts:AssumeRoleWithWebIdentity",
 			"Condition": map[string]interface{}{
 				"StringEquals": map[string]interface{}{
-					basenameAndPath + ":sub": []interface{}{
-						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + threeport.ThreeportWorkloadControllerName,
-						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + threeport.ThreeportAwsControllerName,
-						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + threeport.ThreeportControlPlaneControllerName,
-					},
+					basenameAndPath + ":sub": conditionValues,
 				},
 			},
 		}
@@ -608,35 +611,35 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 	return string(documentJson), nil
 }
 
-// IRSAServiceAccounts maps a controller to the service
-// account configured for IRSA authentication.
-func IRSAServiceAccounts() map[string]string {
-	return map[string]string{
-		threeport.ThreeportWorkloadControllerName:     threeport.ThreeportWorkloadControllerName,
-		threeport.ThreeportAwsControllerName:          threeport.ThreeportAwsControllerName,
-		threeport.ThreeportControlPlaneControllerName: threeport.ThreeportControlPlaneControllerName,
+// IrsaControllerNames returns a list of controllers
+// which are configured for IRSA authentication.
+func IrsaControllerNames() []string {
+	return []string{
+		threeport.ThreeportAwsControllerName,
+		threeport.ThreeportWorkloadControllerName,
+		threeport.ThreeportControlPlaneControllerName,
 	}
 }
 
-// UpdateIRSAControllerList updates the list of control plane components
+// UpdateIrsaControllerList updates the list of control plane components
 // to be configured for IRSA authentication.
-func UpdateIRSAControllerList(list []*v0.ControlPlaneComponent) {
-	serviceAccountsMap := IRSAServiceAccounts()
+func UpdateIrsaControllerList(list []*v0.ControlPlaneComponent) {
+	serviceAccounts := IrsaControllerNames()
 	for _, controller := range list {
-		if _, ok := serviceAccountsMap[controller.Name]; ok {
-			controller.ServiceAccountName = serviceAccountsMap[controller.Name]
+		if util.StringListContains(controller.Name, serviceAccounts) {
+			controller.ServiceAccountName = controller.Name
 		}
 	}
 }
 
-// GetIRSAServiceAccounts returns the service account
+// GetIrsaServiceAccounts returns the service account
 // configured for IRSA authentication.
-func GetIRSAServiceAccounts(namespace, accountId, roleName string) []*unstructured.Unstructured {
-	serviceAccounts := []*unstructured.Unstructured{}
-	serviceAccountsMap := IRSAServiceAccounts()
+func GetIrsaServiceAccounts(namespace, accountId, roleName string) []*unstructured.Unstructured {
+	serviceAccounts := IrsaControllerNames()
 
-	for key, _ := range serviceAccountsMap {
-		serviceAccounts = append(serviceAccounts, &unstructured.Unstructured{
+	output := []*unstructured.Unstructured{}
+	for key, _ := range serviceAccounts {
+		output = append(output, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",
 				"kind":       "ServiceAccount",
@@ -654,7 +657,7 @@ func GetIRSAServiceAccounts(namespace, accountId, roleName string) []*unstructur
 			},
 		})
 	}
-	return serviceAccounts
+	return output
 }
 
 const (

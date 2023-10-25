@@ -85,3 +85,13 @@ func Base64Decode(str string) (string, error) {
 	}
 	return string(decoded), nil
 }
+
+// StringListContains returns true if a string is in a list of strings.
+func StringListContains(value string, input []string) bool {
+	for _, i := range input {
+		if i == value {
+			return true
+		}
+	}
+	return false
+}

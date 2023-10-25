@@ -289,10 +289,10 @@ func controlPlaneInstanceCreated(
 		// which will be used to authenticate to AWS via IRSA
 
 		// configure IRSA controllers to use appropriate service account names
-		provider.UpdateIRSAControllerList(cpi.Opts.ControllerList)
+		provider.UpdateIrsaControllerList(cpi.Opts.ControllerList)
 
 		// create IRSA service accounts
-		for _, serviceAccount := range provider.GetIRSAServiceAccounts(
+		for _, serviceAccount := range provider.GetIrsaServiceAccounts(
 			cpi.Opts.Namespace,
 			*callerIdentity.Account,
 			provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
