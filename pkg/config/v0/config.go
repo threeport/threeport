@@ -218,6 +218,7 @@ func (cfg *ThreeportConfig) GetThreeportCertificatesForControlPlane(controlPlane
 // provided control plane name.
 func (cfg *ThreeportConfig) SetCurrentControlPlane(controlPlaneName string) {
 	viper.Set("CurrentControlPlane", controlPlaneName)
+	viper.WriteConfig()
 }
 
 // GetThreeportHTTPClient returns an HTTP client for a named threeport instance.
