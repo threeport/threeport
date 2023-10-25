@@ -31,7 +31,7 @@ var ConfigGetControlPlanesCmd = &cobra.Command{
 
 		// check to see if current control plane is set
 		if threeportConfig.CurrentControlPlane == "" {
-			cli.Warning("current control plane is not set - set it with 'tptctl config current-control-plane --control-plane-name <control-plane-name> --control-plane-group-name <group-name>'")
+			cli.Warning("current control plane is not set - set it with 'tptctl config current-control-plane --control-plane-name <control-plane-name>'")
 		}
 
 		// output table of results

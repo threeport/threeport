@@ -21,7 +21,7 @@ var configCurrentControlPlaneName string
 // ConfigCurrentControlPlaneCmd represents the current-instance command
 var ConfigCurrentControlPlaneCmd = &cobra.Command{
 	Use:     "current-control-plane",
-	Example: "tptctl config current-control-plane --control-plane-name testport --control-plane-group-name my-threeport",
+	Example: "tptctl config current-control-plane --control-plane-name testport",
 	Short:   "Set a threeport control plane as the current in-use control plane",
 	Long: `Set a threeport control plane as the current in-use control plane.  Once set as
 the current control plane all subsequent tptctl commands will apply to that Threeport
