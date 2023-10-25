@@ -638,13 +638,13 @@ func GetIrsaServiceAccounts(namespace, accountId, roleName string) []*unstructur
 	serviceAccounts := IrsaControllerNames()
 
 	output := []*unstructured.Unstructured{}
-	for key, _ := range serviceAccounts {
+	for _, name := range serviceAccounts {
 		output = append(output, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",
 				"kind":       "ServiceAccount",
 				"metadata": map[string]interface{}{
-					"name":      key,
+					"name":      name,
 					"namespace": namespace,
 					"annotations": map[string]interface{}{
 						"eks.amazonaws.com/role-arn": fmt.Sprintf(
