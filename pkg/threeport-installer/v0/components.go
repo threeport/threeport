@@ -243,10 +243,10 @@ NATS_PORT=4222
 			"apiVersion": "v1",
 			"kind":       "Service",
 			"metadata": map[string]interface{}{
-				"name":      cpi.Opts.RestApiInfo.ServiceResourceName,
-				"namespace": cpi.Opts.Namespace,
+				"name":        cpi.Opts.RestApiInfo.ServiceResourceName,
+				"namespace":   cpi.Opts.Namespace,
+				"annotations": apiServiceAnnotations,
 			},
-			"annotations": apiServiceAnnotations,
 			"spec": map[string]interface{}{
 				"selector": map[string]interface{}{
 					"app.kubernetes.io/name": cpi.Opts.RestApiInfo.ServiceResourceName,
@@ -368,7 +368,20 @@ func (cpi *ControlPlaneInstaller) InstallController(
 			return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
 		}
 
-		ca := cpi.getTLSSecret(fmt.Sprintf("%s-ca", installInfo.Name), authConfig.CAPemEncoded, "")
+		ca := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Secret",
+				"type":       "Opaque",
+				"metadata": map[string]interface{}{
+					"name":      fmt.Sprintf("%s-ca", installInfo.Name),
+					"namespace": cpi.Opts.Namespace,
+				},
+				"stringData": map[string]interface{}{
+					"tls.crt": authConfig.CAPemEncoded,
+				},
+			},
+		}
 		if err := cpi.CreateOrUpdateKubeResource(ca, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create API server ca secret for workload controller: %w", err)
 		}
@@ -425,7 +438,20 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			return fmt.Errorf("failed to generate client certificate and private key for threeport agent: %w", err)
 		}
 
-		var agentCa = cpi.getTLSSecret("agent-ca", authConfig.CAPemEncoded, "")
+		agentCa := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Secret",
+				"type":       "Opaque",
+				"metadata": map[string]interface{}{
+					"name":      "agent-ca",
+					"namespace": cpi.Opts.Namespace,
+				},
+				"stringData": map[string]interface{}{
+					"tls.crt": authConfig.CAPemEncoded,
+				},
+			},
+		}
 		if err := cpi.CreateOrUpdateKubeResource(agentCa, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create/update API server ca secret for threeport agent: %w", err)
 		}
