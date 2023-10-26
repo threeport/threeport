@@ -33,7 +33,7 @@ var UpCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// flag validation
-		if err := cli.ValidateCreateControlPlaneFlags(
+		if err := cli.ValidateCreateGenesisControlPlaneFlags(
 			cliArgs.ControlPlaneName,
 			cliArgs.InfraProvider,
 			cliArgs.CreateRootDomain,
@@ -48,7 +48,7 @@ var UpCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		err = cli.CreateControlPlane(cpi)
+		err = cli.CreateGenesisControlPlane(cpi)
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
 			if errors.Is(cli.ErrThreeportConfigAlreadyExists, err) {

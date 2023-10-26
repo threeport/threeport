@@ -52,7 +52,7 @@ type ControlPlaneInstanceValues struct {
 	Namespace                 string                           `yaml:"Namespace"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	ControlPlaneDefinition    ControlPlaneDefinitionValues     `yaml:"ControlPlaneDefinition"`
-	CustomInstallInfo         []*v0.ControlPlaneComponent      `yaml:"CustomInstallInfo"`
+	CustomComponentInfo       []*v0.ControlPlaneComponent      `yaml:"CustomComponentInfo"`
 }
 
 // Create creates a control plane definition and instance in the Threeport API.
@@ -73,7 +73,7 @@ func (c *ControlPlaneValues) Create(apiClient *http.Client, apiEndpoint string) 
 		Name:                      c.Name,
 		Namespace:                 c.Namespace,
 		KubernetesRuntimeInstance: c.KubernetesRuntimeInstance,
-		CustomInstallInfo:         c.CustomComponentInfo,
+		CustomComponentInfo:       c.CustomComponentInfo,
 		ControlPlaneDefinition: ControlPlaneDefinitionValues{
 			Name: c.Name,
 		},
@@ -239,7 +239,7 @@ func (ci *ControlPlaneInstanceValues) Create(apiClient *http.Client, apiEndpoint
 		},
 		Namespace:                   &ci.Namespace,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		CustomComponentInfo:         ci.CustomInstallInfo,
+		CustomComponentInfo:         ci.CustomComponentInfo,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
 

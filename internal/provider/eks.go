@@ -16,7 +16,9 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/nukleros/eks-cluster/pkg/connection"
 	"github.com/nukleros/eks-cluster/pkg/resource"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -353,6 +355,7 @@ func CreateResourceManagerRole(
 	accountId,
 	principalRoleName,
 	externalId string,
+	attachPolicy bool,
 	awsConfig aws.Config,
 ) (*types.Role, error) {
 	svc := iam.NewFromConfig(awsConfig)
@@ -363,12 +366,12 @@ func CreateResourceManagerRole(
 	}
 
 	// create trust policy document
-	runtimeManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument(principalRoleName, accountId, externalId, "")
+	resourceManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument(principalRoleName, accountId, externalId, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
 	createResourceManagerRoleInput := iam.CreateRoleInput{
-		AssumeRolePolicyDocument: &runtimeManagerTrustPolicyDocument,
+		AssumeRolePolicyDocument: &resourceManagerTrustPolicyDocument,
 		RoleName:                 &roleName,
 		Tags:                     *tags,
 	}
@@ -379,29 +382,46 @@ func CreateResourceManagerRole(
 		return nil, fmt.Errorf("failed to create role %s: %w", roleName, err)
 	}
 
+	// attach assume any role policy
+	if err := AttachPolicy(AssumeAnyRolePolicyDocument, roleName, "assume-any-role", svc); err != nil {
+		return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+	}
+
+	// attach resource manager policy if requested
+	if attachPolicy {
+		if err := AttachPolicy(ResourceManagerPolicyDocument, roleName, "resource-manager", svc); err != nil {
+			return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+		}
+	}
+
+	return resourceManagerRoleResp.Role, nil
+}
+
+// AttachPolicy attaches a given document to a role.
+func AttachPolicy(document, roleName, policyName string, svc *iam.Client) error {
+	policyInputName := fmt.Sprintf("%s-%s", roleName, policyName)
 	// create role policy
-	runtimeManagerPolicyDocument := RuntimeManagerPolicyDocument
 	rolePolicyInput := iam.CreatePolicyInput{
-		PolicyName:     &roleName,
+		PolicyName:     &policyInputName,
 		Description:    &roleName,
-		PolicyDocument: &runtimeManagerPolicyDocument,
+		PolicyDocument: &document,
 	}
 	createdRolePolicy, err := svc.CreatePolicy(context.Background(), &rolePolicyInput)
 	if err != nil {
-		return resourceManagerRoleResp.Role, fmt.Errorf("failed to create role policy %s: %w", roleName, err)
+		return fmt.Errorf("failed to create role policy %s: %w", roleName, err)
 	}
 
 	// attach role policy
 	attachResourceManagerRolePolicyInput := iam.AttachRolePolicyInput{
 		PolicyArn: createdRolePolicy.Policy.Arn,
-		RoleName:  resourceManagerRoleResp.Role.RoleName,
+		RoleName:  &roleName,
 	}
 	_, err = svc.AttachRolePolicy(context.Background(), &attachResourceManagerRolePolicyInput)
 	if err != nil {
-		return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, roleName, err)
+		return fmt.Errorf("failed to attach role policy %s to %s: %w", *createdRolePolicy.Policy.Arn, roleName, err)
 	}
 
-	return resourceManagerRoleResp.Role, nil
+	return nil
 }
 
 // UpdateResourceManagerRoleTrustPolicy updates the IAM role needed for resource
@@ -552,6 +572,13 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 		}
 		basenameAndPath := url.Hostname() + url.Path
 
+		// build list of valid condition values
+		conditionValues := []interface{}{}
+		for _, serviceAccount := range IrsaControllerNames() {
+			conditionValue := "system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + serviceAccount
+			conditionValues = append(conditionValues, conditionValue)
+		}
+
 		// construct statement for allowing a kubernetes service account
 		// to assume the role via a federated OIDC provider
 		allowServiceAccountStatement := map[string]interface{}{
@@ -562,11 +589,7 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 			"Action": "sts:AssumeRoleWithWebIdentity",
 			"Condition": map[string]interface{}{
 				"StringEquals": map[string]interface{}{
-					basenameAndPath + ":sub": []interface{}{
-						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + threeport.ThreeportWorkloadControllerName,
-						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + threeport.ThreeportAwsControllerName,
-						"system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + threeport.ThreeportControlPlaneControllerName,
-					},
+					basenameAndPath + ":sub": conditionValues,
 				},
 			},
 		}
@@ -588,11 +611,60 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 	return string(documentJson), nil
 }
 
+// IrsaControllerNames returns a list of controllers
+// which are configured for IRSA authentication.
+func IrsaControllerNames() []string {
+	return []string{
+		threeport.ThreeportAwsControllerName,
+		threeport.ThreeportWorkloadControllerName,
+		threeport.ThreeportControlPlaneControllerName,
+	}
+}
+
+// UpdateIrsaControllerList updates the list of control plane components
+// to be configured for IRSA authentication.
+func UpdateIrsaControllerList(list []*v0.ControlPlaneComponent) {
+	serviceAccounts := IrsaControllerNames()
+	for _, controller := range list {
+		if util.StringListContains(controller.Name, serviceAccounts) {
+			controller.ServiceAccountName = controller.Name
+		}
+	}
+}
+
+// GetIrsaServiceAccounts returns the service account
+// configured for IRSA authentication.
+func GetIrsaServiceAccounts(namespace, accountId, roleName string) []*unstructured.Unstructured {
+	serviceAccounts := IrsaControllerNames()
+
+	output := []*unstructured.Unstructured{}
+	for _, name := range serviceAccounts {
+		output = append(output, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "ServiceAccount",
+				"metadata": map[string]interface{}{
+					"name":      name,
+					"namespace": namespace,
+					"annotations": map[string]interface{}{
+						"eks.amazonaws.com/role-arn": fmt.Sprintf(
+							"arn:aws:iam::%s:role/%s",
+							accountId,
+							roleName,
+						),
+					},
+				},
+			},
+		})
+	}
+	return output
+}
+
 const (
-	ServiceAccountPolicyName     = "ThreeportServiceAccount"
-	RuntimeServiceAccount        = "ThreeportRuntime"
-	ResourceManagerRoleName      = "resource-manager-threeport"
-	RuntimeManagerPolicyDocument = `{
+	ServiceAccountPolicyName    = "ThreeportServiceAccount"
+	RuntimeServiceAccount       = "ThreeportRuntime"
+	ResourceManagerRoleName     = "resource-manager-threeport"
+	AssumeAnyRolePolicyDocument = `{
 		"Version": "2012-10-17",
 		"Statement": [
 			{
@@ -600,7 +672,12 @@ const (
 				"Effect": "Allow",
 				"Action": "sts:AssumeRole",
 				"Resource": "arn:aws:iam::*:role/*"
-			},
+			}
+		]
+	}`
+	ResourceManagerPolicyDocument = `{
+		"Version": "2012-10-17",
+		"Statement": [
 			{
 				"Sid": "EC2andIAMPermissions",
 				"Effect": "Allow",

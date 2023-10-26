@@ -6,8 +6,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
-
-	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 // CreateThreeportControlPlaneNamespace creates the threeport control plane
@@ -25,14 +23,8 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 			},
 		},
 	}
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if _, err := kube.CreateOrUpdateResource(namespace, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update namespace: %w", err)
-		}
-	} else {
-		if _, err := kube.CreateResource(namespace, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create namespace: %w", err)
-		}
+	if err := cpi.CreateOrUpdateKubeResource(namespace, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
 	return nil
@@ -77,14 +69,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 		},
 	}
 
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if _, err := kube.CreateOrUpdateResource(natsPDB, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update nats pod disruption budget: %w", err)
-		}
-	} else {
-		if _, err := kube.CreateResource(natsPDB, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create nats pod disruption budget: %w", err)
-		}
+	if err := cpi.CreateOrUpdateKubeResource(natsPDB, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
 	var natsServiceAccount = &unstructured.Unstructured{
@@ -102,14 +88,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 			},
 		},
 	}
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if _, err := kube.CreateOrUpdateResource(natsServiceAccount, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update nats service account: %w", err)
-		}
-	} else {
-		if _, err := kube.CreateResource(natsServiceAccount, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create nats service account: %w", err)
-		}
+	if err := cpi.CreateOrUpdateKubeResource(natsServiceAccount, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
 	var natsConfig = &unstructured.Unstructured{
@@ -155,14 +135,8 @@ store_dir: /data
 		},
 	}
 
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if _, err := kube.CreateOrUpdateResource(natsConfig, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update nats configmap: %w", err)
-		}
-	} else {
-		if _, err := kube.CreateResource(natsConfig, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create nats configmap: %w", err)
-		}
+	if err := cpi.CreateOrUpdateKubeResource(natsConfig, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
 	var natsService = &unstructured.Unstructured{
@@ -221,14 +195,8 @@ store_dir: /data
 		},
 	}
 
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if _, err := kube.CreateOrUpdateResource(natsService, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update nats service: %w", err)
-		}
-	} else {
-		if _, err := kube.CreateResource(natsService, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create nats service: %w", err)
-		}
+	if err := cpi.CreateOrUpdateKubeResource(natsService, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
 	var natsBoxDeployment = &unstructured.Unstructured{
@@ -284,14 +252,8 @@ store_dir: /data
 		},
 	}
 
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if _, err := kube.CreateOrUpdateResource(natsBoxDeployment, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update nats box deployment: %w", err)
-		}
-	} else {
-		if _, err := kube.CreateResource(natsBoxDeployment, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create nats box deployment: %w", err)
-		}
+	if err := cpi.CreateOrUpdateKubeResource(natsBoxDeployment, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
 	var natsStatefulSet = &unstructured.Unstructured{
@@ -558,14 +520,8 @@ store_dir: /data
 		},
 	}
 
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if _, err := kube.CreateOrUpdateResource(natsStatefulSet, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update nats stateful set: %w", err)
-		}
-	} else {
-		if _, err := kube.CreateResource(natsStatefulSet, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create nats stateful set: %w", err)
-		}
+	if err := cpi.CreateOrUpdateKubeResource(natsStatefulSet, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
 	var crdbPDB = &unstructured.Unstructured{
@@ -593,14 +549,8 @@ store_dir: /data
 		},
 	}
 
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if _, err := kube.CreateOrUpdateResource(crdbPDB, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update cockroach DB pod disruption budget: %w", err)
-		}
-	} else {
-		if _, err := kube.CreateResource(crdbPDB, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create cockroach DB pod disruption budget: %w", err)
-		}
+	if err := cpi.CreateOrUpdateKubeResource(crdbPDB, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
 	var crdbService = &unstructured.Unstructured{
@@ -658,14 +608,8 @@ store_dir: /data
 		},
 	}
 
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if _, err := kube.CreateOrUpdateResource(crdbService, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update cockroach DB service: %w", err)
-		}
-	} else {
-		if _, err := kube.CreateResource(crdbService, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create cockroach DB service: %w", err)
-		}
+	if err := cpi.CreateOrUpdateKubeResource(crdbService, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
 	var crdbStatefulSet = &unstructured.Unstructured{
@@ -845,16 +789,9 @@ store_dir: /data
 		},
 	}
 
-	if cpi.Opts.CreateOrUpdateKubeResources {
-		if _, err := kube.CreateOrUpdateResource(crdbStatefulSet, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update cockroach DB stateful set: %w", err)
-		}
-	} else {
-		if _, err := kube.CreateResource(crdbStatefulSet, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create cockroach DB stateful set: %w", err)
-		}
+	if err := cpi.CreateOrUpdateKubeResource(crdbStatefulSet, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
-
 	return nil
 }
 

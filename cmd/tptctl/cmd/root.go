@@ -11,7 +11,7 @@ import (
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 )
 
-var cliArgs = &cli.ControlPlaneCLIArgs{}
+var cliArgs = &cli.GenesisControlPlaneCLIArgs{}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{

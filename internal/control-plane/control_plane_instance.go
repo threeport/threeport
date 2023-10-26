@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
+	"github.com/nukleros/eks-cluster/pkg/resource"
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -114,6 +117,7 @@ func controlPlaneInstanceCreated(
 	// Configure installer for new control plane instance
 	var threeportAPIEndpoint string
 	cpi := threeport.NewInstaller(threeport.Namespace(*controlPlaneRuntimeInstance.Namespace))
+	cpi.Opts.ControlPlaneName = *controlPlaneRuntimeInstance.Name
 	cpi.Opts.InThreeport = true
 	// If this is not the first run of the creation reconciler, we want to use createOrUpdate mode
 	cpi.Opts.CreateOrUpdateKubeResources = notFirstRun
@@ -156,6 +160,42 @@ func controlPlaneInstanceCreated(
 		if customInfo.Enabled != nil {
 			installInfo.Enabled = customInfo.Enabled
 		}
+	}
+
+	// perform provider specific configuration
+	var callerIdentity *sts.GetCallerIdentityOutput
+	switch *kubernetesRuntimeDefinition.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		// create AWS config
+		awsConf, err := resource.LoadAWSConfig(false, "", "", "", "", "")
+		if err != nil {
+			return 0, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
+		}
+		awsConfigResourceManager := *awsConf
+
+		// get account ID
+		if callerIdentity, err = provider.GetCallerIdentity(awsConf); err != nil {
+			return 0, fmt.Errorf("failed to get caller identity: %w", err)
+		}
+
+		// create resource manager role
+		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
+		_, err = provider.CreateResourceManagerRole(
+			resource.CreateIAMTags(
+				cpi.Opts.ControlPlaneName,
+				map[string]string{},
+			),
+			resourceManagerRoleName,
+			*callerIdentity.Account,
+			"",
+			"",
+			false, // don't attach internal resource manager policy
+			awsConfigResourceManager,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create runtime manager role: %w", err)
+		}
+
 	}
 
 	// Determine auth enabled and create config if needed
@@ -201,17 +241,6 @@ func controlPlaneInstanceCreated(
 		}
 	}
 
-	// determine the threeport api endpoint based on infra provider
-	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderKind {
-		threeportAPIEndpoint = fmt.Sprintf("%s.%s", r.APIServer, *controlPlaneRuntimeInstance.Namespace)
-	} else if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
-		tpapiEndpoint, err := cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get threeport API's public endpoint: %w", err)
-		}
-		threeportAPIEndpoint = fmt.Sprintf("%s:443", tpapiEndpoint)
-	}
-
 	controlPlaneRuntimeInstance.ApiServerEndpoint = &threeportAPIEndpoint
 	devEnvironment := false
 
@@ -240,6 +269,38 @@ func controlPlaneInstanceCreated(
 		encryptionKey,
 	); err != nil {
 		return 0, fmt.Errorf("failed to install threeport API server: %w", err)
+	}
+
+	// for a cloud provider installed control plane:
+	// * determine the threeport API's remote endpoint to add to the threeport
+	//   config and to add to the server certificate's alt names when TLS
+	//   assets are installed
+	// * install provider-specific kubernetes resources
+	switch *kubernetesRuntimeDefinition.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderKind:
+		threeportAPIEndpoint = fmt.Sprintf("%s.%s", r.APIServer, cpi.Opts.Namespace)
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get threeport API's public endpoint: %w", err)
+		}
+
+		// create and configure service accounts for workload and aws controllers,
+		// which will be used to authenticate to AWS via IRSA
+
+		// configure IRSA controllers to use appropriate service account names
+		provider.UpdateIrsaControllerList(cpi.Opts.ControllerList)
+
+		// create IRSA service accounts
+		for _, serviceAccount := range provider.GetIrsaServiceAccounts(
+			cpi.Opts.Namespace,
+			*callerIdentity.Account,
+			provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
+		) {
+			if err := cpi.CreateOrUpdateKubeResource(serviceAccount, dynamicKubeClient, mapper); err != nil {
+				return 0, fmt.Errorf("failed to create threeport api service account: %w", err)
+			}
+		}
 	}
 
 	// if auth enabled install the threeport API TLS assets that include the alt
@@ -545,6 +606,17 @@ func controlPlaneInstanceDeleted(
 	if err != nil {
 		return 0, fmt.Errorf("failed to get control plane kubernetesRuntime instance by ID: %w", err)
 	}
+
+	// get kubernetes runtime definition info
+	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get control plane kubernetesRuntime definition by ID: %w", err)
+	}
+
 	// create a dynamic client to connect to kube API
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
@@ -567,9 +639,31 @@ func controlPlaneInstanceDeleted(
 		},
 	}
 
-	// delete the service
+	// delete the namespace
 	if err := kube.DeleteResource(namespace, dynamicKubeClient, *mapper); err != nil {
 		return 0, fmt.Errorf("failed to delete the control plane namespace: %w", err)
+	}
+
+	// perform provider specific configuration
+	switch *kubernetesRuntimeDefinition.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		// create AWS config
+		awsConf, err := resource.LoadAWSConfig(false, "", "", "", "", "")
+		if err != nil {
+			return 0, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
+		}
+		awsConfigResourceManager := *awsConf
+
+		// get account ID
+		if _, err = provider.GetCallerIdentity(awsConf); err != nil {
+			return 0, fmt.Errorf("failed to get caller identity: %w", err)
+		}
+
+		// delete resource manager role
+		err = provider.DeleteResourceManagerRole(*controlPlaneRuntimeInstance.Name, awsConfigResourceManager)
+		if err != nil {
+			return 0, fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
+		}
 	}
 
 	// delete the control plane instance that was scheduled for deletion
