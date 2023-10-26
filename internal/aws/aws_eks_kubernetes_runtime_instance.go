@@ -3,13 +3,11 @@ package aws
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/nukleros/eks-cluster/pkg/resource"
+	aws_client "github.com/nukleros/aws-builder/pkg/client"
+	"github.com/nukleros/aws-builder/pkg/eks"
 	"gorm.io/datatypes"
 
 	"github.com/threeport/threeport/internal/provider"
@@ -18,6 +16,8 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
+
+const staleAckDurationSeconds = 240
 
 // awsEksKubernetesRuntimeInstanceCreated reconciles state for created AWS EKS
 // runtimes by creating a new EKS cluster.
@@ -32,12 +32,144 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		"awsEksKubernetesRuntimeInstanceName", *awsEksKubernetesRuntimeInstance.Name,
 	)
 
-	// check to make sure reconciliation is not being interrupted - if it is
-	// return without error to exit reconciliation loop
-	// TDOO: add alerts for interrupted reconciliation so humans can intervene
-	if awsEksKubernetesRuntimeInstance.InterruptReconciliation != nil && *awsEksKubernetesRuntimeInstance.InterruptReconciliation {
-		reconLog.Info("reconciliation interrupted")
+	// call the API to ensure we have the most up-to-date version of the EKS
+	// runtime instance
+	awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*awsEksKubernetesRuntimeInstance.ID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get latest version of AWS EKS kubernetes runtime instance: %w", err)
+	}
+
+	// check to see if reconciled - it should not be, but if so we should do
+	// nothing more
+	if awsEksKubernetesRuntimeInstance.CreationConfirmed != nil {
 		return 0, nil
+	}
+
+	// check to see if previously acknowledged - not nil means it has been
+	// previously acknowledged
+	if awsEksKubernetesRuntimeInstance.CreationAcknowledged != nil && !*awsEksKubernetesRuntimeInstance.CreationFailed {
+		// creation acknowledged - check to see if creation is complete
+		creationComplete, err := checkEksCreated(r, awsEksKubernetesRuntimeInstance)
+		if err != nil {
+			return 0, fmt.Errorf("failed to check if EKS cluster infra resources have been created: %w", err)
+		}
+		if creationComplete {
+			// get cluster definition and aws account info
+			awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
+				r.APIClient,
+				r.APIServer,
+				*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to retreive cluster definition by ID: %w", err)
+			}
+			awsAccount, err := client.GetAwsAccountByID(
+				r.APIClient,
+				r.APIServer,
+				*awsEksKubernetesRuntimeDefinition.AwsAccountID,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
+			}
+
+			awsConfig, err := kube.GetAwsConfigFromAwsAccount(
+				r.EncryptionKey,
+				*awsEksKubernetesRuntimeInstance.Region,
+				awsAccount,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to create AWS config: %w", err)
+			}
+
+			// get kubernetes cluster connection info
+			clusterInfra := provider.KubernetesRuntimeInfraEKS{
+				RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
+				AwsConfig:           awsConfig,
+			}
+			kubeConnectionInfo, err := clusterInfra.GetConnection()
+			if err != nil {
+				return 0, fmt.Errorf("failed to Kubernetes API connection info: %w", err)
+			}
+
+			// get kubernetes runtime instance to update kube connection info
+			kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+				r.APIClient,
+				r.APIServer,
+				*awsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to get kubernetes runtime instance to update kube connection info: %w", err)
+			}
+
+			// update kube connection info
+			kubeRuntimeReconciled := false
+			kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
+			kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
+			kubernetesRuntimeInstance.ConnectionToken = &kubeConnectionInfo.EKSToken
+			kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnectionInfo.EKSTokenExpiration
+			kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
+			_, err = client.UpdateKubernetesRuntimeInstance(
+				r.APIClient,
+				r.APIServer,
+				kubernetesRuntimeInstance,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to update kubernetes runtime instance with kube connection info: %w", err)
+			}
+
+			// confirm creation and set reconciled to true
+			creationReconciled := true
+			creationTimestamp := time.Now().UTC()
+			createdAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
+				Common: v0.Common{
+					ID: awsEksKubernetesRuntimeInstance.ID,
+				},
+				Reconciliation: v0.Reconciliation{
+					Reconciled:        &creationReconciled,
+					CreationConfirmed: &creationTimestamp,
+				},
+			}
+			_, err = client.UpdateAwsEksKubernetesRuntimeInstance(
+				r.APIClient,
+				r.APIServer,
+				&createdAwsEksKubernetesRuntimeInstance,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to confirm creation of EKS cluster infra resources: %w", err)
+			}
+
+			return 0, nil
+		}
+
+		// check duration since last acknowledged
+		stale := checkStaleEksAck(*awsEksKubernetesRuntimeInstance.CreationAcknowledged)
+		if !stale {
+			return 90, nil
+		}
+	}
+
+	// one of the following is true at this point:
+	// 1. creation has not been acknowledged - new create request
+	// 2. creation has previously failed - time to retry
+	// 3. the last acknowledgement is stale - creation was interrupted
+	// in each case we will attempt to create/re-create
+
+	// acknowledge creation and set creation failure to false
+	creationAckTimestamp := time.Now().UTC()
+	creationFailed := false
+	awsEksKubernetesRuntimeInstance.CreationAcknowledged = &creationAckTimestamp
+	awsEksKubernetesRuntimeInstance.CreationFailed = &creationFailed
+	_, err = client.UpdateAwsEksKubernetesRuntimeInstance(
+		r.APIClient,
+		r.APIServer,
+		awsEksKubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to set creation acknowledged timestamp: %w", err)
 	}
 
 	// get cluster definition and aws account info
@@ -67,27 +199,31 @@ func awsEksKubernetesRuntimeInstanceCreated(
 
 	awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
+		return 0, fmt.Errorf("failed to create AWS config: %w", err)
 	}
 
 	// create resource client
-	resourceClient := resource.CreateResourceClient(awsConfig)
+	inventoryChan := make(chan eks.EksInventory)
+	eksClient := eks.EksClient{
+		*aws_client.CreateResourceClient(awsConfig),
+		&inventoryChan,
+	}
 
 	// log messages from channel in resource client on goroutine
 	go func() {
-		for msg := range *resourceClient.MessageChan {
+		for msg := range *eksClient.MessageChan {
 			reconLog.Info(msg)
 		}
 	}()
 
 	// store inventory in database as it arrives on inventory channel
 	go func() {
-		for inventory := range *resourceClient.InventoryChan {
-			inventoryJSON, err := resource.MarshalInventory(&inventory)
+		for inventory := range inventoryChan {
+			inventoryJson, err := inventory.Marshal()
 			if err != nil {
 				reconLog.Error(err, "failed to marshal inventory")
 			}
-			dbInventory := datatypes.JSON(inventoryJSON)
+			dbInventory := datatypes.JSON(inventoryJson)
 			eksK8sInstanceWithInventory := v0.AwsEksKubernetesRuntimeInstance{
 				Common: v0.Common{
 					ID: awsEksKubernetesRuntimeInstance.ID,
@@ -105,31 +241,11 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		}
 	}()
 
-	// delete eks cluster resources if AWS controller is terminated mid-resource
-	// creation
-	// TODO: add a wait group that prevents the AWS controller from terminating
-	// until this process is complete
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		reconLog.Info("controller terminated mid resource creation, removing resources...")
-
-		inventory, err := getInventory(r, awsEksKubernetesRuntimeInstance)
-		if err != nil {
-			reconLog.Error(err, "aws controller interrupted and failed to retrieve AWS resource inventory")
-		}
-
-		if err = resourceClient.DeleteResourceStack(inventory); err != nil {
-			reconLog.Error(err, "failed to delete eks cluster resources")
-		}
-	}()
-
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName:          *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:                 *awsAccount.AccountID,
 		AwsConfig:                    awsConfig,
-		ResourceClient:               resourceClient,
+		ResourceClient:               &eksClient,
 		ZoneCount:                    int32(*awsEksKubernetesRuntimeDefinition.ZoneCount),
 		DefaultNodeGroupInstanceType: *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 		DefaultNodeGroupInitialNodes: int32(*awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize),
@@ -137,66 +253,15 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		DefaultNodeGroupMaxNodes:     int32(*awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize),
 	}
 
-	// create control plane infra
-	kubeConnectionInfo, err := clusterInfra.Create()
-	if err != nil {
-		// since we failed to complete cluster creation, delete it to remove any
-		// dangling AWS resources
-		createErr := fmt.Errorf("failed to create new threeport cluster: %w", err)
-		inventory, invErr := getInventory(r, awsEksKubernetesRuntimeInstance)
-		if invErr != nil {
-			return 0, fmt.Errorf("%w and failed to retrieve AWS resource inventory: %w", createErr, invErr)
-		}
-		if inventory != nil {
-			clusterInfra.ResourceInventory = inventory
-			if deleteErr := clusterInfra.Delete(); deleteErr != nil {
-				// the infra creation AND deletion failed - there is some situation
-				// that likely requires human intervention so we will stop
-				// reconciliation here to prevent egregious infra creation on an
-				// infinite loop
-				interrupt := true
-				awsEksKubernetesRuntimeInstance.InterruptReconciliation = &interrupt
-				_, updateErr := client.UpdateAwsEksKubernetesRuntimeInstance(
-					r.APIClient,
-					r.APIServer,
-					awsEksKubernetesRuntimeInstance,
-				)
-				if updateErr != nil {
-					return 0, fmt.Errorf("%w and failed to update eks runtime instance to interrupt reconciliation: %w", createErr, updateErr)
-				}
-				return 0, fmt.Errorf("%w and failed to delete created infra: %w", createErr, deleteErr)
-			}
-		}
-		return 0, createErr
-	}
-
-	// get kubernetes runtime instance to update kube connection info
-	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*awsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+	go createInfra(
+		r,
+		&clusterInfra,
+		*awsEksKubernetesRuntimeInstance.ID,
+		&reconLog,
+		awsEksKubernetesRuntimeInstance.ResourceInventory,
 	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get kubernetes runtime instance to update kube connection info: %w", err)
-	}
 
-	// update kube connection info
-	kubeRuntimeReconciled := false
-	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
-	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
-	kubernetesRuntimeInstance.ConnectionToken = &kubeConnectionInfo.EKSToken
-	kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnectionInfo.EKSTokenExpiration
-	kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
-	_, err = client.UpdateKubernetesRuntimeInstance(
-		r.APIClient,
-		r.APIServer,
-		kubernetesRuntimeInstance,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to update kubernetes runtime instance with kube connection info: %w", err)
-	}
-
-	return 0, nil
+	return 90, nil
 }
 
 // awsEksKubernetesRuntimeInstanceUpdated reconciles state for updated AWS EKS
@@ -308,27 +373,31 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 
 	awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create AWS config from API keys: %w", err)
+		return 0, fmt.Errorf("failed to create AWS config: %w", err)
 	}
 
-	// create resource client
-	resourceClient := resource.CreateResourceClient(awsConfig)
+	// create EKS resource client
+	inventoryChan := make(chan eks.EksInventory)
+	eksClient := eks.EksClient{
+		*aws_client.CreateResourceClient(awsConfig),
+		&inventoryChan,
+	}
 
 	// log messages from channel in resource client on goroutine
 	go func() {
-		for msg := range *resourceClient.MessageChan {
+		for msg := range *eksClient.MessageChan {
 			reconLog.Info(msg)
 		}
 	}()
 
 	// store updated inventory in database as it arrives on inventory channel
 	go func() {
-		for inventory := range *resourceClient.InventoryChan {
-			inventoryJSON, err := resource.MarshalInventory(&inventory)
+		for inventory := range *eksClient.InventoryChan {
+			inventoryJson, err := inventory.Marshal()
 			if err != nil {
 				reconLog.Error(err, "failed to marshal inventory")
 			}
-			dbInventory := datatypes.JSON(inventoryJSON)
+			dbInventory := datatypes.JSON(inventoryJson)
 			eksK8sInstanceWithInventory := v0.AwsEksKubernetesRuntimeInstance{
 				Common: v0.Common{
 					ID: awsEksKubernetesRuntimeInstance.ID,
@@ -347,11 +416,10 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 	}()
 
 	// get EKS cluster's resource inventory to delete
-	var resourceInventory resource.ResourceInventory
+	var resourceInventory eks.EksInventory
 	if awsEksKubernetesRuntimeInstance.ResourceInventory != nil {
-		if err := resource.UnmarshalInventory(
+		if err := resourceInventory.Unmarshal(
 			*awsEksKubernetesRuntimeInstance.ResourceInventory,
-			&resourceInventory,
 		); err != nil {
 			return 0, fmt.Errorf("failed to unmarshal resource inventory: %w", err)
 		}
@@ -362,7 +430,7 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
 		AwsAccountID:        *awsAccount.AccountID,
 		AwsConfig:           awsConfig,
-		ResourceClient:      resourceClient,
+		ResourceClient:      &eksClient,
 		ResourceInventory:   &resourceInventory,
 	}
 
@@ -378,7 +446,7 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 func getInventory(
 	r *controller.Reconciler,
 	eksRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
-) (*resource.ResourceInventory, error) {
+) (*eks.EksInventory, error) {
 	// retrieve eks cluster instance
 	latestAwsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByID(
 		r.APIClient,
@@ -389,12 +457,11 @@ func getInventory(
 		return nil, fmt.Errorf("failed to get EKS cluster instance inventory from threeport API: %w", err)
 	}
 
-	// unmarshal the inventory into a ResourceInventory object
-	var inventory resource.ResourceInventory
+	// unmarshal the inventory into an EksInventory object
+	var inventory eks.EksInventory
 	if latestAwsEksKubernetesRuntimeInstance.ResourceInventory != nil {
-		if err := resource.UnmarshalInventory(
-			[]byte(*latestAwsEksKubernetesRuntimeInstance.ResourceInventory),
-			&inventory,
+		if err := inventory.Unmarshal(
+			*latestAwsEksKubernetesRuntimeInstance.ResourceInventory,
 		); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal resource inventory: %w", err)
 		}
@@ -403,11 +470,79 @@ func getInventory(
 	return &inventory, nil
 }
 
+// createInfra creates the AWS resources for an EKS cluster.  If it fails, it
+// calls the API to persist that fact.  If it fails to call the API, it retries
+// that call every 10 seconds until it succeeds.
+func createInfra(
+	r *controller.Reconciler,
+	clusterInfra *provider.KubernetesRuntimeInfraEKS,
+	awsEksKubernetesRuntimeInstanceId uint,
+	log *logr.Logger,
+	resourceInventory *datatypes.JSON,
+) {
+	// unmarshal resource inventory
+	var inventory eks.EksInventory
+	if resourceInventory != nil {
+		if err := inventory.Unmarshal(*resourceInventory); err != nil {
+			log.Error(err, "failed to unmarshal existing inventory")
+			persistCreateFailure(
+				r,
+				awsEksKubernetesRuntimeInstanceId,
+				log,
+			)
+		}
+	}
+	clusterInfra.ExistingResourceInventory = &inventory
+
+	_, err := clusterInfra.Create()
+	if err != nil {
+		log.Error(err, "failed to create EKS cluster infra")
+		persistCreateFailure(
+			r,
+			awsEksKubernetesRuntimeInstanceId,
+			log,
+		)
+	}
+}
+
 // deleteInfra deletes the EKS cluster resources in AWS.
 func deleteInfra(clusterInfra *provider.KubernetesRuntimeInfraEKS, log *logr.Logger) {
 	if err := clusterInfra.Delete(); err != nil {
 		log.Error(err, "failed to delete EKS cluster infra")
 	}
+}
+
+// checkEksCreated checks to see if all of an EKS cluster's AWS resources have
+// been created.
+func checkEksCreated(
+	r *controller.Reconciler,
+	eksRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
+) (bool, error) {
+	inventory, err := getInventory(r, eksRuntimeInstance)
+	if err != nil {
+		return false, fmt.Errorf("failed to get EKS cluster's AWS resource inventory for creation check: %w", err)
+	}
+
+	// the cluster addon is the final thing to be created - if it is set to
+	// true, all resources have been created
+	if inventory.ClusterAddon {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// stale, err := checkStaleEksAck(latestAwsEksKubernetesRuntimeInstance.CreationAcknowledged)
+// checkStaleEksAck checks to see if the creation acknowledged timestamp on an
+// AWS EKS cluster has gone stale indicating the creation process was
+// interrupted.
+func checkStaleEksAck(creationAcknowledged time.Time) bool {
+	duration := time.Now().UTC().Sub(creationAcknowledged)
+	if duration.Seconds() > staleAckDurationSeconds {
+		return true
+	}
+
+	return false
 }
 
 // checkDeleted checks to see if all of an EKS cluster's AWS resources have been
@@ -418,14 +553,48 @@ func checkDeleted(
 ) (bool, error) {
 	inventory, err := getInventory(r, eksRuntimeInstance)
 	if err != nil {
-		return false, fmt.Errorf("failed to get EKS cluster's AWS resource inventory: %w", err)
+		return false, fmt.Errorf("failed to get EKS cluster's AWS resource inventory for deletion check: %w", err)
 	}
 
-	// The VPC is the last thing to be deleted - if it's ID is removed, all
+	// the VPC is the last thing to be deleted - if it's ID is removed, all
 	// resources are deleted
-	if inventory.VPCID == "" {
+	if inventory.VpcId == "" {
 		return true, nil
 	}
 
 	return false, nil
+}
+
+// persistCreateFailure calls the threeport API to set CreationFailed to true to
+// notify subsequent reconciliation loops that creation failed.  If the call to
+// the API fails, it is retried every 10 seconds until it succeeds.
+func persistCreateFailure(
+	r *controller.Reconciler,
+	eksRuntimeInstanceId uint,
+	log *logr.Logger,
+) {
+	failurePersisted := false
+	for !failurePersisted {
+		creationFailed := true
+		failedAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
+			Common: v0.Common{
+				ID: &eksRuntimeInstanceId,
+			},
+			Reconciliation: v0.Reconciliation{
+				CreationFailed: &creationFailed,
+			},
+		}
+		_, err := client.UpdateAwsEksKubernetesRuntimeInstance(
+			r.APIClient,
+			r.APIServer,
+			&failedAwsEksKubernetesRuntimeInstance,
+		)
+		if err != nil {
+			log.Error(err, "failed to persist failure of EKS cluster infra resource creation - retrying in 10 sec")
+			time.Sleep(time.Second * 10)
+			continue
+		}
+
+		failurePersisted = true
+	}
 }

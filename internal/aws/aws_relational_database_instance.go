@@ -144,7 +144,17 @@ func awsRelationalDatabaseInstanceCreated(
 		Tags:                  provider.ThreeportProviderTags(),
 	}
 
-	if err := rdsClient.CreateRdsResourceStack(&rdsConfig); err != nil {
+	// extract RDS inventory from database
+	rdsInventory, err := getRdsInventory(r, awsRelationalDatabaseInstance)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve AWS relational databse inventory")
+	}
+
+	// create RDS resources in AWS
+	if err := rdsClient.CreateRdsResourceStack(
+		&rdsConfig,
+		rdsInventory,
+	); err != nil {
 		return 0, fmt.Errorf("failed to create RDS resource stack: %w", err)
 	}
 
@@ -177,12 +187,6 @@ func awsRelationalDatabaseInstanceCreated(
 		return 0, errors.New("multiple namespaces found in workload resource instances")
 	}
 	workloadNamespace := namespaces[0]
-
-	// extract RDS inventory from database
-	rdsInventory, err := getRdsInventory(r, awsRelationalDatabaseInstance)
-	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve AWS relational databse inventory")
-	}
 
 	// create DB connection secret for workload
 	data := map[string][]byte{

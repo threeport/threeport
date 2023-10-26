@@ -12,11 +12,14 @@ import (
 	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awsSdkConfig "github.com/aws/aws-sdk-go-v2/config"
+	aws_config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/nukleros/eks-cluster/pkg/connection"
-	"github.com/nukleros/eks-cluster/pkg/resource"
+	builder_client "github.com/nukleros/aws-builder/pkg/client"
+	builder_config "github.com/nukleros/aws-builder/pkg/config"
+	"github.com/nukleros/aws-builder/pkg/eks"
+	"github.com/nukleros/aws-builder/pkg/eks/connection"
+	builder_iam "github.com/nukleros/aws-builder/pkg/iam"
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
@@ -223,7 +226,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create AWS config
-		awsConf, err := resource.LoadAWSConfig(
+		awsConf, err := builder_config.LoadAWSConfig(
 			cpi.Opts.AwsConfigEnv,
 			cpi.Opts.AwsConfigProfile,
 			cpi.Opts.AwsRegion,
@@ -258,8 +261,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		// create IAM role for resource management
 		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 		resourceManagerRole, err = provider.CreateResourceManagerRole(
-			resource.CreateIAMTags(
-				cpi.Opts.ControlPlaneName,
+			builder_iam.CreateIamTags(
+				cpi.Opts.Name,
 				map[string]string{},
 			),
 			resourceManagerRoleName,
@@ -275,14 +278,14 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 
 		// assume IAM role for resource management
-		awsConfigResourceManager, err = resource.AssumeRole(
+		awsConfigResourceManager, err = builder_config.AssumeRole(
 			*resourceManagerRole.Arn,
 			"",
 			"",
 			3600,
 			awsConfigUser,
-			[]func(*awsSdkConfig.LoadOptions) error{
-				awsSdkConfig.WithRegion(cpi.Opts.AwsRegion),
+			[]func(*aws_config.LoadOptions) error{
+				aws_config.WithRegion(cpi.Opts.AwsRegion),
 			},
 		)
 		if err != nil {
@@ -315,21 +318,24 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 
 		// create a resource client to create EKS resources
-		resourceClient := resource.CreateResourceClient(awsConfigResourceManager)
+		eksInventoryChan := make(chan eks.EksInventory)
+		eksClient := eks.EksClient{
+			*builder_client.CreateResourceClient(awsConfigResourceManager),
+			&eksInventoryChan,
+		}
 
 		// capture messages as resources are created and return to user
 		go func() {
-			for msg := range *resourceClient.MessageChan {
+			for msg := range *eksClient.MessageChan {
 				Info(msg)
 			}
 		}()
 
 		// capture inventory and write to file as it is created
 		go func() {
-			for inventory := range *resourceClient.InventoryChan {
-				if err := resource.WriteInventory(
+			for inventory := range *eksClient.InventoryChan {
+				if err := inventory.Write(
 					provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-					&inventory,
 				); err != nil {
 					Error("failed to write inventory file", err)
 				}
@@ -357,7 +363,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			RuntimeInstanceName:          provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 			AwsAccountID:                 *callerIdentity.Account,
 			AwsConfig:                    awsConfigResourceManager,
-			ResourceClient:               resourceClient,
+			ResourceClient:               &eksClient,
 			ZoneCount:                    int32(2),
 			DefaultNodeGroupInstanceType: "t3.medium",
 			DefaultNodeGroupInitialNodes: int32(3),
@@ -428,14 +434,19 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	case v0.KubernetesRuntimeInfraProviderEKS:
 
 		// update resource manager role to allow pods to assume it
-		inventory, err := resource.ReadInventory(
+		var inventory eks.EksInventory
+		if err := inventory.Load(
 			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-		)
-		if err != nil {
+		); err != nil {
 			return cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
-		err = provider.UpdateResourceManagerRoleTrustPolicy(cpi.Opts.ControlPlaneName, *callerIdentity.Account, "", inventory.Cluster.OIDCProviderURL, awsConfigUser)
-		if err != nil {
+		if err = provider.UpdateResourceManagerRoleTrustPolicy(
+			cpi.Opts.ControlPlaneName,
+			*callerIdentity.Account,
+			"",
+			inventory.Cluster.OidcProviderUrl,
+			awsConfigUser,
+		); err != nil {
 			return cleanOnCreateError("failed to update resource manager role", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
 
@@ -761,17 +772,17 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 
 		// create aws eks k8s runtime instance
-		inventory, err := resource.ReadInventory(
+		var inventory eks.EksInventory
+		if err := inventory.Load(
 			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-		)
-		if err != nil {
+		); err != nil {
 			return cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 		}
-		inventoryJSON, err := resource.MarshalInventory(inventory)
+		inventoryJson, err := inventory.Marshal()
 		if err != nil {
 			return cleanOnCreateError("failed to marshal eks kubernetes runtime inventory for inventory update", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 		}
-		dbInventory := datatypes.JSON(inventoryJSON)
+		dbInventory := datatypes.JSON(inventoryJson)
 		eksRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 		reconciled := true
 		awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
@@ -919,7 +930,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		//   persisted in threeport config
 		// * AwsConfigProfile and AwsRegion cannot be passed in through CLI for
 		// deletion opertion as these are stored in threeport config
-		awsConfigUser, err = resource.LoadAWSConfig(
+		awsConfigUser, err = builder_config.LoadAWSConfig(
 			cpi.Opts.AwsConfigEnv,
 			threeportControlPlaneConfig.EKSProviderConfig.AwsConfigProfile,
 			threeportControlPlaneConfig.EKSProviderConfig.AwsRegion,
@@ -939,7 +950,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 		// assume role for AWS resource manager for infra teardown
-		awsConfigResourceManager, err = resource.AssumeRole(
+		awsConfigResourceManager, err = builder_config.AssumeRole(
 			provider.GetResourceManagerRoleArn(
 				threeportControlPlaneConfig.Name,
 				threeportControlPlaneConfig.EKSProviderConfig.AwsAccountID,
@@ -948,8 +959,8 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			"",
 			3600,
 			*awsConfigUser,
-			[]func(*awsSdkConfig.LoadOptions) error{
-				awsSdkConfig.WithRegion(threeportControlPlaneConfig.EKSProviderConfig.AwsRegion),
+			[]func(*aws_config.LoadOptions) error{
+				aws_config.WithRegion(threeportControlPlaneConfig.EKSProviderConfig.AwsRegion),
 			},
 		)
 		if err != nil {
@@ -963,21 +974,24 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 		// create a resource client to delete EKS resources
-		resourceClient := resource.CreateResourceClient(awsConfigResourceManager)
+		eksInventoryChan := make(chan eks.EksInventory)
+		eksClient := eks.EksClient{
+			*builder_client.CreateResourceClient(awsConfigResourceManager),
+			&eksInventoryChan,
+		}
 
 		// capture messages as resources are created and return to user
 		go func() {
-			for msg := range *resourceClient.MessageChan {
+			for msg := range *eksClient.MessageChan {
 				Info(msg)
 			}
 		}()
 
 		// capture inventory and write to file as it is updated
 		go func() {
-			for inventory := range *resourceClient.InventoryChan {
-				if err := resource.WriteInventory(
+			for inventory := range *eksClient.InventoryChan {
+				if err := inventory.Write(
 					provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-					&inventory,
 				); err != nil {
 					Error("failed to write inventory file", err)
 				}
@@ -985,8 +999,10 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}()
 
 		// read inventory to delete
-		inventory, err := resource.ReadInventory(provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName))
-		if err != nil {
+		var inventory eks.EksInventory
+		if err := inventory.Load(
+			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
+		); err != nil {
 			return fmt.Errorf("failed to read inventory file for deleting eks kubernetes runtime resources: %w", err)
 		}
 
@@ -995,8 +1011,8 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
 			AwsAccountID:        *callerIdentity.Account,
 			AwsConfig:           awsConfigResourceManager,
-			ResourceClient:      resourceClient,
-			ResourceInventory:   inventory,
+			ResourceClient:      &eksClient,
+			ResourceInventory:   &inventory,
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 	}
@@ -1113,7 +1129,7 @@ func refreshEKSConnectionWithLocalConfig(
 	threeportAPIEndpoint string,
 ) (*v0.KubernetesRuntimeInstance, error) {
 	// use local AWS config to get EKS cluster connection info
-	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: *kubernetesRuntimeInstance.Name}
+	eksClusterConn := connection.EksClusterConnectionInfo{ClusterName: *kubernetesRuntimeInstance.Name}
 	if err := eksClusterConn.Get(awsConfig); err != nil {
 		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
 	}
@@ -1210,13 +1226,13 @@ func cleanOnCreateError(
 
 		// allow 2 seconds for pending inventory writes to complete
 		time.Sleep(time.Second * 2)
-		inventory, invErr := resource.ReadInventory(
+		var inventory eks.EksInventory
+		if invErr := inventory.Load(
 			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-		)
-		if invErr != nil {
+		); invErr != nil {
 			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to read eks kubernetes runtime inventory for resource deletion: %w", createErr, invErr)
 		}
-		kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ResourceInventory = inventory
+		kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ResourceInventory = &inventory
 	}
 
 	// delete infra
