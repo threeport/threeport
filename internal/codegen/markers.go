@@ -2,7 +2,7 @@ package codegen
 
 const ReconclierMarkerText = "threeport-codegen:reconciler"
 const AllowDuplicateNamesMarkerText = "threeport-codegen:allow-duplicate-names"
-const AllowCustomMiddleware = "threeport-codegen:allow-custom-middleware"
+const AddCustomMiddleware = "threeport-codegen:add-custom-middleware"
 const DbLoadAssociations = "threeport-codegen:db-load-associations"
 
 // These marker objects will be utilized if we add arguments to the marker.

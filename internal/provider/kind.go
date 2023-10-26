@@ -137,16 +137,6 @@ nodeRegistration:
 				HostPort:      int32(hostPort),
 				Protocol:      v1alpha4.PortMappingProtocolTCP,
 			},
-			{
-				ContainerPort: int32(31500),
-				HostPort:      int32(31500),
-				Protocol:      v1alpha4.PortMappingProtocolTCP,
-			},
-			{
-				ContainerPort: int32(32500),
-				HostPort:      int32(32500),
-				Protocol:      v1alpha4.PortMappingProtocolTCP,
-			},
 		},
 	}
 

@@ -137,7 +137,7 @@ When 'make generate' is run, the following code is generated for API:
 							reconcilerModels = append(reconcilerModels, objectName)
 						} else if strings.Contains(comment.Text, codegen.AllowDuplicateNamesMarkerText) {
 							allowDuplicateNameModels = append(allowDuplicateNameModels, objectName)
-						} else if strings.Contains(comment.Text, codegen.AllowCustomMiddleware) {
+						} else if strings.Contains(comment.Text, codegen.AddCustomMiddleware) {
 							allowCustomMiddleware = append(allowCustomMiddleware, objectName)
 						} else if strings.Contains(comment.Text, codegen.DbLoadAssociations) {
 							dbLoadAssociations = append(dbLoadAssociations, objectName)
