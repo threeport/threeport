@@ -105,7 +105,7 @@ GRANT ALL ON DATABASE threeport_api TO tp_rest_api;
 	}
 
 	if err := cpi.CreateOrUpdateKubeResource(dbCreateConfig, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create DB configmap: %w", err)
 	}
 
 	var apiSecret = &unstructured.Unstructured{
@@ -148,7 +148,7 @@ NATS_PORT=4222
 	}
 
 	if err := cpi.CreateOrUpdateKubeResource(encryptionSecret, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
 
 	var apiDeployment = &unstructured.Unstructured{
@@ -225,7 +225,7 @@ NATS_PORT=4222
 		},
 	}
 	if err := cpi.CreateOrUpdateKubeResource(apiDeployment, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create API server deployment: %w", err)
 	}
 
 	// configure node port based on infra provider
@@ -259,7 +259,7 @@ NATS_PORT=4222
 		},
 	}
 	if err := cpi.CreateOrUpdateKubeResource(apiService, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create/update API server service: %w", err)
 	}
 
 	return nil
@@ -285,12 +285,12 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAPITLS(
 
 		var apiCa = cpi.getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
 		if err := cpi.CreateOrUpdateKubeResource(apiCa, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+			return fmt.Errorf("failed to create API server ca secret: %w", err)
 		}
 
 		var apiCert = cpi.getTLSSecret("api-cert", serverCertificate, serverPrivateKey)
 		if err := cpi.CreateOrUpdateKubeResource(apiCert, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+			return fmt.Errorf("failed to create API server certificate secret: %w", err)
 		}
 	}
 
@@ -307,7 +307,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 ) error {
 	controllerSecret := cpi.getControllerSecret("controller", cpi.Opts.Namespace)
 	if err := cpi.CreateOrUpdateKubeResource(controllerSecret, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create controller secret: %w", err)
 	}
 
 	for _, controller := range cpi.Opts.ControllerList {
@@ -337,7 +337,7 @@ func (cpi *ControlPlaneInstaller) CreateOrUpdateKubeResource(
 ) error {
 	if cpi.Opts.CreateOrUpdateKubeResources {
 		if _, err := kube.CreateOrUpdateResource(resource, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+			return fmt.Errorf(": %w", err)
 		}
 	} else {
 		if _, err := kube.CreateResource(resource, kubeClient, *mapper); err != nil {
@@ -370,12 +370,12 @@ func (cpi *ControlPlaneInstaller) InstallController(
 
 		ca := cpi.getTLSSecret(fmt.Sprintf("%s-ca", installInfo.Name), authConfig.CAPemEncoded, "")
 		if err := cpi.CreateOrUpdateKubeResource(ca, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+			return fmt.Errorf("failed to create API server ca secret for workload controller: %w", err)
 		}
 
 		cert := cpi.getTLSSecret(fmt.Sprintf("%s-cert", installInfo.Name), certificate, privateKey)
 		if err := cpi.CreateOrUpdateKubeResource(cert, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+			return fmt.Errorf("failed to create API server certificate secret for workload controller: %w", err)
 		}
 	}
 
@@ -398,9 +398,8 @@ func (cpi *ControlPlaneInstaller) InstallController(
 		controllerVols,
 		controllerVolMounts,
 	)
-
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create workload controller deployment: %w", err)
 	}
 	return nil
 }
@@ -428,12 +427,12 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 
 		var agentCa = cpi.getTLSSecret("agent-ca", authConfig.CAPemEncoded, "")
 		if err := cpi.CreateOrUpdateKubeResource(agentCa, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+			return fmt.Errorf("failed to create/update API server ca secret for threeport agent: %w", err)
 		}
 
 		var agentCert = cpi.getTLSSecret("agent-cert", agentCertificate, agentPrivateKey)
 		if err := cpi.CreateOrUpdateKubeResource(agentCert, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+			return fmt.Errorf("failed to create/update API server certificate secret for threeport agent: %w", err)
 		}
 	}
 
@@ -532,7 +531,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 		},
 	}
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentCRD, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent CRD: %w", err)
 	}
 
 	var threeportAgentServiceAccount = &unstructured.Unstructured{
@@ -553,9 +552,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			},
 		},
 	}
-
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentServiceAccount, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent service account: %w", err)
 	}
 
 	var threeportAgentLeaderElectionRole = &unstructured.Unstructured{
@@ -624,9 +622,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			},
 		},
 	}
-
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentLeaderElectionRole, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent leader election role: %w", err)
 	}
 
 	var threeportAgentManagerRole = &unstructured.Unstructured{
@@ -695,9 +692,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			},
 		},
 	}
-
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentManagerRole, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent manager role: %w", err)
 	}
 
 	var threeportAgentMetricsReaderRole = &unstructured.Unstructured{
@@ -727,9 +723,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			},
 		},
 	}
-
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentMetricsReaderRole, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent metrics reader role: %w", err)
 	}
 
 	var threeportAgentProxyRole = &unstructured.Unstructured{
@@ -773,9 +768,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			},
 		},
 	}
-
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentProxyRole, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent proxy role: %w", err)
 	}
 
 	var threeportAgentLeaderElectionRoleBinding = &unstructured.Unstructured{
@@ -808,9 +802,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			},
 		},
 	}
-
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentLeaderElectionRoleBinding, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent leader election role binding: %w", err)
 	}
 
 	var threeportAgentManagerRoleBinding = &unstructured.Unstructured{
@@ -842,9 +835,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			},
 		},
 	}
-
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentManagerRoleBinding, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent manager role binding: %w", err)
 	}
 
 	var threeportAgentProxyRoleBinding = &unstructured.Unstructured{
@@ -876,9 +868,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			},
 		},
 	}
-
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentProxyRoleBinding, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent proxy role binding: %w", err)
 	}
 
 	var threeportAgentControllerManagerMetricsService = &unstructured.Unstructured{
@@ -912,9 +903,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			},
 		},
 	}
-
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentControllerManagerMetricsService, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent controller manager metrics service: %w", err)
 	}
 
 	var threeportAgentDeployment = &unstructured.Unstructured{
@@ -1069,9 +1059,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 			},
 		},
 	}
-
 	if err := cpi.CreateOrUpdateKubeResource(threeportAgentDeployment, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create threeport agent deployment: %w", err)
 	}
 
 	return nil
