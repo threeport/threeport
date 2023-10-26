@@ -465,7 +465,7 @@ func confirmGatewayControllerDeployed(
 			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 		}
 
-		certManager, err = createCertManager(resourceInventory.DNS01ChallengeRole.RoleARN)
+		certManager, err = createCertManager(resourceInventory.Dns01ChallengeRole.RoleArn)
 		if err != nil {
 			return fmt.Errorf("failed to create cert manager resource: %w", err)
 		}

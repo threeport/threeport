@@ -43,11 +43,6 @@ type Reconciliation struct {
 	// act accordingly.
 	DeletionAcknowledged *time.Time `json:"DeletionAcknowledged,omitempty" query:"deletionacknowledged" validate:"optional"`
 
-	// Used by controllers to acknowledge creation and indicate that creation
-	// reconciliation has begun so that subsequent reconciliation attempts can
-	// act accordingly.
-	CreationAcknowledged *time.Time `json:"CreationAcknowledged,omitempty" query:"creationacknowledged" validate:"optional"`
-
 	// Used by controllers to confirm deletion of an object.
 	DeletionConfirmed *time.Time `json:"DeletionConfirmed,omitempty" query:"deletionconfirmed" validate:"optional"`
 
