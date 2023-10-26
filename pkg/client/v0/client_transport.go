@@ -4,12 +4,12 @@ import "net/http"
 
 // Custom transport is a struct that holds custom round trippers and any associated info
 type CustomTransport struct {
-	customRoundTripper http.RoundTripper
-	isTlsEnabled       bool
+	CustomRoundTripper http.RoundTripper
+	IsTlsEnabled       bool
 }
 
 func (ct CustomTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	return ct.customRoundTripper.RoundTrip(req)
+	return ct.CustomRoundTripper.RoundTrip(req)
 }
 
 // internalRoundTripper is a holder function to make the process of

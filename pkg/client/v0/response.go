@@ -29,7 +29,7 @@ func GetResponse(
 	// check if TLS is configured
 	tlsConfigured := false
 	if transport, ok := client.Transport.(*CustomTransport); ok {
-		tlsConfigured = transport.isTlsEnabled
+		tlsConfigured = transport.IsTlsEnabled
 	}
 
 	// update url if TLS is configured

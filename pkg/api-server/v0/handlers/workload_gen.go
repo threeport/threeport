@@ -24,7 +24,7 @@ import (
 // @ID workloadDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /workload-definitions/versions [get]
+// @Router /workload-definitions/versions [GET]
 func (h Handler) GetWorkloadDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeWorkloadDefinition)])
 }
@@ -38,7 +38,7 @@ func (h Handler) GetWorkloadDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-definitions [post]
+// @Router /v0/workload-definitions [POST]
 func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadDefinition
 	var workloadDefinition v0.WorkloadDefinition
@@ -107,7 +107,7 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-definitions [get]
+// @Router /v0/workload-definitions [GET]
 func (h Handler) GetWorkloadDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -147,7 +147,7 @@ func (h Handler) GetWorkloadDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-definitions/{id} [get]
+// @Router /v0/workload-definitions/{id} [GET]
 func (h Handler) GetWorkloadDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadDefinition
 	workloadDefinitionID := c.Param("id")
@@ -182,7 +182,7 @@ func (h Handler) GetWorkloadDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-definitions/{id} [patch]
+// @Router /v0/workload-definitions/{id} [PATCH]
 func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadDefinition
 	workloadDefinitionID := c.Param("id")
@@ -247,7 +247,7 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-definitions/{id} [put]
+// @Router /v0/workload-definitions/{id} [PUT]
 func (h Handler) ReplaceWorkloadDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadDefinition
 	workloadDefinitionID := c.Param("id")
@@ -307,7 +307,7 @@ func (h Handler) ReplaceWorkloadDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-definitions/{id} [delete]
+// @Router /v0/workload-definitions/{id} [DELETE]
 func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadDefinition
 	workloadDefinitionID := c.Param("id")
@@ -384,7 +384,7 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 // @ID workloadResourceDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /workload-resource-definitions/versions [get]
+// @Router /workload-resource-definitions/versions [GET]
 func (h Handler) GetWorkloadResourceDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeWorkloadResourceDefinition)])
 }
@@ -398,7 +398,7 @@ func (h Handler) GetWorkloadResourceDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-definitions [post]
+// @Router /v0/workload-resource-definitions [POST]
 func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceDefinition
 	var workloadResourceDefinition v0.WorkloadResourceDefinition
@@ -439,7 +439,7 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-definitions [get]
+// @Router /v0/workload-resource-definitions [GET]
 func (h Handler) GetWorkloadResourceDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -479,7 +479,7 @@ func (h Handler) GetWorkloadResourceDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-definitions/{id} [get]
+// @Router /v0/workload-resource-definitions/{id} [GET]
 func (h Handler) GetWorkloadResourceDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceDefinition
 	workloadResourceDefinitionID := c.Param("id")
@@ -514,7 +514,7 @@ func (h Handler) GetWorkloadResourceDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-definitions/{id} [patch]
+// @Router /v0/workload-resource-definitions/{id} [PATCH]
 func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceDefinition
 	workloadResourceDefinitionID := c.Param("id")
@@ -566,7 +566,7 @@ func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-definitions/{id} [put]
+// @Router /v0/workload-resource-definitions/{id} [PUT]
 func (h Handler) ReplaceWorkloadResourceDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceDefinition
 	workloadResourceDefinitionID := c.Param("id")
@@ -626,7 +626,7 @@ func (h Handler) ReplaceWorkloadResourceDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-definitions/{id} [delete]
+// @Router /v0/workload-resource-definitions/{id} [DELETE]
 func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceDefinition
 	workloadResourceDefinitionID := c.Param("id")
@@ -660,7 +660,7 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 // @ID workloadInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /workload-instances/versions [get]
+// @Router /workload-instances/versions [GET]
 func (h Handler) GetWorkloadInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeWorkloadInstance)])
 }
@@ -674,7 +674,7 @@ func (h Handler) GetWorkloadInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-instances [post]
+// @Router /v0/workload-instances [POST]
 func (h Handler) AddWorkloadInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadInstance
 	var workloadInstance v0.WorkloadInstance
@@ -743,7 +743,7 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-instances [get]
+// @Router /v0/workload-instances [GET]
 func (h Handler) GetWorkloadInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -783,7 +783,7 @@ func (h Handler) GetWorkloadInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-instances/{id} [get]
+// @Router /v0/workload-instances/{id} [GET]
 func (h Handler) GetWorkloadInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadInstance
 	workloadInstanceID := c.Param("id")
@@ -818,7 +818,7 @@ func (h Handler) GetWorkloadInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-instances/{id} [patch]
+// @Router /v0/workload-instances/{id} [PATCH]
 func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadInstance
 	workloadInstanceID := c.Param("id")
@@ -883,7 +883,7 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-instances/{id} [put]
+// @Router /v0/workload-instances/{id} [PUT]
 func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadInstance
 	workloadInstanceID := c.Param("id")
@@ -943,7 +943,7 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-instances/{id} [delete]
+// @Router /v0/workload-instances/{id} [DELETE]
 func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadInstance
 	workloadInstanceID := c.Param("id")
@@ -1014,7 +1014,7 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 // @ID attachedObjectReference-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /attached-object-references/versions [get]
+// @Router /attached-object-references/versions [GET]
 func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAttachedObjectReference)])
 }
@@ -1028,7 +1028,7 @@ func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/attached-object-references [post]
+// @Router /v0/attached-object-references [POST]
 func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 	objectType := v0.ObjectTypeAttachedObjectReference
 	var attachedObjectReference v0.AttachedObjectReference
@@ -1069,7 +1069,7 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/attached-object-references [get]
+// @Router /v0/attached-object-references [GET]
 func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 	objectType := v0.ObjectTypeAttachedObjectReference
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -1109,7 +1109,7 @@ func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/attached-object-references/{id} [get]
+// @Router /v0/attached-object-references/{id} [GET]
 func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 	objectType := v0.ObjectTypeAttachedObjectReference
 	attachedObjectReferenceID := c.Param("id")
@@ -1144,7 +1144,7 @@ func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/attached-object-references/{id} [patch]
+// @Router /v0/attached-object-references/{id} [PATCH]
 func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 	objectType := v0.ObjectTypeAttachedObjectReference
 	attachedObjectReferenceID := c.Param("id")
@@ -1196,7 +1196,7 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/attached-object-references/{id} [put]
+// @Router /v0/attached-object-references/{id} [PUT]
 func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 	objectType := v0.ObjectTypeAttachedObjectReference
 	attachedObjectReferenceID := c.Param("id")
@@ -1256,7 +1256,7 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/attached-object-references/{id} [delete]
+// @Router /v0/attached-object-references/{id} [DELETE]
 func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 	objectType := v0.ObjectTypeAttachedObjectReference
 	attachedObjectReferenceID := c.Param("id")
@@ -1290,7 +1290,7 @@ func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 // @ID workloadResourceInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /workload-resource-instances/versions [get]
+// @Router /workload-resource-instances/versions [GET]
 func (h Handler) GetWorkloadResourceInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeWorkloadResourceInstance)])
 }
@@ -1304,7 +1304,7 @@ func (h Handler) GetWorkloadResourceInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-instances [post]
+// @Router /v0/workload-resource-instances [POST]
 func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceInstance
 	var workloadResourceInstance v0.WorkloadResourceInstance
@@ -1345,7 +1345,7 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-instances [get]
+// @Router /v0/workload-resource-instances [GET]
 func (h Handler) GetWorkloadResourceInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -1385,7 +1385,7 @@ func (h Handler) GetWorkloadResourceInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-instances/{id} [get]
+// @Router /v0/workload-resource-instances/{id} [GET]
 func (h Handler) GetWorkloadResourceInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceInstance
 	workloadResourceInstanceID := c.Param("id")
@@ -1420,7 +1420,7 @@ func (h Handler) GetWorkloadResourceInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-instances/{id} [patch]
+// @Router /v0/workload-resource-instances/{id} [PATCH]
 func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceInstance
 	workloadResourceInstanceID := c.Param("id")
@@ -1472,7 +1472,7 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-instances/{id} [put]
+// @Router /v0/workload-resource-instances/{id} [PUT]
 func (h Handler) ReplaceWorkloadResourceInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceInstance
 	workloadResourceInstanceID := c.Param("id")
@@ -1532,7 +1532,7 @@ func (h Handler) ReplaceWorkloadResourceInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-resource-instances/{id} [delete]
+// @Router /v0/workload-resource-instances/{id} [DELETE]
 func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadResourceInstance
 	workloadResourceInstanceID := c.Param("id")
@@ -1566,7 +1566,7 @@ func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 // @ID workloadEvent-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /workload-events/versions [get]
+// @Router /workload-events/versions [GET]
 func (h Handler) GetWorkloadEventVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeWorkloadEvent)])
 }
@@ -1580,7 +1580,7 @@ func (h Handler) GetWorkloadEventVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-events [post]
+// @Router /v0/workload-events [POST]
 func (h Handler) AddWorkloadEvent(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadEvent
 	var workloadEvent v0.WorkloadEvent
@@ -1621,7 +1621,7 @@ func (h Handler) AddWorkloadEvent(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-events [get]
+// @Router /v0/workload-events [GET]
 func (h Handler) GetWorkloadEvents(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadEvent
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -1661,7 +1661,7 @@ func (h Handler) GetWorkloadEvents(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-events/{id} [get]
+// @Router /v0/workload-events/{id} [GET]
 func (h Handler) GetWorkloadEvent(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadEvent
 	workloadEventID := c.Param("id")
@@ -1696,7 +1696,7 @@ func (h Handler) GetWorkloadEvent(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-events/{id} [patch]
+// @Router /v0/workload-events/{id} [PATCH]
 func (h Handler) UpdateWorkloadEvent(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadEvent
 	workloadEventID := c.Param("id")
@@ -1748,7 +1748,7 @@ func (h Handler) UpdateWorkloadEvent(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-events/{id} [put]
+// @Router /v0/workload-events/{id} [PUT]
 func (h Handler) ReplaceWorkloadEvent(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadEvent
 	workloadEventID := c.Param("id")
@@ -1808,7 +1808,7 @@ func (h Handler) ReplaceWorkloadEvent(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-events/{id} [delete]
+// @Router /v0/workload-events/{id} [DELETE]
 func (h Handler) DeleteWorkloadEvent(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadEvent
 	workloadEventID := c.Param("id")

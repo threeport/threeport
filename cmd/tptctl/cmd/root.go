@@ -4,6 +4,7 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
+	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -44,4 +45,25 @@ func init() {
 		cli.InitConfig(cliArgs.CfgFile)
 		cli.InitArgs(cliArgs)
 	})
+}
+
+func checkContext(cmd *cobra.Command) (*http.Client, string) {
+	var apiClient *http.Client
+	var apiEndpoint string
+
+	contextApiClient := cmd.Context().Value("apiClient")
+	if contextApiClient != nil {
+		if client, ok := contextApiClient.(*http.Client); ok {
+			apiClient = client
+		}
+	}
+
+	contextApiEndpoint := cmd.Context().Value("apiEndpoint")
+	if contextApiEndpoint != nil {
+		if client, ok := contextApiEndpoint.(string); ok {
+			apiEndpoint = client
+		}
+	}
+
+	return apiClient, apiEndpoint
 }

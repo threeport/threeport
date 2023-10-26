@@ -353,7 +353,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 		f.Comment("@Produce json")
 		f.Comment("@Success 200 {object} api.RESTAPIVersions \"OK\"")
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/versions [get]", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
+			"@Router /%s/versions [GET]", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
 		f.Func().Params(
 			Id("h").Id("Handler"),
@@ -415,7 +415,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s [post]",
+			"@Router /%s/%s [POST]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -553,7 +553,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s [get]",
+			"@Router /%s/%s [GET]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -694,7 +694,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s/{id} [get]",
+			"@Router /%s/%s/{id} [GET]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -813,7 +813,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s/{id} [patch]",
+			"@Router /%s/%s/{id} [PATCH]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -989,7 +989,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s/{id} [put]",
+			"@Router /%s/%s/{id} [PUT]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -1197,7 +1197,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s/{id} [delete]",
+			"@Router /%s/%s/{id} [DELETE]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -1488,7 +1488,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 			deleteObjectExecution = Comment("delete object")
 			deleteObjectExecution.Line()
 			deleteObjectExecution.If(
-				Id("result").Op(":=").Id("h").Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName))),
+				Id("result").Op(":=").Id("h").Dot("Handler").Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName))),
 				Id("result").Dot("Error").Op("!=").Nil(),
 			).Block(
 				Return(Id("iapi").Dot("ResponseStatus500").Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
@@ -1597,7 +1597,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 		f.Comment("@Produce json")
 		f.Comment("@Success 200 {object} api.RESTAPIVersions \"OK\"")
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/versions [get]", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
+			"@Router /%s/versions [GET]", pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
 		f.Func().Params(
 			Id("h").Id("Handler"),
@@ -1659,7 +1659,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s [post]",
+			"@Router /%s/%s [POST]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -1797,7 +1797,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s [get]",
+			"@Router /%s/%s [GET]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -1938,7 +1938,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s/{id} [get]",
+			"@Router /%s/%s/{id} [GET]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -2057,7 +2057,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s/{id} [patch]",
+			"@Router /%s/%s/{id} [PATCH]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -2233,7 +2233,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s/{id} [put]",
+			"@Router /%s/%s/{id} [PUT]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))
@@ -2441,7 +2441,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers() error {
 			cc.ParsedModelFile.Name.Name,
 		))
 		f.Comment(fmt.Sprintf(
-			"@Router /%s/%s/{id} [delete]",
+			"@Router /%s/%s/{id} [DELETE]",
 			cc.ParsedModelFile.Name.Name,
 			pluralize.Pluralize(strcase.ToKebab(mc.TypeName), 2, false),
 		))

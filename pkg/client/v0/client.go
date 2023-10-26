@@ -26,8 +26,8 @@ func GetHTTPClient(
 	if !authEnabled {
 		return &http.Client{
 			Transport: &CustomTransport{
-				customRoundTripper: Chain(nil),
-				isTlsEnabled:       false,
+				CustomRoundTripper: Chain(nil),
+				IsTlsEnabled:       false,
 			},
 		}, nil
 	}
@@ -99,15 +99,15 @@ func GetHTTPClient(
 
 	if sessionToken != "" {
 		customTransport = &CustomTransport{
-			customRoundTripper: Chain(tlsTransport),
-			isTlsEnabled:       true,
+			CustomRoundTripper: Chain(tlsTransport),
+			IsTlsEnabled:       true,
 		}
 	} else {
 		customTransport = &CustomTransport{
-			customRoundTripper: Chain(
+			CustomRoundTripper: Chain(
 				tlsTransport,
 				AddHeader("Authorization", fmt.Sprintf("Bearer %s", sessionToken))),
-			isTlsEnabled: true,
+			IsTlsEnabled: true,
 		}
 	}
 

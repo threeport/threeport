@@ -9874,6 +9874,7 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+<<<<<<< HEAD
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -9896,10 +9897,16 @@ const docTemplate = `{
                 "AwsObjectStorageBucketInstance",
                 "Profile",
                 "Tier",
+=======
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+>>>>>>> fd68659 (feat: wip)
                 "GatewayDefinition",
                 "GatewayInstance",
                 "DomainNameDefinition",
                 "DomainNameInstance",
+<<<<<<< HEAD
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance"
             ],
@@ -9926,12 +9933,64 @@ const docTemplate = `{
                 "ObjectTypeAwsObjectStorageBucketInstance",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
+=======
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "Profile",
+                "Tier",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "AwsObjectStorageBucketDefinition",
+                "AwsObjectStorageBucketInstance",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "AttachedObjectReference",
+                "WorkloadResourceInstance",
+                "WorkloadEvent"
+            ],
+            "x-enum-varnames": [
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+>>>>>>> fd68659 (feat: wip)
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
+<<<<<<< HEAD
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance"
+=======
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeAwsObjectStorageBucketDefinition",
+                "ObjectTypeAwsObjectStorageBucketInstance",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeAttachedObjectReference",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent"
+>>>>>>> fd68659 (feat: wip)
             ]
         },
         "v0.Profile": {

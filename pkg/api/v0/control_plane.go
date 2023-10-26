@@ -22,6 +22,7 @@ type ControlPlaneDefinition struct {
 }
 
 // +threeport-codegen:reconciler
+// +threeport-codegen:db-load-associations
 // ControlPlaneInstance is the instance for a deployed Control Plane.
 type ControlPlaneInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
