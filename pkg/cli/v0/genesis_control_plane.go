@@ -858,7 +858,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	Info("Threeport control plane installed")
 	Info("Threeport config updated")
 
-	Complete(fmt.Sprintf("Threeport instance %s created", cpi.Opts.ControlPlaneName))
+	Complete(fmt.Sprintf("Threeport control plane %s created", cpi.Opts.ControlPlaneName))
 
 	return nil
 }
@@ -1098,7 +1098,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	config.DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
 	Info("Threeport config updated")
 
-	Complete(fmt.Sprintf("Threeport instance %s deleted", cpi.Opts.ControlPlaneName))
+	Complete(fmt.Sprintf("Threeport control plane %s deleted", cpi.Opts.ControlPlaneName))
 
 	return nil
 }
