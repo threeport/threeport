@@ -336,9 +336,26 @@ func refreshEKSConnection(
 
 // GetAwsConfigFromAwsAccount returns an aws config from an aws account.
 func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.AwsAccount) (*aws.Config, error) {
+	accessKeyId := ""
+	secretAccessKey := ""
 
-	// load aws config via default credentials
-	awsConfig, err := resource.LoadAWSConfigFromAPIKeys("", "", "", region, "", "", "")
+	// if API keys are provided, decrypt and return aws config
+	if awsAccount.AccessKeyID != nil && awsAccount.SecretAccessKey != nil {
+		// decrypt access key id and secret access key
+		aki, err := encryption.Decrypt(encryptionKey, *awsAccount.AccessKeyID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt access key id: %w", err)
+		}
+		sak, err := encryption.Decrypt(encryptionKey, *awsAccount.SecretAccessKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt secret access key: %w", err)
+		}
+		accessKeyId = aki
+		secretAccessKey = sak
+	}
+
+	// load aws config via API key credentials
+	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(accessKeyId, secretAccessKey, "", region, "", "", "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
@@ -365,8 +382,6 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 
 	roleArn := ""
 	externalId := ""
-	accessKeyID := ""
-	secretAccessKey := ""
 
 	// if a role arn is provided, use it
 	if awsAccount.RoleArn != nil {
@@ -378,23 +393,9 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 		}
 	}
 
-	// if keys are provided, decrypt and return aws config
-	if awsAccount.AccessKeyID != nil && awsAccount.SecretAccessKey != nil {
-
-		// decrypt access key id and secret access key
-		accessKeyID, err = encryption.Decrypt(encryptionKey, *awsAccount.AccessKeyID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt access key id: %w", err)
-		}
-		secretAccessKey, err = encryption.Decrypt(encryptionKey, *awsAccount.SecretAccessKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt secret access key: %w", err)
-		}
-	}
-
 	// construct aws config given values
 	awsConfig, err = resource.LoadAWSConfigFromAPIKeys(
-		accessKeyID,
+		accessKeyId,
 		secretAccessKey,
 		"",
 		region,
@@ -405,6 +406,6 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
-	return awsConfig, nil
 
+	return awsConfig, nil
 }
