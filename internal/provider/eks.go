@@ -355,7 +355,8 @@ func CreateResourceManagerRole(
 	accountId,
 	principalRoleName,
 	externalId string,
-	attachPolicy bool,
+	attachAssumeAnyRolePolicy bool,
+	attachResourceManagerPolicy bool,
 	awsConfig aws.Config,
 ) (*types.Role, error) {
 	svc := iam.NewFromConfig(awsConfig)
@@ -383,12 +384,14 @@ func CreateResourceManagerRole(
 	}
 
 	// attach assume any role policy
-	if err := AttachPolicy(AssumeAnyRolePolicyDocument, roleName, "assume-any-role", svc); err != nil {
-		return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+	if attachAssumeAnyRolePolicy {
+		if err := AttachPolicy(AssumeAnyRolePolicyDocument, roleName, "assume-any-role", svc); err != nil {
+			return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
+		}
 	}
 
 	// attach resource manager policy if requested
-	if attachPolicy {
+	if attachResourceManagerPolicy {
 		if err := AttachPolicy(ResourceManagerPolicyDocument, roleName, "resource-manager", svc); err != nil {
 			return resourceManagerRoleResp.Role, fmt.Errorf("failed to attach policy to role %s: %w", roleName, err)
 		}
