@@ -267,6 +267,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			"",
 			"",
 			true,
+			true,
 			awsConfigUser,
 		)
 		if err != nil {
