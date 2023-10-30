@@ -95,6 +95,11 @@ func (c *ControlPlaneValues) Delete(apiClient *http.Client, apiEndpoint string) 
 		return nil, nil, fmt.Errorf("failed to find control plane instance with name %s: %w", c.Name, err)
 	}
 
+	// ensure control plane instance is not a genesis instance
+	if controlPlaneInstance.Genesis != nil && *controlPlaneInstance.Genesis {
+		return nil, nil, errors.New("deletion of genesis control plane instances is not permitted")
+	}
+
 	// get control plane definition by name
 	controlPlaneDefinition, err := client.GetControlPlaneDefinitionByName(apiClient, apiEndpoint, c.Name)
 	if err != nil {
