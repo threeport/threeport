@@ -328,14 +328,27 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 				return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
 			}
 
-			ca := cpi.getTLSSecret(fmt.Sprintf("%s-ca", controller.Name), authConfig.CAPemEncoded, "")
+			ca := &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Secret",
+					"type":       "Opaque",
+					"metadata": map[string]interface{}{
+						"name":      fmt.Sprintf("%s-ca", controller.Name),
+						"namespace": cpi.Opts.Namespace,
+					},
+					"stringData": map[string]interface{}{
+						"tls.crt": authConfig.CAPemEncoded,
+					},
+				},
+			}
 			if err := cpi.CreateOrUpdateKubeResource(ca, kubeClient, mapper); err != nil {
-				return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+				return fmt.Errorf("failed to create API server ca secret for workload controller: %w", err)
 			}
 
 			cert := cpi.getTLSSecret(fmt.Sprintf("%s-cert", controller.Name), certificate, privateKey)
 			if err := cpi.CreateOrUpdateKubeResource(cert, kubeClient, mapper); err != nil {
-				return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+				return fmt.Errorf("failed to create API server certificate secret for workload controller: %w", err)
 			}
 		}
 
@@ -346,7 +359,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			*controller,
 			authConfig != nil,
 		); err != nil {
-			return fmt.Errorf("failed to install %s: %w", *&controller.Name, err)
+			return fmt.Errorf("failed to install %s: %w", controller.Name, err)
 		}
 	}
 
@@ -380,41 +393,8 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	isAuthEnabled bool,
 ) error {
 	controllerImage := cpi.getImage(devEnvironment, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
-	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, devEnvironment, authConfig)
-	controllerArgs := cpi.getControllerArgs(installInfo.Name, devEnvironment, cpi.Opts.Debug, authConfig)
-
-	// if auth is enabled on API, generate client cert and key and store in
-	// secrets
-	if authConfig != nil {
-
-		certificate, privateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
-		if err != nil {
-			return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
-		}
-
-		ca := &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Secret",
-				"type":       "Opaque",
-				"metadata": map[string]interface{}{
-					"name":      fmt.Sprintf("%s-ca", installInfo.Name),
-					"namespace": cpi.Opts.Namespace,
-				},
-				"stringData": map[string]interface{}{
-					"tls.crt": authConfig.CAPemEncoded,
-				},
-			},
-		}
-		if err := cpi.CreateOrUpdateKubeResource(ca, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create API server ca secret for workload controller: %w", err)
-		}
-
-		cert := cpi.getTLSSecret(fmt.Sprintf("%s-cert", installInfo.Name), certificate, privateKey)
-		if err := cpi.CreateOrUpdateKubeResource(cert, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create API server certificate secret for workload controller: %w", err)
-		}
-	}
+	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, devEnvironment, isAuthEnabled)
+	controllerArgs := cpi.getControllerArgs(installInfo.Name, devEnvironment, cpi.Opts.Debug, isAuthEnabled)
 
 	var deployName string
 	if cpi.isThreeportManagedController(installInfo) {
@@ -1260,32 +1240,6 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIService(
 	}
 
 	return apiService, nil
-}
-
-// getAPIImage returns the proper container image to use for the API.
-func getAPIImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
-	if devEnvironment {
-		return "threeport-air"
-	}
-
-	imageRepo := ThreeportImageRepo
-	if customThreeportImageRepo != "" {
-		imageRepo = customThreeportImageRepo
-	}
-
-	imageTag := version.GetVersion()
-	if customThreeportImageTag != "" {
-		imageTag = customThreeportImageTag
-	}
-
-	apiImage := fmt.Sprintf(
-		"%s/%s:%s",
-		imageRepo,
-		ThreeportAPIImage,
-		imageTag,
-	)
-
-	return apiImage
 }
 
 // getAPIArgs returns the args that are passed to the API server.
