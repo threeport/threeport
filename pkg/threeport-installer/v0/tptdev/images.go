@@ -97,7 +97,7 @@ func BuildDevImage(threeportPath string) error {
 
 // BuildDevImage builds all the threeport control plane container images using
 // the dev dockerfile to provide live reload of code in the container.
-func BuildGoBinary(threeportPath, imageName, arch string) error {
+func BuildGoBinary(threeportPath, imageName, arch string, noCache bool) error {
 	// set name of main.go file
 	main := "main_gen.go"
 	if imageName == "rest-api" || imageName == "agent" {
@@ -105,13 +105,25 @@ func BuildGoBinary(threeportPath, imageName, arch string) error {
 	}
 
 	// construct build arguments
-	buildArgs := []string{
-		"build",
-		"-gcflags=\\\"all=-N -l\\\"", // escape quotes  and escape char for shell
-		"-o",
-		"bin/threeport-" + imageName,
-		"cmd/" + imageName + "/" + main,
+	buildArgs := []string{"build"}
+
+	// append build flags
+	buildArgs = append(buildArgs, "-gcflags=\\\"all=-N -l\\\"") // escape quotes and escape char for shell
+
+	// append no cache flag if specified
+	if noCache {
+		buildArgs = append(buildArgs, "-a")
 	}
+
+	// append output flag
+	buildArgs = append(buildArgs, "-o")
+
+	// append binary name
+	buildArgs = append(buildArgs, "bin/threeport-"+imageName)
+
+	// append main.go filepath
+	buildArgs = append(buildArgs, "cmd/"+imageName+"/"+main)
+
 	fmt.Printf("go %s \n", strings.Join(buildArgs, " "))
 
 	// construct build command

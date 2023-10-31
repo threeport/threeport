@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -14,10 +15,11 @@ import (
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 
-var imageNames string
-var parallel int
 var all bool
+var noCache bool
+var imageNames string
 var arch string
+var parallel int
 
 // buildCmd represents the up command
 var buildCmd = &cobra.Command{
@@ -37,6 +39,16 @@ var buildCmd = &cobra.Command{
 			imageNamesList = append(imageNamesList, "agent")
 		case false:
 			imageNamesList = strings.Split(imageNames, ",")
+		}
+
+		// configure control plane image repo via env var if not provided by cli
+		if cliArgs.ControlPlaneImageRepo == "" && os.Getenv("CONTROL_PLANE_IMAGE_REPO") != "" {
+			cliArgs.ControlPlaneImageRepo = os.Getenv("CONTROL_PLANE_IMAGE_REPO")
+		}
+
+		// configure control plane image tag via env var if not provided by cli
+		if cliArgs.ControlPlaneImageTag == "" && os.Getenv("CONTROL_PLANE_IMAGE_TAG") != "" {
+			cliArgs.ControlPlaneImageTag = os.Getenv("CONTROL_PLANE_IMAGE_TAG")
 		}
 
 		// configure concurrency for parallel builds
@@ -79,6 +91,7 @@ var buildCmd = &cobra.Command{
 						cpi.Opts.ThreeportPath,
 						image,
 						arch,
+						noCache,
 					); err != nil {
 						output <- fmt.Sprintf("failed to build go binary: %v", err)
 						continue
@@ -149,6 +162,10 @@ func init() {
 	buildCmd.Flags().BoolVar(
 		&all,
 		"all", false, "Alternate image tag to pull threeport control plane images from.",
+	)
+	buildCmd.Flags().BoolVar(
+		&noCache,
+		"no-cache", false, "Build go binaries without the local go cache.",
 	)
 	// buildCmd.Flags().BoolVar(
 	// 	&cliArgs.AuthEnabled,
