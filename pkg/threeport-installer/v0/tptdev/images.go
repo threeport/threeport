@@ -79,7 +79,7 @@ func BuildDevImage(threeportPath string) error {
 		Dockerfile: filepath.Join("cmd", "dev", "Dockerfile-dev"),
 		Tags:       []string{imageName},
 		Remove:     true,
-		Target:     "live-reload-dev",
+		Target:     "live-reload",
 	}
 
 	result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
@@ -148,7 +148,6 @@ func BuildGoBinary(threeportPath, imageName, arch string, noCache bool) error {
 // BuildDockerxImage builds a specified docker image
 // with the 'docker buildx' command.
 func BuildDockerxImage(threeportPath, imageName, tag, arch string) error {
-
 
 	// construct build arguments
 	buildArgs := []string{
