@@ -41,6 +41,7 @@ type Options struct {
 	ThreeportPath                 string
 	Debug                         bool
 	LiveReload                    bool
+	KindInfraPortForward          []string
 }
 
 type ControlPlaneInstaller struct {

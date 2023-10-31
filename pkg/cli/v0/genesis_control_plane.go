@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 	"unicode/utf8"
@@ -62,6 +64,7 @@ type GenesisControlPlaneCLIArgs struct {
 	ThreeportPath         string
 	Debug                 bool
 	ControlPlaneOnly      bool
+	KindInfraPortForward  []string
 }
 
 const tier = threeport.ControlPlaneTierDev
@@ -194,6 +197,29 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 
+		portForwards := make(map[int32]int32)
+		for _, mapping := range cpi.Opts.KindInfraPortForward {
+			split := strings.Split(mapping, ":")
+			fmt.Println(split)
+			fmt.Println(len(split))
+			if len(split) != 2 {
+				return fmt.Errorf("failed to parse kind port forward %s", mapping)
+			}
+
+			containerPort, err := strconv.ParseInt(split[0], 10, 32)
+			if err != nil {
+				return fmt.Errorf("failed to parse container port: %s as int32", split[0])
+			}
+
+			hostPort, err := strconv.ParseInt(split[1], 10, 32)
+			if err != nil {
+				return fmt.Errorf("failed to parse host port: %s as int32", split[0])
+			}
+
+			portForwards[int32(containerPort)] = int32(hostPort)
+		}
+		fmt.Println(portForwards)
+
 		// construct kind infra provider object
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
@@ -202,6 +228,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ThreeportPath:       cpi.Opts.ThreeportPath,
 			NumWorkerNodes:      cpi.Opts.NumWorkerNodes,
 			AuthEnabled:         cpi.Opts.AuthEnabled,
+			PortForwards:        portForwards,
 		}
 
 		// update threeport config with api endpoint

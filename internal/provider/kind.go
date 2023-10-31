@@ -34,6 +34,11 @@ type KubernetesRuntimeInfraKind struct {
 
 	// True if Threeport API is served via HTTPs.
 	AuthEnabled bool
+
+	// Addition ports to expose on the kind cluster.
+	// The key is the container port and value is the Host Port.
+	// The protocol is assumed TCP
+	PortForwards map[int32]int32
 }
 
 // Create installs a Kubernetes cluster using kind for the threeport control
@@ -49,7 +54,7 @@ func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) 
 		i.RuntimeInstanceName,
 		cluster.CreateWithKubeconfigPath(i.KubeconfigPath),
 		cluster.CreateWithWaitForReady(time.Duration(1000000000*60*5)), // 5 minutes
-		cluster.CreateWithV1Alpha4Config(getKindConfig(i.AuthEnabled, i.DevEnvironment, i.ThreeportPath, i.NumWorkerNodes)),
+		cluster.CreateWithV1Alpha4Config(getKindConfig(i.AuthEnabled, i.DevEnvironment, i.ThreeportPath, i.NumWorkerNodes, i.PortForwards)),
 	); err != nil {
 		return &kube.KubeConnectionInfo{}, fmt.Errorf("failed to create new kind cluster: %w", err)
 	}
@@ -78,7 +83,7 @@ func (i *KubernetesRuntimeInfraKind) Delete() error {
 }
 
 // getKindConfig returns a kind config for a threeport Kubernetes runtime.
-func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWorkerNodes int) *v1alpha4.Cluster {
+func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWorkerNodes int, portForwards map[int32]int32) *v1alpha4.Cluster {
 	clusterConfig := v1alpha4.Cluster{}
 
 	var controlPlaneNode v1alpha4.Node
@@ -107,10 +112,10 @@ func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWo
 			goCache = homeDir + "/.cache/go-build"
 		}
 
-		controlPlaneNode = *kindControlPlaneNode(authEnabled, threeportPath, goPath, goCache)
+		controlPlaneNode = *kindControlPlaneNode(authEnabled, threeportPath, goPath, goCache, portForwards)
 		workerNodes = *kindWorkers(numWorkerNodes, threeportPath, goPath, goCache)
 	} else {
-		controlPlaneNode = *kindControlPlaneNode(authEnabled, "", "", "")
+		controlPlaneNode = *kindControlPlaneNode(authEnabled, "", "", "", portForwards)
 		workerNodes = *kindWorkers(numWorkerNodes, "", "", "")
 	}
 	clusterConfig.Nodes = []v1alpha4.Node{controlPlaneNode}
@@ -119,9 +124,10 @@ func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWo
 	return &clusterConfig
 }
 
-// kindControlPlaneNode returns a control plane node
-func kindControlPlaneNode(authEnabled bool, threeportPath, goPath, goCache string) *v1alpha4.Node {
-	hostPort := threeport.GetThreeportAPIPort(authEnabled)
+// devEnvKindControlPlaneNode returns a control plane node with host path mount
+// for live code reloads.
+func kindControlPlaneNode(authEnabled bool, threeportPath, goPath, goCache string, portForwards map[int32]int32) *v1alpha4.Node {
+	extraPortMappings := getPortMapping(authEnabled, portForwards)
 	controlPlaneNode := v1alpha4.Node{
 		Role: v1alpha4.ControlPlaneRole,
 		KubeadmConfigPatches: []string{
@@ -131,13 +137,7 @@ nodeRegistration:
     node-labels: "ingress-ready=true"
 `,
 		},
-		ExtraPortMappings: []v1alpha4.PortMapping{
-			{
-				ContainerPort: int32(30000),
-				HostPort:      int32(hostPort),
-				Protocol:      v1alpha4.PortMappingProtocolTCP,
-			},
-		},
+		ExtraPortMappings: extraPortMappings,
 	}
 
 	if threeportPath != "" {
@@ -196,6 +196,30 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 	}
 
 	return &nodes
+}
+
+func getPortMapping(authEnabled bool, portForwards map[int32]int32) []v1alpha4.PortMapping {
+	hostPort := threeport.GetThreeportAPIPort(authEnabled)
+	extraPortMappings := make([]v1alpha4.PortMapping, 0)
+	extraPortMappings = append(
+		extraPortMappings,
+		v1alpha4.PortMapping{
+			ContainerPort: int32(30000),
+			HostPort:      int32(hostPort),
+			Protocol:      v1alpha4.PortMappingProtocolTCP,
+		})
+
+	for cPort, hPort := range portForwards {
+		extraPortMappings = append(
+			extraPortMappings,
+			v1alpha4.PortMapping{
+				ContainerPort: int32(cPort),
+				HostPort:      int32(hPort),
+				Protocol:      v1alpha4.PortMappingProtocolTCP,
+			})
+	}
+
+	return extraPortMappings
 }
 
 // devEnvKindWorkers returns worker nodes with host path mount for live code
