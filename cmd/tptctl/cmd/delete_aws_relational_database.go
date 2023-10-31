@@ -6,11 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
-<<<<<<< HEAD
-=======
-	"io/ioutil"
 	"net/http"
->>>>>>> f09dbd9 (feat: wip)
 	"os"
 
 	"github.com/spf13/cobra"
@@ -54,18 +50,7 @@ the AWS relational database config or name.`,
 				os.Exit(1)
 			}
 
-			// get threeport API client
-			cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled(requestedControlPlane)
-			if err != nil {
-				cli.Error("failed to determine if auth is enabled on threeport API", err)
-				os.Exit(1)
-			}
-			ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(requestedControlPlane)
-			if err != nil {
-				cli.Error("failed to get threeport certificates from config", err)
-				os.Exit(1)
-			}
-			apiClient, err = client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
+			apiClient, err = threeportConfig.GetHTTPClient(requestedControlPlane)
 			if err != nil {
 				cli.Error("failed to create threeport API client", err)
 				os.Exit(1)
