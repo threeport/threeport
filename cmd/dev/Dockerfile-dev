@@ -1,6 +1,3 @@
-ARG ARCH
-ARG BINARY
-
 # base target
 FROM golang:1.20-alpine as base
 RUN apk update && apk add git
@@ -18,7 +15,8 @@ RUN go install github.com/cosmtrek/air@latest && \
     mv /go/bin/air /usr/local/bin
 
 # static development target
-FROM delve as static-dev
-COPY bin/threeport-${BINARY}-${ARCH} /threeport-${BINARY}
+FROM delve as dev
+ARG BINARY
+COPY bin/threeport-${BINARY} /threeport-${BINARY}
 
 ENTRYPOINT ["/threeport-${BINARY}"]

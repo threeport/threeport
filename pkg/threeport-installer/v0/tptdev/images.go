@@ -149,16 +149,21 @@ func BuildGoBinary(threeportPath, imageName, arch string, noCache bool) error {
 // with the 'docker buildx' command.
 func BuildDockerxImage(threeportPath, imageName, tag, arch string) error {
 
+
 	// construct build arguments
 	buildArgs := []string{
 		"sudo",
 		"docker",
 		"buildx",
 		"build",
+		"--build-arg",
+		fmt.Sprintf("BINARY=%s", imageName),
+		"--target",
+		"dev",
 		"--load",
 		"--platform=linux/" + arch,
 		"-t " + tag,
-		"-f " + "cmd/" + imageName + "/image/Dockerfile-test",
+		"-f " + "cmd/dev/Dockerfile-dev",
 		threeportPath,
 	}
 	fmt.Println(strings.Join(buildArgs, " "))
