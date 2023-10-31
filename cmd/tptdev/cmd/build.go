@@ -4,17 +4,22 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sync"
 
 	"github.com/spf13/cobra"
+	"github.com/threeport/threeport/internal/provider"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	config "github.com/threeport/threeport/pkg/config/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 
 var all bool
 var noCache bool
+var push bool
+var load bool
 var imageNames string
 var arch string
 var parallel int
@@ -26,6 +31,12 @@ var buildCmd = &cobra.Command{
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
+		// validate cli args
+		if push && load {
+			errors.New("cannot use --push and --load together")
+			os.Exit(1)
+		}
+
 		// create list of images to build
 		imageNamesList := getImageNamesList(all, imageNames)
 
@@ -34,7 +45,7 @@ var buildCmd = &cobra.Command{
 
 		// configure concurrency for parallel builds
 		jobs := make(chan string)
-		var jobsWaitGroup sync.WaitGroup
+		var waitGroup sync.WaitGroup
 
 		// configure installer
 		cpi, err := cliArgs.CreateInstaller()
@@ -49,9 +60,9 @@ var buildCmd = &cobra.Command{
 
 		// start build workers
 		for i := 1; i <= parallel; i++ {
-			jobsWaitGroup.Add(1)
+			waitGroup.Add(1)
 			go func() {
-				defer jobsWaitGroup.Done()
+				defer waitGroup.Done()
 				for image := range jobs {
 
 					// build go binary
@@ -84,10 +95,26 @@ var buildCmd = &cobra.Command{
 						os.Exit(1)
 					}
 
-					// push docker image
-					if err := tptdev.PushDockerImage(tag); err != nil {
-						cli.Error("failed to push docker image: %v", err)
-						os.Exit(1)
+					switch {
+					case push:
+						// push docker image
+						if err := tptdev.PushDockerImage(tag); err != nil {
+							cli.Error("failed to push docker image: %v", err)
+							os.Exit(1)
+						}
+					case load:
+						// get threeport config and extract threeport API endpoint
+						_, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+						if err != nil {
+							cli.Error("failed to get threeport config", err)
+							os.Exit(1)
+						}
+
+						// load docker image into kind
+						if err = tptdev.LoadDevImage(provider.ThreeportRuntimeName(requestedControlPlane), tag); err != nil {
+							cli.Error("failed to load docker image into kind: %v", err)
+							os.Exit(1)
+						}
 					}
 				}
 			}()
@@ -102,7 +129,7 @@ var buildCmd = &cobra.Command{
 		close(jobs)
 
 		// wait for all workers to finish
-		jobsWaitGroup.Wait()
+		waitGroup.Wait()
 	},
 }
 
@@ -135,5 +162,13 @@ func init() {
 	buildCmd.Flags().BoolVar(
 		&noCache,
 		"no-cache", false, "Build go binaries without the local go cache.",
+	)
+	buildCmd.Flags().BoolVar(
+		&push,
+		"push", false, "Push docker images.",
+	)
+	buildCmd.Flags().BoolVar(
+		&load,
+		"load", false, "Load docker images into kind.",
 	)
 }

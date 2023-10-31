@@ -47,7 +47,7 @@ func PrepareDevImages(threeportPath, kindKubernetesRuntimeName string, cpi *thre
 		return fmt.Errorf("failed to build dev images: %w", err)
 	}
 
-	if err := LoadDevImage(kindKubernetesRuntimeName); err != nil {
+	if err := LoadDevImage(kindKubernetesRuntimeName, "threeport-air"); err != nil {
 		return fmt.Errorf("failed to load dev images to kind cluster: %w", err)
 	}
 
@@ -306,14 +306,13 @@ func PushDockerImage(tag string) error {
 
 // LoadDevImage loads the threeport control plane development container images
 // onto the kind cluster nodes.
-func LoadDevImage(kindKubernetesRuntimeName string) error {
+func LoadDevImage(kindKubernetesRuntimeName, imageName string) error {
 	logger := cmd.NewLogger()
 	provider := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
 	)
 
 	// check that the image exists locally and gets its ID, if not return error
-	imageName := "threeport-air"
 	imageID, err := imageID(imageName)
 	if err != nil {
 		return fmt.Errorf("image: %q not present locally", imageName)
