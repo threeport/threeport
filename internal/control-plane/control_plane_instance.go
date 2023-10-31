@@ -327,7 +327,6 @@ func controlPlaneInstanceCreated(
 	if err := cpi.InstallThreeportControllers(
 		dynamicKubeClient,
 		mapper,
-		cpi.Opts.LiveReload,
 		authConfig,
 	); err != nil {
 		return 0, fmt.Errorf("failed to install threeport controllers: %w", err)

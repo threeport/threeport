@@ -136,35 +136,10 @@ func BuildGoBinary(threeportPath, imageName, arch string, noCache bool) error {
 	}
 	cmd.Env = append(cmd.Env, goEnv...)
 	cmd.Dir = threeportPath
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to read stdout pipe: %v", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to read stderr pipe: %v", err)
-	}
 
 	// start build command
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to build threeport-%s: %v", imageName, err)
-	}
-
-	// wait for build command to finish
-	if err := cmd.Wait(); err != nil {
-
-		// capture stdout
-		outputBytes, _ := io.ReadAll(stdout)
-		if len(outputBytes) > 0 {
-			fmt.Println(string(outputBytes))
-		}
-
-		// capture stderr
-		errorBytes, _ := io.ReadAll(stderr)
-		if len(outputBytes) > 0 {
-			fmt.Println(string(errorBytes))
-		}
-		return fmt.Errorf("failed to build threeport-%s: %v", imageName, err)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to build threeport-%s: %v\noutput:\n%s", imageName, err, string(output))
 	}
 
 	return nil
@@ -191,35 +166,10 @@ func BuildDockerxImage(threeportPath, imageName, tag, arch string) error {
 	cmdStr := strings.Join(buildArgs, (" "))
 	cmd := exec.Command("/bin/sh", "-c", cmdStr)
 	cmd.Dir = threeportPath
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to read stdout pipe: %v", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to read stderr pipe: %v", err)
-	}
 
 	// start build command
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to build threeport-%s: %v", imageName, err)
-	}
-
-	// wait for build command to finish
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("failed to build threeport-%s: %v", imageName, err)
-	}
-
-	// capture stdout
-	outputBytes, _ := io.ReadAll(stdout)
-	if len(outputBytes) > 0 {
-		fmt.Println(string(outputBytes))
-	}
-
-	// capture stderr
-	errorBytes, _ := io.ReadAll(stderr)
-	if len(outputBytes) > 0 {
-		fmt.Println(string(errorBytes))
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to build threeport-%s: %v\noutput:\n%s", imageName, err, string(output))
 	}
 
 	return nil

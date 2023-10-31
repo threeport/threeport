@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -34,17 +35,21 @@ var buildCmd = &cobra.Command{
 		// configure concurrency for parallel builds
 		jobs := make(chan string)
 		output := make(chan string)
-		var wg sync.WaitGroup
+		var jobsWaitGroup sync.WaitGroup
+		var outputWaitGroup sync.WaitGroup
 
 		// configure output handler
+		outputWaitGroup.Add(1)
 		go func() {
+			defer outputWaitGroup.Done()
 			for {
 				message, ok := <-output
 				if !ok {
 					// Channel is closed, so exit the Goroutine
 					return
 				}
-				fmt.Println("Received:", message)
+				fmt.Println("Error:", message)
+				os.Exit(1)
 			}
 		}()
 
@@ -61,9 +66,9 @@ var buildCmd = &cobra.Command{
 
 		// start build workers
 		for i := 1; i <= parallel; i++ {
-			wg.Add(1)
+			jobsWaitGroup.Add(1)
 			go func() {
-				defer wg.Done()
+				defer jobsWaitGroup.Done()
 				for image := range jobs {
 
 					// build go binary
@@ -102,6 +107,7 @@ var buildCmd = &cobra.Command{
 						continue
 					}
 				}
+				// close(output)
 			}()
 		}
 
@@ -109,10 +115,18 @@ var buildCmd = &cobra.Command{
 		for _, imageName := range imageNamesList {
 			jobs <- imageName
 		}
-		close(jobs) // Close the jobs channel to signal that no more jobs will be added
 
-		// Wait for all workers to finish
-		wg.Wait()
+		// close the jobs channel to signal that no more jobs will be added
+		close(jobs)
+
+		// wait for all workers to finish
+		jobsWaitGroup.Wait()
+
+		// close the output channel
+		close(output)
+
+		// wait for output handler to finish
+		outputWaitGroup.Wait()
 
 	},
 }
