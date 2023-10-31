@@ -79,5 +79,4 @@ func getControlPlaneEnvVars() {
 	if cliArgs.ControlPlaneImageTag == "" && controlPlaneImageTag != "" {
 		cliArgs.ControlPlaneImageTag = controlPlaneImageTag
 	}
-
 }

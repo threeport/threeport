@@ -136,31 +136,4 @@ func init() {
 		&noCache,
 		"no-cache", false, "Build go binaries without the local go cache.",
 	)
-	// buildCmd.Flags().BoolVar(
-	// 	&cliArgs.AuthEnabled,
-	// 	"auth-enabled", false, "Enable client certificate authentication (default is false).",
-	// )
-	// buildCmd.Flags().StringVarP(
-	// 	&cliArgs.ControlPlaneName,
-	// 	"name", "n", tptdev.DefaultInstanceName, "Name of dev control plane instance.",
-	// )
-	// buildCmd.Flags().StringVarP(
-	// 	&cliArgs.ThreeportPath,
-	// 	"threeport-path", "t", "", "Path to threeport repository root (default is './').",
-	// )
-	// rootCmd.PersistentFlags().StringVar(
-	// 	&cliArgs.CfgFile,
-	// 	"threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml).",
-	// )
-	// rootCmd.PersistentFlags().StringVar(
-	// 	&cliArgs.ProviderConfigDir,
-	// 	"provider-config", "", "Path to infra provider config directory (default is $HOME/.config/threeport/).",
-	// )
-	// buildCmd.Flags().IntVar(
-	// 	&cliArgs.NumWorkerNodes,
-	// 	"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
-	// )
-	// cobra.OnInitialize(func() {
-	// 	cli.InitConfig(cliArgs.CfgFile)
-	// })
 }
