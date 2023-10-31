@@ -150,7 +150,6 @@ func BuildDockerxImage(threeportPath, imageName, tag, arch string) error {
 
 	// construct build arguments
 	buildArgs := []string{
-		"sudo",
 		"docker",
 		"buildx",
 		"build",
