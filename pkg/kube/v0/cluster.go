@@ -46,7 +46,7 @@ func GetInClusterKubeClient() (*kubernetes.Clientset, error) {
 func GetKubeClientForGroupNameVersion(groupName string, groupVersion string) (*rest.RESTClient, error) {
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not retrieve in cluster config: %w", err)
 	}
 
 	config := *cfg
@@ -56,7 +56,7 @@ func GetKubeClientForGroupNameVersion(groupName string, groupVersion string) (*r
 	config.UserAgent = rest.DefaultKubernetesUserAgent()
 	restClient, err := rest.UnversionedRESTClientFor(&config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create kube rest client: %w", err)
 	}
 
 	return restClient, nil
