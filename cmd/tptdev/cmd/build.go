@@ -34,24 +34,7 @@ var buildCmd = &cobra.Command{
 
 		// configure concurrency for parallel builds
 		jobs := make(chan string)
-		output := make(chan string)
 		var jobsWaitGroup sync.WaitGroup
-		var outputWaitGroup sync.WaitGroup
-
-		// configure output handler
-		outputWaitGroup.Add(1)
-		go func() {
-			defer outputWaitGroup.Done()
-			for {
-				message, ok := <-output
-				if !ok {
-					// Channel is closed, so exit the Goroutine
-					return
-				}
-				fmt.Println("Error:", message)
-				os.Exit(1)
-			}
-		}()
 
 		// configure installer
 		cpi, err := cliArgs.CreateInstaller()
@@ -78,8 +61,8 @@ var buildCmd = &cobra.Command{
 						arch,
 						noCache,
 					); err != nil {
-						output <- fmt.Sprintf("failed to build go binary: %v", err)
-						continue
+						cli.Error("failed to build go binary: %v", err)
+						os.Exit(1)
 					}
 
 					// configure image tag
@@ -97,17 +80,16 @@ var buildCmd = &cobra.Command{
 						tag,
 						arch,
 					); err != nil {
-						output <- fmt.Sprintf("failed to build docker image: %v", err)
-						continue
+						cli.Error("failed to build docker image: %v", err)
+						os.Exit(1)
 					}
 
 					// push docker image
 					if err := tptdev.PushDockerImage(tag); err != nil {
-						output <- fmt.Sprintf("failed to push docker image: %v", err)
-						continue
+						cli.Error("failed to push docker image: %v", err)
+						os.Exit(1)
 					}
 				}
-				// close(output)
 			}()
 		}
 
@@ -121,13 +103,6 @@ var buildCmd = &cobra.Command{
 
 		// wait for all workers to finish
 		jobsWaitGroup.Wait()
-
-		// close the output channel
-		close(output)
-
-		// wait for output handler to finish
-		outputWaitGroup.Wait()
-
 	},
 }
 
