@@ -148,6 +148,18 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		// check duration since last acknowledged
 		stale := checkStaleEksAck(*awsEksKubernetesRuntimeInstance.CreationAcknowledged)
 		if !stale {
+			// refresh the acknowledgement timestamp
+			refreshAckTimestamp := time.Now().UTC()
+			awsEksKubernetesRuntimeInstance.CreationAcknowledged = &refreshAckTimestamp
+			_, err = client.UpdateAwsEksKubernetesRuntimeInstance(
+				r.APIClient,
+				r.APIServer,
+				awsEksKubernetesRuntimeInstance,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to refresh creation acknowledged timestamp: %w", err)
+			}
+
 			return 90, nil
 		}
 	}
@@ -532,7 +544,6 @@ func checkEksCreated(
 	return false, nil
 }
 
-// stale, err := checkStaleEksAck(latestAwsEksKubernetesRuntimeInstance.CreationAcknowledged)
 // checkStaleEksAck checks to see if the creation acknowledged timestamp on an
 // AWS EKS cluster has gone stale indicating the creation process was
 // interrupted.
