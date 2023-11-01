@@ -9,7 +9,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
-	"github.com/nukleros/eks-cluster/pkg/resource"
+	builder_config "github.com/nukleros/aws-builder/pkg/config"
+	"github.com/nukleros/aws-builder/pkg/iam"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
@@ -20,7 +23,6 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // controlPlaneInstanceCreated reconciles state for a new control plane
@@ -167,7 +169,7 @@ func controlPlaneInstanceCreated(
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create AWS config
-		awsConf, err := resource.LoadAWSConfig(false, "", "", "", "", "")
+		awsConf, err := builder_config.LoadAWSConfig(false, "", "", "", "", "")
 		if err != nil {
 			return 0, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}
@@ -181,7 +183,7 @@ func controlPlaneInstanceCreated(
 		// create resource manager role
 		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 		_, err = provider.CreateResourceManagerRole(
-			resource.CreateIAMTags(
+			iam.CreateIamTags(
 				cpi.Opts.ControlPlaneName,
 				map[string]string{},
 			),
@@ -649,7 +651,7 @@ func controlPlaneInstanceDeleted(
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create AWS config
-		awsConf, err := resource.LoadAWSConfig(false, "", "", "", "", "")
+		awsConf, err := builder_config.LoadAWSConfig(false, "", "", "", "", "")
 		if err != nil {
 			return 0, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
 		}

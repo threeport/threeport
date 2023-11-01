@@ -10,8 +10,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/eks/connection"
-	"github.com/nukleros/eks-cluster/pkg/resource"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -355,7 +355,7 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	}
 
 	// load aws config via API key credentials
-	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(accessKeyId, secretAccessKey, "", region, "", "", "")
+	awsConfig, err := builder_config.LoadAWSConfigFromAPIKeys(accessKeyId, secretAccessKey, "", region, "", "", "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
@@ -394,7 +394,7 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	}
 
 	// construct aws config given values
-	awsConfig, err = resource.LoadAWSConfigFromAPIKeys(
+	awsConfig, err = builder_config.LoadAWSConfigFromAPIKeys(
 		accessKeyId,
 		secretAccessKey,
 		"",
