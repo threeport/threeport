@@ -27,4 +27,7 @@ type ControlPlaneComponent struct {
 
 	// The service resource name to use when deploying
 	ServiceResourceName string `json:"ServiceResourceName,omitempty" yaml:"ServiceResourceName" query:"serviceresourcename" validate:"optional"`
+
+	// The name of the secret with credentials to pull a private container image
+	ImagePullSecretName string `json:"ImagePullSecretName,omitempty" yaml:"ImagePullSecretName" query:"imagepullsecretname" validate:"optional"`
 }

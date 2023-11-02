@@ -82,6 +82,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAPI(
 	apiServiceType := cpi.getAPIServiceType(infraProvider)
 	apiServiceAnnotations := getAPIServiceAnnotations(infraProvider)
 	apiServicePortName, apiServicePort := cpi.getAPIServicePort(infraProvider, authConfig)
+	apiImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.RestApiInfo.ImagePullSecretName)
 
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -218,7 +219,8 @@ NATS_PORT=4222
 								"readinessProbe": cpi.getReadinessProbe(),
 							},
 						},
-						"volumes": apiVols,
+						"imagePullSecrets": apiImagePullSecrets,
+						"volumes":          apiVols,
 					},
 				},
 			},
@@ -358,6 +360,7 @@ func (cpi *ControlPlaneInstaller) InstallController(
 	controllerImage := cpi.getImage(devEnvironment, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
 	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, devEnvironment, authConfig)
 	controllerArgs := cpi.getControllerArgs(devEnvironment, authConfig)
+	controllerImagePullSecrets := cpi.getImagePullSecrets(installInfo.ImagePullSecretName)
 
 	// if auth is enabled on API, generate client cert and key and store in
 	// secrets
@@ -410,6 +413,7 @@ func (cpi *ControlPlaneInstaller) InstallController(
 		controllerArgs,
 		controllerVols,
 		controllerVolMounts,
+		controllerImagePullSecrets,
 	)
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
@@ -429,6 +433,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	agentImage := cpi.getImage(devEnvironment, cpi.Opts.AgentInfo.Name, cpi.Opts.AgentInfo.ImageName, cpi.Opts.AgentInfo.ImageRepo, cpi.Opts.AgentInfo.ImageTag)
 	agentArgs := cpi.getAgentArgs(devEnvironment, authConfig)
 	agentVols, agentVolMounts := cpi.getControllerVolumes("agent", devEnvironment, authConfig)
+	agentImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.AgentInfo.ImagePullSecretName)
 
 	// if auth is enabled on API, generate client cert and key and store in
 	// secrets
@@ -1074,7 +1079,8 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 								"volumeMounts": agentVolMounts,
 							},
 						},
-						"volumes": agentVols,
+						"imagePullSecrets": agentImagePullSecrets,
+						"volumes":          agentVols,
 						//"securityContext": map[string]interface{}{
 						//	"runAsNonRoot": true,
 						//},
@@ -1541,7 +1547,17 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 	}
 }
 
-func (cpi *ControlPlaneInstaller) getControllerDeployment(deployName, name, namespace, saName, image string, args, volumes, volumeMounts []interface{}) *unstructured.Unstructured {
+func (cpi *ControlPlaneInstaller) getControllerDeployment(
+	deployName string,
+	name string,
+	namespace string,
+	saName string,
+	image string,
+	args []interface{},
+	volumes []interface{},
+	volumeMounts []interface{},
+	imagePullSecrets []interface{},
+) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -1587,7 +1603,8 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(deployName, name, name
 								"readinessProbe": cpi.getReadinessProbe(),
 							},
 						},
-						"volumes": volumes,
+						"imagePullSecrets": imagePullSecrets,
+						"volumes":          volumes,
 					},
 				},
 			},
@@ -1627,6 +1644,20 @@ func (cpi *ControlPlaneInstaller) getDevEnvironmentVolumes(vols, volMounts []int
 	volMounts = append(volMounts, goCacheVolMount)
 
 	return vols, volMounts
+}
+
+// getImagePullSecrets returns the image pull secret config for a control plane
+// component.
+func (cpi *ControlPlaneInstaller) getImagePullSecrets(imagePullSecretName string) []interface{} {
+	if imagePullSecretName == "" {
+		return []interface{}{}
+	}
+
+	return []interface{}{
+		map[string]interface{}{
+			"name": imagePullSecretName,
+		},
+	}
 }
 
 // GetThreeportAPIPort returns the port that the threeport API is running on.

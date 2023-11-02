@@ -157,6 +157,10 @@ func controlPlaneInstanceCreated(
 			installInfo.ServiceResourceName = customInfo.ServiceResourceName
 		}
 
+		if customInfo.ImagePullSecretName != "" {
+			installInfo.ImagePullSecretName = customInfo.ImagePullSecretName
+		}
+
 		if customInfo.Enabled != nil {
 			installInfo.Enabled = customInfo.Enabled
 		}

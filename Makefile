@@ -125,13 +125,17 @@ dev-logs-wrk:
 dev-logs-gw:
 	kubectl logs deploy/threeport-gateway-controller -n threeport-control-plane -f
 
-#dev-logs-wrk: @ Follow log output from the local dev kubernetes runtime controller
+#dev-logs-kr: @ Follow log output from the local dev kubernetes runtime controller
 dev-logs-kr:
 	kubectl logs deploy/threeport-kubernetes-runtime-controller -n threeport-control-plane -f
 
 #dev-logs-aws: @ Follow log output from the local dev aws controller
 dev-logs-aws:
 	kubectl logs deploy/threeport-aws-controller -n threeport-control-plane -f
+
+#dev-logs-cp: @ Follow log output from the local dev control plane controller
+dev-logs-cp:
+	kubectl logs deploy/threeport-control-plane-controller -n threeport-control-plane -f
 
 #dev-logs-agent: @ Follow log output from the local dev agent
 dev-logs-agent:
