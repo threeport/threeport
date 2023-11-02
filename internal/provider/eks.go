@@ -764,7 +764,8 @@ const (
 					"iam:TagRole",
 					"iam:UntagRole",
 					"iam:ListAttachedRolePolicies",
-					"iam:DescribeSecurityGroups"
+					"iam:DescribeSecurityGroups",
+					"iam:CreateServiceLinkedRole"
 				],
 				"Resource": "*"
 			},
