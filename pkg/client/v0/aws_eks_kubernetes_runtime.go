@@ -12,7 +12,6 @@ func GetResourceInventoryByK8sRuntimeInst(
 	apiClient *http.Client,
 	apiAddr string,
 	kubernetesRuntimeInstanceId *uint,
-	// ) (*resource.ResourceInventory, error) {
 ) (*eks.EksInventory, error) {
 
 	// get dns management role arn
@@ -26,12 +25,6 @@ func GetResourceInventoryByK8sRuntimeInst(
 	}
 
 	// unmarshal the inventory into an ResourceInventory object
-	//var inventory resource.ResourceInventory
-	//err = resource.UnmarshalInventory(
-	//	[]byte(*aekri.ResourceInventory),
-	//	&inventory,
-	//)
-	//if err != nil {
 	var inventory eks.EksInventory
 	if err := inventory.Unmarshal([]byte(*aekri.ResourceInventory)); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal resource inventory: %w", err)

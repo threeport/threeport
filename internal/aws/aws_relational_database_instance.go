@@ -114,9 +114,7 @@ func awsRelationalDatabaseInstanceCreated(
 
 	// extract kubernetes runtime resource inventory
 	runtimeInventoryJson := awsEksKubernetesRuntimeInstance.ResourceInventory
-	//var runtimeInventory resource.ResourceInventory
 	var runtimeInventory eks.EksInventory
-	//if err := resource.UnmarshalInventory([]byte(*runtimeInventoryJson), &runtimeInventory); err != nil {
 	if err := runtimeInventory.Unmarshal(*runtimeInventoryJson); err != nil {
 		return 0, fmt.Errorf("failed to unmarshal AWS EKS kubernetes runtime inventory: %w", err)
 	}

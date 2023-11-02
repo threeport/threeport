@@ -358,7 +358,6 @@ func CreateResourceManagerRole(
 	svc := iam.NewFromConfig(awsConfig)
 
 	// ensure role name is valid
-	//if err := resource.CheckRoleName(roleName); err != nil {
 	if err := eks.CheckRoleName(roleName); err != nil {
 		return nil, err
 	}
