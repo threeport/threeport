@@ -687,6 +687,7 @@ const (
 				"Action": [
 					"ec2:CreateVpc",
 					"ec2:DeleteVpc",
+					"ec2:DescribeVpcs",
 					"ec2:ModifyVpcAttribute",
 					"ec2:CreateSubnet",
 					"ec2:DeleteSubnet",
@@ -760,7 +761,8 @@ const (
 					"iam:TagRole",
 					"iam:UntagRole",
 					"iam:ListAttachedRolePolicies",
-					"iam:DescribeSecurityGroups"
+					"iam:DescribeSecurityGroups",
+					"iam:CreateServiceLinkedRole"
 				],
 				"Resource": "*"
 			},
