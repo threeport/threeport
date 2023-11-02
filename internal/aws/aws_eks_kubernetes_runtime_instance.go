@@ -148,18 +148,6 @@ func awsEksKubernetesRuntimeInstanceCreated(
 		// check duration since last acknowledged
 		stale := checkStaleEksAck(*awsEksKubernetesRuntimeInstance.CreationAcknowledged)
 		if !stale {
-			// refresh the acknowledgement timestamp
-			refreshAckTimestamp := time.Now().UTC()
-			awsEksKubernetesRuntimeInstance.CreationAcknowledged = &refreshAckTimestamp
-			_, err = client.UpdateAwsEksKubernetesRuntimeInstance(
-				r.APIClient,
-				r.APIServer,
-				awsEksKubernetesRuntimeInstance,
-			)
-			if err != nil {
-				return 0, fmt.Errorf("failed to refresh creation acknowledged timestamp: %w", err)
-			}
-
 			return 90, nil
 		}
 	}
@@ -168,7 +156,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	// 1. creation has not been acknowledged - new create request
 	// 2. creation has previously failed - time to retry
 	// 3. the last acknowledgement is stale - creation was interrupted
-	// in each case we will attempt to create/re-create
+	// in each case we will attempt to create/resume creation
 
 	// acknowledge creation and set creation failure to false
 	creationAckTimestamp := time.Now().UTC()
@@ -268,7 +256,7 @@ func awsEksKubernetesRuntimeInstanceCreated(
 	go createInfra(
 		r,
 		&clusterInfra,
-		*awsEksKubernetesRuntimeInstance.ID,
+		awsEksKubernetesRuntimeInstance,
 		&reconLog,
 		awsEksKubernetesRuntimeInstance.ResourceInventory,
 	)
@@ -488,7 +476,7 @@ func getInventory(
 func createInfra(
 	r *controller.Reconciler,
 	clusterInfra *provider.KubernetesRuntimeInfraEKS,
-	awsEksKubernetesRuntimeInstanceId uint,
+	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
 	log *logr.Logger,
 	resourceInventory *datatypes.JSON,
 ) {
@@ -499,21 +487,63 @@ func createInfra(
 			log.Error(err, "failed to unmarshal existing inventory")
 			persistCreateFailure(
 				r,
-				awsEksKubernetesRuntimeInstanceId,
+				*awsEksKubernetesRuntimeInstance.ID,
 				log,
 			)
 		}
 	}
 	clusterInfra.ExistingResourceInventory = &inventory
 
+	// refresh the creation acknowledgement until this function returns
+	quitChan := make(chan bool)
+	go refreshAcknowledgement(
+		r,
+		awsEksKubernetesRuntimeInstance,
+		quitChan,
+		log,
+	)
+	defer func() {
+		quitChan <- true
+	}()
+
 	_, err := clusterInfra.Create()
 	if err != nil {
 		log.Error(err, "failed to create EKS cluster infra")
 		persistCreateFailure(
 			r,
-			awsEksKubernetesRuntimeInstanceId,
+			*awsEksKubernetesRuntimeInstance.ID,
 			log,
 		)
+	}
+}
+
+// refreshAcknowledgement refreshes the creation acknowledged timestamp every 60
+// seconds until told to quit
+func refreshAcknowledgement(
+	r *controller.Reconciler,
+	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
+	quitChan chan bool,
+	log *logr.Logger,
+) {
+	for {
+		select {
+		case <-quitChan:
+			return
+		default:
+			// refresh the acknowledgement timestamp
+			refreshAckTimestamp := time.Now().UTC()
+			awsEksKubernetesRuntimeInstance.CreationAcknowledged = &refreshAckTimestamp
+			_, err := client.UpdateAwsEksKubernetesRuntimeInstance(
+				r.APIClient,
+				r.APIServer,
+				awsEksKubernetesRuntimeInstance,
+			)
+			if err != nil {
+				log.Error(err, "failed to refresh creation acknowledged timestamp")
+			}
+
+			time.Sleep(time.Second * 60)
+		}
 	}
 }
 
