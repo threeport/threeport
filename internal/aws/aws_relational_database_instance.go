@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-logr/logr"
 	awsclient "github.com/nukleros/aws-builder/pkg/client"
+	"github.com/nukleros/aws-builder/pkg/eks"
 	"github.com/nukleros/aws-builder/pkg/rds"
-	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gorm.io/datatypes"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,9 +114,20 @@ func awsRelationalDatabaseInstanceCreated(
 
 	// extract kubernetes runtime resource inventory
 	runtimeInventoryJson := awsEksKubernetesRuntimeInstance.ResourceInventory
-	var runtimeInventory resource.ResourceInventory
-	if err := resource.UnmarshalInventory([]byte(*runtimeInventoryJson), &runtimeInventory); err != nil {
+	var runtimeInventory eks.EksInventory
+	if err := runtimeInventory.Unmarshal(*runtimeInventoryJson); err != nil {
 		return 0, fmt.Errorf("failed to unmarshal AWS EKS kubernetes runtime inventory: %w", err)
+	}
+
+	// gather the private subnet IDs from the EKS inventory where tenant
+	// workloads run
+	var dbSubnetIds []string
+	for _, az := range runtimeInventory.AvailabilityZones {
+		for _, privateSubnet := range az.PrivateSubnets {
+			if privateSubnet.SubnetId != "" {
+				dbSubnetIds = append(dbSubnetIds, privateSubnet.SubnetId)
+			}
+		}
 	}
 
 	// create RDS config
@@ -128,9 +139,9 @@ func awsRelationalDatabaseInstanceCreated(
 	rdsConfig := rds.RdsConfig{
 		AwsAccount:            *awsAccount.AccountID,
 		Region:                awsConfig.Region,
-		VpcId:                 runtimeInventory.VPCID,
-		SubnetIds:             runtimeInventory.SubnetIDs,
-		SourceSecurityGroupId: runtimeInventory.SecurityGroupID,
+		VpcId:                 runtimeInventory.VpcId,
+		SubnetIds:             dbSubnetIds,
+		SourceSecurityGroupId: runtimeInventory.SecurityGroupId,
 		Name:                  *awsRelationalDatabaseInstance.Name,
 		DbName:                *awsRelationalDatabaseDef.DatabaseName,
 		Class:                 machineClass,
@@ -144,7 +155,17 @@ func awsRelationalDatabaseInstanceCreated(
 		Tags:                  provider.ThreeportProviderTags(),
 	}
 
-	if err := rdsClient.CreateRdsResourceStack(&rdsConfig); err != nil {
+	// extract RDS inventory from database
+	rdsInventory, err := getRdsInventory(r, awsRelationalDatabaseInstance)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve AWS relational databse inventory")
+	}
+
+	// create RDS resources in AWS
+	if err := rdsClient.CreateRdsResourceStack(
+		&rdsConfig,
+		rdsInventory,
+	); err != nil {
 		return 0, fmt.Errorf("failed to create RDS resource stack: %w", err)
 	}
 
@@ -177,12 +198,6 @@ func awsRelationalDatabaseInstanceCreated(
 		return 0, errors.New("multiple namespaces found in workload resource instances")
 	}
 	workloadNamespace := namespaces[0]
-
-	// extract RDS inventory from database
-	rdsInventory, err := getRdsInventory(r, awsRelationalDatabaseInstance)
-	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve AWS relational databse inventory")
-	}
 
 	// create DB connection secret for workload
 	data := map[string][]byte{

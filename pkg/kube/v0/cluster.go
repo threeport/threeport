@@ -8,6 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+	builder_config "github.com/nukleros/aws-builder/pkg/config"
+	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -18,10 +22,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/nukleros/eks-cluster/pkg/connection"
-	"github.com/nukleros/eks-cluster/pkg/resource"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
@@ -303,7 +303,7 @@ func refreshEKSConnection(
 	}
 
 	// get connection info from AWS
-	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: *eksRuntimeInstance.Name}
+	eksClusterConn := connection.EksClusterConnectionInfo{ClusterName: *eksRuntimeInstance.Name}
 	if err := eksClusterConn.Get(awsConfig); err != nil {
 		return nil, fmt.Errorf("failed to get EKS cluster connection info for token refresh: %w", err)
 	}
@@ -355,7 +355,7 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	}
 
 	// load aws config via API key credentials
-	awsConfig, err := resource.LoadAWSConfigFromAPIKeys(accessKeyId, secretAccessKey, "", region, "", "", "")
+	awsConfig, err := builder_config.LoadAWSConfigFromAPIKeys(accessKeyId, secretAccessKey, "", region, "", "", "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config from API keys: %w", err)
 	}
@@ -394,7 +394,7 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	}
 
 	// construct aws config given values
-	awsConfig, err = resource.LoadAWSConfigFromAPIKeys(
+	awsConfig, err = builder_config.LoadAWSConfigFromAPIKeys(
 		accessKeyId,
 		secretAccessKey,
 		"",

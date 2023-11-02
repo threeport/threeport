@@ -8,8 +8,8 @@ import (
 
 	"github.com/go-logr/logr"
 	awsclient "github.com/nukleros/aws-builder/pkg/client"
+	"github.com/nukleros/aws-builder/pkg/eks"
 	"github.com/nukleros/aws-builder/pkg/s3"
-	"github.com/nukleros/eks-cluster/pkg/resource"
 	"gorm.io/datatypes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -126,8 +126,8 @@ func awsObjectStorageBucketInstanceCreated(
 
 	// extract kubernetes runtime resource inventory
 	runtimeInventoryJson := requiredObjects.AwsEksKubernetesRuntimeInstance.ResourceInventory
-	var runtimeInventory resource.ResourceInventory
-	if err := resource.UnmarshalInventory([]byte(*runtimeInventoryJson), &runtimeInventory); err != nil {
+	var runtimeInventory eks.EksInventory
+	if err := runtimeInventory.Unmarshal(*runtimeInventoryJson); err != nil {
 		return 0, fmt.Errorf("failed to unmarshal AWS EKS kubernetes runtime inventory: %w", err)
 	}
 
@@ -179,12 +179,12 @@ func awsObjectStorageBucketInstanceCreated(
 		AwsAccount:           *requiredObjects.AwsAccount.AccountID,
 		Region:               awsConfig.Region,
 		Name:                 *awsObjectStorageBucketInstance.Name,
-		VpcIdReadWriteAccess: runtimeInventory.VPCID,
+		VpcIdReadWriteAccess: runtimeInventory.VpcId,
 		PublicReadAccess:     *requiredObjects.AwsObjectStorageBucketDefinition.PublicReadAccess,
 		WorkloadReadWriteAccess: s3.WorkloadAccess{
 			ServiceAccountName:      *requiredObjects.AwsObjectStorageBucketDefinition.WorkloadServiceAccountName,
 			ServiceAccountNamespace: workloadNamespace,
-			OidcUrl:                 runtimeInventory.Cluster.OIDCProviderURL,
+			OidcUrl:                 runtimeInventory.Cluster.OidcProviderUrl,
 		},
 		Tags: provider.ThreeportProviderTags(),
 	}

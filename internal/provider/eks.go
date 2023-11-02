@@ -14,14 +14,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
-	"github.com/nukleros/eks-cluster/pkg/connection"
-	"github.com/nukleros/eks-cluster/pkg/resource"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
+	"github.com/nukleros/aws-builder/pkg/eks"
+	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // KubernetesRuntimeInfraEKS represents the infrastructure for a threeport-managed EKS
@@ -36,13 +36,18 @@ type KubernetesRuntimeInfraEKS struct {
 	// The configuration containing credentials to connect to an AWS account.
 	AwsConfig *aws.Config
 
-	// The eks-cluster client used to create AWS EKS resources.
-	ResourceClient *resource.ResourceClient
+	// The eks-clutser client used to create AWS EKS resources.
+	ResourceClient *eks.EksClient
 
-	// The inventory of AWS resources used to run an EKS cluster.
-	ResourceInventory *resource.ResourceInventory
+	// A record of AWS resources created for the EKS cluster resource stack.
+	ResourceInventory *eks.EksInventory
 
-	// The number of availability zones the eks-cluster will be deployed across.
+	// A pre-existing set of AWS resources.  When provided, the EKS cluster
+	// resource stack will use these pre-existing resources and incorporate
+	// them into the final EKS resource stack.
+	ExistingResourceInventory *eks.EksInventory
+
+	// The number of availability zones the EKS cluster will be deployed across.
 	ZoneCount int32
 
 	// The AWS isntance type used for the default node group.
@@ -61,69 +66,60 @@ type KubernetesRuntimeInfraEKS struct {
 // Create installs a Kubernetes cluster using AWS EKS for threeport workloads.
 func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 	// create a new resource config to configure Kubernetes cluster
-	resourceConfig := resource.NewResourceConfig()
+	resourceConfig := eks.NewEksConfig()
 	resourceConfig.Name = i.RuntimeInstanceName
-	resourceConfig.AWSAccountID = i.AwsAccountID
-	resourceConfig.DesiredAZCount = i.ZoneCount
+	resourceConfig.AwsAccountId = i.AwsAccountID
+	resourceConfig.DesiredAzCount = i.ZoneCount
 	resourceConfig.InstanceTypes = []string{i.DefaultNodeGroupInstanceType}
 	resourceConfig.InitialNodes = i.DefaultNodeGroupInitialNodes
 	resourceConfig.MinNodes = i.DefaultNodeGroupMinNodes
 	resourceConfig.MaxNodes = i.DefaultNodeGroupMaxNodes
-	resourceConfig.DNSManagement = true
-	resourceConfig.DNS01Challenge = true
-	resourceConfig.DNSManagementServiceAccount = resource.DNSManagementServiceAccount{
+	resourceConfig.DnsManagement = true
+	resourceConfig.Dns01Challenge = true
+	resourceConfig.DnsManagementServiceAccount = eks.ServiceAccountConfig{
 		Name:      threeport.DNSManagerServiceAccountName,
 		Namespace: threeport.DNSManagerServiceAccountNamepace,
 	}
-	resourceConfig.DNS01ChallengeServiceAccount = resource.DNS01ChallengeServiceAccount{
+	resourceConfig.Dns01ChallengeServiceAccount = eks.ServiceAccountConfig{
 		Name:      threeport.DNS01ChallengeServiceAccountName,
 		Namespace: threeport.DNS01ChallengeServiceAccountNamepace,
 	}
 	resourceConfig.ClusterAutoscaling = true
-	resourceConfig.ClusterAutoscalingServiceAccount = resource.ClusterAutoscalingServiceAccount{
+	resourceConfig.ClusterAutoscalingServiceAccount = eks.ServiceAccountConfig{
 		Name:      threeport.ClusterAutoscalerServiceAccountName,
 		Namespace: threeport.ClusterAutoscalerServiceAccountNamespace,
 	}
-	resourceConfig.StorageManagementServiceAccount = resource.StorageManagementServiceAccount{
+	resourceConfig.StorageManagementServiceAccount = eks.ServiceAccountConfig{
 		Name:      threeport.StorageManagerServiceAccountName,
 		Namespace: threeport.StorageManagerServiceAccountNamespace,
 	}
 	resourceConfig.Tags = ThreeportProviderTags()
 
 	// create EKS cluster resource stack in AWS
-	if err := i.ResourceClient.CreateResourceStack(resourceConfig); err != nil {
+	if err := i.ResourceClient.CreateEksResourceStack(
+		resourceConfig,
+		i.ExistingResourceInventory,
+	); err != nil {
 		return nil, fmt.Errorf("failed to create eks resource stack: %w", err)
 	}
 
-	// get kubernetes API connection info
-	eksClusterConn := connection.EKSClusterConnectionInfo{ClusterName: i.RuntimeInstanceName}
-	if err := eksClusterConn.Get(i.AwsConfig); err != nil {
-		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
-	}
-	kubeConnInfo := kube.KubeConnectionInfo{
-		APIEndpoint:        eksClusterConn.APIEndpoint,
-		CACertificate:      eksClusterConn.CACertificate,
-		EKSToken:           eksClusterConn.Token,
-		EKSTokenExpiration: eksClusterConn.TokenExpiration,
-	}
-
-	return &kubeConnInfo, nil
+	return i.GetConnection()
 }
 
 // Delete deletes an AWS EKS cluster.
 func (i *KubernetesRuntimeInfraEKS) Delete() error {
 	// delete EKS cluster resources
-	if err := i.ResourceClient.DeleteResourceStack(i.ResourceInventory); err != nil {
+	if err := i.ResourceClient.DeleteEksResourceStack(i.ResourceInventory); err != nil {
 		return fmt.Errorf("failed to delete eks cluster resource stack: %w", err)
 	}
 
 	return nil
 }
 
-// RefreshConnection gets a new token for authentication to an EKS cluster.
-func (i *KubernetesRuntimeInfraEKS) RefreshConnection() (*kube.KubeConnectionInfo, error) {
+// GetConnection gets the latest connection infor for authentication to an EKS cluster.
+func (i *KubernetesRuntimeInfraEKS) GetConnection() (*kube.KubeConnectionInfo, error) {
 	// get connection info
-	eksClusterConn := connection.EKSClusterConnectionInfo{
+	eksClusterConn := connection.EksClusterConnectionInfo{
 		ClusterName: i.RuntimeInstanceName,
 	}
 	if err := eksClusterConn.Get(i.AwsConfig); err != nil {
@@ -362,7 +358,7 @@ func CreateResourceManagerRole(
 	svc := iam.NewFromConfig(awsConfig)
 
 	// ensure role name is valid
-	if err := resource.CheckRoleName(roleName); err != nil {
+	if err := eks.CheckRoleName(roleName); err != nil {
 		return nil, err
 	}
 
@@ -687,31 +683,36 @@ const (
 				"Action": [
 					"ec2:CreateVpc",
 					"ec2:DeleteVpc",
+					"ec2:DescribeVpcs",
 					"ec2:ModifyVpcAttribute",
+					"ec2:DescribeVpcAttribute",
 					"ec2:CreateSubnet",
 					"ec2:DeleteSubnet",
 					"ec2:ModifySubnetAttribute",
 					"ec2:DescribeSubnets",
 					"ec2:CreateRouteTable",
 					"ec2:DeleteRouteTable",
+					"ec2:DescribeRouteTables",
+					"ec2:AssociateRouteTable",
 					"ec2:CreateRoute",
 					"ec2:DeleteRoute",
-					"ec2:AssociateRouteTable",
 					"ec2:DisassociateRouteTable",
 					"ec2:AllocateAddress",
 					"ec2:ReleaseAddress",
 					"ec2:AssociateAddress",
 					"ec2:DisassociateAddress",
+					"ec2:DescribeAddresses",
 					"ec2:CreateInternetGateway",
 					"ec2:DeleteInternetGateway",
 					"ec2:AttachInternetGateway",
 					"ec2:DetachInternetGateway",
+					"ec2:DescribeInternetGateways",
 					"ec2:CreateNatGateway",
 					"ec2:DeleteNatGateway",
+					"ec2:DescribeNatGateways",
 					"ec2:CreateTags",
 					"ec2:DeleteTags",
 					"ec2:DescribeTags",
-					"ec2:DescribeNatGateways",
 					"ec2:DescribeAvailabilityZones",
 					"ec2:DescribeSecurityGroups"
 				],
@@ -741,11 +742,13 @@ const (
 				"Sid": "IAMPermissions",
 				"Effect": "Allow",
 				"Action": [
+					"iam:ListOpenIDConnectProviders",
 					"iam:CreateOpenIDConnectProvider",
 					"iam:DeleteOpenIDConnectProvider",
 					"iam:UpdateOpenIDConnectProviderThumbprint",
 					"iam:CreatePolicy",
 					"iam:DeletePolicy",
+					"iam:ListPolicies",
 					"iam:CreatePolicyVersion",
 					"iam:DeletePolicyVersion",
 					"iam:SetDefaultPolicyVersion",
@@ -760,7 +763,8 @@ const (
 					"iam:TagRole",
 					"iam:UntagRole",
 					"iam:ListAttachedRolePolicies",
-					"iam:DescribeSecurityGroups"
+					"iam:DescribeSecurityGroups",
+					"iam:CreateServiceLinkedRole"
 				],
 				"Resource": "*"
 			},

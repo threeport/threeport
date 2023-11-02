@@ -343,7 +343,7 @@ func confirmDnsControllerDeployed(
 		externalDnsManifest, err = createExternalDns(
 			*domainNameDefinition.Domain,
 			"route53",
-			resourceInventory.DNSManagementRole.RoleARN,
+			resourceInventory.DnsManagementRole.RoleArn,
 			glooEdgeNamespace,
 			kubernetesRuntimeInstanceID,
 		)

@@ -12,8 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go/ptr"
-	"github.com/nukleros/eks-cluster/pkg/resource"
+	aws_config "github.com/nukleros/aws-builder/pkg/config"
+	builder_iam "github.com/nukleros/aws-builder/pkg/iam"
 	"github.com/spf13/cobra"
+
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
@@ -59,7 +61,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		}
 
 		// load AWS configuration
-		awsConf, err := resource.LoadAWSConfig(
+		awsConf, err := aws_config.LoadAWSConfig(
 			false,
 			awsProfile,
 			providerRegion,
@@ -123,7 +125,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 
 		// create resource manager role
 		role, err := provider.CreateResourceManagerRole(
-			resource.CreateIAMTags(
+			builder_iam.CreateIamTags(
 				requestedControlPlane,
 				map[string]string{},
 			),

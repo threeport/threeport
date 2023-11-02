@@ -16,10 +16,23 @@ type Common struct {
 	DeletedAt *gorm.DeletedAt `json:"DeletedAt,omitempty" gorm:"index"`
 }
 
-// Reconciliation includes the fields for reconciled objects.
+// Reconciliation includes the fields for reconciled objects.  These are
+// leveraged by controllers to persist information related to the reconciliation
+// of system state for objects.
 type Reconciliation struct {
 	// Indicates if object is considered to be reconciled by the object's controller.
 	Reconciled *bool `json:"Reconciled,omitempty" query:"reconciled" gorm:"default:false" validate:"optional"`
+
+	// Used by controllers to acknowledge deletion and indicate that deletion
+	// reconciliation has begun so that subsequent reconciliation attempts can
+	// act accordingly.
+	CreationAcknowledged *time.Time `json:"CreationAcknowledged,omitempty" query:"creationacknowledged" validate:"optional"`
+
+	// Used by controllers to confirm deletion of an object.
+	CreationConfirmed *time.Time `json:"CreationConfirmed,omitempty" query:"creationconfirmed" validate:"optional"`
+
+	// Gets set to true if creation process fails.
+	CreationFailed *bool `json:"CreationFailed,omitempty" query:"creationfailed" gorm:"default:false" validate:"optional"`
 
 	// Used to inform reconcilers that an object is being deleted so they may
 	// complete delete reconciliation before actually deleting the object from the database.
@@ -29,11 +42,6 @@ type Reconciliation struct {
 	// reconciliation has begun so that subsequent reconciliation attempts can
 	// act accordingly.
 	DeletionAcknowledged *time.Time `json:"DeletionAcknowledged,omitempty" query:"deletionacknowledged" validate:"optional"`
-
-	// Used by controllers to acknowledge creation and indicate that creation
-	// reconciliation has begun so that subsequent reconciliation attempts can
-	// act accordingly.
-	CreationAcknowledged *time.Time `json:"CreationAcknowledged,omitempty" query:"creationacknowledged" validate:"optional"`
 
 	// Used by controllers to confirm deletion of an object.
 	DeletionConfirmed *time.Time `json:"DeletionConfirmed,omitempty" query:"deletionconfirmed" validate:"optional"`
