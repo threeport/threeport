@@ -11,12 +11,6 @@
             "mode": "remote",
             "port": 40000,
             "host": "127.0.0.1",
-            "substitutePath": [
-                {
-                    "from": "${workspaceFolder}",
-                    "to": "/threeport",
-                },
-            ],
             "showLog": true,
 			"trace": "log",
 			"logOutput": "rpc"
