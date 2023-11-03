@@ -71,18 +71,15 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	isAuthEnabled bool,
 	encryptionKey string,
-	infraProvider string,
-	debug bool,
 	liveReload bool,
 ) error {
 	apiImage := cpi.getImage(liveReload, cpi.Opts.RestApiInfo.Name, cpi.Opts.RestApiInfo.ImageName, cpi.Opts.RestApiInfo.ImageRepo, cpi.Opts.RestApiInfo.ImageTag)
-	apiArgs := cpi.getAPIArgs(liveReload, isAuthEnabled)
-	apiVols, apiVolMounts := cpi.getAPIVolumes(liveReload, isAuthEnabled)
-	apiServiceType := cpi.getAPIServiceType(infraProvider)
-	apiServiceAnnotations := getAPIServiceAnnotations(infraProvider)
-	apiServicePortName, apiServicePort := cpi.getAPIServicePort(infraProvider, isAuthEnabled)
+	apiArgs := cpi.getAPIArgs(liveReload, cpi.Opts.AuthEnabled)
+	apiVols, apiVolMounts := cpi.getAPIVolumes(liveReload, cpi.Opts.AuthEnabled)
+	apiServiceType := cpi.getAPIServiceType(cpi.Opts.InfraProvider)
+	apiServiceAnnotations := getAPIServiceAnnotations(cpi.Opts.InfraProvider)
+	apiServicePortName, apiServicePort := cpi.getAPIServicePort(cpi.Opts.InfraProvider, cpi.Opts.AuthEnabled)
 	apiImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.RestApiInfo.ImagePullSecretName)
 
 	var dbCreateConfig = &unstructured.Unstructured{
@@ -200,7 +197,7 @@ NATS_PORT=4222
 							map[string]interface{}{
 								"name":            "api-server",
 								"image":           apiImage,
-								"command":         getCommand(cpi.Opts.RestApiInfo.Name, liveReload, debug),
+								"command":         getCommand(cpi.Opts.RestApiInfo.Name, liveReload, cpi.Opts.Debug),
 								"imagePullPolicy": "IfNotPresent",
 								"args":            apiArgs,
 								"ports": []interface{}{
@@ -239,7 +236,7 @@ NATS_PORT=4222
 		"protocol":   "TCP",
 		"targetPort": 1323,
 	}
-	if infraProvider == "kind" && !cpi.Opts.InThreeport {
+	if cpi.Opts.InfraProvider == "kind" && !cpi.Opts.InThreeport {
 		port["nodePort"] = 30000
 	}
 	var apiService = &unstructured.Unstructured{
@@ -355,8 +352,6 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			kubeClient,
 			mapper,
 			*controller,
-			authConfig != nil,
-			false,
 			false,
 		); err != nil {
 			return fmt.Errorf("failed to install %s: %w", *&controller.Name, err)
@@ -389,13 +384,11 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	installInfo v0.ControlPlaneComponent,
-	isAuthEnabled bool,
-	debug bool,
 	liveReload bool,
 ) error {
 	controllerImage := cpi.getImage(liveReload, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
-	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, liveReload, isAuthEnabled)
-	controllerArgs := cpi.getControllerArgs(installInfo.Name, liveReload, cpi.Opts.Debug, isAuthEnabled)
+	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, liveReload, cpi.Opts.AuthEnabled)
+	controllerArgs := cpi.getControllerArgs(installInfo.Name, liveReload, cpi.Opts.Debug, cpi.Opts.AuthEnabled)
 	controllerImagePullSecrets := cpi.getImagePullSecrets(installInfo.ImagePullSecretName)
 
 	var deployName string
@@ -417,7 +410,6 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 		controllerVols,
 		controllerVolMounts,
 		controllerImagePullSecrets,
-		debug,
 		liveReload,
 	)
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
@@ -471,8 +463,6 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 		mapper,
 		threeportInstanceName,
 		false,
-		false,
-		authConfig != nil,
 	); err != nil {
 		return fmt.Errorf("failed to update threeport agent deployment: %w", err)
 	}
@@ -483,14 +473,12 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	threeportInstanceName string,
-	debug,
-	liveReload,
-	isAuthEnabled bool,
+	liveReload bool,
 ) error {
 
 	agentImage := cpi.getImage(liveReload, cpi.Opts.AgentInfo.Name, cpi.Opts.AgentInfo.ImageName, cpi.Opts.AgentInfo.ImageRepo, cpi.Opts.AgentInfo.ImageTag)
-	agentArgs := cpi.getAgentArgs(liveReload, isAuthEnabled)
-	agentVols, agentVolMounts := cpi.getControllerVolumes("agent", liveReload, isAuthEnabled)
+	agentArgs := cpi.getAgentArgs(liveReload, cpi.Opts.AuthEnabled)
+	agentVols, agentVolMounts := cpi.getControllerVolumes("agent", liveReload, cpi.Opts.AuthEnabled)
 	agentImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.AgentInfo.ImagePullSecretName)
 
 	var threeportAgentCRD = &unstructured.Unstructured{
@@ -1067,7 +1055,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								"args":            agentArgs,
 								"image":           agentImage,
 								"imagePullPolicy": "IfNotPresent",
-								"command":         getCommand(cpi.Opts.AgentInfo.Name, liveReload, debug),
+								"command":         getCommand(cpi.Opts.AgentInfo.Name, liveReload, cpi.Opts.Debug),
 								//"livenessProbe": map[string]interface{}{
 								//	"httpGet": map[string]interface{}{
 								//		"path": "/healthz",
@@ -1616,18 +1604,17 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	volumes []interface{},
 	volumeMounts []interface{},
 	imagePullSecrets []interface{},
-	debug bool,
 	liveReload bool,
 ) *unstructured.Unstructured {
 
 	// set image pull policy based on debug mode
 	imagePullPolicy := "IfNotPresent"
-	if debug && !liveReload {
+	if cpi.Opts.Debug && !liveReload {
 		imagePullPolicy = "Always"
 	}
 
 	ports := []map[string]interface{}{}
-	if debug {
+	if cpi.Opts.Debug {
 		ports = append(ports,
 			map[string]interface{}{
 				"containerPort": 40000,
@@ -1663,7 +1650,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 							map[string]interface{}{
 								"name":            name,
 								"image":           image,
-								"command":         getCommand(name, liveReload, debug),
+								"command":         getCommand(name, liveReload, cpi.Opts.Debug),
 								"imagePullPolicy": imagePullPolicy,
 								"args":            args,
 								"envFrom": []interface{}{

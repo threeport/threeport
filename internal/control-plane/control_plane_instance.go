@@ -269,10 +269,7 @@ func controlPlaneInstanceCreated(
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
-		authConfig != nil,
 		encryptionKey,
-		*kubernetesRuntimeDefinition.InfraProvider,
-		false,
 		false,
 	); err != nil {
 		return 0, fmt.Errorf("failed to install threeport API server: %w", err)

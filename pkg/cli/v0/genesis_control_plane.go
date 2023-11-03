@@ -559,10 +559,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
-		authConfig != nil,
 		encryptionKey,
-		cpi.Opts.InfraProvider,
-		false,
 		false,
 	); err != nil {
 		return cleanOnCreateError("failed to install threeport API server", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)

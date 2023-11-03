@@ -159,13 +159,6 @@ var debugCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// get threeport auth enabled
-		authEnabled, err := threeportConfig.GetThreeportAuthEnabled(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport auth enabled", err)
-			os.Exit(1)
-		}
-
 		// update deployments
 		for _, component := range debugComponents {
 			switch component.Name {
@@ -173,10 +166,7 @@ var debugCmd = &cobra.Command{
 				if err := cpi.UpdateThreeportAPIDeployment(
 					dynamicKubeClient,
 					mapper,
-					authEnabled,
 					encryptionKey,
-					infraProvider,
-					true,
 					liveReload,
 				); err != nil {
 					cli.Error("failed to apply threeport rest api", err)
@@ -188,8 +178,6 @@ var debugCmd = &cobra.Command{
 					dynamicKubeClient,
 					mapper,
 					requestedControlPlane,
-					authEnabled,
-					true,
 					liveReload,
 				); err != nil {
 					cli.Error("failed to apply threeport agent", err)
@@ -201,8 +189,6 @@ var debugCmd = &cobra.Command{
 					dynamicKubeClient,
 					mapper,
 					*component,
-					authEnabled,
-					true,
 					liveReload,
 				); err != nil {
 					cli.Error("failed to apply threeport controllers", err)
