@@ -95,3 +95,12 @@ func StringListContains(value string, input []string) bool {
 	}
 	return false
 }
+
+// StringToInterfaceList converts a string slice to an interface slice.
+func StringToInterfaceList(input []string) []interface{} {
+	output := make([]interface{}, len(input))
+	for i, v := range input {
+		output[i] = v
+	}
+	return output
+}

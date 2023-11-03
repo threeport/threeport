@@ -121,4 +121,8 @@ func init() {
 	UpCmd.Flags().IntVar(
 		&cliArgs.NumWorkerNodes,
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy. Only applies to kind provider. (default is 0)")
+	UpCmd.Flags().BoolVar(
+		&cliArgs.Debug,
+		"debug", false, "Enable debug mode. Defaults to false.",
+	)
 }

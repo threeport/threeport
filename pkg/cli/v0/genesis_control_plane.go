@@ -61,6 +61,7 @@ type GenesisControlPlaneCLIArgs struct {
 	NumWorkerNodes        int
 	ProviderConfigDir     string
 	ThreeportPath         string
+	Debug                 bool
 }
 
 const tier = threeport.ControlPlaneTierDev
@@ -125,6 +126,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.NumWorkerNodes = a.NumWorkerNodes
 	cpi.Opts.ProviderConfigDir = a.ProviderConfigDir
 	cpi.Opts.ThreeportPath = a.ThreeportPath
+	cpi.Opts.Debug = a.Debug
 	cpi.Opts.CreateOrUpdateKubeResources = false
 
 	return cpi, nil

@@ -107,6 +107,7 @@ func BuildGoBinary(threeportPath, imageName, arch string) error {
 	// construct build arguments
 	buildArgs := []string{
 		"build",
+		"-gcflags=\\\"all=-N -l\\\"", // escape quotes  and escape char for shell
 		"-o",
 		"bin/threeport-" + imageName,
 		"cmd/" + imageName + "/" + main,

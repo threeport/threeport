@@ -361,8 +361,7 @@ func (cpi *ControlPlaneInstaller) InstallController(
 ) error {
 	controllerImage := cpi.getImage(devEnvironment, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
 	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, devEnvironment, authConfig)
-	controllerArgs := cpi.getControllerArgs(installInfo.Name, devEnvironment, authConfig)
-	controllerImagePullSecrets := cpi.getImagePullSecrets(installInfo.ImagePullSecretName)
+	controllerArgs := cpi.getControllerArgs(installInfo.Name, devEnvironment, cpi.Opts.Debug, authConfig)
 
 	// if auth is enabled on API, generate client cert and key and store in
 	// secrets
@@ -418,6 +417,7 @@ func (cpi *ControlPlaneInstaller) InstallController(
 		controllerImagePullSecrets,
 		devEnvironment,
 		false,
+		cpi.Opts.Debug,
 	)
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
@@ -1285,10 +1285,15 @@ func (cpi *ControlPlaneInstaller) getAPIArgs(devEnvironment bool, authConfig *au
 }
 
 // getControllerArgs returns the args that are passed to a controller.
-func (cpi *ControlPlaneInstaller) getControllerArgs(name string, devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
+func (cpi *ControlPlaneInstaller) getControllerArgs(name string, devEnvironment, debug bool, authConfig *auth.AuthConfig) []interface{} {
 
 	// in devEnvironment, auth is disabled by default
 	// in tptctl, auth is enabled by default
+
+	args := []interface{}{}
+	if authConfig == nil {
+		args = append(args, "-auth-enabled=false")
+	}
 
 	// enable auth if authConfig is set in dev environment
 	// if devEnvironment && authConfig != nil {
@@ -1302,14 +1307,11 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string, devEnvironment 
 		return getAirArgs(name, "-auth-enabled=false")
 	}
 
-	// disable auth if authConfig is not set in tptctl
-	if authConfig == nil {
-		return []interface{}{
-			"-auth-enabled=false",
-		}
+	if debug {
+		args = append(util.StringToInterfaceList(getDelveArgs(name)), args...)
 	}
 
-	return []interface{}{}
+	return args
 }
 
 func getAirArgs(name, extraArgs string) []interface{} {
@@ -1333,7 +1335,7 @@ func getAirArgs(name, extraArgs string) []interface{} {
 }
 
 func getDelveArgs(name string) []string {
-	binary := fmt.Sprintf("/threeport/bin/threeport-%s", name)
+	binary := fmt.Sprintf("/threeport-%s", name)
 	return []string{
 		"--continue",
 		"--accept-multiclient",
@@ -1658,9 +1660,9 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            name,
-								"image":           "threeport-air",
+								"image":           image,
 								"command":         getCommand(cpi.Opts.DevEnvironment, debug),
-								"imagePullPolicy": "IfNotPresent",
+								"imagePullPolicy": imagePullPolicy,
 								"args":            args,
 								"envFrom": []interface{}{
 									map[string]interface{}{
