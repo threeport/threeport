@@ -75,7 +75,7 @@ func BuildDevImage(threeportPath string) error {
 
 	imageName := "threeport-air"
 	buildOpts := types.ImageBuildOptions{
-		Dockerfile: filepath.Join("cmd", "dev", "Dockerfile-dev"),
+		Dockerfile: filepath.Join("cmd", "tptdev", "image", "Dockerfile"),
 		Tags:       []string{imageName},
 		Remove:     true,
 		Target:     "live-reload",
@@ -160,7 +160,7 @@ func DockerBuildxImage(threeportPath, imageName, tag, arch string) error {
 		"--load",
 		"--platform=linux/" + arch,
 		"-t " + tag,
-		"-f " + "cmd/dev/Dockerfile-dev",
+		"-f " + "cmd/tptdev/image/Dockerfile",
 		threeportPath,
 	}
 	fmt.Println(strings.Join(buildArgs, " "))

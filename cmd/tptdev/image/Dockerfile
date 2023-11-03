@@ -1,3 +1,6 @@
+# development image used for live-reload and
+# debug (delve) builds
+
 # base target
 FROM golang:1.20-alpine as base
 RUN apk update && apk add git
