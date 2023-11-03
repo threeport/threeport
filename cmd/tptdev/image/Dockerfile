@@ -1,5 +1,6 @@
-# development image used for live-reload and
-# debug (delve) builds
+# this development image is used for
+# live-reload and debug (delve) builds,
+# not for the tptdev cli tool itself.
 
 # base target
 FROM golang:1.20-alpine as base
