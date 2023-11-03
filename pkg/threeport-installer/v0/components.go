@@ -199,7 +199,7 @@ NATS_PORT=4222
 							map[string]interface{}{
 								"name":            "api-server",
 								"image":           apiImage,
-								"command":         getCommand(devEnvironment),
+								"command":         getCommand(devEnvironment, false),
 								"imagePullPolicy": "IfNotPresent",
 								"args":            apiArgs,
 								"ports": []interface{}{
@@ -340,7 +340,7 @@ func (cpi *ControlPlaneInstaller) CreateOrUpdateKubeResource(
 ) error {
 	if cpi.Opts.CreateOrUpdateKubeResources {
 		if _, err := kube.CreateOrUpdateResource(resource, kubeClient, *mapper); err != nil {
-			return fmt.Errorf(": %w", err)
+			return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 		}
 	} else {
 		if _, err := kube.CreateResource(resource, kubeClient, *mapper); err != nil {
@@ -416,6 +416,7 @@ func (cpi *ControlPlaneInstaller) InstallController(
 		controllerVolMounts,
 		controllerImagePullSecrets,
 		devEnvironment,
+		false,
 	)
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
@@ -1043,7 +1044,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 								"args":            agentArgs,
 								"image":           agentImage,
 								"imagePullPolicy": "IfNotPresent",
-								"command":         getCommand(devEnvironment),
+								"command":         getCommand(devEnvironment, false),
 								//"livenessProbe": map[string]interface{}{
 								//	"httpGet": map[string]interface{}{
 								//		"path": "/healthz",
@@ -1325,12 +1326,23 @@ func getAirArgs(name, extraArgs string) []interface{} {
 		"-c", "/threeport/cmd/dev/air.toml",
 		"-build.cmd", "go build -gcflags='all=-N -l' -o /threeport/bin/threeport-" + name + " /threeport/cmd/" + name + "/" + main,
 		"-build.bin", "/usr/local/bin/dlv",
-		"-build.args_bin", "--continue --accept-multiclient --listen=:40000 --headless=true --api-version=2 --log exec /threeport/bin/threeport-" + name + appendedArgs,
+		"-build.args_bin", strings.Join(getDelveArgs(name), " ") + appendedArgs,
 	}
+
 }
 
-func getDelveArgs() {
-
+func getDelveArgs(name string) []string {
+	binary := fmt.Sprintf("/threeport/bin/threeport-%s", name)
+	return []string{
+		"--continue",
+		"--accept-multiclient",
+		"--listen=:40000",
+		"--headless=true",
+		"--api-version=2",
+		"--log",
+		"exec",
+		binary,
+	}
 }
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
@@ -1646,7 +1658,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 							map[string]interface{}{
 								"name":            name,
 								"image":           "threeport-air",
-								"command":         getCommand(cpi.Opts.DevEnvironment),
+								"command":         getCommand(cpi.Opts.DevEnvironment, debug),
 								"imagePullPolicy": "IfNotPresent",
 								"args":            args,
 								"envFrom": []interface{}{
@@ -1741,11 +1753,17 @@ func GetLocalThreeportAPIEndpoint(authEnabled bool) string {
 }
 
 // getCommand returns the args that are passed to the threeport agent.
-func getCommand(devEnvironment bool) []interface{} {
+func getCommand(devEnvironment, debug bool) []interface{} {
 
 	if devEnvironment {
 		return []interface{}{
 			"/usr/local/bin/air",
+		}
+	}
+
+	if debug {
+		return []interface{}{
+			"/usr/local/bin/dlv",
 		}
 	}
 

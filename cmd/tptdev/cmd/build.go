@@ -140,7 +140,7 @@ func init() {
 	)
 	buildCmd.Flags().StringVar(
 		&arch,
-		"arch", "arm64", "Which architecture to build images for. Defaults to x86. Options are amd64 and arm64.",
+		"arch", "amd64", "Which architecture to build images for. Defaults to x86. Options are amd64 and arm64.",
 	)
 	buildCmd.Flags().IntVar(
 		&parallel,

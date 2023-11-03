@@ -116,7 +116,11 @@ func BuildGoBinary(threeportPath, imageName, arch string) error {
 	// construct build command
 	cmd := exec.Command("go", buildArgs...)
 	cmd.Env = os.Environ()
-	goEnv := []string{"GOOS=linux", "GOARCH=" + arch}
+	goEnv := []string{
+		"CGO_ENABLED=0",
+		"GOOS=linux",
+		"GOARCH=" + arch,
+	}
 	cmd.Env = append(cmd.Env, goEnv...)
 	cmd.Dir = threeportPath
 	stdout, err := cmd.StdoutPipe()
@@ -169,7 +173,7 @@ func BuildDockerxImage(threeportPath, imageName, tag, arch string) error {
 		"-f " + "cmd/" + imageName + "/image/Dockerfile-test",
 		threeportPath,
 	}
-	fmt.Printf(strings.Join(buildArgs, " "))
+	fmt.Println(strings.Join(buildArgs, " "))
 
 	cmdStr := strings.Join(buildArgs, (" "))
 	cmd := exec.Command("/bin/sh", "-c", cmdStr)
@@ -209,7 +213,7 @@ func BuildDockerxImage(threeportPath, imageName, tag, arch string) error {
 }
 
 // BuildDockerImage builds a specified docker image.
-func BuildDockerImage(threeportPath, imageName, tag string) error {
+func BuildDockerImage(threeportPath, imageName, tag, arch string) error {
 	// initialize docker client
 	dockerClient, err := client.NewClientWithOpts(
 		client.FromEnv,
@@ -234,6 +238,9 @@ func BuildDockerImage(threeportPath, imageName, tag string) error {
 		Dockerfile: filepath.Join("cmd", imageName, "image", "Dockerfile-test"),
 		Tags:       []string{tag},
 		Remove:     true,
+		BuildArgs: map[string]*string{
+			"ARCH": &arch,
+		},
 	}
 	result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
 	if err != nil {
