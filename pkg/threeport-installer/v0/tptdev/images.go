@@ -204,8 +204,14 @@ func PushDockerImage(tag string) error {
 
 	imagePushOptions := types.ImagePushOptions{All: true}
 
+	dockerUsername := os.Getenv("DOCKER_USERNAME")
+	dockerPassword := os.Getenv("DOCKER_PASSWORD")
+
 	// configure docker auth if credentials are present
-	if isDockerConfigPresent {
+	switch {
+	case isDockerConfigPresent &&
+		dockerUsername == "" &&
+		dockerPassword == "":
 		// Parse the JSON content of the configuration file
 		var dockerConfig map[string]interface{}
 		if err := json.Unmarshal(configFile, &dockerConfig); err != nil {
@@ -217,14 +223,19 @@ func PushDockerImage(tag string) error {
 		ok := false
 		var targetMap map[string]interface{}
 		if targetMap, ok = dockerConfig["auths"].(map[string]interface{}); !ok {
-			fmt.Println("Type assertion failed.")
+			return fmt.Errorf("failed to parse docker config auths")
 		}
 		if targetMap, ok = targetMap["https://index.docker.io/v1/"].(map[string]interface{}); !ok {
-			fmt.Println("Type assertion failed 1.")
+			return fmt.Errorf("failed to parse docker config auth endpoint")
+		}
+		var authString string
+		if authString, ok = targetMap["auth"].(string); !ok {
+			return fmt.Errorf("failed to parse docker config auth credentials")
 		}
 
+
 		// Decode the base64 auth string
-		decodedBytes, err := base64.StdEncoding.DecodeString(targetMap["auth"].(string))
+		decodedBytes, err := base64.StdEncoding.DecodeString(authString)
 		if err != nil {
 			fmt.Println("Error decoding Base64:", err)
 			return err
@@ -234,9 +245,20 @@ func PushDockerImage(tag string) error {
 		credentials := strings.Split(string(decodedBytes), ":")
 
 		// configure auth config for docker client
-		var authConfig = registry.AuthConfig{
+		authConfig := registry.AuthConfig{
 			Username:      credentials[0],
 			Password:      credentials[1],
+			ServerAddress: "https://index.docker.io/v1/",
+		}
+		authConfigBytes, _ := json.Marshal(authConfig)
+		authConfigEncoded := base64.URLEncoding.EncodeToString(authConfigBytes)
+		imagePushOptions.RegistryAuth = authConfigEncoded
+		return nil
+	case dockerUsername != "" &&
+		dockerPassword != "":
+		authConfig := registry.AuthConfig{
+			Username:      dockerUsername,
+			Password:      dockerPassword,
 			ServerAddress: "https://index.docker.io/v1/",
 		}
 		authConfigBytes, _ := json.Marshal(authConfig)

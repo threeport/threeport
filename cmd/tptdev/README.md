@@ -26,7 +26,8 @@ Spins down a developer genesis control plane.
 
 ## tptdev build
 
-Builds docker images that are used by Threeport control plane components.
+Builds docker images that are used by Threeport control plane components. In order to push
+docker images, you must set `DOCKER_USERNAME` and `DOCKER_PASSWORD` environment variables.
 
 ## tptdev debug
 
