@@ -428,6 +428,10 @@ definitions:
       ImageName:
         description: The image name of the component
         type: string
+      ImagePullSecretName:
+        description: The name of the secret with credentials to pull a private container
+          image
+        type: string
       ImageRepo:
         description: The image repo of the component
         type: string
@@ -1245,6 +1249,18 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - DomainNameDefinition
+    - DomainNameInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - Profile
+    - Tier
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -1254,10 +1270,6 @@ definitions:
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1265,16 +1277,20 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - Profile
-    - Tier
-    - GatewayDefinition
-    - GatewayInstance
-    - DomainNameDefinition
-    - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -1284,10 +1300,6 @@ definitions:
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1295,14 +1307,6 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
   v0.Profile:
     properties:
       Name:

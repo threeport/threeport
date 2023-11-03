@@ -9030,6 +9030,10 @@ const docTemplate = `{
                     "description": "The image name of the component",
                     "type": "string"
                 },
+                "ImagePullSecretName": {
+                    "description": "The name of the secret with credentials to pull a private container image",
+                    "type": "string"
+                },
                 "ImageRepo": {
                     "description": "The image repo of the component",
                     "type": "string"
@@ -9874,7 +9878,18 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-<<<<<<< HEAD
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "Profile",
+                "Tier",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -9884,33 +9899,27 @@ const docTemplate = `{
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance",
-                "Profile",
-                "Tier",
-=======
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
->>>>>>> fd68659 (feat: wip)
-                "GatewayDefinition",
-                "GatewayInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-<<<<<<< HEAD
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance"
+                "AwsObjectStorageBucketInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
@@ -9920,77 +9929,13 @@ const docTemplate = `{
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-=======
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "Profile",
-                "Tier",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "AttachedObjectReference",
-                "WorkloadResourceInstance",
-                "WorkloadEvent"
-            ],
-            "x-enum-varnames": [
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
->>>>>>> fd68659 (feat: wip)
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-<<<<<<< HEAD
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance"
-=======
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent"
->>>>>>> fd68659 (feat: wip)
+                "ObjectTypeAwsObjectStorageBucketInstance"
             ]
         },
         "v0.Profile": {
@@ -10358,6 +10303,8 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "Threeport RESTful API.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
+	LeftDelim:        "{{",
+	RightDelim:       "}}",
 }
 
 func init() {
