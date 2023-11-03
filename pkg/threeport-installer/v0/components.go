@@ -469,6 +469,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	return nil
 }
 
+// UpdateThreeportAgentDeployment updates the threeport agent on a Kubernetes cluster.
 func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -1282,6 +1283,8 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string, liveReload, deb
 			args = append(args, "--")
 			args = append(args, "-auth-enabled=false")
 		}
+
+		// controller arguments must be wrapped in delve arguments
 		return append(util.StringToInterfaceList(getDelveArgs(name)), args...)
 	}
 
@@ -1379,7 +1382,6 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes(liveReload bool, isAuthEnabled b
 // getImage returns the proper container image to use for the
 func (cpi *ControlPlaneInstaller) getImage(liveReload bool, name, imageName, imageRepo, imageTag string) string {
 	if liveReload {
-		// return cpi.ThreeportDevImages()[name]
 		return "threeport-air"
 	}
 
