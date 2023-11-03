@@ -21,6 +21,7 @@ import (
 var debugDisable bool
 var defaultImages bool
 var liveReload bool
+var componentNames string
 
 // buildCmd represents the up command
 var debugCmd = &cobra.Command{
@@ -30,7 +31,7 @@ var debugCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// create list of images to build
-		imageNamesList := getImageNamesList(all, imageNames)
+		imageNamesList := getImageNamesList(all, componentNames)
 
 		// update cli args based on env vars
 		getControlPlaneEnvVars()
@@ -61,7 +62,7 @@ var debugCmd = &cobra.Command{
 		// set CreateOrUpdateKubeResources so we can update existing deployments
 		cpi.Opts.CreateOrUpdateKubeResources = true
 		cpi.Opts.Debug = !debugDisable
-		cpi.Opts.LiveReload = false
+		cpi.Opts.DevEnvironment = false
 
 		// get threeport config and extract threeport API endpoint
 		threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
@@ -133,7 +134,12 @@ var debugCmd = &cobra.Command{
 
 			// refresh EKS connection with local config
 			// and return updated kubernetesRuntimeInstance
-			kubernetesRuntimeInstance, err = cli.RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, apiEndpoint)
+			kubernetesRuntimeInstance, err = cli.RefreshEKSConnectionWithLocalConfig(
+				awsConfigResourceManager,
+				kubernetesRuntimeInstance,
+				apiClient,
+				apiEndpoint,
+			)
 			if err != nil {
 				cli.Error("failed to refresh EKS connection with local config: %w", err)
 				os.Exit(1)
@@ -168,10 +174,11 @@ var debugCmd = &cobra.Command{
 				if err := cpi.UpdateThreeportAPIDeployment(
 					dynamicKubeClient,
 					mapper,
-					liveReload,
 					authEnabled,
-					infraProvider,
 					encryptionKey,
+					infraProvider,
+					true,
+					liveReload,
 				); err != nil {
 					cli.Error("failed to apply threeport rest api", err)
 					os.Exit(1)
@@ -182,8 +189,9 @@ var debugCmd = &cobra.Command{
 					dynamicKubeClient,
 					mapper,
 					requestedControlPlane,
-					liveReload,
 					authEnabled,
+					true,
+					liveReload,
 				); err != nil {
 					cli.Error("failed to apply threeport agent", err)
 					os.Exit(1)
@@ -193,9 +201,10 @@ var debugCmd = &cobra.Command{
 				if err = cpi.UpdateControllerDeployment(
 					dynamicKubeClient,
 					mapper,
-					liveReload,
 					*component,
 					authEnabled,
+					true,
+					liveReload,
 				); err != nil {
 					cli.Error("failed to apply threeport controllers", err)
 					os.Exit(1)
@@ -208,8 +217,8 @@ var debugCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(debugCmd)
 	debugCmd.Flags().StringVar(
-		&imageNames,
-		"image-names", "", "Image name",
+		&componentNames,
+		"names", "", "Comma-delimited list of component names to update with debug images (rest-api,agent,workload-controller etc).",
 	)
 	debugCmd.Flags().StringVar(
 		&cliArgs.ControlPlaneImageRepo,

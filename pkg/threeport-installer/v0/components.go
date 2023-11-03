@@ -71,10 +71,11 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	liveReload,
 	isAuthEnabled bool,
-	infraProvider string,
 	encryptionKey string,
+	infraProvider string,
+	debug bool,
+	liveReload bool,
 ) error {
 	apiImage := cpi.getImage(liveReload, cpi.Opts.RestApiInfo.Name, cpi.Opts.RestApiInfo.ImageName, cpi.Opts.RestApiInfo.ImageRepo, cpi.Opts.RestApiInfo.ImageTag)
 	apiArgs := cpi.getAPIArgs(liveReload, isAuthEnabled)
@@ -199,7 +200,7 @@ NATS_PORT=4222
 							map[string]interface{}{
 								"name":            "api-server",
 								"image":           apiImage,
-								"command":         getCommand(cpi.Opts.RestApiInfo.Name, liveReload, false),
+								"command":         getCommand(cpi.Opts.RestApiInfo.Name, liveReload, debug),
 								"imagePullPolicy": "IfNotPresent",
 								"args":            apiArgs,
 								"ports": []interface{}{
@@ -340,9 +341,10 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 		if err := cpi.UpdateControllerDeployment(
 			kubeClient,
 			mapper,
-			true,
 			*controller,
 			authConfig != nil,
+			false,
+			false,
 		); err != nil {
 			return fmt.Errorf("failed to install %s: %w", *&controller.Name, err)
 		}
@@ -373,9 +375,10 @@ func (cpi *ControlPlaneInstaller) CreateOrUpdateKubeResource(
 func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	liveReload bool,
 	installInfo v0.ControlPlaneComponent,
 	isAuthEnabled bool,
+	debug bool,
+	liveReload bool,
 ) error {
 	controllerImage := cpi.getImage(liveReload, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
 	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, liveReload, isAuthEnabled)
@@ -401,8 +404,8 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 		controllerVols,
 		controllerVolMounts,
 		controllerImagePullSecrets,
+		debug,
 		liveReload,
-		false,
 	)
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
@@ -455,6 +458,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 		mapper,
 		threeportInstanceName,
 		false,
+		false,
 		authConfig != nil,
 	); err != nil {
 		return fmt.Errorf("failed to update threeport agent deployment: %w", err)
@@ -466,6 +470,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	threeportInstanceName string,
+	debug,
 	liveReload,
 	isAuthEnabled bool,
 ) error {
@@ -1049,7 +1054,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								"args":            agentArgs,
 								"image":           agentImage,
 								"imagePullPolicy": "IfNotPresent",
-								"command":         getCommand(cpi.Opts.AgentInfo.Name, liveReload, false),
+								"command":         getCommand(cpi.Opts.AgentInfo.Name, liveReload, debug),
 								//"livenessProbe": map[string]interface{}{
 								//	"httpGet": map[string]interface{}{
 								//		"path": "/healthz",
@@ -1228,8 +1233,8 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIService(
 }
 
 // getAPIImage returns the proper container image to use for the API.
-func getAPIImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
-	if devEnvironment {
+func getAPIImage(liveReload bool, customThreeportImageRepo, customThreeportImageTag string) string {
+	if liveReload {
 		return "threeport-air"
 	}
 
@@ -1254,13 +1259,13 @@ func getAPIImage(devEnvironment bool, customThreeportImageRepo, customThreeportI
 }
 
 // getAPIArgs returns the args that are passed to the API server.
-func (cpi *ControlPlaneInstaller) getAPIArgs(devEnvironment bool, isAuthEnabled bool) []interface{} {
+func (cpi *ControlPlaneInstaller) getAPIArgs(liveReload bool, isAuthEnabled bool) []interface{} {
 
-	// in devEnvironment, auth is disabled by default
+	// in tptdev, auth is disabled by default
 	// in tptctl, auth is enabled by default
 
 	// enable auth if authConfig is set in dev environment
-	if devEnvironment {
+	if liveReload {
 		args := "-auto-migrate=true -verbose=true"
 
 		if !isAuthEnabled {
@@ -1283,14 +1288,13 @@ func (cpi *ControlPlaneInstaller) getAPIArgs(devEnvironment bool, isAuthEnabled 
 }
 
 // getControllerArgs returns the args that are passed to a controller.
-func (cpi *ControlPlaneInstaller) getControllerArgs(name string, devEnvironment, debug bool, isAuthEnabled bool) []interface{} {
+func (cpi *ControlPlaneInstaller) getControllerArgs(name string, liveReload, debug bool, isAuthEnabled bool) []interface{} {
 
-	// in devEnvironment, auth is disabled by default
+	// in tptdev, auth is disabled by default
 	// in tptctl, auth is enabled by default
 
 	// enable auth if authConfig is set in dev environment
-	// if devEnvironment && authConfig != nil {
-	if devEnvironment {
+	if liveReload {
 		if isAuthEnabled {
 			return getAirArgs(name, "")
 		}
@@ -1349,7 +1353,7 @@ func getDelveArgs(name string) []string {
 }
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
-func (cpi *ControlPlaneInstaller) getAPIVolumes(devEnvironment bool, isAuthEnabled bool) ([]interface{}, []interface{}) {
+func (cpi *ControlPlaneInstaller) getAPIVolumes(liveReload bool, isAuthEnabled bool) ([]interface{}, []interface{}) {
 	vols := []interface{}{
 		map[string]interface{}{
 			"name": "db-config",
@@ -1388,7 +1392,7 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes(devEnvironment bool, isAuthEnabl
 		volMounts = append(volMounts, certVolMount)
 	}
 
-	if devEnvironment {
+	if liveReload {
 		vols, volMounts = cpi.getDevEnvironmentVolumes(vols, volMounts)
 	}
 
@@ -1396,8 +1400,8 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes(devEnvironment bool, isAuthEnabl
 }
 
 // getImage returns the proper container image to use for the
-func (cpi *ControlPlaneInstaller) getImage(devEnvironment bool, name, imageName, imageRepo, imageTag string) string {
-	if devEnvironment {
+func (cpi *ControlPlaneInstaller) getImage(liveReload bool, name, imageName, imageRepo, imageTag string) string {
+	if liveReload {
 		// return cpi.ThreeportDevImages()[name]
 		return "threeport-air"
 	}
@@ -1414,7 +1418,7 @@ func (cpi *ControlPlaneInstaller) getImage(devEnvironment bool, name, imageName,
 
 // getControllerVolumes returns the volumes and volume mounts for the workload
 // controller.
-func (cpi *ControlPlaneInstaller) getControllerVolumes(name string, devEnvironment bool, isAuthEnabled bool) ([]interface{}, []interface{}) {
+func (cpi *ControlPlaneInstaller) getControllerVolumes(name string, liveReload bool, isAuthEnabled bool) ([]interface{}, []interface{}) {
 	vols := []interface{}{}
 	volMounts := []interface{}{}
 
@@ -1428,7 +1432,7 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(name string, devEnvironme
 		volMounts = append(volMounts, certVolMount)
 	}
 
-	if devEnvironment {
+	if liveReload {
 		vols, volMounts = cpi.getDevEnvironmentVolumes(vols, volMounts)
 	}
 
@@ -1567,11 +1571,11 @@ func (cpi *ControlPlaneInstaller) getAPIServicePort(infraProvider string, isAuth
 }
 
 // getAgentArgs returns the args that are passed to the threeport agent.  In
-// devEnvironment, auth is disabled by default.  In tptctl auth is enabled by
+// tptdev, auth is disabled by default.  In tptctl auth is enabled by
 // default.
-func (cpi *ControlPlaneInstaller) getAgentArgs(devEnvironment bool, isAuthEnabled bool) []interface{} {
+func (cpi *ControlPlaneInstaller) getAgentArgs(liveReload bool, isAuthEnabled bool) []interface{} {
 	// set flags for dev environment
-	if devEnvironment {
+	if liveReload {
 		flags := "--metrics-bind-address=127.0.0.1:8080 --leader-elect"
 		if !isAuthEnabled {
 			return getAirArgs("agent", flags+" --auth-enabled=false")
@@ -1784,15 +1788,3 @@ func getCommand(name string, liveReload, debug bool) []interface{} {
 		fmt.Sprintf("/threeport-%s", name),
 	}
 }
-
-// // getArgs returns the args that are passed to a controller.
-// func getArgs(controller string, devEnvironment bool) []interface{} {
-// 	if devEnvironment {
-// 		return []interface{}{
-// 			"-c", "/threeport/cmd/dev/air.toml",
-// 			"-build.cmd", "go build -o bin/threeport-" + controller + " cmd/" + controller + "/main.go",
-// 			"-build.bin", "./bin/threeport-" + controller,
-// 		}
-// 	}
-// 	return []interface{}{}
-// }

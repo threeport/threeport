@@ -46,7 +46,7 @@ func init() {
 		cli.InitArgs(cliArgs)
 
 		cliArgs.InfraProvider = "kind"
-		cliArgs.LiveReload = true
+		cliArgs.DevEnvironment = true
 	})
 }
 

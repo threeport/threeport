@@ -53,7 +53,7 @@ type GenesisControlPlaneCLIArgs struct {
 	ControlPlaneImageTag  string
 	CreateRootDomain      string
 	CreateAdminEmail      string
-	LiveReload            bool
+	DevEnvironment        bool
 	ForceOverwriteConfig  bool
 	ControlPlaneName      string
 	InfraProvider         string
@@ -118,7 +118,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.CfgFile = a.CfgFile
 	cpi.Opts.CreateRootDomain = a.CreateRootDomain
 	cpi.Opts.CreateAdminEmail = a.CreateAdminEmail
-	cpi.Opts.LiveReload = a.LiveReload
+	cpi.Opts.DevEnvironment = a.DevEnvironment
 	cpi.Opts.ForceOverwriteConfig = a.ForceOverwriteConfig
 	cpi.Opts.ControlPlaneName = a.ControlPlaneName
 	cpi.Opts.InfraProvider = a.InfraProvider
@@ -196,7 +196,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 			KubeconfigPath:      cpi.Opts.KubeconfigPath,
-			LiveReload:          cpi.Opts.LiveReload,
+			DevEnvironment:      cpi.Opts.DevEnvironment,
 			ThreeportPath:       cpi.Opts.ThreeportPath,
 			NumWorkerNodes:      cpi.Opts.NumWorkerNodes,
 			AuthEnabled:         cpi.Opts.AuthEnabled,
@@ -549,7 +549,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// for dev environment, build and load dev images for API and controllers
-	if cpi.Opts.LiveReload {
+	if cpi.Opts.DevEnvironment {
 		if err := tptdev.PrepareDevImages(cpi.Opts.ThreeportPath, provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName), cpi); err != nil {
 			return cleanOnCreateError("failed to build and load dev control plane images", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
@@ -559,10 +559,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
-		false,
 		authConfig != nil,
-		cpi.Opts.InfraProvider,
 		encryptionKey,
+		cpi.Opts.InfraProvider,
+		false,
+		false,
 	); err != nil {
 		return cleanOnCreateError("failed to install threeport API server", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
