@@ -1304,6 +1304,7 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string, liveReload, deb
 	return args
 }
 
+// getAirArgs returns the args that are passed to air.
 func getAirArgs(name, extraArgs string) []interface{} {
 	main := "main_gen.go"
 	if name == "rest-api" || name == "agent" {
@@ -1324,6 +1325,7 @@ func getAirArgs(name, extraArgs string) []interface{} {
 
 }
 
+// getDelveArgs returns the args that are passed to delve.
 func getDelveArgs(name string) []string {
 	args := []string{
 		"--continue",
