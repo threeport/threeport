@@ -205,13 +205,13 @@ func init() {
 		&componentNames,
 		"component-names", "n", "Comma-delimited list of component names to update with debug images (rest-api,agent,workload-controller etc).",
 	)
-	debugCmd.Flags().StringVar(
+	debugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,
-		"control-plane-image-repo", "r", "Alternate image repo to pull threeport control plane images from.",
+		"control-plane-image-repo", "r", "", "Alternate image repo to pull threeport control plane images from.",
 	)
-	debugCmd.Flags().StringVar(
+	debugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageTag,
-		"control-plane-image-tag", "t", "Alternate image tag to pull threeport control plane images from.",
+		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
 	)
 	debugCmd.Flags().BoolVar(
 		&all,

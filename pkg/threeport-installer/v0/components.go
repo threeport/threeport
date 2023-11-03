@@ -1326,7 +1326,7 @@ func getDelveArgs(name string) []string {
 		"--api-version=2",
 		"--log",
 		"exec",
-		name,
+		fmt.Sprintf("/threeport-%s", name),
 	}
 
 	return args

@@ -71,13 +71,13 @@ func init() {
 		&cliArgs.NumWorkerNodes,
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
 	)
-	upCmd.Flags().StringVar(
+	upCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,
-		"control-plane-image-repo", "r", "Alternate image repo to pull threeport control plane images from.",
+		"control-plane-image-repo", "r", "", "Alternate image repo to pull threeport control plane images from.",
 	)
-	upCmd.Flags().StringVar(
+	upCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageTag,
-		"control-plane-image-tag", "t", "Alternate image tag to pull threeport control plane images from.",
+		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
 	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)
