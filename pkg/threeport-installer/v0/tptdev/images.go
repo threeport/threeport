@@ -177,50 +177,6 @@ func DockerBuildxImage(threeportPath, imageName, tag, arch string) error {
 	return nil
 }
 
-// BuildDockerImage builds a specified docker image.
-func BuildDockerImage(threeportPath, imageName, tag, arch string) error {
-	// initialize docker client
-	dockerClient, err := client.NewClientWithOpts(
-		client.FromEnv,
-		client.WithAPIVersionNegotiation(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create docker client for building images: %w", err)
-	}
-
-	// initialize context
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300)
-	defer cancel()
-
-	// build tarball of repo
-	tar, err := archive.TarWithOptions(threeportPath, &archive.TarOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to build tarball of threeport repo: %w", err)
-	}
-
-	// build docker image
-	buildOpts := types.ImageBuildOptions{
-		Dockerfile: filepath.Join("cmd", imageName, "image", "Dockerfile-test"),
-		Tags:       []string{tag},
-		Remove:     true,
-		BuildArgs: map[string]*string{
-			"ARCH": &arch,
-		},
-	}
-	result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
-	if err != nil {
-		return fmt.Errorf("failed to build docker image %s: %w", imageName, err)
-	}
-	defer result.Body.Close()
-
-	// write build output to stdout
-	if err := buildOutput(result.Body); err != nil {
-		return fmt.Errorf("failed to write output from docker build for %s: %w", imageName, err)
-	}
-
-	return nil
-}
-
 // PushDockerImage pushes a specified docker image to the docker registry.
 func PushDockerImage(tag string) error {
 	// initialize docker client
