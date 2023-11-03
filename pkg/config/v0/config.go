@@ -7,8 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsSdkConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/mitchellh/go-homedir"
+	"github.com/nukleros/eks-cluster/pkg/resource"
 	"github.com/spf13/viper"
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -105,94 +110,67 @@ func (cfg *ThreeportConfig) CheckThreeportConfigEmpty() bool {
 
 // CheckThreeportControlPlaneExists checks if a Threeport control plane within a config exists.
 func (cfg *ThreeportConfig) CheckThreeportControlPlaneExists(createThreeportControlPlaneName string) bool {
-	threeportControlPlaneExists := false
-	for _, controlPlane := range cfg.ControlPlanes {
-		if controlPlane.Name == createThreeportControlPlaneName {
-			threeportControlPlaneExists = true
-			break
-		}
-	}
-
-	return threeportControlPlaneExists
+	_, err := cfg.GetControlPlaneConfig(createThreeportControlPlaneName)
+	return err == nil
 }
 
 // GetThreeportAPIEndpoint returns the threeport API endpoint from threeport
 // config.
 func (cfg *ThreeportConfig) GetThreeportAPIEndpoint(requestedControlPlane string) (string, error) {
-	for i, controlPlane := range cfg.ControlPlanes {
-		if controlPlane.Name == requestedControlPlane {
-			return cfg.ControlPlanes[i].APIServer, nil
-		}
+	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return "", errors.New("current control plane not found when retrieving threeport API endpoint")
 	}
-
-	return "", errors.New("current control plane not found when retrieving threeport API endpoint")
+	return controlPlane.APIServer, nil
 }
 
 // GetThreeportAuthEnabled returns a boolean that indicates whether current
 // control plane has auth enabled.
 func (cfg *ThreeportConfig) GetThreeportAuthEnabled(requestedControlPlane string) (bool, error) {
-	for i, controlPlane := range cfg.ControlPlanes {
-		if controlPlane.Name == requestedControlPlane {
-			return cfg.ControlPlanes[i].AuthEnabled, nil
-		}
+	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return false, errors.New("current control plane not found when retrieving threeport API endpoint")
 	}
 
-	return false, errors.New("current control plane not found when retrieving threeport API endpoint")
+	return controlPlane.AuthEnabled, nil
 }
 
 // GetThreeportInfraProvider returns the infra provider from
 // the threeport config.
 func (cfg *ThreeportConfig) GetThreeportInfraProvider(requestedControlPlane string) (string, error) {
-	for i, controlPlane := range cfg.ControlPlanes {
-		if controlPlane.Name == requestedControlPlane {
-			return cfg.ControlPlanes[i].Provider, nil
-		}
+	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return "", errors.New("current control plane not found when retrieving threeport infra provider")
 	}
-
-	return "", errors.New("current control plane not found when retrieving threeport infra provider")
+	return controlPlane.Provider, nil
 }
 
 // CheckThreeportGenesisControlPlane returns a boolean that indicates whether current
 // control plane is the genesis control plane.
 func (cfg *ThreeportConfig) CheckThreeportGenesisControlPlane(requestedControlPlane string) (bool, error) {
-	for i, controlPlane := range cfg.ControlPlanes {
-		if controlPlane.Name == requestedControlPlane {
-			return cfg.ControlPlanes[i].Genesis, nil
-		}
+	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return false, errors.New("current control plane not found when checking for genesis info")
 	}
-
-	return false, errors.New("current control plane not found when checking for genesis info")
+	return controlPlane.Genesis, nil
 }
 
 // GetEncryptionKey returns the encryption key from the threeport
 // config.
 func (cfg *ThreeportConfig) GetEncryptionKey(requestedControlPlane string) (string, error) {
-	for i, controlPlane := range cfg.ControlPlanes {
-		if controlPlane.Name == requestedControlPlane {
-			return cfg.ControlPlanes[i].EncryptionKey, nil
-		}
+	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return "", errors.New("current instance not found when retrieving encryption key")
 	}
-
-	return "", errors.New("current instance not found when retrieving encryption key")
+	return controlPlane.EncryptionKey, nil
 }
 
 // GetThreeportCertificatesForControlPlane returns the CA certificate, client
 // certificate, and client private key for a named threeport control plane.
-func (cfg *ThreeportConfig) GetThreeportCertificatesForControlPlane(controlPlaneName string) (string, string, string, error) {
-	// find controlPlane
-	var controlPlane ControlPlane
-	controlPlaneFound := false
-	for _, inst := range cfg.ControlPlanes {
-		if inst.Name == controlPlaneName {
-			controlPlane = inst
-			controlPlaneFound = true
-			break
-		}
-	}
-	if !controlPlaneFound {
-		return "", "", "", errors.New(
-			fmt.Sprintf("could not find threeport control plane name %s in threeport config", controlPlaneName),
-		)
+func (cfg *ThreeportConfig) GetThreeportCertificatesForControlPlane(requestedControlPlane string) (string, string, string, error) {
+	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return "", "", "", errors.New("current control plane not found when retrieving threeport certificates")
 	}
 
 	// fetch certs from instance config
@@ -204,7 +182,7 @@ func (cfg *ThreeportConfig) GetThreeportCertificatesForControlPlane(controlPlane
 	var clientPrivateKey string
 	credsFound := false
 	for _, credential := range controlPlane.Credentials {
-		if credential.Name == controlPlaneName {
+		if credential.Name == requestedControlPlane {
 			cert, err := util.Base64Decode(credential.ClientCert)
 			if err != nil {
 				return "", "", "", fmt.Errorf("failed to decode client certificate: %w", err)
@@ -279,6 +257,68 @@ func (cfg *ThreeportConfig) GetControlPlaneInstance(requestedControlPlane string
 		}
 	}
 	return nil, fmt.Errorf("failed to retrieve current control plane instance")
+}
+
+// GetControlPlaneConfig returns the requested control plane config.
+func (cfg *ThreeportConfig) GetControlPlaneConfig(name string) (*ControlPlane, error) {
+	for _, controlPlane := range cfg.ControlPlanes {
+		if controlPlane.Name == name {
+			return &controlPlane, nil
+		}
+	}
+	return nil, fmt.Errorf("control plane %s not found", name)
+}
+
+// GetAwsConfigs returns AWS configs for the user and resource manager.
+func (cfg *ThreeportConfig) GetAwsConfigs(requestedControlPlane string) (*aws.Config, *aws.Config, string, error) {
+	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get control plane config: %w", err)
+	}
+	awsConfigUser, err := resource.LoadAWSConfig(
+		false,
+		controlPlane.EKSProviderConfig.AwsConfigProfile,
+		controlPlane.EKSProviderConfig.AwsRegion,
+		"",
+		"",
+		"",
+	)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to load AWS configuration with local config: %w", err)
+	}
+
+	// test credentials for awsConfigUser
+	var callerIdentity *sts.GetCallerIdentityOutput
+	if callerIdentity, err = provider.GetCallerIdentity(awsConfigUser); err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get caller identity: %w", err)
+	}
+	fmt.Printf("Successfully authenticated to account %s as %s\n", *callerIdentity.Account, *callerIdentity.Arn)
+
+	// assume role for AWS resource manager for infra teardown
+	awsConfigResourceManager, err := resource.AssumeRole(
+		provider.GetResourceManagerRoleArn(
+			controlPlane.Name,
+			controlPlane.EKSProviderConfig.AwsAccountID,
+		),
+		"",
+		"",
+		3600,
+		*awsConfigUser,
+		[]func(*awsSdkConfig.LoadOptions) error{
+			awsSdkConfig.WithRegion(controlPlane.EKSProviderConfig.AwsRegion),
+		},
+	)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to assume role for AWS resource manager: %w", err)
+	}
+
+	// test credentials for awsConfigResourceManager
+	if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get caller identity: %w", err)
+	}
+	fmt.Printf("Successfully authenticated to account %s as %s\n", *callerIdentity.Account, *callerIdentity.Arn)
+
+	return awsConfigUser, awsConfigResourceManager, *callerIdentity.Account, nil
 }
 
 // SetCurrentInstance updates the threeport config to set CurrentInstance as the

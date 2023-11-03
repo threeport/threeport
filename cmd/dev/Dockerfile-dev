@@ -15,5 +15,3 @@ RUN go install github.com/cosmtrek/air@latest && \
 FROM base as dev
 ARG BINARY
 COPY bin/threeport-${BINARY} /threeport-${BINARY}
-
-ENTRYPOINT ["/threeport-${BINARY}"]

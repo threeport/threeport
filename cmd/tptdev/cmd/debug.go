@@ -19,6 +19,7 @@ import (
 )
 
 var debugDisable bool
+var defaultImages bool
 var liveReload bool
 
 // buildCmd represents the up command
@@ -35,7 +36,7 @@ var debugCmd = &cobra.Command{
 		getControlPlaneEnvVars()
 
 		// if debugDisable is true, ignore control plane image repo and tag
-		if debugDisable {
+		if defaultImages {
 			cliArgs.ControlPlaneImageRepo = ""
 			cliArgs.ControlPlaneImageTag = ""
 		}
@@ -121,14 +122,32 @@ var debugCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// perform provider-specific auth steps
+		switch infraProvider {
+		case api_v0.KubernetesRuntimeInfraProviderEKS:
+			// get aws config resource manager
+			_, awsConfigResourceManager, _, err := threeportConfig.GetAwsConfigs(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to get AWS configs from threeport config: %w", err)
+			}
+
+			// refresh EKS connection with local config
+			// and return updated kubernetesRuntimeInstance
+			kubernetesRuntimeInstance, err = cli.RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to refresh EKS connection with local config: %w", err)
+				os.Exit(1)
+			}
+		}
+
 		// get kube client
 		var dynamicKubeClient dynamic.Interface
 		var mapper *meta.RESTMapper
 		if dynamicKubeClient, mapper, err = kube.GetClient(
 			kubernetesRuntimeInstance,
 			false,
-			nil,
-			"",
+			apiClient,
+			apiEndpoint,
 			encryptionKey,
 		); err != nil {
 			cli.Error("failed to create kube client", err)
@@ -207,6 +226,10 @@ func init() {
 	debugCmd.Flags().BoolVar(
 		&debugDisable,
 		"disable", false, "Disable debug mode.",
+	)
+	debugCmd.Flags().BoolVar(
+		&defaultImages,
+		"default-images", false, "Disable debug mode.",
 	)
 	debugCmd.Flags().BoolVar(
 		&liveReload,

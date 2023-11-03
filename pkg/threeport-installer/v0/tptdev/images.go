@@ -144,9 +144,9 @@ func BuildGoBinary(threeportPath, imageName, arch string, noCache bool) error {
 	return nil
 }
 
-// BuildDockerxImage builds a specified docker image
+// DockerBuildxImage builds a specified docker image
 // with the 'docker buildx' command.
-func BuildDockerxImage(threeportPath, imageName, tag, arch string) error {
+func DockerBuildxImage(threeportPath, imageName, tag, arch string) error {
 
 	// construct build arguments
 	buildArgs := []string{

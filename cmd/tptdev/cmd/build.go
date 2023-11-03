@@ -85,7 +85,7 @@ var buildCmd = &cobra.Command{
 					)
 
 					// build docker image
-					if err := tptdev.BuildDockerxImage(
+					if err := tptdev.DockerBuildxImage(
 						cpi.Opts.ThreeportPath,
 						image,
 						tag,
