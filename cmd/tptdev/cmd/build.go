@@ -27,8 +27,8 @@ var parallel int
 // buildCmd represents the up command
 var buildCmd = &cobra.Command{
 	Use:   "build",
-	Short: "Spin up a new threeport development environment",
-	Long:  `Spin up a new threeport development environment.`,
+	Short: "Build threeport docker images.",
+	Long:  `Build threeport docker images. Useful for development and debugging.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// validate cli args

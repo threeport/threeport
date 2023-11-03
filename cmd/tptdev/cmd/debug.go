@@ -25,8 +25,8 @@ var componentNames string
 // buildCmd represents the up command
 var debugCmd = &cobra.Command{
 	Use:   "debug",
-	Short: "Spin up a new threeport development environment",
-	Long:  `Spin up a new threeport development environment.`,
+	Short: "Debug threeport control plane components.",
+	Long:  `Debug threeport control plane components.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// create list of images to build
