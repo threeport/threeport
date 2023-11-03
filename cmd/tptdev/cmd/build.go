@@ -32,11 +32,9 @@ var buildCmd = &cobra.Command{
 		imageNamesList := []string{}
 		switch all {
 		case true:
-			for _, controller := range v0.ThreeportControllerList {
+			for _, controller := range v0.AllControlPlaneComponents() {
 				imageNamesList = append(imageNamesList, controller.Name)
 			}
-			imageNamesList = append(imageNamesList, "rest-api")
-			imageNamesList = append(imageNamesList, "agent")
 		case false:
 			imageNamesList = strings.Split(imageNames, ",")
 		}

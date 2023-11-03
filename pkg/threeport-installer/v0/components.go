@@ -319,12 +319,32 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			continue
 		}
 
+		// if auth is enabled on API, generate client cert and key and store in
+		// secrets
+		if authConfig != nil {
+
+			certificate, privateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+			if err != nil {
+				return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
+			}
+
+			ca := cpi.getTLSSecret(fmt.Sprintf("%s-ca", controller.Name), authConfig.CAPemEncoded, "")
+			if err := cpi.CreateOrUpdateKubeResource(ca, kubeClient, mapper); err != nil {
+				return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+			}
+
+			cert := cpi.getTLSSecret(fmt.Sprintf("%s-cert", controller.Name), certificate, privateKey)
+			if err := cpi.CreateOrUpdateKubeResource(cert, kubeClient, mapper); err != nil {
+				return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+			}
+		}
+
 		if err := cpi.InstallController(
 			kubeClient,
 			mapper,
 			devEnvironment,
 			*controller,
-			authConfig,
+			authConfig != nil,
 		); err != nil {
 			return fmt.Errorf("failed to install %s: %w", *&controller.Name, err)
 		}
@@ -357,7 +377,7 @@ func (cpi *ControlPlaneInstaller) InstallController(
 	mapper *meta.RESTMapper,
 	devEnvironment bool,
 	installInfo v0.ControlPlaneComponent,
-	authConfig *auth.AuthConfig,
+	isAuthEnabled bool,
 ) error {
 	controllerImage := cpi.getImage(devEnvironment, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
 	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, devEnvironment, authConfig)
@@ -436,7 +456,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 
 	agentImage := cpi.getImage(devEnvironment, cpi.Opts.AgentInfo.Name, cpi.Opts.AgentInfo.ImageName, cpi.Opts.AgentInfo.ImageRepo, cpi.Opts.AgentInfo.ImageTag)
 	agentArgs := cpi.getAgentArgs(devEnvironment, authConfig)
-	agentVols, agentVolMounts := cpi.getControllerVolumes("agent", devEnvironment, authConfig)
+	agentVols, agentVolMounts := cpi.getControllerVolumes("agent", devEnvironment, authConfig == nil)
 	agentImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.AgentInfo.ImagePullSecretName)
 
 	// if auth is enabled on API, generate client cert and key and store in
@@ -1285,26 +1305,23 @@ func (cpi *ControlPlaneInstaller) getAPIArgs(devEnvironment bool, authConfig *au
 }
 
 // getControllerArgs returns the args that are passed to a controller.
-func (cpi *ControlPlaneInstaller) getControllerArgs(name string, devEnvironment, debug bool, authConfig *auth.AuthConfig) []interface{} {
+func (cpi *ControlPlaneInstaller) getControllerArgs(name string, devEnvironment, debug bool, isAuthEnabled bool) []interface{} {
 
 	// in devEnvironment, auth is disabled by default
 	// in tptctl, auth is enabled by default
 
-	args := []interface{}{}
-	if authConfig == nil {
-		args = append(args, "-auth-enabled=false")
-	}
-
 	// enable auth if authConfig is set in dev environment
 	// if devEnvironment && authConfig != nil {
-	if devEnvironment && authConfig == nil {
-
-		// buildArgs := []interface{}{
-		// 	"-build.args_bin",
-		// 	"-auth-enabled=false",
-		// }
-
+	if devEnvironment {
+		if isAuthEnabled {
+			return getAirArgs(name, "")
+		}
 		return getAirArgs(name, "-auth-enabled=false")
+	}
+
+	args := []interface{}{}
+	if !isAuthEnabled {
+		args = append(args, "-auth-enabled=false")
 	}
 
 	if debug {
@@ -1414,11 +1431,11 @@ func (cpi *ControlPlaneInstaller) getImage(devEnvironment bool, name, imageName,
 
 // getControllerVolumes returns the volumes and volume mounts for the workload
 // controller.
-func (cpi *ControlPlaneInstaller) getControllerVolumes(name string, devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
+func (cpi *ControlPlaneInstaller) getControllerVolumes(name string, devEnvironment bool, isAuthEnabled bool) ([]interface{}, []interface{}) {
 	vols := []interface{}{}
 	volMounts := []interface{}{}
 
-	if authConfig != nil {
+	if isAuthEnabled {
 		caVol, caVolMount := cpi.getSecretVols(fmt.Sprintf("%s-ca", name), "/etc/threeport/ca")
 		certVol, certVolMount := cpi.getSecretVols(fmt.Sprintf("%s-cert", name), "/etc/threeport/cert")
 

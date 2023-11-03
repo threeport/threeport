@@ -116,3 +116,11 @@ type ControlPlane struct {
 	InfraProvider v0.KubernetesRuntimeInfraProvider
 	Tier          ControlPlaneTier
 }
+
+// AllControlPlaneComponents returns a list of all control plane components.
+func AllControlPlaneComponents() []*v0.ControlPlaneComponent {
+	allControlPlaneComponents := ThreeportControllerList
+	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportRestApi)
+	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportAgent)
+	return allControlPlaneComponents
+}
