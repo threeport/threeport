@@ -19,7 +19,6 @@ import (
 )
 
 var debugDisable bool
-var defaultImages bool
 var liveReload bool
 var componentNames string
 
@@ -37,7 +36,7 @@ var debugCmd = &cobra.Command{
 		getControlPlaneEnvVars()
 
 		// if debugDisable is true, ignore control plane image repo and tag
-		if defaultImages {
+		if debugDisable {
 			cliArgs.ControlPlaneImageRepo = ""
 			cliArgs.ControlPlaneImageTag = ""
 		}
@@ -235,10 +234,6 @@ func init() {
 	debugCmd.Flags().BoolVar(
 		&debugDisable,
 		"disable", false, "Disable debug mode.",
-	)
-	debugCmd.Flags().BoolVar(
-		&defaultImages,
-		"default-images", false, "Disable debug mode.",
 	)
 	debugCmd.Flags().BoolVar(
 		&liveReload,
