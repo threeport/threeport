@@ -32,8 +32,8 @@
             "args": [
                 "debug",
                 "--threeport-config=dev-0.yaml",
-                "--image-names=workload-controller",
-                "--name=dev-0",
+                "--names=workload-controller",
+                "--control-plane-name=dev-0",
             ],
         },
         {

@@ -217,7 +217,7 @@ func init() {
 	rootCmd.AddCommand(debugCmd)
 	debugCmd.Flags().StringVar(
 		&componentNames,
-		"names", "", "Comma-delimited list of component names to update with debug images (rest-api,agent,workload-controller etc).",
+		"names", "n", "Comma-delimited list of component names to update with debug images (rest-api,agent,workload-controller etc).",
 	)
 	debugCmd.Flags().StringVar(
 		&cliArgs.ControlPlaneImageRepo,
@@ -241,6 +241,6 @@ func init() {
 	)
 	debugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
-		"name", "n", tptdev.DefaultInstanceName, "Name of dev control plane instance.",
+		"control-plane-name", "c", tptdev.DefaultInstanceName, "Name of dev control plane instance.",
 	)
 }
