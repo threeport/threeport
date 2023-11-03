@@ -28,7 +28,7 @@ var parallel int
 var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Build threeport docker images.",
-	Long:  `Build threeport docker images. Useful for development and debugging.`,
+	Long:  `Build threeport docker images. Useful for development and debugging. Only supports pushing to Dockerhub and loading into kind.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// validate cli args
