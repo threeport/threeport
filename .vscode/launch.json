@@ -32,7 +32,7 @@
             "args": [
                 "debug",
                 "--threeport-config=dev-0.yaml",
-                "--names=workload-controller",
+                "--component-names=workload-controller",
                 "--control-plane-name=dev-0",
             ],
         },
