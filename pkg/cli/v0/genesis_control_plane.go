@@ -1220,5 +1220,3 @@ func cleanOnCreateError(
 
 	return createErr
 }
-
-// func getDynamicKubeClient
