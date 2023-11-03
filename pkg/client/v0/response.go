@@ -13,6 +13,7 @@ import (
 
 var ErrorObjectNotFound = errors.New("object not found")
 var ErrUnauthorized = errors.New("unauthorized")
+var ErrForbidden = errors.New("forbidden")
 
 // GetResponse calls the threeport API and returns a response.
 func GetResponse(
@@ -74,6 +75,8 @@ func GetResponse(
 			return nil, ErrorObjectNotFound
 		} else if resp.StatusCode == http.StatusUnauthorized {
 			return nil, ErrUnauthorized
+		} else if resp.StatusCode == http.StatusForbidden {
+			return nil, ErrForbidden
 		}
 		return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s\nexpected: %d", response.Status.Code, response.Status.Message, string(status), expectedStatusCode))
 	}

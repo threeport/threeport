@@ -19,6 +19,7 @@ func Retry(
 		if err == nil {
 			return nil
 		}
+		fmt.Println(err)
 		attempts++
 		time.Sleep(time.Second * time.Duration(waitDurationSeconds))
 	}

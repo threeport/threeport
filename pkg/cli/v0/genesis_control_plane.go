@@ -159,15 +159,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	genesis := true
-	// flag validation
-	if err := ValidateCreateGenesisControlPlaneFlags(
-		cpi.Opts.ControlPlaneName,
-		cpi.Opts.InfraProvider,
-		cpi.Opts.CreateRootDomain,
-		cpi.Opts.AuthEnabled,
-	); err != nil {
-		return fmt.Errorf("flag validation failed: %w", err)
-	}
 
 	threeportConfig.ControlPlanes = []config.ControlPlane{}
 	threeportControlPlaneConfig := &config.ControlPlane{}
@@ -200,8 +191,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		portForwards := make(map[int32]int32)
 		for _, mapping := range cpi.Opts.KindInfraPortForward {
 			split := strings.Split(mapping, ":")
-			fmt.Println(split)
-			fmt.Println(len(split))
 			if len(split) != 2 {
 				return fmt.Errorf("failed to parse kind port forward %s", mapping)
 			}
@@ -218,7 +207,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 			portForwards[int32(containerPort)] = int32(hostPort)
 		}
-		fmt.Println(portForwards)
 
 		// construct kind infra provider object
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
@@ -635,7 +623,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return cleanOnCreateError("failed to get threeport API's public endpoint", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
 		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
-			c.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
+			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
 		}); err != nil {
 			return fmt.Errorf("failed to update threeport config: %w", err)
 		}
@@ -657,6 +645,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			}
 		}
 	}
+
+	fmt.Println("this is the endpoint")
+	fmt.Println(threeportAPIEndpoint)
 
 	// if auth enabled install the threeport API TLS assets that include the alt
 	// name for the remote load balancer if applicable
