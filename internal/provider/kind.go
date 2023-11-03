@@ -23,7 +23,7 @@ type KubernetesRuntimeInfraKind struct {
 
 	// True if threeport instance is for a development environment with live
 	// reloads of code from filesystem.
-	DevEnvironment bool
+	LiveReload bool
 
 	// Used only for development environments.  The path to the threeport repo
 	// on the developer's file system.
@@ -49,7 +49,7 @@ func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) 
 		i.RuntimeInstanceName,
 		cluster.CreateWithKubeconfigPath(i.KubeconfigPath),
 		cluster.CreateWithWaitForReady(time.Duration(1000000000*60*5)), // 5 minutes
-		cluster.CreateWithV1Alpha4Config(getKindConfig(i.AuthEnabled, i.DevEnvironment, i.ThreeportPath, i.NumWorkerNodes)),
+		cluster.CreateWithV1Alpha4Config(getKindConfig(i.AuthEnabled, i.LiveReload, i.ThreeportPath, i.NumWorkerNodes)),
 	); err != nil {
 		return &kube.KubeConnectionInfo{}, fmt.Errorf("failed to create new kind cluster: %w", err)
 	}
@@ -78,12 +78,12 @@ func (i *KubernetesRuntimeInfraKind) Delete() error {
 }
 
 // getKindConfig returns a kind config for a threeport Kubernetes runtime.
-func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWorkerNodes int) *v1alpha4.Cluster {
+func getKindConfig(authEnabled, liveReload bool, threeportPath string, numWorkerNodes int) *v1alpha4.Cluster {
 	clusterConfig := v1alpha4.Cluster{}
 
 	var controlPlaneNode v1alpha4.Node
 	var workerNodes []v1alpha4.Node
-	if devEnvironment {
+	if liveReload {
 
 		// configure goPath, default to home directory if not set
 		var goPath string

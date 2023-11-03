@@ -249,7 +249,6 @@ func controlPlaneInstanceCreated(
 	}
 
 	controlPlaneRuntimeInstance.ApiServerEndpoint = &threeportAPIEndpoint
-	devEnvironment := false
 
 	// install the threeport control plane dependencies
 	if err := cpi.InstallThreeportControlPlaneDependencies(
@@ -270,7 +269,7 @@ func controlPlaneInstanceCreated(
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
-		devEnvironment,
+		false,
 		authConfig != nil,
 		*kubernetesRuntimeDefinition.InfraProvider,
 		encryptionKey,
@@ -328,7 +327,7 @@ func controlPlaneInstanceCreated(
 	if err := cpi.InstallThreeportControllers(
 		dynamicKubeClient,
 		mapper,
-		cpi.Opts.DevEnvironment,
+		cpi.Opts.LiveReload,
 		authConfig,
 	); err != nil {
 		return 0, fmt.Errorf("failed to install threeport controllers: %w", err)

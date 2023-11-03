@@ -13,11 +13,13 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	v0 "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 )
 
 var debugDisable bool
+var liveReload bool
 
 // buildCmd represents the up command
 var debugCmd = &cobra.Command{
@@ -58,12 +60,25 @@ var debugCmd = &cobra.Command{
 		// set CreateOrUpdateKubeResources so we can update existing deployments
 		cpi.Opts.CreateOrUpdateKubeResources = true
 		cpi.Opts.Debug = !debugDisable
-		cpi.Opts.DevEnvironment = false
+		cpi.Opts.LiveReload = false
 
 		// get threeport config and extract threeport API endpoint
 		threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
+			os.Exit(1)
+		}
+
+		// get threeport infra provider
+		infraProvider, err := threeportConfig.GetThreeportInfraProvider(requestedControlPlane)
+		if err != nil {
+			cli.Error("failed to get threeport infra provider", err)
+			os.Exit(1)
+		}
+
+		// ensure live reload is only used on kind
+		if infraProvider != "kind" && liveReload {
+			cli.Error("live-reload is only supported for kind infra provider", err)
 			os.Exit(1)
 		}
 
@@ -131,17 +146,10 @@ var debugCmd = &cobra.Command{
 		for _, component := range debugComponents {
 			switch component.Name {
 			case "rest-api":
-
-				infraProvider, err := threeportConfig.GetThreeportInfraProvider(requestedControlPlane)
-				if err != nil {
-					cli.Error("failed to get threeport infra provider", err)
-					os.Exit(1)
-				}
-
 				if err := cpi.UpdateThreeportAPIDeployment(
 					dynamicKubeClient,
 					mapper,
-					false,
+					liveReload,
 					authEnabled,
 					infraProvider,
 					encryptionKey,
@@ -155,7 +163,7 @@ var debugCmd = &cobra.Command{
 					dynamicKubeClient,
 					mapper,
 					requestedControlPlane,
-					false,
+					liveReload,
 					authEnabled,
 				); err != nil {
 					cli.Error("failed to apply threeport agent", err)
@@ -166,7 +174,7 @@ var debugCmd = &cobra.Command{
 				if err = cpi.UpdateControllerDeployment(
 					dynamicKubeClient,
 					mapper,
-					false,
+					liveReload,
 					*component,
 					authEnabled,
 				); err != nil {
@@ -199,5 +207,13 @@ func init() {
 	debugCmd.Flags().BoolVar(
 		&debugDisable,
 		"disable", false, "Disable debug mode.",
+	)
+	debugCmd.Flags().BoolVar(
+		&liveReload,
+		"live-reload", false, "Disable debug mode.",
+	)
+	debugCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"name", "n", tptdev.DefaultInstanceName, "Name of dev control plane instance.",
 	)
 }

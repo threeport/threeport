@@ -28,7 +28,7 @@ type Options struct {
 	CfgFile                     string
 	CreateRootDomain            string
 	CreateAdminEmail            string
-	DevEnvironment              bool
+	LiveReload                  bool
 	EncryptionKey               string
 	ForceOverwriteConfig        bool
 	ControlPlaneName            string

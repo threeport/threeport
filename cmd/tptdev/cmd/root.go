@@ -46,7 +46,7 @@ func init() {
 		cli.InitArgs(cliArgs)
 
 		cliArgs.InfraProvider = "kind"
-		cliArgs.DevEnvironment = true
+		cliArgs.LiveReload = true
 	})
 }
 
@@ -64,14 +64,20 @@ func getImageNamesList(all bool, imageNames string) []string {
 	return imageNamesList
 }
 
+// getControlPlaneEnvVars updates cli args based on env vars
 func getControlPlaneEnvVars() {
+	// get control plane image repo and tag from env vars
+	controlPlaneImageRepo := os.Getenv("CONTROL_PLANE_IMAGE_REPO")
+	controlPlaneImageTag := os.Getenv("CONTROL_PLANE_IMAGE_TAG")
+
 	// configure control plane image repo via env var if not provided by cli
-	if cliArgs.ControlPlaneImageRepo == "" && os.Getenv("CONTROL_PLANE_IMAGE_REPO") != "" {
-		cliArgs.ControlPlaneImageRepo = os.Getenv("CONTROL_PLANE_IMAGE_REPO")
+	if cliArgs.ControlPlaneImageRepo == "" && controlPlaneImageRepo != "" {
+		cliArgs.ControlPlaneImageRepo = controlPlaneImageRepo
 	}
 
 	// configure control plane image tag via env var if not provided by cli
-	if cliArgs.ControlPlaneImageTag == "" && os.Getenv("CONTROL_PLANE_IMAGE_TAG") != "" {
-		cliArgs.ControlPlaneImageTag = os.Getenv("CONTROL_PLANE_IMAGE_TAG")
+	if cliArgs.ControlPlaneImageTag == "" && controlPlaneImageTag != "" {
+		cliArgs.ControlPlaneImageTag = controlPlaneImageTag
 	}
+
 }

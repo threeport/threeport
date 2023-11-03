@@ -53,7 +53,7 @@ type GenesisControlPlaneCLIArgs struct {
 	ControlPlaneImageTag  string
 	CreateRootDomain      string
 	CreateAdminEmail      string
-	DevEnvironment        bool
+	LiveReload            bool
 	ForceOverwriteConfig  bool
 	ControlPlaneName      string
 	InfraProvider         string
@@ -118,7 +118,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.CfgFile = a.CfgFile
 	cpi.Opts.CreateRootDomain = a.CreateRootDomain
 	cpi.Opts.CreateAdminEmail = a.CreateAdminEmail
-	cpi.Opts.DevEnvironment = a.DevEnvironment
+	cpi.Opts.LiveReload = a.LiveReload
 	cpi.Opts.ForceOverwriteConfig = a.ForceOverwriteConfig
 	cpi.Opts.ControlPlaneName = a.ControlPlaneName
 	cpi.Opts.InfraProvider = a.InfraProvider
@@ -196,7 +196,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 			KubeconfigPath:      cpi.Opts.KubeconfigPath,
-			DevEnvironment:      cpi.Opts.DevEnvironment,
+			LiveReload:          cpi.Opts.LiveReload,
 			ThreeportPath:       cpi.Opts.ThreeportPath,
 			NumWorkerNodes:      cpi.Opts.NumWorkerNodes,
 			AuthEnabled:         cpi.Opts.AuthEnabled,
@@ -549,7 +549,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// for dev environment, build and load dev images for API and controllers
-	if cpi.Opts.DevEnvironment {
+	if cpi.Opts.LiveReload {
 		if err := tptdev.PrepareDevImages(cpi.Opts.ThreeportPath, provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName), cpi); err != nil {
 			return cleanOnCreateError("failed to build and load dev control plane images", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
@@ -559,7 +559,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
-		cpi.Opts.DevEnvironment,
+		false,
 		authConfig != nil,
 		cpi.Opts.InfraProvider,
 		encryptionKey,
@@ -651,7 +651,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.InstallThreeportControllers(
 		dynamicKubeClient,
 		mapper,
-		cpi.Opts.DevEnvironment,
 		authConfig,
 	); err != nil {
 		return cleanOnCreateError("failed to install threeport controllers", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
@@ -667,7 +666,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		dynamicKubeClient,
 		mapper,
 		cpi.Opts.ControlPlaneName,
-		cpi.Opts.DevEnvironment,
 		authConfig,
 	); err != nil {
 		return cleanOnCreateError("failed to install threeport agent", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
