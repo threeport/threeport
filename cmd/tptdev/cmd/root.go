@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
-	v0 "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -55,7 +55,7 @@ func getImageNamesList(all bool, imageNames string) []string {
 	imageNamesList := []string{}
 	switch all {
 	case true:
-		for _, controller := range v0.AllControlPlaneComponents() {
+		for _, controller := range installer.AllControlPlaneComponents() {
 			imageNamesList = append(imageNamesList, controller.Name)
 		}
 	case false:
