@@ -15,10 +15,10 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// // ThreeportDevImages returns a map of main package dirs to dev image names
-// func ThreeportDevImages() map[string]string {
-// 	return getImages(true)
-// }
+// ThreeportDevImages returns a map of main package dirs to dev image names
+func (cpi *ControlPlaneInstaller) ThreeportDevImages() map[string]string {
+	devImageSuffix := "-dev"
+	devImages := make(map[string]string)
 
 	for _, c := range cpi.Opts.ControllerList {
 		devImages[c.Name] = fmt.Sprintf("%s%s:latest", c.ImageName, devImageSuffix)
@@ -360,7 +360,7 @@ func (cpi *ControlPlaneInstaller) InstallController(
 ) error {
 	controllerImage := cpi.getImage(devEnvironment, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
 	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, devEnvironment, authConfig)
-	controllerArgs := cpi.getControllerArgs(devEnvironment, authConfig)
+	controllerArgs := cpi.getControllerArgs(installInfo.Name, devEnvironment, authConfig)
 	controllerImagePullSecrets := cpi.getImagePullSecrets(installInfo.ImagePullSecretName)
 
 	// if auth is enabled on API, generate client cert and key and store in
@@ -1329,6 +1329,10 @@ func getAirArgs(name, extraArgs string) []interface{} {
 	}
 }
 
+func getDelveArgs() {
+
+}
+
 // getAPIVolumes returns volumes and volume mounts for the API server.
 func (cpi *ControlPlaneInstaller) getAPIVolumes(devEnvironment bool, authConfig *auth.AuthConfig) ([]interface{}, []interface{}) {
 	vols := []interface{}{
@@ -1379,7 +1383,8 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes(devEnvironment bool, authConfig 
 // getImage returns the proper container image to use for the
 func (cpi *ControlPlaneInstaller) getImage(devEnvironment bool, name, imageName, imageRepo, imageTag string) string {
 	if devEnvironment {
-		return cpi.ThreeportDevImages()[name]
+		// return cpi.ThreeportDevImages()[name]
+		return "threeport-air"
 	}
 
 	image := fmt.Sprintf(
@@ -1641,7 +1646,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 							map[string]interface{}{
 								"name":            name,
 								"image":           "threeport-air",
-								"command":         getCommand(devEnvironment),
+								"command":         getCommand(cpi.Opts.DevEnvironment),
 								"imagePullPolicy": "IfNotPresent",
 								"args":            args,
 								"envFrom": []interface{}{
@@ -1734,6 +1739,7 @@ func GetLocalThreeportAPIEndpoint(authEnabled bool) string {
 		GetThreeportAPIPort(authEnabled),
 	)
 }
+
 // getCommand returns the args that are passed to the threeport agent.
 func getCommand(devEnvironment bool) []interface{} {
 
