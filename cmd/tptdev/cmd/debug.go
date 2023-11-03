@@ -237,7 +237,7 @@ func init() {
 	)
 	debugCmd.Flags().BoolVar(
 		&liveReload,
-		"live-reload", false, "Disable debug mode.",
+		"live-reload", false, "Enable live-reload via air.",
 	)
 	debugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
