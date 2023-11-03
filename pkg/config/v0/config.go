@@ -9,6 +9,7 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -139,6 +140,18 @@ func (cfg *ThreeportConfig) GetThreeportAuthEnabled(requestedControlPlane string
 	return false, errors.New("current control plane not found when retrieving threeport API endpoint")
 }
 
+// GetThreeportInfraProvider returns the infra provider from
+// the threeport config.
+func (cfg *ThreeportConfig) GetThreeportInfraProvider(requestedControlPlane string) (string, error) {
+	for i, controlPlane := range cfg.ControlPlanes {
+		if controlPlane.Name == requestedControlPlane {
+			return cfg.ControlPlanes[i].Provider, nil
+		}
+	}
+
+	return "", errors.New("current control plane not found when retrieving threeport infra provider")
+}
+
 // CheckThreeportGenesisControlPlane returns a boolean that indicates whether current
 // control plane is the genesis control plane.
 func (cfg *ThreeportConfig) CheckThreeportGenesisControlPlane(requestedControlPlane string) (bool, error) {
@@ -239,6 +252,33 @@ func (cfg *ThreeportConfig) GetHTTPClient(requestedControlPlane string) (*http.C
 	}
 
 	return apiClient, nil
+}
+
+// GetControlPlaneInstance returns the current control plane instance.
+func (cfg *ThreeportConfig) GetControlPlaneInstance(requestedControlPlane string) (*v0.ControlPlaneInstance, error) {
+
+	// get threeport API endpoint
+	apiEndpoint, err := cfg.GetThreeportAPIEndpoint(requestedControlPlane)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get threeport API endpoint from config: %w", err)
+	}
+
+	// get threeport API client
+	apiClient, err := cfg.GetHTTPClient(requestedControlPlane)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get threeport API client: %w", err)
+	}
+
+	for _, controlPlane := range cfg.ControlPlanes {
+		if controlPlane.Name == requestedControlPlane {
+			if controlPlaneInstance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, controlPlane.Name); err != nil {
+				return nil, fmt.Errorf("failed to retrieve current control plane instance: %w", err)
+			} else {
+				return controlPlaneInstance, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("failed to retrieve current control plane instance")
 }
 
 // SetCurrentInstance updates the threeport config to set CurrentInstance as the

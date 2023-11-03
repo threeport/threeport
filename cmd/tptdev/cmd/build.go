@@ -5,13 +5,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
-	v0 "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 
@@ -29,25 +26,10 @@ var buildCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// create list of images to build
-		imageNamesList := []string{}
-		switch all {
-		case true:
-			for _, controller := range v0.AllControlPlaneComponents() {
-				imageNamesList = append(imageNamesList, controller.Name)
-			}
-		case false:
-			imageNamesList = strings.Split(imageNames, ",")
-		}
+		imageNamesList := getImageNamesList(all, imageNames)
 
-		// configure control plane image repo via env var if not provided by cli
-		if cliArgs.ControlPlaneImageRepo == "" && os.Getenv("CONTROL_PLANE_IMAGE_REPO") != "" {
-			cliArgs.ControlPlaneImageRepo = os.Getenv("CONTROL_PLANE_IMAGE_REPO")
-		}
-
-		// configure control plane image tag via env var if not provided by cli
-		if cliArgs.ControlPlaneImageTag == "" && os.Getenv("CONTROL_PLANE_IMAGE_TAG") != "" {
-			cliArgs.ControlPlaneImageTag = os.Getenv("CONTROL_PLANE_IMAGE_TAG")
-		}
+		// update cli args based on env vars
+		getControlPlaneEnvVars()
 
 		// configure concurrency for parallel builds
 		jobs := make(chan string)

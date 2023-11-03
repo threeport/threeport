@@ -556,11 +556,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// install the API
-	if err := cpi.InstallThreeportAPI(
+	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
 		cpi.Opts.DevEnvironment,
-		authConfig,
+		authConfig != nil,
 		cpi.Opts.InfraProvider,
 		encryptionKey,
 	); err != nil {

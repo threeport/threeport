@@ -267,11 +267,11 @@ func controlPlaneInstanceCreated(
 	}
 
 	// install the API
-	if err := cpi.InstallThreeportAPI(
+	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
 		devEnvironment,
-		authConfig,
+		authConfig != nil,
 		*kubernetesRuntimeDefinition.InfraProvider,
 		encryptionKey,
 	); err != nil {

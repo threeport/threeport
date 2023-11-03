@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -28,31 +27,18 @@ var debugCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// create list of images to build
-		imageNamesList := []string{}
-		switch all {
-		case true:
-			for _, controller := range v0.AllControlPlaneComponents() {
-				imageNamesList = append(imageNamesList, controller.Name)
-			}
-		case false:
-			imageNamesList = strings.Split(imageNames, ",")
-		}
+		imageNamesList := getImageNamesList(all, imageNames)
 
-		// configure control plane image repo via env var if not provided by cli
-		if cliArgs.ControlPlaneImageRepo == "" && os.Getenv("CONTROL_PLANE_IMAGE_REPO") != "" {
-			cliArgs.ControlPlaneImageRepo = os.Getenv("CONTROL_PLANE_IMAGE_REPO")
-		}
+		// update cli args based on env vars
+		getControlPlaneEnvVars()
 
-		// configure control plane image tag via env var if not provided by cli
-		if cliArgs.ControlPlaneImageTag == "" && os.Getenv("CONTROL_PLANE_IMAGE_TAG") != "" {
-			cliArgs.ControlPlaneImageTag = os.Getenv("CONTROL_PLANE_IMAGE_TAG")
-		}
-
+		// if debugDisable is true, ignore control plane image repo and tag
 		if debugDisable {
 			cliArgs.ControlPlaneImageRepo = ""
 			cliArgs.ControlPlaneImageTag = ""
 		}
 
+		// create threeport control plane installer
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {
 			cli.Error("failed to create threeport control plane installer", err)
@@ -80,6 +66,8 @@ var debugCmd = &cobra.Command{
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
+
+		// get threeport API endpoint
 		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to get threeport API endpoint from config", err)
@@ -93,34 +81,34 @@ var debugCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var id uint
-		for _, controlPlane := range threeportConfig.ControlPlanes {
-			if controlPlane.Name == requestedControlPlane {
-				if controlPlaneInstance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, controlPlane.Name); err != nil {
-					cli.Error("failed to retrieve current control plane instance", err)
-					os.Exit(1)
-				} else {
-					id = *controlPlaneInstance.KubernetesRuntimeInstanceID
-				}
-			}
-
+		// get threeport control plane instance
+		controlPlaneInstance, err := threeportConfig.GetControlPlaneInstance(requestedControlPlane)
+		if err != nil {
+			cli.Error("failed to get control plane instance", err)
+			os.Exit(1)
 		}
 
 		// get kubernetes runtime instances
-		kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, id)
+		kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+			apiClient,
+			apiEndpoint,
+			*controlPlaneInstance.KubernetesRuntimeInstanceID,
+		)
 		if err != nil {
 			cli.Error("failed to retrieve kubernetes runtime instances", err)
 			os.Exit(1)
 		}
 
-		var dynamicKubeClient dynamic.Interface
-		var mapper *meta.RESTMapper
+		// get encryption key
 		encryptionKey, err := threeportConfig.GetEncryptionKey(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to get encryption key", err)
 			os.Exit(1)
 		}
 
+		// get kube client
+		var dynamicKubeClient dynamic.Interface
+		var mapper *meta.RESTMapper
 		if dynamicKubeClient, mapper, err = kube.GetClient(
 			kubernetesRuntimeInstance,
 			false,
@@ -132,22 +120,59 @@ var debugCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// get threeport auth enabled
 		authEnabled, err := threeportConfig.GetThreeportAuthEnabled(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to get threeport auth enabled", err)
 			os.Exit(1)
 		}
 
+		// update deployments
 		for _, component := range debugComponents {
-			if err = cpi.InstallController(
-				dynamicKubeClient,
-				mapper,
-				false,
-				*component,
-				authEnabled,
-			); err != nil {
-				cli.Error("failed to apply threeport controllers", err)
-				os.Exit(1)
+			switch component.Name {
+			case "rest-api":
+
+				infraProvider, err := threeportConfig.GetThreeportInfraProvider(requestedControlPlane)
+				if err != nil {
+					cli.Error("failed to get threeport infra provider", err)
+					os.Exit(1)
+				}
+
+				if err := cpi.UpdateThreeportAPIDeployment(
+					dynamicKubeClient,
+					mapper,
+					false,
+					authEnabled,
+					infraProvider,
+					encryptionKey,
+				); err != nil {
+					cli.Error("failed to apply threeport rest api", err)
+					os.Exit(1)
+				}
+				continue
+			case "agent":
+				if err := cpi.UpdateThreeportAgentDeployment(
+					dynamicKubeClient,
+					mapper,
+					requestedControlPlane,
+					false,
+					authEnabled,
+				); err != nil {
+					cli.Error("failed to apply threeport agent", err)
+					os.Exit(1)
+				}
+				continue
+			default:
+				if err = cpi.UpdateControllerDeployment(
+					dynamicKubeClient,
+					mapper,
+					false,
+					*component,
+					authEnabled,
+				); err != nil {
+					cli.Error("failed to apply threeport controllers", err)
+					os.Exit(1)
+				}
 			}
 		}
 	},
