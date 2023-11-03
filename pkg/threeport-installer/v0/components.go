@@ -15,10 +15,10 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// ThreeportDevImages returns a map of main package dirs to dev image names
-func (cpi *ControlPlaneInstaller) ThreeportDevImages() map[string]string {
-	devImageSuffix := "-dev"
-	devImages := make(map[string]string)
+// // ThreeportDevImages returns a map of main package dirs to dev image names
+// func ThreeportDevImages() map[string]string {
+// 	return getImages(true)
+// }
 
 	for _, c := range cpi.Opts.ControllerList {
 		devImages[c.Name] = fmt.Sprintf("%s%s:latest", c.ImageName, devImageSuffix)
@@ -199,6 +199,7 @@ NATS_PORT=4222
 							map[string]interface{}{
 								"name":            "api-server",
 								"image":           apiImage,
+								"command":         getCommand(devEnvironment),
 								"imagePullPolicy": "IfNotPresent",
 								"args":            apiArgs,
 								"ports": []interface{}{
@@ -414,6 +415,7 @@ func (cpi *ControlPlaneInstaller) InstallController(
 		controllerVols,
 		controllerVolMounts,
 		controllerImagePullSecrets,
+		devEnvironment,
 	)
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
@@ -1041,6 +1043,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 								"args":            agentArgs,
 								"image":           agentImage,
 								"imagePullPolicy": "IfNotPresent",
+								"command":         getCommand(devEnvironment),
 								//"livenessProbe": map[string]interface{}{
 								//	"httpGet": map[string]interface{}{
 								//		"path": "/healthz",
@@ -1218,6 +1221,32 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIService(
 	return apiService, nil
 }
 
+// getAPIImage returns the proper container image to use for the API.
+func getAPIImage(devEnvironment bool, customThreeportImageRepo, customThreeportImageTag string) string {
+	if devEnvironment {
+		return "threeport-air"
+	}
+
+	imageRepo := ThreeportImageRepo
+	if customThreeportImageRepo != "" {
+		imageRepo = customThreeportImageRepo
+	}
+
+	imageTag := version.GetVersion()
+	if customThreeportImageTag != "" {
+		imageTag = customThreeportImageTag
+	}
+
+	apiImage := fmt.Sprintf(
+		"%s/%s:%s",
+		imageRepo,
+		ThreeportAPIImage,
+		imageTag,
+	)
+
+	return apiImage
+}
+
 // getAPIArgs returns the args that are passed to the API server.
 func (cpi *ControlPlaneInstaller) getAPIArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
 
@@ -1232,11 +1261,13 @@ func (cpi *ControlPlaneInstaller) getAPIArgs(devEnvironment bool, authConfig *au
 			args += " -auth-enabled=false"
 		}
 
-		// -build.args_bin is an air flag, not a part of the API server
-		return []interface{}{
-			"-build.args_bin",
-			args,
-		}
+		// // -build.args_bin is an air flag, not a part of the API server
+		// buildArgs := []interface{}{
+		// 	"-build.args_bin",
+		// 	args,
+		// }
+
+		return getAirArgs("rest-api", args)
 	}
 
 	args := []interface{}{
@@ -1252,7 +1283,7 @@ func (cpi *ControlPlaneInstaller) getAPIArgs(devEnvironment bool, authConfig *au
 }
 
 // getControllerArgs returns the args that are passed to a controller.
-func (cpi *ControlPlaneInstaller) getControllerArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
+func (cpi *ControlPlaneInstaller) getControllerArgs(name string, devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
 
 	// in devEnvironment, auth is disabled by default
 	// in tptctl, auth is enabled by default
@@ -1260,10 +1291,13 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(devEnvironment bool, authCon
 	// enable auth if authConfig is set in dev environment
 	// if devEnvironment && authConfig != nil {
 	if devEnvironment && authConfig == nil {
-		return []interface{}{
-			"-build.args_bin",
-			"-auth-enabled=false",
-		}
+
+		// buildArgs := []interface{}{
+		// 	"-build.args_bin",
+		// 	"-auth-enabled=false",
+		// }
+
+		return getAirArgs(name, "-auth-enabled=false")
 	}
 
 	// disable auth if authConfig is not set in tptctl
@@ -1274,6 +1308,25 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(devEnvironment bool, authCon
 	}
 
 	return []interface{}{}
+}
+
+func getAirArgs(name, extraArgs string) []interface{} {
+	main := "main_gen.go"
+	if name == "rest-api" {
+		main = "main.go"
+	}
+
+	appendedArgs := ""
+	if extraArgs != "" {
+		appendedArgs = " -- " + extraArgs
+	}
+
+	return []interface{}{
+		"-c", "/threeport/cmd/dev/air.toml",
+		"-build.cmd", "go build -o /threeport/bin/threeport-" + name + " cmd/" + name + "/" + main,
+		"-build.bin", "/usr/local/bin/dlv",
+		"-build.args_bin", "--continue --accept-multiclient --listen=:40000 --headless=true --api-version=2 --log exec /threeport/bin/threeport-" + name + appendedArgs,
+	}
 }
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
@@ -1499,25 +1552,28 @@ func (cpi *ControlPlaneInstaller) getAPIServicePort(infraProvider string, authCo
 func (cpi *ControlPlaneInstaller) getAgentArgs(devEnvironment bool, authConfig *auth.AuthConfig) []interface{} {
 	// set flags for dev environment
 	if devEnvironment {
+		flags := "--metrics-bind-address=127.0.0.1:8080 --leader-elect"
 		if authConfig == nil {
-			return []interface{}{
-				"-build.args_bin",
-				"--auth-enabled=false, --metrics-bind-address=127.0.0.1:8080, --leader-elect",
-			}
+			// return []interface{}{
+			// 	"-build.args_bin",
+			// 	"--auth-enabled=false, --metrics-bind-address=127.0.0.1:8080, --leader-elect",
+			// }
+			return getAirArgs("agent", flags+" --auth-enabled=false")
 		} else {
-			return []interface{}{
-				"-build.args_bin",
-				"--metrics-bind-address=127.0.0.1:8080, --leader-elect",
-			}
+			// return []interface{}{
+			// 	"-build.args_bin",
+			// 	"--metrics-bind-address=127.0.0.1:8080, --leader-elect",
+			// }
+			return getAirArgs("agent", flags)
 		}
 	}
 
 	// disable auth if authConfig is not set on non-dev deployment
 	if authConfig == nil {
 		return []interface{}{
-			"--auth-enabled=false",
 			"--metrics-bind-address=127.0.0.1:8080",
 			"--leader-elect",
+			"--auth-enabled=false",
 		}
 	}
 
@@ -1585,6 +1641,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 							map[string]interface{}{
 								"name":            name,
 								"image":           image,
+								"command":         getCommand(devEnvironment),
 								"imagePullPolicy": "IfNotPresent",
 								"args":            args,
 								"envFrom": []interface{}{
@@ -1677,3 +1734,26 @@ func GetLocalThreeportAPIEndpoint(authEnabled bool) string {
 		GetThreeportAPIPort(authEnabled),
 	)
 }
+// getCommand returns the args that are passed to the threeport agent.
+func getCommand(devEnvironment bool) []interface{} {
+
+	if devEnvironment {
+		return []interface{}{
+			"air",
+		}
+	}
+
+	return []interface{}{}
+}
+
+// // getArgs returns the args that are passed to a controller.
+// func getArgs(controller string, devEnvironment bool) []interface{} {
+// 	if devEnvironment {
+// 		return []interface{}{
+// 			"-c", "/threeport/cmd/dev/air.toml",
+// 			"-build.cmd", "go build -o bin/threeport-" + controller + " cmd/" + controller + "/main.go",
+// 			"-build.bin", "./bin/threeport-" + controller,
+// 		}
+// 	}
+// 	return []interface{}{}
+// }

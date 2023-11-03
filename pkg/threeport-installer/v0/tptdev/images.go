@@ -38,22 +38,22 @@ type imageTagFetcher func(nodes.Node, string) (map[string]bool, error)
 // PrepareDevImages builds and loads the threeport control plane images for
 // development use.
 func PrepareDevImages(threeportPath, kindKubernetesRuntimeName string, cpi *threeport.ControlPlaneInstaller) error {
-	devImages := cpi.ThreeportDevImages()
+	// devImages := cpi.ThreeportDevImages()
 
-	if err := BuildDevImages(threeportPath, devImages); err != nil {
+	if err := BuildDevImage(threeportPath); err != nil {
 		return fmt.Errorf("failed to build dev images: %w", err)
 	}
 
-	if err := LoadDevImages(kindKubernetesRuntimeName, devImages); err != nil {
+	if err := LoadDevImage(kindKubernetesRuntimeName); err != nil {
 		return fmt.Errorf("failed to load dev images to kind cluster: %w", err)
 	}
 
 	return nil
 }
 
-// BuildDevImages builds all the threeport control plane container images using
+// BuildDevImage builds all the threeport control plane container images using
 // the dev dockerfile to provide live reload of code in the container.
-func BuildDevImages(threeportPath string, devImages map[string]string) error {
+func BuildDevImage(threeportPath string) error {
 	dockerClient, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -65,50 +65,44 @@ func BuildDevImages(threeportPath string, devImages map[string]string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300)
 	defer cancel()
 
-	for buildDir, imageName := range devImages {
-		tar, err := archive.TarWithOptions(threeportPath, &archive.TarOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to build tarball of threeport repo: %w", err)
-		}
+	tar, err := archive.TarWithOptions(threeportPath, &archive.TarOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to build tarball of threeport repo: %w", err)
+	}
 
-		buildOpts := types.ImageBuildOptions{
-			Dockerfile: filepath.Join("cmd", buildDir, "image", "Dockerfile-dev"),
-			Tags:       []string{imageName},
-			Remove:     true,
-		}
+	imageName := "threeport-air"
+	buildOpts := types.ImageBuildOptions{
+		Dockerfile: filepath.Join("cmd", "dev", "Dockerfile-dev"),
+		Tags:       []string{imageName},
+		Remove:     true,
+	}
 
-		result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
-		if err != nil {
-			return fmt.Errorf("failed to build docker image %s: %w", imageName, err)
-		}
-		defer result.Body.Close()
+	result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
+	if err != nil {
+		return fmt.Errorf("failed to build docker image %s: %w", imageName, err)
+	}
+	defer result.Body.Close()
 
-		if err := buildOutput(result.Body); err != nil {
-			return fmt.Errorf("failed to write output from docker build for %s: %w", imageName, err)
-		}
+	if err := buildOutput(result.Body); err != nil {
+		return fmt.Errorf("failed to write output from docker build for %s: %w", imageName, err)
 	}
 
 	return nil
 }
 
-// LoadDevImages loads the threeport control plane development container images
+// LoadDevImage loads the threeport control plane development container images
 // onto the kind cluster nodes.
-func LoadDevImages(kindKubernetesRuntimeName string, devImages map[string]string) error {
+func LoadDevImage(kindKubernetesRuntimeName string) error {
 	logger := cmd.NewLogger()
 	provider := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
 	)
 
 	// check that the image exists locally and gets its ID, if not return error
-	var imageIDs []string
-	var imageNames []string
-	for _, imageName := range devImages {
-		imgID, err := imageID(imageName)
-		if err != nil {
-			return fmt.Errorf("image: %q not present locally", imageName)
-		}
-		imageIDs = append(imageIDs, imgID)
-		imageNames = append(imageNames, imageName)
+	imageName := "threeport-air"
+	imageID, err := imageID(imageName)
+	if err != nil {
+		return fmt.Errorf("image: %q not present locally", imageName)
 	}
 
 	// check that the cluster nodes exist
@@ -133,25 +127,22 @@ func LoadDevImages(kindKubernetesRuntimeName string, devImages map[string]string
 	// pick only the nodes that don't have the image
 	selectedNodes := map[string]nodes.Node{}
 	fns := []func() error{}
-	for i, imageName := range imageNames {
-		imageID := imageIDs[i]
-		processed := false
-		for _, node := range candidateNodes {
-			exists := checkIfImageExists(node, imageID, imageName, nodeutils.ImageTags)
-			if exists {
-				continue
-			}
-
-			id, err := nodeutils.ImageID(node, imageName)
-			if err != nil || id != imageID {
-				selectedNodes[node.String()] = node
-				logger.V(0).Infof("Image: %q with ID %q not yet present on node %q, loading...", imageName, imageID, node.String())
-			}
+	processed := false
+	for _, node := range candidateNodes {
+		exists := checkIfImageExists(node, imageID, imageName, nodeutils.ImageTags)
+		if exists {
 			continue
 		}
-		if len(selectedNodes) == 0 && !processed {
-			logger.V(0).Infof("Image: %q with ID %q found to be already present on all nodes.", imageName, imageID)
+
+		id, err := nodeutils.ImageID(node, imageName)
+		if err != nil || id != imageID {
+			selectedNodes[node.String()] = node
+			logger.V(0).Infof("Image: %q with ID %q not yet present on node %q, loading...", imageName, imageID, node.String())
 		}
+		continue
+	}
+	if len(selectedNodes) == 0 && !processed {
+		logger.V(0).Infof("Image: %q with ID %q found to be already present on all nodes.", imageName, imageID)
 	}
 
 	// return early if no node needs the image
@@ -167,6 +158,7 @@ func LoadDevImages(kindKubernetesRuntimeName string, devImages map[string]string
 	defer os.RemoveAll(dir)
 	imagesTarPath := filepath.Join(dir, "images.tar")
 	// save the images into a tar
+	imageNames := []string{imageName}
 	err = save(imageNames, imagesTarPath)
 	if err != nil {
 		return err
