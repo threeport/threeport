@@ -57,7 +57,7 @@ func init() {
 	)
 	upCmd.Flags().StringVarP(
 		&cliArgs.ThreeportPath,
-		"threeport-path", "t", "", "Path to threeport repository root (default is './').",
+		"threeport-path", "p", "", "Path to threeport repository root (default is './').",
 	)
 	rootCmd.PersistentFlags().StringVar(
 		&cliArgs.CfgFile,
@@ -73,11 +73,11 @@ func init() {
 	)
 	upCmd.Flags().StringVar(
 		&cliArgs.ControlPlaneImageRepo,
-		"control-plane-image-repo", "", "Alternate image repo to pull threeport control plane images from.",
+		"control-plane-image-repo", "r", "Alternate image repo to pull threeport control plane images from.",
 	)
 	upCmd.Flags().StringVar(
 		&cliArgs.ControlPlaneImageTag,
-		"control-plane-image-tag", "", "Alternate image tag to pull threeport control plane images from.",
+		"control-plane-image-tag", "t", "Alternate image tag to pull threeport control plane images from.",
 	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)

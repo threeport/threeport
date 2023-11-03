@@ -221,11 +221,11 @@ func init() {
 	)
 	debugCmd.Flags().StringVar(
 		&cliArgs.ControlPlaneImageRepo,
-		"control-plane-image-repo", "", "Alternate image repo to pull threeport control plane images from.",
+		"control-plane-image-repo", "r", "Alternate image repo to pull threeport control plane images from.",
 	)
 	debugCmd.Flags().StringVar(
 		&cliArgs.ControlPlaneImageTag,
-		"control-plane-image-tag", "", "Alternate image tag to pull threeport control plane images from.",
+		"control-plane-image-tag", "t", "Alternate image tag to pull threeport control plane images from.",
 	)
 	debugCmd.Flags().BoolVar(
 		&all,
