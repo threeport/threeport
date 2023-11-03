@@ -344,7 +344,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 
 			cert := cpi.getTLSSecret(fmt.Sprintf("%s-cert", controller.Name), certificate, privateKey)
 			if err := cpi.CreateOrUpdateKubeResource(cert, kubeClient, mapper); err != nil {
-				return fmt.Errorf("failed to create API server certificate secret for workload controller", err)
+				return fmt.Errorf("failed to create API server certificate secret for workload controller: %w", err)
 			}
 		}
 
