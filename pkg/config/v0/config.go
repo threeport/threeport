@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awsSdkConfig "github.com/aws/aws-sdk-go-v2/config"
+	aws_config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/mitchellh/go-homedir"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
@@ -304,8 +304,8 @@ func (cfg *ThreeportConfig) GetAwsConfigs(requestedControlPlane string) (*aws.Co
 		"",
 		3600,
 		*awsConfigUser,
-		[]func(*awsSdkConfig.LoadOptions) error{
-			awsSdkConfig.WithRegion(controlPlane.EKSProviderConfig.AwsRegion),
+		[]func(*aws_config.LoadOptions) error{
+			aws_config.WithRegion(controlPlane.EKSProviderConfig.AwsRegion),
 		},
 	)
 	if err != nil {
