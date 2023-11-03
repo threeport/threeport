@@ -4,7 +4,6 @@
 
 # base target
 FROM golang:1.20-alpine as base
-RUN apk update && apk add git
 RUN mkdir /threeport
 RUN go install github.com/go-delve/delve/cmd/dlv@latest && \
     mv /go/bin/dlv /usr/local/bin
@@ -12,6 +11,7 @@ WORKDIR /threeport
 
 # live-reload development target
 FROM base as live-reload
+RUN apk update && apk add git
 RUN go install github.com/cosmtrek/air@latest && \
     mv /go/bin/air /usr/local/bin
 
