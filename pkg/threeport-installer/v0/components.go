@@ -1245,32 +1245,6 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIService(
 	return apiService, nil
 }
 
-// getAPIImage returns the proper container image to use for the API.
-func getAPIImage(liveReload bool, customThreeportImageRepo, customThreeportImageTag string) string {
-	if liveReload {
-		return "threeport-air"
-	}
-
-	imageRepo := ThreeportImageRepo
-	if customThreeportImageRepo != "" {
-		imageRepo = customThreeportImageRepo
-	}
-
-	imageTag := version.GetVersion()
-	if customThreeportImageTag != "" {
-		imageTag = customThreeportImageTag
-	}
-
-	apiImage := fmt.Sprintf(
-		"%s/%s:%s",
-		imageRepo,
-		ThreeportAPIImage,
-		imageTag,
-	)
-
-	return apiImage
-}
-
 // getAPIArgs returns the args that are passed to the API server.
 func (cpi *ControlPlaneInstaller) getAPIArgs(liveReload bool, isAuthEnabled bool) []interface{} {
 
