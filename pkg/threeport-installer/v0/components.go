@@ -49,7 +49,6 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 		kubeClient,
 		mapper,
 		runtimeInstanceName,
-		false,
 		nil,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport agent: %w", err)
@@ -72,14 +71,14 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	devEnvironment,
+	liveReload,
 	isAuthEnabled bool,
 	infraProvider string,
 	encryptionKey string,
 ) error {
-	apiImage := cpi.getImage(devEnvironment, cpi.Opts.RestApiInfo.Name, cpi.Opts.RestApiInfo.ImageName, cpi.Opts.RestApiInfo.ImageRepo, cpi.Opts.RestApiInfo.ImageTag)
-	apiArgs := cpi.getAPIArgs(devEnvironment, isAuthEnabled)
-	apiVols, apiVolMounts := cpi.getAPIVolumes(devEnvironment, isAuthEnabled)
+	apiImage := cpi.getImage(liveReload, cpi.Opts.RestApiInfo.Name, cpi.Opts.RestApiInfo.ImageName, cpi.Opts.RestApiInfo.ImageRepo, cpi.Opts.RestApiInfo.ImageTag)
+	apiArgs := cpi.getAPIArgs(liveReload, isAuthEnabled)
+	apiVols, apiVolMounts := cpi.getAPIVolumes(liveReload, isAuthEnabled)
 	apiServiceType := cpi.getAPIServiceType(infraProvider)
 	apiServiceAnnotations := getAPIServiceAnnotations(infraProvider)
 	apiServicePortName, apiServicePort := cpi.getAPIServicePort(infraProvider, isAuthEnabled)
@@ -306,7 +305,6 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAPITLS(
 func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	devEnvironment bool,
 	authConfig *auth.AuthConfig,
 ) error {
 	controllerSecret := cpi.getControllerSecret("controller", cpi.Opts.Namespace)
@@ -342,7 +340,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 		if err := cpi.UpdateControllerDeployment(
 			kubeClient,
 			mapper,
-			devEnvironment,
+			true,
 			*controller,
 			authConfig != nil,
 		); err != nil {
@@ -375,46 +373,14 @@ func (cpi *ControlPlaneInstaller) CreateOrUpdateKubeResource(
 func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	devEnvironment bool,
+	liveReload bool,
 	installInfo v0.ControlPlaneComponent,
 	isAuthEnabled bool,
 ) error {
-	controllerImage := cpi.getImage(devEnvironment, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
-	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, devEnvironment, authConfig)
-	controllerArgs := cpi.getControllerArgs(installInfo.Name, devEnvironment, cpi.Opts.Debug, authConfig)
-
-	// if auth is enabled on API, generate client cert and key and store in
-	// secrets
-	if authConfig != nil {
-
-		certificate, privateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
-		if err != nil {
-			return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
-		}
-
-		ca := &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Secret",
-				"type":       "Opaque",
-				"metadata": map[string]interface{}{
-					"name":      fmt.Sprintf("%s-ca", installInfo.Name),
-					"namespace": cpi.Opts.Namespace,
-				},
-				"stringData": map[string]interface{}{
-					"tls.crt": authConfig.CAPemEncoded,
-				},
-			},
-		}
-		if err := cpi.CreateOrUpdateKubeResource(ca, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create API server ca secret for workload controller: %w", err)
-		}
-
-		cert := cpi.getTLSSecret(fmt.Sprintf("%s-cert", installInfo.Name), certificate, privateKey)
-		if err := cpi.CreateOrUpdateKubeResource(cert, kubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to create API server certificate secret for workload controller: %w", err)
-		}
-	}
+	controllerImage := cpi.getImage(liveReload, installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
+	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name, liveReload, isAuthEnabled)
+	controllerArgs := cpi.getControllerArgs(installInfo.Name, liveReload, cpi.Opts.Debug, isAuthEnabled)
+	controllerImagePullSecrets := cpi.getImagePullSecrets(installInfo.ImagePullSecretName)
 
 	var deployName string
 	if cpi.isThreeportManagedController(installInfo) {
@@ -435,9 +401,8 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 		controllerVols,
 		controllerVolMounts,
 		controllerImagePullSecrets,
-		devEnvironment,
+		liveReload,
 		false,
-		cpi.Opts.Debug,
 	)
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create workload controller deployment: %w", err)
@@ -450,7 +415,6 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	threeportInstanceName string,
-	devEnvironment bool,
 	authConfig *auth.AuthConfig,
 ) error {
 
@@ -490,7 +454,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 		kubeClient,
 		mapper,
 		threeportInstanceName,
-		devEnvironment,
+		false,
 		authConfig != nil,
 	); err != nil {
 		return fmt.Errorf("failed to update threeport agent deployment: %w", err)
@@ -502,13 +466,14 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	threeportInstanceName string,
-	devEnvironment,
+	liveReload,
 	isAuthEnabled bool,
 ) error {
 
-	agentImage := cpi.getImage(devEnvironment, cpi.Opts.AgentInfo.Name, cpi.Opts.AgentInfo.ImageName, cpi.Opts.AgentInfo.ImageRepo, cpi.Opts.AgentInfo.ImageTag)
-	agentArgs := cpi.getAgentArgs(devEnvironment, isAuthEnabled)
-	agentVols, agentVolMounts := cpi.getControllerVolumes("agent", devEnvironment, isAuthEnabled)
+	agentImage := cpi.getImage(liveReload, cpi.Opts.AgentInfo.Name, cpi.Opts.AgentInfo.ImageName, cpi.Opts.AgentInfo.ImageRepo, cpi.Opts.AgentInfo.ImageTag)
+	agentArgs := cpi.getAgentArgs(liveReload, isAuthEnabled)
+	agentVols, agentVolMounts := cpi.getControllerVolumes("agent", liveReload, isAuthEnabled)
+	agentImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.AgentInfo.ImagePullSecretName)
 
 	var threeportAgentCRD = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -1377,7 +1342,7 @@ func getDelveArgs(name string) []string {
 		"--api-version=2",
 		"--log",
 		"exec",
-		binary,
+		name,
 	}
 
 	return args
@@ -1658,7 +1623,26 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	volumes []interface{},
 	volumeMounts []interface{},
 	imagePullSecrets []interface{},
+	debug bool,
+	liveReload bool,
 ) *unstructured.Unstructured {
+
+	// set image pull policy based on debug mode
+	imagePullPolicy := "IfNotPresent"
+	if debug && !liveReload {
+		imagePullPolicy = "Always"
+	}
+
+	ports := []map[string]interface{}{}
+	if debug {
+		ports = append(ports,
+			map[string]interface{}{
+				"containerPort": 40000,
+				"name":          "dlv",
+				"protocol":      "TCP",
+			})
+	}
+
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -1703,6 +1687,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 								},
 								"volumeMounts":   volumeMounts,
 								"readinessProbe": cpi.getReadinessProbe(),
+								"ports":          ports,
 							},
 						},
 						"imagePullSecrets": imagePullSecrets,

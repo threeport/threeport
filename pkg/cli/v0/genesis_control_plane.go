@@ -928,7 +928,11 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to get AWS configs from threeport config: %w", err)
 		}
 
-		resourceClient := resource.CreateResourceClient(awsConfigResourceManager)
+		eksInventoryChan := make(chan eks.EksInventory)
+		eksClient := eks.EksClient{
+			*builder_client.CreateResourceClient(awsConfigResourceManager),
+			&eksInventoryChan,
+		}
 
 		// capture messages as resources are created and return to user
 		go func() {

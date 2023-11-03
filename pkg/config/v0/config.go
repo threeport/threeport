@@ -11,7 +11,7 @@ import (
 	awsSdkConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/mitchellh/go-homedir"
-	"github.com/nukleros/eks-cluster/pkg/resource"
+	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/spf13/viper"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -275,7 +275,7 @@ func (cfg *ThreeportConfig) GetAwsConfigs(requestedControlPlane string) (*aws.Co
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to get control plane config: %w", err)
 	}
-	awsConfigUser, err := resource.LoadAWSConfig(
+	awsConfigUser, err := builder_config.LoadAWSConfig(
 		false,
 		controlPlane.EKSProviderConfig.AwsConfigProfile,
 		controlPlane.EKSProviderConfig.AwsRegion,
@@ -295,7 +295,7 @@ func (cfg *ThreeportConfig) GetAwsConfigs(requestedControlPlane string) (*aws.Co
 	fmt.Printf("Successfully authenticated to account %s as %s\n", *callerIdentity.Account, *callerIdentity.Arn)
 
 	// assume role for AWS resource manager for infra teardown
-	awsConfigResourceManager, err := resource.AssumeRole(
+	awsConfigResourceManager, err := builder_config.AssumeRole(
 		provider.GetResourceManagerRoleArn(
 			controlPlane.Name,
 			controlPlane.EKSProviderConfig.AwsAccountID,
