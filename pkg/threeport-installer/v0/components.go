@@ -478,7 +478,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 ) error {
 
 	agentImage := cpi.getImage(liveReload, cpi.Opts.AgentInfo.Name, cpi.Opts.AgentInfo.ImageName, cpi.Opts.AgentInfo.ImageRepo, cpi.Opts.AgentInfo.ImageTag)
-	agentArgs := cpi.getAgentArgs(liveReload, cpi.Opts.AuthEnabled)
+	agentArgs := cpi.getAgentArgs(liveReload, cpi.Opts.AuthEnabled, cpi.Opts.Debug)
 	agentVols, agentVolMounts := cpi.getControllerVolumes("agent", liveReload, cpi.Opts.AuthEnabled)
 	agentImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.AgentInfo.ImagePullSecretName)
 
@@ -1565,7 +1565,7 @@ func (cpi *ControlPlaneInstaller) getAPIServicePort(infraProvider string, isAuth
 // getAgentArgs returns the args that are passed to the threeport agent.  In
 // tptdev, auth is disabled by default.  In tptctl auth is enabled by
 // default.
-func (cpi *ControlPlaneInstaller) getAgentArgs(liveReload bool, isAuthEnabled bool) []interface{} {
+func (cpi *ControlPlaneInstaller) getAgentArgs(liveReload bool, isAuthEnabled bool, debug bool) []interface{} {
 	// set flags for dev environment
 	if liveReload {
 		flags := "--metrics-bind-address=127.0.0.1:8080 --leader-elect"
@@ -1576,12 +1576,23 @@ func (cpi *ControlPlaneInstaller) getAgentArgs(liveReload bool, isAuthEnabled bo
 		}
 	}
 
+	if debug {
+		args := []interface{}{
+			"--",
+			"--metrics-bind-address=127.0.0.1:8080",
+			"--leader-elect",
+		}
+		if !isAuthEnabled {
+			args = append(args, "-auth-enabled=false")
+		}
+		return append(util.StringToInterfaceList(getDelveArgs(cpi.Opts.AgentInfo.Name)), args...)
+	}
+
 	// disable auth if authConfig is not set on non-dev deployment
 	args := []interface{}{
 		"--metrics-bind-address=127.0.0.1:8080",
 		"--leader-elect",
 	}
-
 	if !isAuthEnabled {
 		args = append(args, "--auth-enabled=false")
 	}
