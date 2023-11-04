@@ -75,7 +75,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 	liveReload bool,
 ) error {
 	apiImage := cpi.getImage(liveReload, cpi.Opts.RestApiInfo.Name, cpi.Opts.RestApiInfo.ImageName, cpi.Opts.RestApiInfo.ImageRepo, cpi.Opts.RestApiInfo.ImageTag)
-	apiArgs := cpi.getAPIArgs(liveReload, cpi.Opts.AuthEnabled)
+	apiArgs := cpi.getAPIArgs(liveReload, cpi.Opts.AuthEnabled, cpi.Opts.Debug)
 	apiVols, apiVolMounts := cpi.getAPIVolumes(liveReload, cpi.Opts.AuthEnabled)
 	apiServiceType := cpi.getAPIServiceType(cpi.Opts.InfraProvider)
 	apiServiceAnnotations := getAPIServiceAnnotations(cpi.Opts.InfraProvider)
@@ -1235,7 +1235,7 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIService(
 }
 
 // getAPIArgs returns the args that are passed to the API server.
-func (cpi *ControlPlaneInstaller) getAPIArgs(liveReload bool, isAuthEnabled bool) []interface{} {
+func (cpi *ControlPlaneInstaller) getAPIArgs(liveReload bool, isAuthEnabled bool, debug bool) []interface{} {
 
 	// in tptdev, auth is disabled by default
 	// in tptctl, auth is enabled by default
@@ -1249,6 +1249,19 @@ func (cpi *ControlPlaneInstaller) getAPIArgs(liveReload bool, isAuthEnabled bool
 		}
 
 		return getAirArgs("rest-api", args)
+	}
+
+	if debug {
+		args := []interface{}{
+			"--",
+			"-auto-migrate=true",
+		}
+		if !isAuthEnabled {
+			args = append(args, "-auth-enabled=false")
+		}
+
+		// controller arguments must be wrapped in delve arguments
+		return append(util.StringToInterfaceList(getDelveArgs(cpi.Opts.RestApiInfo.Name)), args...)
 	}
 
 	args := []interface{}{
