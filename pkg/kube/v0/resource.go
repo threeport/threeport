@@ -111,42 +111,65 @@ func CreateOrUpdateResource(
 	if err != nil {
 
 		// if the resource already exists, update it
-		if errors.IsAlreadyExists(err) {
 
-			// get the existing resource
-			existingResource, err := GetResource(
-				kubeObject.GroupVersionKind().Group,
-				kubeObject.GroupVersionKind().Version,
-				kubeObject.GroupVersionKind().Kind,
-				kubeObject.GetNamespace(),
-				kubeObject.GetName(),
-				kubeClient,
-				mapper,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get existing resource: %w", err)
-			}
-
-			// set the resource version
-			kubeObject.SetResourceVersion(existingResource.GetResourceVersion())
-
-			// update the resource
-			result, err := kubeClient.
-				Resource(mapping.Resource).
-				Namespace(kubeObject.GetNamespace()).
-				Update(context.TODO(), kubeObject, kubemetav1.UpdateOptions{})
-			if err != nil {
+		switch {
+		case errors.IsAlreadyExists(err):
+			if result, err = UpdateResource(kubeObject, kubeClient, mapper, mapping); err != nil {
 				return nil, fmt.Errorf("failed to update kubernetes resource:%w", err)
 			}
 
-			return result, nil
-		} else {
+		// If the resource is an existing service and its nodeport is already configured, the
+		// kube API will return an IsInvalid error instead of an IsAlreadyExists error.
+		// If the service is not already created and is also invalid, then an error should
+		// be thrown by UpdateResource.
+		case errors.IsInvalid(err) &&
+			mapping.GroupVersionKind.Kind == "Service":
+			if result, err = UpdateResource(kubeObject, kubeClient, mapper, mapping); err != nil {
+				return nil, fmt.Errorf("failed to update kubernetes resource:%w", err)
+			}
+		default:
 			return nil, fmt.Errorf("failed to create kubernetes resource:%w", err)
 		}
 	}
 
 	return result, nil
+}
 
+// UpdateResource updates a Kubernetes resource.
+func UpdateResource(
+	kubeObject *unstructured.Unstructured,
+	kubeClient dynamic.Interface,
+	mapper meta.RESTMapper,
+	mapping *meta.RESTMapping,
+) (*unstructured.Unstructured, error) {
+
+	// get the existing resource
+	existingResource, err := GetResource(
+		kubeObject.GroupVersionKind().Group,
+		kubeObject.GroupVersionKind().Version,
+		kubeObject.GroupVersionKind().Kind,
+		kubeObject.GetNamespace(),
+		kubeObject.GetName(),
+		kubeClient,
+		mapper,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing resource: %w", err)
+	}
+
+	// set the resource version
+	kubeObject.SetResourceVersion(existingResource.GetResourceVersion())
+
+	// update the resource
+	result, err := kubeClient.
+		Resource(mapping.Resource).
+		Namespace(kubeObject.GetNamespace()).
+		Update(context.TODO(), kubeObject, kubemetav1.UpdateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update kubernetes resource:%w", err)
+	}
+
+	return result, nil
 }
 
 // DeleteResource takes an unstructured object, dynamic client interface and rest
