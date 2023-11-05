@@ -1234,8 +1234,8 @@ func (cpi *ControlPlaneInstaller) getAPIArgs() []interface{} {
 	// in tptdev, auth is disabled by default
 	// in tptctl, auth is enabled by default
 
-	// enable auth if authConfig is set in dev environment
-	if cpi.Opts.LiveReload {
+	switch {
+	case cpi.Opts.LiveReload:
 		args := "-auto-migrate=true -verbose=true"
 
 		if !cpi.Opts.AuthEnabled {
@@ -1243,12 +1243,11 @@ func (cpi *ControlPlaneInstaller) getAPIArgs() []interface{} {
 		}
 
 		return getAirArgs("rest-api", args)
-	}
-
-	if cpi.Opts.Debug {
+	case cpi.Opts.Debug:
 		args := []interface{}{
 			"--",
 			"-auto-migrate=true",
+			"-verbose=true",
 		}
 		if !cpi.Opts.AuthEnabled {
 			args = append(args, "-auth-enabled=false")
@@ -1256,18 +1255,17 @@ func (cpi *ControlPlaneInstaller) getAPIArgs() []interface{} {
 
 		// controller arguments must be wrapped in delve arguments
 		return append(util.StringToInterfaceList(getDelveArgs(cpi.Opts.RestApiInfo.Name)), args...)
-	}
+	default:
+		args := []interface{}{
+			"-auto-migrate=true",
+		}
 
-	args := []interface{}{
-		"-auto-migrate=true",
+		// disable auth if authConfig is not set in tptctl
+		if !cpi.Opts.AuthEnabled {
+			args = append(args, "-auth-enabled=false")
+		}
+		return args
 	}
-
-	// disable auth if authConfig is not set in tptctl
-	if !cpi.Opts.AuthEnabled {
-		args = append(args, "-auth-enabled=false")
-	}
-
-	return args
 }
 
 // getControllerArgs returns the args that are passed to a controller.
@@ -1277,15 +1275,14 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string) []interface{} {
 	// in tptctl, auth is enabled by default
 
 	// enable auth if authConfig is set in dev environment
-	if cpi.Opts.LiveReload {
+	switch {
+	case cpi.Opts.LiveReload:
 		if cpi.Opts.AuthEnabled {
 			return getAirArgs(name, "")
 		}
 		return getAirArgs(name, "-auth-enabled=false")
-	}
-
-	args := []interface{}{}
-	if cpi.Opts.Debug {
+	case cpi.Opts.Debug:
+		args := []interface{}{}
 		if !cpi.Opts.AuthEnabled {
 			args = append(args, "--")
 			args = append(args, "-auth-enabled=false")
@@ -1293,13 +1290,14 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string) []interface{} {
 
 		// controller arguments must be wrapped in delve arguments
 		return append(util.StringToInterfaceList(getDelveArgs(name)), args...)
-	}
+	default:
+		args := []interface{}{}
 
-	if !cpi.Opts.AuthEnabled {
-		args = append(args, "-auth-enabled=false")
+		if !cpi.Opts.AuthEnabled {
+			args = append(args, "-auth-enabled=false")
+		}
+		return args
 	}
-
-	return args
 }
 
 // getAirArgs returns the args that are passed to air.
@@ -1560,17 +1558,15 @@ func (cpi *ControlPlaneInstaller) getAPIServicePort() (string, int32) {
 // tptdev, auth is disabled by default.  In tptctl auth is enabled by
 // default.
 func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
-	// set flags for dev environment
-	if cpi.Opts.LiveReload {
+	switch {
+	case cpi.Opts.LiveReload:
 		flags := "--metrics-bind-address=127.0.0.1:8080 --leader-elect"
 		if !cpi.Opts.AuthEnabled {
 			return getAirArgs("agent", flags+" --auth-enabled=false")
 		} else {
 			return getAirArgs("agent", flags)
 		}
-	}
-
-	if cpi.Opts.Debug {
+	case cpi.Opts.Debug:
 		args := []interface{}{
 			"--",
 			"--metrics-bind-address=127.0.0.1:8080",
@@ -1580,18 +1576,17 @@ func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
 			args = append(args, "-auth-enabled=false")
 		}
 		return append(util.StringToInterfaceList(getDelveArgs(cpi.Opts.AgentInfo.Name)), args...)
+	default:
+		// disable auth if authConfig is not set on non-dev deployment
+		args := []interface{}{
+			"--metrics-bind-address=127.0.0.1:8080",
+			"--leader-elect",
+		}
+		if !cpi.Opts.AuthEnabled {
+			args = append(args, "--auth-enabled=false")
+		}
+		return args
 	}
-
-	// disable auth if authConfig is not set on non-dev deployment
-	args := []interface{}{
-		"--metrics-bind-address=127.0.0.1:8080",
-		"--leader-elect",
-	}
-	if !cpi.Opts.AuthEnabled {
-		args = append(args, "--auth-enabled=false")
-	}
-
-	return args
 }
 
 func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *unstructured.Unstructured {
@@ -1767,19 +1762,18 @@ func GetLocalThreeportAPIEndpoint(authEnabled bool) string {
 // getCommand returns the args that are passed to the threeport agent.
 func (cpi *ControlPlaneInstaller) getCommand(name string) []interface{} {
 
-	if cpi.Opts.LiveReload {
+	switch {
+	case cpi.Opts.LiveReload:
 		return []interface{}{
 			"/usr/local/bin/air",
 		}
-	}
-
-	if cpi.Opts.Debug {
+	case cpi.Opts.Debug:
 		return []interface{}{
 			"/usr/local/bin/dlv",
 		}
-	}
-
-	return []interface{}{
-		fmt.Sprintf("/threeport-%s", name),
+	default:
+		return []interface{}{
+			fmt.Sprintf("/threeport-%s", name),
+		}
 	}
 }

@@ -18,7 +18,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-var debugDisable bool
+var disable bool
 var liveReload bool
 var componentNames string
 
@@ -30,16 +30,10 @@ var debugCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// create list of images to build
-		imageNamesList := getImageNamesList(all, componentNames)
+		componentNamesList := getImageNamesList(componentNames)
 
 		// update cli args based on env vars
 		getControlPlaneEnvVars()
-
-		// if debugDisable is true, ignore control plane image repo and tag
-		if debugDisable {
-			cliArgs.ControlPlaneImageRepo = ""
-			cliArgs.ControlPlaneImageTag = ""
-		}
 
 		// create threeport control plane installer
 		cpi, err := cliArgs.CreateInstaller()
@@ -51,8 +45,8 @@ var debugCmd = &cobra.Command{
 		// configure which components to update
 		debugComponents := []*api_v0.ControlPlaneComponent{}
 		for _, component := range v0.AllControlPlaneComponents() {
-			for _, imageName := range imageNamesList {
-				if component.Name == imageName {
+			for _, componentName := range componentNamesList {
+				if component.Name == componentName {
 					debugComponents = append(debugComponents, component)
 				}
 			}
@@ -60,7 +54,7 @@ var debugCmd = &cobra.Command{
 
 		// set CreateOrUpdateKubeResources so we can update existing deployments
 		cpi.Opts.CreateOrUpdateKubeResources = true
-		cpi.Opts.Debug = !debugDisable
+		cpi.Opts.Debug = !disable
 		cpi.Opts.LiveReload = liveReload
 		cpi.Opts.DevEnvironment = false
 
@@ -199,9 +193,9 @@ var debugCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(debugCmd)
-	debugCmd.Flags().StringVar(
+	debugCmd.Flags().StringVarP(
 		&componentNames,
-		"component-names", "n", "Comma-delimited list of component names to update with debug images (rest-api,agent,workload-controller etc).",
+		"component-names", "n", "", "Comma-delimited list of component names to update with debug images (rest-api,agent,workload-controller etc). Defaults to all components.",
 	)
 	debugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,
@@ -212,11 +206,7 @@ func init() {
 		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
 	)
 	debugCmd.Flags().BoolVar(
-		&all,
-		"all", false, "Alternate image tag to pull threeport control plane images from.",
-	)
-	debugCmd.Flags().BoolVar(
-		&debugDisable,
+		&disable,
 		"disable", false, "Disable debug mode.",
 	)
 	debugCmd.Flags().BoolVar(

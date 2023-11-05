@@ -51,15 +51,15 @@ func init() {
 }
 
 // getImageNamesList returns a list of image names to build
-func getImageNamesList(all bool, imageNames string) []string {
+func getImageNamesList(imageNames string) []string {
 	imageNamesList := []string{}
-	switch all {
-	case true:
+	switch {
+	case len(imageNames) != 0:
+		imageNamesList = strings.Split(imageNames, ",")
+	default:
 		for _, controller := range installer.AllControlPlaneComponents() {
 			imageNamesList = append(imageNamesList, controller.Name)
 		}
-	case false:
-		imageNamesList = strings.Split(imageNames, ",")
 	}
 	return imageNamesList
 }

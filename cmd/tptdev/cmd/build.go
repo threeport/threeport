@@ -16,7 +16,6 @@ import (
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 
-var all bool
 var noCache bool
 var push bool
 var load bool
@@ -32,13 +31,17 @@ var buildCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// validate cli args
-		if push && load {
-			errors.New("cannot use --push and --load together")
+		switch {
+		case push && load:
+			cli.Error("error: %w", errors.New("cannot use --push and --load together"))
+			os.Exit(1)
+		case !(push || load):
+			cli.Error("error: %w", errors.New("must use either --push or --load"))
 			os.Exit(1)
 		}
 
 		// create list of images to build
-		imageNamesList := getImageNamesList(all, imageNames)
+		imageNamesList := getImageNamesList(imageNames)
 
 		// update cli args based on env vars
 		getControlPlaneEnvVars()
@@ -137,7 +140,7 @@ func init() {
 	rootCmd.AddCommand(buildCmd)
 	buildCmd.Flags().StringVar(
 		&imageNames,
-		"image-names", "", "Image name",
+		"image-names", "", "List of image names to build (rest-api,agent,workload-controller etc). Defaults to all images.",
 	)
 	buildCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,
@@ -154,10 +157,6 @@ func init() {
 	buildCmd.Flags().IntVar(
 		&parallel,
 		"parallel", -1, "Number of parallel builds to run. Defaults to number of images specified.",
-	)
-	buildCmd.Flags().BoolVar(
-		&all,
-		"all", false, "Alternate image tag to pull threeport control plane images from.",
 	)
 	buildCmd.Flags().BoolVar(
 		&noCache,

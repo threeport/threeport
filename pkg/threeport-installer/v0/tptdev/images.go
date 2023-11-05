@@ -233,7 +233,6 @@ func PushDockerImage(tag string) error {
 			return fmt.Errorf("failed to parse docker config auth credentials")
 		}
 
-
 		// Decode the base64 auth string
 		decodedBytes, err := base64.StdEncoding.DecodeString(authString)
 		if err != nil {
@@ -253,7 +252,6 @@ func PushDockerImage(tag string) error {
 		authConfigBytes, _ := json.Marshal(authConfig)
 		authConfigEncoded := base64.URLEncoding.EncodeToString(authConfigBytes)
 		imagePushOptions.RegistryAuth = authConfigEncoded
-		return nil
 	case dockerUsername != "" &&
 		dockerPassword != "":
 		authConfig := registry.AuthConfig{
