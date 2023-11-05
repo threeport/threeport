@@ -38,6 +38,7 @@ type Options struct {
 	ProviderConfigDir           string
 	ThreeportPath               string
 	Debug                       bool
+	LiveReload                  bool
 }
 
 type ControlPlaneInstaller struct {

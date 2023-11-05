@@ -127,6 +127,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.ProviderConfigDir = a.ProviderConfigDir
 	cpi.Opts.ThreeportPath = a.ThreeportPath
 	cpi.Opts.Debug = a.Debug
+	cpi.Opts.LiveReload = false
 	cpi.Opts.CreateOrUpdateKubeResources = false
 
 	return cpi, nil
@@ -560,7 +561,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		dynamicKubeClient,
 		mapper,
 		encryptionKey,
-		false,
 	); err != nil {
 		return cleanOnCreateError("failed to install threeport API server", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}

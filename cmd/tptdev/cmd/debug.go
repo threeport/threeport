@@ -61,6 +61,7 @@ var debugCmd = &cobra.Command{
 		// set CreateOrUpdateKubeResources so we can update existing deployments
 		cpi.Opts.CreateOrUpdateKubeResources = true
 		cpi.Opts.Debug = !debugDisable
+		cpi.Opts.LiveReload = liveReload
 		cpi.Opts.DevEnvironment = false
 
 		// get threeport config and extract threeport API endpoint
@@ -167,7 +168,6 @@ var debugCmd = &cobra.Command{
 					dynamicKubeClient,
 					mapper,
 					encryptionKey,
-					liveReload,
 				); err != nil {
 					cli.Error("failed to apply threeport rest api", err)
 					os.Exit(1)
@@ -178,7 +178,6 @@ var debugCmd = &cobra.Command{
 					dynamicKubeClient,
 					mapper,
 					requestedControlPlane,
-					liveReload,
 				); err != nil {
 					cli.Error("failed to apply threeport agent", err)
 					os.Exit(1)
@@ -189,7 +188,6 @@ var debugCmd = &cobra.Command{
 					dynamicKubeClient,
 					mapper,
 					*component,
-					liveReload,
 				); err != nil {
 					cli.Error("failed to apply threeport controllers", err)
 					os.Exit(1)
