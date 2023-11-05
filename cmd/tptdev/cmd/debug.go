@@ -52,18 +52,26 @@ var debugCmd = &cobra.Command{
 			}
 		}
 
-		// set CreateOrUpdateKubeResources so we can update existing deployments
-		cpi.Opts.CreateOrUpdateKubeResources = true
-		cpi.Opts.Debug = !disable
-		cpi.Opts.LiveReload = liveReload
-		cpi.Opts.DevEnvironment = false
-
 		// get threeport config and extract threeport API endpoint
 		threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
+
+		// get threeport auth enabled
+		authEnabled, err := threeportConfig.GetThreeportAuthEnabled(requestedControlPlane)
+		if err != nil {
+			cli.Error("failed to get threeport auth enabled", err)
+			os.Exit(1)
+		}
+
+		// set CreateOrUpdateKubeResources so we can update existing deployments
+		cpi.Opts.CreateOrUpdateKubeResources = true
+		cpi.Opts.Debug = !disable
+		cpi.Opts.LiveReload = liveReload
+		cpi.Opts.DevEnvironment = false
+		cpi.Opts.AuthEnabled = authEnabled
 
 		// get threeport infra provider
 		infraProvider, err := threeportConfig.GetThreeportInfraProvider(requestedControlPlane)
