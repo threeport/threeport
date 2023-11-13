@@ -1214,7 +1214,8 @@ func ValidateCreateGenesisControlPlaneFlags(
 	}
 
 	// TODO: We are currently deploying on EKS without internal auth enabled.
-	// 		 When we switch over to auth enabled internally we can re-enable this
+	// When we switch over to auth enabled internally we can re-enable this
+
 	// ensure client cert auth is used on remote installations
 	// if infraProvider != v0.KubernetesRuntimeInfraProviderKind && !authEnabled {
 	// 	return errors.New(
