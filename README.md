@@ -35,7 +35,7 @@ deployments using battle-tested designs and best practices so you can trust that
 your software will run reliably.  This frees you to concentrate on develivering
 value to your users.
 
-User documentation can be found on our [user docs site](https://docs.qleet.io/).
+User documentation can be found on our [user docs site](https://docs.threeport.io/).
 
 Developer documentation can be found [here](docs/README.md).
 
@@ -45,5 +45,11 @@ Threeport is not yet production-ready.  It is in alpha stage development and API
 may change without notice.  Do not build any integrations with the threeport API
 that are used for critical systems.  In the near future, APIs will stabilize
 and guarantee backward compatibility.  Additionally, there are security concerns
-and observability systems which are crucial for production that not yet implemented.
+and observability systems which are crucial for production that are not yet implemented.
+
+## Managed Threeport Providers
+
+[Qleet](https://qleet.io) provides a fully managed threeport service that
+lets teams deliver their software into their own cloud provider accounts using
+Threeport.
 
