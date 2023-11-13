@@ -1594,9 +1594,15 @@ func (cpi *ControlPlaneInstaller) getAPIServicePort() (string, int32) {
 			return "https", 443
 		}
 		return "http", 80
+	} else if infraProvider == "eks" {
+		if authConfig != nil {
+			return "https", 443
+		}
+
+		return "http", 80
 	}
 
-	return "https", 443
+	return "", 0
 }
 
 // getAgentArgs returns the args that are passed to the threeport agent.  In
