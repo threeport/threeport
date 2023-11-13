@@ -18,6 +18,10 @@ var upCmd = &cobra.Command{
 	Short: "Spin up a new threeport development environment",
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
+
+		// update cli args based on env vars
+		getControlPlaneEnvVars()
+
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {
 			cli.Error("failed to create threeport control plane installer", err)
@@ -53,7 +57,7 @@ func init() {
 	)
 	upCmd.Flags().StringVarP(
 		&cliArgs.ThreeportPath,
-		"threeport-path", "t", "", "Path to threeport repository root (default is './').",
+		"threeport-path", "p", "", "Path to threeport repository root (default is './').",
 	)
 	rootCmd.PersistentFlags().StringVar(
 		&cliArgs.CfgFile,
@@ -66,6 +70,14 @@ func init() {
 	upCmd.Flags().IntVar(
 		&cliArgs.NumWorkerNodes,
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
+	)
+	upCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneImageRepo,
+		"control-plane-image-repo", "r", "", "Alternate image repo to pull threeport control plane images from.",
+	)
+	upCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneImageTag,
+		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
 	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)

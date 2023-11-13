@@ -37,6 +37,8 @@ type Options struct {
 	NumWorkerNodes              int
 	ProviderConfigDir           string
 	ThreeportPath               string
+	Debug                       bool
+	LiveReload                  bool
 }
 
 type ControlPlaneInstaller struct {

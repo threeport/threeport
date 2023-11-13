@@ -61,6 +61,7 @@ type GenesisControlPlaneCLIArgs struct {
 	NumWorkerNodes        int
 	ProviderConfigDir     string
 	ThreeportPath         string
+	Debug                 bool
 }
 
 const tier = threeport.ControlPlaneTierDev
@@ -125,6 +126,8 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.NumWorkerNodes = a.NumWorkerNodes
 	cpi.Opts.ProviderConfigDir = a.ProviderConfigDir
 	cpi.Opts.ThreeportPath = a.ThreeportPath
+	cpi.Opts.Debug = a.Debug
+	cpi.Opts.LiveReload = false
 	cpi.Opts.CreateOrUpdateKubeResources = false
 
 	return cpi, nil
@@ -554,12 +557,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// install the API
-	if err := cpi.InstallThreeportAPI(
+	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
-		cpi.Opts.DevEnvironment,
-		authConfig,
-		cpi.Opts.InfraProvider,
 		encryptionKey,
 	); err != nil {
 		return cleanOnCreateError("failed to install threeport API server", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
@@ -649,7 +649,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.InstallThreeportControllers(
 		dynamicKubeClient,
 		mapper,
-		cpi.Opts.DevEnvironment,
 		authConfig,
 	); err != nil {
 		return cleanOnCreateError("failed to install threeport controllers", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
@@ -665,7 +664,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		dynamicKubeClient,
 		mapper,
 		cpi.Opts.ControlPlaneName,
-		cpi.Opts.DevEnvironment,
 		authConfig,
 	); err != nil {
 		return cleanOnCreateError("failed to install threeport agent", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
@@ -898,20 +896,10 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		cpi = threeport.NewInstaller()
 	}
 
-	// check threeport config for existing instance
-	// find the threeport instance by name
-	threeportControlPlaneConfigExists := false
-	var threeportControlPlaneConfig config.ControlPlane
-	for _, instance := range threeportConfig.ControlPlanes {
-		if instance.Name == cpi.Opts.ControlPlaneName {
-			threeportControlPlaneConfig = instance
-			threeportControlPlaneConfigExists = true
-		}
-	}
-	if !threeportControlPlaneConfigExists {
-		return fmt.Errorf(
-			"config for threeport instance with name %s not found", cpi.Opts.ControlPlaneName,
-		)
+	// get threeport control plane config
+	threeportControlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get threeport control plane config: %w", err)
 	}
 
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
@@ -930,50 +918,14 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		//   persisted in threeport config
 		// * AwsConfigProfile and AwsRegion cannot be passed in through CLI for
 		// deletion opertion as these are stored in threeport config
-		awsConfigUser, err = builder_config.LoadAWSConfig(
-			cpi.Opts.AwsConfigEnv,
-			threeportControlPlaneConfig.EKSProviderConfig.AwsConfigProfile,
-			threeportControlPlaneConfig.EKSProviderConfig.AwsRegion,
-			"",
-			"",
-			"",
-		)
-		if err != nil {
-			return fmt.Errorf("failed to load AWS configuration with local config: %w", err)
-		}
-
-		// test credentials for awsConfigUser
-		var callerIdentity *sts.GetCallerIdentityOutput
-		if callerIdentity, err = provider.GetCallerIdentity(awsConfigUser); err != nil {
-			return fmt.Errorf("failed to get caller identity: %w", err)
-		}
-		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
-
-		// assume role for AWS resource manager for infra teardown
-		awsConfigResourceManager, err = builder_config.AssumeRole(
-			provider.GetResourceManagerRoleArn(
-				threeportControlPlaneConfig.Name,
-				threeportControlPlaneConfig.EKSProviderConfig.AwsAccountID,
-			),
-			"",
-			"",
-			3600,
-			*awsConfigUser,
-			[]func(*aws_config.LoadOptions) error{
-				aws_config.WithRegion(threeportControlPlaneConfig.EKSProviderConfig.AwsRegion),
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("failed to assume role for AWS resource manager: %w", err)
-		}
-
-		// test credentials for awsConfigResourceManager
-		if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
-			return fmt.Errorf("failed to get caller identity: %w", err)
-		}
-		Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
-
 		// create a resource client to delete EKS resources
+
+		var accountId string
+		awsConfigUser, awsConfigResourceManager, accountId, err = threeportConfig.GetAwsConfigs(requestedControlPlane)
+		if err != nil {
+			return fmt.Errorf("failed to get AWS configs from threeport config: %w", err)
+		}
+
 		eksInventoryChan := make(chan eks.EksInventory)
 		eksClient := eks.EksClient{
 			*builder_client.CreateResourceClient(awsConfigResourceManager),
@@ -1009,7 +961,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		// construct eks kubernetes runtime infra object
 		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
-			AwsAccountID:        *callerIdentity.Account,
+			AwsAccountID:        accountId,
 			AwsConfig:           awsConfigResourceManager,
 			ResourceClient:      &eksClient,
 			ResourceInventory:   &inventory,
@@ -1065,7 +1017,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
 		}
 
-		updatedKubernetesRuntimeInstance, err := refreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
+		updatedKubernetesRuntimeInstance, err := RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
 		if err != nil {
 			return fmt.Errorf("failed to refresh EKS connection with local config: %w", err)
 		}
@@ -1120,9 +1072,9 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	return nil
 }
 
-// refreshEKSConnectionWithLocalConfig uses the local AWS config to refresh
+// RefreshEKSConnectionWithLocalConfig uses the local AWS config to refresh
 // EKS connection info on the kubernetes runtime instance object
-func refreshEKSConnectionWithLocalConfig(
+func RefreshEKSConnectionWithLocalConfig(
 	awsConfig *aws.Config,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	apiClient *http.Client,

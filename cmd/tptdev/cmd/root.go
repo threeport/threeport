@@ -5,9 +5,11 @@ package cmd
 
 import (
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -46,4 +48,35 @@ func init() {
 		cliArgs.InfraProvider = "kind"
 		cliArgs.DevEnvironment = true
 	})
+}
+
+// getImageNamesList returns a list of image names to build
+func getImageNamesList(imageNames string) []string {
+	imageNamesList := []string{}
+	switch {
+	case len(imageNames) != 0:
+		imageNamesList = strings.Split(imageNames, ",")
+	default:
+		for _, controller := range installer.AllControlPlaneComponents() {
+			imageNamesList = append(imageNamesList, controller.Name)
+		}
+	}
+	return imageNamesList
+}
+
+// getControlPlaneEnvVars updates cli args based on env vars
+func getControlPlaneEnvVars() {
+	// get control plane image repo and tag from env vars
+	controlPlaneImageRepo := os.Getenv("CONTROL_PLANE_IMAGE_REPO")
+	controlPlaneImageTag := os.Getenv("CONTROL_PLANE_IMAGE_TAG")
+
+	// configure control plane image repo via env var if not provided by cli
+	if cliArgs.ControlPlaneImageRepo == "" && controlPlaneImageRepo != "" {
+		cliArgs.ControlPlaneImageRepo = controlPlaneImageRepo
+	}
+
+	// configure control plane image tag via env var if not provided by cli
+	if cliArgs.ControlPlaneImageTag == "" && controlPlaneImageTag != "" {
+		cliArgs.ControlPlaneImageTag = controlPlaneImageTag
+	}
 }

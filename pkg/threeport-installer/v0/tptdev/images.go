@@ -3,14 +3,18 @@ package tptdev
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"sigs.k8s.io/kind/pkg/cluster"
@@ -18,7 +22,7 @@ import (
 	"sigs.k8s.io/kind/pkg/cluster/nodeutils"
 	"sigs.k8s.io/kind/pkg/cmd"
 	"sigs.k8s.io/kind/pkg/errors"
-	"sigs.k8s.io/kind/pkg/exec"
+	k8sexec "sigs.k8s.io/kind/pkg/exec"
 	"sigs.k8s.io/kind/pkg/fs"
 
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -38,22 +42,21 @@ type imageTagFetcher func(nodes.Node, string) (map[string]bool, error)
 // PrepareDevImages builds and loads the threeport control plane images for
 // development use.
 func PrepareDevImages(threeportPath, kindKubernetesRuntimeName string, cpi *threeport.ControlPlaneInstaller) error {
-	devImages := cpi.ThreeportDevImages()
 
-	if err := BuildDevImages(threeportPath, devImages); err != nil {
+	if err := BuildDevImage(threeportPath); err != nil {
 		return fmt.Errorf("failed to build dev images: %w", err)
 	}
 
-	if err := LoadDevImages(kindKubernetesRuntimeName, devImages); err != nil {
+	if err := LoadDevImage(kindKubernetesRuntimeName, "threeport-air"); err != nil {
 		return fmt.Errorf("failed to load dev images to kind cluster: %w", err)
 	}
 
 	return nil
 }
 
-// BuildDevImages builds all the threeport control plane container images using
+// BuildDevImage builds all the threeport control plane container images using
 // the dev dockerfile to provide live reload of code in the container.
-func BuildDevImages(threeportPath string, devImages map[string]string) error {
+func BuildDevImage(threeportPath string) error {
 	dockerClient, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -65,50 +68,230 @@ func BuildDevImages(threeportPath string, devImages map[string]string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300)
 	defer cancel()
 
-	for buildDir, imageName := range devImages {
-		tar, err := archive.TarWithOptions(threeportPath, &archive.TarOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to build tarball of threeport repo: %w", err)
-		}
+	tar, err := archive.TarWithOptions(threeportPath, &archive.TarOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to build tarball of threeport repo: %w", err)
+	}
 
-		buildOpts := types.ImageBuildOptions{
-			Dockerfile: filepath.Join("cmd", buildDir, "image", "Dockerfile-dev"),
-			Tags:       []string{imageName},
-			Remove:     true,
-		}
+	imageName := "threeport-air"
+	buildOpts := types.ImageBuildOptions{
+		Dockerfile: filepath.Join("cmd", "tptdev", "image", "Dockerfile"),
+		Tags:       []string{imageName},
+		Remove:     true,
+		Target:     "live-reload",
+	}
 
-		result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
-		if err != nil {
-			return fmt.Errorf("failed to build docker image %s: %w", imageName, err)
-		}
-		defer result.Body.Close()
+	result, err := dockerClient.ImageBuild(ctx, tar, buildOpts)
+	if err != nil {
+		return fmt.Errorf("failed to build docker image %s: %w", imageName, err)
+	}
+	defer result.Body.Close()
 
-		if err := buildOutput(result.Body); err != nil {
-			return fmt.Errorf("failed to write output from docker build for %s: %w", imageName, err)
-		}
+	if err := buildOutput(result.Body); err != nil {
+		return fmt.Errorf("failed to write output from docker build for %s: %w", imageName, err)
 	}
 
 	return nil
 }
 
-// LoadDevImages loads the threeport control plane development container images
+// BuildDevImage builds all the threeport control plane container images using
+// the dev dockerfile to provide live reload of code in the container.
+func BuildGoBinary(threeportPath, imageName, arch string, noCache bool) error {
+	// set name of main.go file
+	main := "main_gen.go"
+	if imageName == "rest-api" || imageName == "agent" {
+		main = "main.go"
+	}
+
+	// construct build arguments
+	buildArgs := []string{"build"}
+
+	// append build flags
+	buildArgs = append(buildArgs, "-gcflags=\\\"all=-N -l\\\"") // escape quotes and escape char for shell
+
+	// append no cache flag if specified
+	if noCache {
+		buildArgs = append(buildArgs, "-a")
+	}
+
+	// append output flag
+	buildArgs = append(buildArgs, "-o")
+
+	// append binary name
+	buildArgs = append(buildArgs, "bin/threeport-"+imageName)
+
+	// append main.go filepath
+	buildArgs = append(buildArgs, "cmd/"+imageName+"/"+main)
+
+	fmt.Printf("go %s \n", strings.Join(buildArgs, " "))
+
+	// construct build command
+	cmd := exec.Command("go", buildArgs...)
+	cmd.Env = os.Environ()
+	goEnv := []string{
+		"CGO_ENABLED=0",
+		"GOOS=linux",
+		"GOARCH=" + arch,
+	}
+	cmd.Env = append(cmd.Env, goEnv...)
+	cmd.Dir = threeportPath
+
+	// start build command
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to build threeport-%s: %v\noutput:\n%s", imageName, err, string(output))
+	}
+
+	return nil
+}
+
+// DockerBuildxImage builds a specified docker image
+// with the 'docker buildx' command.
+func DockerBuildxImage(threeportPath, imageName, tag, arch string) error {
+
+	// construct build arguments
+	buildArgs := []string{
+		"docker",
+		"buildx",
+		"build",
+		"--build-arg",
+		fmt.Sprintf("BINARY=%s", imageName),
+		"--target",
+		"dev",
+		"--load",
+		"--platform=linux/" + arch,
+		"-t " + tag,
+		"-f " + "cmd/tptdev/image/Dockerfile",
+		threeportPath,
+	}
+	fmt.Println(strings.Join(buildArgs, " "))
+
+	cmdStr := strings.Join(buildArgs, (" "))
+	cmd := exec.Command("/bin/sh", "-c", cmdStr)
+	cmd.Dir = threeportPath
+
+	// start build command
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to build threeport-%s: %v\noutput:\n%s", imageName, err, string(output))
+	}
+
+	return nil
+}
+
+// PushDockerImage pushes a specified docker image to the docker registry.
+func PushDockerImage(tag string) error {
+	// initialize docker client
+	dockerClient, err := client.NewClientWithOpts(
+		client.FromEnv,
+		client.WithAPIVersionNegotiation(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create docker client for building images: %w", err)
+	}
+
+	// initialize context
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300)
+	defer cancel()
+
+	// get path to docker config file
+	configFilePath := os.ExpandEnv("$HOME/.docker/config.json")
+
+	// Read the Docker configuration file
+	isDockerConfigPresent := true
+	configFile, err := os.ReadFile(configFilePath)
+	if err != nil {
+		isDockerConfigPresent = false
+	}
+
+	imagePushOptions := types.ImagePushOptions{All: true}
+
+	dockerUsername := os.Getenv("DOCKER_USERNAME")
+	dockerPassword := os.Getenv("DOCKER_PASSWORD")
+
+	// configure docker auth if credentials are present
+	switch {
+	case isDockerConfigPresent &&
+		dockerUsername == "" &&
+		dockerPassword == "":
+		// Parse the JSON content of the configuration file
+		var dockerConfig map[string]interface{}
+		if err := json.Unmarshal(configFile, &dockerConfig); err != nil {
+			fmt.Println("Error parsing Docker config JSON:", err)
+			return err
+		}
+
+		// unmarshal auth map
+		ok := false
+		var targetMap map[string]interface{}
+		if targetMap, ok = dockerConfig["auths"].(map[string]interface{}); !ok {
+			return fmt.Errorf("failed to parse docker config auths")
+		}
+		if targetMap, ok = targetMap["https://index.docker.io/v1/"].(map[string]interface{}); !ok {
+			return fmt.Errorf("failed to parse docker config auth endpoint")
+		}
+		var authString string
+		if authString, ok = targetMap["auth"].(string); !ok {
+			return fmt.Errorf("failed to parse docker config auth credentials")
+		}
+
+		// Decode the base64 auth string
+		decodedBytes, err := base64.StdEncoding.DecodeString(authString)
+		if err != nil {
+			fmt.Println("Error decoding Base64:", err)
+			return err
+		}
+
+		// parse credentials
+		credentials := strings.Split(string(decodedBytes), ":")
+
+		// configure auth config for docker client
+		authConfig := registry.AuthConfig{
+			Username:      credentials[0],
+			Password:      credentials[1],
+			ServerAddress: "https://index.docker.io/v1/",
+		}
+		authConfigBytes, _ := json.Marshal(authConfig)
+		authConfigEncoded := base64.URLEncoding.EncodeToString(authConfigBytes)
+		imagePushOptions.RegistryAuth = authConfigEncoded
+	case dockerUsername != "" &&
+		dockerPassword != "":
+		authConfig := registry.AuthConfig{
+			Username:      dockerUsername,
+			Password:      dockerPassword,
+			ServerAddress: "https://index.docker.io/v1/",
+		}
+		authConfigBytes, _ := json.Marshal(authConfig)
+		authConfigEncoded := base64.URLEncoding.EncodeToString(authConfigBytes)
+		imagePushOptions.RegistryAuth = authConfigEncoded
+	}
+
+	// authenticate and push image
+	out, err := dockerClient.ImagePush(ctx, tag, imagePushOptions)
+	if err != nil {
+		return fmt.Errorf("failed to push docker image %s: %w", tag, err)
+	}
+	defer out.Close()
+
+	// Copy the push output to the console
+	_, err = io.Copy(os.Stdout, out)
+	if err != nil {
+		return fmt.Errorf("failed to copy push output to console: %w", err)
+	}
+
+	return nil
+}
+
+// LoadDevImage loads the threeport control plane development container images
 // onto the kind cluster nodes.
-func LoadDevImages(kindKubernetesRuntimeName string, devImages map[string]string) error {
+func LoadDevImage(kindKubernetesRuntimeName, imageName string) error {
 	logger := cmd.NewLogger()
 	provider := cluster.NewProvider(
 		cluster.ProviderWithLogger(logger),
 	)
 
 	// check that the image exists locally and gets its ID, if not return error
-	var imageIDs []string
-	var imageNames []string
-	for _, imageName := range devImages {
-		imgID, err := imageID(imageName)
-		if err != nil {
-			return fmt.Errorf("image: %q not present locally", imageName)
-		}
-		imageIDs = append(imageIDs, imgID)
-		imageNames = append(imageNames, imageName)
+	imageID, err := imageID(imageName)
+	if err != nil {
+		return fmt.Errorf("image: %q not present locally", imageName)
 	}
 
 	// check that the cluster nodes exist
@@ -133,25 +316,22 @@ func LoadDevImages(kindKubernetesRuntimeName string, devImages map[string]string
 	// pick only the nodes that don't have the image
 	selectedNodes := map[string]nodes.Node{}
 	fns := []func() error{}
-	for i, imageName := range imageNames {
-		imageID := imageIDs[i]
-		processed := false
-		for _, node := range candidateNodes {
-			exists := checkIfImageExists(node, imageID, imageName, nodeutils.ImageTags)
-			if exists {
-				continue
-			}
-
-			id, err := nodeutils.ImageID(node, imageName)
-			if err != nil || id != imageID {
-				selectedNodes[node.String()] = node
-				logger.V(0).Infof("Image: %q with ID %q not yet present on node %q, loading...", imageName, imageID, node.String())
-			}
+	processed := false
+	for _, node := range candidateNodes {
+		exists := checkIfImageExists(node, imageID, imageName, nodeutils.ImageTags)
+		if exists {
 			continue
 		}
-		if len(selectedNodes) == 0 && !processed {
-			logger.V(0).Infof("Image: %q with ID %q found to be already present on all nodes.", imageName, imageID)
+
+		id, err := nodeutils.ImageID(node, imageName)
+		if err != nil || id != imageID {
+			selectedNodes[node.String()] = node
+			logger.V(0).Infof("Image: %q with ID %q not yet present on node %q, loading...", imageName, imageID, node.String())
 		}
+		continue
+	}
+	if len(selectedNodes) == 0 && !processed {
+		logger.V(0).Infof("Image: %q with ID %q found to be already present on all nodes.", imageName, imageID)
 	}
 
 	// return early if no node needs the image
@@ -167,6 +347,7 @@ func LoadDevImages(kindKubernetesRuntimeName string, devImages map[string]string
 	defer os.RemoveAll(dir)
 	imagesTarPath := filepath.Join(dir, "images.tar")
 	// save the images into a tar
+	imageNames := []string{imageName}
 	err = save(imageNames, imagesTarPath)
 	if err != nil {
 		return err
@@ -206,11 +387,11 @@ func buildOutput(reader io.Reader) error {
 
 // imageID return the ID of the container image
 func imageID(containerNameOrID string) (string, error) {
-	cmd := exec.Command("docker", "image", "inspect",
+	cmd := k8sexec.Command("docker", "image", "inspect",
 		"-f", "{{ .Id }}",
 		containerNameOrID, // ... against the container
 	)
-	lines, err := exec.OutputLines(cmd)
+	lines, err := k8sexec.OutputLines(cmd)
 	if err != nil {
 		return "", err
 	}

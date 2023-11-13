@@ -1,5 +1,0 @@
-FROM gcr.io/distroless/static:nonroot
-COPY bin/threeport-workload-controller /threeport-workload-controller
-USER 65532:65532
-
-ENTRYPOINT ["/threeport-workload-controller"]
