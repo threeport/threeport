@@ -1,4 +1,4 @@
-# Threeport
+<img src="docs/img/threeport-logo-green.jpg">
 
 An application orchestration control plane.
 
