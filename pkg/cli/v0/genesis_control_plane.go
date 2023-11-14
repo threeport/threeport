@@ -1038,16 +1038,8 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 			}
 
-			// delete control plane and support services namespace
-			if err := cpi.DeleteNamespaces(
-				dynamicKubeClient,
-				mapper,
-				[]string{
-					cpi.Opts.Namespace,
-					threeport.SupportServicesNamespace,
-				},
-			); err != nil {
-				return fmt.Errorf("failed to delete control plane namespace: %w", err)
+			if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
+				return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
 			}
 		} else {
 			// delete control plane infra
@@ -1101,21 +1093,8 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 		}
 
-		// // delete threeport API service to remove load balancer
-		// if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
-		// 	return fmt.Errorf("failed to delete threeport API service: %w", err)
-		// }
-
-		// delete control plane and support services namespace
-		if err := cpi.DeleteNamespaces(
-			dynamicKubeClient,
-			mapper,
-			[]string{
-				cpi.Opts.Namespace,
-				threeport.SupportServicesNamespace,
-			},
-		); err != nil {
-			return fmt.Errorf("failed to delete control plane namespace: %w", err)
+		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
+			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
 		}
 
 		if !cpi.Opts.ControlPlaneOnly {

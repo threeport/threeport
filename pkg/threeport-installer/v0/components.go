@@ -1116,28 +1116,17 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
-	// get the service resource
-	apiService, err := cpi.GetThreeportAPIService(kubeClient, *mapper)
-	if err != nil {
-		return fmt.Errorf("failed to get threeport API service resource: %w", err)
+	// delete control plane and support services namespace
+	if err := cpi.DeleteNamespaces(
+		kubeClient,
+		mapper,
+		[]string{
+			cpi.Opts.Namespace,
+			SupportServicesNamespace,
+		},
+	); err != nil {
+		return fmt.Errorf("failed to delete control plane namespace: %w", err)
 	}
-
-	// delete the service
-	if err := kube.DeleteResource(apiService, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to delete the threeport API service resource: %w", err)
-	}
-
-	// wait until the service is deleted
-	util.Retry(24, 5, func() error {
-
-		// get the service resource
-		_, err := cpi.GetThreeportAPIService(kubeClient, *mapper)
-		if err == nil {
-			return errors.New("service still prresent in cluster")
-		}
-
-		return nil
-	})
 
 	return nil
 }
