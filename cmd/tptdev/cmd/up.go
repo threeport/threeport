@@ -81,7 +81,7 @@ func init() {
 	)
 	upCmd.Flags().BoolVar(
 		&cliArgs.ControlPlaneOnly,
-		"control-plane-only", false, "Deploy the control plane on existing infrastructure. Defaults to false. Only applies to cloud providers.",
+		"control-plane-only", false, "Deploy the control plane on existing infrastructure. Defaults to false.",
 	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)
