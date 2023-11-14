@@ -41,6 +41,6 @@ func init() {
 		"kubeconfig", "k", "", "path to kubeconfig - default is ~/.kube/config")
 	downCmd.Flags().BoolVar(
 		&cliArgs.ControlPlaneOnly,
-		"control-plane-only", false, "Tear down the control plane and leave infrastructure intact. Defaults to false.",
+		"control-plane-only", false, "Tear down the control plane and leave runtime intact. Defaults to false.",
 	)
 }

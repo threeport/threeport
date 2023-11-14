@@ -127,6 +127,6 @@ func init() {
 	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ControlPlaneOnly,
-		"control-plane-only", false, "Deploy the control plane on existing infrastructure. Defaults to false.",
+		"control-plane-only", false, "Deploy the control plane on an existing runtime. Defaults to false.",
 	)
 }
