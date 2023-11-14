@@ -13,7 +13,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_config "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	builder_client "github.com/nukleros/aws-builder/pkg/client"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
@@ -186,7 +185,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// configure the infra provider
-	var resourceManagerRole *types.Role
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
 	var callerIdentity *sts.GetCallerIdentityOutput
@@ -273,30 +271,35 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to update threeport config: %w", err)
 		}
 
-		Info("Creating Threeport IAM role")
+		if !cpi.Opts.ControlPlaneOnly {
+			Info("Creating Threeport IAM role")
 
-		// create IAM role for resource management
-		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
-		resourceManagerRole, err = provider.CreateResourceManagerRole(
-			builder_iam.CreateIamTags(
-				cpi.Opts.Name,
-				map[string]string{},
-			),
-			resourceManagerRoleName,
-			*callerIdentity.Account,
-			"",
-			"",
-			true,
-			true,
-			awsConfigUser,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create runtime manager role: %w", err)
+			// create IAM role for resource management
+			resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
+			_, err = provider.CreateResourceManagerRole(
+				builder_iam.CreateIamTags(
+					cpi.Opts.Name,
+					map[string]string{},
+				),
+				resourceManagerRoleName,
+				*callerIdentity.Account,
+				"",
+				"",
+				true,
+				true,
+				awsConfigUser,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to create runtime manager role: %w", err)
+			}
 		}
 
 		// assume IAM role for resource management
 		awsConfigResourceManager, err = builder_config.AssumeRole(
-			*resourceManagerRole.Arn,
+			provider.GetResourceManagerRoleArn(
+				cpi.Opts.ControlPlaneName,
+				*callerIdentity.Account,
+			),
 			"",
 			"",
 			3600,
@@ -313,25 +316,27 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to assume role for AWS resource manager: %w", err)
 		}
 
-		// wait for IAM role to be available
-		Info("Waiting for IAM role to become available...")
-		if err = util.Retry(30, 1, func() error {
-			if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
-				return fmt.Errorf("failed to get caller identity: %w", err)
-			}
-			Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
+		if !cpi.Opts.ControlPlaneOnly {
+			// wait for IAM role to be available
+			Info("Waiting for IAM role to become available...")
+			if err = util.Retry(30, 1, func() error {
+				if callerIdentity, err = provider.GetCallerIdentity(awsConfigResourceManager); err != nil {
+					return fmt.Errorf("failed to get caller identity: %w", err)
+				}
+				Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
-			// wait 5 seconds to allow IAM resources to become available
-			time.Sleep(time.Second * 5)
+				// wait 5 seconds to allow IAM resources to become available
+				time.Sleep(time.Second * 5)
 
-			Info("IAM resources created")
-			return nil
-		}); err != nil {
-			deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, awsConfigUser)
-			if deleteErr != nil {
-				return fmt.Errorf("failed to wait for IAM resources to be available: %w, failed to delete IAM resources: %w", err, deleteErr)
+				Info("IAM resources created")
+				return nil
+			}); err != nil {
+				deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, awsConfigUser)
+				if deleteErr != nil {
+					return fmt.Errorf("failed to wait for IAM resources to be available: %w, failed to delete IAM resources: %w", err, deleteErr)
+				}
+				return fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
 			}
-			return fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
 		}
 
 		// create a resource client to create EKS resources
@@ -745,12 +750,16 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		awsAccountName := "default-account"
 		defaultAccount := true
 
+		roleArn := provider.GetResourceManagerRoleArn(
+			cpi.Opts.ControlPlaneName,
+			*callerIdentity.Account,
+		)
 		awsAccount := v0.AwsAccount{
 			Name:           &awsAccountName,
 			AccountID:      callerIdentity.Account,
 			DefaultAccount: &defaultAccount,
 			DefaultRegion:  &awsConfigResourceManager.Region,
-			RoleArn:        resourceManagerRole.Arn,
+			RoleArn:        &roleArn,
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,
@@ -1029,7 +1038,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 			}
 
-			// only delete control plane namespace
+			// delete control plane and support services namespace
 			if err := cpi.DeleteNamespaces(
 				dynamicKubeClient,
 				mapper,
@@ -1092,9 +1101,21 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 		}
 
-		// delete threeport API service to remove load balancer
-		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to delete threeport API service: %w", err)
+		// // delete threeport API service to remove load balancer
+		// if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
+		// 	return fmt.Errorf("failed to delete threeport API service: %w", err)
+		// }
+
+		// delete control plane and support services namespace
+		if err := cpi.DeleteNamespaces(
+			dynamicKubeClient,
+			mapper,
+			[]string{
+				cpi.Opts.Namespace,
+				threeport.SupportServicesNamespace,
+			},
+		); err != nil {
+			return fmt.Errorf("failed to delete control plane namespace: %w", err)
 		}
 
 		if !cpi.Opts.ControlPlaneOnly {
@@ -1102,17 +1123,18 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			if err := kubernetesRuntimeInfra.Delete(); err != nil {
 				return fmt.Errorf("failed to delete control plane infra: %w", err)
 			}
+
 			// remove inventory file
 			invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
 			if err := os.Remove(invFile); err != nil {
 				Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
 			}
-		}
 
-		// delete AWS IAM resources
-		err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
-		if err != nil {
-			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
+			// delete AWS IAM resources
+			err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
+			if err != nil {
+				return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
+			}
 		}
 	}
 
