@@ -1412,7 +1412,7 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{})
 		volMounts = append(volMounts, vm)
 	}
 
-	if cpi.Opts.AuthEnabled { {
+	if cpi.Opts.AuthEnabled {
 		caVol, caVolMount := cpi.getSecretVols("api-ca", "/etc/threeport/ca")
 		certVol, certVolMount := cpi.getSecretVols("api-cert", "/etc/threeport/cert")
 
@@ -1594,8 +1594,8 @@ func (cpi *ControlPlaneInstaller) getAPIServicePort() (string, int32) {
 			return "https", 443
 		}
 		return "http", 80
-	} else if infraProvider == "eks" {
-		if authConfig != nil {
+	} else if cpi.Opts.InfraProvider == "eks" {
+		if cpi.Opts.AuthEnabled {
 			return "https", 443
 		}
 
