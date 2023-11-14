@@ -62,6 +62,7 @@ type GenesisControlPlaneCLIArgs struct {
 	ProviderConfigDir     string
 	ThreeportPath         string
 	Debug                 bool
+	ControlPlaneOnly      bool
 }
 
 const tier = threeport.ControlPlaneTierDev
@@ -129,6 +130,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.Debug = a.Debug
 	cpi.Opts.LiveReload = false
 	cpi.Opts.CreateOrUpdateKubeResources = false
+	cpi.Opts.ControlPlaneOnly = a.ControlPlaneOnly
 
 	return cpi, nil
 }
@@ -188,6 +190,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
 	var callerIdentity *sts.GetCallerIdentityOutput
+	var kubeConnectionInfo *kube.KubeConnectionInfo
 	awsConfigUser := aws.Config{}
 	awsConfigResourceManager := &aws.Config{}
 	switch controlPlane.InfraProvider {
@@ -227,6 +230,17 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}()
 
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
+		if cpi.Opts.ControlPlaneOnly {
+			kubeConnectionInfo, err = kube.GetConnectionInfoFromKubeconfig(kubernetesRuntimeInfraKind.KubeconfigPath)
+			if err != nil {
+				return cleanOnCreateError("failed to get connection info for eks kubernetes runtime", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
+			}
+		} else {
+			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
+			if err != nil {
+				return cleanOnCreateError("failed to create control plane infra for threeport", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
+			}
+		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create AWS config
 		awsConf, err := builder_config.LoadAWSConfig(
@@ -375,12 +389,18 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
-	}
 
-	// create control plane infra
-	kubeConnectionInfo, err := kubernetesRuntimeInfra.Create()
-	if err != nil {
-		return cleanOnCreateError("failed to create control plane infra for threeport", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
+		if cpi.Opts.ControlPlaneOnly {
+			kubeConnectionInfo, err = kubernetesRuntimeInfraEKS.GetConnection()
+			if err != nil {
+				return cleanOnCreateError("failed to get connection info for eks kubernetes runtime", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
+			}
+		} else {
+			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
+			if err != nil {
+				return cleanOnCreateError("failed to create control plane infra for threeport", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
+			}
+		}
 	}
 
 	// update threeport config with kube API info
@@ -969,20 +989,64 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 	}
 
+	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
+	if err != nil {
+		return fmt.Errorf("failed to get threeport certificates from config: %w", err)
+	}
+	apiClient, err := client.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
+	if err != nil {
+		return fmt.Errorf("failed to create http client: %w", err)
+	}
+
+	// get the kubernetes runtime instance object
+	kubernetesRuntimeInstance, err := client.GetThreeportControlPlaneKubernetesRuntimeInstance(
+		apiClient,
+		threeportControlPlaneConfig.APIServer,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
+	}
+
 	// if provider is EKS we need to delete the threeport API service to
 	// remove the AWS load balancer before deleting the rest of the infra and
 	// check for existing workload instances that may prevent deletion
 	switch threeportControlPlaneConfig.Provider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
-		if err != nil {
-			return fmt.Errorf("failed to get threeport certificates from config: %w", err)
-		}
-		apiClient, err := client.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
-		if err != nil {
-			return fmt.Errorf("failed to create http client: %w", err)
-		}
+	case v0.KubernetesRuntimeInfraProviderKind:
+		if cpi.Opts.ControlPlaneOnly {
 
+			// create a client and resource mapper to connect to kubernetes cluster
+			// API for deleting resources
+			var dynamicKubeClient dynamic.Interface
+			var mapper *meta.RESTMapper
+			dynamicKubeClient, mapper, err = kube.GetClient(
+				kubernetesRuntimeInstance,
+				false,
+				apiClient,
+				threeportControlPlaneConfig.APIServer,
+				threeportControlPlaneConfig.EncryptionKey,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
+			}
+
+			// only delete control plane namespace
+			if err := cpi.DeleteNamespaces(
+				dynamicKubeClient,
+				mapper,
+				[]string{
+					cpi.Opts.Namespace,
+					"support-services-system",
+				},
+			); err != nil {
+				return fmt.Errorf("failed to delete control plane namespace: %w", err)
+			}
+		} else {
+			// delete control plane infra
+			if err := kubernetesRuntimeInfra.Delete(); err != nil {
+				return fmt.Errorf("failed to delete control plane infra: %w", err)
+			}
+		}
+	case v0.KubernetesRuntimeInfraProviderEKS:
 		// check for workload instances on non-kind kubernetes runtimes - halt delete if
 		// any are present
 		workloadInstances, err := client.GetWorkloadInstances(
@@ -1006,15 +1070,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 		if len(*controlPlaneInstances) > 1 {
 			return errors.New("found non-genesis control plane instance(s) that could prevent control plane deletion - delete all non-genesis control plane instances before deleting genesis control plane")
-		}
-
-		// get the kubernetes runtime instance object
-		kubernetesRuntimeInstance, err := client.GetThreeportControlPlaneKubernetesRuntimeInstance(
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
 		}
 
 		updatedKubernetesRuntimeInstance, err := RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
@@ -1041,19 +1096,17 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to delete threeport API service: %w", err)
 		}
-	}
 
-	// delete control plane infra
-	if err := kubernetesRuntimeInfra.Delete(); err != nil {
-		return fmt.Errorf("failed to delete control plane infra: %w", err)
-	}
-
-	switch threeportControlPlaneConfig.Provider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		// remove inventory file
-		invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
-		if err := os.Remove(invFile); err != nil {
-			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
+		if !cpi.Opts.ControlPlaneOnly {
+			// delete control plane infra
+			if err := kubernetesRuntimeInfra.Delete(); err != nil {
+				return fmt.Errorf("failed to delete control plane infra: %w", err)
+			}
+			// remove inventory file
+			invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
+			if err := os.Remove(invFile); err != nil {
+				Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
+			}
 		}
 
 		// delete AWS IAM resources
@@ -1170,6 +1223,11 @@ func cleanOnCreateError(
 		if workloadErr := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); workloadErr != nil {
 			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete threeport API service: %w", createErr, workloadErr)
 		}
+	}
+
+	// if control plane only, return error without tearing down infra
+	if cpi.Opts.ControlPlaneOnly {
+		return createErr
 	}
 
 	// if eks provider, load inventory for deletion

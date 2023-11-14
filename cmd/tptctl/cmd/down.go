@@ -40,6 +40,10 @@ func init() {
 		"name", "n", "", "Required. Name of control plane instance.",
 	)
 	DownCmd.Flags().BoolVar(
+		&cliArgs.ControlPlaneOnly,
+		"control-plane-only", false, "Tear down the control plane and leave infrastructure intact. Defaults to false. Only applies to cloud providers.",
+	)
+	DownCmd.Flags().BoolVar(
 		&cliArgs.AwsConfigEnv,
 		"aws-config-env", false, "Retrieve AWS credentials from environment variables when using eks provider.",
 	)

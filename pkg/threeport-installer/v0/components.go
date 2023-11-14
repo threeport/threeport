@@ -1142,6 +1142,54 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	return nil
 }
 
+// DeleteNamespace deletes a list of namespaces from a Kubernetes cluster.
+func (cpi *ControlPlaneInstaller) DeleteNamespaces(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	namespaces []string,
+) error {
+
+	// initiate namespace deletion
+	for _, name := range namespaces {
+		namespace := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Namespace",
+				"metadata": map[string]interface{}{
+					"name": name,
+				},
+			},
+		}
+
+		// delete the service
+		if err := kube.DeleteResource(namespace, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to delete the threeport API namespace resource: %w", err)
+		}
+	}
+
+	// wait for all namespaces to be deleted
+	for _, name := range namespaces {
+		util.Retry(24, 5, func() error {
+			_, err := kube.GetResource(
+				"",
+				"",
+				"Namespace",
+				"",
+				name,
+				kubeClient,
+				*mapper,
+			)
+			if err == nil {
+				return errors.New("namespace is still present")
+			}
+
+			return nil
+		})
+	}
+
+	return nil
+}
+
 // GetThreeportAPIEndpoint retrieves the endpoint given to the threeport API
 // when the external load balancer was provisioned by the infra provider.  It
 // will attempt to retrieve this value several times since the load balancer
