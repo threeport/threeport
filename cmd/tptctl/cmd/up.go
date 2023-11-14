@@ -65,7 +65,7 @@ func init() {
 
 	UpCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
-		"name", "n", "", "Required. Name of control plane instance.",
+		"name", "n", "", "Required. Name of genesis control plane.",
 	)
 	UpCmd.MarkFlagRequired("name")
 	UpCmd.Flags().StringVarP(
@@ -124,5 +124,9 @@ func init() {
 	UpCmd.Flags().BoolVar(
 		&cliArgs.Debug,
 		"debug", false, "Enable debug mode. Defaults to false.",
+	)
+	UpCmd.Flags().BoolVar(
+		&cliArgs.ControlPlaneOnly,
+		"control-plane-only", false, "Deploy the control plane on an existing runtime. Defaults to false.",
 	)
 }

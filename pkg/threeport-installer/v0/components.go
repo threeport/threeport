@@ -1116,28 +1116,65 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
-	// get the service resource
-	apiService, err := cpi.GetThreeportAPIService(kubeClient, *mapper)
-	if err != nil {
-		return fmt.Errorf("failed to get threeport API service resource: %w", err)
+	// delete control plane and support services namespace
+	if err := cpi.DeleteNamespaces(
+		kubeClient,
+		mapper,
+		[]string{
+			cpi.Opts.Namespace,
+			SupportServicesNamespace,
+		},
+	); err != nil {
+		return fmt.Errorf("failed to delete control plane namespace: %w", err)
 	}
 
-	// delete the service
-	if err := kube.DeleteResource(apiService, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to delete the threeport API service resource: %w", err)
-	}
+	return nil
+}
 
-	// wait until the service is deleted
-	util.Retry(24, 5, func() error {
+// DeleteNamespace deletes a list of namespaces from a Kubernetes cluster.
+func (cpi *ControlPlaneInstaller) DeleteNamespaces(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	namespaces []string,
+) error {
 
-		// get the service resource
-		_, err := cpi.GetThreeportAPIService(kubeClient, *mapper)
-		if err == nil {
-			return errors.New("service still prresent in cluster")
+	// initiate namespace deletion
+	for _, name := range namespaces {
+		namespace := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Namespace",
+				"metadata": map[string]interface{}{
+					"name": name,
+				},
+			},
 		}
 
-		return nil
-	})
+		// delete the service
+		if err := kube.DeleteResource(namespace, kubeClient, *mapper); err != nil {
+			return fmt.Errorf("failed to delete the threeport API namespace resource: %w", err)
+		}
+	}
+
+	// wait for all namespaces to be deleted
+	for _, name := range namespaces {
+		util.Retry(24, 5, func() error {
+			_, err := kube.GetResource(
+				"",
+				"",
+				"Namespace",
+				"",
+				name,
+				kubeClient,
+				*mapper,
+			)
+			if err == nil {
+				return errors.New("namespace is still present")
+			}
+
+			return nil
+		})
+	}
 
 	return nil
 }

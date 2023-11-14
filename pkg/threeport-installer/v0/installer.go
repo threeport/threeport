@@ -39,6 +39,7 @@ type Options struct {
 	ThreeportPath               string
 	Debug                       bool
 	LiveReload                  bool
+	ControlPlaneOnly            bool
 }
 
 type ControlPlaneInstaller struct {

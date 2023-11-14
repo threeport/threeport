@@ -37,7 +37,11 @@ func init() {
 
 	DownCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
-		"name", "n", "", "Required. Name of control plane instance.",
+		"name", "n", "", "Required. Name of genesis control plane.",
+	)
+	DownCmd.Flags().BoolVar(
+		&cliArgs.ControlPlaneOnly,
+		"control-plane-only", false, "Tear down the control plane and leave runtime intact. Defaults to false.",
 	)
 	DownCmd.Flags().BoolVar(
 		&cliArgs.AwsConfigEnv,

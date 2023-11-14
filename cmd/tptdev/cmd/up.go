@@ -53,7 +53,7 @@ func init() {
 	)
 	upCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
-		"name", "n", tptdev.DefaultInstanceName, "Name of dev control plane instance.",
+		"name", "n", tptdev.DefaultInstanceName, "Name of dev genesis control plane.",
 	)
 	upCmd.Flags().StringVarP(
 		&cliArgs.ThreeportPath,
@@ -78,6 +78,10 @@ func init() {
 	upCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageTag,
 		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
+	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.ControlPlaneOnly,
+		"control-plane-only", false, "Deploy the control plane on an existing runtime. Defaults to false.",
 	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)
