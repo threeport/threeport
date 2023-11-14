@@ -1222,7 +1222,7 @@ func cleanOnCreateError(
 	// balancers, that will prevent runtime infra deletion
 	if dynamicKubeClient != nil && mapper != nil {
 		if workloadErr := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); workloadErr != nil {
-			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete threeport API service: %w", createErr, workloadErr)
+			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete threeport API components: %w", createErr, workloadErr)
 		}
 	}
 
