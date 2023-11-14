@@ -39,4 +39,8 @@ func init() {
 		"name", "n", tptdev.DefaultInstanceName, "name of dev control plane instance")
 	downCmd.Flags().StringVarP(&cliArgs.KubeconfigPath,
 		"kubeconfig", "k", "", "path to kubeconfig - default is ~/.kube/config")
+	downCmd.Flags().BoolVar(
+		&cliArgs.ControlPlaneOnly,
+		"control-plane-only", false, "Tear down the control plane and leave infrastructure intact. Defaults to false. Only applies to cloud providers.",
+	)
 }

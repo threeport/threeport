@@ -79,6 +79,10 @@ func init() {
 		&cliArgs.ControlPlaneImageTag,
 		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
 	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.ControlPlaneOnly,
+		"control-plane-only", false, "Deploy the control plane on existing infrastructure. Defaults to false. Only applies to cloud providers.",
+	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)
 	})
