@@ -41,7 +41,7 @@ func init() {
 	)
 	DownCmd.Flags().BoolVar(
 		&cliArgs.ControlPlaneOnly,
-		"control-plane-only", false, "Tear down the control plane and leave infrastructure intact. Defaults to false. Only applies to cloud providers.",
+		"control-plane-only", false, "Tear down the control plane and leave infrastructure intact. Defaults to false.",
 	)
 	DownCmd.Flags().BoolVar(
 		&cliArgs.AwsConfigEnv,
