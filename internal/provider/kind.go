@@ -124,8 +124,7 @@ func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWo
 	return &clusterConfig
 }
 
-// devEnvKindControlPlaneNode returns a control plane node with host path mount
-// for live code reloads.
+// kindControlPlaneNode returns a control plane node
 func kindControlPlaneNode(authEnabled bool, threeportPath, goPath, goCache string, portForwards map[int32]int32) *v1alpha4.Node {
 	extraPortMappings := getPortMapping(authEnabled, portForwards)
 	controlPlaneNode := v1alpha4.Node{
@@ -198,6 +197,7 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 	return &nodes
 }
 
+// Get port mappings for the kind cluster
 func getPortMapping(authEnabled bool, portForwards map[int32]int32) []v1alpha4.PortMapping {
 	hostPort := threeport.GetThreeportAPIPort(authEnabled)
 	extraPortMappings := make([]v1alpha4.PortMapping, 0)
@@ -220,32 +220,4 @@ func getPortMapping(authEnabled bool, portForwards map[int32]int32) []v1alpha4.P
 	}
 
 	return extraPortMappings
-}
-
-// devEnvKindWorkers returns worker nodes with host path mount for live code
-// reloads.
-func devEnvKindWorkers(threeportPath string, numWorkerNodes int, goPath, goCache string) *[]v1alpha4.Node {
-
-	nodes := make([]v1alpha4.Node, numWorkerNodes)
-	for i := range nodes {
-		nodes[i] = v1alpha4.Node{
-			Role: v1alpha4.WorkerRole,
-			ExtraMounts: []v1alpha4.Mount{
-				{
-					ContainerPath: "/threeport",
-					HostPath:      threeportPath,
-				},
-				{
-					ContainerPath: "/go",
-					HostPath:      goPath,
-				},
-				{
-					ContainerPath: "/root/.cache/go-build",
-					HostPath:      goCache,
-				},
-			},
-		}
-	}
-
-	return &nodes
 }
