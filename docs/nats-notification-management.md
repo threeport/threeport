@@ -20,7 +20,7 @@ nats context create local
 For a local Threeport control plane, port forward the NATS connection.
 
 ```bash
-kubectl port-forward svc/nats-js 4222:4222
+kubectl port-forward svc/nats-js 4222:4222 -n threeport-control-plane
 ```
 
 To edit the context for connecting to NATS, the following command will open the
