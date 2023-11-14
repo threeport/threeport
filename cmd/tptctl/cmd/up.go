@@ -65,7 +65,7 @@ func init() {
 
 	UpCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
-		"name", "n", "", "Required. Name of control plane instance.",
+		"name", "n", "", "Required. Name of genesis control plane.",
 	)
 	UpCmd.MarkFlagRequired("name")
 	UpCmd.Flags().StringVarP(

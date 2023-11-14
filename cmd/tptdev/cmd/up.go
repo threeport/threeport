@@ -53,7 +53,7 @@ func init() {
 	)
 	upCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
-		"name", "n", tptdev.DefaultInstanceName, "Name of dev control plane instance.",
+		"name", "n", tptdev.DefaultInstanceName, "Name of dev genesis control plane.",
 	)
 	upCmd.Flags().StringVarP(
 		&cliArgs.ThreeportPath,
