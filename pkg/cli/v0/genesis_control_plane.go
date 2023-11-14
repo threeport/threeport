@@ -1035,7 +1035,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				mapper,
 				[]string{
 					cpi.Opts.Namespace,
-					"support-services-system",
+					threeport.SupportServicesNamespace,
 				},
 			); err != nil {
 				return fmt.Errorf("failed to delete control plane namespace: %w", err)
