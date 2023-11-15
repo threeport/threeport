@@ -74,6 +74,12 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 		return nil, errors.New("missing required field/s in config - required fields: DomainNameDefinition.Name, WorkloadInstance.Name, KubernetesRuntimeInstance.Name")
 	}
 
+	// // check if domain name instance exists
+	// existingDomainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.DomainNameDefinition.Name)
+	// if err == nil {
+	// 	return existingDomainNameInstance, nil
+	// }
+
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, d.KubernetesRuntimeInstance.Name)
 	if err != nil {

@@ -61,6 +61,16 @@ type WorkloadInstanceValues struct {
 
 // Create creates a workload definition and instance in the Threeport API.
 func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
+
+	// validate required fields don't already exist in threeport
+	isValid, err := w.Validate(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to validate threeport state: %w", err)
+	}
+	if !isValid {
+		return nil, nil, errors.New("workload dependencies already exist in threeport")
+	}
+
 	// create the workload definition
 	workloadDefinition := WorkloadDefinitionValues{
 		Name:               w.Name,
@@ -185,7 +195,7 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	if w.DomainName != nil {
 		// get domain name instance by name
 		domainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, w.DomainName.Name)
-		if err != nil {
+		if err != nil && errors.Is(err, client.ErrorObjectNotFound) {
 			return nil, nil, fmt.Errorf("failed to find domain name instance with name %s: %w", w.DomainName.Name, err)
 		}
 
