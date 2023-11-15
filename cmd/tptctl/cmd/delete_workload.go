@@ -107,10 +107,6 @@ func init() {
 		"config", "c", "", "Path to file with workload config.",
 	)
 	DeleteWorkloadCmd.Flags().StringVarP(
-		&deleteWorkloadName,
-		"name", "n", "", "Name of workload.",
-	)
-	DeleteWorkloadCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
