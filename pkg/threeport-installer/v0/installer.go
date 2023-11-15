@@ -43,6 +43,7 @@ type Options struct {
 	LiveReload                    bool
 	ControlPlaneOnly              bool
 	KindInfraPortForward          []string
+	RestApiEksLoadBalancer        bool
 }
 
 type ControlPlaneInstaller struct {

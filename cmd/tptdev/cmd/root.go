@@ -4,10 +4,12 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
@@ -50,18 +52,33 @@ func init() {
 	})
 }
 
-// getImageNamesList returns a list of image names to build
-func getImageNamesList(imageNames string) []string {
-	imageNamesList := []string{}
+// getComponentList returns a list of component names to build
+func getComponentList(componentNames string) ([]*v0.ControlPlaneComponent, error) {
+	allComponentList := installer.AllControlPlaneComponents()
+	componentList := make([]*v0.ControlPlaneComponent, 0)
 	switch {
-	case len(imageNames) != 0:
-		imageNamesList = strings.Split(imageNames, ",")
-	default:
-		for _, controller := range installer.AllControlPlaneComponents() {
-			imageNamesList = append(imageNamesList, controller.Name)
+	case len(componentNames) != 0:
+		componentNameList := strings.Split(componentNames, ",")
+		for _, name := range componentNameList {
+			found := false
+			for _, c := range allComponentList {
+				if c.Name == name {
+					if found {
+						return componentList, fmt.Errorf("found more then one component info for: %s", name)
+					}
+					componentList = append(componentList, c)
+					found = true
+				}
+			}
+
+			if !found {
+				return componentList, fmt.Errorf("could not find requested component to install: %s", name)
+			}
 		}
+	default:
+		componentList = allComponentList
 	}
-	return imageNamesList
+	return componentList, nil
 }
 
 // getControlPlaneEnvVars updates cli args based on env vars

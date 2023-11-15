@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/threeport/threeport/internal/provider"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
@@ -19,7 +20,7 @@ import (
 var noCache bool
 var push bool
 var load bool
-var imageNames string
+var buildComponentNames string
 var arch string
 var parallel int
 
@@ -40,14 +41,17 @@ var buildCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// create list of images to build
-		imageNamesList := getImageNamesList(imageNames)
+		// create list of components to build
+		componentList, err := getComponentList(buildComponentNames)
+		if err != nil {
+			cli.Error("failed to get component list:", err)
+		}
 
 		// update cli args based on env vars
 		getControlPlaneEnvVars()
 
 		// configure concurrency for parallel builds
-		jobs := make(chan string)
+		jobs := make(chan *v0.ControlPlaneComponent)
 		var waitGroup sync.WaitGroup
 
 		// configure installer
@@ -58,7 +62,7 @@ var buildCmd = &cobra.Command{
 
 		// configure parallel builds
 		if parallel == -1 {
-			parallel = len(imageNamesList)
+			parallel = len(componentList)
 		}
 
 		// start build workers
@@ -66,35 +70,37 @@ var buildCmd = &cobra.Command{
 			waitGroup.Add(1)
 			go func() {
 				defer waitGroup.Done()
-				for image := range jobs {
+				for component := range jobs {
 
 					// build go binary
 					if err := tptdev.BuildGoBinary(
 						cpi.Opts.ThreeportPath,
-						image,
+						component.Name,
+						component.ImageName,
 						arch,
 						noCache,
 					); err != nil {
-						cli.Error("failed to build go binary: %v", err)
+						cli.Error("failed to build go binary:", err)
 						os.Exit(1)
 					}
 
 					// configure image tag
 					tag := fmt.Sprintf(
-						"%s/threeport-%s:%s",
+						"%s/%s:%s",
 						cliArgs.ControlPlaneImageRepo,
-						image,
+						component.ImageName,
 						cliArgs.ControlPlaneImageTag,
 					)
 
 					// build docker image
 					if err := tptdev.DockerBuildxImage(
 						cpi.Opts.ThreeportPath,
-						image,
+						component.ImageName,
+						component.Name,
 						tag,
 						arch,
 					); err != nil {
-						cli.Error("failed to build docker image: %v", err)
+						cli.Error("failed to build docker image:", err)
 						os.Exit(1)
 					}
 
@@ -102,7 +108,7 @@ var buildCmd = &cobra.Command{
 					case push:
 						// push docker image
 						if err := tptdev.PushDockerImage(tag); err != nil {
-							cli.Error("failed to push docker image: %v", err)
+							cli.Error("failed to push docker image:", err)
 							os.Exit(1)
 						}
 					case load:
@@ -115,7 +121,7 @@ var buildCmd = &cobra.Command{
 
 						// load docker image into kind
 						if err = tptdev.LoadDevImage(provider.ThreeportRuntimeName(requestedControlPlane), tag); err != nil {
-							cli.Error("failed to load docker image into kind: %v", err)
+							cli.Error("failed to load docker image into kind:", err)
 							os.Exit(1)
 						}
 					}
@@ -124,8 +130,8 @@ var buildCmd = &cobra.Command{
 		}
 
 		// assign build jobs to workers
-		for _, imageName := range imageNamesList {
-			jobs <- imageName
+		for _, component := range componentList {
+			jobs <- component
 		}
 
 		// close the jobs channel to signal that no more jobs will be added
@@ -139,8 +145,8 @@ var buildCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(buildCmd)
 	buildCmd.Flags().StringVar(
-		&imageNames,
-		"image-names", "", "List of image names to build (rest-api,agent,workload-controller etc). Defaults to all images.",
+		&buildComponentNames,
+		"names", "", "List of component names to build (rest-api,agent,workload-controller etc). Defaults to all images.",
 	)
 	buildCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,

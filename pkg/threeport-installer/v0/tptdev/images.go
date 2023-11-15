@@ -96,10 +96,10 @@ func BuildDevImage(threeportPath string) error {
 
 // BuildDevImage builds all the threeport control plane container images using
 // the dev dockerfile to provide live reload of code in the container.
-func BuildGoBinary(threeportPath, imageName, arch string, noCache bool) error {
+func BuildGoBinary(threeportPath, name, imageName, arch string, noCache bool) error {
 	// set name of main.go file
 	main := "main_gen.go"
-	if imageName == "rest-api" || imageName == "agent" {
+	if strings.Contains(imageName, "rest-api") || strings.Contains(imageName, "agent") {
 		main = "main.go"
 	}
 
@@ -118,10 +118,10 @@ func BuildGoBinary(threeportPath, imageName, arch string, noCache bool) error {
 	buildArgs = append(buildArgs, "-o")
 
 	// append binary name
-	buildArgs = append(buildArgs, "bin/threeport-"+imageName)
+	buildArgs = append(buildArgs, "bin/"+imageName)
 
 	// append main.go filepath
-	buildArgs = append(buildArgs, "cmd/"+imageName+"/"+main)
+	buildArgs = append(buildArgs, "cmd/"+name+"/"+main)
 
 	fmt.Printf("go %s \n", strings.Join(buildArgs, " "))
 
@@ -138,7 +138,7 @@ func BuildGoBinary(threeportPath, imageName, arch string, noCache bool) error {
 
 	// start build command
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to build threeport-%s: %v\noutput:\n%s", imageName, err, string(output))
+		return fmt.Errorf("failed to build %s: %v\noutput:\n%s", imageName, err, string(output))
 	}
 
 	return nil
@@ -146,7 +146,7 @@ func BuildGoBinary(threeportPath, imageName, arch string, noCache bool) error {
 
 // DockerBuildxImage builds a specified docker image
 // with the 'docker buildx' command.
-func DockerBuildxImage(threeportPath, imageName, tag, arch string) error {
+func DockerBuildxImage(threeportPath, imageName, componentName, tag, arch string) error {
 
 	// construct build arguments
 	buildArgs := []string{
@@ -154,7 +154,7 @@ func DockerBuildxImage(threeportPath, imageName, tag, arch string) error {
 		"buildx",
 		"build",
 		"--build-arg",
-		fmt.Sprintf("BINARY=%s", imageName),
+		fmt.Sprintf("BINARY=%s", componentName),
 		"--target",
 		"dev",
 		"--load",

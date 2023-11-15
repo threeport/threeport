@@ -133,6 +133,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.LiveReload = false
 	cpi.Opts.CreateOrUpdateKubeResources = false
 	cpi.Opts.ControlPlaneOnly = a.ControlPlaneOnly
+	cpi.Opts.RestApiEksLoadBalancer = true
 
 	return cpi, nil
 }
@@ -645,9 +646,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			}
 		}
 	}
-
-	fmt.Println("this is the endpoint")
-	fmt.Println(threeportAPIEndpoint)
 
 	// if auth enabled install the threeport API TLS assets that include the alt
 	// name for the remote load balancer if applicable
