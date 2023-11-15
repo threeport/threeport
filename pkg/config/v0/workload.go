@@ -63,12 +63,9 @@ type WorkloadInstanceValues struct {
 func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 
 	// validate required fields don't already exist in threeport
-	isValid, err := w.Validate(apiClient, apiEndpoint)
+	err := w.Validate(apiClient, apiEndpoint)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to validate threeport state: %w", err)
-	}
-	if !isValid {
-		return nil, nil, errors.New("workload dependencies already exist in threeport")
 	}
 
 	// create the workload definition
@@ -195,26 +192,14 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	if w.DomainName != nil {
 		// get domain name instance by name
 		domainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, w.DomainName.Name)
-		if err != nil && errors.Is(err, client.ErrorObjectNotFound) {
-			return nil, nil, fmt.Errorf("failed to find domain name instance with name %s: %w", w.DomainName.Name, err)
-		}
-
-		// delete domain name instance
-		_, err = client.DeleteDomainNameInstance(apiClient, apiEndpoint, *domainNameInstance.ID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to delete domain name instance from threeport API: %w", err)
+		if err == nil {
+			client.DeleteDomainNameInstance(apiClient, apiEndpoint, *domainNameInstance.ID)
 		}
 
 		// get domain name definition by name
 		domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, w.DomainName.Name)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to find domain name definition with name %s: %w", w.DomainName.Name, err)
-		}
-
-		// delete domain name definition
-		_, err = client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *domainNameDefinition.ID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to delete domain name definition from threeport API: %w", err)
+		if err == nil {
+			client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *domainNameDefinition.ID)
 		}
 	}
 
@@ -222,26 +207,15 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 		// get gateway instance by name
 		gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, w.Gateway.Name)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to find gateway instance with name %s: %w", w.Gateway.Name, err)
-		}
-
-		// delete gateway instance
-		_, err = client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to delete gateway instance from threeport API: %w", err)
+			client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
 		}
 
 		// get gateway definition by name
 		gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, w.Gateway.Name)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to find gateway definition with name %s: %w", w.Gateway.Name, err)
+			client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
 		}
 
-		// delete gateway definition
-		_, err = client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to delete gateway definition from threeport API: %w", err)
-		}
 	}
 
 	// get workload instance by name

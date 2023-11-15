@@ -8,169 +8,148 @@ import (
 )
 
 type Exists interface {
-	Exists(apiClient *http.Client, apiEndpoint string) (bool, error)
+	Exists(apiClient *http.Client, apiEndpoint string, exists bool) error
 }
 
-func (v *WorkloadDefinitionValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
-	_, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, v.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", v.Name, err)
+func assert(err error, exists bool, object, name string) error {
+	switch {
+	case err == nil && exists:
+		return nil
+	case err != nil && !exists:
+		return nil
+	case err == nil && !exists:
+		return fmt.Errorf("%s with name %s already exists", object, name)
+	case err != nil && exists:
+		return fmt.Errorf("%s with name %s does not exist: %w", object, name, err)
+	default:
+		return nil
 	}
-	return true, nil
 }
 
-func (v *WorkloadInstanceValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *WorkloadDefinitionValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	_, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, v.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", v.Name, err)
-	}
-	return true, nil
+	return assert(err, exists, "workload definition", v.Name)
 }
 
-func (v *KubernetesRuntimeInstanceValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *WorkloadInstanceValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
+	_, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, v.Name)
+	return assert(err, exists, "workload instance", v.Name)
+}
+
+func (v *KubernetesRuntimeInstanceValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	_, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, v.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", v.Name, err)
-	}
-	return true, nil
+	return assert(err, exists, "kubernetes runtime instance", v.Name)
 }
 
-func (v *DomainNameDefinitionValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *DomainNameDefinitionValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	_, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, v.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find domain name definition with name %s: %w", v.Name, err)
-	}
-	return true, nil
+	return assert(err, exists, "domain name definition", v.Name)
 }
 
-func (v *DomainNameInstanceValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *DomainNameInstanceValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	_, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, v.DomainNameDefinition.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find domain name definition with name %s: %w", v.DomainNameDefinition.Name, err)
-	}
-	return true, nil
+	return assert(err, exists, "domain name instance", v.DomainNameDefinition.Name)
 }
 
-func (v *GatewayDefinitionValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *GatewayDefinitionValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	_, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, v.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find gateway definition with name %s: %w", v.Name, err)
-	}
-	return true, nil
+	return assert(err, exists, "gateway definition", v.Name)
 }
 
-func (v *GatewayInstanceValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *GatewayInstanceValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	_, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, v.GatewayDefinition.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find gateway definition with name %s: %w", v.GatewayDefinition.Name, err)
-	}
-	return true, nil
+	return assert(err, exists, "gateway instance", v.GatewayDefinition.Name)
 }
 
-func (v *AwsRelationalDatabaseValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *AwsRelationalDatabaseValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	awsRelationalDatabaseDefinition := AwsRelationalDatabaseDefinitionValues{
 		Name: v.Name,
 	}
 	awsRelationalDatabaseInstanceValues := AwsRelationalDatabaseInstanceValues{
 		Name: v.Name,
 	}
-	if _, err := awsRelationalDatabaseDefinition.Exists(apiClient, apiEndpoint); err != nil {
-		return false, err
+	if err := awsRelationalDatabaseDefinition.Exists(apiClient, apiEndpoint, exists); err != nil {
+		return err
 	}
-	if _, err := awsRelationalDatabaseInstanceValues.Exists(apiClient, apiEndpoint); err != nil {
-		return false, err
+	if err := awsRelationalDatabaseInstanceValues.Exists(apiClient, apiEndpoint, exists); err != nil {
+		return err
 	}
-	return true, nil
+	return nil
 }
 
-func (v *AwsRelationalDatabaseDefinitionValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *AwsRelationalDatabaseDefinitionValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	_, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, v.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find aws relational database definition with name %s: %w", v.Name, err)
-	}
-	return true, nil
+	return assert(err, exists, "aws relational database definition", v.Name)
 }
 
-func (v *AwsRelationalDatabaseInstanceValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *AwsRelationalDatabaseInstanceValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	_, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, v.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find aws relational database definition with name %s: %w", v.Name, err)
-	}
-	return true, nil
+	return assert(err, exists, "aws relational database instance", v.Name)
 }
 
-func (v *AwsObjectStorageBucketValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *AwsObjectStorageBucketValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	awsObjectStorageBucketDefinition := AwsObjectStorageBucketDefinitionValues{
 		Name: v.Name,
 	}
 	awsObjectStorageBucketInstance := AwsObjectStorageBucketInstanceValues{
 		Name: v.Name,
 	}
-	if _, err := awsObjectStorageBucketDefinition.Exists(apiClient, apiEndpoint); err != nil {
-		return false, err
+	if err := awsObjectStorageBucketDefinition.Exists(apiClient, apiEndpoint, exists); err != nil {
+		return err
 	}
-	if _, err := awsObjectStorageBucketInstance.Exists(apiClient, apiEndpoint); err != nil {
-		return false, err
+	if err := awsObjectStorageBucketInstance.Exists(apiClient, apiEndpoint, exists); err != nil {
+		return err
 	}
-	return true, nil
+	return nil
 }
 
-func (v *AwsObjectStorageBucketDefinitionValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *AwsObjectStorageBucketDefinitionValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	_, err := client.GetAwsObjectStorageBucketDefinitionByName(apiClient, apiEndpoint, v.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find aws object storage bucket definition with name %s: %w", v.Name, err)
-	}
-	return true, nil
+	return assert(err, exists, "object storage bucket definition", v.Name)
 }
 
-func (v *AwsObjectStorageBucketInstanceValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (v *AwsObjectStorageBucketInstanceValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	_, err := client.GetAwsObjectStorageBucketInstanceByName(apiClient, apiEndpoint, v.Name)
-	if err != nil {
-		return false, fmt.Errorf("failed to find aws object storage bucket definition with name %s: %w", v.Name, err)
-	}
-	return true, nil
+	return assert(err, exists, "object storage bucket instance", v.Name)
 }
 
-func AssertDoesExist(apiClient *http.Client, apiEndpoint string, v ...Exists) (bool, error) {
+func AssertDoesExist(apiClient *http.Client, apiEndpoint string, v ...Exists) error {
 	for _, value := range v {
-		_, err := value.Exists(apiClient, apiEndpoint)
+		err := value.Exists(apiClient, apiEndpoint, true)
 		if err != nil {
-			return false, err
+			return err
 		}
 	}
-	return true, nil
+	return nil
 }
 
-func AssertDoesNotExist(apiClient *http.Client, apiEndpoint string, v ...Exists) (bool, error) {
+func AssertDoesNotExist(apiClient *http.Client, apiEndpoint string, v ...Exists) error {
 	for _, value := range v {
-		exists, err := value.Exists(apiClient, apiEndpoint)
+		err := value.Exists(apiClient, apiEndpoint, false)
 		if err != nil {
-			return false, err
-		}
-		if exists {
-			return false, fmt.Errorf("value %v already exists", )
+			return err
 		}
 	}
-	return true, nil
+	return nil
 }
 
-func (w *WorkloadValues) Exists(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (w *WorkloadValues) Exists(apiClient *http.Client, apiEndpoint string, exists bool) error {
 	workloadDefinition := WorkloadDefinitionValues{
 		Name: w.Name,
 	}
 	workloadInstance := WorkloadInstanceValues{
 		Name: w.Name,
 	}
-	if _, err := workloadDefinition.Exists(apiClient, apiEndpoint); err != nil {
-		return false, err
+	if err := workloadDefinition.Exists(apiClient, apiEndpoint, exists); err != nil {
+		return err
 	}
-	if _, err := workloadInstance.Exists(apiClient, apiEndpoint); err != nil {
-		return false, err
+	if err := workloadInstance.Exists(apiClient, apiEndpoint, exists); err != nil {
+		return err
 	}
-	return true, nil
+	return nil
 }
 
-func (w *WorkloadValues) Validate(apiClient *http.Client, apiEndpoint string) (bool, error) {
+func (w *WorkloadValues) Validate(apiClient *http.Client, apiEndpoint string) error {
 
 	exists := []Exists{w}
 
@@ -187,20 +166,14 @@ func (w *WorkloadValues) Validate(apiClient *http.Client, apiEndpoint string) (b
 		exists = append(exists, w.AwsObjectStorageBucket)
 	}
 
-	assertion, err := AssertDoesNotExist(apiClient, apiEndpoint, exists...)
+	err := AssertDoesNotExist(apiClient, apiEndpoint, exists...)
 	if err != nil {
-		return false, err
-	}
-	if !assertion {
-		return false, fmt.Errorf("workload with name %s already exists", w.Name)
+		return err
 	}
 
-	if assertion, err = AssertDoesExist(apiClient, apiEndpoint, w.KubernetesRuntimeInstance); err != nil {
-		return false, err
-	}
-	if !assertion {
-		return false, fmt.Errorf("kubernetes runtime instance with name %s does not exist", w.KubernetesRuntimeInstance.Name)
+	if err = AssertDoesExist(apiClient, apiEndpoint, w.KubernetesRuntimeInstance); err != nil {
+		return err
 	}
 
-	return true, nil
+	return nil
 }
