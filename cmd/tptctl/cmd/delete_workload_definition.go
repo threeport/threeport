@@ -86,13 +86,13 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 
 		// delete workload definition
 		workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-		wd, err := workloadDefinition.Delete(apiClient, apiEndpoint)
+		err = workloadDefinition.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload definition", err)
 			os.Exit(1)
 		}
 
-		cli.Complete(fmt.Sprintf("workload definition %s deleted", *wd.Name))
+		cli.Complete(fmt.Sprintf("workload definition %s deleted", workloadDefinition.Name))
 	},
 }
 

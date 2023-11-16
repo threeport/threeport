@@ -67,6 +67,21 @@ func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, ap
 	return createdDomainNameDefinition, nil
 }
 
+func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+	// check if domain name definition exists
+	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Name)
+	if err != nil {
+		return nil
+	}
+
+	_, err = client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *existingDomainNameDefinition.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameInstance, error) {
 	// validate required fields
 	if d.DomainNameDefinition.Name == "" || d.WorkloadInstance.Name == "" ||
@@ -115,4 +130,19 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	}
 
 	return createdDomainNameInstance, nil
+}
+
+func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+	// check if domain name definition exists
+	existingDomainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.DomainNameDefinition.Name)
+	if err != nil {
+		return nil
+	}
+
+	_, err = client.DeleteDomainNameInstance(apiClient, apiEndpoint, *existingDomainNameInstance.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
