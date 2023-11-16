@@ -127,6 +127,10 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if domainNameInstance.DeletionScheduled != nil {
+					log.Info("domain name instance scheduled for deletion - skipping reconciliation")
+					break
+				}
 				customRequeueDelay, err := domainNameInstanceCreated(r, &domainNameInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created domain name instance object")

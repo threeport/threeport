@@ -86,13 +86,15 @@ func domainNameInstanceDeleted(
 			// workload instance has already been deleted
 			return 0, nil
 		}
-		return 0, fmt.Errorf("failed to get workload instance: %w", err)
+		log.Error(err, "failed to get workload instance")
+		return 0, nil
 	}
 
 	// get domain name definition
 	domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *domainNameInstance.DomainNameDefinitionID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get domain name definition: %w", err)
+		log.Error(err, "failed to get domain name definition")
+		return 0, nil
 	}
 
 	// configure virtual service
@@ -102,7 +104,8 @@ func domainNameInstanceDeleted(
 			// workload resource instance has already been deleted
 			return 0, nil
 		}
-		return 0, fmt.Errorf("failed to configure virtual service: %w", err)
+		log.Error(err, "failed to configure virtual service")
+		return 0, nil
 	}
 
 	// update workload resource instance
@@ -112,7 +115,8 @@ func domainNameInstanceDeleted(
 			// workload resource instance has already been deleted
 			return 0, nil
 		}
-		return 0, fmt.Errorf("failed to create workload resource instance: %w", err)
+		log.Error(err, "failed to create workload resource instance")
+		return 0, nil
 	}
 
 	// trigger a reconciliation of the workload instance
@@ -124,7 +128,8 @@ func domainNameInstanceDeleted(
 			// workload instance has already been deleted
 			return 0, nil
 		}
-		return 0, fmt.Errorf("failed to update workload instance: %w", err)
+		log.Error(err, "failed to update workload instance")
+		return 0, nil
 	}
 
 	// delete the domain name instance that was scheduled for deletion
@@ -146,7 +151,8 @@ func domainNameInstanceDeleted(
 		&deletedDomainNameInstance,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of domain name instance in threeport API: %w", err)
+		log.Error(err, "failed to update domain name instance")
+		return 0, nil
 	}
 	_, err = client.DeleteDomainNameInstance(
 		r.APIClient,
@@ -154,7 +160,8 @@ func domainNameInstanceDeleted(
 		*domainNameInstance.ID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to delete domain name instance in threeport API: %w", err)
+		log.Error(err, "failed to delete domain name instance in threeport API")
+		return 0, nil
 	}
 
 	return 0, nil

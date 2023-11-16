@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -378,6 +379,9 @@ func workloadInstanceDeleted(
 	// check to see if reconciled - it should not be, but if so we should do no
 	// more
 	if workloadInstance.DeletionConfirmed != nil {
+		if customRequeueDelay, err := deleteWorkloadInstance(r, workloadInstance.ID); err != nil {
+			return customRequeueDelay, fmt.Errorf("failed to delete workload instance: %w", err)
+		}
 		return 0, nil
 	}
 
@@ -392,6 +396,9 @@ func workloadInstanceDeleted(
 	}
 	if len(*workloadResourceInstances) == 0 {
 		// no workload resource instances to clean up
+		if customRequeueDelay, err := deleteWorkloadInstance(r, workloadInstance.ID); err != nil {
+			return customRequeueDelay, fmt.Errorf("failed to delete workload instance: %w", err)
+		}
 		return 0, nil
 	}
 
@@ -433,10 +440,12 @@ func workloadInstanceDeleted(
 	for _, object := range *attachedObjectReferences {
 		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.Type, *object.ObjectID)
 		if err != nil {
-			if errors.Is(err, client.ErrorObjectNotFound) {
-				// attached object has already been deleted
+			switch {
+			case errors.Is(err, client.ErrorObjectNotFound):
 				log.Info("attached object has already been deleted", "objectID", *object.ObjectID)
-			} else {
+			case strings.Contains(err.Error(), "already being deleted"):
+				log.Info("attached object is already being deleted", "objectID", *object.ObjectID)
+			default:
 				return 0, fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.Type, *object.ID, err)
 			}
 		}
@@ -497,12 +506,24 @@ func workloadInstanceDeleted(
 		return 0, fmt.Errorf("failed to delete ThreeportWorkload resource: %w", err)
 	}
 
+	if customRequeueDelay, err := deleteWorkloadInstance(r, workloadInstance.ID); err != nil {
+		return customRequeueDelay, fmt.Errorf("failed to delete workload instance: %w", err)
+	}
+
+	return 0, nil
+}
+
+func deleteWorkloadInstance(
+	r *controller.Reconciler,
+	id *uint,
+) (int64, error) {
+
 	// delete the workload instance that was scheduled for deletion
 	deletionReconciled := true
 	deletionTimestamp := time.Now().UTC()
 	deletedWorkloadInstance := v0.WorkloadInstance{
 		Common: v0.Common{
-			ID: workloadInstance.ID,
+			ID: id,
 		},
 		Reconciliation: v0.Reconciliation{
 			Reconciled:           &deletionReconciled,
@@ -510,7 +531,7 @@ func workloadInstanceDeleted(
 			DeletionConfirmed:    &deletionTimestamp,
 		},
 	}
-	_, err = client.UpdateWorkloadInstance(
+	_, err := client.UpdateWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&deletedWorkloadInstance,
@@ -521,7 +542,7 @@ func workloadInstanceDeleted(
 	_, err = client.DeleteWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
-		*workloadInstance.ID,
+		*id,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete workload instance in threeport API: %w", err)

@@ -5,13 +5,14 @@ package workload
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -127,6 +128,10 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if workloadInstance.DeletionScheduled != nil {
+					log.Info("workload instance instance scheduled for deletion - skipping create step")
+					break
+				}
 				customRequeueDelay, err := workloadInstanceCreated(r, &workloadInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created workload instance object")
@@ -171,6 +176,16 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
+				if workloadInstance.Reconciled != nil && !*workloadInstance.Reconciled {
+					log.Info("workload instance not yet reconciled -- skipping deletion")
+					r.UnlockAndRequeue(
+						&workloadInstance,
+						requeueDelay,
+						lockReleased,
+						msg,
+					)
+					continue
+				}
 				customRequeueDelay, err := workloadInstanceDeleted(r, &workloadInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile deleted workload instance object")
