@@ -1158,7 +1158,7 @@ func (cpi *ControlPlaneInstaller) DeleteNamespaces(
 
 	// wait for all namespaces to be deleted
 	for _, name := range namespaces {
-		util.Retry(24, 5, func() error {
+		util.Retry(120, 1, func() error {
 			_, err := kube.GetResource(
 				"",
 				"",
@@ -1323,6 +1323,7 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string) []interface{} {
 		if !cpi.Opts.AuthEnabled {
 			args = append(args, "--")
 			args = append(args, "-auth-enabled=false")
+			args = append(args, "-verbose=true")
 		}
 
 		// controller arguments must be wrapped in delve arguments
@@ -1731,8 +1732,9 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 }
 
 func (cpi *ControlPlaneInstaller) getReadinessProbe() map[string]interface{} {
-	var readinessProbe = &unstructured.Unstructured{
-		Object: map[string]interface{}{
+	var readinessProbe map[string]interface{}
+	if !cpi.Opts.Debug {
+		readinessProbe = map[string]interface{}{
 			"failureThreshold": 1,
 			"httpGet": map[string]interface{}{
 				"path":   "/readyz",
@@ -1743,9 +1745,9 @@ func (cpi *ControlPlaneInstaller) getReadinessProbe() map[string]interface{} {
 			"periodSeconds":       2,
 			"successThreshold":    1,
 			"timeoutSeconds":      1,
-		},
+		}
 	}
-	return readinessProbe.Object
+	return readinessProbe
 }
 
 func (cpi *ControlPlaneInstaller) getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []interface{}) {
