@@ -36,11 +36,36 @@ type GatewayInstanceValues struct {
 	WorkloadInstance          WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 }
 
+func (g *GatewayDefinitionValues) Validate() error {
+	multiError := MultiError{}
+
+	if g.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: Name"))
+	}
+
+	if g.TCPPort == 0 {
+		multiError.AppendError(errors.New("missing required field in config: TCPPort"))
+	}
+
+	if g.DomainNameDefinition.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: DomainNameDefinition.Name"))
+	}
+
+	if len(multiError.Errors) > 0 {
+		return multiError.Error()
+	}
+
+	return nil
+}
+
 // Create creates a gateway definition.
 func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, error) {
 	// validate required fields
-	if g.Name == "" || g.TCPPort == 0 || g.DomainNameDefinition.Name == "" {
-		return nil, errors.New("missing required field/s in config - required fields: Name, TCPPort, DomainNameDefinition.Name")
+	// if g.Name == "" || g.TCPPort == 0 || g.DomainNameDefinition.Name == "" {
+	// 	return nil, errors.New("missing required field/s in config - required fields: Name, TCPPort, DomainNameDefinition.Name")
+	// }
+	if err := g.Validate(); err != nil {
+		return nil, err
 	}
 
 	// get domain name definition
