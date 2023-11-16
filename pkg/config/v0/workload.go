@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/threeport/threeport/internal/workload/status"
@@ -59,14 +60,55 @@ type WorkloadInstanceValues struct {
 	WorkloadDefinition        WorkloadDefinitionValues         `yaml:"WorkloadDefinition"`
 }
 
+type removable interface {
+	Delete(apiClient *http.Client, apiEndpoint string) error
+}
+
+func cleanOnCreateError(apiClient *http.Client, apiEndpoint string, createErr error, objects ...removable) error {
+
+	if strings.Contains(createErr.Error(), "409") {
+		return createErr
+	}
+
+	multiError := MultiError{}
+	for _, object := range objects {
+		if object == nil {
+			continue
+		}
+		err := object.Delete(apiClient, apiEndpoint)
+		if err != nil {
+			multiError.AddError(err)
+		}
+	}
+	return errors.New(multiError.Error())
+}
+
+type MultiError struct {
+	Errors []error
+}
+
+func (me MultiError) AddError(err error) {
+	me.Errors = append(me.Errors, err)
+}
+
+func (me MultiError) Error() string {
+	errorMessages := make([]string, len(me.Errors))
+	for i, err := range me.Errors {
+		errorMessages[i] = err.Error()
+	}
+	return strings.Join(errorMessages, "; ")
+}
+
+var errConflict = errors.New("API returned status: 409, Conflict\n{\n  \"code\": 409,\n  \"message\": \"Conflict\",\n  \"error\": \"object with provided name already exists\"\n}\nexpected: 201")
+
 // Create creates a workload definition and instance in the Threeport API.
 func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 
-	// validate required fields don't already exist in threeport
-	err := w.Validate(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to validate threeport state: %w", err)
-	}
+	// // validate required fields don't already exist in threeport
+	// err := w.ValidateThreeportState(apiClient, apiEndpoint)
+	// if err != nil {
+	// 	return nil, nil, fmt.Errorf("failed to validate threeport state: %w", err)
+	// }
 
 	// create the workload definition
 	workloadDefinition := WorkloadDefinitionValues{
@@ -76,6 +118,12 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 	}
 	createdWorkloadDefinition, err := workloadDefinition.Create(apiClient, apiEndpoint)
 	if err != nil {
+		// return nil, nil, cleanOnCreateError(
+		// 	apiClient,
+		// 	apiEndpoint,
+		// 	err,
+		// 	&workloadDefinition,
+		// )
 		return nil, nil, fmt.Errorf("failed to create workload definition: %w", err)
 	}
 
@@ -89,34 +137,59 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 	}
 	createdWorkloadInstance, err := workloadInstance.Create(apiClient, apiEndpoint)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create workload instance: %w", err)
+		return nil, nil, cleanOnCreateError(
+			apiClient,
+			apiEndpoint,
+			err,
+			&workloadDefinition,
+		)
+		// return nil, nil, fmt.Errorf("failed to create workload instance: %w", err)
 	}
 
+	var domainNameDefinition DomainNameDefinitionValues
+	var domainNameInstance DomainNameInstanceValues
+	var gatewayDefinition GatewayDefinitionValues
+	var gatewayInstance GatewayInstanceValues
 	if w.DomainName != nil && w.Gateway != nil {
 		// create the domain name definition
-		domainNameDefinition := DomainNameDefinitionValues{
+		domainNameDefinition = DomainNameDefinitionValues{
 			Name:       w.DomainName.Name,
 			Zone:       w.DomainName.Zone,
 			AdminEmail: w.DomainName.AdminEmail,
 		}
 		_, err = domainNameDefinition.CreateIfNotExist(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create domain name definition: %w", err)
+			return nil, nil, cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				err,
+				&workloadInstance,
+				&workloadDefinition,
+			)
+			// return nil, nil, fmt.Errorf("failed to create domain name definition: %w", err)
 		}
 
 		// create the domain name instance
-		domainNameInstance := DomainNameInstanceValues{
+		domainNameInstance = DomainNameInstanceValues{
 			DomainNameDefinition:      domainNameDefinition,
 			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
 			WorkloadInstance:          workloadInstance,
 		}
 		_, err = domainNameInstance.Create(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create domain name instance: %w", err)
+			return nil, nil, cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				err,
+				&workloadInstance,
+				&workloadDefinition,
+				&domainNameDefinition,
+			)
+			// return nil, nil, fmt.Errorf("failed to create domain name instance: %w", err)
 		}
 
 		// create the gateway definition
-		gatewayDefinition := GatewayDefinitionValues{
+		gatewayDefinition = GatewayDefinitionValues{
 			Name:                 w.Gateway.Name,
 			TCPPort:              w.Gateway.TCPPort,
 			TLSEnabled:           w.Gateway.TLSEnabled,
@@ -126,22 +199,42 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		}
 		_, err = gatewayDefinition.Create(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create gateway definition: %w", err)
+			return nil, nil, cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				err,
+				&workloadInstance,
+				&workloadDefinition,
+				&domainNameInstance,
+				&domainNameDefinition,
+			)
+			// return nil, nil, fmt.Errorf("failed to create gateway definition: %w", err)
 		}
 
 		// create the gateway instance
-		gatewayInstance := GatewayInstanceValues{
+		gatewayInstance = GatewayInstanceValues{
 			GatewayDefinition:         gatewayDefinition,
 			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
 			WorkloadInstance:          workloadInstance,
 		}
 		_, err = gatewayInstance.Create(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create gateway instance: %w", err)
+			return nil, nil, cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				err,
+				&workloadInstance,
+				&workloadDefinition,
+				&domainNameInstance,
+				&domainNameDefinition,
+				&gatewayDefinition,
+			)
+			// return nil, nil, fmt.Errorf("failed to create gateway instance: %w", err)
 		}
 	}
 
 	// create AWS relational database
+	var awsRelationalDatabase AwsRelationalDatabaseValues
 	if w.AwsRelationalDatabase != nil {
 		awsRelationalDatabase := AwsRelationalDatabaseValues{
 			Name:               w.AwsRelationalDatabase.Name,
@@ -160,7 +253,18 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		}
 		_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create AWS relational database: %w", err)
+			return nil, nil, cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				err,
+				&workloadInstance,
+				&workloadDefinition,
+				&domainNameInstance,
+				&domainNameDefinition,
+				&gatewayInstance,
+				&gatewayDefinition,
+			)
+			// return nil, nil, fmt.Errorf("failed to create AWS relational database: %w", err)
 		}
 	}
 
@@ -178,7 +282,19 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		}
 		_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create AWS object storage bucket: %w", err)
+			return nil, nil, cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				err,
+				&workloadInstance,
+				&workloadDefinition,
+				&domainNameInstance,
+				&domainNameDefinition,
+				&gatewayInstance,
+				&gatewayDefinition,
+				&awsRelationalDatabase,
+			)
+			// return nil, nil, fmt.Errorf("failed to create AWS object storage bucket: %w", err)
 		}
 	}
 
@@ -320,20 +436,20 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 }
 
 // Delete deletes a workload definition from the Threeport API.
-func (wd *WorkloadDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, error) {
+func (wd *WorkloadDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) error {
 	// get workload definition by name
 	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, wd.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", wd.Name, err)
+		return fmt.Errorf("failed to find workload definition with name %s: %w", wd.Name, err)
 	}
 
 	// delete workload definition
-	deletedWorkloadDefinition, err := client.DeleteWorkloadDefinition(apiClient, apiEndpoint, *workloadDefinition.ID)
+	_, err = client.DeleteWorkloadDefinition(apiClient, apiEndpoint, *workloadDefinition.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete workload definition from threeport API: %w", err)
+		return fmt.Errorf("failed to delete workload definition from threeport API: %w", err)
 	}
 
-	return deletedWorkloadDefinition, nil
+	return nil
 }
 
 // Create creates a workload instance in the Threeport API.
@@ -410,18 +526,18 @@ func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint s
 }
 
 // Delete deletes a workload instance from the Threeport API.
-func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadInstance, error) {
+func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) error {
 	// get workload instance by name
 	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", wi.Name, err)
+		return fmt.Errorf("failed to find workload instance with name %s: %w", wi.Name, err)
 	}
 
 	// delete workload instance
-	deletedWorkloadInstance, err := client.DeleteWorkloadInstance(apiClient, apiEndpoint, *workloadInstance.ID)
+	_, err = client.DeleteWorkloadInstance(apiClient, apiEndpoint, *workloadInstance.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
+		return fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
 	}
 
-	return deletedWorkloadInstance, nil
+	return nil
 }

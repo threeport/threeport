@@ -7,7 +7,7 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
-type Exists interface {
+type StateAssertion interface {
 	Exists(apiClient *http.Client, apiEndpoint string, exists bool) error
 }
 
@@ -20,7 +20,7 @@ func assert(err error, exists bool, object, name string) error {
 	case err == nil && !exists:
 		return fmt.Errorf("%s with name %s already exists", object, name)
 	case err != nil && exists:
-		return fmt.Errorf("%s with name %s does not exist: %w", object, name, err)
+		return fmt.Errorf("failed to assert that %s with name %s exists: %w", object, name, err)
 	default:
 		return nil
 	}
@@ -113,7 +113,7 @@ func (v *AwsObjectStorageBucketInstanceValues) Exists(apiClient *http.Client, ap
 	return assert(err, exists, "object storage bucket instance", v.Name)
 }
 
-func AssertDoesExist(apiClient *http.Client, apiEndpoint string, v ...Exists) error {
+func AssertDoesExist(apiClient *http.Client, apiEndpoint string, v ...StateAssertion) error {
 	for _, value := range v {
 		err := value.Exists(apiClient, apiEndpoint, true)
 		if err != nil {
@@ -123,7 +123,7 @@ func AssertDoesExist(apiClient *http.Client, apiEndpoint string, v ...Exists) er
 	return nil
 }
 
-func AssertDoesNotExist(apiClient *http.Client, apiEndpoint string, v ...Exists) error {
+func AssertDoesNotExist(apiClient *http.Client, apiEndpoint string, v ...StateAssertion) error {
 	for _, value := range v {
 		err := value.Exists(apiClient, apiEndpoint, false)
 		if err != nil {
@@ -149,29 +149,28 @@ func (w *WorkloadValues) Exists(apiClient *http.Client, apiEndpoint string, exis
 	return nil
 }
 
-func (w *WorkloadValues) Validate(apiClient *http.Client, apiEndpoint string) error {
+func (w *WorkloadValues) ValidateThreeportState(apiClient *http.Client, apiEndpoint string) error {
 
-	exists := []Exists{w}
+	assertions := []StateAssertion{w}
 
 	if w.DomainName != nil && w.Gateway != nil {
-		exists = append(exists, w.DomainName)
-		exists = append(exists, w.Gateway)
+		assertions = append(assertions, w.DomainName)
+		assertions = append(assertions, w.Gateway)
 	}
 
 	if w.AwsRelationalDatabase != nil {
-		exists = append(exists, w.AwsRelationalDatabase)
+		assertions = append(assertions, w.AwsRelationalDatabase)
 	}
 
 	if w.AwsObjectStorageBucket != nil {
-		exists = append(exists, w.AwsObjectStorageBucket)
+		assertions = append(assertions, w.AwsObjectStorageBucket)
 	}
 
-	err := AssertDoesNotExist(apiClient, apiEndpoint, exists...)
-	if err != nil {
+	if err := AssertDoesNotExist(apiClient, apiEndpoint, assertions...); err != nil {
 		return err
 	}
 
-	if err = AssertDoesExist(apiClient, apiEndpoint, w.KubernetesRuntimeInstance); err != nil {
+	if err := AssertDoesExist(apiClient, apiEndpoint, w.KubernetesRuntimeInstance); err != nil {
 		return err
 	}
 

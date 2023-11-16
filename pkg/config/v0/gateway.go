@@ -70,6 +70,21 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 	return createdGatewayDefinition, nil
 }
 
+func (g *GatewayDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+	// get domain name definition
+	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Create creates a gateway instance.
 func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayInstance, error) {
 	// validate required fields
@@ -113,4 +128,17 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 	}
 
 	return createdGatewayInstance, nil
+}
+
+func (g *GatewayInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, g.GatewayDefinition.Name)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
+	if err != nil {
+		return err
+	}
+	return nil
 }
