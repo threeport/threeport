@@ -127,14 +127,14 @@ dev-reset-crdb:
 		gateway_instances, \
 		gateway_definitions, \
 		domain_name_definitions, \
-		domain_name_instances, \
-		control_plane_definitions, \
-		control_plane_components, \
-		control_plane_instances; \
+		domain_name_instances; \
 		set sql_safe_updates = false; \
 		update kubernetes_runtime_instances set gateway_controller_instance_id = NULL; \
 		update kubernetes_runtime_instances set dns_controller_instance_id = NULL; \
-		set sql_safe_updates = true;"
+		set sql_safe_updates = true; \
+		DELETE FROM control_plane_definitions WHERE name != 'dev-0'; \
+		DELETE FROM control_plane_instances WHERE name != 'dev-0'; \
+		DELETE FROM control_plane_components WHERE name != 'dev-0';" \
 
 #TODO: move to kubectl exec command that uses `nats` binary in contianer
 #dev-sub-nats: @ Subscribe to all messages from nats server locally (must first run `make dev-forward-nats` in another terminal)
