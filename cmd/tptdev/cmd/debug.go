@@ -221,6 +221,10 @@ func init() {
 		&liveReload,
 		"live-reload", false, "Enable live-reload via air.",
 	)
+	debugCmd.Flags().BoolVar(
+		&cliArgs.Verbose,
+		"verbose", false, "Enable verbose logging in control plane components, delve, and cli logs.",
+	)
 	debugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "c", tptdev.DefaultInstanceName, "Name of dev control plane instance.",

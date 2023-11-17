@@ -83,6 +83,10 @@ func init() {
 		&cliArgs.ControlPlaneOnly,
 		"control-plane-only", false, "Deploy the control plane on an existing runtime. Defaults to false.",
 	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.Debug,
+		"debug", false, "Debug threeport control plane components.",
+	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)
 	})

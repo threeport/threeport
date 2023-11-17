@@ -1360,7 +1360,12 @@ func getAirArgs(name, extraArgs string) []interface{} {
 }
 
 // getDelveArgs returns the args that are passed to delve.
+// func (cpi *ControlPlaneInstaller) getDelveArgs(name string) []string {
 func getDelveArgs(name string) []string {
+	// args := []string {}
+	// if cpi.Opts.Verbose {
+	// 	args = append(args, "--log")
+	// }
 	args := []string{
 		"--continue",
 		"--accept-multiclient",

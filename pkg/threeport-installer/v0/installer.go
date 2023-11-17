@@ -40,6 +40,7 @@ type Options struct {
 	Debug                       bool
 	LiveReload                  bool
 	ControlPlaneOnly            bool
+	Verbose                     bool
 }
 
 type ControlPlaneInstaller struct {
