@@ -6,6 +6,7 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // GatewayDefinitionConfig contains the config for a gateway definition.
@@ -37,7 +38,7 @@ type GatewayInstanceValues struct {
 }
 
 func (g *GatewayDefinitionValues) Validate() error {
-	multiError := MultiError{}
+	multiError := util.MultiError{}
 
 	if g.Name == "" {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
