@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/threeport/threeport/internal/workload/status"
@@ -93,7 +92,7 @@ func (r *DeletableStack) Pop() deletable {
 // cleanOnCreateError cleans up resources created during a create operation
 func (r *DeletableStack) cleanOnCreateError(apiClient *http.Client, apiEndpoint string, createErr error) error {
 
-	multiError := MultiError{}
+	multiError := util.MultiError{}
 	multiError.AppendError(createErr)
 
 	for {
@@ -108,26 +107,7 @@ func (r *DeletableStack) cleanOnCreateError(apiClient *http.Client, apiEndpoint 
 	return multiError.Error()
 }
 
-// MultiError is an error type that contains multiple errors.
-type MultiError struct {
-	Errors []error
-}
-
 type createOperation func() (deletable, string, error)
-
-// AppendError adds an error to the MultiError.
-func (me *MultiError) AppendError(err error) {
-	me.Errors = append(me.Errors, err)
-}
-
-// Error returns a string representation of the MultiError.
-func (me MultiError) Error() error {
-	errorMessages := make([]string, len(me.Errors))
-	for i, err := range me.Errors {
-		errorMessages[i] = err.Error()
-	}
-	return errors.New(strings.Join(errorMessages, "\n"))
-}
 
 // Create executes an operation and adds a deletable to the deletable stack.
 func (r *DeletableStack) Create(apiClient *http.Client, apiEndpoint string, createOperation createOperation) error {
