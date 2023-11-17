@@ -668,35 +668,5 @@ func controlPlaneInstanceDeleted(
 		}
 	}
 
-	// delete the control plane instance that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedControlPlaneInstance := v0.ControlPlaneInstance{
-		Common: v0.Common{
-			ID: controlPlaneRuntimeInstance.ID,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err = client.UpdateControlPlaneInstance(
-		r.APIClient,
-		r.APIServer,
-		&deletedControlPlaneInstance,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of control plane instance in threeport API: %w", err)
-	}
-	_, err = client.DeleteControlPlaneInstance(
-		r.APIClient,
-		r.APIServer,
-		*controlPlaneRuntimeInstance.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete control plane instance in threeport API: %w", err)
-	}
-
 	return 0, nil
 }

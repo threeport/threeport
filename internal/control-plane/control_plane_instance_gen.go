@@ -5,14 +5,15 @@ package controlplane
 import (
 	"errors"
 	"fmt"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // ControlPlaneInstanceReconciler reconciles system state when a ControlPlaneInstance
@@ -128,6 +129,10 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if controlPlaneInstance.DeletionScheduled != nil {
+					log.Info("control plane instance scheduled for deletion - skipping create")
+					break
+				}
 				customRequeueDelay, err := controlPlaneInstanceCreated(r, &controlPlaneInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created control plane instance object")
@@ -191,6 +196,40 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
+					continue
+				}
+				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletedControlPlaneInstance := v0.ControlPlaneInstance{
+					Common: v0.Common{ID: controlPlaneInstance.ID},
+					Reconciliation: v0.Reconciliation{
+						DeletionAcknowledged: deletionTimestamp,
+						DeletionConfirmed:    deletionTimestamp,
+						Reconciled:           util.BoolPtr(true),
+					},
+				}
+				if err != nil {
+					log.Error(err, "failed to update control plane instance to mark as reconciled")
+					r.UnlockAndRequeue(&controlPlaneInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.UpdateControlPlaneInstance(
+					r.APIClient,
+					r.APIServer,
+					&deletedControlPlaneInstance,
+				)
+				if err != nil {
+					log.Error(err, "failed to update control plane instance to mark as deleted")
+					r.UnlockAndRequeue(&controlPlaneInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.DeleteControlPlaneInstance(
+					r.APIClient,
+					r.APIServer,
+					*controlPlaneInstance.ID,
+				)
+				if err != nil {
+					log.Error(err, "failed to delete control plane instance")
+					r.UnlockAndRequeue(&controlPlaneInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 			default:

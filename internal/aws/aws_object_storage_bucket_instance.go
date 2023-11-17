@@ -318,34 +318,6 @@ func awsObjectStorageBucketInstanceDeleted(
 			// return a custom requeue of 60 seconds to re-check resources again
 			return 5, nil
 		}
-		// resources have been deleted - confirm deletion and delete in database
-		deletionReconciled := true
-		deletionTimestamp := time.Now().UTC()
-		deletedObjectStorageBucketInstance := v0.AwsObjectStorageBucketInstance{
-			Common: v0.Common{
-				ID: awsObjectStorageBucketInstance.ID,
-			},
-			Reconciliation: v0.Reconciliation{
-				Reconciled:        &deletionReconciled,
-				DeletionConfirmed: &deletionTimestamp,
-			},
-		}
-		_, err = client.UpdateAwsObjectStorageBucketInstance(
-			r.APIClient,
-			r.APIServer,
-			&deletedObjectStorageBucketInstance,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to confirm deletion of AWS relational database resources in threeport API: %w", err)
-		}
-		_, err = client.DeleteAwsObjectStorageBucketInstance(
-			r.APIClient,
-			r.APIServer,
-			*awsObjectStorageBucketInstance.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to delete AWS S3 bucket in threeport API: %w", err)
-		}
 
 		return 0, nil
 	}

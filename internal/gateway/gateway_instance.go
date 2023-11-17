@@ -257,36 +257,6 @@ func gatewayInstanceDeleted(
 		return 0, fmt.Errorf("failed to update workload instance: %w", err)
 	}
 
-	// delete the gateway instance that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedGatewayInstance := v0.GatewayInstance{
-		Common: v0.Common{
-			ID: gatewayInstance.ID,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err = client.UpdateGatewayInstance(
-		r.APIClient,
-		r.APIServer,
-		&deletedGatewayInstance,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of gateway instance in threeport API: %w", err)
-	}
-	_, err = client.DeleteGatewayInstance(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete gateway instance in threeport API: %w", err)
-	}
-
 	return 0, nil
 }
 

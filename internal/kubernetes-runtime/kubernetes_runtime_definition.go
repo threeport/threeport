@@ -3,7 +3,6 @@ package kubernetesruntime
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 
@@ -124,36 +123,6 @@ func kubernetesRuntimeDefinitionDeleted(
 	// more
 	if kubernetesRuntimeDefinition.DeletionConfirmed != nil {
 		return 0, nil
-	}
-
-	// delete the kubernetes runtime definition that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedKubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
-		Common: v0.Common{
-			ID: kubernetesRuntimeDefinition.ID,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err := client.UpdateKubernetesRuntimeDefinition(
-		r.APIClient,
-		r.APIServer,
-		&deletedKubernetesRuntimeDefinition,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of kubernetes runtime definition in threeport API: %w", err)
-	}
-	_, err = client.DeleteKubernetesRuntimeDefinition(
-		r.APIClient,
-		r.APIServer,
-		*kubernetesRuntimeDefinition.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete kubernetes runtime definition in threeport API: %w", err)
 	}
 
 	return 0, nil

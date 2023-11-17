@@ -3,7 +3,6 @@ package kubernetesruntime
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 
@@ -187,36 +186,6 @@ func kubernetesRuntimeInstanceDeleted(
 		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to delete aws eks runtime instance by ID: %w", err)
-		}
-
-		// delete the kubernetes runtime that was scheduled for deletion
-		deletionReconciled := true
-		deletionTimestamp := time.Now().UTC()
-		deletedKubernetesRuntimeInstance := v0.KubernetesRuntimeInstance{
-			Common: v0.Common{
-				ID: kubernetesRuntimeInstance.ID,
-			},
-			Reconciliation: v0.Reconciliation{
-				Reconciled:           &deletionReconciled,
-				DeletionAcknowledged: &deletionTimestamp,
-				DeletionConfirmed:    &deletionTimestamp,
-			},
-		}
-		_, err = client.UpdateKubernetesRuntimeInstance(
-			r.APIClient,
-			r.APIServer,
-			&deletedKubernetesRuntimeInstance,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to confirm deletion of kubernetes runtime instance in threeport API: %w", err)
-		}
-		_, err = client.DeleteKubernetesRuntimeInstance(
-			r.APIClient,
-			r.APIServer,
-			*kubernetesRuntimeInstance.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to delete kubernetes runtime instance in threeport API: %w", err)
 		}
 	}
 

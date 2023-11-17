@@ -9,9 +9,11 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // AwsObjectStorageBucketInstanceReconciler reconciles system state when a AwsObjectStorageBucketInstance
@@ -127,6 +129,10 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if awsObjectStorageBucketInstance.DeletionScheduled != nil {
+					log.Info("aws object storage bucket instance scheduled for deletion - skipping create")
+					break
+				}
 				customRequeueDelay, err := awsObjectStorageBucketInstanceCreated(r, &awsObjectStorageBucketInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created aws object storage bucket instance object")
@@ -190,6 +196,40 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
+					continue
+				}
+				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletedAwsObjectStorageBucketInstance := v0.AwsObjectStorageBucketInstance{
+					Common: v0.Common{ID: awsObjectStorageBucketInstance.ID},
+					Reconciliation: v0.Reconciliation{
+						DeletionAcknowledged: deletionTimestamp,
+						DeletionConfirmed:    deletionTimestamp,
+						Reconciled:           util.BoolPtr(true),
+					},
+				}
+				if err != nil {
+					log.Error(err, "failed to update aws object storage bucket instance to mark as reconciled")
+					r.UnlockAndRequeue(&awsObjectStorageBucketInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.UpdateAwsObjectStorageBucketInstance(
+					r.APIClient,
+					r.APIServer,
+					&deletedAwsObjectStorageBucketInstance,
+				)
+				if err != nil {
+					log.Error(err, "failed to update aws object storage bucket instance to mark as deleted")
+					r.UnlockAndRequeue(&awsObjectStorageBucketInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.DeleteAwsObjectStorageBucketInstance(
+					r.APIClient,
+					r.APIServer,
+					*awsObjectStorageBucketInstance.ID,
+				)
+				if err != nil {
+					log.Error(err, "failed to delete aws object storage bucket instance")
+					r.UnlockAndRequeue(&awsObjectStorageBucketInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 			default:

@@ -9,9 +9,11 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // GatewayDefinitionReconciler reconciles system state when a GatewayDefinition
@@ -127,6 +129,10 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if gatewayDefinition.DeletionScheduled != nil {
+					log.Info("gateway definition scheduled for deletion - skipping create")
+					break
+				}
 				customRequeueDelay, err := gatewayDefinitionCreated(r, &gatewayDefinition, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created gateway definition object")
@@ -190,6 +196,40 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
+					continue
+				}
+				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletedGatewayDefinition := v0.GatewayDefinition{
+					Common: v0.Common{ID: gatewayDefinition.ID},
+					Reconciliation: v0.Reconciliation{
+						DeletionAcknowledged: deletionTimestamp,
+						DeletionConfirmed:    deletionTimestamp,
+						Reconciled:           util.BoolPtr(true),
+					},
+				}
+				if err != nil {
+					log.Error(err, "failed to update gateway definition to mark as reconciled")
+					r.UnlockAndRequeue(&gatewayDefinition, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.UpdateGatewayDefinition(
+					r.APIClient,
+					r.APIServer,
+					&deletedGatewayDefinition,
+				)
+				if err != nil {
+					log.Error(err, "failed to update gateway definition to mark as deleted")
+					r.UnlockAndRequeue(&gatewayDefinition, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.DeleteGatewayDefinition(
+					r.APIClient,
+					r.APIServer,
+					*gatewayDefinition.ID,
+				)
+				if err != nil {
+					log.Error(err, "failed to delete gateway definition")
+					r.UnlockAndRequeue(&gatewayDefinition, requeueDelay, lockReleased, msg)
 					continue
 				}
 			default:
