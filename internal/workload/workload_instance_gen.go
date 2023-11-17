@@ -5,14 +5,15 @@ package workload
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -129,7 +130,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if workloadInstance.DeletionScheduled != nil {
-					log.Info("workload instance instance scheduled for deletion - skipping create step")
+					log.Info("workload instance scheduled for deletion - skipping create")
 					break
 				}
 				customRequeueDelay, err := workloadInstanceCreated(r, &workloadInstance, &log)
@@ -176,16 +177,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				// if workloadInstance.Reconciled != nil && !*workloadInstance.Reconciled {
-				// 	log.Info("workload instance not yet reconciled -- skipping deletion")
-				// 	r.UnlockAndRequeue(
-				// 		&workloadInstance,
-				// 		requeueDelay,
-				// 		lockReleased,
-				// 		msg,
-				// 	)
-				// 	continue
-				// }
 				customRequeueDelay, err := workloadInstanceDeleted(r, &workloadInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile deleted workload instance object")
@@ -205,6 +196,40 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
+					continue
+				}
+				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletedWorkloadInstance := v0.WorkloadInstance{
+					Common: v0.Common{ID: workloadInstance.ID},
+					Reconciliation: v0.Reconciliation{
+						DeletionAcknowledged: deletionTimestamp,
+						DeletionConfirmed:    deletionTimestamp,
+						Reconciled:           util.BoolPtr(true),
+					},
+				}
+				if err != nil {
+					log.Error(err, "failed to update workload instance to mark as reconciled")
+					r.UnlockAndRequeue(&workloadInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.UpdateWorkloadInstance(
+					r.APIClient,
+					r.APIServer,
+					&deletedWorkloadInstance,
+				)
+				if err != nil {
+					log.Error(err, "failed to update workload instance to mark as deleted")
+					r.UnlockAndRequeue(&workloadInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.DeleteWorkloadInstance(
+					r.APIClient,
+					r.APIServer,
+					*workloadInstance.ID,
+				)
+				if err != nil {
+					log.Error(err, "failed to delete workload instance")
+					r.UnlockAndRequeue(&workloadInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 			default:

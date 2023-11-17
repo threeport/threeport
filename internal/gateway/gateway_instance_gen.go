@@ -9,9 +9,11 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // GatewayInstanceReconciler reconciles system state when a GatewayInstance
@@ -127,6 +129,10 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if gatewayInstance.DeletionScheduled != nil {
+					log.Info("gateway instance scheduled for deletion - skipping create")
+					break
+				}
 				customRequeueDelay, err := gatewayInstanceCreated(r, &gatewayInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created gateway instance object")
@@ -190,6 +196,40 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
+					continue
+				}
+				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletedGatewayInstance := v0.GatewayInstance{
+					Common: v0.Common{ID: gatewayInstance.ID},
+					Reconciliation: v0.Reconciliation{
+						DeletionAcknowledged: deletionTimestamp,
+						DeletionConfirmed:    deletionTimestamp,
+						Reconciled:           util.BoolPtr(true),
+					},
+				}
+				if err != nil {
+					log.Error(err, "failed to update gateway instance to mark as reconciled")
+					r.UnlockAndRequeue(&gatewayInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.UpdateGatewayInstance(
+					r.APIClient,
+					r.APIServer,
+					&deletedGatewayInstance,
+				)
+				if err != nil {
+					log.Error(err, "failed to update gateway instance to mark as deleted")
+					r.UnlockAndRequeue(&gatewayInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.DeleteGatewayInstance(
+					r.APIClient,
+					r.APIServer,
+					*gatewayInstance.ID,
+				)
+				if err != nil {
+					log.Error(err, "failed to delete gateway instance")
+					r.UnlockAndRequeue(&gatewayInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 			default:

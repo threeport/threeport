@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"time"
 
 	"strconv"
 
@@ -68,8 +67,6 @@ func domainNameInstanceDeleted(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
-	defer deleteDomainNameInstance(r, domainNameInstance.ID, log)
 
 	// check that deletion is scheduled - if not there's a problem
 	if domainNameInstance.DeletionScheduled == nil {
@@ -135,46 +132,6 @@ func domainNameInstanceDeleted(
 		return 0, nil
 	}
 
-	return 0, nil
-}
-
-func deleteDomainNameInstance(
-	r *controller.Reconciler,
-	id *uint,
-	log *logr.Logger,
-) (int64, error) {
-
-	// delete the domain name instance that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedDomainNameInstance := v0.DomainNameInstance{
-		Common: v0.Common{
-			ID: id,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err := client.UpdateDomainNameInstance(
-		r.APIClient,
-		r.APIServer,
-		&deletedDomainNameInstance,
-	)
-	if err != nil {
-		log.Error(err, "failed to update domain name instance")
-		return 0, nil
-	}
-	_, err = client.DeleteDomainNameInstance(
-		r.APIClient,
-		r.APIServer,
-		*id,
-	)
-	if err != nil {
-		log.Error(err, "failed to delete domain name instance in threeport API")
-		return 0, nil
-	}
 	return 0, nil
 }
 

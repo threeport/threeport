@@ -9,9 +9,11 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // KubernetesRuntimeInstanceReconciler reconciles system state when a KubernetesRuntimeInstance
@@ -127,6 +129,10 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if kubernetesRuntimeInstance.DeletionScheduled != nil {
+					log.Info("kubernetes runtime instance scheduled for deletion - skipping create")
+					break
+				}
 				customRequeueDelay, err := kubernetesRuntimeInstanceCreated(r, &kubernetesRuntimeInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created kubernetes runtime instance object")
@@ -190,6 +196,40 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
+					continue
+				}
+				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletedKubernetesRuntimeInstance := v0.KubernetesRuntimeInstance{
+					Common: v0.Common{ID: kubernetesRuntimeInstance.ID},
+					Reconciliation: v0.Reconciliation{
+						DeletionAcknowledged: deletionTimestamp,
+						DeletionConfirmed:    deletionTimestamp,
+						Reconciled:           util.BoolPtr(true),
+					},
+				}
+				if err != nil {
+					log.Error(err, "failed to update kubernetes runtime instance to mark as reconciled")
+					r.UnlockAndRequeue(&kubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.UpdateKubernetesRuntimeInstance(
+					r.APIClient,
+					r.APIServer,
+					&deletedKubernetesRuntimeInstance,
+				)
+				if err != nil {
+					log.Error(err, "failed to update kubernetes runtime instance to mark as deleted")
+					r.UnlockAndRequeue(&kubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.DeleteKubernetesRuntimeInstance(
+					r.APIClient,
+					r.APIServer,
+					*kubernetesRuntimeInstance.ID,
+				)
+				if err != nil {
+					log.Error(err, "failed to delete kubernetes runtime instance")
+					r.UnlockAndRequeue(&kubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 			default:

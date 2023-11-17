@@ -3,7 +3,6 @@ package gateway
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 
@@ -141,36 +140,6 @@ func gatewayDefinitionDeleted(
 	_, err := client.DeleteWorkloadDefinition(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete workload definition with ID %d: %w", *gatewayDefinition.WorkloadDefinitionID, err)
-	}
-
-	// delete the gateway definition that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedGatewayDefinition := v0.GatewayDefinition{
-		Common: v0.Common{
-			ID: gatewayDefinition.ID,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err = client.UpdateGatewayDefinition(
-		r.APIClient,
-		r.APIServer,
-		&deletedGatewayDefinition,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of gateway definition in threeport API: %w", err)
-	}
-	_, err = client.DeleteGatewayDefinition(
-		r.APIClient,
-		r.APIServer,
-		*gatewayDefinition.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete gateway definition in threeport API: %w", err)
 	}
 
 	log.V(1).Info(

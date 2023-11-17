@@ -305,34 +305,6 @@ func awsRelationalDatabaseInstanceDeleted(
 			// return a custom requeue of 60 seconds to re-check resources again
 			return 60, nil
 		}
-		// resources have been deleted - confirm deletion and delete in database
-		deletionReconciled := true
-		deletionTimestamp := time.Now().UTC()
-		deletedRelationalDatabaseInstance := v0.AwsRelationalDatabaseInstance{
-			Common: v0.Common{
-				ID: awsRelationalDatabaseInstance.ID,
-			},
-			Reconciliation: v0.Reconciliation{
-				Reconciled:        &deletionReconciled,
-				DeletionConfirmed: &deletionTimestamp,
-			},
-		}
-		_, err = client.UpdateAwsRelationalDatabaseInstance(
-			r.APIClient,
-			r.APIServer,
-			&deletedRelationalDatabaseInstance,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to confirm deletion of AWS relational database resources in threeport API: %w", err)
-		}
-		_, err = client.DeleteAwsRelationalDatabaseInstance(
-			r.APIClient,
-			r.APIServer,
-			*awsRelationalDatabaseInstance.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to delete AWS relational database instance in threeport API: %w", err)
-		}
 
 		return 0, nil
 	}

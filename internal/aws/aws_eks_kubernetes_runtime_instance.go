@@ -309,34 +309,6 @@ func awsEksKubernetesRuntimeInstanceDeleted(
 			// return a custom requeue of 60 seconds to re-check resources again
 			return 60, nil
 		}
-		// resources have been deleted - confirm deletion and delete in database
-		deletionReconciled := true
-		deletionTimestamp := time.Now().UTC()
-		deletedEKSKubernetesRuntimeInstances := v0.AwsEksKubernetesRuntimeInstance{
-			Common: v0.Common{
-				ID: awsEksKubernetesRuntimeInstance.ID,
-			},
-			Reconciliation: v0.Reconciliation{
-				Reconciled:        &deletionReconciled,
-				DeletionConfirmed: &deletionTimestamp,
-			},
-		}
-		_, err = client.UpdateAwsEksKubernetesRuntimeInstance(
-			r.APIClient,
-			r.APIServer,
-			&deletedEKSKubernetesRuntimeInstances,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to confirm deletion of EKS cluster resources in threeport API: %w", err)
-		}
-		_, err = client.DeleteAwsEksKubernetesRuntimeInstance(
-			r.APIClient,
-			r.APIServer,
-			*awsEksKubernetesRuntimeInstance.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to delete EKS cluster in threeport API: %w", err)
-		}
 
 		return 0, nil
 	}

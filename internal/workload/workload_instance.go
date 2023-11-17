@@ -379,9 +379,6 @@ func workloadInstanceDeleted(
 	// check to see if reconciled - it should not be, but if so we should do no
 	// more
 	if workloadInstance.DeletionConfirmed != nil {
-		if customRequeueDelay, err := deleteWorkloadInstance(r, workloadInstance.ID); err != nil {
-			return customRequeueDelay, fmt.Errorf("failed to delete workload instance: %w", err)
-		}
 		return 0, nil
 	}
 
@@ -396,9 +393,6 @@ func workloadInstanceDeleted(
 	}
 	if len(*workloadResourceInstances) == 0 {
 		// no workload resource instances to clean up
-		if customRequeueDelay, err := deleteWorkloadInstance(r, workloadInstance.ID); err != nil {
-			return customRequeueDelay, fmt.Errorf("failed to delete workload instance: %w", err)
-		}
 		return 0, nil
 	}
 
@@ -504,48 +498,6 @@ func workloadInstanceDeleted(
 		metav1.DeleteOptions{},
 	); err != nil && !kubeerr.IsNotFound(err) {
 		return 0, fmt.Errorf("failed to delete ThreeportWorkload resource: %w", err)
-	}
-
-	if customRequeueDelay, err := deleteWorkloadInstance(r, workloadInstance.ID); err != nil {
-		return customRequeueDelay, fmt.Errorf("failed to delete workload instance: %w", err)
-	}
-
-	return 0, nil
-}
-
-func deleteWorkloadInstance(
-	r *controller.Reconciler,
-	id *uint,
-) (int64, error) {
-
-	// delete the workload instance that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedWorkloadInstance := v0.WorkloadInstance{
-		Common: v0.Common{
-			ID: id,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err := client.UpdateWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		&deletedWorkloadInstance,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of workload instance in threeport API: %w", err)
-	}
-	_, err = client.DeleteWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		*id,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete workload instance in threeport API: %w", err)
 	}
 
 	return 0, nil
