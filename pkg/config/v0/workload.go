@@ -60,66 +60,6 @@ type WorkloadInstanceValues struct {
 	WorkloadDefinition        WorkloadDefinitionValues         `yaml:"WorkloadDefinition"`
 }
 
-// deletable defines the interface for operations that
-// have been made to the Threeport API and may need to
-// be deleted.
-type deletable interface {
-	Delete(apiClient *http.Client, apiEndpoint string) error
-}
-
-// DeletableStack contains a list of operations that have been
-// performed on the Threeport API.
-type DeletableStack struct {
-	Deletables []deletable
-}
-
-// Push adds an deletable to the deletable stack.
-func (r *DeletableStack) Push(deletable deletable) {
-	r.Deletables = append(r.Deletables, deletable)
-}
-
-// Pop removes an deletable from the deletable stack.
-func (r *DeletableStack) Pop() deletable {
-	if len(r.Deletables) == 0 {
-		return nil
-	}
-	lastIndex := len(r.Deletables) - 1
-	deletable := r.Deletables[lastIndex]
-	r.Deletables = r.Deletables[:lastIndex]
-	return deletable
-}
-
-// cleanOnCreateError cleans up resources created during a create operation
-func (r *DeletableStack) cleanOnCreateError(apiClient *http.Client, apiEndpoint string, createErr error) error {
-
-	multiError := util.MultiError{}
-	multiError.AppendError(createErr)
-
-	for {
-		var deletable deletable
-		if deletable = r.Pop(); deletable == nil {
-			break
-		}
-		if err := deletable.Delete(apiClient, apiEndpoint); err != nil {
-			multiError.AppendError(err)
-		}
-	}
-	return multiError.Error()
-}
-
-type createOperation func() (deletable, string, error)
-
-// Create executes an operation and adds a deletable to the deletable stack.
-func (r *DeletableStack) Create(apiClient *http.Client, apiEndpoint string, createOperation createOperation) error {
-	deletable, errMsg, err := createOperation()
-	if err != nil {
-		return r.cleanOnCreateError(apiClient, apiEndpoint, fmt.Errorf("%s: %w", errMsg, err))
-	}
-	r.Push(deletable)
-
-	return nil
-}
-
 // Create creates a workload definition and instance in the Threeport API.
 func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 
@@ -130,10 +70,10 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 	var domainNameDefinitionValues DomainNameDefinitionValues
 	var gatewayDefinitionValues GatewayDefinitionValues
 
-	opList := []createOperation{
+	opList := []util.CreateOperation{
 
 		// create workload definition
-		func() (deletable, string, error) {
+		func() (util.Deletable, string, error) {
 			workloadDefinition := WorkloadDefinitionValues{
 				Name:               w.Name,
 				YAMLDocument:       w.YAMLDocument,
@@ -144,7 +84,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		},
 
 		// create workload instance
-		func() (deletable, string, error) {
+		func() (util.Deletable, string, error) {
 			workloadInstanceValues = WorkloadInstanceValues{
 				Name:                      defaultInstanceName(w.Name),
 				KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
@@ -159,10 +99,10 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 
 	// create domain name and gateway if provided
 	if w.DomainName != nil && w.Gateway != nil {
-		gatewayList := []createOperation{
+		gatewayList := []util.CreateOperation{
 
 			// create domain name definition
-			func() (deletable, string, error) {
+			func() (util.Deletable, string, error) {
 				domainNameDefinitionValues = DomainNameDefinitionValues{
 					Name:       w.DomainName.Name,
 					Zone:       w.DomainName.Zone,
@@ -173,7 +113,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 			},
 
 			// create domain name instance
-			func() (deletable, string, error) {
+			func() (util.Deletable, string, error) {
 				domainNameInstance := DomainNameInstanceValues{
 					DomainNameDefinition:      domainNameDefinitionValues,
 					KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
@@ -184,7 +124,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 			},
 
 			// create gateway definition
-			func() (deletable, string, error) {
+			func() (util.Deletable, string, error) {
 				gatewayDefinition := GatewayDefinitionValues{
 					Name:                 w.Gateway.Name,
 					TCPPort:              w.Gateway.TCPPort,
@@ -198,7 +138,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 			},
 
 			// create gateway instance
-			func() (deletable, string, error) {
+			func() (util.Deletable, string, error) {
 				gatewayInstance := GatewayInstanceValues{
 					GatewayDefinition:         gatewayDefinitionValues,
 					KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
@@ -213,7 +153,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 
 	// create AWS relational database if provided
 	if w.AwsRelationalDatabase != nil {
-		opList = append(opList, func() (deletable, string, error) {
+		opList = append(opList, func() (util.Deletable, string, error) {
 			awsRelationalDatabase := AwsRelationalDatabaseValues{
 				Name:               w.AwsRelationalDatabase.Name,
 				AwsAccountName:     w.AwsRelationalDatabase.AwsAccountName,
@@ -236,7 +176,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 
 	// create AWS object storage bucket if provided
 	if w.AwsObjectStorageBucket != nil {
-		opList = append(opList, func() (deletable, string, error) {
+		opList = append(opList, func() (util.Deletable, string, error) {
 			awsObjectStorageBucket := AwsObjectStorageBucketValues{
 				Name:                       w.AwsObjectStorageBucket.Name,
 				AwsAccountName:             w.AwsObjectStorageBucket.AwsAccountName,
@@ -253,7 +193,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 	}
 
 	// execute create operations
-	deletableStack := DeletableStack{}
+	deletableStack := util.DeletableStack{}
 	for _, op := range opList {
 		if err = deletableStack.Create(apiClient, apiEndpoint, op); err != nil {
 			return nil, nil, err
