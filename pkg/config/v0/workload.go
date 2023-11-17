@@ -61,47 +61,47 @@ type WorkloadInstanceValues struct {
 	WorkloadDefinition        WorkloadDefinitionValues         `yaml:"WorkloadDefinition"`
 }
 
-// operation defines the interface for operations that
+// deletable defines the interface for operations that
 // have been made to the Threeport API and may need to
-// be undone.
-type operation interface {
+// be deleted.
+type deletable interface {
 	Delete(apiClient *http.Client, apiEndpoint string) error
 }
 
-// OperationStack contains a list of operations that have been
+// DeletableStack contains a list of operations that have been
 // performed on the Threeport API.
-type OperationStack struct {
-	Operations []operation
+type DeletableStack struct {
+	Deletables []deletable
 }
 
-// Push adds an operation to the operation stack.
-func (r *OperationStack) Push(operation operation) {
-	r.Operations = append(r.Operations, operation)
+// Push adds an deletable to the deletable stack.
+func (r *DeletableStack) Push(deletable deletable) {
+	r.Deletables = append(r.Deletables, deletable)
 }
 
-// Pop removes an operation from the operation stack.
-func (r *OperationStack) Pop() operation {
-	if len(r.Operations) == 0 {
+// Pop removes an deletable from the deletable stack.
+func (r *DeletableStack) Pop() deletable {
+	if len(r.Deletables) == 0 {
 		return nil
 	}
-	lastIndex := len(r.Operations) - 1
-	operation := r.Operations[lastIndex]
-	r.Operations = r.Operations[:lastIndex]
-	return operation
+	lastIndex := len(r.Deletables) - 1
+	deletable := r.Deletables[lastIndex]
+	r.Deletables = r.Deletables[:lastIndex]
+	return deletable
 }
 
 // cleanOnCreateError cleans up resources created during a create operation
-func (r *OperationStack) cleanOnCreateError(apiClient *http.Client, apiEndpoint string, createErr error) error {
+func (r *DeletableStack) cleanOnCreateError(apiClient *http.Client, apiEndpoint string, createErr error) error {
 
 	multiError := MultiError{}
 	multiError.AppendError(createErr)
 
 	for {
-		var operation operation
-		if operation = r.Pop(); operation == nil {
+		var deletable deletable
+		if deletable = r.Pop(); deletable == nil {
 			break
 		}
-		if err := operation.Delete(apiClient, apiEndpoint); err != nil {
+		if err := deletable.Delete(apiClient, apiEndpoint); err != nil {
 			multiError.AppendError(err)
 		}
 	}
@@ -112,6 +112,8 @@ func (r *OperationStack) cleanOnCreateError(apiClient *http.Client, apiEndpoint 
 type MultiError struct {
 	Errors []error
 }
+
+type createOperation func() (deletable, string, error)
 
 // AppendError adds an error to the MultiError.
 func (me *MultiError) AppendError(err error) {
@@ -127,160 +129,155 @@ func (me MultiError) Error() error {
 	return errors.New(strings.Join(errorMessages, "\n"))
 }
 
+// Create executes an operation and adds a deletable to the deletable stack.
+func (r *DeletableStack) Create(apiClient *http.Client, apiEndpoint string, createOperation createOperation) error {
+	deletable, errMsg, err := createOperation()
+	if err != nil {
+		return r.cleanOnCreateError(apiClient, apiEndpoint, fmt.Errorf("%s: %w", errMsg, err))
+	}
+	r.Push(deletable)
+
+	return nil
+}
+
 // Create creates a workload definition and instance in the Threeport API.
 func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 
-	opStack := OperationStack{}
+	var err error
+	var createdWorkloadInstance *v0.WorkloadInstance
+	var createdWorkloadDefinition *v0.WorkloadDefinition
+	var workloadInstanceValues WorkloadInstanceValues
+	var domainNameDefinitionValues DomainNameDefinitionValues
+	var gatewayDefinitionValues GatewayDefinitionValues
 
-	// create the workload definition
-	workloadDefinition := WorkloadDefinitionValues{
-		Name:               w.Name,
-		YAMLDocument:       w.YAMLDocument,
-		WorkloadConfigPath: w.WorkloadConfigPath,
-	}
-	createdWorkloadDefinition, err := workloadDefinition.Create(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create workload definition: %w", err)
-	}
-	opStack.Push(&workloadDefinition)
+	opList := []createOperation{
 
-	// create the workload instance
-	workloadInstance := WorkloadInstanceValues{
-		Name:                      defaultInstanceName(w.Name),
-		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-		WorkloadDefinition: WorkloadDefinitionValues{
-			Name: w.Name,
+		// create workload definition
+		func() (deletable, string, error) {
+			workloadDefinition := WorkloadDefinitionValues{
+				Name:               w.Name,
+				YAMLDocument:       w.YAMLDocument,
+				WorkloadConfigPath: w.WorkloadConfigPath,
+			}
+			createdWorkloadDefinition, err = workloadDefinition.Create(apiClient, apiEndpoint)
+			return &workloadDefinition, "failed to create workload definition", err
+		},
+
+		// create workload instance
+		func() (deletable, string, error) {
+			workloadInstanceValues = WorkloadInstanceValues{
+				Name:                      defaultInstanceName(w.Name),
+				KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
+				WorkloadDefinition: WorkloadDefinitionValues{
+					Name: w.Name,
+				},
+			}
+			createdWorkloadInstance, err = workloadInstanceValues.Create(apiClient, apiEndpoint)
+			return &workloadInstanceValues, "failed to create workload instance", err
 		},
 	}
-	createdWorkloadInstance, err := workloadInstance.Create(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, opStack.cleanOnCreateError(
-			apiClient,
-			apiEndpoint,
-			fmt.Errorf("failed to create workload instance: %w", err),
-		)
-	}
-	opStack.Push(&workloadInstance)
 
+	// create domain name and gateway if provided
 	if w.DomainName != nil && w.Gateway != nil {
-		// create the domain name definition
-		domainNameDefinition := DomainNameDefinitionValues{
-			Name:       w.DomainName.Name,
-			Zone:       w.DomainName.Zone,
-			AdminEmail: w.DomainName.AdminEmail,
-		}
-		_, err = domainNameDefinition.CreateIfNotExist(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(
-				apiClient,
-				apiEndpoint,
-				fmt.Errorf("failed to create domain name definition: %w", err),
-			)
-		}
-		opStack.Push(&domainNameDefinition)
+		gatewayList := []createOperation{
 
-		// create the domain name instance
-		domainNameInstance := DomainNameInstanceValues{
-			DomainNameDefinition:      domainNameDefinition,
-			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
-			WorkloadInstance:          workloadInstance,
-		}
-		_, err = domainNameInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(
-				apiClient,
-				apiEndpoint,
-				fmt.Errorf("failed to create domain name instance: %w", err),
-			)
-		}
-		opStack.Push(&domainNameInstance)
+			// create domain name definition
+			func() (deletable, string, error) {
+				domainNameDefinitionValues = DomainNameDefinitionValues{
+					Name:       w.DomainName.Name,
+					Zone:       w.DomainName.Zone,
+					AdminEmail: w.DomainName.AdminEmail,
+				}
+				_, err = domainNameDefinitionValues.CreateIfNotExist(apiClient, apiEndpoint)
+				return &domainNameDefinitionValues, "failed to create domain name definition", err
+			},
 
-		// create the gateway definition
-		gatewayDefinition := GatewayDefinitionValues{
-			Name:                 w.Gateway.Name,
-			TCPPort:              w.Gateway.TCPPort,
-			TLSEnabled:           w.Gateway.TLSEnabled,
-			Path:                 w.Gateway.Path,
-			ServiceName:          w.Gateway.ServiceName,
-			DomainNameDefinition: domainNameDefinition,
-		}
-		_, err = gatewayDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(
-				apiClient,
-				apiEndpoint,
-				fmt.Errorf("failed to create gateway definition: %w", err),
-			)
-		}
-		opStack.Push(&gatewayDefinition)
+			// create domain name instance
+			func() (deletable, string, error) {
+				domainNameInstance := DomainNameInstanceValues{
+					DomainNameDefinition:      domainNameDefinitionValues,
+					KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
+					WorkloadInstance:          workloadInstanceValues,
+				}
+				_, err = domainNameInstance.Create(apiClient, apiEndpoint)
+				return &domainNameInstance, "failed to create domain name instance", err
+			},
 
-		// create the gateway instance
-		gatewayInstance := GatewayInstanceValues{
-			GatewayDefinition:         gatewayDefinition,
-			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
-			WorkloadInstance:          workloadInstance,
+			// create gateway definition
+			func() (deletable, string, error) {
+				gatewayDefinition := GatewayDefinitionValues{
+					Name:                 w.Gateway.Name,
+					TCPPort:              w.Gateway.TCPPort,
+					TLSEnabled:           w.Gateway.TLSEnabled,
+					Path:                 w.Gateway.Path,
+					ServiceName:          w.Gateway.ServiceName,
+					DomainNameDefinition: domainNameDefinitionValues,
+				}
+				_, err = gatewayDefinition.Create(apiClient, apiEndpoint)
+				return &gatewayDefinition, "failed to create gateway definition", err
+			},
+
+			// create gateway instance
+			func() (deletable, string, error) {
+				gatewayInstance := GatewayInstanceValues{
+					GatewayDefinition:         gatewayDefinitionValues,
+					KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
+					WorkloadInstance:          workloadInstanceValues,
+				}
+				_, err = gatewayInstance.Create(apiClient, apiEndpoint)
+				return &gatewayInstance, "failed to create gateway instance", err
+			},
 		}
-		_, err = gatewayInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(
-				apiClient,
-				apiEndpoint,
-				fmt.Errorf("failed to create gateway instance: %w", err),
-			)
-		}
-		opStack.Push(&gatewayInstance)
+		opList = append(opList, gatewayList...)
 	}
 
-	// create AWS relational database
-	// var awsRelationalDatabase AwsRelationalDatabaseValues
+	// create AWS relational database if provided
 	if w.AwsRelationalDatabase != nil {
-		awsRelationalDatabase := AwsRelationalDatabaseValues{
-			Name:               w.AwsRelationalDatabase.Name,
-			AwsAccountName:     w.AwsRelationalDatabase.AwsAccountName,
-			Engine:             w.AwsRelationalDatabase.Engine,
-			EngineVersion:      w.AwsRelationalDatabase.EngineVersion,
-			DatabaseName:       w.AwsRelationalDatabase.DatabaseName,
-			DatabasePort:       w.AwsRelationalDatabase.DatabasePort,
-			BackupDays:         w.AwsRelationalDatabase.BackupDays,
-			MachineSize:        w.AwsRelationalDatabase.MachineSize,
-			StorageGb:          w.AwsRelationalDatabase.StorageGb,
-			WorkloadSecretName: w.AwsRelationalDatabase.WorkloadSecretName,
-			WorkloadInstance: &WorkloadInstanceValues{
-				Name: defaultInstanceName(w.Name),
-			},
-		}
-		_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(
-				apiClient,
-				apiEndpoint,
-				fmt.Errorf("failed to create aws relational database: %w", err),
-			)
-		}
-		opStack.Push(&awsRelationalDatabase)
+		opList = append(opList, func() (deletable, string, error) {
+			awsRelationalDatabase := AwsRelationalDatabaseValues{
+				Name:               w.AwsRelationalDatabase.Name,
+				AwsAccountName:     w.AwsRelationalDatabase.AwsAccountName,
+				Engine:             w.AwsRelationalDatabase.Engine,
+				EngineVersion:      w.AwsRelationalDatabase.EngineVersion,
+				DatabaseName:       w.AwsRelationalDatabase.DatabaseName,
+				DatabasePort:       w.AwsRelationalDatabase.DatabasePort,
+				BackupDays:         w.AwsRelationalDatabase.BackupDays,
+				MachineSize:        w.AwsRelationalDatabase.MachineSize,
+				StorageGb:          w.AwsRelationalDatabase.StorageGb,
+				WorkloadSecretName: w.AwsRelationalDatabase.WorkloadSecretName,
+				WorkloadInstance: &WorkloadInstanceValues{
+					Name: defaultInstanceName(w.Name),
+				},
+			}
+			_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
+			return &awsRelationalDatabase, "failed to create aws relational database", err
+		})
 	}
 
-	// create AWS object storage bucket
+	// create AWS object storage bucket if provided
 	if w.AwsObjectStorageBucket != nil {
-		awsObjectStorageBucket := AwsObjectStorageBucketValues{
-			Name:                       w.AwsObjectStorageBucket.Name,
-			AwsAccountName:             w.AwsObjectStorageBucket.AwsAccountName,
-			PublicReadAccess:           w.AwsObjectStorageBucket.PublicReadAccess,
-			WorkloadServiceAccountName: w.AwsObjectStorageBucket.WorkloadServiceAccountName,
-			WorkloadBucketEnvVar:       w.AwsObjectStorageBucket.WorkloadBucketEnvVar,
-			WorkloadInstance: &WorkloadInstanceValues{
-				Name: defaultInstanceName(w.Name),
-			},
+		opList = append(opList, func() (deletable, string, error) {
+			awsObjectStorageBucket := AwsObjectStorageBucketValues{
+				Name:                       w.AwsObjectStorageBucket.Name,
+				AwsAccountName:             w.AwsObjectStorageBucket.AwsAccountName,
+				PublicReadAccess:           w.AwsObjectStorageBucket.PublicReadAccess,
+				WorkloadServiceAccountName: w.AwsObjectStorageBucket.WorkloadServiceAccountName,
+				WorkloadBucketEnvVar:       w.AwsObjectStorageBucket.WorkloadBucketEnvVar,
+				WorkloadInstance: &WorkloadInstanceValues{
+					Name: defaultInstanceName(w.Name),
+				},
+			}
+			_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
+			return &awsObjectStorageBucket, "failed to create aws object storage bucket", err
+		})
+	}
+
+	// execute create operations
+	deletableStack := DeletableStack{}
+	for _, op := range opList {
+		if err = deletableStack.Create(apiClient, apiEndpoint, op); err != nil {
+			return nil, nil, err
 		}
-		_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(
-				apiClient,
-				apiEndpoint,
-				fmt.Errorf("failed to create aws object storage bucket: %w", err),
-			)
-		}
-		opStack.Push(&awsObjectStorageBucket)
 	}
 
 	return createdWorkloadDefinition, createdWorkloadInstance, nil
