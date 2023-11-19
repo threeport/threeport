@@ -469,18 +469,18 @@ func (r *AwsRelationalDatabaseValues) Create(apiClient *http.Client, apiEndpoint
 
 // Delete deletes an AWS EKS relational database definition and instance from
 // the threeport API.
-func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, *v0.AwsRelationalDatabaseInstance, error) {
 	// get AWS relational database definition by name
 	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, r.Name)
 	if err != nil {
-		return fmt.Errorf("failed to find AWS relational database definition by name %s: %w", r.Name, err)
+		return nil, nil, fmt.Errorf("failed to find AWS relational database definition by name %s: %w", r.Name, err)
 	}
 
 	// get AWS relational database instance by name
 	awsRelationalDatabaseInstName := defaultInstanceName(r.Name)
 	awsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByName(apiClient, apiEndpoint, awsRelationalDatabaseInstName)
 	if err != nil {
-		return fmt.Errorf("failed to find AWS relational database instance by name %s: %w", r.Name, err)
+		return nil, nil, fmt.Errorf("failed to find AWS relational database instance by name %s: %w", r.Name, err)
 	}
 
 	// ensure the AWS relational database definition has no more than one
@@ -488,17 +488,17 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 	queryString := fmt.Sprintf("awsrelationaldatabasedefinitionid=%d", *awsRelationalDatabaseDefinition.ID)
 	awsRelationalDatabaseInsts, err := client.GetAwsRelationalDatabaseInstancesByQueryString(apiClient, apiEndpoint, queryString)
 	if err != nil {
-		return fmt.Errorf("failed to get AWS relational database instances by AWS relational database definition with ID: %d: %w", *awsRelationalDatabaseDefinition.ID, err)
+		return nil, nil, fmt.Errorf("failed to get AWS relational database instances by AWS relational database definition with ID: %d: %w", *awsRelationalDatabaseDefinition.ID, err)
 	}
 	if len(*awsRelationalDatabaseInsts) > 1 {
 		err = errors.New("deletion using the AWS relational database abstraction is only permitted when there is a one-to-one AWS relational database defintion and instance relationship")
-		return fmt.Errorf("the AWS relational database definition has more than one instance associated: %w", err)
+		return nil, nil, fmt.Errorf("the AWS relational database definition has more than one instance associated: %w", err)
 	}
 
 	// delete AWS relational database instance
-	_, err = client.DeleteAwsRelationalDatabaseInstance(apiClient, apiEndpoint, *awsRelationalDatabaseInstance.ID)
+	deletedAwsRelationalDatabaseInstance, err := client.DeleteAwsRelationalDatabaseInstance(apiClient, apiEndpoint, *awsRelationalDatabaseInstance.ID)
 	if err != nil {
-		return fmt.Errorf("failed to delete AWS relational database instance from threeport API: %w", err)
+		return nil, nil, fmt.Errorf("failed to delete AWS relational database instance from threeport API: %w", err)
 	}
 
 	// wait for AWS relational database instance to be reconciled
@@ -513,7 +513,7 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 				awsRelationalDatabaseInstanceDeleted = true
 				break
 			} else {
-				return fmt.Errorf("failed to get AWS relational database instance from API when checking deletion: %w", err)
+				return nil, nil, fmt.Errorf("failed to get AWS relational database instance from API when checking deletion: %w", err)
 			}
 		}
 		// no error means AWS relational database instance was found - hasn't yet been deleted
@@ -521,19 +521,19 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 		time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
 	}
 	if !awsRelationalDatabaseInstanceDeleted {
-		return errors.New(fmt.Sprintf(
+		return nil, nil, errors.New(fmt.Sprintf(
 			"AWS relational database instance not deleted after %d seconds",
 			deletedCheckAttemptsMax*deletedCheckDurationSeconds,
 		))
 	}
 
 	// delete AWS relational database definition
-	_, err = client.DeleteAwsRelationalDatabaseDefinition(apiClient, apiEndpoint, *awsRelationalDatabaseDefinition.ID)
+	deletedAwsRelationalDatabaseDefinition, err := client.DeleteAwsRelationalDatabaseDefinition(apiClient, apiEndpoint, *awsRelationalDatabaseDefinition.ID)
 	if err != nil {
-		return fmt.Errorf("failed to delete AWS relational database definition from threeport API: %w", err)
+		return nil, nil, fmt.Errorf("failed to delete AWS relational database definition from threeport API: %w", err)
 	}
 
-	return nil
+	return deletedAwsRelationalDatabaseDefinition, deletedAwsRelationalDatabaseInstance, nil
 }
 
 // Create creates an AWS relational database definition in the threeport API.
@@ -688,18 +688,18 @@ func (o *AwsObjectStorageBucketValues) Create(apiClient *http.Client, apiEndpoin
 
 // Delete deletes an AWS object storage bucket defintiion and instance from the
 // threeport API.
-func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, *v0.AwsObjectStorageBucketInstance, error) {
 	// get AWS object storage bucket definition by name
 	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(apiClient, apiEndpoint, o.Name)
 	if err != nil {
-		return fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", o.Name, err)
+		return nil, nil, fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", o.Name, err)
 	}
 
 	// get AWS object storage bucket instance by name
 	awsObjectStorageBucketInstName := defaultInstanceName(o.Name)
 	awsObjectStorageBucketInstance, err := client.GetAwsObjectStorageBucketInstanceByName(apiClient, apiEndpoint, awsObjectStorageBucketInstName)
 	if err != nil {
-		return fmt.Errorf("failed to find AWS object storage bucket instance by name %s: %w", o.Name, err)
+		return nil, nil, fmt.Errorf("failed to find AWS object storage bucket instance by name %s: %w", o.Name, err)
 	}
 
 	// ensure the AWS object storage bucket definition has no more than one
@@ -707,17 +707,17 @@ func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoin
 	queryString := fmt.Sprintf("awsobjectstoragebucketdefinitionid=%d", *awsObjectStorageBucketDefinition.ID)
 	awsObjectStorageBucketInsts, err := client.GetAwsObjectStorageBucketInstancesByQueryString(apiClient, apiEndpoint, queryString)
 	if err != nil {
-		return fmt.Errorf("failed to get AWS object storage bucket instances by AWS object storage bucket definition with ID: %d: %w", *awsObjectStorageBucketDefinition.ID, err)
+		return nil, nil, fmt.Errorf("failed to get AWS object storage bucket instances by AWS object storage bucket definition with ID: %d: %w", *awsObjectStorageBucketDefinition.ID, err)
 	}
 	if len(*awsObjectStorageBucketInsts) > 1 {
 		err = errors.New("deletion using the AWS object storage bucket abstraction is only permitted when there is a one-to-one AWS object storage bucket defintion and instance relationship")
-		return fmt.Errorf("the AWS object storage bucket definition has more than one instance associated: %w", err)
+		return nil, nil, fmt.Errorf("the AWS object storage bucket definition has more than one instance associated: %w", err)
 	}
 
 	// delete AWS object storage bucket instance
-	_, err = client.DeleteAwsObjectStorageBucketInstance(apiClient, apiEndpoint, *awsObjectStorageBucketInstance.ID)
+	deletedAwsObjectStorageBucketInstance, err := client.DeleteAwsObjectStorageBucketInstance(apiClient, apiEndpoint, *awsObjectStorageBucketInstance.ID)
 	if err != nil {
-		return fmt.Errorf("failed to delete AWS object storage bucket instance from threeport API: %w", err)
+		return nil, nil, fmt.Errorf("failed to delete AWS object storage bucket instance from threeport API: %w", err)
 	}
 
 	// wait for AWS object storage bucket instance to be reconciled
@@ -732,7 +732,7 @@ func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoin
 				awsObjectStorageBucketInstanceDeleted = true
 				break
 			} else {
-				return fmt.Errorf("failed to get AWS object storage bucket instance from API when checking deletion: %w", err)
+				return nil, nil, fmt.Errorf("failed to get AWS object storage bucket instance from API when checking deletion: %w", err)
 			}
 		}
 		// no error means AWS object storage bucket instance was found - hasn't yet been deleted
@@ -740,19 +740,19 @@ func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoin
 		time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
 	}
 	if !awsObjectStorageBucketInstanceDeleted {
-		return errors.New(fmt.Sprintf(
+		return nil, nil, errors.New(fmt.Sprintf(
 			"AWS object storage bucket instance not deleted after %d seconds",
 			deletedCheckAttemptsMax*deletedCheckDurationSeconds,
 		))
 	}
 
 	// delete AWS object storage bucket definition
-	_, err = client.DeleteAwsObjectStorageBucketDefinition(apiClient, apiEndpoint, *awsObjectStorageBucketDefinition.ID)
+	deletedAwsObjectStorageBucketDefinition, err := client.DeleteAwsObjectStorageBucketDefinition(apiClient, apiEndpoint, *awsObjectStorageBucketDefinition.ID)
 	if err != nil {
-		return fmt.Errorf("failed to delete AWS object storage bucket definition from threeport API: %w", err)
+		return nil, nil, fmt.Errorf("failed to delete AWS object storage bucket definition from threeport API: %w", err)
 	}
 
-	return nil
+	return deletedAwsObjectStorageBucketDefinition, deletedAwsObjectStorageBucketInstance, nil
 }
 
 // Create creates an AWS object storage bucket definition in the threeport API.
