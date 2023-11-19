@@ -83,7 +83,7 @@ the AWS relational database config or name.`,
 		// delete AWS relational database
 		cli.Info("deleting AWS relational database (this will take a few minutes)...")
 		awsRelationalDatabase := awsRelationalDatabaseConfig.AwsRelationalDatabase
-		err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
+		_, _, err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete AWS relational database", err)
 			os.Exit(1)
