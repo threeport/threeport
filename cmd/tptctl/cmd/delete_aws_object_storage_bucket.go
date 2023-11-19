@@ -89,7 +89,7 @@ the AWS object storage bucket config or name.`,
 		// delete AWS object storage bucket
 		cli.Info("deleting AWS object storage bucket (this will take a few minutes)...")
 		awsObjectStorageBucket := awsObjectStorageBucketConfig.AwsObjectStorageBucket
-		err = awsObjectStorageBucket.Delete(apiClient, apiEndpoint)
+		_, _, err = awsObjectStorageBucket.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete AWS object storage bucket", err)
 			os.Exit(1)
