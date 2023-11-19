@@ -3,6 +3,7 @@ package v0
 import (
 	"fmt"
 	"net/http"
+	// iface "github.com/threeport/threeport/pkg/interfaces/v0"
 )
 
 // Deletable defines the interface for operations that
@@ -12,19 +13,41 @@ type Deletable interface {
 	Delete(apiClient *http.Client, apiEndpoint string) error
 }
 
-// DeletableStack contains a list of operations that have been
+// CreateOperation is a function that creates a deletable and returns
+// the deletable, an error message, and an error.
+type CreateOperation func() (Deletable, string, error)
+
+// OperationStack contains a list of operations that have been
 // performed on the Threeport API.
-type DeletableStack struct {
-	Deletables []Deletable
+type OperationStack struct {
+	Deletables       []Deletable
+	CreateOperations []CreateOperation
+	ApiClient        *http.Client
+	ApiEndpoint      string
 }
 
-// Push adds an deletable to the deletable stack.
-func (r *DeletableStack) Push(deletable Deletable) {
+// AppendCreateOperation adds a create operation to the operation stack.
+func (r *OperationStack) AppendCreateOperation(createOperation CreateOperation) {
+	r.CreateOperations = append(r.CreateOperations, createOperation)
+}
+
+// ExecuteCreateOperations executes all create operations in the operation stack.
+func (r *OperationStack) ExecuteCreateOperations() error {
+	for _, createOperation := range r.CreateOperations {
+		if err := r.create(createOperation); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// push adds an deletable to the deletable stack.
+func (r *OperationStack) push(deletable Deletable) {
 	r.Deletables = append(r.Deletables, deletable)
 }
 
-// Pop removes an deletable from the deletable stack.
-func (r *DeletableStack) Pop() Deletable {
+// pop removes an deletable from the deletable stack.
+func (r *OperationStack) pop() Deletable {
 	if len(r.Deletables) == 0 {
 		return nil
 	}
@@ -34,35 +57,36 @@ func (r *DeletableStack) Pop() Deletable {
 	return deletable
 }
 
-// CreateOperation is a function that creates a deletable and returns
-// the deletable, an error message, and an error.
-type CreateOperation func() (Deletable, string, error)
-
-// CleanOnCreateError cleans up resources created during a create operation
-func (r *DeletableStack) CleanOnCreateError(apiClient *http.Client, apiEndpoint string, createErr error) error {
+// cleanOnCreateError cleans up resources created during a create operation
+func (r *OperationStack) cleanOnCreateError(createErr error) error {
 
 	multiError := MultiError{}
 	multiError.AppendError(createErr)
 
 	for {
-		var deletable Deletable
-		if deletable = r.Pop(); deletable == nil {
+		deletable := r.pop()
+		if any(deletable) == nil {
 			break
 		}
-		if err := deletable.Delete(apiClient, apiEndpoint); err != nil {
-			multiError.AppendError(err)
+		switch v := any(deletable).(type) {
+		case Deletable:
+			if err := v.Delete(r.ApiClient, r.ApiEndpoint); err != nil {
+				multiError.AppendError(err)
+			}
+			continue
 		}
+
 	}
 	return multiError.Error()
 }
 
-// Create executes an operation and adds a deletable to the deletable stack.
-func (r *DeletableStack) Create(apiClient *http.Client, apiEndpoint string, createOperation CreateOperation) error {
+// create executes an operation and adds a deletable to the deletable stack.
+func (r *OperationStack) create(createOperation CreateOperation) error {
 	deletable, errMsg, err := createOperation()
 	if err != nil {
-		return r.CleanOnCreateError(apiClient, apiEndpoint, fmt.Errorf("%s: %w", errMsg, err))
+		return r.cleanOnCreateError(fmt.Errorf("failed to create %s: %w", errMsg, err))
 	}
-	r.Push(deletable)
+	r.push(deletable)
 
 	return nil
 }
