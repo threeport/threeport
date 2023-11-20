@@ -87,14 +87,14 @@ and workload instance based on the workload config or name.`,
 
 		// delete workload
 		workload := workloadConfig.Workload
-		wd, wi, err := workload.Delete(apiClient, apiEndpoint)
+		_, _, err = workload.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload", err)
 			os.Exit(1)
 		}
 
-		cli.Info(fmt.Sprintf("workload instance %s deleted", *wi.Name))
-		cli.Info(fmt.Sprintf("workload definition %s deleted", *wd.Name))
+		cli.Info(fmt.Sprintf("workload instance %s deleted", workload.Name))
+		cli.Info(fmt.Sprintf("workload definition %s deleted", workload.Name))
 		cli.Complete(fmt.Sprintf("workload %s deleted", workloadConfig.Workload.Name))
 	},
 }
