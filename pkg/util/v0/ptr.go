@@ -11,3 +11,8 @@ func BoolPtr(b bool) *bool {
 func TimePtr(t time.Time) *time.Time {
 	return &t
 }
+
+// StringPtr returns a pointer to the string value passed in.
+func StringPtr(s string) *string {
+	return &s
+}
