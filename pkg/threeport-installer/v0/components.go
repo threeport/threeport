@@ -1321,9 +1321,13 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string) []interface{} {
 	case cpi.Opts.Debug:
 		args := []interface{}{}
 		if !cpi.Opts.AuthEnabled {
-			args = append(args, "--")
 			args = append(args, "-auth-enabled=false")
+		}
+		if cpi.Opts.Verbose {
 			args = append(args, "-verbose=true")
+		}
+		if len(args) > 0 {
+			args = append([]interface{}{"--"}, args...)
 		}
 
 		// controller arguments must be wrapped in delve arguments
@@ -1333,6 +1337,10 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string) []interface{} {
 
 		if !cpi.Opts.AuthEnabled {
 			args = append(args, "-auth-enabled=false")
+		}
+		if cpi.Opts.Verbose {
+			args = append(args, "-verbose=true")
+
 		}
 		return args
 	}
