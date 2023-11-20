@@ -11,7 +11,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 	"time"
 )
@@ -25,7 +24,7 @@ import (
 // @ID gatewayDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /gateway-definitions/versions [get]
+// @Router /gateway-definitions/versions [GET]
 func (h Handler) GetGatewayDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeGatewayDefinition)])
 }
@@ -39,7 +38,7 @@ func (h Handler) GetGatewayDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-definitions [post]
+// @Router /v0/gateway-definitions [POST]
 func (h Handler) AddGatewayDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayDefinition
 	var gatewayDefinition v0.GatewayDefinition
@@ -108,7 +107,7 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-definitions [get]
+// @Router /v0/gateway-definitions [GET]
 func (h Handler) GetGatewayDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -122,12 +121,12 @@ func (h Handler) GetGatewayDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.GatewayDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.GatewayDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.GatewayDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -148,12 +147,12 @@ func (h Handler) GetGatewayDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-definitions/{id} [get]
+// @Router /v0/gateway-definitions/{id} [GET]
 func (h Handler) GetGatewayDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayDefinition
 	gatewayDefinitionID := c.Param("id")
 	var gatewayDefinition v0.GatewayDefinition
-	if result := h.DB.Preload(clause.Associations).First(&gatewayDefinition, gatewayDefinitionID); result.Error != nil {
+	if result := h.DB.First(&gatewayDefinition, gatewayDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -183,7 +182,7 @@ func (h Handler) GetGatewayDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-definitions/{id} [patch]
+// @Router /v0/gateway-definitions/{id} [PATCH]
 func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayDefinition
 	gatewayDefinitionID := c.Param("id")
@@ -248,7 +247,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-definitions/{id} [put]
+// @Router /v0/gateway-definitions/{id} [PUT]
 func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayDefinition
 	gatewayDefinitionID := c.Param("id")
@@ -308,7 +307,7 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-definitions/{id} [delete]
+// @Router /v0/gateway-definitions/{id} [DELETE]
 func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayDefinition
 	gatewayDefinitionID := c.Param("id")
@@ -385,7 +384,7 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 // @ID gatewayInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /gateway-instances/versions [get]
+// @Router /gateway-instances/versions [GET]
 func (h Handler) GetGatewayInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeGatewayInstance)])
 }
@@ -399,7 +398,7 @@ func (h Handler) GetGatewayInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-instances [post]
+// @Router /v0/gateway-instances [POST]
 func (h Handler) AddGatewayInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayInstance
 	var gatewayInstance v0.GatewayInstance
@@ -468,7 +467,7 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-instances [get]
+// @Router /v0/gateway-instances [GET]
 func (h Handler) GetGatewayInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -482,12 +481,12 @@ func (h Handler) GetGatewayInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.GatewayInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.GatewayInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.GatewayInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -508,12 +507,12 @@ func (h Handler) GetGatewayInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-instances/{id} [get]
+// @Router /v0/gateway-instances/{id} [GET]
 func (h Handler) GetGatewayInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayInstance
 	gatewayInstanceID := c.Param("id")
 	var gatewayInstance v0.GatewayInstance
-	if result := h.DB.Preload(clause.Associations).First(&gatewayInstance, gatewayInstanceID); result.Error != nil {
+	if result := h.DB.First(&gatewayInstance, gatewayInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -543,7 +542,7 @@ func (h Handler) GetGatewayInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-instances/{id} [patch]
+// @Router /v0/gateway-instances/{id} [PATCH]
 func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayInstance
 	gatewayInstanceID := c.Param("id")
@@ -608,7 +607,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-instances/{id} [put]
+// @Router /v0/gateway-instances/{id} [PUT]
 func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayInstance
 	gatewayInstanceID := c.Param("id")
@@ -668,7 +667,7 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gateway-instances/{id} [delete]
+// @Router /v0/gateway-instances/{id} [DELETE]
 func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeGatewayInstance
 	gatewayInstanceID := c.Param("id")
@@ -739,7 +738,7 @@ func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 // @ID domainNameDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /domain-name-definitions/versions [get]
+// @Router /domain-name-definitions/versions [GET]
 func (h Handler) GetDomainNameDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeDomainNameDefinition)])
 }
@@ -753,7 +752,7 @@ func (h Handler) GetDomainNameDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-definitions [post]
+// @Router /v0/domain-name-definitions [POST]
 func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	var domainNameDefinition v0.DomainNameDefinition
@@ -809,7 +808,7 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-definitions [get]
+// @Router /v0/domain-name-definitions [GET]
 func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -823,12 +822,12 @@ func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.DomainNameDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.DomainNameDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.DomainNameDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -849,12 +848,12 @@ func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-definitions/{id} [get]
+// @Router /v0/domain-name-definitions/{id} [GET]
 func (h Handler) GetDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	domainNameDefinitionID := c.Param("id")
 	var domainNameDefinition v0.DomainNameDefinition
-	if result := h.DB.Preload(clause.Associations).First(&domainNameDefinition, domainNameDefinitionID); result.Error != nil {
+	if result := h.DB.First(&domainNameDefinition, domainNameDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -884,7 +883,7 @@ func (h Handler) GetDomainNameDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-definitions/{id} [patch]
+// @Router /v0/domain-name-definitions/{id} [PATCH]
 func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	domainNameDefinitionID := c.Param("id")
@@ -936,7 +935,7 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-definitions/{id} [put]
+// @Router /v0/domain-name-definitions/{id} [PUT]
 func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	domainNameDefinitionID := c.Param("id")
@@ -996,7 +995,7 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-definitions/{id} [delete]
+// @Router /v0/domain-name-definitions/{id} [DELETE]
 func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameDefinition
 	domainNameDefinitionID := c.Param("id")
@@ -1030,7 +1029,7 @@ func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 // @ID domainNameInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /domain-name-instances/versions [get]
+// @Router /domain-name-instances/versions [GET]
 func (h Handler) GetDomainNameInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeDomainNameInstance)])
 }
@@ -1044,7 +1043,7 @@ func (h Handler) GetDomainNameInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-instances [post]
+// @Router /v0/domain-name-instances [POST]
 func (h Handler) AddDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	var domainNameInstance v0.DomainNameInstance
@@ -1113,7 +1112,7 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-instances [get]
+// @Router /v0/domain-name-instances [GET]
 func (h Handler) GetDomainNameInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -1127,12 +1126,12 @@ func (h Handler) GetDomainNameInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.DomainNameInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.DomainNameInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.DomainNameInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1153,12 +1152,12 @@ func (h Handler) GetDomainNameInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-instances/{id} [get]
+// @Router /v0/domain-name-instances/{id} [GET]
 func (h Handler) GetDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	domainNameInstanceID := c.Param("id")
 	var domainNameInstance v0.DomainNameInstance
-	if result := h.DB.Preload(clause.Associations).First(&domainNameInstance, domainNameInstanceID); result.Error != nil {
+	if result := h.DB.First(&domainNameInstance, domainNameInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1188,7 +1187,7 @@ func (h Handler) GetDomainNameInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-instances/{id} [patch]
+// @Router /v0/domain-name-instances/{id} [PATCH]
 func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	domainNameInstanceID := c.Param("id")
@@ -1253,7 +1252,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-instances/{id} [put]
+// @Router /v0/domain-name-instances/{id} [PUT]
 func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	domainNameInstanceID := c.Param("id")
@@ -1313,7 +1312,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/domain-name-instances/{id} [delete]
+// @Router /v0/domain-name-instances/{id} [DELETE]
 func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeDomainNameInstance
 	domainNameInstanceID := c.Param("id")

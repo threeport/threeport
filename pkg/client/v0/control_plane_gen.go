@@ -22,6 +22,7 @@ func GetControlPlaneDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.C
 		fmt.Sprintf("%s/%s/control-plane-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetControlPlaneDefinitionByID(apiClient *http.Client, apiAddr string, id ui
 		fmt.Sprintf("%s/%s/control-plane-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -80,6 +82,7 @@ func GetControlPlaneDefinitionsByQueryString(apiClient *http.Client, apiAddr str
 		fmt.Sprintf("%s/%s/control-plane-definitions?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +112,7 @@ func GetControlPlaneDefinitionByName(apiClient *http.Client, apiAddr, name strin
 		fmt.Sprintf("%s/%s/control-plane-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -149,6 +153,7 @@ func CreateControlPlaneDefinition(apiClient *http.Client, apiAddr string, contro
 		fmt.Sprintf("%s/%s/control-plane-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonControlPlaneDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -190,6 +195,7 @@ func UpdateControlPlaneDefinition(apiClient *http.Client, apiAddr string, contro
 		fmt.Sprintf("%s/%s/control-plane-definitions/%d", apiAddr, ApiVersion, controlPlaneDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonControlPlaneDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -220,6 +226,7 @@ func DeleteControlPlaneDefinition(apiClient *http.Client, apiAddr string, id uin
 		fmt.Sprintf("%s/%s/control-plane-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -250,6 +257,7 @@ func GetControlPlaneInstances(apiClient *http.Client, apiAddr string) (*[]v0.Con
 		fmt.Sprintf("%s/%s/control-plane-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -279,6 +287,7 @@ func GetControlPlaneInstanceByID(apiClient *http.Client, apiAddr string, id uint
 		fmt.Sprintf("%s/%s/control-plane-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -308,6 +317,7 @@ func GetControlPlaneInstancesByQueryString(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/control-plane-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -337,6 +347,7 @@ func GetControlPlaneInstanceByName(apiClient *http.Client, apiAddr, name string)
 		fmt.Sprintf("%s/%s/control-plane-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -377,6 +388,7 @@ func CreateControlPlaneInstance(apiClient *http.Client, apiAddr string, controlP
 		fmt.Sprintf("%s/%s/control-plane-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonControlPlaneInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -418,6 +430,7 @@ func UpdateControlPlaneInstance(apiClient *http.Client, apiAddr string, controlP
 		fmt.Sprintf("%s/%s/control-plane-instances/%d", apiAddr, ApiVersion, controlPlaneInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonControlPlaneInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -448,6 +461,7 @@ func DeleteControlPlaneInstance(apiClient *http.Client, apiAddr string, id uint)
 		fmt.Sprintf("%s/%s/control-plane-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

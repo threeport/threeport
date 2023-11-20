@@ -12,7 +12,6 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
-	v0 "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
@@ -20,7 +19,7 @@ import (
 
 var disable bool
 var liveReload bool
-var componentNames string
+var debugComponentNames string
 
 // buildCmd represents the up command
 var debugCmd = &cobra.Command{
@@ -29,8 +28,11 @@ var debugCmd = &cobra.Command{
 	Long:  `Debug threeport control plane components.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		// create list of images to build
-		componentNamesList := getImageNamesList(componentNames)
+		// create list of components to build
+		debugComponents, err := getComponentList(debugComponentNames)
+		if err != nil {
+			cli.Error("failed to get debug component list: %w", err)
+		}
 
 		// update cli args based on env vars
 		getControlPlaneEnvVars()
@@ -40,16 +42,6 @@ var debugCmd = &cobra.Command{
 		if err != nil {
 			cli.Error("failed to create threeport control plane installer", err)
 			os.Exit(1)
-		}
-
-		// configure which components to update
-		debugComponents := []*api_v0.ControlPlaneComponent{}
-		for _, component := range v0.AllControlPlaneComponents() {
-			for _, componentName := range componentNamesList {
-				if component.Name == componentName {
-					debugComponents = append(debugComponents, component)
-				}
-			}
 		}
 
 		// get threeport config and extract threeport API endpoint
@@ -202,8 +194,8 @@ var debugCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(debugCmd)
 	debugCmd.Flags().StringVarP(
-		&componentNames,
-		"component-names", "n", "", "Comma-delimited list of component names to update with debug images (rest-api,agent,workload-controller etc). Defaults to all components.",
+		&debugComponentNames,
+		"names", "n", "", "Comma-delimited list of component names to update with debug images (rest-api,agent,workload-controller etc). Defaults to all components.",
 	)
 	debugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,

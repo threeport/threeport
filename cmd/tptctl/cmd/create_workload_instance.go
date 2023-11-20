@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -30,10 +31,23 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API endpoint from config", err)
-			os.Exit(1)
+
+		var apiClient *http.Client
+		var apiEndpoint string
+
+		apiClient, apiEndpoint = checkContext(cmd)
+		if apiClient == nil && apiEndpoint != "" {
+			apiEndpoint, err = threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to get threeport API endpoint from config", err)
+				os.Exit(1)
+			}
+
+			apiClient, err = threeportConfig.GetHTTPClient(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to create threeport API client", err)
+				os.Exit(1)
+			}
 		}
 
 		// load workload instance config
@@ -45,13 +59,6 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 		var workloadInstanceConfig config.WorkloadInstanceConfig
 		if err := yaml.Unmarshal(configContent, &workloadInstanceConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
-			os.Exit(1)
-		}
-
-		// get threeport API client
-		apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API client", err)
 			os.Exit(1)
 		}
 
@@ -68,7 +75,7 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateWorkloadInstanceCmd)
+	CreateCmd.AddCommand(CreateWorkloadInstanceCmd)
 
 	CreateWorkloadInstanceCmd.Flags().StringVarP(
 		&createWorkloadInstanceConfigPath,

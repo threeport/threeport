@@ -22,6 +22,7 @@ func GetKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr string) (*[
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr string, 
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -80,6 +82,7 @@ func GetKubernetesRuntimeDefinitionsByQueryString(apiClient *http.Client, apiAdd
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +112,7 @@ func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name 
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -149,6 +153,7 @@ func CreateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonKubernetesRuntimeDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -190,6 +195,7 @@ func UpdateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, kubernetesRuntimeDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonKubernetesRuntimeDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -220,6 +226,7 @@ func DeleteKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, i
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -250,6 +257,7 @@ func GetKubernetesRuntimeInstances(apiClient *http.Client, apiAddr string) (*[]v
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -279,6 +287,7 @@ func GetKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr string, id
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -308,6 +317,7 @@ func GetKubernetesRuntimeInstancesByQueryString(apiClient *http.Client, apiAddr 
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -337,6 +347,7 @@ func GetKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name st
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -377,6 +388,7 @@ func CreateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonKubernetesRuntimeInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -418,6 +430,7 @@ func UpdateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances/%d", apiAddr, ApiVersion, kubernetesRuntimeInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonKubernetesRuntimeInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -448,6 +461,7 @@ func DeleteKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, id 
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

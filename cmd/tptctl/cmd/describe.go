@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// describeCmd represents the describe command
-var describeCmd = &cobra.Command{
+// DescribeCmd represents the describe command
+var DescribeCmd = &cobra.Command{
 	Use:   "describe",
 	Short: "Describe a Threeport object",
 	Long: `Describe a Threeport object.
@@ -18,5 +18,5 @@ to describe different objects from the system.`,
 }
 
 func init() {
-	rootCmd.AddCommand(describeCmd)
+	rootCmd.AddCommand(DescribeCmd)
 }

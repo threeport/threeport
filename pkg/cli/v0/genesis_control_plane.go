@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 	"unicode/utf8"
@@ -62,6 +64,7 @@ type GenesisControlPlaneCLIArgs struct {
 	ThreeportPath         string
 	Debug                 bool
 	ControlPlaneOnly      bool
+	KindInfraPortForward  []string
 }
 
 const tier = threeport.ControlPlaneTierDev
@@ -130,6 +133,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.LiveReload = false
 	cpi.Opts.CreateOrUpdateKubeResources = false
 	cpi.Opts.ControlPlaneOnly = a.ControlPlaneOnly
+	cpi.Opts.RestApiEksLoadBalancer = true
 
 	return cpi, nil
 }
@@ -156,15 +160,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	genesis := true
-	// flag validation
-	if err := ValidateCreateGenesisControlPlaneFlags(
-		cpi.Opts.ControlPlaneName,
-		cpi.Opts.InfraProvider,
-		cpi.Opts.CreateRootDomain,
-		cpi.Opts.AuthEnabled,
-	); err != nil {
-		return fmt.Errorf("flag validation failed: %w", err)
-	}
 
 	threeportConfig.ControlPlanes = []config.ControlPlane{}
 	threeportControlPlaneConfig := &config.ControlPlane{}
@@ -194,6 +189,26 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 
+		portForwards := make(map[int32]int32)
+		for _, mapping := range cpi.Opts.KindInfraPortForward {
+			split := strings.Split(mapping, ":")
+			if len(split) != 2 {
+				return fmt.Errorf("failed to parse kind port forward %s", mapping)
+			}
+
+			containerPort, err := strconv.ParseInt(split[0], 10, 32)
+			if err != nil {
+				return fmt.Errorf("failed to parse container port: %s as int32", split[0])
+			}
+
+			hostPort, err := strconv.ParseInt(split[1], 10, 32)
+			if err != nil {
+				return fmt.Errorf("failed to parse host port: %s as int32", split[0])
+			}
+
+			portForwards[int32(containerPort)] = int32(hostPort)
+		}
+
 		// construct kind infra provider object
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
@@ -202,6 +217,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ThreeportPath:       cpi.Opts.ThreeportPath,
 			NumWorkerNodes:      cpi.Opts.NumWorkerNodes,
 			AuthEnabled:         cpi.Opts.AuthEnabled,
+			PortForwards:        portForwards,
 		}
 
 		// update threeport config with api endpoint
@@ -581,6 +597,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	}
 
+	err = cpi.Opts.PreInstallFunction(dynamicKubeClient, mapper, cpi)
+
+	if err != nil {
+		return cleanOnCreateError("failed to run custom preInstall function", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
+	}
+
 	// install the API
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
@@ -602,7 +624,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return cleanOnCreateError("failed to get threeport API's public endpoint", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 		}
 		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
-			c.APIServer = fmt.Sprintf("%s:443", threeportAPIEndpoint)
+			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
 		}); err != nil {
 			return fmt.Errorf("failed to update threeport config: %w", err)
 		}
@@ -652,6 +674,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			fmt.Sprintf("%s/version", threeportAPIEndpoint),
 			http.MethodGet,
 			new(bytes.Buffer),
+			map[string]string{},
 			http.StatusOK,
 		)
 		if err != nil {
@@ -1188,12 +1211,15 @@ func ValidateCreateGenesisControlPlaneFlags(
 		)
 	}
 
+	// TODO: We are currently deploying on EKS without internal auth enabled.
+	// When we switch over to auth enabled internally we can re-enable this
+
 	// ensure client cert auth is used on remote installations
-	if infraProvider != v0.KubernetesRuntimeInfraProviderKind && !authEnabled {
-		return errors.New(
-			"cannot turn off client certificate authentication unless using the kind provider",
-		)
-	}
+	// if infraProvider != v0.KubernetesRuntimeInfraProviderKind && !authEnabled {
+	// 	return errors.New(
+	// 		"cannot turn off client certificate authentication unless using the kind provider",
+	// 	)
+	// }
 
 	return nil
 }

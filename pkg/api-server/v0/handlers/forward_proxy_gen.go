@@ -9,7 +9,6 @@ import (
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 )
 
@@ -22,7 +21,7 @@ import (
 // @ID forwardProxyDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /forward-proxy-definitions/versions [get]
+// @Router /forward-proxy-definitions/versions [GET]
 func (h Handler) GetForwardProxyDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeForwardProxyDefinition)])
 }
@@ -36,7 +35,7 @@ func (h Handler) GetForwardProxyDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-definitions [post]
+// @Router /v0/forward-proxy-definitions [POST]
 func (h Handler) AddForwardProxyDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyDefinition
 	var forwardProxyDefinition v0.ForwardProxyDefinition
@@ -92,7 +91,7 @@ func (h Handler) AddForwardProxyDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-definitions [get]
+// @Router /v0/forward-proxy-definitions [GET]
 func (h Handler) GetForwardProxyDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -106,12 +105,12 @@ func (h Handler) GetForwardProxyDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.ForwardProxyDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.ForwardProxyDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.ForwardProxyDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -132,12 +131,12 @@ func (h Handler) GetForwardProxyDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-definitions/{id} [get]
+// @Router /v0/forward-proxy-definitions/{id} [GET]
 func (h Handler) GetForwardProxyDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyDefinition
 	forwardProxyDefinitionID := c.Param("id")
 	var forwardProxyDefinition v0.ForwardProxyDefinition
-	if result := h.DB.Preload(clause.Associations).First(&forwardProxyDefinition, forwardProxyDefinitionID); result.Error != nil {
+	if result := h.DB.First(&forwardProxyDefinition, forwardProxyDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -167,7 +166,7 @@ func (h Handler) GetForwardProxyDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-definitions/{id} [patch]
+// @Router /v0/forward-proxy-definitions/{id} [PATCH]
 func (h Handler) UpdateForwardProxyDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyDefinition
 	forwardProxyDefinitionID := c.Param("id")
@@ -219,7 +218,7 @@ func (h Handler) UpdateForwardProxyDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-definitions/{id} [put]
+// @Router /v0/forward-proxy-definitions/{id} [PUT]
 func (h Handler) ReplaceForwardProxyDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyDefinition
 	forwardProxyDefinitionID := c.Param("id")
@@ -279,7 +278,7 @@ func (h Handler) ReplaceForwardProxyDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-definitions/{id} [delete]
+// @Router /v0/forward-proxy-definitions/{id} [DELETE]
 func (h Handler) DeleteForwardProxyDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyDefinition
 	forwardProxyDefinitionID := c.Param("id")
@@ -313,7 +312,7 @@ func (h Handler) DeleteForwardProxyDefinition(c echo.Context) error {
 // @ID forwardProxyInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /forward-proxy-instances/versions [get]
+// @Router /forward-proxy-instances/versions [GET]
 func (h Handler) GetForwardProxyInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeForwardProxyInstance)])
 }
@@ -327,7 +326,7 @@ func (h Handler) GetForwardProxyInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-instances [post]
+// @Router /v0/forward-proxy-instances [POST]
 func (h Handler) AddForwardProxyInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyInstance
 	var forwardProxyInstance v0.ForwardProxyInstance
@@ -383,7 +382,7 @@ func (h Handler) AddForwardProxyInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-instances [get]
+// @Router /v0/forward-proxy-instances [GET]
 func (h Handler) GetForwardProxyInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -397,12 +396,12 @@ func (h Handler) GetForwardProxyInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.ForwardProxyInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.ForwardProxyInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.ForwardProxyInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -423,12 +422,12 @@ func (h Handler) GetForwardProxyInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-instances/{id} [get]
+// @Router /v0/forward-proxy-instances/{id} [GET]
 func (h Handler) GetForwardProxyInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyInstance
 	forwardProxyInstanceID := c.Param("id")
 	var forwardProxyInstance v0.ForwardProxyInstance
-	if result := h.DB.Preload(clause.Associations).First(&forwardProxyInstance, forwardProxyInstanceID); result.Error != nil {
+	if result := h.DB.First(&forwardProxyInstance, forwardProxyInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -458,7 +457,7 @@ func (h Handler) GetForwardProxyInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-instances/{id} [patch]
+// @Router /v0/forward-proxy-instances/{id} [PATCH]
 func (h Handler) UpdateForwardProxyInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyInstance
 	forwardProxyInstanceID := c.Param("id")
@@ -510,7 +509,7 @@ func (h Handler) UpdateForwardProxyInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-instances/{id} [put]
+// @Router /v0/forward-proxy-instances/{id} [PUT]
 func (h Handler) ReplaceForwardProxyInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyInstance
 	forwardProxyInstanceID := c.Param("id")
@@ -570,7 +569,7 @@ func (h Handler) ReplaceForwardProxyInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/forward-proxy-instances/{id} [delete]
+// @Router /v0/forward-proxy-instances/{id} [DELETE]
 func (h Handler) DeleteForwardProxyInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeForwardProxyInstance
 	forwardProxyInstanceID := c.Param("id")

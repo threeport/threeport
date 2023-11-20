@@ -6,6 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -37,10 +38,22 @@ and workload instance based on the workload config or name.`,
 			os.Exit(1)
 		}
 
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API endpoint from config", err)
-			os.Exit(1)
+		var apiClient *http.Client
+		var apiEndpoint string
+
+		apiClient, apiEndpoint = checkContext(cmd)
+		if apiClient == nil && apiEndpoint != "" {
+			apiEndpoint, err = threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to get threeport API endpoint from config", err)
+				os.Exit(1)
+			}
+
+			apiClient, err = threeportConfig.GetHTTPClient(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to create threeport API client", err)
+				os.Exit(1)
+			}
 		}
 
 		// flag validation
@@ -72,13 +85,6 @@ and workload instance based on the workload config or name.`,
 			}
 		}
 
-		// get threeport API client
-		apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API client", err)
-			os.Exit(1)
-		}
-
 		// delete workload
 		workload := workloadConfig.Workload
 		wd, wi, err := workload.Delete(apiClient, apiEndpoint)
@@ -94,7 +100,7 @@ and workload instance based on the workload config or name.`,
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteWorkloadCmd)
+	DeleteCmd.AddCommand(DeleteWorkloadCmd)
 
 	DeleteWorkloadCmd.Flags().StringVarP(
 		&deleteWorkloadConfigPath,

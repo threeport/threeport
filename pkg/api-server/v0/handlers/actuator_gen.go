@@ -9,7 +9,6 @@ import (
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 )
 
@@ -22,7 +21,7 @@ import (
 // @ID profile-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /profiles/versions [get]
+// @Router /profiles/versions [GET]
 func (h Handler) GetProfileVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeProfile)])
 }
@@ -36,7 +35,7 @@ func (h Handler) GetProfileVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/profiles [post]
+// @Router /v0/profiles [POST]
 func (h Handler) AddProfile(c echo.Context) error {
 	objectType := v0.ObjectTypeProfile
 	var profile v0.Profile
@@ -92,7 +91,7 @@ func (h Handler) AddProfile(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/profiles [get]
+// @Router /v0/profiles [GET]
 func (h Handler) GetProfiles(c echo.Context) error {
 	objectType := v0.ObjectTypeProfile
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -106,12 +105,12 @@ func (h Handler) GetProfiles(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.Profile{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.Profile{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.Profile{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -132,12 +131,12 @@ func (h Handler) GetProfiles(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/profiles/{id} [get]
+// @Router /v0/profiles/{id} [GET]
 func (h Handler) GetProfile(c echo.Context) error {
 	objectType := v0.ObjectTypeProfile
 	profileID := c.Param("id")
 	var profile v0.Profile
-	if result := h.DB.Preload(clause.Associations).First(&profile, profileID); result.Error != nil {
+	if result := h.DB.First(&profile, profileID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -167,7 +166,7 @@ func (h Handler) GetProfile(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/profiles/{id} [patch]
+// @Router /v0/profiles/{id} [PATCH]
 func (h Handler) UpdateProfile(c echo.Context) error {
 	objectType := v0.ObjectTypeProfile
 	profileID := c.Param("id")
@@ -219,7 +218,7 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/profiles/{id} [put]
+// @Router /v0/profiles/{id} [PUT]
 func (h Handler) ReplaceProfile(c echo.Context) error {
 	objectType := v0.ObjectTypeProfile
 	profileID := c.Param("id")
@@ -279,7 +278,7 @@ func (h Handler) ReplaceProfile(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/profiles/{id} [delete]
+// @Router /v0/profiles/{id} [DELETE]
 func (h Handler) DeleteProfile(c echo.Context) error {
 	objectType := v0.ObjectTypeProfile
 	profileID := c.Param("id")
@@ -313,7 +312,7 @@ func (h Handler) DeleteProfile(c echo.Context) error {
 // @ID tier-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /tiers/versions [get]
+// @Router /tiers/versions [GET]
 func (h Handler) GetTierVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeTier)])
 }
@@ -327,7 +326,7 @@ func (h Handler) GetTierVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/tiers [post]
+// @Router /v0/tiers [POST]
 func (h Handler) AddTier(c echo.Context) error {
 	objectType := v0.ObjectTypeTier
 	var tier v0.Tier
@@ -383,7 +382,7 @@ func (h Handler) AddTier(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/tiers [get]
+// @Router /v0/tiers [GET]
 func (h Handler) GetTiers(c echo.Context) error {
 	objectType := v0.ObjectTypeTier
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -397,12 +396,12 @@ func (h Handler) GetTiers(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.Tier{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.Tier{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.Tier{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -423,12 +422,12 @@ func (h Handler) GetTiers(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/tiers/{id} [get]
+// @Router /v0/tiers/{id} [GET]
 func (h Handler) GetTier(c echo.Context) error {
 	objectType := v0.ObjectTypeTier
 	tierID := c.Param("id")
 	var tier v0.Tier
-	if result := h.DB.Preload(clause.Associations).First(&tier, tierID); result.Error != nil {
+	if result := h.DB.First(&tier, tierID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -458,7 +457,7 @@ func (h Handler) GetTier(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/tiers/{id} [patch]
+// @Router /v0/tiers/{id} [PATCH]
 func (h Handler) UpdateTier(c echo.Context) error {
 	objectType := v0.ObjectTypeTier
 	tierID := c.Param("id")
@@ -510,7 +509,7 @@ func (h Handler) UpdateTier(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/tiers/{id} [put]
+// @Router /v0/tiers/{id} [PUT]
 func (h Handler) ReplaceTier(c echo.Context) error {
 	objectType := v0.ObjectTypeTier
 	tierID := c.Param("id")
@@ -570,7 +569,7 @@ func (h Handler) ReplaceTier(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/tiers/{id} [delete]
+// @Router /v0/tiers/{id} [DELETE]
 func (h Handler) DeleteTier(c echo.Context) error {
 	objectType := v0.ObjectTypeTier
 	tierID := c.Param("id")

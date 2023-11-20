@@ -25,7 +25,7 @@ import (
 // @ID controlPlaneDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /control-plane-definitions/versions [get]
+// @Router /control-plane-definitions/versions [GET]
 func (h Handler) GetControlPlaneDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeControlPlaneDefinition)])
 }
@@ -39,7 +39,7 @@ func (h Handler) GetControlPlaneDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-definitions [post]
+// @Router /v0/control-plane-definitions [POST]
 func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneDefinition
 	var controlPlaneDefinition v0.ControlPlaneDefinition
@@ -108,7 +108,7 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-definitions [get]
+// @Router /v0/control-plane-definitions [GET]
 func (h Handler) GetControlPlaneDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -122,12 +122,12 @@ func (h Handler) GetControlPlaneDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.ControlPlaneDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.ControlPlaneDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.ControlPlaneDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -148,12 +148,12 @@ func (h Handler) GetControlPlaneDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-definitions/{id} [get]
+// @Router /v0/control-plane-definitions/{id} [GET]
 func (h Handler) GetControlPlaneDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneDefinition
 	controlPlaneDefinitionID := c.Param("id")
 	var controlPlaneDefinition v0.ControlPlaneDefinition
-	if result := h.DB.Preload(clause.Associations).First(&controlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
+	if result := h.DB.First(&controlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -183,7 +183,7 @@ func (h Handler) GetControlPlaneDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-definitions/{id} [patch]
+// @Router /v0/control-plane-definitions/{id} [PATCH]
 func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneDefinition
 	controlPlaneDefinitionID := c.Param("id")
@@ -248,7 +248,7 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-definitions/{id} [put]
+// @Router /v0/control-plane-definitions/{id} [PUT]
 func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneDefinition
 	controlPlaneDefinitionID := c.Param("id")
@@ -308,7 +308,7 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-definitions/{id} [delete]
+// @Router /v0/control-plane-definitions/{id} [DELETE]
 func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneDefinition
 	controlPlaneDefinitionID := c.Param("id")
@@ -385,7 +385,7 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 // @ID controlPlaneInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /control-plane-instances/versions [get]
+// @Router /control-plane-instances/versions [GET]
 func (h Handler) GetControlPlaneInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeControlPlaneInstance)])
 }
@@ -399,7 +399,7 @@ func (h Handler) GetControlPlaneInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-instances [post]
+// @Router /v0/control-plane-instances [POST]
 func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneInstance
 	var controlPlaneInstance v0.ControlPlaneInstance
@@ -468,7 +468,7 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-instances [get]
+// @Router /v0/control-plane-instances [GET]
 func (h Handler) GetControlPlaneInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -508,7 +508,7 @@ func (h Handler) GetControlPlaneInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-instances/{id} [get]
+// @Router /v0/control-plane-instances/{id} [GET]
 func (h Handler) GetControlPlaneInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneInstance
 	controlPlaneInstanceID := c.Param("id")
@@ -543,7 +543,7 @@ func (h Handler) GetControlPlaneInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-instances/{id} [patch]
+// @Router /v0/control-plane-instances/{id} [PATCH]
 func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneInstance
 	controlPlaneInstanceID := c.Param("id")
@@ -608,7 +608,7 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-instances/{id} [put]
+// @Router /v0/control-plane-instances/{id} [PUT]
 func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneInstance
 	controlPlaneInstanceID := c.Param("id")
@@ -668,7 +668,7 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/control-plane-instances/{id} [delete]
+// @Router /v0/control-plane-instances/{id} [DELETE]
 func (h Handler) DeleteControlPlaneInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeControlPlaneInstance
 	controlPlaneInstanceID := c.Param("id")

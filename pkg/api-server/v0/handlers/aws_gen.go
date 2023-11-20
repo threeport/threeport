@@ -11,7 +11,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 	"time"
 )
@@ -25,7 +24,7 @@ import (
 // @ID awsAccount-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws-accounts/versions [get]
+// @Router /aws-accounts/versions [GET]
 func (h Handler) GetAwsAccountVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsAccount)])
 }
@@ -39,7 +38,7 @@ func (h Handler) GetAwsAccountVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts [post]
+// @Router /v0/aws-accounts [POST]
 func (h Handler) AddAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	var awsAccount v0.AwsAccount
@@ -95,7 +94,7 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts [get]
+// @Router /v0/aws-accounts [GET]
 func (h Handler) GetAwsAccounts(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -109,12 +108,12 @@ func (h Handler) GetAwsAccounts(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsAccount{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsAccount{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsAccount{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -135,12 +134,12 @@ func (h Handler) GetAwsAccounts(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts/{id} [get]
+// @Router /v0/aws-accounts/{id} [GET]
 func (h Handler) GetAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	awsAccountID := c.Param("id")
 	var awsAccount v0.AwsAccount
-	if result := h.DB.Preload(clause.Associations).First(&awsAccount, awsAccountID); result.Error != nil {
+	if result := h.DB.First(&awsAccount, awsAccountID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -170,7 +169,7 @@ func (h Handler) GetAwsAccount(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts/{id} [patch]
+// @Router /v0/aws-accounts/{id} [PATCH]
 func (h Handler) UpdateAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	awsAccountID := c.Param("id")
@@ -222,7 +221,7 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts/{id} [put]
+// @Router /v0/aws-accounts/{id} [PUT]
 func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	awsAccountID := c.Param("id")
@@ -282,7 +281,7 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts/{id} [delete]
+// @Router /v0/aws-accounts/{id} [DELETE]
 func (h Handler) DeleteAwsAccount(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsAccount
 	awsAccountID := c.Param("id")
@@ -316,7 +315,7 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 // @ID awsEksKubernetesRuntimeDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws-eks-kubernetes-runtime-definitions/versions [get]
+// @Router /aws-eks-kubernetes-runtime-definitions/versions [GET]
 func (h Handler) GetAwsEksKubernetesRuntimeDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsEksKubernetesRuntimeDefinition)])
 }
@@ -330,7 +329,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinitionVersions(c echo.Context) er
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-definitions [post]
+// @Router /v0/aws-eks-kubernetes-runtime-definitions [POST]
 func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
@@ -386,7 +385,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-definitions [get]
+// @Router /v0/aws-eks-kubernetes-runtime-definitions [GET]
 func (h Handler) GetAwsEksKubernetesRuntimeDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -400,12 +399,12 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsEksKubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsEksKubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsEksKubernetesRuntimeDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -426,12 +425,12 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [get]
+// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [GET]
 func (h Handler) GetAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
 	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
-	if result := h.DB.Preload(clause.Associations).First(&awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
+	if result := h.DB.First(&awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -461,7 +460,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [patch]
+// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [PATCH]
 func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
@@ -513,7 +512,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [put]
+// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [PUT]
 func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
@@ -573,7 +572,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error 
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [delete]
+// @Router /v0/aws-eks-kubernetes-runtime-definitions/{id} [DELETE]
 func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeDefinition
 	awsEksKubernetesRuntimeDefinitionID := c.Param("id")
@@ -613,7 +612,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 // @ID awsEksKubernetesRuntimeInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws-eks-kubernetes-runtime-instances/versions [get]
+// @Router /aws-eks-kubernetes-runtime-instances/versions [GET]
 func (h Handler) GetAwsEksKubernetesRuntimeInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsEksKubernetesRuntimeInstance)])
 }
@@ -627,7 +626,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstanceVersions(c echo.Context) erro
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-instances [post]
+// @Router /v0/aws-eks-kubernetes-runtime-instances [POST]
 func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
 	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
@@ -696,7 +695,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-instances [get]
+// @Router /v0/aws-eks-kubernetes-runtime-instances [GET]
 func (h Handler) GetAwsEksKubernetesRuntimeInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -710,12 +709,12 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsEksKubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsEksKubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsEksKubernetesRuntimeInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -736,12 +735,12 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [get]
+// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [GET]
 func (h Handler) GetAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
 	awsEksKubernetesRuntimeInstanceID := c.Param("id")
 	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
-	if result := h.DB.Preload(clause.Associations).First(&awsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
+	if result := h.DB.First(&awsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -771,7 +770,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [patch]
+// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [PATCH]
 func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
 	awsEksKubernetesRuntimeInstanceID := c.Param("id")
@@ -836,7 +835,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [put]
+// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [PUT]
 func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
 	awsEksKubernetesRuntimeInstanceID := c.Param("id")
@@ -896,7 +895,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [delete]
+// @Router /v0/aws-eks-kubernetes-runtime-instances/{id} [DELETE]
 func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsEksKubernetesRuntimeInstance
 	awsEksKubernetesRuntimeInstanceID := c.Param("id")
@@ -967,7 +966,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @ID awsRelationalDatabaseDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws-relational-database-definitions/versions [get]
+// @Router /aws-relational-database-definitions/versions [GET]
 func (h Handler) GetAwsRelationalDatabaseDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsRelationalDatabaseDefinition)])
 }
@@ -981,7 +980,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinitionVersions(c echo.Context) erro
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions [post]
+// @Router /v0/aws-relational-database-definitions [POST]
 func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
@@ -1037,7 +1036,7 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions [get]
+// @Router /v0/aws-relational-database-definitions [GET]
 func (h Handler) GetAwsRelationalDatabaseDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -1051,12 +1050,12 @@ func (h Handler) GetAwsRelationalDatabaseDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsRelationalDatabaseDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsRelationalDatabaseDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsRelationalDatabaseDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1077,12 +1076,12 @@ func (h Handler) GetAwsRelationalDatabaseDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions/{id} [get]
+// @Router /v0/aws-relational-database-definitions/{id} [GET]
 func (h Handler) GetAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	awsRelationalDatabaseDefinitionID := c.Param("id")
 	var awsRelationalDatabaseDefinition v0.AwsRelationalDatabaseDefinition
-	if result := h.DB.Preload(clause.Associations).First(&awsRelationalDatabaseDefinition, awsRelationalDatabaseDefinitionID); result.Error != nil {
+	if result := h.DB.First(&awsRelationalDatabaseDefinition, awsRelationalDatabaseDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1112,7 +1111,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions/{id} [patch]
+// @Router /v0/aws-relational-database-definitions/{id} [PATCH]
 func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	awsRelationalDatabaseDefinitionID := c.Param("id")
@@ -1164,7 +1163,7 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions/{id} [put]
+// @Router /v0/aws-relational-database-definitions/{id} [PUT]
 func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	awsRelationalDatabaseDefinitionID := c.Param("id")
@@ -1224,7 +1223,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions/{id} [delete]
+// @Router /v0/aws-relational-database-definitions/{id} [DELETE]
 func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseDefinition
 	awsRelationalDatabaseDefinitionID := c.Param("id")
@@ -1258,7 +1257,7 @@ func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @ID awsRelationalDatabaseInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws-relational-database-instances/versions [get]
+// @Router /aws-relational-database-instances/versions [GET]
 func (h Handler) GetAwsRelationalDatabaseInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsRelationalDatabaseInstance)])
 }
@@ -1272,7 +1271,7 @@ func (h Handler) GetAwsRelationalDatabaseInstanceVersions(c echo.Context) error 
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances [post]
+// @Router /v0/aws-relational-database-instances [POST]
 func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
@@ -1341,7 +1340,7 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances [get]
+// @Router /v0/aws-relational-database-instances [GET]
 func (h Handler) GetAwsRelationalDatabaseInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -1355,12 +1354,12 @@ func (h Handler) GetAwsRelationalDatabaseInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsRelationalDatabaseInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsRelationalDatabaseInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsRelationalDatabaseInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1381,12 +1380,12 @@ func (h Handler) GetAwsRelationalDatabaseInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances/{id} [get]
+// @Router /v0/aws-relational-database-instances/{id} [GET]
 func (h Handler) GetAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	awsRelationalDatabaseInstanceID := c.Param("id")
 	var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
-	if result := h.DB.Preload(clause.Associations).First(&awsRelationalDatabaseInstance, awsRelationalDatabaseInstanceID); result.Error != nil {
+	if result := h.DB.First(&awsRelationalDatabaseInstance, awsRelationalDatabaseInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1416,7 +1415,7 @@ func (h Handler) GetAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances/{id} [patch]
+// @Router /v0/aws-relational-database-instances/{id} [PATCH]
 func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	awsRelationalDatabaseInstanceID := c.Param("id")
@@ -1481,7 +1480,7 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances/{id} [put]
+// @Router /v0/aws-relational-database-instances/{id} [PUT]
 func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	awsRelationalDatabaseInstanceID := c.Param("id")
@@ -1541,7 +1540,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances/{id} [delete]
+// @Router /v0/aws-relational-database-instances/{id} [DELETE]
 func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsRelationalDatabaseInstance
 	awsRelationalDatabaseInstanceID := c.Param("id")
@@ -1612,7 +1611,7 @@ func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
 // @ID awsObjectStorageBucketDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws-object-storage-bucket-definitions/versions [get]
+// @Router /aws-object-storage-bucket-definitions/versions [GET]
 func (h Handler) GetAwsObjectStorageBucketDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsObjectStorageBucketDefinition)])
 }
@@ -1626,7 +1625,7 @@ func (h Handler) GetAwsObjectStorageBucketDefinitionVersions(c echo.Context) err
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions [post]
+// @Router /v0/aws-object-storage-bucket-definitions [POST]
 func (h Handler) AddAwsObjectStorageBucketDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
 	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
@@ -1682,7 +1681,7 @@ func (h Handler) AddAwsObjectStorageBucketDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions [get]
+// @Router /v0/aws-object-storage-bucket-definitions [GET]
 func (h Handler) GetAwsObjectStorageBucketDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -1696,12 +1695,12 @@ func (h Handler) GetAwsObjectStorageBucketDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsObjectStorageBucketDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsObjectStorageBucketDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsObjectStorageBucketDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -1722,12 +1721,12 @@ func (h Handler) GetAwsObjectStorageBucketDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions/{id} [get]
+// @Router /v0/aws-object-storage-bucket-definitions/{id} [GET]
 func (h Handler) GetAwsObjectStorageBucketDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
 	awsObjectStorageBucketDefinitionID := c.Param("id")
 	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
-	if result := h.DB.Preload(clause.Associations).First(&awsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
+	if result := h.DB.First(&awsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -1757,7 +1756,7 @@ func (h Handler) GetAwsObjectStorageBucketDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions/{id} [patch]
+// @Router /v0/aws-object-storage-bucket-definitions/{id} [PATCH]
 func (h Handler) UpdateAwsObjectStorageBucketDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
 	awsObjectStorageBucketDefinitionID := c.Param("id")
@@ -1809,7 +1808,7 @@ func (h Handler) UpdateAwsObjectStorageBucketDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions/{id} [put]
+// @Router /v0/aws-object-storage-bucket-definitions/{id} [PUT]
 func (h Handler) ReplaceAwsObjectStorageBucketDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
 	awsObjectStorageBucketDefinitionID := c.Param("id")
@@ -1869,7 +1868,7 @@ func (h Handler) ReplaceAwsObjectStorageBucketDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions/{id} [delete]
+// @Router /v0/aws-object-storage-bucket-definitions/{id} [DELETE]
 func (h Handler) DeleteAwsObjectStorageBucketDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketDefinition
 	awsObjectStorageBucketDefinitionID := c.Param("id")
@@ -1903,7 +1902,7 @@ func (h Handler) DeleteAwsObjectStorageBucketDefinition(c echo.Context) error {
 // @ID awsObjectStorageBucketInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /aws-object-storage-bucket-instances/versions [get]
+// @Router /aws-object-storage-bucket-instances/versions [GET]
 func (h Handler) GetAwsObjectStorageBucketInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeAwsObjectStorageBucketInstance)])
 }
@@ -1917,7 +1916,7 @@ func (h Handler) GetAwsObjectStorageBucketInstanceVersions(c echo.Context) error
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances [post]
+// @Router /v0/aws-object-storage-bucket-instances [POST]
 func (h Handler) AddAwsObjectStorageBucketInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
 	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
@@ -1986,7 +1985,7 @@ func (h Handler) AddAwsObjectStorageBucketInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances [get]
+// @Router /v0/aws-object-storage-bucket-instances [GET]
 func (h Handler) GetAwsObjectStorageBucketInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -2000,12 +1999,12 @@ func (h Handler) GetAwsObjectStorageBucketInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.AwsObjectStorageBucketInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.AwsObjectStorageBucketInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.AwsObjectStorageBucketInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -2026,12 +2025,12 @@ func (h Handler) GetAwsObjectStorageBucketInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances/{id} [get]
+// @Router /v0/aws-object-storage-bucket-instances/{id} [GET]
 func (h Handler) GetAwsObjectStorageBucketInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
 	awsObjectStorageBucketInstanceID := c.Param("id")
 	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
-	if result := h.DB.Preload(clause.Associations).First(&awsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
+	if result := h.DB.First(&awsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -2061,7 +2060,7 @@ func (h Handler) GetAwsObjectStorageBucketInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances/{id} [patch]
+// @Router /v0/aws-object-storage-bucket-instances/{id} [PATCH]
 func (h Handler) UpdateAwsObjectStorageBucketInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
 	awsObjectStorageBucketInstanceID := c.Param("id")
@@ -2126,7 +2125,7 @@ func (h Handler) UpdateAwsObjectStorageBucketInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances/{id} [put]
+// @Router /v0/aws-object-storage-bucket-instances/{id} [PUT]
 func (h Handler) ReplaceAwsObjectStorageBucketInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
 	awsObjectStorageBucketInstanceID := c.Param("id")
@@ -2186,7 +2185,7 @@ func (h Handler) ReplaceAwsObjectStorageBucketInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances/{id} [delete]
+// @Router /v0/aws-object-storage-bucket-instances/{id} [DELETE]
 func (h Handler) DeleteAwsObjectStorageBucketInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeAwsObjectStorageBucketInstance
 	awsObjectStorageBucketInstanceID := c.Param("id")

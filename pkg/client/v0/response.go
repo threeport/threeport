@@ -12,6 +12,8 @@ import (
 )
 
 var ErrorObjectNotFound = errors.New("object not found")
+var ErrUnauthorized = errors.New("unauthorized")
+var ErrForbidden = errors.New("forbidden")
 
 // GetResponse calls the threeport API and returns a response.
 func GetResponse(
@@ -19,6 +21,7 @@ func GetResponse(
 	url string,
 	httpMethod string,
 	reqBody *bytes.Buffer,
+	reqHeader map[string]string,
 	expectedStatusCode int,
 ) (*v0.Response, error) {
 
@@ -27,7 +30,7 @@ func GetResponse(
 	// check if TLS is configured
 	tlsConfigured := false
 	if transport, ok := client.Transport.(*CustomTransport); ok {
-		tlsConfigured = transport.isTlsEnabled
+		tlsConfigured = transport.IsTlsEnabled
 	}
 
 	// update url if TLS is configured
@@ -41,6 +44,10 @@ func GetResponse(
 		return nil, fmt.Errorf("failed to build request to threeport API: %w", err)
 	}
 	req.Header.Add("Content-Type", "application/json")
+
+	for key, value := range reqHeader {
+		req.Header.Add(key, value)
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -66,6 +73,10 @@ func GetResponse(
 		// elsewhere
 		if resp.StatusCode == http.StatusNotFound {
 			return nil, ErrorObjectNotFound
+		} else if resp.StatusCode == http.StatusUnauthorized {
+			return nil, ErrUnauthorized
+		} else if resp.StatusCode == http.StatusForbidden {
+			return nil, ErrForbidden
 		}
 		return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s\nexpected: %d", response.Status.Code, response.Status.Message, string(status), expectedStatusCode))
 	}

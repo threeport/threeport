@@ -46,39 +46,7 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 	}
 
 	if autoMigrate {
-		if err := db.AutoMigrate(
-			&v0.Profile{},
-			&v0.Tier{},
-			&v0.AwsAccount{},
-			&v0.AwsEksKubernetesRuntimeDefinition{},
-			&v0.AwsEksKubernetesRuntimeInstance{},
-			&v0.AwsRelationalDatabaseDefinition{},
-			&v0.AwsRelationalDatabaseInstance{},
-			&v0.AwsObjectStorageBucketDefinition{},
-			&v0.AwsObjectStorageBucketInstance{},
-			&v0.Definition{},
-			&v0.Instance{},
-			&v0.KubernetesRuntimeDefinition{},
-			&v0.KubernetesRuntimeInstance{},
-			&v0.ControlPlaneComponent{},
-			&v0.ForwardProxyDefinition{},
-			&v0.ForwardProxyInstance{},
-			&v0.GatewayDefinition{},
-			&v0.GatewayInstance{},
-			&v0.DomainNameDefinition{},
-			&v0.DomainNameInstance{},
-			&v0.ControlPlaneDefinition{},
-			&v0.ControlPlaneInstance{},
-			&v0.LogBackend{},
-			&v0.LogStorageDefinition{},
-			&v0.LogStorageInstance{},
-			&v0.WorkloadDefinition{},
-			&v0.WorkloadResourceDefinition{},
-			&v0.WorkloadInstance{},
-			&v0.AttachedObjectReference{},
-			&v0.WorkloadResourceInstance{},
-			&v0.WorkloadEvent{},
-		); err != nil {
+		if err := db.AutoMigrate(GetDbInterfaces()...); err != nil {
 			return nil, err
 		}
 	}
@@ -145,6 +113,44 @@ func (zl *ZapLogger) Trace(ctx context.Context, begin time.Time, fc func() (stri
 
 	// log the message using the logger
 	logger.Debug("gorm query")
+}
+
+// Return all database init object interfaces.
+func GetDbInterfaces() []interface{} {
+	return []interface{}{
+
+		&v0.Profile{},
+		&v0.Tier{},
+		&v0.AwsAccount{},
+		&v0.AwsEksKubernetesRuntimeDefinition{},
+		&v0.AwsEksKubernetesRuntimeInstance{},
+		&v0.AwsRelationalDatabaseDefinition{},
+		&v0.AwsRelationalDatabaseInstance{},
+		&v0.AwsObjectStorageBucketDefinition{},
+		&v0.AwsObjectStorageBucketInstance{},
+		&v0.Definition{},
+		&v0.Instance{},
+		&v0.KubernetesRuntimeDefinition{},
+		&v0.KubernetesRuntimeInstance{},
+		&v0.ControlPlaneComponent{},
+		&v0.ForwardProxyDefinition{},
+		&v0.ForwardProxyInstance{},
+		&v0.GatewayDefinition{},
+		&v0.GatewayInstance{},
+		&v0.DomainNameDefinition{},
+		&v0.DomainNameInstance{},
+		&v0.ControlPlaneDefinition{},
+		&v0.ControlPlaneInstance{},
+		&v0.LogBackend{},
+		&v0.LogStorageDefinition{},
+		&v0.LogStorageInstance{},
+		&v0.WorkloadDefinition{},
+		&v0.WorkloadResourceDefinition{},
+		&v0.WorkloadInstance{},
+		&v0.AttachedObjectReference{},
+		&v0.WorkloadResourceInstance{},
+		&v0.WorkloadEvent{},
+	}
 }
 
 // suppressSensitive supresses messages containing sesitive strings.

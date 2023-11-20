@@ -22,6 +22,7 @@ func GetForwardProxyDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.F
 		fmt.Sprintf("%s/%s/forward-proxy-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetForwardProxyDefinitionByID(apiClient *http.Client, apiAddr string, id ui
 		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -80,6 +82,7 @@ func GetForwardProxyDefinitionsByQueryString(apiClient *http.Client, apiAddr str
 		fmt.Sprintf("%s/%s/forward-proxy-definitions?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +112,7 @@ func GetForwardProxyDefinitionByName(apiClient *http.Client, apiAddr, name strin
 		fmt.Sprintf("%s/%s/forward-proxy-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -149,6 +153,7 @@ func CreateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwar
 		fmt.Sprintf("%s/%s/forward-proxy-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonForwardProxyDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -190,6 +195,7 @@ func UpdateForwardProxyDefinition(apiClient *http.Client, apiAddr string, forwar
 		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, forwardProxyDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonForwardProxyDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -220,6 +226,7 @@ func DeleteForwardProxyDefinition(apiClient *http.Client, apiAddr string, id uin
 		fmt.Sprintf("%s/%s/forward-proxy-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -250,6 +257,7 @@ func GetForwardProxyInstances(apiClient *http.Client, apiAddr string) (*[]v0.For
 		fmt.Sprintf("%s/%s/forward-proxy-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -279,6 +287,7 @@ func GetForwardProxyInstanceByID(apiClient *http.Client, apiAddr string, id uint
 		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -308,6 +317,7 @@ func GetForwardProxyInstancesByQueryString(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/forward-proxy-instances?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -337,6 +347,7 @@ func GetForwardProxyInstanceByName(apiClient *http.Client, apiAddr, name string)
 		fmt.Sprintf("%s/%s/forward-proxy-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -377,6 +388,7 @@ func CreateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardP
 		fmt.Sprintf("%s/%s/forward-proxy-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonForwardProxyInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -418,6 +430,7 @@ func UpdateForwardProxyInstance(apiClient *http.Client, apiAddr string, forwardP
 		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, forwardProxyInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonForwardProxyInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -448,6 +461,7 @@ func DeleteForwardProxyInstance(apiClient *http.Client, apiAddr string, id uint)
 		fmt.Sprintf("%s/%s/forward-proxy-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

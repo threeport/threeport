@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -37,10 +38,22 @@ var DeleteControlPlaneDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API endpoint from config", err)
-			os.Exit(1)
+		var apiClient *http.Client
+		var apiEndpoint string
+
+		apiClient, apiEndpoint = checkContext(cmd)
+		if apiClient == nil && apiEndpoint != "" {
+			apiEndpoint, err = threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to get threeport API endpoint from config", err)
+				os.Exit(1)
+			}
+
+			apiClient, err = threeportConfig.GetHTTPClient(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to create threeport API client", err)
+				os.Exit(1)
+			}
 		}
 
 		// flag validation
@@ -72,13 +85,6 @@ var DeleteControlPlaneDefinitionCmd = &cobra.Command{
 			}
 		}
 
-		// get threeport API client
-		apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API client", err)
-			os.Exit(1)
-		}
-
 		// delete control plane definition
 		controlPlaneDefinition := controlPlaneDefinitionConfig.ControlPlaneDefinition
 		wd, err := controlPlaneDefinition.Delete(apiClient, apiEndpoint)
@@ -92,7 +98,7 @@ var DeleteControlPlaneDefinitionCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteControlPlaneDefinitionCmd)
+	DeleteCmd.AddCommand(DeleteControlPlaneDefinitionCmd)
 
 	DeleteControlPlaneDefinitionCmd.Flags().StringVarP(
 		&deleteControlPlaneDefinitionConfigPath,

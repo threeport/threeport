@@ -117,10 +117,10 @@ func controlPlaneInstanceCreated(
 	}
 
 	// Configure installer for new control plane instance
-	var threeportAPIEndpoint string
 	cpi := threeport.NewInstaller(threeport.Namespace(*controlPlaneRuntimeInstance.Namespace))
 	cpi.Opts.ControlPlaneName = *controlPlaneRuntimeInstance.Name
 	cpi.Opts.InThreeport = true
+	cpi.Opts.RestApiEksLoadBalancer = false
 	// If this is not the first run of the creation reconciler, we want to use createOrUpdate mode
 	cpi.Opts.CreateOrUpdateKubeResources = notFirstRun
 
@@ -167,6 +167,8 @@ func controlPlaneInstanceCreated(
 			installInfo.Enabled = customInfo.Enabled
 		}
 	}
+
+	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
 
 	// perform provider specific configuration
 	var callerIdentity *sts.GetCallerIdentityOutput
@@ -248,6 +250,8 @@ func controlPlaneInstanceCreated(
 		}
 	}
 
+	_, port := cpi.GetAPIServicePort()
+	threeportAPIEndpoint := fmt.Sprintf("%s.%s:%d", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace, port)
 	controlPlaneRuntimeInstance.ApiServerEndpoint = &threeportAPIEndpoint
 
 	// install the threeport control plane dependencies
@@ -280,14 +284,7 @@ func controlPlaneInstanceCreated(
 	//   assets are installed
 	// * install provider-specific kubernetes resources
 	switch *kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderKind:
-		threeportAPIEndpoint = fmt.Sprintf("%s.%s", r.APIServer, cpi.Opts.Namespace)
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get threeport API's public endpoint: %w", err)
-		}
-
 		// create and configure service accounts for workload and aws controllers,
 		// which will be used to authenticate to AWS via IRSA
 
@@ -348,6 +345,7 @@ func controlPlaneInstanceCreated(
 			fmt.Sprintf("%s/version", threeportAPIEndpoint),
 			http.MethodGet,
 			new(bytes.Buffer),
+			map[string]string{},
 			http.StatusOK,
 		)
 		if err != nil {

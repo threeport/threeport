@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -31,17 +32,22 @@ var CreateControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API endpoint from config", err)
-			os.Exit(1)
-		}
+		var apiClient *http.Client
+		var apiEndpoint string
 
-		// get threeport API client
-		apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API client", err)
-			os.Exit(1)
+		apiClient, apiEndpoint = checkContext(cmd)
+		if apiClient == nil && apiEndpoint != "" {
+			apiEndpoint, err = threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to get threeport API endpoint from config", err)
+				os.Exit(1)
+			}
+
+			apiClient, err = threeportConfig.GetHTTPClient(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to create threeport API client", err)
+				os.Exit(1)
+			}
 		}
 
 		// load control plane config
@@ -71,7 +77,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(CreateControlPlaneCmd)
+	CreateCmd.AddCommand(CreateControlPlaneCmd)
 	CreateControlPlaneCmd.Flags().StringVarP(
 		&createControlPlaneConfigPath,
 		"config", "c", "", "Path to file with control plane config.",

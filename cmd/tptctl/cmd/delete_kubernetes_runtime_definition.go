@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -31,23 +32,28 @@ var DeleteKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API endpoint from config", err)
-			os.Exit(1)
+		var apiClient *http.Client
+		var apiEndpoint string
+
+		apiClient, apiEndpoint = checkContext(cmd)
+		if apiClient == nil && apiEndpoint != "" {
+			apiEndpoint, err = threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to get threeport API endpoint from config", err)
+				os.Exit(1)
+			}
+
+			apiClient, err = threeportConfig.GetHTTPClient(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to create threeport API client", err)
+				os.Exit(1)
+			}
 		}
 
 		kubernetesRuntimeDefinitionConfig := config.KubernetesRuntimeDefinitionConfig{
 			KubernetesRuntimeDefinition: config.KubernetesRuntimeDefinitionValues{
 				Name: deleteKubernetesRuntimeDefinitionName,
 			},
-		}
-
-		// get threeport API client
-		apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API client", err)
-			os.Exit(1)
 		}
 
 		// delete kubernetes runtime definition
@@ -63,7 +69,7 @@ var DeleteKubernetesRuntimeDefinitionCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteKubernetesRuntimeDefinitionCmd)
+	DeleteCmd.AddCommand(DeleteKubernetesRuntimeDefinitionCmd)
 
 	DeleteKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&deleteKubernetesRuntimeDefinitionName,

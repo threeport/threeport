@@ -6,6 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -38,10 +39,22 @@ the AWS relational database config or name.`,
 			os.Exit(1)
 		}
 
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API endpoint from config", err)
-			os.Exit(1)
+		var apiClient *http.Client
+		var apiEndpoint string
+
+		apiClient, apiEndpoint = checkContext(cmd)
+		if apiClient == nil && apiEndpoint != "" {
+			apiEndpoint, err = threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to get threeport API endpoint from config", err)
+				os.Exit(1)
+			}
+
+			apiClient, err = threeportConfig.GetHTTPClient(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to create threeport API client", err)
+				os.Exit(1)
+			}
 		}
 
 		// flag validation
@@ -73,13 +86,6 @@ the AWS relational database config or name.`,
 			}
 		}
 
-		// get threeport API client
-		apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
-		if err != nil {
-			cli.Error("failed to get threeport API client", err)
-			os.Exit(1)
-		}
-
 		// delete AWS relational database
 		cli.Info("deleting AWS relational database (this will take a few minutes)...")
 		awsRelationalDatabase := awsRelationalDatabaseConfig.AwsRelationalDatabase
@@ -96,7 +102,7 @@ the AWS relational database config or name.`,
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteAwsRelationalDatabaseCmd)
+	DeleteCmd.AddCommand(DeleteAwsRelationalDatabaseCmd)
 
 	DeleteAwsRelationalDatabaseCmd.Flags().StringVarP(
 		&deleteAwsRelationalDatabaseConfigPath,

@@ -11,7 +11,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 	"time"
 )
@@ -25,7 +24,7 @@ import (
 // @ID kubernetesRuntimeDefinition-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /kubernetes-runtime-definitions/versions [get]
+// @Router /kubernetes-runtime-definitions/versions [GET]
 func (h Handler) GetKubernetesRuntimeDefinitionVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeKubernetesRuntimeDefinition)])
 }
@@ -39,7 +38,7 @@ func (h Handler) GetKubernetesRuntimeDefinitionVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-definitions [post]
+// @Router /v0/kubernetes-runtime-definitions [POST]
 func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
 	var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
@@ -108,7 +107,7 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-definitions [get]
+// @Router /v0/kubernetes-runtime-definitions [GET]
 func (h Handler) GetKubernetesRuntimeDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -122,12 +121,12 @@ func (h Handler) GetKubernetesRuntimeDefinitions(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.KubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.KubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.KubernetesRuntimeDefinition{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -148,12 +147,12 @@ func (h Handler) GetKubernetesRuntimeDefinitions(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-definitions/{id} [get]
+// @Router /v0/kubernetes-runtime-definitions/{id} [GET]
 func (h Handler) GetKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
 	kubernetesRuntimeDefinitionID := c.Param("id")
 	var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
-	if result := h.DB.Preload(clause.Associations).First(&kubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
+	if result := h.DB.First(&kubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -183,7 +182,7 @@ func (h Handler) GetKubernetesRuntimeDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-definitions/{id} [patch]
+// @Router /v0/kubernetes-runtime-definitions/{id} [PATCH]
 func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
 	kubernetesRuntimeDefinitionID := c.Param("id")
@@ -248,7 +247,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-definitions/{id} [put]
+// @Router /v0/kubernetes-runtime-definitions/{id} [PUT]
 func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
 	kubernetesRuntimeDefinitionID := c.Param("id")
@@ -308,7 +307,7 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-definitions/{id} [delete]
+// @Router /v0/kubernetes-runtime-definitions/{id} [DELETE]
 func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeDefinition
 	kubernetesRuntimeDefinitionID := c.Param("id")
@@ -385,7 +384,7 @@ func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 // @ID kubernetesRuntimeInstance-get-versions
 // @Produce json
 // @Success 200 {object} api.RESTAPIVersions "OK"
-// @Router /kubernetes-runtime-instances/versions [get]
+// @Router /kubernetes-runtime-instances/versions [GET]
 func (h Handler) GetKubernetesRuntimeInstanceVersions(c echo.Context) error {
 	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeKubernetesRuntimeInstance)])
 }
@@ -399,7 +398,7 @@ func (h Handler) GetKubernetesRuntimeInstanceVersions(c echo.Context) error {
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-instances [post]
+// @Router /v0/kubernetes-runtime-instances [POST]
 func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeInstance
 	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
@@ -468,7 +467,7 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-instances [get]
+// @Router /v0/kubernetes-runtime-instances [GET]
 func (h Handler) GetKubernetesRuntimeInstances(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeInstance
 	params, err := c.(*iapi.CustomContext).GetPaginationParams()
@@ -482,12 +481,12 @@ func (h Handler) GetKubernetesRuntimeInstances(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v0.KubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v0.KubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v0.KubernetesRuntimeInstance{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -508,12 +507,12 @@ func (h Handler) GetKubernetesRuntimeInstances(c echo.Context) error {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-instances/{id} [get]
+// @Router /v0/kubernetes-runtime-instances/{id} [GET]
 func (h Handler) GetKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeInstance
 	kubernetesRuntimeInstanceID := c.Param("id")
 	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
-	if result := h.DB.Preload(clause.Associations).First(&kubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
+	if result := h.DB.First(&kubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -543,7 +542,7 @@ func (h Handler) GetKubernetesRuntimeInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-instances/{id} [patch]
+// @Router /v0/kubernetes-runtime-instances/{id} [PATCH]
 func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeInstance
 	kubernetesRuntimeInstanceID := c.Param("id")
@@ -608,7 +607,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-instances/{id} [put]
+// @Router /v0/kubernetes-runtime-instances/{id} [PUT]
 func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeInstance
 	kubernetesRuntimeInstanceID := c.Param("id")
@@ -668,7 +667,7 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/kubernetes-runtime-instances/{id} [delete]
+// @Router /v0/kubernetes-runtime-instances/{id} [DELETE]
 func (h Handler) DeleteKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesRuntimeInstance
 	kubernetesRuntimeInstanceID := c.Param("id")

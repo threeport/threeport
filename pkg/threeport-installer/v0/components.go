@@ -16,21 +16,6 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// ThreeportDevImages returns a map of main package dirs to dev image names
-func (cpi *ControlPlaneInstaller) ThreeportDevImages() map[string]string {
-	devImageSuffix := "-dev"
-	devImages := make(map[string]string)
-
-	for _, c := range cpi.Opts.ControllerList {
-		devImages[c.Name] = fmt.Sprintf("%s%s:latest", c.ImageName, devImageSuffix)
-	}
-
-	devImages[cpi.Opts.RestApiInfo.Name] = fmt.Sprintf("%s%s:latest", cpi.Opts.RestApiInfo.ImageName, devImageSuffix)
-	devImages[cpi.Opts.AgentInfo.Name] = fmt.Sprintf("%s%s:latest", cpi.Opts.AgentInfo.ImageName, devImageSuffix)
-
-	return devImages
-}
-
 // InstallComputeSpaceControlPlaneComponents
 func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	kubeClient dynamic.Interface,
@@ -78,7 +63,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 	apiVols, apiVolMounts := cpi.getAPIVolumes()
 	apiServiceType := cpi.getAPIServiceType()
 	apiServiceAnnotations := cpi.getAPIServiceAnnotations()
-	apiServicePortName, apiServicePort := cpi.getAPIServicePort()
+	apiServicePortName, apiServicePort := cpi.GetAPIServicePort()
 	apiImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.RestApiInfo.ImagePullSecretName)
 
 	var dbCreateConfig = &unstructured.Unstructured{
@@ -196,7 +181,7 @@ NATS_PORT=4222
 							map[string]interface{}{
 								"name":            "api-server",
 								"image":           apiImage,
-								"command":         cpi.getCommand(cpi.Opts.RestApiInfo.Name),
+								"command":         cpi.getCommand(cpi.Opts.RestApiInfo.ImageName),
 								"imagePullPolicy": "IfNotPresent",
 								"args":            apiArgs,
 								"ports": []interface{}{
@@ -403,6 +388,7 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 		cpi.Opts.Namespace,
 		serviceAccountName,
 		controllerImage,
+		installInfo.ImageName,
 		controllerArgs,
 		controllerVols,
 		controllerVolMounts,
@@ -1050,7 +1036,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								"args":            agentArgs,
 								"image":           agentImage,
 								"imagePullPolicy": "IfNotPresent",
-								"command":         cpi.getCommand(cpi.Opts.AgentInfo.Name),
+								"command":         cpi.getCommand(cpi.Opts.AgentInfo.ImageName),
 								//"livenessProbe": map[string]interface{}{
 								//	"httpGet": map[string]interface{}{
 								//		"path": "/healthz",
@@ -1404,6 +1390,14 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{})
 		},
 	}
 
+	for _, v := range cpi.Opts.AdditionalRestApiVolumes {
+		vols = append(vols, v)
+	}
+
+	for _, vm := range cpi.Opts.AdditionalRestApiVolumeMounts {
+		volMounts = append(volMounts, vm)
+	}
+
 	if cpi.Opts.AuthEnabled {
 		caVol, caVolMount := cpi.getSecretVols("api-ca", "/etc/threeport/ca")
 		certVol, certVolMount := cpi.getSecretVols("api-cert", "/etc/threeport/cert")
@@ -1562,13 +1556,17 @@ func (cpi *ControlPlaneInstaller) getAPIServiceType() string {
 		return "NodePort"
 	}
 
+	if !cpi.Opts.RestApiEksLoadBalancer {
+		return "ClusterIp"
+	}
+
 	return "LoadBalancer"
 }
 
 // getAPIServiceAnnotations returns the threeport API's service annotation based
 // on infra provider to provision the correct load balancer.
 func (cpi *ControlPlaneInstaller) getAPIServiceAnnotations() map[string]interface{} {
-	if cpi.Opts.InfraProvider == "eks" {
+	if cpi.Opts.InfraProvider == "eks" && cpi.Opts.RestApiEksLoadBalancer {
 		return map[string]interface{}{
 			"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
 		}
@@ -1577,18 +1575,24 @@ func (cpi *ControlPlaneInstaller) getAPIServiceAnnotations() map[string]interfac
 	return map[string]interface{}{}
 }
 
-// getAPIServicePort returns threeport API's service port based on infra
+// GetAPIServicePort returns threeport API's service port based on infra
 // provider.  For kind returns 80 or 443 based on whether authentication is
 // enabled.
-func (cpi *ControlPlaneInstaller) getAPIServicePort() (string, int32) {
+func (cpi *ControlPlaneInstaller) GetAPIServicePort() (string, int32) {
 	if cpi.Opts.InfraProvider == "kind" {
 		if cpi.Opts.AuthEnabled {
 			return "https", 443
 		}
 		return "http", 80
+	} else if cpi.Opts.InfraProvider == "eks" {
+		if cpi.Opts.AuthEnabled {
+			return "https", 443
+		}
+
+		return "http", 80
 	}
 
-	return "https", 443
+	return "", 0
 }
 
 // getAgentArgs returns the args that are passed to the threeport agent.  In
@@ -1652,6 +1656,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	namespace string,
 	saName string,
 	image string,
+	imageName string,
 	args []interface{},
 	volumes []interface{},
 	volumeMounts []interface{},
@@ -1701,7 +1706,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 							map[string]interface{}{
 								"name":            name,
 								"image":           image,
-								"command":         cpi.getCommand(name),
+								"command":         cpi.getCommand(imageName),
 								"imagePullPolicy": imagePullPolicy,
 								"args":            args,
 								"envFrom": []interface{}{
@@ -1796,7 +1801,7 @@ func GetLocalThreeportAPIEndpoint(authEnabled bool) string {
 	)
 }
 
-// getCommand returns the args that are passed to the threeport agent.
+// getCommand returns the args that are passed to the container.
 func (cpi *ControlPlaneInstaller) getCommand(name string) []interface{} {
 
 	switch {
@@ -1810,7 +1815,7 @@ func (cpi *ControlPlaneInstaller) getCommand(name string) []interface{} {
 		}
 	default:
 		return []interface{}{
-			fmt.Sprintf("/threeport-%s", name),
+			fmt.Sprintf("/%s", name),
 		}
 	}
 }
