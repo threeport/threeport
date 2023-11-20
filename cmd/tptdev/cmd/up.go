@@ -87,6 +87,10 @@ func init() {
 		&cliArgs.Debug,
 		"debug", false, "Debug threeport control plane components.",
 	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.Verbose,
+		"verbose", false, "Enable verbose logging in control plane components, delve, and cli logs.",
+	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)
 	})
