@@ -3,6 +3,7 @@ package v0
 import (
 	"fmt"
 
+	"github.com/nukleros/aws-builder/pkg/eks"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -31,8 +32,8 @@ const (
 
 	// links the service account used by the cluster autoscaler installation to
 	// the config for github.com/nukleros/aws-builder to create the attached IAM role.
-	ClusterAutoscalerServiceAccountName      = "cluster-autoscaler"
-	ClusterAutoscalerServiceAccountNamespace = "kube-system"
+	ClusterAutoscalerServiceAccountName = "cluster-autoscaler"
+	ClusterAutoscalerNamespace          = "kube-system"
 )
 
 // InstallThreeportCRDs installs all CRDs needed by threeport in the target
@@ -2527,6 +2528,7 @@ func InstallThreeportSystemServices(
 	mapper *meta.RESTMapper,
 	infraProvider string,
 	clusterName string,
+	accountId string,
 ) error {
 	if infraProvider == v0.KubernetesRuntimeInfraProviderEKS {
 		var clusterAutoscalerServiceAcct = &unstructured.Unstructured{
@@ -2538,8 +2540,16 @@ func InstallThreeportSystemServices(
 						"k8s-addon": "cluster-autoscaler.addons.k8s.io",
 						"k8s-app":   "cluster-autoscaler",
 					},
-					"name":      "cluster-autoscaler",
-					"namespace": "kube-system",
+					"name":      ClusterAutoscalerServiceAccountName,
+					"namespace": ClusterAutoscalerNamespace,
+					"annotations": map[string]interface{}{
+						"eks.amazonaws.com/role-arn": fmt.Sprintf(
+							"arn:aws:iam::%s:role/%s-%s",
+							accountId,
+							eks.ClusterAutoscalingRoleName,
+							clusterName,
+						),
+					},
 				},
 			},
 		}
@@ -2752,7 +2762,7 @@ func InstallThreeportSystemServices(
 				"kind":       "Role",
 				"metadata": map[string]interface{}{
 					"name":      "cluster-autoscaler",
-					"namespace": "kube-system",
+					"namespace": ClusterAutoscalerNamespace,
 					"labels": map[string]interface{}{
 						"k8s-addon": "cluster-autoscaler.addons.k8s.io",
 						"k8s-app":   "cluster-autoscaler",
@@ -2817,7 +2827,7 @@ func InstallThreeportSystemServices(
 					map[string]interface{}{
 						"kind":      "ServiceAccount",
 						"name":      "cluster-autoscaler",
-						"namespace": "kube-system",
+						"namespace": ClusterAutoscalerNamespace,
 					},
 				},
 			},
@@ -2832,7 +2842,7 @@ func InstallThreeportSystemServices(
 				"kind":       "RoleBinding",
 				"metadata": map[string]interface{}{
 					"name":      "cluster-autoscaler",
-					"namespace": "kube-system",
+					"namespace": ClusterAutoscalerNamespace,
 					"labels": map[string]interface{}{
 						"k8s-addon": "cluster-autoscaler.addons.k8s.io",
 						"k8s-app":   "cluster-autoscaler",
@@ -2847,7 +2857,7 @@ func InstallThreeportSystemServices(
 					map[string]interface{}{
 						"kind":      "ServiceAccount",
 						"name":      "cluster-autoscaler",
-						"namespace": "kube-system",
+						"namespace": ClusterAutoscalerNamespace,
 					},
 				},
 			},
@@ -2862,7 +2872,7 @@ func InstallThreeportSystemServices(
 				"kind":       "Deployment",
 				"metadata": map[string]interface{}{
 					"name":      "cluster-autoscaler",
-					"namespace": "kube-system",
+					"namespace": ClusterAutoscalerNamespace,
 					"labels": map[string]interface{}{
 						"app": "cluster-autoscaler",
 					},

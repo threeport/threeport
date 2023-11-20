@@ -724,7 +724,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.InstallThreeportAgent(
 		dynamicKubeClient,
 		mapper,
-		cpi.Opts.ControlPlaneName,
+		"threeport-"+cpi.Opts.ControlPlaneName,
 		authConfig,
 	); err != nil {
 		return cleanOnCreateError("failed to install threeport agent", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
@@ -740,6 +740,17 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
 	if err != nil {
 		return cleanOnCreateError("failed to install threeport support services operator", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
+	}
+
+	// install system services incl cluster autoscaler
+	if err := threeport.InstallThreeportSystemServices(
+		dynamicKubeClient,
+		mapper,
+		cpi.Opts.InfraProvider,
+		"threeport-"+cpi.Opts.ControlPlaneName,
+		*callerIdentity.Account,
+	); err != nil {
+		return cleanOnCreateError("failed to install system services", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
 	// create the default compute space kubernetes runtime definition in threeport API
