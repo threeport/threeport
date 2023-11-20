@@ -103,6 +103,23 @@ func InitArgs(args *GenesisControlPlaneCLIArgs) {
 	}
 }
 
+// GetControlPlaneEnvVars updates cli args based on env vars
+func (cliArgs *GenesisControlPlaneCLIArgs) GetControlPlaneEnvVars() {
+	// get control plane image repo and tag from env vars
+	controlPlaneImageRepo := os.Getenv("CONTROL_PLANE_IMAGE_REPO")
+	controlPlaneImageTag := os.Getenv("CONTROL_PLANE_IMAGE_TAG")
+
+	// configure control plane image repo via env var if not provided by cli
+	if cliArgs.ControlPlaneImageRepo == "" && controlPlaneImageRepo != "" {
+		cliArgs.ControlPlaneImageRepo = controlPlaneImageRepo
+	}
+
+	// configure control plane image tag via env var if not provided by cli
+	if cliArgs.ControlPlaneImageTag == "" && controlPlaneImageTag != "" {
+		cliArgs.ControlPlaneImageTag = controlPlaneImageTag
+	}
+}
+
 func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneInstaller, error) {
 	cpi := threeport.NewInstaller()
 
@@ -597,8 +614,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	}
 
-	err = cpi.Opts.PreInstallFunction(dynamicKubeClient, mapper, cpi)
-
+	err = cpi.Opts.PreInstallFunction(&kubernetesRuntimeInstance, cpi)
 	if err != nil {
 		return cleanOnCreateError("failed to run custom preInstall function", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
@@ -688,11 +704,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 	Info("Threeport API is running")
 
-	err = cpi.Opts.PreInstallFunction(dynamicKubeClient, mapper, cpi)
-	if err != nil {
-		return cleanOnCreateError("failed to run custom preInstall function", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
-	}
-
 	// install the controllers
 	if err := cpi.InstallThreeportControllers(
 		dynamicKubeClient,
@@ -702,7 +713,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return cleanOnCreateError("failed to install threeport controllers", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
-	err = cpi.Opts.PostInstallFunction(dynamicKubeClient, mapper, cpi)
+	err = cpi.Opts.PostInstallFunction(&kubernetesRuntimeInstance, cpi)
 	if err != nil {
 		return cleanOnCreateError("failed to run custom postInstall function", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}

@@ -12,6 +12,7 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
@@ -29,13 +30,13 @@ var debugCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// create list of components to build
-		debugComponents, err := getComponentList(debugComponentNames)
+		debugComponents, err := GetComponentList(debugComponentNames, installer.AllControlPlaneComponents())
 		if err != nil {
 			cli.Error("failed to get debug component list: %w", err)
 		}
 
 		// update cli args based on env vars
-		getControlPlaneEnvVars()
+		cliArgs.GetControlPlaneEnvVars()
 
 		// create threeport control plane installer
 		cpi, err := cliArgs.CreateInstaller()

@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
-	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -52,16 +51,15 @@ func init() {
 	})
 }
 
-// getComponentList returns a list of component names to build
-func getComponentList(componentNames string) ([]*v0.ControlPlaneComponent, error) {
-	allComponentList := installer.AllControlPlaneComponents()
+// GetComponentList returns a list of component names to build
+func GetComponentList(componentNames string, allComponents []*v0.ControlPlaneComponent) ([]*v0.ControlPlaneComponent, error) {
 	componentList := make([]*v0.ControlPlaneComponent, 0)
 	switch {
 	case len(componentNames) != 0:
 		componentNameList := strings.Split(componentNames, ",")
 		for _, name := range componentNameList {
 			found := false
-			for _, c := range allComponentList {
+			for _, c := range allComponents {
 				if c.Name == name {
 					if found {
 						return componentList, fmt.Errorf("found more then one component info for: %s", name)
@@ -76,24 +74,7 @@ func getComponentList(componentNames string) ([]*v0.ControlPlaneComponent, error
 			}
 		}
 	default:
-		componentList = allComponentList
+		componentList = allComponents
 	}
 	return componentList, nil
-}
-
-// getControlPlaneEnvVars updates cli args based on env vars
-func getControlPlaneEnvVars() {
-	// get control plane image repo and tag from env vars
-	controlPlaneImageRepo := os.Getenv("CONTROL_PLANE_IMAGE_REPO")
-	controlPlaneImageTag := os.Getenv("CONTROL_PLANE_IMAGE_TAG")
-
-	// configure control plane image repo via env var if not provided by cli
-	if cliArgs.ControlPlaneImageRepo == "" && controlPlaneImageRepo != "" {
-		cliArgs.ControlPlaneImageRepo = controlPlaneImageRepo
-	}
-
-	// configure control plane image tag via env var if not provided by cli
-	if cliArgs.ControlPlaneImageTag == "" && controlPlaneImageTag != "" {
-		cliArgs.ControlPlaneImageTag = controlPlaneImageTag
-	}
 }
