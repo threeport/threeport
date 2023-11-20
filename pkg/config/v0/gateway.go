@@ -94,19 +94,19 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 }
 
 // Delete deletes a gateway definition.
-func (g *GatewayDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+func (g *GatewayDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, error) {
 	// get domain name definition
 	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, g.Name)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
+	deletedGatewayDefinition, err := client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return deletedGatewayDefinition, nil
 }
 
 // Validate validates the gateway definition values.
@@ -177,17 +177,17 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 }
 
 // Delete deletes a gateway instance.
-func (g *GatewayInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+func (g *GatewayInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.GatewayInstance, error) {
 	// get gateway instance by name
 	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, g.GatewayDefinition.Name)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// delete gateway instance
-	_, err = client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
+	deletedGatewayInstance, err := client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// wait for gateway instance to be deleted
@@ -198,5 +198,5 @@ func (g *GatewayInstanceValues) Delete(apiClient *http.Client, apiEndpoint strin
 		return nil
 	})
 
-	return nil
+	return deletedGatewayInstance, nil
 }

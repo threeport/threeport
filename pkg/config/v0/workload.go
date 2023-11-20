@@ -344,7 +344,8 @@ func (w *WorkloadValues) GetOperationSlice(apiClient *http.Client, apiEndpoint s
 				return err
 			},
 			Delete: func() error {
-				return gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
+				_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
+				return err
 			},
 		})
 
@@ -361,7 +362,8 @@ func (w *WorkloadValues) GetOperationSlice(apiClient *http.Client, apiEndpoint s
 				return err
 			},
 			Delete: func() error {
-				return gatewayInstanceValues.Delete(apiClient, apiEndpoint)
+				_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
+				return err
 			},
 		})
 	}
