@@ -62,11 +62,11 @@ type WorkloadInstanceValues struct {
 // Create creates a workload definition and instance in the Threeport API.
 func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 
-	// get operation slice
-	operationSlice, createdWorkloadDefinition, createdWorkloadInstance := w.GetOperations(apiClient, apiEndpoint)
+	// get operations
+	operations, createdWorkloadDefinition, createdWorkloadInstance := w.GetOperations(apiClient, apiEndpoint)
 
 	// execute create operations
-	if err := operationSlice.Create(); err != nil {
+	if err := operations.Create(); err != nil {
 		return nil, nil, err
 	}
 
@@ -78,11 +78,11 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 // gateway definition, and gateway instance from the Threeport API.
 func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 
-	// get operation slice
-	operationSlice, _, _ := w.GetOperations(apiClient, apiEndpoint)
+	// get operation
+	operations, _, _ := w.GetOperations(apiClient, apiEndpoint)
 
 	// execute delete operations
-	if err := operationSlice.Delete(); err != nil {
+	if err := operations.Delete(); err != nil {
 		return nil, nil, err
 	}
 
@@ -242,14 +242,14 @@ func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint str
 }
 
 // GetOperations returns a slice of operations used to
-// create a workload.
+// create, update, or delete a workload.
 func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint string) (*util.Operations, *v0.WorkloadDefinition, *v0.WorkloadInstance) {
 
 	var err error
 	var createdWorkloadInstance v0.WorkloadInstance
 	var createdWorkloadDefinition v0.WorkloadDefinition
 
-	operationSlice := util.Operations{}
+	operations := util.Operations{}
 
 	// add workload definition operation
 	workloadDefinitionValues := WorkloadDefinitionValues{
@@ -257,7 +257,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		YAMLDocument:       w.YAMLDocument,
 		WorkloadConfigPath: w.WorkloadConfigPath,
 	}
-	operationSlice.AppendOperation(util.Operation{
+	operations.AppendOperation(util.Operation{
 		Name: "workload definition",
 		Create: func() error {
 			workloadDefinition, err := workloadDefinitionValues.Create(apiClient, apiEndpoint)
@@ -278,7 +278,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: w.Name,
 		},
 	}
-	operationSlice.AppendOperation(util.Operation{
+	operations.AppendOperation(util.Operation{
 		Name: "workload instance",
 		Create: func() error {
 			workloadInstance, err := workloadInstanceValues.Create(apiClient, apiEndpoint)
@@ -300,7 +300,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Zone:       w.DomainName.Zone,
 			AdminEmail: w.DomainName.AdminEmail,
 		}
-		operationSlice.AppendOperation(util.Operation{
+		operations.AppendOperation(util.Operation{
 			Name: "domain name definition",
 			Create: func() error {
 				_, err = domainNameDefinitionValues.CreateIfNotExist(apiClient, apiEndpoint)
@@ -318,7 +318,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
 			WorkloadInstance:          workloadInstanceValues,
 		}
-		operationSlice.AppendOperation(util.Operation{
+		operations.AppendOperation(util.Operation{
 			Name: "domain name instance",
 			Create: func() error {
 				_, err = domainNameInstanceValues.Create(apiClient, apiEndpoint)
@@ -339,7 +339,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			ServiceName:          w.Gateway.ServiceName,
 			DomainNameDefinition: domainNameDefinitionValues,
 		}
-		operationSlice.AppendOperation(util.Operation{
+		operations.AppendOperation(util.Operation{
 			Name: "gateway definition",
 			Create: func() error {
 				_, err = gatewayDefinitionValues.Create(apiClient, apiEndpoint)
@@ -357,7 +357,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
 			WorkloadInstance:          workloadInstanceValues,
 		}
-		operationSlice.AppendOperation(util.Operation{
+		operations.AppendOperation(util.Operation{
 			Name: "gateway instance",
 			Create: func() error {
 				_, err = gatewayInstanceValues.Create(apiClient, apiEndpoint)
@@ -387,7 +387,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 				Name: w.Name,
 			},
 		}
-		operationSlice.AppendOperation(util.Operation{
+		operations.AppendOperation(util.Operation{
 			Name: "aws relational database",
 			Create: func() error {
 				_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
@@ -412,7 +412,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 				Name: w.Name,
 			},
 		}
-		operationSlice.AppendOperation(util.Operation{
+		operations.AppendOperation(util.Operation{
 			Name: "aws object storage bucket",
 			Create: func() error {
 				_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
@@ -425,5 +425,5 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		})
 	}
 
-	return &operationSlice, &createdWorkloadDefinition, &createdWorkloadInstance
+	return &operations, &createdWorkloadDefinition, &createdWorkloadInstance
 }

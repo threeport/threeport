@@ -2,7 +2,6 @@ package v0
 
 import (
 	"fmt"
-	// iface "github.com/threeport/threeport/pkg/interfaces/v0"
 )
 
 // Operation contains a create, update and delete function for a Threeport API object.
