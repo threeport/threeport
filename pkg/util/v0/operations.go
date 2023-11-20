@@ -13,19 +13,19 @@ type Operation struct {
 	Delete func() error
 }
 
-// OperationSlice contains a list of operations that have been
+// Operations contains a list of operations that have been
 // performed on the Threeport API.
-type OperationSlice struct {
+type Operations struct {
 	Operations []*Operation
 }
 
 // AppendOperation adds a create operation to the operation stack.
-func (r *OperationSlice) AppendOperation(operation Operation) {
+func (r *Operations) AppendOperation(operation Operation) {
 	r.Operations = append(r.Operations, &operation)
 }
 
 // Create executes all create operations in the operation stack.
-func (r *OperationSlice) Create() error {
+func (r *Operations) Create() error {
 	for index, operation := range r.Operations {
 		err := operation.Create()
 		if err != nil {
@@ -36,12 +36,12 @@ func (r *OperationSlice) Create() error {
 }
 
 // ExecuteUpdateOperations executes all delete operations in the operation stack.
-func (r *OperationSlice) Delete() error {
+func (r *Operations) Delete() error {
 	return r.delete(len(r.Operations) - 1)
 }
 
 // cleanOnCreateError cleans up resources created during a create operation
-func (r *OperationSlice) cleanOnCreateError(startIndex int, createErr error) error {
+func (r *Operations) cleanOnCreateError(startIndex int, createErr error) error {
 
 	multiError := MultiError{}
 	multiError.AppendError(createErr)
@@ -55,7 +55,7 @@ func (r *OperationSlice) cleanOnCreateError(startIndex int, createErr error) err
 
 // delete deletes operations in the operation slice
 // starting from the startIndex and iterating backwards.
-func (r *OperationSlice) delete(startIndex int) error {
+func (r *Operations) delete(startIndex int) error {
 	multiError := MultiError{}
 	for i := startIndex; i >= 0; i-- {
 		operation := r.Operations[i]

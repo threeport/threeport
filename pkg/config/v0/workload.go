@@ -63,7 +63,7 @@ type WorkloadInstanceValues struct {
 func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 
 	// get operation slice
-	operationSlice, createdWorkloadDefinition, createdWorkloadInstance := w.GetOperationSlice(apiClient, apiEndpoint)
+	operationSlice, createdWorkloadDefinition, createdWorkloadInstance := w.GetOperations(apiClient, apiEndpoint)
 
 	// execute create operations
 	if err := operationSlice.Create(); err != nil {
@@ -79,7 +79,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 
 	// get operation slice
-	operationSlice, _, _ := w.GetOperationSlice(apiClient, apiEndpoint)
+	operationSlice, _, _ := w.GetOperations(apiClient, apiEndpoint)
 
 	// execute delete operations
 	if err := operationSlice.Delete(); err != nil {
@@ -241,15 +241,15 @@ func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint str
 	return deletedWorkloadInstance, nil
 }
 
-// GetOperationSlice returns a slice of operations used to
+// GetOperations returns a slice of operations used to
 // create a workload.
-func (w *WorkloadValues) GetOperationSlice(apiClient *http.Client, apiEndpoint string) (*util.OperationSlice, *v0.WorkloadDefinition, *v0.WorkloadInstance) {
+func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint string) (*util.Operations, *v0.WorkloadDefinition, *v0.WorkloadInstance) {
 
 	var err error
 	var createdWorkloadInstance v0.WorkloadInstance
 	var createdWorkloadDefinition v0.WorkloadDefinition
 
-	operationSlice := util.OperationSlice{}
+	operationSlice := util.Operations{}
 
 	// add workload definition operation
 	workloadDefinitionValues := WorkloadDefinitionValues{
