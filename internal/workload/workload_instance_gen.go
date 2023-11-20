@@ -176,16 +176,16 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				if workloadInstance.Reconciled != nil && !*workloadInstance.Reconciled {
-					log.Info("workload instance not yet reconciled -- skipping deletion")
-					r.UnlockAndRequeue(
-						&workloadInstance,
-						requeueDelay,
-						lockReleased,
-						msg,
-					)
-					continue
-				}
+				// if workloadInstance.Reconciled != nil && !*workloadInstance.Reconciled {
+				// 	log.Info("workload instance not yet reconciled -- skipping deletion")
+				// 	r.UnlockAndRequeue(
+				// 		&workloadInstance,
+				// 		requeueDelay,
+				// 		lockReleased,
+				// 		msg,
+				// 	)
+				// 	continue
+				// }
 				customRequeueDelay, err := workloadInstanceDeleted(r, &workloadInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile deleted workload instance object")

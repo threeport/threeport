@@ -44,6 +44,7 @@ type Options struct {
 	ControlPlaneOnly              bool
 	KindInfraPortForward          []string
 	RestApiEksLoadBalancer        bool
+	Verbose                       bool
 }
 
 type ControlPlaneInstaller struct {

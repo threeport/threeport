@@ -154,7 +154,11 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 	}
 	createdWorkloadInstance, err := workloadInstance.Create(apiClient, apiEndpoint)
 	if err != nil {
-		return nil, nil, opStack.cleanOnCreateError(apiClient, apiEndpoint, err)
+		return nil, nil, opStack.cleanOnCreateError(
+			apiClient,
+			apiEndpoint,
+			fmt.Errorf("failed to create workload instance: %w", err),
+		)
 	}
 	opStack.Push(&workloadInstance)
 
@@ -167,7 +171,11 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		}
 		_, err = domainNameDefinition.CreateIfNotExist(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(apiClient, apiEndpoint, err)
+			return nil, nil, opStack.cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				fmt.Errorf("failed to create domain name definition: %w", err),
+			)
 		}
 		opStack.Push(&domainNameDefinition)
 
@@ -179,7 +187,11 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		}
 		_, err = domainNameInstance.Create(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(apiClient, apiEndpoint, err)
+			return nil, nil, opStack.cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				fmt.Errorf("failed to create domain name instance: %w", err),
+			)
 		}
 		opStack.Push(&domainNameInstance)
 
@@ -194,7 +206,11 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		}
 		_, err = gatewayDefinition.Create(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(apiClient, apiEndpoint, err)
+			return nil, nil, opStack.cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				fmt.Errorf("failed to create gateway definition: %w", err),
+			)
 		}
 		opStack.Push(&gatewayDefinition)
 
@@ -206,7 +222,11 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		}
 		_, err = gatewayInstance.Create(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(apiClient, apiEndpoint, err)
+			return nil, nil, opStack.cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				fmt.Errorf("failed to create gateway instance: %w", err),
+			)
 		}
 		opStack.Push(&gatewayInstance)
 	}
@@ -231,7 +251,11 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		}
 		_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(apiClient, apiEndpoint, err)
+			return nil, nil, opStack.cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				fmt.Errorf("failed to create aws relational database: %w", err),
+			)
 		}
 		opStack.Push(&awsRelationalDatabase)
 	}
@@ -250,7 +274,11 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 		}
 		_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
 		if err != nil {
-			return nil, nil, opStack.cleanOnCreateError(apiClient, apiEndpoint, err)
+			return nil, nil, opStack.cleanOnCreateError(
+				apiClient,
+				apiEndpoint,
+				fmt.Errorf("failed to create aws object storage bucket: %w", err),
+			)
 		}
 		opStack.Push(&awsObjectStorageBucket)
 	}
