@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -437,7 +436,7 @@ func workloadInstanceDeleted(
 			switch {
 			case errors.Is(err, client.ErrorObjectNotFound):
 				log.Info("attached object has already been deleted", "objectID", *object.ObjectID)
-			case strings.Contains(err.Error(), "already being deleted"):
+			case errors.Is(err, client.ErrConflict):
 				log.Info("attached object is already being deleted", "objectID", *object.ObjectID)
 			default:
 				return 0, fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.Type, *object.ID, err)

@@ -14,6 +14,7 @@ import (
 var ErrorObjectNotFound = errors.New("object not found")
 var ErrUnauthorized = errors.New("unauthorized")
 var ErrForbidden = errors.New("forbidden")
+var ErrConflict = errors.New("conflict")
 
 // GetResponse calls the threeport API and returns a response.
 func GetResponse(
@@ -71,14 +72,18 @@ func GetResponse(
 		}
 		// return specific errors that need to be identified with `errors.As`
 		// elsewhere
-		if resp.StatusCode == http.StatusNotFound {
+		switch resp.StatusCode {
+		case http.StatusNotFound:
 			return nil, ErrorObjectNotFound
-		} else if resp.StatusCode == http.StatusUnauthorized {
+		case http.StatusUnauthorized:
 			return nil, ErrUnauthorized
-		} else if resp.StatusCode == http.StatusForbidden {
+		case http.StatusForbidden:
 			return nil, ErrForbidden
+		case http.StatusConflict:
+			return nil, ErrConflict
+		default:
+			return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s\nexpected: %d", response.Status.Code, response.Status.Message, string(status), expectedStatusCode))
 		}
-		return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s\nexpected: %d", response.Status.Code, response.Status.Message, string(status), expectedStatusCode))
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(respBody))
