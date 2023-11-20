@@ -5,22 +5,12 @@ import (
 	// iface "github.com/threeport/threeport/pkg/interfaces/v0"
 )
 
-// // Deletable defines the interface for operations that
-// // have been made to the Threeport API and may need to
-// // be deleted.
-// type Deletable interface {
-// 	Delete(apiClient *http.Client, apiEndpoint string) error
-// }
-
-// CreateOperation is a function that creates a deletable and returns
-// the deletable, an error message, and an error.
-// type CreateOperation func() (Deletable, string, error)
-
+// Operation contains a create, update and delete function for a Threeport API object.
 type Operation struct {
-	ObjectName string
-	Create     func() error
-	Update     func() error
-	Delete     func() error
+	Name   string
+	Create func() error
+	Update func() error
+	Delete func() error
 }
 
 // OperationSlice contains a list of operations that have been
@@ -34,19 +24,19 @@ func (r *OperationSlice) AppendOperation(operation Operation) {
 	r.Operations = append(r.Operations, &operation)
 }
 
-// ExecuteCreateOperations executes all create operations in the operation stack.
-func (r *OperationSlice) ExecuteCreateOperations() error {
+// Create executes all create operations in the operation stack.
+func (r *OperationSlice) Create() error {
 	for index, operation := range r.Operations {
 		err := operation.Create()
 		if err != nil {
-			return r.cleanOnCreateError(index-1, fmt.Errorf("failed to create %s: %w", operation.ObjectName, err))
+			return r.cleanOnCreateError(index-1, fmt.Errorf("failed to create %s:\n%w", operation.Name, err))
 		}
 	}
 	return nil
 }
 
 // ExecuteUpdateOperations executes all delete operations in the operation stack.
-func (r *OperationSlice) ExecuteDeleteOperations() error {
+func (r *OperationSlice) Delete() error {
 	return r.delete(len(r.Operations) - 1)
 }
 
@@ -63,14 +53,15 @@ func (r *OperationSlice) cleanOnCreateError(startIndex int, createErr error) err
 	return multiError.Error()
 }
 
-// delete deletes all operations in the operation stack.
+// delete deletes operations in the operation slice
+// starting from the startIndex and iterating backwards.
 func (r *OperationSlice) delete(startIndex int) error {
 	multiError := MultiError{}
 	for i := startIndex; i >= 0; i-- {
 		operation := r.Operations[i]
 		err := operation.Delete()
 		if err != nil {
-			multiError.AppendError(fmt.Errorf("failed to delete %s: %w", operation.ObjectName, err))
+			multiError.AppendError(fmt.Errorf("failed to delete %s: %w", operation.Name, err))
 		}
 	}
 	return multiError.Error()
