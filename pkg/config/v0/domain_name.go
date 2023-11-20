@@ -67,33 +67,29 @@ func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, ap
 	return createdDomainNameDefinition, nil
 }
 
-func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+// Delete deletes a domain name definition from the Threeport API.
+func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
 	// check if domain name definition exists
 	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Name)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 
-	_, err = client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *existingDomainNameDefinition.ID)
+	deletedDomainNameDefinition, err := client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *existingDomainNameDefinition.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return deletedDomainNameDefinition, nil
 }
 
+// Create creates a domain name instance in the Threeport API.
 func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameInstance, error) {
 	// validate required fields
 	if d.DomainNameDefinition.Name == "" || d.WorkloadInstance.Name == "" ||
 		d.KubernetesRuntimeInstance.Name == "" {
 		return nil, errors.New("missing required field/s in config - required fields: DomainNameDefinition.Name, WorkloadInstance.Name, KubernetesRuntimeInstance.Name")
 	}
-
-	// // check if domain name instance exists
-	// existingDomainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.DomainNameDefinition.Name)
-	// if err == nil {
-	// 	return existingDomainNameInstance, nil
-	// }
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, d.KubernetesRuntimeInstance.Name)
@@ -132,17 +128,18 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	return createdDomainNameInstance, nil
 }
 
-func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+// Delete deletes a domain name instance from the Threeport API.
+func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameInstance, error) {
 	// check if domain name definition exists
 	existingDomainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.DomainNameDefinition.Name)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 
-	_, err = client.DeleteDomainNameInstance(apiClient, apiEndpoint, *existingDomainNameInstance.ID)
+	deletedDomainNameInstance, err := client.DeleteDomainNameInstance(apiClient, apiEndpoint, *existingDomainNameInstance.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return deletedDomainNameInstance, nil
 }

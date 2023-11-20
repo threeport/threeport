@@ -305,7 +305,8 @@ func (w *WorkloadValues) GetOperationSlice(apiClient *http.Client, apiEndpoint s
 				return err
 			},
 			Delete: func() error {
-				return domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
+				_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
+				return err
 			},
 		})
 
@@ -322,7 +323,8 @@ func (w *WorkloadValues) GetOperationSlice(apiClient *http.Client, apiEndpoint s
 				return err
 			},
 			Delete: func() error {
-				return domainNameInstanceValues.Delete(apiClient, apiEndpoint)
+				_, err = domainNameInstanceValues.Delete(apiClient, apiEndpoint)
+				return err
 			},
 		})
 
