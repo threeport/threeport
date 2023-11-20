@@ -271,7 +271,7 @@ func (w *WorkloadValues) GetOperationSlice(apiClient *http.Client, apiEndpoint s
 
 	// add workload instance operation
 	workloadInstanceValues := WorkloadInstanceValues{
-		Name:                      defaultInstanceName(w.Name),
+		Name:                      w.Name,
 		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
 		WorkloadDefinition: WorkloadDefinitionValues{
 			Name: w.Name,
@@ -378,7 +378,7 @@ func (w *WorkloadValues) GetOperationSlice(apiClient *http.Client, apiEndpoint s
 			StorageGb:          w.AwsRelationalDatabase.StorageGb,
 			WorkloadSecretName: w.AwsRelationalDatabase.WorkloadSecretName,
 			WorkloadInstance: &WorkloadInstanceValues{
-				Name: defaultInstanceName(w.Name),
+				Name: w.Name,
 			},
 		}
 		operationSlice.AppendOperation(util.Operation{
@@ -403,7 +403,7 @@ func (w *WorkloadValues) GetOperationSlice(apiClient *http.Client, apiEndpoint s
 			WorkloadServiceAccountName: w.AwsObjectStorageBucket.WorkloadServiceAccountName,
 			WorkloadBucketEnvVar:       w.AwsObjectStorageBucket.WorkloadBucketEnvVar,
 			WorkloadInstance: &WorkloadInstanceValues{
-				Name: defaultInstanceName(w.Name),
+				Name: w.Name,
 			},
 		}
 		operationSlice.AppendOperation(util.Operation{

@@ -453,7 +453,7 @@ func (r *AwsRelationalDatabaseValues) Create(apiClient *http.Client, apiEndpoint
 
 	// create the relational database instance
 	awsRelationalDatabaseInstance := AwsRelationalDatabaseInstanceValues{
-		Name: defaultInstanceName(r.Name),
+		Name: r.Name,
 		AwsRelationalDatabaseDefinition: AwsRelationalDatabaseDefinitionValues{
 			Name: r.Name,
 		},
@@ -477,7 +477,7 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 	}
 
 	// get AWS relational database instance by name
-	awsRelationalDatabaseInstName := defaultInstanceName(r.Name)
+	awsRelationalDatabaseInstName := r.Name
 	awsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByName(apiClient, apiEndpoint, awsRelationalDatabaseInstName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find AWS relational database instance by name %s: %w", r.Name, err)
@@ -672,7 +672,7 @@ func (o *AwsObjectStorageBucketValues) Create(apiClient *http.Client, apiEndpoin
 
 	// create the object storage bucket instance
 	awsObjectStorageBucketInstance := AwsObjectStorageBucketInstanceValues{
-		Name: defaultInstanceName(o.Name),
+		Name: o.Name,
 		AwsObjectStorageBucketDefinition: AwsObjectStorageBucketDefinitionValues{
 			Name: o.Name,
 		},
@@ -696,7 +696,7 @@ func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoin
 	}
 
 	// get AWS object storage bucket instance by name
-	awsObjectStorageBucketInstName := defaultInstanceName(o.Name)
+	awsObjectStorageBucketInstName := o.Name
 	awsObjectStorageBucketInstance, err := client.GetAwsObjectStorageBucketInstanceByName(apiClient, apiEndpoint, awsObjectStorageBucketInstName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find AWS object storage bucket instance by name %s: %w", o.Name, err)
