@@ -17,6 +17,9 @@ func (me *MultiError) AppendError(err error) {
 
 // Error returns a string representation of the MultiError.
 func (me MultiError) Error() error {
+	if len(me.Errors) == 0 {
+		return nil
+	}
 	errorMessages := make([]string, len(me.Errors))
 	for i, err := range me.Errors {
 		errorMessages[i] = err.Error()
