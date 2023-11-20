@@ -37,6 +37,7 @@ type GatewayInstanceValues struct {
 	WorkloadInstance          WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 }
 
+// Validate validates the gateway definition values.
 func (g *GatewayDefinitionValues) Validate() error {
 	multiError := util.MultiError{}
 
@@ -61,10 +62,6 @@ func (g *GatewayDefinitionValues) Validate() error {
 
 // Create creates a gateway definition.
 func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, error) {
-	// validate required fields
-	// if g.Name == "" || g.TCPPort == 0 || g.DomainNameDefinition.Name == "" {
-	// 	return nil, errors.New("missing required field/s in config - required fields: Name, TCPPort, DomainNameDefinition.Name")
-	// }
 	if err := g.Validate(); err != nil {
 		return nil, err
 	}
@@ -96,9 +93,10 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 	return createdGatewayDefinition, nil
 }
 
+// Delete deletes a gateway definition.
 func (g *GatewayDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) error {
 	// get domain name definition
-	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
+	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, g.Name)
 	if err != nil {
 		return err
 	}
@@ -111,12 +109,34 @@ func (g *GatewayDefinitionValues) Delete(apiClient *http.Client, apiEndpoint str
 	return nil
 }
 
+// Validate validates the gateway definition values.
+func (g *GatewayInstanceValues) Validate() error {
+	multiError := util.MultiError{}
+
+	if g.GatewayDefinition.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: GatewayDefinition.Name"))
+	}
+
+	if g.KubernetesRuntimeInstance.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
+	}
+
+	if g.WorkloadInstance.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance.Name"))
+	}
+
+	if len(multiError.Errors) > 0 {
+		return multiError.Error()
+	}
+
+	return nil
+}
+
 // Create creates a gateway instance.
 func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayInstance, error) {
 	// validate required fields
-	if g.GatewayDefinition.Name == "" || g.KubernetesRuntimeInstance.Name == "" ||
-		g.WorkloadInstance.Name == "" {
-		return nil, errors.New("missing required field/s in config - required fields: GatewayDefinition.Name, KubernetesRuntimeInstance.Name, WorkloadInstance.Name")
+	if err := g.Validate(); err != nil {
+		return nil, err
 	}
 
 	// get kubernetes runtime instance
@@ -131,7 +151,7 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 		return nil, err
 	}
 
-	// get gateawy definition
+	// get gateway definition
 	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, g.GatewayDefinition.Name)
 	if err != nil {
 		return nil, err
@@ -156,15 +176,27 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 	return createdGatewayInstance, nil
 }
 
+// Delete deletes a gateway instance.
 func (g *GatewayInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) error {
+	// get gateway instance by name
 	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, g.GatewayDefinition.Name)
 	if err != nil {
 		return err
 	}
 
+	// delete gateway instance
 	_, err = client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
 	if err != nil {
 		return err
 	}
+
+	// wait for gateway instance to be deleted
+	util.Retry(60, 1, func() error {
+		if _, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, g.GatewayDefinition.Name); err == nil {
+			return errors.New("gateway instance not deleted")
+		}
+		return nil
+	})
+
 	return nil
 }
