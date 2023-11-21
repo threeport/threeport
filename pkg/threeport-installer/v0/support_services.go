@@ -2485,7 +2485,7 @@ func InstallThreeportSupportServicesOperator(
 								"resources": map[string]interface{}{
 									"limits": map[string]interface{}{
 										"cpu":    "500m",
-										"memory": "128Mi",
+										"memory": "256Mi",
 									},
 									"requests": map[string]interface{}{
 										"cpu":    "10m",
