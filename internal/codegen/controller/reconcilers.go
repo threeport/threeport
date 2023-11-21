@@ -816,6 +816,12 @@ func (cc *ControllerConfig) ExtensionReconcilers() error {
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationCreated",
 							)).Block(
+								If(Id(strcase.ToLowerCamel(obj)).Dot("DeletionScheduled").Op("!=").Nil()).Block(
+									Id("log").Dot("Info").Call(
+										Lit(fmt.Sprintf("%s scheduled for deletion - skipping create", strcase.ToDelimited(obj, ' '))),
+									),
+									Break(),
+								),
 								Id("customRequeueDelay").Op(",").Err().Op(":=").Id(fmt.Sprintf(
 									"%sCreated",
 									strcase.ToLowerCamel(obj),
