@@ -53,6 +53,7 @@ func init() {
 func commandPreRunFunc(cmd *cobra.Command, args []string) {
 	if err := initializeCommandContext(cmd); err != nil {
 		cli.Error("could not initialize command in pre run: %w", err)
+		os.Exit(1)
 	}
 }
 
