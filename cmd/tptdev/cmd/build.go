@@ -72,7 +72,6 @@ var buildCmd = &cobra.Command{
 			go func() {
 				defer waitGroup.Done()
 				for component := range jobs {
-					fmt.Println(cpi.Opts.ThreeportPath)
 					// build go binary
 					if err := tptdev.BuildGoBinary(
 						cpi.Opts.ThreeportPath,
