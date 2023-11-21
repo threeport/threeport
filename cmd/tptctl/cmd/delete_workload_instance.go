@@ -62,7 +62,7 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 
 		// delete workload instance
 		workloadInstance := workloadInstanceConfig.WorkloadInstance
-		_, err = workloadInstance.Delete(apiClient, apiEndpoint)
+		_, err := workloadInstance.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload instance", err)
 			os.Exit(1)
