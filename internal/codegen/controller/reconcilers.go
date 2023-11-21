@@ -937,6 +937,78 @@ func (cc *ControllerConfig) ExtensionReconcilers() error {
 									),
 									Continue(),
 								),
+
+								Id("deletionTimestamp").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "TimePtr").Call(Qual("time", "Now").Call().Dot("UTC").Call()),
+
+								Id(fmt.Sprintf(
+									"deleted%s",
+									obj,
+								)).Op(":=").Qual(
+									"github.com/threeport/threeport/pkg/api/v0",
+									obj,
+								).Values(Dict{
+									Id("Common"): Qual(
+										"github.com/threeport/threeport/pkg/api/v0",
+										"Common",
+									).Values(Dict{
+										Id("ID"): Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+									}),
+									Id("Reconciliation"): Qual(
+										"github.com/threeport/threeport/pkg/api/v0",
+										"Reconciliation",
+									).Values(Dict{
+										Id("Reconciled"):           Qual("github.com/threeport/threeport/pkg/util/v0", "BoolPtr").Call(Lit(true)),
+										Id("DeletionAcknowledged"): Id("deletionTimestamp"),
+										Id("DeletionConfirmed"):    Id("deletionTimestamp"),
+									}),
+								}),
+								If(Id("err").Op("!=").Nil()).Block(
+									Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+										"failed to update %s to mark as reconciled",
+										strcase.ToDelimited(obj, ' '),
+									))),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Continue(),
+								),
+
+								Id("_").Op(",").Id("err").Op("=").Qual(
+									"github.com/threeport/threeport/pkg/client/v0",
+									fmt.Sprintf("Update%s", obj),
+								).Call(
+									Line().Id("r").Dot("APIClient"),
+									Line().Id("r").Dot("APIServer"),
+									Line().Op("&").Id(fmt.Sprintf(
+										"deleted%s",
+										obj,
+									)),
+									Line(),
+								),
+								If(Id("err").Op("!=").Nil()).Block(
+									Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+										"failed to update %s to mark as deleted",
+										strcase.ToDelimited(obj, ' '),
+									))),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Continue(),
+								),
+
+								Id("_").Op(",").Id("err").Op("=").Qual(
+									"github.com/threeport/threeport/pkg/client/v0",
+									fmt.Sprintf("Delete%s", obj),
+								).Call(
+									Line().Id("r").Dot("APIClient"),
+									Line().Id("r").Dot("APIServer"),
+									Line().Op("*").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+									Line(),
+								),
+								If(Id("err").Op("!=").Nil()).Block(
+									Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+										"failed to delete %s",
+										strcase.ToDelimited(obj, ' '),
+									))),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Continue(),
+								),
 							),
 							Default().Block(
 								Id("log").Dot("Error").Call(
