@@ -128,7 +128,8 @@ func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWo
 func kindControlPlaneNode(authEnabled bool, threeportPath, goPath, goCache string, portForwards map[int32]int32) *v1alpha4.Node {
 	extraPortMappings := getPortMapping(authEnabled, portForwards)
 	controlPlaneNode := v1alpha4.Node{
-		Role: v1alpha4.ControlPlaneRole,
+		Role:  v1alpha4.ControlPlaneRole,
+		Image: "kindest/node:v1.28.0@sha256:b7a4cad12c197af3ba43202d3efe03246b3f0793f162afb40a33c923952d5b31",
 		KubeadmConfigPatches: []string{
 			`kind: InitConfiguration
 nodeRegistration:
@@ -169,7 +170,8 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 	for _, node := range nodes {
 
 		node = v1alpha4.Node{
-			Role: v1alpha4.WorkerRole,
+			Role:  v1alpha4.WorkerRole,
+			Image: "kindest/node:v1.28.0@sha256:b7a4cad12c197af3ba43202d3efe03246b3f0793f162afb40a33c923952d5b31",
 		}
 
 		if threeportPath != "" {
