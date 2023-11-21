@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -25,32 +24,9 @@ var CreateWorkloadCmd = &cobra.Command{
 	Long: `Create a new workload. This command creates a new workload definition
 and workload instance based on the workload config.`,
 	SilenceUsage: true,
+	PreRun:       commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
-		// get threeport config and extract threeport API endpoint
-
-		threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
-		if err != nil {
-			cli.Error("failed to get threeport config", err)
-			os.Exit(1)
-		}
-
-		var apiClient *http.Client
-		var apiEndpoint string
-
-		apiClient, apiEndpoint = checkContext(cmd)
-		if apiClient == nil && apiEndpoint != "" {
-			apiEndpoint, err = threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
-			if err != nil {
-				cli.Error("failed to get threeport API endpoint from config", err)
-				os.Exit(1)
-			}
-
-			apiClient, err = threeportConfig.GetHTTPClient(requestedControlPlane)
-			if err != nil {
-				cli.Error("failed to create threeport API client", err)
-				os.Exit(1)
-			}
-		}
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// load workload config
 		configContent, err := os.ReadFile(createWorkloadConfigPath)

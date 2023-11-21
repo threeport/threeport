@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -24,26 +23,9 @@ var CreateAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
 	Short:        "Create a new AWS object storage bucket definition",
 	Long:         `Create a new AWS object storage bucket definition.`,
 	SilenceUsage: true,
+	PreRun:       commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
-		// get threeport config and extract threeport API endpoint
-		threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
-		if err != nil {
-			cli.Error("failed to get threeport config", err)
-			os.Exit(1)
-		}
-
-		var apiClient *http.Client
-		var apiEndpoint string
-
-		apiClient, apiEndpoint = checkContext(cmd)
-		if apiClient == nil && apiEndpoint != "" {
-			apiEndpoint, err = threeportConfig.GetThreeportAPIEndpoint(requestedControlPlane)
-			apiClient, err = threeportConfig.GetHTTPClient(requestedControlPlane)
-			if err != nil {
-				cli.Error("failed to create threeport API client", err)
-				os.Exit(1)
-			}
-		}
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// load AWS object storage bucket definition config
 		configContent, err := os.ReadFile(createAwsObjectStorageBucketDefinitionConfigPath)
