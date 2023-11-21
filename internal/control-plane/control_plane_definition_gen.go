@@ -9,9 +9,11 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // ControlPlaneDefinitionReconciler reconciles system state when a ControlPlaneDefinition
@@ -127,6 +129,10 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if controlPlaneDefinition.DeletionScheduled != nil {
+					log.Info("control plane definition scheduled for deletion - skipping create")
+					break
+				}
 				customRequeueDelay, err := controlPlaneDefinitionCreated(r, &controlPlaneDefinition, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created control plane definition object")
@@ -190,6 +196,40 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
+					continue
+				}
+				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletedControlPlaneDefinition := v0.ControlPlaneDefinition{
+					Common: v0.Common{ID: controlPlaneDefinition.ID},
+					Reconciliation: v0.Reconciliation{
+						DeletionAcknowledged: deletionTimestamp,
+						DeletionConfirmed:    deletionTimestamp,
+						Reconciled:           util.BoolPtr(true),
+					},
+				}
+				if err != nil {
+					log.Error(err, "failed to update control plane definition to mark as reconciled")
+					r.UnlockAndRequeue(&controlPlaneDefinition, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.UpdateControlPlaneDefinition(
+					r.APIClient,
+					r.APIServer,
+					&deletedControlPlaneDefinition,
+				)
+				if err != nil {
+					log.Error(err, "failed to update control plane definition to mark as deleted")
+					r.UnlockAndRequeue(&controlPlaneDefinition, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.DeleteControlPlaneDefinition(
+					r.APIClient,
+					r.APIServer,
+					*controlPlaneDefinition.ID,
+				)
+				if err != nil {
+					log.Error(err, "failed to delete control plane definition")
+					r.UnlockAndRequeue(&controlPlaneDefinition, requeueDelay, lockReleased, msg)
 					continue
 				}
 			default:

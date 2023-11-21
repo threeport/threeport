@@ -18,7 +18,6 @@ import (
 
 var (
 	deleteWorkloadConfigPath string
-	deleteWorkloadName       string
 )
 
 // DeleteWorkloadCmd represents the workload command
@@ -57,44 +56,32 @@ and workload instance based on the workload config or name.`,
 		}
 
 		// flag validation
-		if err := validateDeleteWorkloadFlags(
-			deleteWorkloadConfigPath,
-			deleteWorkloadName,
-		); err != nil {
-			cli.Error("flag validation failed", err)
-			os.Exit(1)
+		if deleteWorkloadConfigPath == "" {
+			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
 		var workloadConfig config.WorkloadConfig
-		if deleteWorkloadConfigPath != "" {
-			// load workload definition config
-			configContent, err := os.ReadFile(deleteWorkloadConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.Unmarshal(configContent, &workloadConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			workloadConfig = config.WorkloadConfig{
-				Workload: config.WorkloadValues{
-					Name: deleteWorkloadName,
-				},
-			}
+		// load workload definition config
+		configContent, err := os.ReadFile(deleteWorkloadConfigPath)
+		if err != nil {
+			cli.Error("failed to read config file", err)
+			os.Exit(1)
+		}
+		if err := yaml.Unmarshal(configContent, &workloadConfig); err != nil {
+			cli.Error("failed to unmarshal config file yaml content", err)
+			os.Exit(1)
 		}
 
 		// delete workload
 		workload := workloadConfig.Workload
-		wd, wi, err := workload.Delete(apiClient, apiEndpoint)
+		_, _, err = workload.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload", err)
 			os.Exit(1)
 		}
 
-		cli.Info(fmt.Sprintf("workload instance %s deleted", *wi.Name))
-		cli.Info(fmt.Sprintf("workload definition %s deleted", *wd.Name))
+		cli.Info(fmt.Sprintf("workload instance %s deleted", workload.Name))
+		cli.Info(fmt.Sprintf("workload definition %s deleted", workload.Name))
 		cli.Complete(fmt.Sprintf("workload %s deleted", workloadConfig.Workload.Name))
 	},
 }
@@ -107,24 +94,13 @@ func init() {
 		"config", "c", "", "Path to file with workload config.",
 	)
 	DeleteWorkloadCmd.Flags().StringVarP(
-		&deleteWorkloadName,
-		"name", "n", "", "Name of workload.",
-	)
-	DeleteWorkloadCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
 }
 
 // validateDeleteWorkloadFlags validates flag inputs as needed.
-func validateDeleteWorkloadFlags(workloadConfigPath, workloadName string) error {
-	if workloadConfigPath == "" && workloadName == "" {
-		return errors.New("must provide either workload name or path to config file")
-	}
-
-	if workloadConfigPath != "" && workloadName != "" {
-		return errors.New("workload name and path to config file provided - provide only one")
-	}
+func validateDeleteWorkloadFlags(workloadConfigPath string) error {
 
 	return nil
 }

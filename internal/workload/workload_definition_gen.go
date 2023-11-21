@@ -9,9 +9,11 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // WorkloadDefinitionReconciler reconciles system state when a WorkloadDefinition
@@ -127,6 +129,10 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if workloadDefinition.DeletionScheduled != nil {
+					log.Info("workload definition scheduled for deletion - skipping create")
+					break
+				}
 				customRequeueDelay, err := workloadDefinitionCreated(r, &workloadDefinition, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created workload definition object")
@@ -190,6 +196,40 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
+					continue
+				}
+				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletedWorkloadDefinition := v0.WorkloadDefinition{
+					Common: v0.Common{ID: workloadDefinition.ID},
+					Reconciliation: v0.Reconciliation{
+						DeletionAcknowledged: deletionTimestamp,
+						DeletionConfirmed:    deletionTimestamp,
+						Reconciled:           util.BoolPtr(true),
+					},
+				}
+				if err != nil {
+					log.Error(err, "failed to update workload definition to mark as reconciled")
+					r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.UpdateWorkloadDefinition(
+					r.APIClient,
+					r.APIServer,
+					&deletedWorkloadDefinition,
+				)
+				if err != nil {
+					log.Error(err, "failed to update workload definition to mark as deleted")
+					r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.DeleteWorkloadDefinition(
+					r.APIClient,
+					r.APIServer,
+					*workloadDefinition.ID,
+				)
+				if err != nil {
+					log.Error(err, "failed to delete workload definition")
+					r.UnlockAndRequeue(&workloadDefinition, requeueDelay, lockReleased, msg)
 					continue
 				}
 			default:

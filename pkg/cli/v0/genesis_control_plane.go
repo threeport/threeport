@@ -63,6 +63,7 @@ type GenesisControlPlaneCLIArgs struct {
 	ProviderConfigDir     string
 	ThreeportPath         string
 	Debug                 bool
+	Verbose               bool
 	ControlPlaneOnly      bool
 	KindInfraPortForward  []string
 }
@@ -130,6 +131,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.ProviderConfigDir = a.ProviderConfigDir
 	cpi.Opts.ThreeportPath = a.ThreeportPath
 	cpi.Opts.Debug = a.Debug
+	cpi.Opts.Verbose = a.Verbose
 	cpi.Opts.LiveReload = false
 	cpi.Opts.CreateOrUpdateKubeResources = false
 	cpi.Opts.ControlPlaneOnly = a.ControlPlaneOnly

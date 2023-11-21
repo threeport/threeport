@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	yamlv3 "gopkg.in/yaml.v3"
@@ -143,36 +142,6 @@ func workloadDefinitionDeleted(
 			"workload resource definition deleted",
 			"workloadResourceDefinitionID", wrd.ID,
 		)
-	}
-
-	// delete the workload definition that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedWorkloadDefinition := v0.WorkloadDefinition{
-		Common: v0.Common{
-			ID: workloadDefinition.ID,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err = client.UpdateWorkloadDefinition(
-		r.APIClient,
-		r.APIServer,
-		&deletedWorkloadDefinition,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of workload definition in threeport API: %w", err)
-	}
-	_, err = client.DeleteWorkloadDefinition(
-		r.APIClient,
-		r.APIServer,
-		*workloadDefinition.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete workload definition in threeport API: %w", err)
 	}
 
 	return 0, nil

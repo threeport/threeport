@@ -83,6 +83,14 @@ func init() {
 		&cliArgs.ControlPlaneOnly,
 		"control-plane-only", false, "Deploy the control plane on an existing runtime. Defaults to false.",
 	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.Debug,
+		"debug", false, "Debug threeport control plane components.",
+	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.Verbose,
+		"verbose", false, "Enable verbose logging in control plane components, delve, and cli logs.",
+	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)
 	})

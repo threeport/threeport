@@ -9,9 +9,11 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // AwsRelationalDatabaseInstanceReconciler reconciles system state when a AwsRelationalDatabaseInstance
@@ -127,6 +129,10 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if awsRelationalDatabaseInstance.DeletionScheduled != nil {
+					log.Info("aws relational database instance scheduled for deletion - skipping create")
+					break
+				}
 				customRequeueDelay, err := awsRelationalDatabaseInstanceCreated(r, &awsRelationalDatabaseInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created aws relational database instance object")
@@ -190,6 +196,40 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
+					continue
+				}
+				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletedAwsRelationalDatabaseInstance := v0.AwsRelationalDatabaseInstance{
+					Common: v0.Common{ID: awsRelationalDatabaseInstance.ID},
+					Reconciliation: v0.Reconciliation{
+						DeletionAcknowledged: deletionTimestamp,
+						DeletionConfirmed:    deletionTimestamp,
+						Reconciled:           util.BoolPtr(true),
+					},
+				}
+				if err != nil {
+					log.Error(err, "failed to update aws relational database instance to mark as reconciled")
+					r.UnlockAndRequeue(&awsRelationalDatabaseInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.UpdateAwsRelationalDatabaseInstance(
+					r.APIClient,
+					r.APIServer,
+					&deletedAwsRelationalDatabaseInstance,
+				)
+				if err != nil {
+					log.Error(err, "failed to update aws relational database instance to mark as deleted")
+					r.UnlockAndRequeue(&awsRelationalDatabaseInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.DeleteAwsRelationalDatabaseInstance(
+					r.APIClient,
+					r.APIServer,
+					*awsRelationalDatabaseInstance.ID,
+				)
+				if err != nil {
+					log.Error(err, "failed to delete aws relational database instance")
+					r.UnlockAndRequeue(&awsRelationalDatabaseInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 			default:

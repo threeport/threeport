@@ -337,7 +337,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			mapper,
 			*controller,
 		); err != nil {
-			return fmt.Errorf("failed to install %s: %w", *&controller.Name, err)
+			return fmt.Errorf("failed to install %s: %w", controller.Name, err)
 		}
 	}
 
@@ -1144,7 +1144,7 @@ func (cpi *ControlPlaneInstaller) DeleteNamespaces(
 
 	// wait for all namespaces to be deleted
 	for _, name := range namespaces {
-		util.Retry(24, 5, func() error {
+		util.Retry(120, 1, func() error {
 			_, err := kube.GetResource(
 				"",
 				"",
@@ -1265,7 +1265,7 @@ func (cpi *ControlPlaneInstaller) getAPIArgs() []interface{} {
 			args += " -auth-enabled=false"
 		}
 
-		return getAirArgs("rest-api", args)
+		return cpi.getAirArgs("rest-api", args)
 	case cpi.Opts.Debug:
 		args := []interface{}{
 			"--",
@@ -1277,7 +1277,7 @@ func (cpi *ControlPlaneInstaller) getAPIArgs() []interface{} {
 		}
 
 		// controller arguments must be wrapped in delve arguments
-		return append(util.StringToInterfaceList(getDelveArgs(cpi.Opts.RestApiInfo.Name)), args...)
+		return append(util.StringToInterfaceList(cpi.getDelveArgs(cpi.Opts.RestApiInfo.Name)), args...)
 	default:
 		args := []interface{}{
 			"-auto-migrate=true",
@@ -1301,30 +1301,39 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string) []interface{} {
 	switch {
 	case cpi.Opts.LiveReload:
 		if cpi.Opts.AuthEnabled {
-			return getAirArgs(name, "")
+			return cpi.getAirArgs(name, "")
 		}
-		return getAirArgs(name, "-auth-enabled=false")
+		return cpi.getAirArgs(name, "-auth-enabled=false")
 	case cpi.Opts.Debug:
 		args := []interface{}{}
 		if !cpi.Opts.AuthEnabled {
-			args = append(args, "--")
 			args = append(args, "-auth-enabled=false")
+		}
+		if cpi.Opts.Verbose {
+			args = append(args, "-verbose=true")
+		}
+		if len(args) > 0 {
+			args = append([]interface{}{"--"}, args...)
 		}
 
 		// controller arguments must be wrapped in delve arguments
-		return append(util.StringToInterfaceList(getDelveArgs(name)), args...)
+		return append(util.StringToInterfaceList(cpi.getDelveArgs(name)), args...)
 	default:
 		args := []interface{}{}
 
 		if !cpi.Opts.AuthEnabled {
 			args = append(args, "-auth-enabled=false")
 		}
+		if cpi.Opts.Verbose {
+			args = append(args, "-verbose=true")
+
+		}
 		return args
 	}
 }
 
-// getAirArgs returns the args that are passed to air.
-func getAirArgs(name, extraArgs string) []interface{} {
+// cpi.getAirArgs returns the args that are passed to air.
+func (cpi *ControlPlaneInstaller) getAirArgs(name, extraArgs string) []interface{} {
 	main := "main_gen.go"
 	if name == "rest-api" || name == "agent" {
 		main = "main.go"
@@ -1339,24 +1348,27 @@ func getAirArgs(name, extraArgs string) []interface{} {
 		"-c", "/threeport/cmd/tptdev/air.toml",
 		"-build.cmd", "go build -gcflags='all=-N -l' -o /threeport-" + name + " /threeport/cmd/" + name + "/" + main,
 		"-build.bin", "/usr/local/bin/dlv",
-		"-build.args_bin", strings.Join(getDelveArgs(name), " ") + appendedArgs,
+		"-build.args_bin", strings.Join(cpi.getDelveArgs(name), " ") + appendedArgs,
 	}
 
 }
 
-// getDelveArgs returns the args that are passed to delve.
-func getDelveArgs(name string) []string {
+// cpi.getDelveArgs returns the args that are passed to delve.
+func (cpi *ControlPlaneInstaller) getDelveArgs(name string) []string {
 	args := []string{
 		"--continue",
 		"--accept-multiclient",
 		"--listen=:40000",
 		"--headless=true",
 		"--api-version=2",
-		"--log",
-		"exec",
-		fmt.Sprintf("/threeport-%s", name),
 	}
 
+	if cpi.Opts.Verbose {
+		args = append(args, "--log")
+	}
+
+	args = append(args, "exec")
+	args = append(args, fmt.Sprintf("/threeport-%s", name))
 	return args
 }
 
@@ -1603,9 +1615,9 @@ func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
 	case cpi.Opts.LiveReload:
 		flags := "--metrics-bind-address=127.0.0.1:8080 --leader-elect"
 		if !cpi.Opts.AuthEnabled {
-			return getAirArgs("agent", flags+" --auth-enabled=false")
+			return cpi.getAirArgs("agent", flags+" --auth-enabled=false")
 		} else {
-			return getAirArgs("agent", flags)
+			return cpi.getAirArgs("agent", flags)
 		}
 	case cpi.Opts.Debug:
 		args := []interface{}{
@@ -1616,7 +1628,7 @@ func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
 		if !cpi.Opts.AuthEnabled {
 			args = append(args, "-auth-enabled=false")
 		}
-		return append(util.StringToInterfaceList(getDelveArgs(cpi.Opts.AgentInfo.Name)), args...)
+		return append(util.StringToInterfaceList(cpi.getDelveArgs(cpi.Opts.AgentInfo.Name)), args...)
 	default:
 		// disable auth if authConfig is not set on non-dev deployment
 		args := []interface{}{
@@ -1736,8 +1748,9 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 }
 
 func (cpi *ControlPlaneInstaller) getReadinessProbe() map[string]interface{} {
-	var readinessProbe = &unstructured.Unstructured{
-		Object: map[string]interface{}{
+	var readinessProbe map[string]interface{}
+	if !cpi.Opts.Debug {
+		readinessProbe = map[string]interface{}{
 			"failureThreshold": 1,
 			"httpGet": map[string]interface{}{
 				"path":   "/readyz",
@@ -1748,9 +1761,9 @@ func (cpi *ControlPlaneInstaller) getReadinessProbe() map[string]interface{} {
 			"periodSeconds":       2,
 			"successThreshold":    1,
 			"timeoutSeconds":      1,
-		},
+		}
 	}
-	return readinessProbe.Object
+	return readinessProbe
 }
 
 func (cpi *ControlPlaneInstaller) getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []interface{}) {

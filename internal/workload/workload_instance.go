@@ -433,10 +433,12 @@ func workloadInstanceDeleted(
 	for _, object := range *attachedObjectReferences {
 		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.Type, *object.ObjectID)
 		if err != nil {
-			if errors.Is(err, client.ErrorObjectNotFound) {
-				// attached object has already been deleted
+			switch {
+			case errors.Is(err, client.ErrorObjectNotFound):
 				log.Info("attached object has already been deleted", "objectID", *object.ObjectID)
-			} else {
+			case errors.Is(err, client.ErrConflict):
+				log.Info("attached object is already being deleted", "objectID", *object.ObjectID)
+			default:
 				return 0, fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.Type, *object.ID, err)
 			}
 		}
@@ -495,36 +497,6 @@ func workloadInstanceDeleted(
 		metav1.DeleteOptions{},
 	); err != nil && !kubeerr.IsNotFound(err) {
 		return 0, fmt.Errorf("failed to delete ThreeportWorkload resource: %w", err)
-	}
-
-	// delete the workload instance that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedWorkloadInstance := v0.WorkloadInstance{
-		Common: v0.Common{
-			ID: workloadInstance.ID,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err = client.UpdateWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		&deletedWorkloadInstance,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of workload instance in threeport API: %w", err)
-	}
-	_, err = client.DeleteWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		*workloadInstance.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete workload instance in threeport API: %w", err)
 	}
 
 	return 0, nil
