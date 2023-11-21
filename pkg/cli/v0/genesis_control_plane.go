@@ -724,7 +724,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.InstallThreeportAgent(
 		dynamicKubeClient,
 		mapper,
-		"threeport-"+cpi.Opts.ControlPlaneName,
+		cpi.Opts.ControlPlaneName,
 		authConfig,
 	); err != nil {
 		return cleanOnCreateError("failed to install threeport agent", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
@@ -747,7 +747,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		dynamicKubeClient,
 		mapper,
 		cpi.Opts.InfraProvider,
-		"threeport-"+cpi.Opts.ControlPlaneName,
+		cpi.Opts.Name+"-"+cpi.Opts.ControlPlaneName,
 		*callerIdentity.Account,
 	); err != nil {
 		return cleanOnCreateError("failed to install system services", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
