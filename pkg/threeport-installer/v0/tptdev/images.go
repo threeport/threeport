@@ -25,6 +25,7 @@ import (
 	k8sexec "sigs.k8s.io/kind/pkg/exec"
 	"sigs.k8s.io/kind/pkg/fs"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
@@ -96,10 +97,10 @@ func BuildDevImage(threeportPath string) error {
 
 // BuildDevImage builds all the threeport control plane container images using
 // the dev dockerfile to provide live reload of code in the container.
-func BuildGoBinary(threeportPath, name, imageName, arch string, noCache bool) error {
+func BuildGoBinary(threeportPath, arch string, component *v0.ControlPlaneComponent, noCache bool) error {
 	// set name of main.go file
 	main := "main_gen.go"
-	if strings.Contains(imageName, "rest-api") || strings.Contains(imageName, "agent") {
+	if strings.Contains(component.Name, "rest-api") || strings.Contains(component.Name, "agent") {
 		main = "main.go"
 	}
 
@@ -118,10 +119,10 @@ func BuildGoBinary(threeportPath, name, imageName, arch string, noCache bool) er
 	buildArgs = append(buildArgs, "-o")
 
 	// append binary name
-	buildArgs = append(buildArgs, "bin/"+imageName)
+	buildArgs = append(buildArgs, "bin/"+component.BinaryName)
 
 	// append main.go filepath
-	buildArgs = append(buildArgs, "cmd/"+name+"/"+main)
+	buildArgs = append(buildArgs, "cmd/"+component.Name+"/"+main)
 
 	fmt.Printf("go %s \n", strings.Join(buildArgs, " "))
 
@@ -138,7 +139,7 @@ func BuildGoBinary(threeportPath, name, imageName, arch string, noCache bool) er
 
 	// start build command
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to build %s: %v\noutput:\n%s", imageName, err, string(output))
+		return fmt.Errorf("failed to build component %s: %v\noutput:\n%s", component.Name, err, string(output))
 	}
 
 	return nil
@@ -146,7 +147,7 @@ func BuildGoBinary(threeportPath, name, imageName, arch string, noCache bool) er
 
 // DockerBuildxImage builds a specified docker image
 // with the 'docker buildx' command.
-func DockerBuildxImage(threeportPath, imageName, componentName, tag, arch string) error {
+func DockerBuildxImage(threeportPath, dockerFilePath, tag, arch string, component *v0.ControlPlaneComponent) error {
 
 	// construct build arguments
 	buildArgs := []string{
@@ -154,13 +155,13 @@ func DockerBuildxImage(threeportPath, imageName, componentName, tag, arch string
 		"buildx",
 		"build",
 		"--build-arg",
-		fmt.Sprintf("BINARY=%s", componentName),
+		fmt.Sprintf("BINARY=%s", component.BinaryName),
 		"--target",
 		"dev",
 		"--load",
 		"--platform=linux/" + arch,
 		"-t " + tag,
-		"-f " + "cmd/tptdev/image/Dockerfile",
+		"-f " + dockerFilePath,
 		threeportPath,
 	}
 	fmt.Println(strings.Join(buildArgs, " "))
@@ -171,7 +172,7 @@ func DockerBuildxImage(threeportPath, imageName, componentName, tag, arch string
 
 	// start build command
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to build threeport-%s: %v\noutput:\n%s", imageName, err, string(output))
+		return fmt.Errorf("failed to docker build component %s: %v\noutput:\n%s", component.Name, err, string(output))
 	}
 
 	return nil

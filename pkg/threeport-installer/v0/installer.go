@@ -1,15 +1,12 @@
 package v0
 
 import (
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/client-go/dynamic"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 type InstallerOption func(o *Options)
 
-type CustomInstallFunction func(dynamic.Interface, *meta.RESTMapper, *ControlPlaneInstaller) error
+type CustomInstallFunction func(*v0.KubernetesRuntimeInstance, *ControlPlaneInstaller) error
 
 type Options struct {
 	Name                          string
@@ -91,6 +88,12 @@ func CustomController(c *v0.ControlPlaneComponent) InstallerOption {
 	}
 }
 
+func CustomControllers(c []*v0.ControlPlaneComponent) InstallerOption {
+	return func(o *Options) {
+		o.ControllerList = append(o.ControllerList, c...)
+	}
+}
+
 func PreInstallFunction(f CustomInstallFunction) InstallerOption {
 	return func(o *Options) {
 		o.PreInstallFunction = f
@@ -103,7 +106,7 @@ func PostInstallFunction(f CustomInstallFunction) InstallerOption {
 	}
 }
 
-func defaultInstallFunction(c dynamic.Interface, m *meta.RESTMapper, cpi *ControlPlaneInstaller) error {
+func defaultInstallFunction(kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance, cpi *ControlPlaneInstaller) error {
 	return nil
 }
 

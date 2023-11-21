@@ -14,6 +14,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 
@@ -42,13 +43,13 @@ var buildCmd = &cobra.Command{
 		}
 
 		// create list of components to build
-		componentList, err := getComponentList(buildComponentNames)
+		componentList, err := GetComponentList(buildComponentNames, installer.AllControlPlaneComponents())
 		if err != nil {
 			cli.Error("failed to get component list:", err)
 		}
 
 		// update cli args based on env vars
-		getControlPlaneEnvVars()
+		cliArgs.GetControlPlaneEnvVars()
 
 		// configure concurrency for parallel builds
 		jobs := make(chan *v0.ControlPlaneComponent)
@@ -71,13 +72,11 @@ var buildCmd = &cobra.Command{
 			go func() {
 				defer waitGroup.Done()
 				for component := range jobs {
-
 					// build go binary
 					if err := tptdev.BuildGoBinary(
 						cpi.Opts.ThreeportPath,
-						component.Name,
-						component.ImageName,
 						arch,
+						component,
 						noCache,
 					); err != nil {
 						cli.Error("failed to build go binary:", err)
@@ -95,10 +94,10 @@ var buildCmd = &cobra.Command{
 					// build docker image
 					if err := tptdev.DockerBuildxImage(
 						cpi.Opts.ThreeportPath,
-						component.ImageName,
-						component.Name,
+						"cmd/tptdev/image/Dockerfile",
 						tag,
 						arch,
+						component,
 					); err != nil {
 						cli.Error("failed to build docker image:", err)
 						os.Exit(1)

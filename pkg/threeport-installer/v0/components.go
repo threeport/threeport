@@ -181,7 +181,7 @@ NATS_PORT=4222
 							map[string]interface{}{
 								"name":            "api-server",
 								"image":           apiImage,
-								"command":         cpi.getCommand(cpi.Opts.RestApiInfo.ImageName),
+								"command":         cpi.getCommand(cpi.Opts.RestApiInfo.BinaryName),
 								"imagePullPolicy": "IfNotPresent",
 								"args":            apiArgs,
 								"ports": []interface{}{
@@ -389,6 +389,7 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 		serviceAccountName,
 		controllerImage,
 		installInfo.ImageName,
+		installInfo.BinaryName,
 		controllerArgs,
 		controllerVols,
 		controllerVolMounts,
@@ -1036,7 +1037,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 								"args":            agentArgs,
 								"image":           agentImage,
 								"imagePullPolicy": "IfNotPresent",
-								"command":         cpi.getCommand(cpi.Opts.AgentInfo.ImageName),
+								"command":         cpi.getCommand(cpi.Opts.AgentInfo.BinaryName),
 								//"livenessProbe": map[string]interface{}{
 								//	"httpGet": map[string]interface{}{
 								//		"path": "/healthz",
@@ -1669,6 +1670,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	saName string,
 	image string,
 	imageName string,
+	binaryName string,
 	args []interface{},
 	volumes []interface{},
 	volumeMounts []interface{},
@@ -1718,7 +1720,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 							map[string]interface{}{
 								"name":            name,
 								"image":           image,
-								"command":         cpi.getCommand(imageName),
+								"command":         cpi.getCommand(binaryName),
 								"imagePullPolicy": imagePullPolicy,
 								"args":            args,
 								"envFrom": []interface{}{

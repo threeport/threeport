@@ -10,9 +10,11 @@ const (
 	ThreeportAPIImage                         = "threeport-rest-api"
 	ThreeportWorkloadControllerImage          = "threeport-workload-controller"
 	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
+	ThreeportKubernetesRuntimeControllerName  = "kubernetes-runtime-controller"
 	ThreeportControlPlaneControllerImage      = "threeport-control-plane-controller"
 	ThreeportAwsControllerImage               = "threeport-aws-controller"
 	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
+	ThreeportGatewayControllerName            = "gateway-controller"
 	ThreeportAgentDeployName                  = "threeport-agent"
 	ThreeportAgentImage                       = "threeport-agent"
 	ThreeportAPIServiceResourceName           = "threeport-api-server"
@@ -20,6 +22,9 @@ const (
 	ThreeportWorkloadControllerName           = "workload-controller"
 	ThreeportControlPlaneControllerName       = "control-plane-controller"
 	ThreeportAwsControllerName                = "aws-controller"
+	ThreeportRestApiName                      = "rest-api"
+	ThreeportAgentName                        = "agent"
+	DefaultServiceAccount                     = "default"
 )
 
 var enabled bool = true
@@ -27,62 +32,69 @@ var enabled bool = true
 var ThreeportControllerList []*v0.ControlPlaneComponent = []*v0.ControlPlaneComponent{
 	{
 		Name:               ThreeportWorkloadControllerName,
+		BinaryName:         ThreeportWorkloadControllerName,
 		ImageName:          ThreeportWorkloadControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
-		ServiceAccountName: "default",
+		ServiceAccountName: DefaultServiceAccount,
 		Enabled:            &enabled,
 	},
 	{
-		Name:               "kubernetes-runtime-controller",
+		Name:               ThreeportKubernetesRuntimeControllerName,
+		BinaryName:         ThreeportKubernetesRuntimeControllerName,
 		ImageName:          ThreeportKubernetesRuntimeControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
-		ServiceAccountName: "default",
+		ServiceAccountName: DefaultServiceAccount,
 		Enabled:            &enabled,
 	},
 	{
 		Name:               ThreeportAwsControllerName,
+		BinaryName:         ThreeportAwsControllerName,
 		ImageName:          ThreeportAwsControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
-		ServiceAccountName: "default",
+		ServiceAccountName: DefaultServiceAccount,
 		Enabled:            &enabled,
 	},
 	{
-		Name:               "gateway-controller",
+		Name:               ThreeportGatewayControllerName,
+		BinaryName:         ThreeportGatewayControllerName,
 		ImageName:          ThreeportGatewayControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
-		ServiceAccountName: "default",
+		ServiceAccountName: DefaultServiceAccount,
 		Enabled:            &enabled,
 	},
 	{
 		Name:               ThreeportControlPlaneControllerName,
+		BinaryName:         ThreeportControlPlaneControllerName,
 		ImageName:          ThreeportControlPlaneControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
-		ServiceAccountName: "default",
+		ServiceAccountName: DefaultServiceAccount,
 		Enabled:            &enabled,
 	},
 }
 
 var ThreeportRestApi *v0.ControlPlaneComponent = &v0.ControlPlaneComponent{
-	Name:                "rest-api",
+	Name:                ThreeportRestApiName,
+	BinaryName:          ThreeportRestApiName,
 	ImageName:           ThreeportAPIImage,
 	ImageRepo:           ThreeportImageRepo,
 	ImageTag:            version.GetVersion(),
-	ServiceAccountName:  "default",
+	ServiceAccountName:  DefaultServiceAccount,
 	ServiceResourceName: ThreeportAPIServiceResourceName,
 	Enabled:             &enabled,
 }
 
 var ThreeportAgent *v0.ControlPlaneComponent = &v0.ControlPlaneComponent{
-	Name:               "agent",
+	Name:               ThreeportAgentName,
+	BinaryName:         ThreeportAgentName,
 	ImageName:          ThreeportAgentImage,
 	ImageRepo:          ThreeportImageRepo,
 	ImageTag:           version.GetVersion(),
-	ServiceAccountName: "default",
+	ServiceAccountName: DefaultServiceAccount,
 	Enabled:            &enabled,
 }
 

@@ -13,6 +13,9 @@ type ControlPlaneComponent struct {
 	// The name of the component
 	Name string `json:"Name,omitempty" yaml:"Name" query:"name" gorm:"not null" validate:"required"`
 
+	// The binary name of the component
+	BinaryName string `json:"BinaryName,omitempty" yaml:"BinaryName" query:"binaryname" validate:"optional"`
+
 	// The image name of the component
 	ImageName string `json:"ImageName,omitempty" yaml:"ImageName" query:"imagename" validate:"optional"`
 

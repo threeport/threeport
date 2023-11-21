@@ -20,7 +20,7 @@ var upCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// update cli args based on env vars
-		getControlPlaneEnvVars()
+		cliArgs.GetControlPlaneEnvVars()
 
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {

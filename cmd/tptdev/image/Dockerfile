@@ -18,4 +18,4 @@ RUN go install github.com/cosmtrek/air@latest && \
 # static development target
 FROM base as dev
 ARG BINARY
-COPY bin/threeport-${BINARY} /threeport-${BINARY}
+COPY bin/${BINARY} /${BINARY}
