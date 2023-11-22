@@ -17,7 +17,7 @@ type KubernetesRuntimeDefinition struct {
 	// cluster.
 	InfraProvider *string `json:"InfraProvider,omitempty" query:"infraprovider" gorm:"not null" validate:"required"`
 
-	// The infra provider account ID.  Determines which account the infra is
+	// The infra provider account name.  Determines which account the infra is
 	// deployed on.
 	InfraProviderAccountName *string `json:"InfraProviderAccountName,omitempty" query:"infraprovideraccountname" validate:"optional"`
 

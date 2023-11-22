@@ -48,6 +48,7 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to install support services operator: %w", err)
 	}
+
 	return nil
 }
 

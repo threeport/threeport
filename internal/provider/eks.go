@@ -87,7 +87,7 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 	resourceConfig.ClusterAutoscaling = true
 	resourceConfig.ClusterAutoscalingServiceAccount = eks.ServiceAccountConfig{
 		Name:      threeport.ClusterAutoscalerServiceAccountName,
-		Namespace: threeport.ClusterAutoscalerServiceAccountNamespace,
+		Namespace: threeport.ClusterAutoscalerNamespace,
 	}
 	resourceConfig.StorageManagementServiceAccount = eks.ServiceAccountConfig{
 		Name:      threeport.StorageManagerServiceAccountName,
@@ -343,7 +343,7 @@ func DeleteServiceAccount(
 	return nil
 }
 
-// CreateStorageManagementRole creates the IAM role needed for resource
+// CreateResourceManagerRole creates the IAM role needed for resource
 // management.
 func CreateResourceManagerRole(
 	tags *[]types.Tag,

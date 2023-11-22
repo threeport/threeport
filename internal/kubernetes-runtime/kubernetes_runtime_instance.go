@@ -93,6 +93,16 @@ func kubernetesRuntimeInstanceUpdated(
 		return 0, nil
 	}
 
+	// get runtime definition
+	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve kubernetes runtime definition by ID: %w", err)
+	}
+
 	// get kube client to install compute space control plane components
 	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
@@ -124,12 +134,36 @@ func kubernetesRuntimeInstanceUpdated(
 		cpi.Opts.AgentInfo.ImageTag = agentTag
 	}
 
+	// threeport control plane components
 	if err := cpi.InstallComputeSpaceControlPlaneComponents(
 		dynamicKubeClient,
 		mapper,
 		*kubernetesRuntimeInstance.Name,
 	); err != nil {
 		return 0, fmt.Errorf("failed to insall compute space control plane components: %w", err)
+	}
+
+	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
+		// get aws account
+		awsAccount, err := client.GetAwsAccountByName(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeDefinition.InfraProviderAccountName,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get AWS account by name: %w", err)
+		}
+
+		// system components e.g. cluster-autoscaler
+		if err := threeport.InstallThreeportSystemServices(
+			dynamicKubeClient,
+			mapper,
+			*kubernetesRuntimeDefinition.InfraProvider,
+			*kubernetesRuntimeInstance.Name,
+			*awsAccount.AccountID,
+		); err != nil {
+			return 0, fmt.Errorf("failed to install system services: %w", err)
+		}
 	}
 
 	return 0, nil
@@ -160,7 +194,7 @@ func kubernetesRuntimeInstanceDeleted(
 		*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to kubernetes runtime definition by ID: %w", err)
+		return 0, fmt.Errorf("failed to retrieve kubernetes runtime definition by ID: %w", err)
 	}
 
 	// TODO: delete support services svc to elliminate ELB
