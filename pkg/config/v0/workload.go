@@ -261,8 +261,11 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		Name: "workload definition",
 		Create: func() error {
 			workloadDefinition, err := workloadDefinitionValues.Create(apiClient, apiEndpoint)
+			if err != nil {
+				return err
+			}
 			createdWorkloadDefinition = *workloadDefinition
-			return err
+			return nil
 		},
 		Delete: func() error {
 			_, err = workloadDefinitionValues.Delete(apiClient, apiEndpoint)
@@ -282,8 +285,11 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		Name: "workload instance",
 		Create: func() error {
 			workloadInstance, err := workloadInstanceValues.Create(apiClient, apiEndpoint)
+			if err != nil {
+				return err
+			}
 			createdWorkloadInstance = *workloadInstance
-			return err
+			return nil
 		},
 		Delete: func() error {
 			_, err = workloadInstanceValues.Delete(apiClient, apiEndpoint)
