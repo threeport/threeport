@@ -187,7 +187,7 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 }
 
 func init() {
-	configCmd.AddCommand(ConfigCurrentControlPlaneCmd)
+	ConfigCmd.AddCommand(ConfigCurrentControlPlaneCmd)
 
 	ConfigCurrentControlPlaneCmd.Flags().StringVarP(
 		&configCurrentControlPlaneName,
