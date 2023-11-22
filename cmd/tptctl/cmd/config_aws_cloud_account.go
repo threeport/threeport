@@ -157,7 +157,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 }
 
 func init() {
-	configCmd.AddCommand(ConfigAwsCloudAccountCmd)
+	ConfigCmd.AddCommand(ConfigAwsCloudAccountCmd)
 
 	ConfigAwsCloudAccountCmd.Flags().StringVar(
 		&awsAccountName,

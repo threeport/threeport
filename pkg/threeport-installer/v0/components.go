@@ -1571,7 +1571,7 @@ func (cpi *ControlPlaneInstaller) getAPIServiceType() string {
 	}
 
 	if !cpi.Opts.RestApiEksLoadBalancer {
-		return "ClusterIp"
+		return "ClusterIP"
 	}
 
 	return "LoadBalancer"
