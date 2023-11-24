@@ -678,7 +678,7 @@ const (
 		"Version": "2012-10-17",
 		"Statement": [
 			{
-				"Sid": "EC2andIAMPermissions",
+				"Sid": "EC2Permissions",
 				"Effect": "Allow",
 				"Action": [
 					"ec2:CreateVpc",
@@ -714,7 +714,11 @@ const (
 					"ec2:DeleteTags",
 					"ec2:DescribeTags",
 					"ec2:DescribeAvailabilityZones",
-					"ec2:DescribeSecurityGroups"
+					"ec2:CreateSecurityGroup",
+					"ec2:DeleteSecurityGroup",
+					"ec2:DescribeSecurityGroups",
+					"ec2:AuthorizeSecurityGroupIngress",
+					"ec2:AuthorizeSecurityGroupEgress"
 				],
 				"Resource": "*"
 			},
@@ -735,6 +739,29 @@ const (
 					"eks:CreateAddon",
 					"eks:DeleteAddon",
 					"eks:UpdateAddon"
+				],
+				"Resource": "*"
+			},
+			{
+				"Sid": "RDSPermissions",
+				"Effect": "Allow",
+				"Action": [
+					"rds:CreateDBSubnetGroup",
+					"rds:DeleteDBSubnetGroup",
+					"rds:DescribeDBSubnetGroups",
+					"rds:AddTagsToResource",
+					"rds:ListTagsForResource",
+					"rds:CreateDBInstance",
+					"rds:DeleteDBInstance",
+					"rds:DescribeDBInstances"
+				],
+				"Resource": "*"
+			},
+			{
+				"Sid": "S3Permissions",
+				"Effect": "Allow",
+				"Action": [
+					"s3:*"
 				],
 				"Resource": "*"
 			},
@@ -763,8 +790,8 @@ const (
 					"iam:TagRole",
 					"iam:UntagRole",
 					"iam:ListAttachedRolePolicies",
-					"iam:DescribeSecurityGroups",
-					"iam:CreateServiceLinkedRole"
+					"iam:CreateServiceLinkedRole",
+					"iam:TagPolicy"
 				],
 				"Resource": "*"
 			},
@@ -780,7 +807,9 @@ const (
 							"vpc.amazonaws.com",
 							"eks.amazonaws.com",
 							"ebs.amazonaws.com",
-							"route53.amazonaws.com"
+							"route53.amazonaws.com",
+							"rds.amazonaws.com",
+							"s3.amazonaws.com"
 						]
 					}
 				}
