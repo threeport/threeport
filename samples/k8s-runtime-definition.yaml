@@ -1,5 +1,5 @@
 KubernetesRuntimeDefinition:
-  Name: aws-remote-compute-space
+  Name: congo-non-prod
   InfraProvider: eks
   HighAvailability: false
   ProviderAccountID: "555555555555"

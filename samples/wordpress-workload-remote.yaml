@@ -1,0 +1,16 @@
+Workload:
+  Name: "wordpress"
+  YAMLDocument: "wordpress-no-db-manifest.yaml"
+  KubernetesRuntimeInstance:
+    Name: eks-remote-0
+  AwsRelationalDatabase:
+    Name: wordpress-db
+    AwsAccountName: default-account
+    Engine: mariadb
+    EngineVersion: "10.11"
+    DatabaseName: wordpress
+    DatabasePort: 3306
+    StorageGb: 20
+    MachineSize: XSmall
+    WorkloadSecretName: wordpress-db-conn
+

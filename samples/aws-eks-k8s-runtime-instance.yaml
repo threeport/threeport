@@ -1,0 +1,5 @@
+AwsEksKubernetesRuntimeInstance:
+  Name: test-cluster-v2-release
+  Region: us-east-2
+  AwsEksKubernetesRuntimeDefinitionName: standard-test-cluster
+
