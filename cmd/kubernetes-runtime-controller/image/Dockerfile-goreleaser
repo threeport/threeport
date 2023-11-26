@@ -1,5 +1,5 @@
 FROM gcr.io/distroless/static:nonroot
-COPY threeport-kubernetes-runtime-controller /threeport-kubernetes-runtime-controller
+COPY kubernetes-runtime-controller /kubernetes-runtime-controller
 USER 65532:65532
 
-ENTRYPOINT ["/threeport-kubernetes-runtime-controller"]
+ENTRYPOINT ["/kubernetes-runtime-controller"]

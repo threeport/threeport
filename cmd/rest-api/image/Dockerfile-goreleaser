@@ -1,5 +1,5 @@
 FROM gcr.io/distroless/static:nonroot
-COPY threeport-rest-api /threeport-rest-api
+COPY rest-api /rest-api
 USER 65532:65532
 
-ENTRYPOINT ["/threeport-rest-api"]
+ENTRYPOINT ["/rest-api"]

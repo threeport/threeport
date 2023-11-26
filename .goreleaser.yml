@@ -16,42 +16,42 @@ builds:
     goos:
       - linux
     main: cmd/rest-api/main.go
-    binary: threeport-rest-api
+    binary: rest-api
   - id: threeport-workload-controller
     env:
       - CGO_ENABLED=0
     goos:
       - linux
     main: cmd/workload-controller/main_gen.go
-    binary: threeport-workload-controller
+    binary: workload-controller
   - id: threeport-kubernetes-runtime-controller
     env:
       - CGO_ENABLED=0
     goos:
       - linux
     main: cmd/kubernetes-runtime-controller/main_gen.go
-    binary: threeport-kubernetes-runtime-controller
+    binary: kubernetes-runtime-controller
   - id: threeport-aws-controller
     env:
       - CGO_ENABLED=0
     goos:
       - linux
     main: cmd/aws-controller/main_gen.go
-    binary: threeport-aws-controller
+    binary: aws-controller
   - id: threeport-gateway-controller
     env:
       - CGO_ENABLED=0
     goos:
       - linux
     main: cmd/gateway-controller/main_gen.go
-    binary: threeport-gateway-controller
+    binary: gateway-controller
   - id: threeport-agent
     env:
       - CGO_ENABLED=0
     goos:
       - linux
     main: cmd/agent/main.go
-    binary: threeport-agent
+    binary: agent
 archives:
   - name_template: '{{ .Binary }}_v{{ .Version }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "386" }}i386{{ else }}{{ .Arch }}{{ end }}'
     format_overrides:

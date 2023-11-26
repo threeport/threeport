@@ -3,11 +3,11 @@ FROM golang:1.20 as builder
 RUN mkdir /build
 ADD . /build
 WORKDIR /build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} go build -a -o threeport-agent cmd/agent/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} go build -a -o agent cmd/agent/main.go
 
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
-COPY --from=builder /build/threeport-agent .
+COPY --from=builder /build/agent .
 USER 65532:65532
 
-ENTRYPOINT ["/threeport-agent"]
+ENTRYPOINT ["/agent"]

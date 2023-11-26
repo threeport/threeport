@@ -1,5 +1,5 @@
 FROM gcr.io/distroless/static:nonroot
-COPY threeport-agent /threeport-agent
+COPY agent /agent
 USER 65532:65532
 
-ENTRYPOINT ["/threeport-agent"]
+ENTRYPOINT ["/agent"]
