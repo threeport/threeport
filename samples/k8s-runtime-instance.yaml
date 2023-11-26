@@ -1,6 +1,6 @@
 KubernetesRuntimeInstance:
-  Name: aws-remote-compute-space-0
+  Name: congo-shared-dev
   KubernetesRuntimeDefinition:
-    Name: aws-remote-compute-space
+    Name: congo-non-prod
   Location: NorthAmericaEast
 

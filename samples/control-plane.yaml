@@ -1,10 +1,10 @@
 ControlPlane:
-  Name: "testport"
-  Namespace: "testport"
+  Name: "congoport"
+  Namespace: "congoport"
   AuthEnabled: true
   OnboardParent: true
   CustomComponentInfo:
     - Name: "rest-api"
-      ImageTag: "v0.2"
+      ImageTag: "v0.2-custom"
     - Name: "gateway-controller"
       Enabled: false

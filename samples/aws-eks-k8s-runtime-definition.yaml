@@ -1,9 +1,9 @@
 AwsEksKubernetesRuntimeDefinition:
-  Name: scale-to-zero-eks
+  Name: standard-test-cluster
   AwsAccountName: default-account
   ZoneCount: 2
   DefaultNodeGroupInstanceType: t2.medium
-  DefaultNodeGroupInitialSize: 2
-  DefaultNodeGroupMinimumSize: 1
+  DefaultNodeGroupInitialSize: 6
+  DefaultNodeGroupMinimumSize: 6
   DefaultNodeGroupMaximumSize: 6
 

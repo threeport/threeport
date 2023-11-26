@@ -1,6 +1,6 @@
 bin
 tmp
-example/draft
+samples/draft
 __debug_bin
 .envrc
 **/.DS_Store

@@ -1,5 +1,0 @@
-AwsEksKubernetesRuntimeInstance:
-  Name: scale-to-zero-eks-0
-  Region: us-east-2
-  AwsEksKubernetesRuntimeDefinitionName: scale-to-zero-eks
-

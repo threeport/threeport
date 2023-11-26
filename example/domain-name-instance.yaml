@@ -1,7 +1,0 @@
-DomainNameInstance:
-  DomainNameDefinition:
-    Name: example.com
-  WorkloadInstance:
-    Name: wordpress-0
-  KubernetesRuntimeInstance:
-    Name: compute-space-dev-0-0
