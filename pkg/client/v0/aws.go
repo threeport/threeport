@@ -19,6 +19,7 @@ func GetAwsAccountByDefaultAccount(apiClient *http.Client, apiAddr string) (*v0.
 		fmt.Sprintf("%s/%s/aws-accounts?default=true", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -49,6 +50,7 @@ func GetAwsAccountByAccountID(apiClient *http.Client, apiAddr string, accountID 
 		fmt.Sprintf("%s/%s/aws-accounts?accountid=%s", apiAddr, ApiVersion, accountID),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -78,6 +80,7 @@ func GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(apiClient *http.Client,
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions?kubernetesruntimedefinitionid=%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -111,6 +114,7 @@ func GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient *http.Client, 
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances?kubernetesruntimeinstanceid=%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

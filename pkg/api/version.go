@@ -3,7 +3,7 @@ package api
 import (
 	_ "embed"
 
-	iapi "github.com/threeport/threeport/internal/api"
+	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 )
 
 // RESTAPIVersions provides the versions for individual REST endpoints.

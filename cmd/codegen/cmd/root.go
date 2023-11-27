@@ -9,6 +9,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// flag used to indicate whether the command is being run for an extension
+var extension bool
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "threeport-codegen",

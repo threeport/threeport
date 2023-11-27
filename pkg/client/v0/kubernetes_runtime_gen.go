@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
 )
 
@@ -22,6 +22,7 @@ func GetKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr string) (*[
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr string, 
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -71,6 +73,36 @@ func GetKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr string, 
 	return &kubernetesRuntimeDefinition, nil
 }
 
+// GetKubernetesRuntimeDefinitionsByQueryString fetches kubernetes runtime definitions by provided query string.
+func GetKubernetesRuntimeDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.KubernetesRuntimeDefinition, error) {
+	var kubernetesRuntimeDefinitions []v0.KubernetesRuntimeDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &kubernetesRuntimeDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &kubernetesRuntimeDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&kubernetesRuntimeDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &kubernetesRuntimeDefinitions, nil
+}
+
 // GetKubernetesRuntimeDefinitionByName fetches a kubernetes runtime definition by name.
 func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.KubernetesRuntimeDefinition, error) {
 	var kubernetesRuntimeDefinitions []v0.KubernetesRuntimeDefinition
@@ -80,6 +112,7 @@ func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name 
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +142,7 @@ func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name 
 
 // CreateKubernetesRuntimeDefinition creates a new kubernetes runtime definition.
 func CreateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition) (*v0.KubernetesRuntimeDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(kubernetesRuntimeDefinition)
 	jsonKubernetesRuntimeDefinition, err := util.MarshalObject(kubernetesRuntimeDefinition)
 	if err != nil {
 		return kubernetesRuntimeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -119,6 +153,7 @@ func CreateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonKubernetesRuntimeDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -141,6 +176,7 @@ func CreateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 
 // UpdateKubernetesRuntimeDefinition updates a kubernetes runtime definition.
 func UpdateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition) (*v0.KubernetesRuntimeDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(kubernetesRuntimeDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	kubernetesRuntimeDefinitionID := *kubernetesRuntimeDefinition.ID
@@ -159,6 +195,7 @@ func UpdateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, kubernetesRuntimeDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonKubernetesRuntimeDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -189,6 +226,7 @@ func DeleteKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, i
 		fmt.Sprintf("%s/%s/kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -219,6 +257,7 @@ func GetKubernetesRuntimeInstances(apiClient *http.Client, apiAddr string) (*[]v
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -248,6 +287,7 @@ func GetKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr string, id
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -268,6 +308,36 @@ func GetKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr string, id
 	return &kubernetesRuntimeInstance, nil
 }
 
+// GetKubernetesRuntimeInstancesByQueryString fetches kubernetes runtime instances by provided query string.
+func GetKubernetesRuntimeInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.KubernetesRuntimeInstance, error) {
+	var kubernetesRuntimeInstances []v0.KubernetesRuntimeInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/kubernetes-runtime-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &kubernetesRuntimeInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &kubernetesRuntimeInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&kubernetesRuntimeInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &kubernetesRuntimeInstances, nil
+}
+
 // GetKubernetesRuntimeInstanceByName fetches a kubernetes runtime instance by name.
 func GetKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.KubernetesRuntimeInstance, error) {
 	var kubernetesRuntimeInstances []v0.KubernetesRuntimeInstance
@@ -277,6 +347,7 @@ func GetKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name st
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -306,6 +377,7 @@ func GetKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name st
 
 // CreateKubernetesRuntimeInstance creates a new kubernetes runtime instance.
 func CreateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) (*v0.KubernetesRuntimeInstance, error) {
+	ReplaceAssociatedObjectsWithNil(kubernetesRuntimeInstance)
 	jsonKubernetesRuntimeInstance, err := util.MarshalObject(kubernetesRuntimeInstance)
 	if err != nil {
 		return kubernetesRuntimeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -316,6 +388,7 @@ func CreateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonKubernetesRuntimeInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -338,6 +411,7 @@ func CreateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 
 // UpdateKubernetesRuntimeInstance updates a kubernetes runtime instance.
 func UpdateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance) (*v0.KubernetesRuntimeInstance, error) {
+	ReplaceAssociatedObjectsWithNil(kubernetesRuntimeInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	kubernetesRuntimeInstanceID := *kubernetesRuntimeInstance.ID
@@ -356,6 +430,7 @@ func UpdateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances/%d", apiAddr, ApiVersion, kubernetesRuntimeInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonKubernetesRuntimeInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -386,6 +461,7 @@ func DeleteKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, id 
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

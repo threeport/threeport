@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
 )
 
@@ -22,6 +22,7 @@ func GetGatewayDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Gatewa
 		fmt.Sprintf("%s/%s/gateway-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetGatewayDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 		fmt.Sprintf("%s/%s/gateway-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -71,6 +73,36 @@ func GetGatewayDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 	return &gatewayDefinition, nil
 }
 
+// GetGatewayDefinitionsByQueryString fetches gateway definitions by provided query string.
+func GetGatewayDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.GatewayDefinition, error) {
+	var gatewayDefinitions []v0.GatewayDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &gatewayDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayDefinitions, nil
+}
+
 // GetGatewayDefinitionByName fetches a gateway definition by name.
 func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.GatewayDefinition, error) {
 	var gatewayDefinitions []v0.GatewayDefinition
@@ -80,6 +112,7 @@ func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 		fmt.Sprintf("%s/%s/gateway-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +142,7 @@ func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 // CreateGatewayDefinition creates a new gateway definition.
 func CreateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefinition *v0.GatewayDefinition) (*v0.GatewayDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayDefinition)
 	jsonGatewayDefinition, err := util.MarshalObject(gatewayDefinition)
 	if err != nil {
 		return gatewayDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -119,6 +153,7 @@ func CreateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 		fmt.Sprintf("%s/%s/gateway-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonGatewayDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -141,6 +176,7 @@ func CreateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 
 // UpdateGatewayDefinition updates a gateway definition.
 func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefinition *v0.GatewayDefinition) (*v0.GatewayDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	gatewayDefinitionID := *gatewayDefinition.ID
@@ -159,6 +195,7 @@ func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 		fmt.Sprintf("%s/%s/gateway-definitions/%d", apiAddr, ApiVersion, gatewayDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonGatewayDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -189,6 +226,7 @@ func DeleteGatewayDefinition(apiClient *http.Client, apiAddr string, id uint) (*
 		fmt.Sprintf("%s/%s/gateway-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -219,6 +257,7 @@ func GetGatewayInstances(apiClient *http.Client, apiAddr string) (*[]v0.GatewayI
 		fmt.Sprintf("%s/%s/gateway-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -248,6 +287,7 @@ func GetGatewayInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 		fmt.Sprintf("%s/%s/gateway-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -268,6 +308,36 @@ func GetGatewayInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 	return &gatewayInstance, nil
 }
 
+// GetGatewayInstancesByQueryString fetches gateway instances by provided query string.
+func GetGatewayInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.GatewayInstance, error) {
+	var gatewayInstances []v0.GatewayInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &gatewayInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayInstances, nil
+}
+
 // GetGatewayInstanceByName fetches a gateway instance by name.
 func GetGatewayInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.GatewayInstance, error) {
 	var gatewayInstances []v0.GatewayInstance
@@ -277,6 +347,7 @@ func GetGatewayInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 		fmt.Sprintf("%s/%s/gateway-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -306,6 +377,7 @@ func GetGatewayInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 // CreateGatewayInstance creates a new gateway instance.
 func CreateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstance *v0.GatewayInstance) (*v0.GatewayInstance, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayInstance)
 	jsonGatewayInstance, err := util.MarshalObject(gatewayInstance)
 	if err != nil {
 		return gatewayInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -316,6 +388,7 @@ func CreateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 		fmt.Sprintf("%s/%s/gateway-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonGatewayInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -338,6 +411,7 @@ func CreateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 
 // UpdateGatewayInstance updates a gateway instance.
 func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstance *v0.GatewayInstance) (*v0.GatewayInstance, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	gatewayInstanceID := *gatewayInstance.ID
@@ -356,6 +430,7 @@ func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 		fmt.Sprintf("%s/%s/gateway-instances/%d", apiAddr, ApiVersion, gatewayInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonGatewayInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -386,6 +461,7 @@ func DeleteGatewayInstance(apiClient *http.Client, apiAddr string, id uint) (*v0
 		fmt.Sprintf("%s/%s/gateway-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -416,6 +492,7 @@ func GetDomainNameDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Dom
 		fmt.Sprintf("%s/%s/domain-name-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -445,6 +522,7 @@ func GetDomainNameDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -465,6 +543,36 @@ func GetDomainNameDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 	return &domainNameDefinition, nil
 }
 
+// GetDomainNameDefinitionsByQueryString fetches domain name definitions by provided query string.
+func GetDomainNameDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.DomainNameDefinition, error) {
+	var domainNameDefinitions []v0.DomainNameDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/domain-name-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &domainNameDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &domainNameDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&domainNameDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &domainNameDefinitions, nil
+}
+
 // GetDomainNameDefinitionByName fetches a domain name definition by name.
 func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.DomainNameDefinition, error) {
 	var domainNameDefinitions []v0.DomainNameDefinition
@@ -474,6 +582,7 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string)
 		fmt.Sprintf("%s/%s/domain-name-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -503,6 +612,7 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 // CreateDomainNameDefinition creates a new domain name definition.
 func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(domainNameDefinition)
 	jsonDomainNameDefinition, err := util.MarshalObject(domainNameDefinition)
 	if err != nil {
 		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -513,6 +623,7 @@ func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 		fmt.Sprintf("%s/%s/domain-name-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -535,6 +646,7 @@ func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 
 // UpdateDomainNameDefinition updates a domain name definition.
 func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(domainNameDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	domainNameDefinitionID := *domainNameDefinition.ID
@@ -553,6 +665,7 @@ func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, domainNameDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -583,6 +696,7 @@ func DeleteDomainNameDefinition(apiClient *http.Client, apiAddr string, id uint)
 		fmt.Sprintf("%s/%s/domain-name-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -613,6 +727,7 @@ func GetDomainNameInstances(apiClient *http.Client, apiAddr string) (*[]v0.Domai
 		fmt.Sprintf("%s/%s/domain-name-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -642,6 +757,7 @@ func GetDomainNameInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -662,6 +778,36 @@ func GetDomainNameInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 	return &domainNameInstance, nil
 }
 
+// GetDomainNameInstancesByQueryString fetches domain name instances by provided query string.
+func GetDomainNameInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.DomainNameInstance, error) {
+	var domainNameInstances []v0.DomainNameInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/domain-name-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &domainNameInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &domainNameInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&domainNameInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &domainNameInstances, nil
+}
+
 // GetDomainNameInstanceByName fetches a domain name instance by name.
 func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.DomainNameInstance, error) {
 	var domainNameInstances []v0.DomainNameInstance
@@ -671,6 +817,7 @@ func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (
 		fmt.Sprintf("%s/%s/domain-name-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -700,6 +847,7 @@ func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 // CreateDomainNameInstance creates a new domain name instance.
 func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
+	ReplaceAssociatedObjectsWithNil(domainNameInstance)
 	jsonDomainNameInstance, err := util.MarshalObject(domainNameInstance)
 	if err != nil {
 		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -710,6 +858,7 @@ func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 		fmt.Sprintf("%s/%s/domain-name-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -732,6 +881,7 @@ func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 
 // UpdateDomainNameInstance updates a domain name instance.
 func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
+	ReplaceAssociatedObjectsWithNil(domainNameInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	domainNameInstanceID := *domainNameInstance.ID
@@ -750,6 +900,7 @@ func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, domainNameInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -780,6 +931,7 @@ func DeleteDomainNameInstance(apiClient *http.Client, apiAddr string, id uint) (
 		fmt.Sprintf("%s/%s/domain-name-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

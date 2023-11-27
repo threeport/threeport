@@ -1,9 +1,0 @@
-AwsEksKubernetesRuntimeDefinition:
-  Name: scale-to-zero-eks
-  AwsAccountName: default-account
-  ZoneCount: 1
-  DefaultNodeGroupInstanceType: t2.medium
-  DefaultNodeGroupInitialSize: 2
-  DefaultNodeGroupMinimumSize: 0
-  DefaultNodeGroupMaximumSize: 6
-

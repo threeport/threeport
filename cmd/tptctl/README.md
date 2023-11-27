@@ -11,6 +11,7 @@ and uses the config packages in `pkg/config` to provide the config abstractions
 for users that relieve the user from managing much of the detail needed to
 create, update and delete API objects.
 
-It references a user's threeport config and provides the ability to switch
-between using different instances of the threeport control plane.
+It can be used to [install](../../docs/installation.md) a control plane.
 
+It references a user's threeport config to connect to a threeport control plane.
+More information on the threeport config can be found [here](../../docs/threeport-config.md)

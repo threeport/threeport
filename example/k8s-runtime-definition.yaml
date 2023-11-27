@@ -1,6 +1,0 @@
-KubernetesRuntimeDefinition:
-  Name: aws-remote-compute-space
-  InfraProvider: eks
-  HighAvailability: false
-  ProviderAccountID: "555555555555"
-

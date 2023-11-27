@@ -11,11 +11,11 @@ import (
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/threeport/threeport/internal/util"
 	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // gatewayInstanceCreated performs reconciliation when a gateway instance
@@ -257,36 +257,6 @@ func gatewayInstanceDeleted(
 		return 0, fmt.Errorf("failed to update workload instance: %w", err)
 	}
 
-	// delete the gateway instance that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedGatewayInstance := v0.GatewayInstance{
-		Common: v0.Common{
-			ID: gatewayInstance.ID,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err = client.UpdateGatewayInstance(
-		r.APIClient,
-		r.APIServer,
-		&deletedGatewayInstance,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of gateway instance in threeport API: %w", err)
-	}
-	_, err = client.DeleteGatewayInstance(
-		r.APIClient,
-		r.APIServer,
-		*gatewayInstance.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete gateway instance in threeport API: %w", err)
-	}
-
 	return 0, nil
 }
 
@@ -465,7 +435,7 @@ func confirmGatewayControllerDeployed(
 			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 		}
 
-		certManager, err = createCertManager(resourceInventory.DNS01ChallengeRole.RoleARN)
+		certManager, err = createCertManager(resourceInventory.Dns01ChallengeRole.RoleArn)
 		if err != nil {
 			return fmt.Errorf("failed to create cert manager resource: %w", err)
 		}

@@ -4,20 +4,17 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/threeport/threeport/internal/cli"
-	"github.com/threeport/threeport/internal/util"
 	"github.com/threeport/threeport/internal/workload/status"
-	client "github.com/threeport/threeport/pkg/client/v0"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 var (
@@ -32,18 +29,9 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 	Short:        "Describe a workload instance",
 	Long:         `Describe a workload instance.`,
 	SilenceUsage: true,
+	PreRun:       commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
-		// get threeport config and extract threeport API endpoint
-		threeportConfig, err := config.GetThreeportConfig()
-		if err != nil {
-			cli.Error("failed to get threeport config", err)
-			os.Exit(1)
-		}
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
-		if err != nil {
-			cli.Error("failed to get threeport API endpoint from config", err)
-			os.Exit(1)
-		}
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// flag validation
 		if err := validateDeleteWorkloadInstanceFlags(
@@ -57,7 +45,7 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 		var workloadInstanceConfig config.WorkloadInstanceConfig
 		if describeWorkloadInstanceConfigPath != "" {
 			// load workload instance config
-			configContent, err := ioutil.ReadFile(describeWorkloadInstanceConfigPath)
+			configContent, err := os.ReadFile(describeWorkloadInstanceConfigPath)
 			if err != nil {
 				cli.Error("failed to read config file", err)
 				os.Exit(1)
@@ -72,23 +60,6 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 					Name: describeWorkloadInstanceName,
 				},
 			}
-		}
-
-		// get threeport API client
-		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled()
-		if err != nil {
-			cli.Error("failed to determine if auth is enabled on threeport API", err)
-			os.Exit(1)
-		}
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
-		if err != nil {
-			cli.Error("failed to get threeport certificates from config", err)
-			os.Exit(1)
-		}
-		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey)
-		if err != nil {
-			cli.Error("failed to create threeport API client", err)
-			os.Exit(1)
 		}
 
 		// describe workload instance
@@ -130,7 +101,7 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	describeCmd.AddCommand(DescribeWorkloadInstanceCmd)
+	DescribeCmd.AddCommand(DescribeWorkloadInstanceCmd)
 
 	DescribeWorkloadInstanceCmd.Flags().StringVarP(
 		&describeWorkloadInstanceConfigPath,
@@ -140,17 +111,8 @@ func init() {
 		&describeWorkloadInstanceName,
 		"name", "n", "", "Name of workload instance.",
 	)
-}
-
-// validateDescribeControlPlaneFlags validates flag inputs as needed.
-func validateDescribeWorkloadInstanceFlags(workloadInstConfigPath, workloadInstName string) error {
-	if workloadInstConfigPath == "" && workloadInstName == "" {
-		return errors.New("must provide either workload instance name or path to config file")
-	}
-
-	if workloadInstConfigPath != "" && workloadInstName != "" {
-		return errors.New("workload instance name and path to config file provided - provide only one")
-	}
-
-	return nil
+	DescribeWorkloadInstanceCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
 }

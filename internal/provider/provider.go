@@ -3,7 +3,7 @@ package provider
 import (
 	"fmt"
 
-	"github.com/threeport/threeport/internal/kube"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 const (
@@ -23,4 +23,10 @@ type KubernetesRuntimeInfra interface {
 // threeport control plane.
 func ThreeportRuntimeName(threeportInstanceName string) string {
 	return fmt.Sprintf("threeport-%s", threeportInstanceName)
+}
+
+// ThreeportProviderTags returns the standard tags applied to cloud provider
+// infrastructure resources to properly identify them.
+func ThreeportProviderTags() map[string]string {
+	return map[string]string{"ProvisionedBy": "threeport"}
 }

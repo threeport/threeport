@@ -11,8 +11,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
-	"github.com/threeport/threeport/internal/kubernetesruntime/mapping"
+	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // KubernetesRuntimeInfraProvider indicates which infrastructure provider is being
@@ -100,23 +101,27 @@ func (k *KubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
 	for i := 0; i < objType.NumField(); i++ {
 		field := objType.Field(i)
 		fieldVal := objVal.Field(i)
+
+		// skip nil fields
+		if !util.IsNonNilPtr(fieldVal) {
+			continue
+		}
+
 		encrypt := field.Tag.Get("encrypt")
 		if encrypt == "true" {
-			if fieldVal.Kind() == reflect.Ptr && !fieldVal.IsNil() {
-				underlyingVal := fieldVal.Elem()
-				createdVal, ok := underlyingVal.Interface().(string)
-				if !ok {
-					return fmt.Errorf("%s field tagged for encryption but not a string value", field.Name)
-				}
-				encryptedVal, err := encryption.Encrypt(encryptionKey, createdVal)
-				if err != nil {
-					return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
-				}
-				// use gorm to get column name from field name
-				ns := schema.NamingStrategy{}
-				columnName := ns.ColumnName("", field.Name)
-				tx.Statement.SetColumn(columnName, encryptedVal)
+
+			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			if err != nil {
+				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
+			encryptedVal, err := encryption.Encrypt(encryptionKey, underlyingValue)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
+			}
+			// use gorm to get column name from field name
+			ns := schema.NamingStrategy{}
+			columnName := ns.ColumnName("", field.Name)
+			tx.Statement.SetColumn(columnName, encryptedVal)
 		}
 	}
 
@@ -143,23 +148,26 @@ func (k *KubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
 	for i := 0; i < objType.NumField(); i++ {
 		field := objType.Field(i)
 		fieldVal := objVal.Field(i)
+
+		// skip nil fields
+		if !util.IsNonNilPtr(fieldVal) {
+			continue
+		}
+
 		encrypt := field.Tag.Get("encrypt")
 		if encrypt == "true" && tx.Statement.Changed(field.Name) {
-			if fieldVal.Kind() == reflect.Ptr && !fieldVal.IsNil() {
-				underlyingVal := fieldVal.Elem()
-				updatedVal, ok := underlyingVal.Interface().(string)
-				if !ok {
-					return fmt.Errorf("%s field tagged for encryption but not a string value", field.Name)
-				}
-				encryptedVal, err := encryption.Encrypt(encryptionKey, updatedVal)
-				if err != nil {
-					return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
-				}
-				// use gorm to get column name from field name
-				ns := schema.NamingStrategy{}
-				columnName := ns.ColumnName("", field.Name)
-				tx.Statement.SetColumn(columnName, encryptedVal)
+			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			if err != nil {
+				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
+			encryptedVal, err := encryption.Encrypt(encryptionKey, underlyingValue)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
+			}
+			// use gorm to get column name from field name
+			ns := schema.NamingStrategy{}
+			columnName := ns.ColumnName("", field.Name)
+			tx.Statement.SetColumn(columnName, encryptedVal)
 		}
 	}
 

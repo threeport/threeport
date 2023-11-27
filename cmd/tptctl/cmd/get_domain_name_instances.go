@@ -10,10 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/threeport/threeport/internal/cli"
-	"github.com/threeport/threeport/internal/util"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // GetDomainNameInstancesCmd represents the domain-name-instances command
@@ -23,35 +22,9 @@ var GetDomainNameInstancesCmd = &cobra.Command{
 	Short:        "Get domain name instances from the system",
 	Long:         `Get domain name instances from the system.`,
 	SilenceUsage: true,
+	PreRun:       commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
-		// get threeport config and extract threeport API endpoint
-		threeportConfig, err := config.GetThreeportConfig()
-		if err != nil {
-			cli.Error("failed to get threeport config", err)
-			os.Exit(1)
-		}
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
-		if err != nil {
-			cli.Error("failed to get threeport API endpoint from config", err)
-			os.Exit(1)
-		}
-
-		// get threeport API client
-		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled()
-		if err != nil {
-			cli.Error("failed to determine if auth is enabled on threeport API", err)
-			os.Exit(1)
-		}
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
-		if err != nil {
-			cli.Error("failed to get threeport certificates from config", err)
-			os.Exit(1)
-		}
-		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey)
-		if err != nil {
-			cli.Error("failed to create threeport API client", err)
-			os.Exit(1)
-		}
+		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
 
 		// get domain name instances
 		domainNameInstances, err := client.GetDomainNameInstances(apiClient, apiEndpoint)
@@ -64,7 +37,7 @@ var GetDomainNameInstancesCmd = &cobra.Command{
 		if len(*domainNameInstances) == 0 {
 			cli.Info(fmt.Sprintf(
 				"No domain name instances currently managed by %s threeport control plane",
-				threeportConfig.CurrentInstance,
+				requestedControlPlane,
 			))
 			os.Exit(0)
 		}
@@ -128,5 +101,9 @@ var GetDomainNameInstancesCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(GetDomainNameInstancesCmd)
+	GetCmd.AddCommand(GetDomainNameInstancesCmd)
+	GetDomainNameInstancesCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
 }

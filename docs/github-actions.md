@@ -58,3 +58,16 @@ Once this repo is publicly released, we can remove the `clone` step in the
 "Release" workflow, the `APPLICATION_ID` and `APPLICATION_PRIVATE_KEY` repo
 secrets and the Release Clone github app.
 
+## Package Secret for Test Images
+
+The automated testing defined in `.github/workflows/test.yml` builds all
+container images for the threeport control plane in the `build-*` jobs.  These
+images are based on the latest commit for the PR and use the that commit hash
+for the image tag.  They are pushed to ghcr and, in the `test` job, a new
+threeport control plane is spun up using those images.  Finally, the `clean` job
+removes those images from ghcr after tests are complete.  That job uses the
+`PACKAGES_PAT` secret to delete images.  This is a personal access token on the
+`qleetbot` github account that can be accessed with credentials in 1password.
+Any time that token is re-generated, the `PACKAGES_PAT` token in the Actions
+secrets on the `threeport/threeport` repo needs to be updated.
+

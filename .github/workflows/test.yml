@@ -122,7 +122,7 @@ jobs:
       run: make build-tptctl
 
     - name: Create test control plane
-      run: bin/tptctl create control-plane -t ${{ github.sha }} -n dev-0
+      run: bin/tptctl up --control-plane-image-tag ${{ github.sha }} -n dev-0
 
     - name: Run tests
       run: make tests

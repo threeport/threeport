@@ -1,15 +1,14 @@
 package gateway
 
 import (
-	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // gatewayDefinitionCreated performs reconciliation when a gateway definition
@@ -29,7 +28,7 @@ func gatewayDefinitionCreated(
 	// construct workload definition object
 	workloadDefinition := v0.WorkloadDefinition{
 		Definition: v0.Definition{
-			Name: gatewayDefinition.Name,
+			Name: util.StringPtr(fmt.Sprintf("%s-gateway", *gatewayDefinition.Name)),
 		},
 		YAMLDocument: &yamlDocument,
 	}
@@ -125,7 +124,7 @@ func gatewayDefinitionDeleted(
 ) (int64, error) {
 	// check that deletion is scheduled - if not there's a problem
 	if gatewayDefinition.DeletionScheduled == nil {
-		return 0, errors.New("deletion notification receieved but not scheduled")
+		return 0, nil
 	}
 
 	// check to see if reconciled - it should not be, but if so we should do no
@@ -136,41 +135,11 @@ func gatewayDefinitionDeleted(
 
 	// delete workload definition
 	if gatewayDefinition.WorkloadDefinitionID == nil {
-		return 0, fmt.Errorf("failed to delete workload definition, workload definition ID is nil")
+		return 0, nil
 	}
 	_, err := client.DeleteWorkloadDefinition(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to delete workload definition with ID %d: %w", *gatewayDefinition.WorkloadDefinitionID, err)
-	}
-
-	// delete the gateway definition that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedGatewayDefinition := v0.GatewayDefinition{
-		Common: v0.Common{
-			ID: gatewayDefinition.ID,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err = client.UpdateGatewayDefinition(
-		r.APIClient,
-		r.APIServer,
-		&deletedGatewayDefinition,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of gateway definition in threeport API: %w", err)
-	}
-	_, err = client.DeleteGatewayDefinition(
-		r.APIClient,
-		r.APIServer,
-		*gatewayDefinition.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete gateway definition in threeport API: %w", err)
+		return 0, nil
 	}
 
 	log.V(1).Info(

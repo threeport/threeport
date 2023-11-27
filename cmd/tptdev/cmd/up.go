@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/threeport/threeport/internal/cli"
-	"github.com/threeport/threeport/internal/tptdev"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 
 // upCmd represents the up command
@@ -18,7 +18,17 @@ var upCmd = &cobra.Command{
 	Short: "Spin up a new threeport development environment",
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := cliArgs.CreateControlPlane()
+
+		// update cli args based on env vars
+		cliArgs.GetControlPlaneEnvVars()
+
+		cpi, err := cliArgs.CreateInstaller()
+		if err != nil {
+			cli.Error("failed to create threeport control plane installer", err)
+			os.Exit(1)
+		}
+
+		err = cli.CreateGenesisControlPlane(cpi)
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
 			os.Exit(1)
@@ -42,12 +52,12 @@ func init() {
 		"auth-enabled", false, "Enable client certificate authentication (default is false).",
 	)
 	upCmd.Flags().StringVarP(
-		&cliArgs.InstanceName,
-		"name", "n", tptdev.DefaultInstanceName, "Name of dev control plane instance.",
+		&cliArgs.ControlPlaneName,
+		"name", "n", tptdev.DefaultInstanceName, "Name of dev genesis control plane.",
 	)
 	upCmd.Flags().StringVarP(
 		&cliArgs.ThreeportPath,
-		"threeport-path", "t", "", "Path to threeport repository root (default is './').",
+		"threeport-path", "p", "", "Path to threeport repository root (default is './').",
 	)
 	rootCmd.PersistentFlags().StringVar(
 		&cliArgs.CfgFile,
@@ -61,7 +71,27 @@ func init() {
 		&cliArgs.NumWorkerNodes,
 		"num-worker-nodes", 0, "Number of additional worker nodes to deploy (default is 0).",
 	)
+	upCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneImageRepo,
+		"control-plane-image-repo", "r", "", "Alternate image repo to pull threeport control plane images from.",
+	)
+	upCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneImageTag,
+		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
+	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.ControlPlaneOnly,
+		"control-plane-only", false, "Deploy the control plane on an existing runtime. Defaults to false.",
+	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.Debug,
+		"debug", false, "Debug threeport control plane components.",
+	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.Verbose,
+		"verbose", false, "Enable verbose logging in control plane components, delve, and cli logs.",
+	)
 	cobra.OnInitialize(func() {
-		cli.InitConfig(cliArgs.CfgFile, cliArgs.ProviderConfigDir)
+		cli.InitConfig(cliArgs.CfgFile)
 	})
 }

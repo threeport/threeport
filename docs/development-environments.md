@@ -47,7 +47,7 @@ locally without live-reloads, follow these steps:
    ```
 
    Note: the image name, e.g. `threeport-rest-api` must match the image names
-   declcared as constants in `internal/threeport/components.go`.
+   declared as constants in `internal/threeport/components.go`.
 
 1. Build all control plane images in parallel:
 
@@ -60,6 +60,6 @@ locally without live-reloads, follow these steps:
 
    ```bash
    make build-tptctl
-   tptctl create control-plane -n dev-0 -p kind -i lander2k2 -t test
+   tptctl up -n dev-0 -p kind -i lander2k2 -t test
    ```
 

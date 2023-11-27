@@ -1,0 +1,6 @@
+KubernetesRuntimeDefinition:
+  Name: congo-non-prod
+  InfraProvider: eks
+  HighAvailability: false
+  ProviderAccountID: "555555555555"
+

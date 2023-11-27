@@ -3,10 +3,10 @@ FROM golang:1.20 as builder
 RUN mkdir /build
 ADD . /build
 WORKDIR /build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} go build -a -o threeport-kubernetes-runtime-controller cmd/kubernetes-runtime-controller/main_gen.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} go build -a -o kubernetes-runtime-controller cmd/kubernetes-runtime-controller/main_gen.go
 
 FROM gcr.io/distroless/static:nonroot
-COPY --from=builder /build/threeport-kubernetes-runtime-controller /
+COPY --from=builder /build/kubernetes-runtime-controller /
 USER 65532:65532
 
-ENTRYPOINT ["/threeport-kubernetes-runtime-controller"]
+ENTRYPOINT ["/kubernetes-runtime-controller"]

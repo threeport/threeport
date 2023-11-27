@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
 )
 
@@ -22,6 +22,7 @@ func GetAwsAccounts(apiClient *http.Client, apiAddr string) (*[]v0.AwsAccount, e
 		fmt.Sprintf("%s/%s/aws-accounts", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetAwsAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Aws
 		fmt.Sprintf("%s/%s/aws-accounts/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -71,6 +73,36 @@ func GetAwsAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Aws
 	return &awsAccount, nil
 }
 
+// GetAwsAccountsByQueryString fetches aws accounts by provided query string.
+func GetAwsAccountsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsAccount, error) {
+	var awsAccounts []v0.AwsAccount
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-accounts?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsAccounts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsAccounts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsAccounts); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsAccounts, nil
+}
+
 // GetAwsAccountByName fetches a aws account by name.
 func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsAccount, error) {
 	var awsAccounts []v0.AwsAccount
@@ -80,6 +112,7 @@ func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsA
 		fmt.Sprintf("%s/%s/aws-accounts?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +142,7 @@ func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsA
 
 // CreateAwsAccount creates a new aws account.
 func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
+	ReplaceAssociatedObjectsWithNil(awsAccount)
 	jsonAwsAccount, err := util.MarshalObject(awsAccount)
 	if err != nil {
 		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -119,6 +153,7 @@ func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 		fmt.Sprintf("%s/%s/aws-accounts", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsAccount),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -141,6 +176,7 @@ func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 
 // UpdateAwsAccount updates a aws account.
 func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
+	ReplaceAssociatedObjectsWithNil(awsAccount)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsAccountID := *awsAccount.ID
@@ -159,6 +195,7 @@ func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 		fmt.Sprintf("%s/%s/aws-accounts/%d", apiAddr, ApiVersion, awsAccountID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsAccount),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -189,6 +226,7 @@ func DeleteAwsAccount(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsA
 		fmt.Sprintf("%s/%s/aws-accounts/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -219,6 +257,7 @@ func GetAwsEksKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -248,6 +287,7 @@ func GetAwsEksKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr st
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -268,6 +308,36 @@ func GetAwsEksKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr st
 	return &awsEksKubernetesRuntimeDefinition, nil
 }
 
+// GetAwsEksKubernetesRuntimeDefinitionsByQueryString fetches aws eks kubernetes runtime definitions by provided query string.
+func GetAwsEksKubernetesRuntimeDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsEksKubernetesRuntimeDefinition, error) {
+	var awsEksKubernetesRuntimeDefinitions []v0.AwsEksKubernetesRuntimeDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsEksKubernetesRuntimeDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsEksKubernetesRuntimeDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksKubernetesRuntimeDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsEksKubernetesRuntimeDefinitions, nil
+}
+
 // GetAwsEksKubernetesRuntimeDefinitionByName fetches a aws eks kubernetes runtime definition by name.
 func GetAwsEksKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
 	var awsEksKubernetesRuntimeDefinitions []v0.AwsEksKubernetesRuntimeDefinition
@@ -277,6 +347,7 @@ func GetAwsEksKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr,
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -306,6 +377,7 @@ func GetAwsEksKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr,
 
 // CreateAwsEksKubernetesRuntimeDefinition creates a new aws eks kubernetes runtime definition.
 func CreateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeDefinition)
 	jsonAwsEksKubernetesRuntimeDefinition, err := util.MarshalObject(awsEksKubernetesRuntimeDefinition)
 	if err != nil {
 		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -316,6 +388,7 @@ func CreateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -338,6 +411,7 @@ func CreateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 
 // UpdateAwsEksKubernetesRuntimeDefinition updates a aws eks kubernetes runtime definition.
 func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsEksKubernetesRuntimeDefinitionID := *awsEksKubernetesRuntimeDefinition.ID
@@ -356,6 +430,7 @@ func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, awsEksKubernetesRuntimeDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -386,6 +461,7 @@ func DeleteAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -416,6 +492,7 @@ func GetAwsEksKubernetesRuntimeInstances(apiClient *http.Client, apiAddr string)
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -445,6 +522,7 @@ func GetAwsEksKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr stri
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -465,6 +543,36 @@ func GetAwsEksKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr stri
 	return &awsEksKubernetesRuntimeInstance, nil
 }
 
+// GetAwsEksKubernetesRuntimeInstancesByQueryString fetches aws eks kubernetes runtime instances by provided query string.
+func GetAwsEksKubernetesRuntimeInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsEksKubernetesRuntimeInstance, error) {
+	var awsEksKubernetesRuntimeInstances []v0.AwsEksKubernetesRuntimeInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsEksKubernetesRuntimeInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsEksKubernetesRuntimeInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsEksKubernetesRuntimeInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsEksKubernetesRuntimeInstances, nil
+}
+
 // GetAwsEksKubernetesRuntimeInstanceByName fetches a aws eks kubernetes runtime instance by name.
 func GetAwsEksKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
 	var awsEksKubernetesRuntimeInstances []v0.AwsEksKubernetesRuntimeInstance
@@ -474,6 +582,7 @@ func GetAwsEksKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, n
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -503,6 +612,7 @@ func GetAwsEksKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, n
 
 // CreateAwsEksKubernetesRuntimeInstance creates a new aws eks kubernetes runtime instance.
 func CreateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeInstance)
 	jsonAwsEksKubernetesRuntimeInstance, err := util.MarshalObject(awsEksKubernetesRuntimeInstance)
 	if err != nil {
 		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -513,6 +623,7 @@ func CreateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -535,6 +646,7 @@ func CreateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 
 // UpdateAwsEksKubernetesRuntimeInstance updates a aws eks kubernetes runtime instance.
 func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsEksKubernetesRuntimeInstanceID := *awsEksKubernetesRuntimeInstance.ID
@@ -553,6 +665,7 @@ func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances/%d", apiAddr, ApiVersion, awsEksKubernetesRuntimeInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -583,6 +696,7 @@ func DeleteAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -613,6 +727,7 @@ func GetAwsRelationalDatabaseDefinitions(apiClient *http.Client, apiAddr string)
 		fmt.Sprintf("%s/%s/aws-relational-database-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -642,6 +757,7 @@ func GetAwsRelationalDatabaseDefinitionByID(apiClient *http.Client, apiAddr stri
 		fmt.Sprintf("%s/%s/aws-relational-database-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -662,6 +778,36 @@ func GetAwsRelationalDatabaseDefinitionByID(apiClient *http.Client, apiAddr stri
 	return &awsRelationalDatabaseDefinition, nil
 }
 
+// GetAwsRelationalDatabaseDefinitionsByQueryString fetches aws relational database definitions by provided query string.
+func GetAwsRelationalDatabaseDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsRelationalDatabaseDefinition, error) {
+	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-relational-database-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsRelationalDatabaseDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsRelationalDatabaseDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsRelationalDatabaseDefinitions, nil
+}
+
 // GetAwsRelationalDatabaseDefinitionByName fetches a aws relational database definition by name.
 func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	var awsRelationalDatabaseDefinitions []v0.AwsRelationalDatabaseDefinition
@@ -671,6 +817,7 @@ func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, n
 		fmt.Sprintf("%s/%s/aws-relational-database-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -700,6 +847,7 @@ func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, n
 
 // CreateAwsRelationalDatabaseDefinition creates a new aws relational database definition.
 func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition) (*v0.AwsRelationalDatabaseDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsRelationalDatabaseDefinition)
 	jsonAwsRelationalDatabaseDefinition, err := util.MarshalObject(awsRelationalDatabaseDefinition)
 	if err != nil {
 		return awsRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -710,6 +858,7 @@ func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/aws-relational-database-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -732,6 +881,7 @@ func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 
 // UpdateAwsRelationalDatabaseDefinition updates a aws relational database definition.
 func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition) (*v0.AwsRelationalDatabaseDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsRelationalDatabaseDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsRelationalDatabaseDefinitionID := *awsRelationalDatabaseDefinition.ID
@@ -750,6 +900,7 @@ func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/aws-relational-database-definitions/%d", apiAddr, ApiVersion, awsRelationalDatabaseDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -780,6 +931,7 @@ func DeleteAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 		fmt.Sprintf("%s/%s/aws-relational-database-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -810,6 +962,7 @@ func GetAwsRelationalDatabaseInstances(apiClient *http.Client, apiAddr string) (
 		fmt.Sprintf("%s/%s/aws-relational-database-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -839,6 +992,7 @@ func GetAwsRelationalDatabaseInstanceByID(apiClient *http.Client, apiAddr string
 		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -859,6 +1013,36 @@ func GetAwsRelationalDatabaseInstanceByID(apiClient *http.Client, apiAddr string
 	return &awsRelationalDatabaseInstance, nil
 }
 
+// GetAwsRelationalDatabaseInstancesByQueryString fetches aws relational database instances by provided query string.
+func GetAwsRelationalDatabaseInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsRelationalDatabaseInstance, error) {
+	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-relational-database-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsRelationalDatabaseInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsRelationalDatabaseInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsRelationalDatabaseInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsRelationalDatabaseInstances, nil
+}
+
 // GetAwsRelationalDatabaseInstanceByName fetches a aws relational database instance by name.
 func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsRelationalDatabaseInstance, error) {
 	var awsRelationalDatabaseInstances []v0.AwsRelationalDatabaseInstance
@@ -868,6 +1052,7 @@ func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, nam
 		fmt.Sprintf("%s/%s/aws-relational-database-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -897,6 +1082,7 @@ func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, nam
 
 // CreateAwsRelationalDatabaseInstance creates a new aws relational database instance.
 func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance) (*v0.AwsRelationalDatabaseInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsRelationalDatabaseInstance)
 	jsonAwsRelationalDatabaseInstance, err := util.MarshalObject(awsRelationalDatabaseInstance)
 	if err != nil {
 		return awsRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -907,6 +1093,7 @@ func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 		fmt.Sprintf("%s/%s/aws-relational-database-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -929,6 +1116,7 @@ func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 
 // UpdateAwsRelationalDatabaseInstance updates a aws relational database instance.
 func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance) (*v0.AwsRelationalDatabaseInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsRelationalDatabaseInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	awsRelationalDatabaseInstanceID := *awsRelationalDatabaseInstance.ID
@@ -947,6 +1135,7 @@ func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, awsRelationalDatabaseInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -977,6 +1166,7 @@ func DeleteAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 		fmt.Sprintf("%s/%s/aws-relational-database-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -995,4 +1185,474 @@ func DeleteAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 	}
 
 	return &awsRelationalDatabaseInstance, nil
+}
+
+// GetAwsObjectStorageBucketDefinitions fetches all aws object storage bucket definitions.
+// TODO: implement pagination
+func GetAwsObjectStorageBucketDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.AwsObjectStorageBucketDefinition, error) {
+	var awsObjectStorageBucketDefinitions []v0.AwsObjectStorageBucketDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions", apiAddr, ApiVersion),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsObjectStorageBucketDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketDefinitions, nil
+}
+
+// GetAwsObjectStorageBucketDefinitionByID fetches a aws object storage bucket definition by ID.
+func GetAwsObjectStorageBucketDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsObjectStorageBucketDefinition, error) {
+	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketDefinition, nil
+}
+
+// GetAwsObjectStorageBucketDefinitionsByQueryString fetches aws object storage bucket definitions by provided query string.
+func GetAwsObjectStorageBucketDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsObjectStorageBucketDefinition, error) {
+	var awsObjectStorageBucketDefinitions []v0.AwsObjectStorageBucketDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsObjectStorageBucketDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketDefinitions, nil
+}
+
+// GetAwsObjectStorageBucketDefinitionByName fetches a aws object storage bucket definition by name.
+func GetAwsObjectStorageBucketDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsObjectStorageBucketDefinition, error) {
+	var awsObjectStorageBucketDefinitions []v0.AwsObjectStorageBucketDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions?name=%s", apiAddr, ApiVersion, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.AwsObjectStorageBucketDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.AwsObjectStorageBucketDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(awsObjectStorageBucketDefinitions) < 1:
+		return &v0.AwsObjectStorageBucketDefinition{}, errors.New(fmt.Sprintf("no aws object storage bucket definition with name %s", name))
+	case len(awsObjectStorageBucketDefinitions) > 1:
+		return &v0.AwsObjectStorageBucketDefinition{}, errors.New(fmt.Sprintf("more than one aws object storage bucket definition with name %s returned", name))
+	}
+
+	return &awsObjectStorageBucketDefinitions[0], nil
+}
+
+// CreateAwsObjectStorageBucketDefinition creates a new aws object storage bucket definition.
+func CreateAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr string, awsObjectStorageBucketDefinition *v0.AwsObjectStorageBucketDefinition) (*v0.AwsObjectStorageBucketDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsObjectStorageBucketDefinition)
+	jsonAwsObjectStorageBucketDefinition, err := util.MarshalObject(awsObjectStorageBucketDefinition)
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions", apiAddr, ApiVersion),
+		http.MethodPost,
+		bytes.NewBuffer(jsonAwsObjectStorageBucketDefinition),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return awsObjectStorageBucketDefinition, nil
+}
+
+// UpdateAwsObjectStorageBucketDefinition updates a aws object storage bucket definition.
+func UpdateAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr string, awsObjectStorageBucketDefinition *v0.AwsObjectStorageBucketDefinition) (*v0.AwsObjectStorageBucketDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(awsObjectStorageBucketDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	awsObjectStorageBucketDefinitionID := *awsObjectStorageBucketDefinition.ID
+	payloadAwsObjectStorageBucketDefinition := *awsObjectStorageBucketDefinition
+	payloadAwsObjectStorageBucketDefinition.ID = nil
+	payloadAwsObjectStorageBucketDefinition.CreatedAt = nil
+	payloadAwsObjectStorageBucketDefinition.UpdatedAt = nil
+
+	jsonAwsObjectStorageBucketDefinition, err := util.MarshalObject(payloadAwsObjectStorageBucketDefinition)
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions/%d", apiAddr, ApiVersion, awsObjectStorageBucketDefinitionID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonAwsObjectStorageBucketDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAwsObjectStorageBucketDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAwsObjectStorageBucketDefinition.ID = &awsObjectStorageBucketDefinitionID
+	return &payloadAwsObjectStorageBucketDefinition, nil
+}
+
+// DeleteAwsObjectStorageBucketDefinition deletes a aws object storage bucket definition by ID.
+func DeleteAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsObjectStorageBucketDefinition, error) {
+	var awsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-definitions/%d", apiAddr, ApiVersion, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsObjectStorageBucketDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketDefinition, nil
+}
+
+// GetAwsObjectStorageBucketInstances fetches all aws object storage bucket instances.
+// TODO: implement pagination
+func GetAwsObjectStorageBucketInstances(apiClient *http.Client, apiAddr string) (*[]v0.AwsObjectStorageBucketInstance, error) {
+	var awsObjectStorageBucketInstances []v0.AwsObjectStorageBucketInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances", apiAddr, ApiVersion),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsObjectStorageBucketInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketInstances, nil
+}
+
+// GetAwsObjectStorageBucketInstanceByID fetches a aws object storage bucket instance by ID.
+func GetAwsObjectStorageBucketInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsObjectStorageBucketInstance, error) {
+	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketInstance, nil
+}
+
+// GetAwsObjectStorageBucketInstancesByQueryString fetches aws object storage bucket instances by provided query string.
+func GetAwsObjectStorageBucketInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsObjectStorageBucketInstance, error) {
+	var awsObjectStorageBucketInstances []v0.AwsObjectStorageBucketInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsObjectStorageBucketInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketInstances, nil
+}
+
+// GetAwsObjectStorageBucketInstanceByName fetches a aws object storage bucket instance by name.
+func GetAwsObjectStorageBucketInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsObjectStorageBucketInstance, error) {
+	var awsObjectStorageBucketInstances []v0.AwsObjectStorageBucketInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances?name=%s", apiAddr, ApiVersion, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.AwsObjectStorageBucketInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.AwsObjectStorageBucketInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(awsObjectStorageBucketInstances) < 1:
+		return &v0.AwsObjectStorageBucketInstance{}, errors.New(fmt.Sprintf("no aws object storage bucket instance with name %s", name))
+	case len(awsObjectStorageBucketInstances) > 1:
+		return &v0.AwsObjectStorageBucketInstance{}, errors.New(fmt.Sprintf("more than one aws object storage bucket instance with name %s returned", name))
+	}
+
+	return &awsObjectStorageBucketInstances[0], nil
+}
+
+// CreateAwsObjectStorageBucketInstance creates a new aws object storage bucket instance.
+func CreateAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string, awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance) (*v0.AwsObjectStorageBucketInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsObjectStorageBucketInstance)
+	jsonAwsObjectStorageBucketInstance, err := util.MarshalObject(awsObjectStorageBucketInstance)
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances", apiAddr, ApiVersion),
+		http.MethodPost,
+		bytes.NewBuffer(jsonAwsObjectStorageBucketInstance),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return awsObjectStorageBucketInstance, nil
+}
+
+// UpdateAwsObjectStorageBucketInstance updates a aws object storage bucket instance.
+func UpdateAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string, awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance) (*v0.AwsObjectStorageBucketInstance, error) {
+	ReplaceAssociatedObjectsWithNil(awsObjectStorageBucketInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	awsObjectStorageBucketInstanceID := *awsObjectStorageBucketInstance.ID
+	payloadAwsObjectStorageBucketInstance := *awsObjectStorageBucketInstance
+	payloadAwsObjectStorageBucketInstance.ID = nil
+	payloadAwsObjectStorageBucketInstance.CreatedAt = nil
+	payloadAwsObjectStorageBucketInstance.UpdatedAt = nil
+
+	jsonAwsObjectStorageBucketInstance, err := util.MarshalObject(payloadAwsObjectStorageBucketInstance)
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances/%d", apiAddr, ApiVersion, awsObjectStorageBucketInstanceID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonAwsObjectStorageBucketInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAwsObjectStorageBucketInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAwsObjectStorageBucketInstance.ID = &awsObjectStorageBucketInstanceID
+	return &payloadAwsObjectStorageBucketInstance, nil
+}
+
+// DeleteAwsObjectStorageBucketInstance deletes a aws object storage bucket instance by ID.
+func DeleteAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsObjectStorageBucketInstance, error) {
+	var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/aws-object-storage-bucket-instances/%d", apiAddr, ApiVersion, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsObjectStorageBucketInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsObjectStorageBucketInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsObjectStorageBucketInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsObjectStorageBucketInstance, nil
 }

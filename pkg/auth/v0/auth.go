@@ -1,4 +1,4 @@
-package auth
+package v0
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/threeport/threeport/internal/util"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // AuthConfig contains root CA and private key for generating client certificates.

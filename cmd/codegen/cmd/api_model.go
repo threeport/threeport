@@ -16,7 +16,7 @@ import (
 
 	"github.com/threeport/threeport/internal/codegen"
 	"github.com/threeport/threeport/internal/codegen/models"
-	"github.com/threeport/threeport/internal/util"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // nameFields returns a list of struct type fields that indicate a struct
@@ -81,6 +81,9 @@ When 'make generate' is run, the following code is generated for API:
 		////////////////////////////////////////////////////////////////////////////
 		var modelConfigs []models.ModelConfig
 		var reconcilerModels []string
+		var allowDuplicateNameModels []string
+		var allowCustomMiddleware []string
+		var dbLoadAssociations []string
 		for _, node := range pf.Decls {
 			switch node.(type) {
 			case *ast.GenDecl:
@@ -132,6 +135,12 @@ When 'make generate' is run, the following code is generated for API:
 					for _, comment := range genDecl.Doc.List {
 						if strings.Contains(comment.Text, codegen.ReconclierMarkerText) {
 							reconcilerModels = append(reconcilerModels, objectName)
+						} else if strings.Contains(comment.Text, codegen.AllowDuplicateNamesMarkerText) {
+							allowDuplicateNameModels = append(allowDuplicateNameModels, objectName)
+						} else if strings.Contains(comment.Text, codegen.AddCustomMiddleware) {
+							allowCustomMiddleware = append(allowCustomMiddleware, objectName)
+						} else if strings.Contains(comment.Text, codegen.DbLoadAssociations) {
+							dbLoadAssociations = append(dbLoadAssociations, objectName)
 						}
 					}
 				}
@@ -168,7 +177,7 @@ When 'make generate' is run, the following code is generated for API:
 		for _, rm := range controllerConfig.ReconcilerModels {
 			for i, mc := range controllerConfig.ModelConfigs {
 				if rm == mc.TypeName {
-					if !mc.ReconciledField {
+					if !mc.ReconciledField && !extension {
 						return errors.New(fmt.Sprintf(
 							"%s object does not include a Reconciled field - all objects with reconcilers must include this field", rm,
 						))
@@ -179,29 +188,90 @@ When 'make generate' is run, the following code is generated for API:
 			}
 		}
 
+		// for all objects with we allow duplicate names for:
+		// * set AllowDuplicateNames field in model config to true
+		for _, nm := range allowDuplicateNameModels {
+			for i, mc := range controllerConfig.ModelConfigs {
+				if nm == mc.TypeName {
+					controllerConfig.ModelConfigs[i].AllowDuplicateNames = true
+				}
+			}
+		}
+
+		// for all objects with we allow custom middleware for:
+		// * set AllowCustomMiddleware field in model config to true
+		for _, nm := range allowCustomMiddleware {
+			for i, mc := range controllerConfig.ModelConfigs {
+				if nm == mc.TypeName {
+					controllerConfig.ModelConfigs[i].AllowCustomMiddleware = true
+				}
+			}
+		}
+
+		// for all objects that load associated data from db in handlers:
+		// * set DbLoadAssociations field in model config to true
+		for _, nm := range dbLoadAssociations {
+			for i, mc := range controllerConfig.ModelConfigs {
+				if nm == mc.TypeName {
+					controllerConfig.ModelConfigs[i].DbLoadAssociations = true
+				}
+			}
+		}
+
 		// generate the model's constants and methods
-		if err := controllerConfig.ModelConstantsMethods(); err != nil {
-			return fmt.Errorf("failed to generate model constants and methods: %w", err)
+		if extension {
+			if err := controllerConfig.ExtensionModelConstantsMethods(); err != nil {
+				return fmt.Errorf("failed to generate model constants and methods for extension: %w", err)
+			}
+		} else {
+			if err := controllerConfig.ModelConstantsMethods(); err != nil {
+				return fmt.Errorf("failed to generate model constants and methods: %w", err)
+			}
 		}
 
 		// generate the model's routes
-		if err := controllerConfig.ModelRoutes(); err != nil {
-			return fmt.Errorf("failed to generate model routes: %w", err)
+		if extension {
+			if err := controllerConfig.ExtensionModelRoutes(); err != nil {
+				return fmt.Errorf("failed to generate model routes for extension: %w", err)
+			}
+		} else {
+			if err := controllerConfig.ModelRoutes(); err != nil {
+				return fmt.Errorf("failed to generate model routes: %w", err)
+			}
 		}
 
 		// generate the model's handlers
-		if err := controllerConfig.ModelHandlers(); err != nil {
-			return fmt.Errorf("failed to generate model handlers: %w", err)
+		if extension {
+			if err := controllerConfig.ExtensionModelHandlers(); err != nil {
+				return fmt.Errorf("failed to generate model handlers for extension: %w", err)
+			}
+		} else {
+			if err := controllerConfig.ModelHandlers(); err != nil {
+				return fmt.Errorf("failed to generate model handlers: %w", err)
+			}
 		}
 
-		// generate functions to add API versions, validation
-		if err := controllerConfig.ModelVersions(); err != nil {
-			return fmt.Errorf("failed to generate model versions: %w", err)
+		if extension {
+			// generate functions to add API versions, validation
+			if err := controllerConfig.ExtensionModelVersions(); err != nil {
+				return fmt.Errorf("failed to generate model versions for extension: %w", err)
+			}
+		} else {
+			// generate functions to add API versions, validation
+			if err := controllerConfig.ModelVersions(); err != nil {
+				return fmt.Errorf("failed to generate model versions: %w", err)
+			}
 		}
 
 		// generate client library functions
-		if err := controllerConfig.ClientLib(); err != nil {
-			return fmt.Errorf("failed to generate model client library: %w", err)
+		if extension {
+			if err := controllerConfig.ExtensionClientLib(); err != nil {
+				return fmt.Errorf("failed to generate model client library for extension: %w", err)
+			}
+		} else {
+			if err := controllerConfig.ClientLib(); err != nil {
+				return fmt.Errorf("failed to generate model client library: %w", err)
+			}
 		}
 
 		return nil
@@ -216,4 +286,5 @@ func init() {
 	apiModelCmd.MarkFlagRequired("filename")
 	apiModelCmd.Flags().StringVarP(&packageName, "package", "p", "", "The package name of the the API model")
 	apiModelCmd.MarkFlagRequired("package")
+	apiModelCmd.Flags().BoolVarP(&extension, "extension", "e", false, "Indicate whether code being generated is for an extension")
 }

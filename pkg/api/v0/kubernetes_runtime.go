@@ -1,5 +1,5 @@
-//go:generate ../../../bin/threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate ../../../bin/threeport-codegen controller --filename $GOFILE
+//go:generate threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate threeport-codegen controller --filename $GOFILE
 package v0
 
 import "time"
@@ -17,7 +17,7 @@ type KubernetesRuntimeDefinition struct {
 	// cluster.
 	InfraProvider *string `json:"InfraProvider,omitempty" query:"infraprovider" gorm:"not null" validate:"required"`
 
-	// The infra provider account ID.  Determines which account the infra is
+	// The infra provider account name.  Determines which account the infra is
 	// deployed on.
 	InfraProviderAccountName *string `json:"InfraProviderAccountName,omitempty" query:"infraprovideraccountname" validate:"optional"`
 
@@ -92,6 +92,9 @@ type KubernetesRuntimeInstance struct {
 
 	// The associated workload instances running on this kubernetes runtime.
 	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstance,omitempty" validate:"optional,association"`
+
+	// The associated control plane instances running on this kubernetes runtime instance.
+	ControlPlaneInstances []*ControlPlaneInstance `json:"ControlPlaneInstance,omitempty" validate:"optional,association"`
 
 	// If true, delete the runtime even if there are workloads present.
 	ForceDelete *bool `json:"ForceDelete,omitempty" query:"forcedelete" gorm:"default:false" validate:"optional"`

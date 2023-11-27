@@ -14,6 +14,8 @@ const (
 	ObjectTypeAwsEksKubernetesRuntimeInstance   ObjectType = "AwsEksKubernetesRuntimeInstance"
 	ObjectTypeAwsRelationalDatabaseDefinition   ObjectType = "AwsRelationalDatabaseDefinition"
 	ObjectTypeAwsRelationalDatabaseInstance     ObjectType = "AwsRelationalDatabaseInstance"
+	ObjectTypeAwsObjectStorageBucketDefinition  ObjectType = "AwsObjectStorageBucketDefinition"
+	ObjectTypeAwsObjectStorageBucketInstance    ObjectType = "AwsObjectStorageBucketInstance"
 
 	AwsStreamName = "awsStream"
 
@@ -42,11 +44,23 @@ const (
 	AwsRelationalDatabaseInstanceUpdateSubject = "awsRelationalDatabaseInstance.update"
 	AwsRelationalDatabaseInstanceDeleteSubject = "awsRelationalDatabaseInstance.delete"
 
+	AwsObjectStorageBucketDefinitionSubject       = "awsObjectStorageBucketDefinition.*"
+	AwsObjectStorageBucketDefinitionCreateSubject = "awsObjectStorageBucketDefinition.create"
+	AwsObjectStorageBucketDefinitionUpdateSubject = "awsObjectStorageBucketDefinition.update"
+	AwsObjectStorageBucketDefinitionDeleteSubject = "awsObjectStorageBucketDefinition.delete"
+
+	AwsObjectStorageBucketInstanceSubject       = "awsObjectStorageBucketInstance.*"
+	AwsObjectStorageBucketInstanceCreateSubject = "awsObjectStorageBucketInstance.create"
+	AwsObjectStorageBucketInstanceUpdateSubject = "awsObjectStorageBucketInstance.update"
+	AwsObjectStorageBucketInstanceDeleteSubject = "awsObjectStorageBucketInstance.delete"
+
 	PathAwsAccounts                        = "/v0/aws-accounts"
 	PathAwsEksKubernetesRuntimeDefinitions = "/v0/aws-eks-kubernetes-runtime-definitions"
 	PathAwsEksKubernetesRuntimeInstances   = "/v0/aws-eks-kubernetes-runtime-instances"
 	PathAwsRelationalDatabaseDefinitions   = "/v0/aws-relational-database-definitions"
 	PathAwsRelationalDatabaseInstances     = "/v0/aws-relational-database-instances"
+	PathAwsObjectStorageBucketDefinitions  = "/v0/aws-object-storage-bucket-definitions"
+	PathAwsObjectStorageBucketInstances    = "/v0/aws-object-storage-bucket-instances"
 )
 
 // GetAwsAccountSubjects returns the NATS subjects
@@ -99,6 +113,26 @@ func GetAwsRelationalDatabaseInstanceSubjects() []string {
 	}
 }
 
+// GetAwsObjectStorageBucketDefinitionSubjects returns the NATS subjects
+// for aws object storage bucket definitions.
+func GetAwsObjectStorageBucketDefinitionSubjects() []string {
+	return []string{
+		AwsObjectStorageBucketDefinitionCreateSubject,
+		AwsObjectStorageBucketDefinitionUpdateSubject,
+		AwsObjectStorageBucketDefinitionDeleteSubject,
+	}
+}
+
+// GetAwsObjectStorageBucketInstanceSubjects returns the NATS subjects
+// for aws object storage bucket instances.
+func GetAwsObjectStorageBucketInstanceSubjects() []string {
+	return []string{
+		AwsObjectStorageBucketInstanceCreateSubject,
+		AwsObjectStorageBucketInstanceUpdateSubject,
+		AwsObjectStorageBucketInstanceDeleteSubject,
+	}
+}
+
 // GetAwsSubjects returns the NATS subjects
 // for all aws objects.
 func GetAwsSubjects() []string {
@@ -109,6 +143,8 @@ func GetAwsSubjects() []string {
 	awsSubjects = append(awsSubjects, GetAwsEksKubernetesRuntimeInstanceSubjects()...)
 	awsSubjects = append(awsSubjects, GetAwsRelationalDatabaseDefinitionSubjects()...)
 	awsSubjects = append(awsSubjects, GetAwsRelationalDatabaseInstanceSubjects()...)
+	awsSubjects = append(awsSubjects, GetAwsObjectStorageBucketDefinitionSubjects()...)
+	awsSubjects = append(awsSubjects, GetAwsObjectStorageBucketInstanceSubjects()...)
 
 	return awsSubjects
 }
@@ -351,4 +387,100 @@ func (ardi *AwsRelationalDatabaseInstance) GetID() uint {
 // String returns a string representation of the ojbect.
 func (ardi AwsRelationalDatabaseInstance) String() string {
 	return fmt.Sprintf("v0.AwsRelationalDatabaseInstance")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (aosbd *AwsObjectStorageBucketDefinition) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       aosbd,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", aosbd, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (aosbd *AwsObjectStorageBucketDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &aosbd); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (aosbd *AwsObjectStorageBucketDefinition) GetID() uint {
+	return *aosbd.ID
+}
+
+// String returns a string representation of the ojbect.
+func (aosbd AwsObjectStorageBucketDefinition) String() string {
+	return fmt.Sprintf("v0.AwsObjectStorageBucketDefinition")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (aosbi *AwsObjectStorageBucketInstance) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       aosbi,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", aosbi, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (aosbi *AwsObjectStorageBucketInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &aosbi); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (aosbi *AwsObjectStorageBucketInstance) GetID() uint {
+	return *aosbi.ID
+}
+
+// String returns a string representation of the ojbect.
+func (aosbi AwsObjectStorageBucketInstance) String() string {
+	return fmt.Sprintf("v0.AwsObjectStorageBucketInstance")
 }

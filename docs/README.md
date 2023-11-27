@@ -1,7 +1,7 @@
 # Developer Documentation
 
 To get started with a development environment, see our [Quickstart
-Guide](quickstart.md).
+Guide](quickstart.md) and [Contribuing Guide](contributing.md).
 
 ## Overview
 
@@ -29,6 +29,8 @@ Following is an overview of what lives at the root of this repo:
   * [tptdev](../cmd/tptdev/README.md) is a developer tool for threeport.
   * [workload-controller](../cmd/workload-controller/README.md) is the threeport
     controller that manages containerized workloads on Kubernetes for users.
+  * [control-plane-controller](../cmd/control-plane-controller/README.md) is the threeport
+    controller that manages control planes created by the threeport control plane itself.
 * The `docs` directory contains these developer docs.
 * The `example` directory contains example configurations for testing threeport.
 * The `hack` directory contains ad hoc scripts and utilities that have not made

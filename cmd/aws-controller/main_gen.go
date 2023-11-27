@@ -30,6 +30,16 @@ func main() {
 		1,
 		"Number of concurrent reconcilers to run for aws eks kubernetes runtime instances",
 	)
+	var awsRelationalDatabaseInstanceConcurrentReconciles = flag.Int(
+		"AwsRelationalDatabaseInstance-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for aws relational database instances",
+	)
+	var awsObjectStorageBucketInstanceConcurrentReconciles = flag.Int(
+		"AwsObjectStorageBucketInstance-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for aws object storage bucket instances",
+	)
 
 	var apiServer = flag.String("api-server", "threeport-api-server", "Threepoort REST API server endpoint")
 	var msgBrokerHost = flag.String("msg-broker-host", "", "Threeport message broker hostname")
@@ -121,7 +131,7 @@ func main() {
 	var shutdownWait sync.WaitGroup
 
 	// configure http client for calls to threeport API
-	apiClient, err := client.GetHTTPClient(*authEnabled, "", "", "")
+	apiClient, err := client.GetHTTPClient(*authEnabled, "", "", "", "")
 	if err != nil {
 		log.Error(err, "failed to create http client")
 		os.Exit(1)
@@ -135,6 +145,20 @@ func main() {
 		NotifSubject:         v0.AwsEksKubernetesRuntimeInstanceSubject,
 		ObjectType:           v0.ObjectTypeAwsEksKubernetesRuntimeInstance,
 		ReconcileFunc:        aws.AwsEksKubernetesRuntimeInstanceReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *awsRelationalDatabaseInstanceConcurrentReconciles,
+		Name:                 "AwsRelationalDatabaseInstanceReconciler",
+		NotifSubject:         v0.AwsRelationalDatabaseInstanceSubject,
+		ObjectType:           v0.ObjectTypeAwsRelationalDatabaseInstance,
+		ReconcileFunc:        aws.AwsRelationalDatabaseInstanceReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *awsObjectStorageBucketInstanceConcurrentReconciles,
+		Name:                 "AwsObjectStorageBucketInstanceReconciler",
+		NotifSubject:         v0.AwsObjectStorageBucketInstanceSubject,
+		ObjectType:           v0.ObjectTypeAwsObjectStorageBucketInstance,
+		ReconcileFunc:        aws.AwsObjectStorageBucketInstanceReconciler,
 	})
 
 	for _, r := range reconcilerConfigs {

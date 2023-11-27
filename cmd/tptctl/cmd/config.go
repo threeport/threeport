@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// configCmd represents the config command
-var configCmd = &cobra.Command{
+// ConfigCmd represents the config command
+var ConfigCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage your local Threeport config",
 	Long: `Manage your local Threeport config.
@@ -24,5 +24,5 @@ to manage your Threeport config.`,
 }
 
 func init() {
-	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(ConfigCmd)
 }

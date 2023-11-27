@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	util "github.com/threeport/threeport/internal/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
 )
 
@@ -22,6 +22,7 @@ func GetWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Workl
 		fmt.Sprintf("%s/%s/workload-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -51,6 +52,7 @@ func GetWorkloadDefinitionByID(apiClient *http.Client, apiAddr string, id uint) 
 		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -71,6 +73,36 @@ func GetWorkloadDefinitionByID(apiClient *http.Client, apiAddr string, id uint) 
 	return &workloadDefinition, nil
 }
 
+// GetWorkloadDefinitionsByQueryString fetches workload definitions by provided query string.
+func GetWorkloadDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadDefinition, error) {
+	var workloadDefinitions []v0.WorkloadDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/workload-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &workloadDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &workloadDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadDefinitions, nil
+}
+
 // GetWorkloadDefinitionByName fetches a workload definition by name.
 func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadDefinition, error) {
 	var workloadDefinitions []v0.WorkloadDefinition
@@ -80,6 +112,7 @@ func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (
 		fmt.Sprintf("%s/%s/workload-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -109,6 +142,7 @@ func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (
 
 // CreateWorkloadDefinition creates a new workload definition.
 func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(workloadDefinition)
 	jsonWorkloadDefinition, err := util.MarshalObject(workloadDefinition)
 	if err != nil {
 		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -119,6 +153,7 @@ func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 		fmt.Sprintf("%s/%s/workload-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -141,6 +176,7 @@ func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 
 // UpdateWorkloadDefinition updates a workload definition.
 func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(workloadDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	workloadDefinitionID := *workloadDefinition.ID
@@ -159,6 +195,7 @@ func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, workloadDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -189,6 +226,7 @@ func DeleteWorkloadDefinition(apiClient *http.Client, apiAddr string, id uint) (
 		fmt.Sprintf("%s/%s/workload-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -219,6 +257,7 @@ func GetWorkloadResourceDefinitions(apiClient *http.Client, apiAddr string) (*[]
 		fmt.Sprintf("%s/%s/workload-resource-definitions", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -248,6 +287,7 @@ func GetWorkloadResourceDefinitionByID(apiClient *http.Client, apiAddr string, i
 		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -268,6 +308,36 @@ func GetWorkloadResourceDefinitionByID(apiClient *http.Client, apiAddr string, i
 	return &workloadResourceDefinition, nil
 }
 
+// GetWorkloadResourceDefinitionsByQueryString fetches workload resource definitions by provided query string.
+func GetWorkloadResourceDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadResourceDefinition, error) {
+	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/workload-resource-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &workloadResourceDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &workloadResourceDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadResourceDefinitions, nil
+}
+
 // GetWorkloadResourceDefinitionByName fetches a workload resource definition by name.
 func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
@@ -277,6 +347,7 @@ func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name s
 		fmt.Sprintf("%s/%s/workload-resource-definitions?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -306,6 +377,7 @@ func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name s
 
 // CreateWorkloadResourceDefinition creates a new workload resource definition.
 func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(workloadResourceDefinition)
 	jsonWorkloadResourceDefinition, err := util.MarshalObject(workloadResourceDefinition)
 	if err != nil {
 		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -316,6 +388,7 @@ func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 		fmt.Sprintf("%s/%s/workload-resource-definitions", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -338,6 +411,7 @@ func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 
 // UpdateWorkloadResourceDefinition updates a workload resource definition.
 func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(workloadResourceDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	workloadResourceDefinitionID := *workloadResourceDefinition.ID
@@ -356,6 +430,7 @@ func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, workloadResourceDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -386,6 +461,7 @@ func DeleteWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, id
 		fmt.Sprintf("%s/%s/workload-resource-definitions/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -416,6 +492,7 @@ func GetWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]v0.Workloa
 		fmt.Sprintf("%s/%s/workload-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -445,6 +522,7 @@ func GetWorkloadInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*
 		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -465,6 +543,36 @@ func GetWorkloadInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*
 	return &workloadInstance, nil
 }
 
+// GetWorkloadInstancesByQueryString fetches workload instances by provided query string.
+func GetWorkloadInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadInstance, error) {
+	var workloadInstances []v0.WorkloadInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/workload-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &workloadInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &workloadInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadInstances, nil
+}
+
 // GetWorkloadInstanceByName fetches a workload instance by name.
 func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
@@ -474,6 +582,7 @@ func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v
 		fmt.Sprintf("%s/%s/workload-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -503,6 +612,7 @@ func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v
 
 // CreateWorkloadInstance creates a new workload instance.
 func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
+	ReplaceAssociatedObjectsWithNil(workloadInstance)
 	jsonWorkloadInstance, err := util.MarshalObject(workloadInstance)
 	if err != nil {
 		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -513,6 +623,7 @@ func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 		fmt.Sprintf("%s/%s/workload-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -535,6 +646,7 @@ func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 
 // UpdateWorkloadInstance updates a workload instance.
 func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
+	ReplaceAssociatedObjectsWithNil(workloadInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	workloadInstanceID := *workloadInstance.ID
@@ -553,6 +665,7 @@ func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, workloadInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -583,6 +696,7 @@ func DeleteWorkloadInstance(apiClient *http.Client, apiAddr string, id uint) (*v
 		fmt.Sprintf("%s/%s/workload-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -613,6 +727,7 @@ func GetAttachedObjectReferences(apiClient *http.Client, apiAddr string) (*[]v0.
 		fmt.Sprintf("%s/%s/attached-object-references", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -642,6 +757,7 @@ func GetAttachedObjectReferenceByID(apiClient *http.Client, apiAddr string, id u
 		fmt.Sprintf("%s/%s/attached-object-references/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -662,6 +778,36 @@ func GetAttachedObjectReferenceByID(apiClient *http.Client, apiAddr string, id u
 	return &attachedObjectReference, nil
 }
 
+// GetAttachedObjectReferencesByQueryString fetches attached object references by provided query string.
+func GetAttachedObjectReferencesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AttachedObjectReference, error) {
+	var attachedObjectReferences []v0.AttachedObjectReference
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/attached-object-references?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&attachedObjectReferences); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &attachedObjectReferences, nil
+}
+
 // GetAttachedObjectReferenceByName fetches a attached object reference by name.
 func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name string) (*v0.AttachedObjectReference, error) {
 	var attachedObjectReferences []v0.AttachedObjectReference
@@ -671,6 +817,7 @@ func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name stri
 		fmt.Sprintf("%s/%s/attached-object-references?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -700,6 +847,7 @@ func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name stri
 
 // CreateAttachedObjectReference creates a new attached object reference.
 func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attachedObjectReference *v0.AttachedObjectReference) (*v0.AttachedObjectReference, error) {
+	ReplaceAssociatedObjectsWithNil(attachedObjectReference)
 	jsonAttachedObjectReference, err := util.MarshalObject(attachedObjectReference)
 	if err != nil {
 		return attachedObjectReference, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -710,6 +858,7 @@ func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 		fmt.Sprintf("%s/%s/attached-object-references", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAttachedObjectReference),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -732,6 +881,7 @@ func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 
 // UpdateAttachedObjectReference updates a attached object reference.
 func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attachedObjectReference *v0.AttachedObjectReference) (*v0.AttachedObjectReference, error) {
+	ReplaceAssociatedObjectsWithNil(attachedObjectReference)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	attachedObjectReferenceID := *attachedObjectReference.ID
@@ -750,6 +900,7 @@ func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 		fmt.Sprintf("%s/%s/attached-object-references/%d", apiAddr, ApiVersion, attachedObjectReferenceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAttachedObjectReference),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -780,6 +931,7 @@ func DeleteAttachedObjectReference(apiClient *http.Client, apiAddr string, id ui
 		fmt.Sprintf("%s/%s/attached-object-references/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -810,6 +962,7 @@ func GetWorkloadResourceInstances(apiClient *http.Client, apiAddr string) (*[]v0
 		fmt.Sprintf("%s/%s/workload-resource-instances", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -839,6 +992,7 @@ func GetWorkloadResourceInstanceByID(apiClient *http.Client, apiAddr string, id 
 		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -859,6 +1013,36 @@ func GetWorkloadResourceInstanceByID(apiClient *http.Client, apiAddr string, id 
 	return &workloadResourceInstance, nil
 }
 
+// GetWorkloadResourceInstancesByQueryString fetches workload resource instances by provided query string.
+func GetWorkloadResourceInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadResourceInstance, error) {
+	var workloadResourceInstances []v0.WorkloadResourceInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/workload-resource-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &workloadResourceInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &workloadResourceInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadResourceInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadResourceInstances, nil
+}
+
 // GetWorkloadResourceInstanceByName fetches a workload resource instance by name.
 func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
@@ -868,6 +1052,7 @@ func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name str
 		fmt.Sprintf("%s/%s/workload-resource-instances?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -897,6 +1082,7 @@ func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name str
 
 // CreateWorkloadResourceInstance creates a new workload resource instance.
 func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
+	ReplaceAssociatedObjectsWithNil(workloadResourceInstance)
 	jsonWorkloadResourceInstance, err := util.MarshalObject(workloadResourceInstance)
 	if err != nil {
 		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -907,6 +1093,7 @@ func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 		fmt.Sprintf("%s/%s/workload-resource-instances", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -929,6 +1116,7 @@ func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 
 // UpdateWorkloadResourceInstance updates a workload resource instance.
 func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
+	ReplaceAssociatedObjectsWithNil(workloadResourceInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	workloadResourceInstanceID := *workloadResourceInstance.ID
@@ -947,6 +1135,7 @@ func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, workloadResourceInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -977,6 +1166,7 @@ func DeleteWorkloadResourceInstance(apiClient *http.Client, apiAddr string, id u
 		fmt.Sprintf("%s/%s/workload-resource-instances/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1007,6 +1197,7 @@ func GetWorkloadEvents(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadEv
 		fmt.Sprintf("%s/%s/workload-events", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1036,6 +1227,7 @@ func GetWorkloadEventByID(apiClient *http.Client, apiAddr string, id uint) (*v0.
 		fmt.Sprintf("%s/%s/workload-events/%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1056,6 +1248,36 @@ func GetWorkloadEventByID(apiClient *http.Client, apiAddr string, id uint) (*v0.
 	return &workloadEvent, nil
 }
 
+// GetWorkloadEventsByQueryString fetches workload events by provided query string.
+func GetWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadEvent, error) {
+	var workloadEvents []v0.WorkloadEvent
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/workload-events?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &workloadEvents, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &workloadEvents, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&workloadEvents); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &workloadEvents, nil
+}
+
 // GetWorkloadEventByName fetches a workload event by name.
 func GetWorkloadEventByName(apiClient *http.Client, apiAddr, name string) (*v0.WorkloadEvent, error) {
 	var workloadEvents []v0.WorkloadEvent
@@ -1065,6 +1287,7 @@ func GetWorkloadEventByName(apiClient *http.Client, apiAddr, name string) (*v0.W
 		fmt.Sprintf("%s/%s/workload-events?name=%s", apiAddr, ApiVersion, name),
 		http.MethodGet,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1094,6 +1317,7 @@ func GetWorkloadEventByName(apiClient *http.Client, apiAddr, name string) (*v0.W
 
 // CreateWorkloadEvent creates a new workload event.
 func CreateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *v0.WorkloadEvent) (*v0.WorkloadEvent, error) {
+	ReplaceAssociatedObjectsWithNil(workloadEvent)
 	jsonWorkloadEvent, err := util.MarshalObject(workloadEvent)
 	if err != nil {
 		return workloadEvent, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
@@ -1104,6 +1328,7 @@ func CreateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 		fmt.Sprintf("%s/%s/workload-events", apiAddr, ApiVersion),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadEvent),
+		map[string]string{},
 		http.StatusCreated,
 	)
 	if err != nil {
@@ -1126,6 +1351,7 @@ func CreateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 
 // UpdateWorkloadEvent updates a workload event.
 func UpdateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *v0.WorkloadEvent) (*v0.WorkloadEvent, error) {
+	ReplaceAssociatedObjectsWithNil(workloadEvent)
 	// capture the object ID, make a copy of the object, then remove fields that
 	// cannot be updated in the API
 	workloadEventID := *workloadEvent.ID
@@ -1144,6 +1370,7 @@ func UpdateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 		fmt.Sprintf("%s/%s/workload-events/%d", apiAddr, ApiVersion, workloadEventID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadEvent),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
@@ -1174,6 +1401,7 @@ func DeleteWorkloadEvent(apiClient *http.Client, apiAddr string, id uint) (*v0.W
 		fmt.Sprintf("%s/%s/workload-events/%d", apiAddr, ApiVersion, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
+		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {

@@ -6,14 +6,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/threeport/threeport/internal/cli"
-	client "github.com/threeport/threeport/pkg/client/v0"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
@@ -27,22 +25,12 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 	Use:          "workload-definition",
 	Example:      "tptctl delete workload-definition --config /path/to/config.yaml",
 	Short:        "Delete an existing workload definition",
-	Long:         `Delete as existing workload definition.`,
+	Long:         `Delete an existing workload definition.`,
 	SilenceUsage: true,
+	PreRun:       commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		// get threeport config and extract threeport API endpoint
-		threeportConfig, err := config.GetThreeportConfig()
-		if err != nil {
-			cli.Error("failed to get threeport config", err)
-			os.Exit(1)
-		}
-
-		apiEndpoint, err := threeportConfig.GetThreeportAPIEndpoint()
-		if err != nil {
-			cli.Error("failed to get threeport API endpoint from config", err)
-			os.Exit(1)
-		}
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// flag validation
 		if err := validateDeleteWorkloadDefinitionFlags(
@@ -56,7 +44,7 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 		var workloadDefinitionConfig config.WorkloadDefinitionConfig
 		if deleteWorkloadDefinitionConfigPath != "" {
 			// load workload definition config
-			configContent, err := ioutil.ReadFile(deleteWorkloadDefinitionConfigPath)
+			configContent, err := os.ReadFile(deleteWorkloadDefinitionConfigPath)
 			if err != nil {
 				cli.Error("failed to read config file", err)
 				os.Exit(1)
@@ -73,37 +61,20 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 			}
 		}
 
-		// get threeport API client
-		cliArgs.AuthEnabled, err = threeportConfig.GetThreeportAuthEnabled()
-		if err != nil {
-			cli.Error("failed to determine if auth is enabled on threeport API", err)
-			os.Exit(1)
-		}
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificates()
-		if err != nil {
-			cli.Error("failed to get threeport certificates from config", err)
-			os.Exit(1)
-		}
-		apiClient, err := client.GetHTTPClient(cliArgs.AuthEnabled, ca, clientCertificate, clientPrivateKey)
-		if err != nil {
-			cli.Error("failed to create https client", err)
-			os.Exit(1)
-		}
-
 		// delete workload definition
 		workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-		wd, err := workloadDefinition.Delete(apiClient, apiEndpoint)
+		_, err := workloadDefinition.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload definition", err)
 			os.Exit(1)
 		}
 
-		cli.Complete(fmt.Sprintf("workload definition %s deleted", *wd.Name))
+		cli.Complete(fmt.Sprintf("workload definition %s deleted", workloadDefinition.Name))
 	},
 }
 
 func init() {
-	deleteCmd.AddCommand(DeleteWorkloadDefinitionCmd)
+	DeleteCmd.AddCommand(DeleteWorkloadDefinitionCmd)
 
 	DeleteWorkloadDefinitionCmd.Flags().StringVarP(
 		&deleteWorkloadDefinitionConfigPath,
@@ -112,6 +83,10 @@ func init() {
 	DeleteWorkloadDefinitionCmd.Flags().StringVarP(
 		&deleteWorkloadDefinitionName,
 		"name", "n", "", "Name of workload definition.",
+	)
+	DeleteWorkloadDefinitionCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
 }
 

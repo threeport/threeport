@@ -1,7 +1,0 @@
-GatewayInstance:
-  GatewayDefinition:
-    Name: example-gateway
-  KubernetesRuntimeInstance:
-    Name: compute-space-dev-0-0
-  WorkloadInstance:
-    Name: wordpress-0

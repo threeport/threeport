@@ -4,16 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"time"
 
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"github.com/threeport/threeport/internal/util"
 	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -68,6 +67,7 @@ func domainNameInstanceDeleted(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) (int64, error) {
+
 	// check that deletion is scheduled - if not there's a problem
 	if domainNameInstance.DeletionScheduled == nil {
 		return 0, errors.New("deletion notification receieved but not scheduled")
@@ -86,13 +86,15 @@ func domainNameInstanceDeleted(
 			// workload instance has already been deleted
 			return 0, nil
 		}
-		return 0, fmt.Errorf("failed to get workload instance: %w", err)
+		log.Error(err, "failed to get workload instance")
+		return 0, nil
 	}
 
 	// get domain name definition
 	domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *domainNameInstance.DomainNameDefinitionID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get domain name definition: %w", err)
+		log.Error(err, "failed to get domain name definition")
+		return 0, nil
 	}
 
 	// configure virtual service
@@ -102,7 +104,8 @@ func domainNameInstanceDeleted(
 			// workload resource instance has already been deleted
 			return 0, nil
 		}
-		return 0, fmt.Errorf("failed to configure virtual service: %w", err)
+		log.Error(err, "failed to configure virtual service")
+		return 0, nil
 	}
 
 	// update workload resource instance
@@ -112,7 +115,8 @@ func domainNameInstanceDeleted(
 			// workload resource instance has already been deleted
 			return 0, nil
 		}
-		return 0, fmt.Errorf("failed to create workload resource instance: %w", err)
+		log.Error(err, "failed to create workload resource instance")
+		return 0, nil
 	}
 
 	// trigger a reconciliation of the workload instance
@@ -124,37 +128,8 @@ func domainNameInstanceDeleted(
 			// workload instance has already been deleted
 			return 0, nil
 		}
-		return 0, fmt.Errorf("failed to update workload instance: %w", err)
-	}
-
-	// delete the domain name instance that was scheduled for deletion
-	deletionReconciled := true
-	deletionTimestamp := time.Now().UTC()
-	deletedDomainNameInstance := v0.DomainNameInstance{
-		Common: v0.Common{
-			ID: domainNameInstance.ID,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled:           &deletionReconciled,
-			DeletionAcknowledged: &deletionTimestamp,
-			DeletionConfirmed:    &deletionTimestamp,
-		},
-	}
-	_, err = client.UpdateDomainNameInstance(
-		r.APIClient,
-		r.APIServer,
-		&deletedDomainNameInstance,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to confirm deletion of domain name instance in threeport API: %w", err)
-	}
-	_, err = client.DeleteDomainNameInstance(
-		r.APIClient,
-		r.APIServer,
-		*domainNameInstance.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete domain name instance in threeport API: %w", err)
+		log.Error(err, "failed to update workload instance")
+		return 0, nil
 	}
 
 	return 0, nil
@@ -343,7 +318,7 @@ func confirmDnsControllerDeployed(
 		externalDnsManifest, err = createExternalDns(
 			*domainNameDefinition.Domain,
 			"route53",
-			resourceInventory.DNSManagementRole.RoleARN,
+			resourceInventory.DnsManagementRole.RoleArn,
 			glooEdgeNamespace,
 			kubernetesRuntimeInstanceID,
 		)

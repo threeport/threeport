@@ -9,9 +9,11 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // AwsEksKubernetesRuntimeInstanceReconciler reconciles system state when a AwsEksKubernetesRuntimeInstance
@@ -127,6 +129,10 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
+				if awsEksKubernetesRuntimeInstance.DeletionScheduled != nil {
+					log.Info("aws eks kubernetes runtime instance scheduled for deletion - skipping create")
+					break
+				}
 				customRequeueDelay, err := awsEksKubernetesRuntimeInstanceCreated(r, &awsEksKubernetesRuntimeInstance, &log)
 				if err != nil {
 					log.Error(err, "failed to reconcile created aws eks kubernetes runtime instance object")
@@ -190,6 +196,40 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
+					continue
+				}
+				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletedAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
+					Common: v0.Common{ID: awsEksKubernetesRuntimeInstance.ID},
+					Reconciliation: v0.Reconciliation{
+						DeletionAcknowledged: deletionTimestamp,
+						DeletionConfirmed:    deletionTimestamp,
+						Reconciled:           util.BoolPtr(true),
+					},
+				}
+				if err != nil {
+					log.Error(err, "failed to update aws eks kubernetes runtime instance to mark as reconciled")
+					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.UpdateAwsEksKubernetesRuntimeInstance(
+					r.APIClient,
+					r.APIServer,
+					&deletedAwsEksKubernetesRuntimeInstance,
+				)
+				if err != nil {
+					log.Error(err, "failed to update aws eks kubernetes runtime instance to mark as deleted")
+					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
+					continue
+				}
+				_, err = client.DeleteAwsEksKubernetesRuntimeInstance(
+					r.APIClient,
+					r.APIServer,
+					*awsEksKubernetesRuntimeInstance.ID,
+				)
+				if err != nil {
+					log.Error(err, "failed to delete aws eks kubernetes runtime instance")
+					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
 			default:

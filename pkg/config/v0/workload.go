@@ -3,22 +3,16 @@ package v0
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
-	"time"
 
 	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
-
-// defaultWorkloadInstanceName generates a workload instance name for when the
-// workload abstraction is used to create it.
-func defaultWorkloadInstanceName(name string) string {
-	return fmt.Sprintf("%s-0", name)
-}
 
 // WorkloadConfig contains the config for a workload which is an abstraction of
 // a workload definition and workload instance.
@@ -35,6 +29,8 @@ type WorkloadValues struct {
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	DomainName                *DomainNameDefinitionValues      `yaml:"DomainName"`
 	Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
+	AwsRelationalDatabase     *AwsRelationalDatabaseValues     `yaml:"AwsRelationalDatabase"`
+	AwsObjectStorageBucket    *AwsObjectStorageBucketValues    `yaml:"AwsObjectStorageBucket"`
 }
 
 // WorkloadDefinitionConfig contains the config for a workload definition.
@@ -65,77 +61,13 @@ type WorkloadInstanceValues struct {
 
 // Create creates a workload definition and instance in the Threeport API.
 func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
-	// create the workload definition
-	workloadDefinition := WorkloadDefinitionValues{
-		Name:               w.Name,
-		YAMLDocument:       w.YAMLDocument,
-		WorkloadConfigPath: w.WorkloadConfigPath,
-	}
-	createdWorkloadDefinition, err := workloadDefinition.Create(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create workload definition: %w", err)
-	}
 
-	// create the workload instance
-	workloadInstance := WorkloadInstanceValues{
-		Name:                      defaultWorkloadInstanceName(w.Name),
-		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-		WorkloadDefinition: WorkloadDefinitionValues{
-			Name: w.Name,
-		},
-	}
-	createdWorkloadInstance, err := workloadInstance.Create(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create workload instance: %w", err)
-	}
+	// get operations
+	operations, createdWorkloadDefinition, createdWorkloadInstance := w.GetOperations(apiClient, apiEndpoint)
 
-	if w.DomainName != nil && w.Gateway != nil {
-		// create the domain name definition
-		domainNameDefinition := DomainNameDefinitionValues{
-			Name:       w.DomainName.Name,
-			Zone:       w.DomainName.Zone,
-			AdminEmail: w.DomainName.AdminEmail,
-		}
-		_, err = domainNameDefinition.CreateIfNotExist(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create domain name definition: %w", err)
-		}
-
-		// create the domain name instance
-		domainNameInstance := DomainNameInstanceValues{
-			DomainNameDefinition:      domainNameDefinition,
-			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
-			WorkloadInstance:          workloadInstance,
-		}
-		_, err = domainNameInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create domain name instance: %w", err)
-		}
-
-		// create the gateway definition
-		gatewayDefinition := GatewayDefinitionValues{
-			Name:                 w.Gateway.Name,
-			TCPPort:              w.Gateway.TCPPort,
-			TLSEnabled:           w.Gateway.TLSEnabled,
-			Path:                 w.Gateway.Path,
-			ServiceName:          w.Gateway.ServiceName,
-			DomainNameDefinition: domainNameDefinition,
-		}
-		_, err = gatewayDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create gateway definition: %w", err)
-		}
-
-		// create the gateway instance
-		gatewayInstance := GatewayInstanceValues{
-			GatewayDefinition:         gatewayDefinition,
-			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
-			WorkloadInstance:          workloadInstance,
-		}
-		_, err = gatewayInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create gateway instance: %w", err)
-		}
+	// execute create operations
+	if err := operations.Create(); err != nil {
+		return nil, nil, err
 	}
 
 	return createdWorkloadDefinition, createdWorkloadInstance, nil
@@ -145,120 +77,16 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 // domain name definition, domain name instance,
 // gateway definition, and gateway instance from the Threeport API.
 func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
-	if w.DomainName != nil {
-		// get domain name instance by name
-		domainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, w.DomainName.Name)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to find domain name instance with name %s: %w", w.DomainName.Name, err)
-		}
 
-		// delete domain name instance
-		_, err = client.DeleteDomainNameInstance(apiClient, apiEndpoint, *domainNameInstance.ID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to delete domain name instance from threeport API: %w", err)
-		}
+	// get operation
+	operations, _, _ := w.GetOperations(apiClient, apiEndpoint)
 
-		// get domain name definition by name
-		domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, w.DomainName.Name)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to find domain name definition with name %s: %w", w.DomainName.Name, err)
-		}
-
-		// delete domain name definition
-		_, err = client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *domainNameDefinition.ID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to delete domain name definition from threeport API: %w", err)
-		}
+	// execute delete operations
+	if err := operations.Delete(); err != nil {
+		return nil, nil, err
 	}
 
-	if w.Gateway != nil {
-		// get gateway instance by name
-		gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, w.Gateway.Name)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to find gateway instance with name %s: %w", w.Gateway.Name, err)
-		}
-
-		// delete gateway instance
-		_, err = client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to delete gateway instance from threeport API: %w", err)
-		}
-
-		// get gateway definition by name
-		gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, w.Gateway.Name)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to find gateway definition with name %s: %w", w.Gateway.Name, err)
-		}
-
-		// delete gateway definition
-		_, err = client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to delete gateway definition from threeport API: %w", err)
-		}
-	}
-
-	// get workload instance by name
-	workloadInstName := defaultWorkloadInstanceName(w.Name)
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, workloadInstName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find workload instance with name %s: %w", workloadInstName, err)
-	}
-
-	// get workload definition by name
-	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, w.Name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find workload definition with name %s: %w", w.Name, err)
-	}
-
-	// ensure the workload definition has no more than one associated instance
-	workloadDefInsts, err := client.GetWorkloadInstancesByWorkloadDefinitionID(apiClient, apiEndpoint, *workloadDefinition.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get workload instances by workload definition with ID: %d: %w", workloadDefinition.ID, err)
-	}
-	if len(*workloadDefInsts) > 1 {
-		err = errors.New("deletion using the workload abstraction is only permitted when there is a one-to-one workload definition and workload instance relationship")
-		return nil, nil, fmt.Errorf("the workload definition has more than one workload instance associated: %w", err)
-	}
-
-	// delete workload instance
-	deletedWorkloadInstance, err := client.DeleteWorkloadInstance(apiClient, apiEndpoint, *workloadInstance.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
-	}
-
-	// wait for workload deletion to be reconciled
-	deletedCheckAttempts := 0
-	deletedCheckAttemptsMax := 30
-	deletedCheckDurationSeconds := 1
-	workloadInstanceDeleted := false
-	for deletedCheckAttempts < deletedCheckAttemptsMax {
-		_, err := client.GetWorkloadInstanceByID(apiClient, apiEndpoint, *workloadInstance.ID)
-		if err != nil {
-			if errors.Is(err, client.ErrorObjectNotFound) {
-				workloadInstanceDeleted = true
-				break
-			} else {
-				return nil, nil, fmt.Errorf("failed to get workload instance from API when checking deletion: %w", err)
-			}
-		}
-		// no error means workload instance was found - hasn't yet been deleted
-		deletedCheckAttempts += 1
-		time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
-	}
-	if !workloadInstanceDeleted {
-		return nil, nil, errors.New(fmt.Sprintf(
-			"workload instance not deleted after %d seconds",
-			deletedCheckAttemptsMax*deletedCheckDurationSeconds,
-		))
-	}
-
-	// delete workload definition
-	deletedWorkloadDefinition, err := client.DeleteWorkloadDefinition(apiClient, apiEndpoint, *workloadDefinition.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to delete workload definition from threeport API: %w", err)
-	}
-
-	return deletedWorkloadDefinition, deletedWorkloadInstance, nil
+	return nil, nil, nil
 }
 
 // Create creates a workload definition in the Threeport API.
@@ -274,8 +102,8 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	relativeYamlPath := path.Join(configPath, wd.YAMLDocument)
 
 	// load YAML document
-	//definitionContent, err := ioutil.ReadFile(wd.YAMLDocument)
-	definitionContent, err := ioutil.ReadFile(relativeYamlPath)
+	//definitionContent, err := os.ReadFile(wd.YAMLDocument)
+	definitionContent, err := os.ReadFile(relativeYamlPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read definition YAMLDocument file %s: %w", wd.YAMLDocument, err)
 	}
@@ -402,5 +230,206 @@ func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint str
 		return nil, fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
 	}
 
+	// wait for workload instance to be deleted
+	util.Retry(60, 1, func() error {
+		if _, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name); err == nil {
+			return errors.New("workload instance not deleted")
+		}
+		return nil
+	})
+
 	return deletedWorkloadInstance, nil
+}
+
+// GetOperations returns a slice of operations used to
+// create, update, or delete a workload.
+func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint string) (*util.Operations, *v0.WorkloadDefinition, *v0.WorkloadInstance) {
+
+	var err error
+	var createdWorkloadInstance v0.WorkloadInstance
+	var createdWorkloadDefinition v0.WorkloadDefinition
+
+	operations := util.Operations{}
+
+	// add workload definition operation
+	workloadDefinitionValues := WorkloadDefinitionValues{
+		Name:               w.Name,
+		YAMLDocument:       w.YAMLDocument,
+		WorkloadConfigPath: w.WorkloadConfigPath,
+	}
+	operations.AppendOperation(util.Operation{
+		Name: "workload definition",
+		Create: func() error {
+			workloadDefinition, err := workloadDefinitionValues.Create(apiClient, apiEndpoint)
+			if err != nil {
+				return err
+			}
+			createdWorkloadDefinition = *workloadDefinition
+			return nil
+		},
+		Delete: func() error {
+			_, err = workloadDefinitionValues.Delete(apiClient, apiEndpoint)
+			return err
+		},
+	})
+
+	// add workload instance operation
+	workloadInstanceValues := WorkloadInstanceValues{
+		Name:                      w.Name,
+		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
+		WorkloadDefinition: WorkloadDefinitionValues{
+			Name: w.Name,
+		},
+	}
+	operations.AppendOperation(util.Operation{
+		Name: "workload instance",
+		Create: func() error {
+			workloadInstance, err := workloadInstanceValues.Create(apiClient, apiEndpoint)
+			if err != nil {
+				return err
+			}
+			createdWorkloadInstance = *workloadInstance
+			return nil
+		},
+		Delete: func() error {
+			_, err = workloadInstanceValues.Delete(apiClient, apiEndpoint)
+			return err
+		},
+	})
+
+	// add domain name and gateway if provided
+	if w.DomainName != nil && w.Gateway != nil {
+
+		// add domain name definition operation
+		domainNameDefinitionValues := DomainNameDefinitionValues{
+			Name:       w.DomainName.Name,
+			Zone:       w.DomainName.Zone,
+			AdminEmail: w.DomainName.AdminEmail,
+		}
+		operations.AppendOperation(util.Operation{
+			Name: "domain name definition",
+			Create: func() error {
+				_, err = domainNameDefinitionValues.CreateIfNotExist(apiClient, apiEndpoint)
+				return err
+			},
+			Delete: func() error {
+				_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
+				return err
+			},
+		})
+
+		// add domain name instance operation
+		domainNameInstanceValues := DomainNameInstanceValues{
+			DomainNameDefinition:      domainNameDefinitionValues,
+			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
+			WorkloadInstance:          workloadInstanceValues,
+		}
+		operations.AppendOperation(util.Operation{
+			Name: "domain name instance",
+			Create: func() error {
+				_, err = domainNameInstanceValues.Create(apiClient, apiEndpoint)
+				return err
+			},
+			Delete: func() error {
+				_, err = domainNameInstanceValues.Delete(apiClient, apiEndpoint)
+				return err
+			},
+		})
+
+		// add gateway definition operation
+		gatewayDefinitionValues := GatewayDefinitionValues{
+			Name:                 w.Name,
+			TCPPort:              w.Gateway.TCPPort,
+			TLSEnabled:           w.Gateway.TLSEnabled,
+			Path:                 w.Gateway.Path,
+			ServiceName:          w.Gateway.ServiceName,
+			DomainNameDefinition: domainNameDefinitionValues,
+		}
+		operations.AppendOperation(util.Operation{
+			Name: "gateway definition",
+			Create: func() error {
+				_, err = gatewayDefinitionValues.Create(apiClient, apiEndpoint)
+				return err
+			},
+			Delete: func() error {
+				_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
+				return err
+			},
+		})
+
+		// add gateway instance operation
+		gatewayInstanceValues := GatewayInstanceValues{
+			GatewayDefinition:         gatewayDefinitionValues,
+			KubernetesRuntimeInstance: *w.KubernetesRuntimeInstance,
+			WorkloadInstance:          workloadInstanceValues,
+		}
+		operations.AppendOperation(util.Operation{
+			Name: "gateway instance",
+			Create: func() error {
+				_, err = gatewayInstanceValues.Create(apiClient, apiEndpoint)
+				return err
+			},
+			Delete: func() error {
+				_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
+				return err
+			},
+		})
+	}
+
+	// add AWS relational database operation
+	if w.AwsRelationalDatabase != nil {
+		awsRelationalDatabase := AwsRelationalDatabaseValues{
+			Name:               w.AwsRelationalDatabase.Name,
+			AwsAccountName:     w.AwsRelationalDatabase.AwsAccountName,
+			Engine:             w.AwsRelationalDatabase.Engine,
+			EngineVersion:      w.AwsRelationalDatabase.EngineVersion,
+			DatabaseName:       w.AwsRelationalDatabase.DatabaseName,
+			DatabasePort:       w.AwsRelationalDatabase.DatabasePort,
+			BackupDays:         w.AwsRelationalDatabase.BackupDays,
+			MachineSize:        w.AwsRelationalDatabase.MachineSize,
+			StorageGb:          w.AwsRelationalDatabase.StorageGb,
+			WorkloadSecretName: w.AwsRelationalDatabase.WorkloadSecretName,
+			WorkloadInstance: &WorkloadInstanceValues{
+				Name: w.Name,
+			},
+		}
+		operations.AppendOperation(util.Operation{
+			Name: "aws relational database",
+			Create: func() error {
+				_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
+				return err
+			},
+			Delete: func() error {
+				_, _, err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
+				return err
+			},
+		})
+	}
+
+	// add AWS object storage bucket operation
+	if w.AwsObjectStorageBucket != nil {
+		awsObjectStorageBucket := AwsObjectStorageBucketValues{
+			Name:                       w.AwsObjectStorageBucket.Name,
+			AwsAccountName:             w.AwsObjectStorageBucket.AwsAccountName,
+			PublicReadAccess:           w.AwsObjectStorageBucket.PublicReadAccess,
+			WorkloadServiceAccountName: w.AwsObjectStorageBucket.WorkloadServiceAccountName,
+			WorkloadBucketEnvVar:       w.AwsObjectStorageBucket.WorkloadBucketEnvVar,
+			WorkloadInstance: &WorkloadInstanceValues{
+				Name: w.Name,
+			},
+		}
+		operations.AppendOperation(util.Operation{
+			Name: "aws object storage bucket",
+			Create: func() error {
+				_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
+				return err
+			},
+			Delete: func() error {
+				_, _, err := awsObjectStorageBucket.Delete(apiClient, apiEndpoint)
+				return err
+			},
+		})
+	}
+
+	return &operations, &createdWorkloadDefinition, &createdWorkloadInstance
 }

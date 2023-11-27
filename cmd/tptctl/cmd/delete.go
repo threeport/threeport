@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// deleteCmd represents the delete command
-var deleteCmd = &cobra.Command{
+// DeleteCmd represents the delete command
+var DeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete Threeport objects",
 	Long: `Delete Threeport objects.
@@ -18,5 +18,5 @@ to delete different objects in the system.`,
 }
 
 func init() {
-	rootCmd.AddCommand(deleteCmd)
+	rootCmd.AddCommand(DeleteCmd)
 }
