@@ -1,7 +1,7 @@
 # Developer Documentation
 
 To get started with a development environment, see our [Quickstart
-Guide](quickstart.md).
+Guide](quickstart.md) and [Contribuing Guide](contributing.md).
 
 ## Overview
 
