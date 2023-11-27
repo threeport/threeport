@@ -1,5 +1,5 @@
 FROM gcr.io/distroless/static:nonroot
-COPY threeport-control-plane-controller /threeport-control-plane-controller
+COPY control-plane-controller /control-plane-controller
 USER 65532:65532
 
-ENTRYPOINT ["/threeport-control-plane-controller"]
+ENTRYPOINT ["/control-plane-controller"]
