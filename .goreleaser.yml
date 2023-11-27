@@ -45,6 +45,13 @@ builds:
       - linux
     main: cmd/gateway-controller/main_gen.go
     binary: gateway-controller
+  - id: threeport-control-plane-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/control-plane-controller/main_gen.go
+    binary: control-plane-controller
   - id: threeport-agent
     env:
       - CGO_ENABLED=0
@@ -136,6 +143,19 @@ dockers:
       - 'ghcr.io/threeport/threeport-gateway-controller:v{{ .Version }}'
       - 'ghcr.io/threeport/threeport-gateway-controller:latest'
     dockerfile: cmd/gateway-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-control-plane-controller:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-control-plane-controller:latest'
+    dockerfile: cmd/control-plane-controller/image/Dockerfile-goreleaser
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.name={{.ProjectName}}"
