@@ -40,7 +40,7 @@ Developer documentation can be found [here](docs/README.md).
 
 ## Note
 
-Threeport is still in early development.  APIs may change without notice unitl
+Threeport is still in early development.  APIs may change without notice until
 the 1.0 release.  At this time, do not build any integrations with the threeport
 API that are used for critical production systems.  With the 1.0 release, APIs
 will stabilize and guarantee backward compatibility.  Additionally, there are
