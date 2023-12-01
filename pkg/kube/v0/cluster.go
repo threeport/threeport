@@ -294,7 +294,7 @@ func refreshEKSConnection(
 		*eksRuntimeDefinition.AwsAccountID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS account by ID %d: %w", eksRuntimeDefinition.AwsAccountID, err)
+		return nil, fmt.Errorf("failed to get AWS account by ID %d: %w", *eksRuntimeDefinition.AwsAccountID, err)
 	}
 
 	awsConfig, err := GetAwsConfigFromAwsAccount(encryptionKey, *eksRuntimeInstance.Region, awsAccount)

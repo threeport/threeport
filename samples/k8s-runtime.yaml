@@ -1,7 +1,7 @@
 KubernetesRuntime:
-  Name: congo-non-prod
+  Name: prestashop-non-prod-0
   InfraProvider: eks
-  InfraProviderAccountName: default-account
+  InfraProviderAccountName: prestashop-test
   HighAvailability: false
   Location: NorthAmerica:NewYork
 

@@ -11,6 +11,7 @@ import (
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -765,22 +766,50 @@ func configureIssuer(
 		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
 	}
 
-	// set solver
-	solver := []interface{}{
-		map[string]interface{}{
-			"selector": map[string]interface{}{
-				"dnsZones": []interface{}{
-					*domainNameDefinition.Domain,
-				},
-			},
-			"dns01": map[string]interface{}{
-				"route53": map[string]interface{}{
-					"region": "us-east-1",
-				},
-			},
-		},
+	// add domain to list of dns zones
+	var dnsZones = []interface{}{
+		*domainNameDefinition.Domain,
 	}
 
+	// if a subdomain is provided, append it to the list of dns zones
+	if gatewayDefinition.SubDomain != nil && *gatewayDefinition.SubDomain != "" {
+		subDomain := fmt.Sprintf("%s.%s", *gatewayDefinition.SubDomain, *domainNameDefinition.Domain)
+		dnsZones = append(dnsZones, subDomain)
+	}
+
+	// get kubernetes runtime definition
+	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime definition by kubernetes runtime definition ID: %w", err)
+	}
+
+	// get infra provider region
+	infraProviderRegion, err := mapping.GetProviderRegionForLocation(*kubernetesRuntimeDefinition.InfraProvider, *kubernetesRuntimeInstance.Location)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get infra provider region for location: %w", err)
+	}
+
+	// configure solver based on infra provider
+	solver := []interface{}{}
+	switch *kubernetesRuntimeDefinition.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		solver = []interface{}{
+			map[string]interface{}{
+				"selector": map[string]interface{}{
+					"dnsZones": dnsZones,
+				},
+				"dns01": map[string]interface{}{
+					"route53": map[string]interface{}{
+						"region": infraProviderRegion,
+					},
+				},
+			},
+		}
+	default:
+		return nil, errors.New("failed to configure issuer, unsupported infra provider")
+	}
+
+	// set solver
 	err = unstructured.SetNestedSlice(issuer, solver, "spec", "acme", "solvers")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set solvers on issuer: %w", err)

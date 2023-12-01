@@ -349,6 +349,7 @@ func CreateResourceManagerRole(
 	tags *[]types.Tag,
 	roleName,
 	accountId,
+	externalAccountId,
 	principalRoleName,
 	externalId string,
 	attachAssumeAnyRolePolicy bool,
@@ -363,7 +364,7 @@ func CreateResourceManagerRole(
 	}
 
 	// create trust policy document
-	resourceManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument(principalRoleName, accountId, externalId, "")
+	resourceManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument(principalRoleName, accountId, externalAccountId, externalId, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
@@ -431,7 +432,7 @@ func UpdateResourceManagerRoleTrustPolicy(clusterName, accountId, externalId, oi
 	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
 
 	// update trust policy document
-	runtimeManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument("", accountId, externalId, oidcProviderUrl)
+	runtimeManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument("", accountId, "", externalId, oidcProviderUrl)
 	if err != nil {
 		return fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
@@ -519,25 +520,8 @@ func GetCallerIdentity(awsConfig *aws.Config) (*sts.GetCallerIdentityOutput, err
 	return callerIdentity, nil
 }
 
-// getResourceManagerTrustPolicyDocument returns the trust policy document for the
-// runtime manager role.
-func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, externalId, oidcProviderUrl string) (string, error) {
-
-	statements := []interface{}{}
-
-	// default account entity to root account
-	accountEntity := "root"
-
-	// default identity service to iam
-	identityService := "iam"
-
-	//  if role name is provided, set identity service to sts
-	// and set account entity to the expected role and session name
-	if externalRoleName != "" {
-		identityService = "sts"
-		accountEntity = "assumed-role/" + externalRoleName + "/" + util.AwsResourceManagerRoleSessionName
-	}
-
+// getAllowAccountAccessStatement returns a statement for allowing account access.
+func getAllowAccountAccessStatement(identityService, accountId, accountEntity string) map[string]interface{} {
 	// construct statement for allowing account access
 	allowAccountAccessStatement := map[string]interface{}{
 		"Effect": "Allow",
@@ -547,18 +531,46 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 		"Action": "sts:AssumeRole",
 	}
 
-	// if externalId is provided, add a conditional statement
-	// that requires the externalId to be provided
-	if externalId != "" {
-		allowAccountAccessStatement["Condition"] = map[string]interface{}{
-			"StringEquals": map[string]interface{}{
-				"sts:ExternalId": externalId,
-			},
-		}
-	}
+	return allowAccountAccessStatement
+}
 
-	// append the allow account access statement
-	statements = append(statements, allowAccountAccessStatement)
+// getResourceManagerTrustPolicyDocument returns the trust policy document for the
+// runtime manager role.
+func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, externalAccountId, externalId, oidcProviderUrl string) (string, error) {
+
+	statements := []interface{}{}
+
+	// default account entity to root account
+	accountEntity := "root"
+
+	// default identity service to iam
+	identityService := "iam"
+
+	// add statement for allowing all roles within an account to access this one
+	statements = append(statements, getAllowAccountAccessStatement(identityService, accountId, accountEntity))
+
+	//  if role name is provided, set identity service to sts
+	// and set account entity to the expected role and session name
+	// and add an additional allow account access statement
+	if externalRoleName != "" {
+		identityService = "sts"
+		accountEntity = "assumed-role/" + externalRoleName + "/" + util.AwsResourceManagerRoleSessionName
+
+		allowAccountAccessStatement := getAllowAccountAccessStatement(identityService, externalAccountId, accountEntity)
+
+		// if externalId is provided, add a conditional statement
+		// that requires the externalId to be provided
+		if externalId != "" {
+			allowAccountAccessStatement["Condition"] = map[string]interface{}{
+				"StringEquals": map[string]interface{}{
+					"sts:ExternalId": externalId,
+				},
+			}
+		}
+
+		// append the allow account access statement
+		statements = append(statements, allowAccountAccessStatement)
+	}
 
 	// if oidcProviderUrl is provided, add a statement that allows
 	// a kubernetes service account to assume the role

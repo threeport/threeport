@@ -1,9 +1,9 @@
 AwsEksKubernetesRuntimeDefinition:
-  Name: standard-test-cluster
-  AwsAccountName: default-account
+  Name: standard-test-cluster-1
+  AwsAccountName: qleet-main
   ZoneCount: 2
   DefaultNodeGroupInstanceType: t2.medium
-  DefaultNodeGroupInitialSize: 6
-  DefaultNodeGroupMinimumSize: 6
+  DefaultNodeGroupInitialSize: 1
+  DefaultNodeGroupMinimumSize: 1
   DefaultNodeGroupMaximumSize: 6
 

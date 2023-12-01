@@ -320,6 +320,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				*callerIdentity.Account,
 				"",
 				"",
+				"",
 				true,
 				true,
 				awsConfigUser,

@@ -1,4 +1,15 @@
 Workload:
   Name: "wordpress"
   YAMLDocument: "wordpress-manifest-local.yaml"
-
+  KubernetesRuntimeInstance:
+    Name: congo-non-prod-0
+  DomainName:
+    Name: qleet.net # must be root domain
+    Zone: Public
+    AdminEmail: randy@qleet.io
+  Gateway:
+    Name: prestashop
+    TCPPort: 443
+    Path: /
+    TLSEnabled: true
+    ServiceName: prestashop

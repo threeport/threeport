@@ -1,11 +1,11 @@
 Workload:
   Name: "wordpress"
-  YAMLDocument: "wordpress-no-db-manifest.yaml"
+  YAMLDocument: "wordpress-manifest-remote.yaml"
   KubernetesRuntimeInstance:
-    Name: eks-remote-0
+    Name: congo-non-prod-0
   AwsRelationalDatabase:
     Name: wordpress-db
-    AwsAccountName: default-account
+    AwsAccountName: qleet-main
     Engine: mariadb
     EngineVersion: "10.11"
     DatabaseName: wordpress
