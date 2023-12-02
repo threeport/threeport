@@ -738,13 +738,18 @@ func configureVirtualService(
 
 }
 
+// getSubDomain returns the subdomain for a gateway definition and domain name definition
+func getSubDomain(gatewayDefinition *v0.GatewayDefinition, domainNameDefinition *v0.DomainNameDefinition) string {
+	return fmt.Sprintf("%s.%s", *gatewayDefinition.SubDomain, *domainNameDefinition.Domain)
+}
+
 // configureIssuer configures an Issuer custom resource.
 func configureIssuer(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	domainNameDefinition v0.DomainNameDefinition,
+	domainNameDefinition *v0.DomainNameDefinition,
 ) (*datatypes.JSON, error) {
 
 	// get gateway workload resource definitions
@@ -773,8 +778,7 @@ func configureIssuer(
 
 	// if a subdomain is provided, append it to the list of dns zones
 	if gatewayDefinition.SubDomain != nil && *gatewayDefinition.SubDomain != "" {
-		subDomain := fmt.Sprintf("%s.%s", *gatewayDefinition.SubDomain, *domainNameDefinition.Domain)
-		dnsZones = append(dnsZones, subDomain)
+		dnsZones = append(dnsZones, getSubDomain(gatewayDefinition, domainNameDefinition))
 	}
 
 	// get kubernetes runtime definition
@@ -822,7 +826,7 @@ func configureCertificate(
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	domainNameDefinition v0.DomainNameDefinition,
+	domainNameDefinition *v0.DomainNameDefinition,
 ) (*datatypes.JSON, error) {
 
 	// get gateway workload resource definitions
@@ -844,7 +848,15 @@ func configureCertificate(
 		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
 	}
 
-	dnsNames := []interface{}{*domainNameDefinition.Domain}
+	dnsNames := []interface{}{}
+	switch {
+	case gatewayDefinition.SubDomain != nil && *gatewayDefinition.SubDomain != "":
+		dnsNames = append(dnsNames, getSubDomain(gatewayDefinition, domainNameDefinition))
+	case domainNameDefinition.Domain != nil:
+		dnsNames = append(dnsNames, *domainNameDefinition.Domain)
+	default:
+		return nil, fmt.Errorf("failed to configure certificate, domain name definition domain is nil and no subdomain was provided")
+	}
 
 	// set dns names
 	err = unstructured.SetNestedSlice(certificate, dnsNames, "spec", "dnsNames")
@@ -910,14 +922,14 @@ func configureWorkloadResourceInstances(
 		}
 
 		// configure issuer manifest
-		issuer, err := configureIssuer(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, *domainNameDefinition)
+		issuer, err := configureIssuer(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, domainNameDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure issuer: %w", err)
 		}
 		jsonDefinitions = append(jsonDefinitions, issuer)
 
 		// configure certificate manifest
-		certificate, err := configureCertificate(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, *domainNameDefinition)
+		certificate, err := configureCertificate(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, domainNameDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure certificate: %w", err)
 		}

@@ -142,54 +142,55 @@ func reconcileCreatedOrUpdatedDomainNameInstance(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) error {
-
-	// validate threeport state
-	err := validateThreeportStateExternalDns(r, domainNameInstance, log)
-	if err != nil {
-		return fmt.Errorf("failed to validate threeport state: %w", err)
-	}
-
-	// get workload instance
-	workloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *domainNameInstance.WorkloadInstanceID)
-	if err != nil {
-		return fmt.Errorf("failed to get workload instance: %w", err)
-	}
-
-	// get domain name definition
-	domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *domainNameInstance.DomainNameDefinitionID)
-	if err != nil {
-		return fmt.Errorf("failed to get domain name definition: %w", err)
-	}
-
-	// configure virtual service
-	workloadResourceInstance, err := configureWorkloadResourceInstance(r, domainNameDefinition, workloadInstance)
-	if err != nil {
-		return fmt.Errorf("failed to configure virtual service: %w", err)
-	}
-
-	// update workload resource instance
-	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
-	if err != nil {
-		return fmt.Errorf("failed to create workload resource instance: %w", err)
-	}
-
-	// trigger a reconciliation of the workload instance
-	workloadInstanceReconciled := false
-	workloadInstance.Reconciled = &workloadInstanceReconciled
-	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
-	if err != nil {
-		return fmt.Errorf("failed to update workload instance: %w", err)
-	}
-
-	// mark domain name instance as reconciled
-	domainNameInstanceReconciled := true
-	domainNameInstance.Reconciled = &domainNameInstanceReconciled
-	_, err = client.UpdateDomainNameInstance(r.APIClient, r.APIServer, domainNameInstance)
-	if err != nil {
-		return fmt.Errorf("failed to update domain name instance: %w", err)
-	}
-
 	return nil
+
+	// // validate threeport state
+	// err := validateThreeportStateExternalDns(r, domainNameInstance, log)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to validate threeport state: %w", err)
+	// }
+
+	// // get workload instance
+	// workloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *domainNameInstance.WorkloadInstanceID)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get workload instance: %w", err)
+	// }
+
+	// // get domain name definition
+	// domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *domainNameInstance.DomainNameDefinitionID)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get domain name definition: %w", err)
+	// }
+
+	// // configure virtual service
+	// workloadResourceInstance, err := configureWorkloadResourceInstance(r, domainNameDefinition, workloadInstance)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to configure virtual service: %w", err)
+	// }
+
+	// // update workload resource instance
+	// _, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create workload resource instance: %w", err)
+	// }
+
+	// // trigger a reconciliation of the workload instance
+	// workloadInstanceReconciled := false
+	// workloadInstance.Reconciled = &workloadInstanceReconciled
+	// _, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to update workload instance: %w", err)
+	// }
+
+	// // mark domain name instance as reconciled
+	// domainNameInstanceReconciled := true
+	// domainNameInstance.Reconciled = &domainNameInstanceReconciled
+	// _, err = client.UpdateDomainNameInstance(r.APIClient, r.APIServer, domainNameInstance)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to update domain name instance: %w", err)
+	// }
+
+	// return nil
 }
 
 // validateThreeportStateExternalDns validates the state of the threeport API
