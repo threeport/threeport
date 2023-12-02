@@ -21,6 +21,7 @@ type GatewayDefinitionValues struct {
 	TLSEnabled           bool                       `yaml:"TLSEnabled"`
 	Path                 string                     `yaml:"Path"`
 	ServiceName          string                     `yaml:"ServiceName"`
+	SubDomain            string                     `yaml:"SubDomain"`
 	DomainNameDefinition DomainNameDefinitionValues `yaml:"DomainNameDefinition"`
 }
 
@@ -80,6 +81,7 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 		TCPPort:                &g.TCPPort,
 		TLSEnabled:             &g.TLSEnabled,
 		Path:                   &g.Path,
+		SubDomain:              &g.SubDomain,
 		ServiceName:            &g.ServiceName,
 		DomainNameDefinitionID: domainNameDefinition.ID,
 	}

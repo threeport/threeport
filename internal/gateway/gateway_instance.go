@@ -789,28 +789,20 @@ func configureIssuer(
 		return nil, fmt.Errorf("failed to get infra provider region for location: %w", err)
 	}
 
-	// configure solver based on infra provider
-	solver := []interface{}{}
-	switch *kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		solver = []interface{}{
-			map[string]interface{}{
-				"selector": map[string]interface{}{
-					"dnsZones": dnsZones,
-				},
-				"dns01": map[string]interface{}{
-					"route53": map[string]interface{}{
-						"region": infraProviderRegion,
-					},
-				},
+	solver := map[string]interface{}{
+		"selector": map[string]interface{}{
+			"dnsZones": dnsZones,
+		},
+		"dns01": map[string]interface{}{
+			"route53": map[string]interface{}{
+				"region": infraProviderRegion,
 			},
-		}
-	default:
-		return nil, errors.New("failed to configure issuer, unsupported infra provider")
+		},
 	}
 
 	// set solver
-	err = unstructured.SetNestedSlice(issuer, solver, "spec", "acme", "solvers")
+	solverList := []interface{}{solver}
+	err = unstructured.SetNestedSlice(issuer, solverList, "spec", "acme", "solvers")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set solvers on issuer: %w", err)
 	}

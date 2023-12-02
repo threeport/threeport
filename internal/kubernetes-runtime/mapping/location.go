@@ -1,6 +1,8 @@
 package mapping
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // RegionMap contains a threeport location with the corresponding regions for
 // cloud providers.
@@ -179,8 +181,10 @@ func GetProviderRegionForLocation(provider, location string) (string, error) {
 	for _, r := range *getRegionMap() {
 		if r.Location == location {
 			switch provider {
-			case "aws":
+			case "eks":
 				return r.AwsRegion, nil
+			case "kind":
+				return "us-east-1", nil
 			default:
 				msg := fmt.Sprintf("provider %s not supported", provider)
 				return "", &ProviderError{Message: msg}

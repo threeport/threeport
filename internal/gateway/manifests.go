@@ -145,7 +145,7 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 		virtualServiceName = *gatewayDefinition.Name
 	} else {
 		domainWithoutSchema := strings.TrimPrefix(domain, "www.")
-		domainList = []interface{}{domain, domainWithoutSchema}
+		domainList = []interface{}{domainWithoutSchema}
 		virtualServiceName = strcase.ToKebab(domainWithoutSchema)
 	}
 
@@ -157,6 +157,7 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 				"name":      getKebabDomain(domain) + "-tls",
 				"namespace": "default",
 			},
+			"sniDomains": domainList,
 		}
 	}
 

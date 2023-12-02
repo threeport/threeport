@@ -168,7 +168,7 @@ func createYAMLDocument(r *controller.Reconciler, gatewayDefinition *v0.GatewayD
 		}
 
 		// construct domain based on subdomain, if provided
-		if gatewayDefinition.SubDomain != nil {
+		if gatewayDefinition.SubDomain != nil && *gatewayDefinition.SubDomain != "" {
 			domain = fmt.Sprintf("%s.%s", *gatewayDefinition.SubDomain, *domainNameDefinition.Domain)
 		} else {
 			domain = *domainNameDefinition.Domain

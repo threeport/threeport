@@ -391,7 +391,7 @@ func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Clien
 	}
 
 	// construct AWS EKS kubernetes runtime instance object
-	region, err := mapping.GetProviderRegionForLocation("aws", aekri.Location)
+	region, err := mapping.GetProviderRegionForLocation("eks", aekri.Location)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get region for location %s: %w", aekri.Location, err)
 	}

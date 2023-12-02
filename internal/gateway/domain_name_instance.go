@@ -409,29 +409,29 @@ func configureWorkloadResourceInstance(
 		return nil, fmt.Errorf("failed to unmarshal service workload resource instance: %w", err)
 	}
 
-	// if domainNameDefinition is not passed in, set domains to default value
-	if domainNameDefinition == nil {
-		unstructured.SetNestedStringSlice(
-			virtualServiceUnmarshaled,
-			[]string{"*"},
-			"spec",
-			"virtualHost",
-			"domains",
-		)
-	} else {
-		// otherwise, set domain
+	// // if domainNameDefinition is not passed in, set domains to default value
+	// if domainNameDefinition == nil {
+	// 	unstructured.SetNestedStringSlice(
+	// 		virtualServiceUnmarshaled,
+	// 		[]string{"*"},
+	// 		"spec",
+	// 		"virtualHost",
+	// 		"domains",
+	// 	)
+	// } else {
+	// 	// otherwise, set domain
 
-		err = unstructured.SetNestedStringSlice(
-			virtualServiceUnmarshaled,
-			[]string{*domainNameDefinition.Domain},
-			"spec",
-			"virtualHost",
-			"domains",
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set virtual service name: %w", err)
-		}
-	}
+	// 	err = unstructured.SetNestedStringSlice(
+	// 		virtualServiceUnmarshaled,
+	// 		[]string{*domainNameDefinition.Domain},
+	// 		"spec",
+	// 		"virtualHost",
+	// 		"domains",
+	// 	)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("failed to set virtual service name: %w", err)
+	// 	}
+	// }
 
 	// marshal virtual service
 	virtualServiceMarshaled, err := util.MarshalJSON(virtualServiceUnmarshaled)

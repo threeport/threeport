@@ -343,6 +343,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			TLSEnabled:           w.Gateway.TLSEnabled,
 			Path:                 w.Gateway.Path,
 			ServiceName:          w.Gateway.ServiceName,
+			SubDomain:            w.Gateway.SubDomain,
 			DomainNameDefinition: domainNameDefinitionValues,
 		}
 		operations.AppendOperation(util.Operation{
