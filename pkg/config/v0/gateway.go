@@ -50,7 +50,7 @@ func (g *GatewayDefinitionValues) Validate() error {
 		multiError.AppendError(errors.New("missing required field in config: TCPPort"))
 	}
 
-	if g.DomainNameDefinition.Name == "" {
+	if g.DomainNameDefinition.Domain == "" {
 		multiError.AppendError(errors.New("missing required field in config: DomainNameDefinition.Name"))
 	}
 
@@ -68,7 +68,7 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 	}
 
 	// get domain name definition
-	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Domain)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +110,17 @@ func (g *GatewayDefinitionValues) Delete(apiClient *http.Client, apiEndpoint str
 
 	return deletedGatewayDefinition, nil
 }
+
+// // getDomainNameInstanceName returns the name of the domain name instance.
+// func (g *GatewayDefinitionValues) getGatewayName() string {
+// 	domain := ""
+// 	if g.SubDomain != "" {
+// 		domain = fmt.Sprintf("%s.%s", g.SubDomain, g.DomainNameDefinition.Domain)
+// 	} else {
+// 		domain = g.DomainNameDefinition.Domain
+// 	}
+// 	return fmt.Sprintf("%s-%s", g.ServiceName, strcase.ToKebab(domain))
+// }
 
 // Validate validates the gateway definition values.
 func (g *GatewayInstanceValues) Validate() error {

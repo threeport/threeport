@@ -302,7 +302,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 
 		// add domain name definition operation
 		domainNameDefinitionValues := DomainNameDefinitionValues{
-			Name:       w.DomainName.Name,
+			Domain:     w.DomainName.Domain,
 			Zone:       w.DomainName.Zone,
 			AdminEmail: w.DomainName.AdminEmail,
 		}

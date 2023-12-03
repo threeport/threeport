@@ -2,10 +2,13 @@ package v0
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
+	"github.com/iancoleman/strcase"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // DomainNameDefinitionConfig contains the config for a domain name definition.
@@ -16,7 +19,7 @@ type DomainNameDefinitionConfig struct {
 // DomainNameDefinitionValues contains the attributes needed to manage a domain
 // name definition.
 type DomainNameDefinitionValues struct {
-	Name       string `yaml:"Name"`
+	Domain     string `yaml:"Domain"`
 	Zone       string `yaml:"Zone"`
 	AdminEmail string `yaml:"AdminEmail"`
 }
@@ -38,12 +41,12 @@ type DomainNameInstanceValues struct {
 // API.
 func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
 	// validate required fields
-	if d.Name == "" || d.Zone == "" || d.AdminEmail == "" {
+	if d.Domain == "" || d.Zone == "" || d.AdminEmail == "" {
 		return nil, errors.New("missing required field/s in config - required fields: Name, Zone, AdminEmail")
 	}
 
 	// check if domain name definition exists
-	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Name)
+	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Domain)
 	if err == nil {
 		return existingDomainNameDefinition, nil
 	}
@@ -51,9 +54,9 @@ func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, ap
 	// construct domain name definition object
 	domainNameDefinition := v0.DomainNameDefinition{
 		Definition: v0.Definition{
-			Name: &d.Name,
+			Name: &d.Domain,
 		},
-		Domain:     &d.Name,
+		Domain:     &d.Domain,
 		Zone:       &d.Zone,
 		AdminEmail: &d.AdminEmail,
 	}
@@ -70,7 +73,7 @@ func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, ap
 // Delete deletes a domain name definition from the Threeport API.
 func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
 	// check if domain name definition exists
-	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Name)
+	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Domain)
 	if err != nil {
 		return nil, nil
 	}
@@ -85,10 +88,8 @@ func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint 
 
 // Create creates a domain name instance in the Threeport API.
 func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameInstance, error) {
-	// validate required fields
-	if d.DomainNameDefinition.Name == "" || d.WorkloadInstance.Name == "" ||
-		d.KubernetesRuntimeInstance.Name == "" {
-		return nil, errors.New("missing required field/s in config - required fields: DomainNameDefinition.Name, WorkloadInstance.Name, KubernetesRuntimeInstance.Name")
+	if err := d.Validate(); err != nil {
+		return nil, err
 	}
 
 	// get kubernetes runtime instance
@@ -104,7 +105,7 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	}
 
 	// get domain name definition
-	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.DomainNameDefinition.Name)
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.DomainNameDefinition.Domain)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +113,7 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	// construct domain name instance object
 	domainNameInstance := v0.DomainNameInstance{
 		Instance: v0.Instance{
-			Name: &d.DomainNameDefinition.Name,
+			Name: util.StringPtr(d.getDomainNameInstanceName()),
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadInstanceID:          workloadInstance.ID,
@@ -131,7 +132,7 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 // Delete deletes a domain name instance from the Threeport API.
 func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameInstance, error) {
 	// check if domain name definition exists
-	existingDomainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.DomainNameDefinition.Name)
+	existingDomainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.getDomainNameInstanceName())
 	if err != nil {
 		return nil, nil
 	}
@@ -142,4 +143,32 @@ func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint st
 	}
 
 	return deletedDomainNameInstance, nil
+}
+
+// getDomainNameInstanceName returns the name of the domain name instance.
+func (d *DomainNameInstanceValues) getDomainNameInstanceName() string {
+	return fmt.Sprintf("%s-%s-%s", d.WorkloadInstance.Name, d.KubernetesRuntimeInstance.Name, strcase.ToKebab(d.DomainNameDefinition.Domain),)
+}
+
+// Validate validates the domain name instance values.
+func (d *DomainNameInstanceValues) Validate() error {
+	multiError := util.MultiError{}
+
+	if d.DomainNameDefinition.Domain == "" {
+		multiError.AppendError(errors.New("missing required field in config: DomainNameDefinition.Name"))
+	}
+
+	if d.WorkloadInstance.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: WorklaodInstance.Name"))
+	}
+
+	if d.KubernetesRuntimeInstance.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
+	}
+
+	if len(multiError.Errors) > 0 {
+		return multiError.Error()
+	}
+
+	return nil
 }

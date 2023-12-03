@@ -90,34 +90,34 @@ func domainNameInstanceDeleted(
 		return 0, nil
 	}
 
-	// get domain name definition
-	domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *domainNameInstance.DomainNameDefinitionID)
-	if err != nil {
-		log.Error(err, "failed to get domain name definition")
-		return 0, nil
-	}
+	// // get domain name definition
+	// domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *domainNameInstance.DomainNameDefinitionID)
+	// if err != nil {
+	// 	log.Error(err, "failed to get domain name definition")
+	// 	return 0, nil
+	// }
 
-	// configure virtual service
-	virtualService, err := configureWorkloadResourceInstance(r, domainNameDefinition, workloadInstance)
-	if err != nil {
-		if errors.Is(err, client.ErrorObjectNotFound) {
-			// workload resource instance has already been deleted
-			return 0, nil
-		}
-		log.Error(err, "failed to configure virtual service")
-		return 0, nil
-	}
+	// // configure virtual service
+	// virtualService, err := configureWorkloadResourceInstance(r, domainNameDefinition, workloadInstance)
+	// if err != nil {
+	// 	if errors.Is(err, client.ErrorObjectNotFound) {
+	// 		// workload resource instance has already been deleted
+	// 		return 0, nil
+	// 	}
+	// 	log.Error(err, "failed to configure virtual service")
+	// 	return 0, nil
+	// }
 
-	// update workload resource instance
-	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, virtualService)
-	if err != nil {
-		if errors.Is(err, client.ErrorObjectNotFound) {
-			// workload resource instance has already been deleted
-			return 0, nil
-		}
-		log.Error(err, "failed to create workload resource instance")
-		return 0, nil
-	}
+	// // update workload resource instance
+	// _, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, virtualService)
+	// if err != nil {
+	// 	if errors.Is(err, client.ErrorObjectNotFound) {
+	// 		// workload resource instance has already been deleted
+	// 		return 0, nil
+	// 	}
+	// 	log.Error(err, "failed to create workload resource instance")
+	// 	return 0, nil
+	// }
 
 	// trigger a reconciliation of the workload instance
 	workloadInstanceReconciled := false
@@ -142,13 +142,14 @@ func reconcileCreatedOrUpdatedDomainNameInstance(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) error {
-	return nil
 
-	// // validate threeport state
-	// err := validateThreeportStateExternalDns(r, domainNameInstance, log)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to validate threeport state: %w", err)
-	// }
+	// validate threeport state
+	err := validateThreeportStateExternalDns(r, domainNameInstance, log)
+	if err != nil {
+		return fmt.Errorf("failed to validate threeport state: %w", err)
+	}
+
+	return nil
 
 	// // get workload instance
 	// workloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, *domainNameInstance.WorkloadInstanceID)
@@ -353,15 +354,29 @@ func confirmDnsControllerDeployed(
 
 	// create external dns controller workload definition
 	createdWorkloadDef, err := client.CreateWorkloadDefinition(r.APIClient, r.APIServer, &externalDnsWorkloadDefinition)
-	if err != nil {
+	if err != nil && !errors.Is(err, client.ErrConflict) {
 		return fmt.Errorf("failed to create external dns controller workload definition: %w", err)
+	}
+
+	// get external dns controller workload definition id
+	var externalDnsWorkloadDefinitionId *uint
+	if !errors.Is(err, client.ErrConflict) {
+		externalDnsWorkloadDefinitionId = createdWorkloadDef.ID
+	} else {
+		existingWorkloadDef, err := client.GetWorkloadDefinitionByName(r.APIClient, r.APIServer, workloadDefName)
+		if err != nil {
+			return fmt.Errorf("failed to get existing workload definition: %w", err)
+		}
+		externalDnsWorkloadDefinitionId = existingWorkloadDef.ID
 	}
 
 	// create external dns workload instance
 	externalDnsWorkloadInstance := v0.WorkloadInstance{
-		Instance:                    v0.Instance{Name: &workloadDefName},
+		Instance: v0.Instance{
+			Name: util.StringPtr(fmt.Sprintf("%s-%s", workloadDefName, *kubernetesRuntimeInstance.Name)),
+		},
 		KubernetesRuntimeInstanceID: domainNameInstance.KubernetesRuntimeInstanceID,
-		WorkloadDefinitionID:        createdWorkloadDef.ID,
+		WorkloadDefinitionID:        externalDnsWorkloadDefinitionId,
 	}
 	createdExternalDnsWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
 	if err != nil {
