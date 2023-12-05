@@ -11,6 +11,7 @@ import (
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // AwsAccountConfig contains the config for an AWS account.
@@ -391,7 +392,7 @@ func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Clien
 	}
 
 	// construct AWS EKS kubernetes runtime instance object
-	region, err := mapping.GetProviderRegionForLocation("eks", aekri.Location)
+	region, err := mapping.GetProviderRegionForLocation(util.AwsProvider, aekri.Location)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get region for location %s: %w", aekri.Location, err)
 	}
