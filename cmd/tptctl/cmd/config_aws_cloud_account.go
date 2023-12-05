@@ -29,6 +29,7 @@ var providerRegion string
 var roleName string
 var awsAccountId string
 var defaultAccount bool
+var externalRoleName string
 
 // ConfigCurrentInstanceCmd represents the current-instance command
 var ConfigAwsCloudAccountCmd = &cobra.Command{
@@ -105,6 +106,11 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// if external role name is not provided, generate it
+		if externalRoleName == "" {
+			externalRoleName = provider.GetResourceManagerRoleName(requestedControlPlane)
+		}
+
 		// create resource manager role
 		role, err := provider.CreateResourceManagerRole(
 			builder_iam.CreateIamTags(
@@ -112,8 +118,9 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 				map[string]string{},
 			),
 			roleName,
+			*callerIdentity.Account,
 			awsAccountId,
-			provider.GetResourceManagerRoleName(requestedControlPlane),
+			externalRoleName,
 			*createdAwsAccount.ExternalId,
 			false,
 			true,
@@ -125,11 +132,6 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			_, err = client.DeleteAwsAccount(apiClient, apiEndpoint, *createdAwsAccount.ID)
 			if err != nil {
 				cli.Error("failed to delete aws account", err)
-			}
-
-			err = provider.DeleteResourceManagerRole(roleName, *awsConf)
-			if err != nil {
-				cli.Error("failed to delete threeport role", err)
 			}
 			os.Exit(1)
 		}
@@ -182,6 +184,12 @@ func init() {
 		"runtime-manager-role-name",
 		"",
 		fmt.Sprintf("The name of the runtime manager role to create. Defaults to %s-<instance-name>", provider.ResourceManagerRoleName),
+	)
+	ConfigAwsCloudAccountCmd.Flags().StringVar(
+		&externalRoleName,
+		"external-runtime-manager-role-name",
+		"",
+		fmt.Sprintf("The name of the external runtime manager role to allow access into this account. Defaults to %s-<instance-name>", provider.ResourceManagerRoleName),
 	)
 	ConfigAwsCloudAccountCmd.Flags().StringVar(
 		&awsAccountId,

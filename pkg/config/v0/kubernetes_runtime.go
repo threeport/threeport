@@ -11,12 +11,6 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
-// defaultKubernetesRuntimeInstanceName generates a kubernetes runtime instance name for when the
-// kubernetes runtime abstraction is used to create it.
-func defaultKubernetesRuntimeInstanceName(name string) string {
-	return fmt.Sprintf("%s-0", name)
-}
-
 // KubernetesRuntimeConfig contains the config for a kubernetes runtime which is an abstraction of
 // a kubernetes runtime definition and kubernetes runtime instance.
 type KubernetesRuntimeConfig struct {
@@ -81,7 +75,7 @@ func (kr *KubernetesRuntimeValues) Create(apiClient *http.Client, apiEndpoint st
 
 	// create the kubernetes runtime instance
 	kubernetesRuntimeInstance := KubernetesRuntimeInstanceValues{
-		Name:                      defaultKubernetesRuntimeInstanceName(kr.Name),
+		Name:                      kr.Name,
 		Location:                  kr.Location,
 		ThreeportControlPlaneHost: false,
 		DefaultRuntime:            kr.DefaultRuntime,
@@ -101,7 +95,7 @@ func (kr *KubernetesRuntimeValues) Create(apiClient *http.Client, apiEndpoint st
 // Delete deletes a kubernetes runtime definition and instance from the Threeport API.
 func (kr *KubernetesRuntimeValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.KubernetesRuntimeDefinition, *v0.KubernetesRuntimeInstance, error) {
 	// get kubernetes runtime instance by name
-	kubernetesRuntimeInstName := defaultKubernetesRuntimeInstanceName(kr.Name)
+	kubernetesRuntimeInstName := kr.Name
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, kubernetesRuntimeInstName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", kubernetesRuntimeInstName, err)

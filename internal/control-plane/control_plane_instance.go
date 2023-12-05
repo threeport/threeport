@@ -197,6 +197,7 @@ func controlPlaneInstanceCreated(
 			*callerIdentity.Account,
 			"",
 			"",
+			"",
 			true,
 			false, // don't attach internal resource manager policy
 			awsConfigResourceManager,

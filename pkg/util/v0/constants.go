@@ -6,4 +6,7 @@ const (
 	// this is used in internal/provider and pkg/threeport-installer to configure
 	// the AWS role session name used for cross-account access to AWS resources
 	AwsResourceManagerRoleSessionName = "threeport-control-plane"
+
+	// used to query GetProviderRegionForLocation to determine the AWS region
+	AwsProvider = "aws"
 )

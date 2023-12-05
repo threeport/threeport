@@ -49,7 +49,7 @@ func kubernetesRuntimeInstanceCreated(
 		}
 
 		// add AWS EKS runtime instance
-		region, err := mapping.GetProviderRegionForLocation("aws", *kubernetesRuntimeInstance.Location)
+		region, err := mapping.GetProviderRegionForLocation(util.AwsProvider, *kubernetesRuntimeInstance.Location)
 		if err != nil {
 			return 0, fmt.Errorf("failed to map threeport location to AWS region: %w", err)
 		}

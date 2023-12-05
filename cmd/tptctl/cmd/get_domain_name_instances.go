@@ -42,7 +42,7 @@ var GetDomainNameInstancesCmd = &cobra.Command{
 			os.Exit(0)
 		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "NAME\t GATEWAY DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
+		fmt.Fprintln(writer, "NAME\t DOMAIN NAME DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
 		metadataErr := false
 		var domainNameDefErr error
 		var kubernetesRuntimeInstErr error

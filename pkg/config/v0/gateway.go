@@ -21,6 +21,7 @@ type GatewayDefinitionValues struct {
 	TLSEnabled           bool                       `yaml:"TLSEnabled"`
 	Path                 string                     `yaml:"Path"`
 	ServiceName          string                     `yaml:"ServiceName"`
+	SubDomain            string                     `yaml:"SubDomain"`
 	DomainNameDefinition DomainNameDefinitionValues `yaml:"DomainNameDefinition"`
 }
 
@@ -49,7 +50,7 @@ func (g *GatewayDefinitionValues) Validate() error {
 		multiError.AppendError(errors.New("missing required field in config: TCPPort"))
 	}
 
-	if g.DomainNameDefinition.Name == "" {
+	if g.DomainNameDefinition.Domain == "" {
 		multiError.AppendError(errors.New("missing required field in config: DomainNameDefinition.Name"))
 	}
 
@@ -67,7 +68,7 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 	}
 
 	// get domain name definition
-	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Domain)
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +81,7 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 		TCPPort:                &g.TCPPort,
 		TLSEnabled:             &g.TLSEnabled,
 		Path:                   &g.Path,
+		SubDomain:              &g.SubDomain,
 		ServiceName:            &g.ServiceName,
 		DomainNameDefinitionID: domainNameDefinition.ID,
 	}

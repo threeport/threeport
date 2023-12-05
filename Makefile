@@ -15,9 +15,17 @@ install-codegen:
 build-tptdev:
 	go build -o bin/tptdev cmd/tptdev/main.go
 
+#install-tptdev: @ Install tptctl binary
+install-tptdev: build-tptdev
+	sudo cp ./bin/tptdev /usr/local/bin/tptdev
+
 #build-tptctl: @ Build tptctl binary
 build-tptctl:
 	go build -o bin/tptctl cmd/tptctl/main.go
+
+#install-tptctl: @ Install tptctl binary
+install-tptctl: build-tptctl
+	sudo cp ./bin/tptctl /usr/local/bin/tptctl
 
 ## code generation
 
