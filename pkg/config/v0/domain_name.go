@@ -172,7 +172,7 @@ func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint st
 
 // getDomainNameInstanceName returns the name of the domain name instance.
 func (d *DomainNameInstanceValues) getDomainNameInstanceName() string {
-	return fmt.Sprintf("%s-%s-%s", d.WorkloadInstance.Name, d.KubernetesRuntimeInstance.Name, strcase.ToKebab(d.DomainNameDefinition.Domain))
+	return fmt.Sprintf("%s-%s", d.WorkloadInstance.Name, strcase.ToKebab(d.DomainNameDefinition.Domain))
 }
 
 // Validate validates the domain name instance values.
