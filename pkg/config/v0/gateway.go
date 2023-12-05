@@ -111,17 +111,6 @@ func (g *GatewayDefinitionValues) Delete(apiClient *http.Client, apiEndpoint str
 	return deletedGatewayDefinition, nil
 }
 
-// // getDomainNameInstanceName returns the name of the domain name instance.
-// func (g *GatewayDefinitionValues) getGatewayName() string {
-// 	domain := ""
-// 	if g.SubDomain != "" {
-// 		domain = fmt.Sprintf("%s.%s", g.SubDomain, g.DomainNameDefinition.Domain)
-// 	} else {
-// 		domain = g.DomainNameDefinition.Domain
-// 	}
-// 	return fmt.Sprintf("%s-%s", g.ServiceName, strcase.ToKebab(domain))
-// }
-
 // Validate validates the gateway definition values.
 func (g *GatewayInstanceValues) Validate() error {
 	multiError := util.MultiError{}
