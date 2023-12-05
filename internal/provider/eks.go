@@ -546,7 +546,7 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 	// default identity service to iam
 	identityService := "iam"
 
-	// add statement for allowing all roles within an account to access this one
+	// add default statement for allowing all entities within current account to assume this one
 	statements = append(statements, getAllowAccountAccessStatement(identityService, accountId, accountEntity))
 
 	//  if role name is provided, set identity service to sts
