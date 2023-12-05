@@ -144,9 +144,11 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 		domainList = []interface{}{"*"}
 		virtualServiceName = *gatewayDefinition.Name
 	} else {
-		domainWithoutSchema := strings.TrimPrefix(domain, "www.")
-		domainList = []interface{}{domainWithoutSchema}
-		virtualServiceName = strcase.ToKebab(domainWithoutSchema)
+		cleanedDomain := strings.TrimPrefix(domain, "http://")
+		cleanedDomain = strings.TrimPrefix(cleanedDomain, "https://")
+		cleanedDomain = strings.TrimPrefix(cleanedDomain, "www.")
+		domainList = []interface{}{cleanedDomain}
+		virtualServiceName = strcase.ToKebab(cleanedDomain)
 	}
 
 	sslConfig := map[string]interface{}{}
