@@ -1,8 +1,6 @@
 package mapping
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // RegionMap contains a threeport location with the corresponding regions for
 // cloud providers.
