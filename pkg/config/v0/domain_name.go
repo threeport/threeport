@@ -42,8 +42,8 @@ type DomainNameInstanceValues struct {
 // API.
 func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
 	// validate required fields
-	if d.Domain == "" || d.Zone == "" || d.AdminEmail == "" {
-		return nil, errors.New("missing required field/s in config - required fields: Name, Zone, AdminEmail")
+	if err := d.Validate(); err != nil {
+		return nil, err
 	}
 
 	// check if domain name definition exists
@@ -69,6 +69,30 @@ func (d *DomainNameDefinitionValues) CreateIfNotExist(apiClient *http.Client, ap
 	}
 
 	return createdDomainNameDefinition, nil
+}
+
+// Validate validates the domain name definition values.
+func (d *DomainNameDefinitionValues) Validate() error {
+
+	multiError := util.MultiError{}
+
+	if d.Domain == "" {
+		multiError.AppendError(errors.New("missing required field in config: Domain"))
+	}
+
+	if d.Zone == "" {
+		multiError.AppendError(errors.New("missing required field in config: Zone"))
+	}
+
+	if d.AdminEmail == "" {
+		multiError.AppendError(errors.New("missing required field in config: AdminEmail"))
+	}
+
+	if len(multiError.Errors) > 0 {
+		return multiError.Error()
+	}
+
+	return nil
 }
 
 // Delete deletes a domain name definition from the Threeport API.
