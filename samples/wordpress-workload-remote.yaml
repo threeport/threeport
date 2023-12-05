@@ -13,4 +13,13 @@ Workload:
     StorageGb: 20
     MachineSize: XSmall
     WorkloadSecretName: wordpress-db-conn
-
+  DomainName:
+    Domain: example.com
+    Zone: Public
+    AdminEmail: admin@example.com
+  Gateway:
+    TCPPort: 443
+    Path: /
+    TLSEnabled: true
+    ServiceName: prestashop
+    SubDomain: subdomain

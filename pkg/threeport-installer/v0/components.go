@@ -1370,7 +1370,7 @@ func (cpi *ControlPlaneInstaller) getDelveArgs(name string) []string {
 	}
 
 	args = append(args, "exec")
-	args = append(args, fmt.Sprintf("/threeport-%s", name))
+	args = append(args, fmt.Sprintf("/%s", name))
 	return args
 }
 

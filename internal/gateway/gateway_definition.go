@@ -167,9 +167,17 @@ func createYAMLDocument(r *controller.Reconciler, gatewayDefinition *v0.GatewayD
 			return "", fmt.Errorf("failed to get domain name definition by ID: %w", err)
 		}
 
-		domain = *domainNameDefinition.Domain
-		adminEmail = *domainNameDefinition.AdminEmail
+		// construct domain based on subdomain, if provided
+		switch {
+		case gatewayDefinition.SubDomain != nil && *gatewayDefinition.SubDomain != "":
+			domain = getSubDomain(gatewayDefinition, domainNameDefinition)
+		case domainNameDefinition != nil:
+			domain = *domainNameDefinition.Domain
+		default:
+			return "", fmt.Errorf("failed to create domain, domain name definition is nil")
+		}
 
+		adminEmail = *domainNameDefinition.AdminEmail
 	}
 
 	// create Gloo virtual service definition

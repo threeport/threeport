@@ -11,6 +11,7 @@ import (
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -461,17 +462,31 @@ func confirmGatewayControllerDeployed(
 		YAMLDocument: &manifest,
 	}
 
-	// create gateway controller workload definition
+	// ensure gateway controller workload definition exists
 	createdWorkloadDef, err := client.CreateWorkloadDefinition(r.APIClient, r.APIServer, &glooEdgeWorkloadDefinition)
-	if err != nil {
+	if err != nil && !errors.Is(err, client.ErrConflict) {
 		return fmt.Errorf("failed to create gateway controller workload definition: %w", err)
+	}
+
+	// get gateway controller workload definition id
+	var glooEdgeWorkloadDefinitionId *uint
+	if !errors.Is(err, client.ErrConflict) {
+		glooEdgeWorkloadDefinitionId = createdWorkloadDef.ID
+	} else {
+		existingWorkloadDef, err := client.GetWorkloadDefinitionByName(r.APIClient, r.APIServer, workloadDefName)
+		if err != nil {
+			return fmt.Errorf("failed to get existing workload definition: %w", err)
+		}
+		glooEdgeWorkloadDefinitionId = existingWorkloadDef.ID
 	}
 
 	// create gateway workload instance
 	glooEdgeWorkloadInstance := v0.WorkloadInstance{
-		Instance:                    v0.Instance{Name: &workloadDefName},
+		Instance: v0.Instance{
+			Name: util.StringPtr(fmt.Sprintf("%s-%s", workloadDefName, *kubernetesRuntimeInstance.Name)),
+		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		WorkloadDefinitionID:        createdWorkloadDef.ID,
+		WorkloadDefinitionID:        glooEdgeWorkloadDefinitionId,
 	}
 	createdGlooEdgeWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &glooEdgeWorkloadInstance)
 	if err != nil {
@@ -737,13 +752,18 @@ func configureVirtualService(
 
 }
 
+// getSubDomain returns the subdomain for a gateway definition and domain name definition
+func getSubDomain(gatewayDefinition *v0.GatewayDefinition, domainNameDefinition *v0.DomainNameDefinition) string {
+	return fmt.Sprintf("%s.%s", *gatewayDefinition.SubDomain, *domainNameDefinition.Domain)
+}
+
 // configureIssuer configures an Issuer custom resource.
 func configureIssuer(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	domainNameDefinition v0.DomainNameDefinition,
+	domainNameDefinition *v0.DomainNameDefinition,
 ) (*datatypes.JSON, error) {
 
 	// get gateway workload resource definitions
@@ -765,23 +785,51 @@ func configureIssuer(
 		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
 	}
 
-	// set solver
-	solver := []interface{}{
-		map[string]interface{}{
-			"selector": map[string]interface{}{
-				"dnsZones": []interface{}{
-					*domainNameDefinition.Domain,
-				},
-			},
-			"dns01": map[string]interface{}{
-				"route53": map[string]interface{}{
-					"region": "us-east-1",
-				},
+	// add domain to list of dns zones
+	var dnsZones = []interface{}{
+		*domainNameDefinition.Domain,
+	}
+
+	// if a subdomain is provided, append it to the list of dns zones
+	if gatewayDefinition.SubDomain != nil && *gatewayDefinition.SubDomain != "" {
+		dnsZones = append(dnsZones, getSubDomain(gatewayDefinition, domainNameDefinition))
+	}
+
+	// get kubernetes runtime definition
+	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime definition by kubernetes runtime definition ID: %w", err)
+	}
+
+	// get infra provider region
+	var provider string
+	switch *kubernetesRuntimeDefinition.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		provider = util.AwsProvider
+	case v0.KubernetesRuntimeInfraProviderKind:
+		provider = util.AwsProvider // default to AWS values for testing purposes
+	default:
+		return nil, fmt.Errorf("failed to get provider, infra provider %s not supported", *kubernetesRuntimeDefinition.InfraProvider)
+	}
+	infraProviderRegion, err := mapping.GetProviderRegionForLocation(provider, *kubernetesRuntimeInstance.Location)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get infra provider region for location: %w", err)
+	}
+
+	solver := map[string]interface{}{
+		"selector": map[string]interface{}{
+			"dnsZones": dnsZones,
+		},
+		"dns01": map[string]interface{}{
+			"route53": map[string]interface{}{
+				"region": infraProviderRegion,
 			},
 		},
 	}
 
-	err = unstructured.SetNestedSlice(issuer, solver, "spec", "acme", "solvers")
+	// set solver
+	solverList := []interface{}{solver}
+	err = unstructured.SetNestedSlice(issuer, solverList, "spec", "acme", "solvers")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set solvers on issuer: %w", err)
 	}
@@ -801,7 +849,7 @@ func configureCertificate(
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	domainNameDefinition v0.DomainNameDefinition,
+	domainNameDefinition *v0.DomainNameDefinition,
 ) (*datatypes.JSON, error) {
 
 	// get gateway workload resource definitions
@@ -823,7 +871,15 @@ func configureCertificate(
 		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
 	}
 
-	dnsNames := []interface{}{*domainNameDefinition.Domain}
+	dnsNames := []interface{}{}
+	switch {
+	case gatewayDefinition.SubDomain != nil && *gatewayDefinition.SubDomain != "":
+		dnsNames = append(dnsNames, getSubDomain(gatewayDefinition, domainNameDefinition))
+	case domainNameDefinition.Domain != nil:
+		dnsNames = append(dnsNames, *domainNameDefinition.Domain)
+	default:
+		return nil, fmt.Errorf("failed to configure certificate, domain name definition domain is nil and no subdomain was provided")
+	}
 
 	// set dns names
 	err = unstructured.SetNestedSlice(certificate, dnsNames, "spec", "dnsNames")
@@ -889,14 +945,14 @@ func configureWorkloadResourceInstances(
 		}
 
 		// configure issuer manifest
-		issuer, err := configureIssuer(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, *domainNameDefinition)
+		issuer, err := configureIssuer(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, domainNameDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure issuer: %w", err)
 		}
 		jsonDefinitions = append(jsonDefinitions, issuer)
 
 		// configure certificate manifest
-		certificate, err := configureCertificate(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, *domainNameDefinition)
+		certificate, err := configureCertificate(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, domainNameDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure certificate: %w", err)
 		}

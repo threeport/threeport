@@ -118,6 +118,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 				map[string]string{},
 			),
 			roleName,
+			*callerIdentity.Account,
 			awsAccountId,
 			externalRoleName,
 			*createdAwsAccount.ExternalId,
