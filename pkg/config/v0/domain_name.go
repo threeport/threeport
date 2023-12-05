@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/iancoleman/strcase"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -147,7 +148,7 @@ func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint st
 
 // getDomainNameInstanceName returns the name of the domain name instance.
 func (d *DomainNameInstanceValues) getDomainNameInstanceName() string {
-	return fmt.Sprintf("%s-%s-%s", d.WorkloadInstance.Name, d.KubernetesRuntimeInstance.Name, strcase.ToKebab(d.DomainNameDefinition.Domain),)
+	return fmt.Sprintf("%s-%s-%s", d.WorkloadInstance.Name, d.KubernetesRuntimeInstance.Name, strcase.ToKebab(d.DomainNameDefinition.Domain))
 }
 
 // Validate validates the domain name instance values.
