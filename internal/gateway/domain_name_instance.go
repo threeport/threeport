@@ -12,6 +12,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -233,11 +234,25 @@ func confirmDnsControllerDeployed(
 		return fmt.Errorf("failed to create external dns controller workload definition: %w", err)
 	}
 
+	// get external dns controller workload definition id
+	var externalDnsWorkloadDefinitionId *uint
+	if !errors.Is(err, client.ErrConflict) {
+		externalDnsWorkloadDefinitionId = createdWorkloadDef.ID
+	} else {
+		existingWorkloadDef, err := client.GetWorkloadDefinitionByName(r.APIClient, r.APIServer, workloadDefName)
+		if err != nil {
+			return fmt.Errorf("failed to get existing workload definition: %w", err)
+		}
+		externalDnsWorkloadDefinitionId = existingWorkloadDef.ID
+	}
+
 	// create external dns workload instance
 	externalDnsWorkloadInstance := v0.WorkloadInstance{
-		Instance:                    v0.Instance{Name: &workloadDefName},
+		Instance: v0.Instance{
+			Name: util.StringPtr(fmt.Sprintf("%s-%s", workloadDefName, *kubernetesRuntimeInstance.Name)),
+		},
 		KubernetesRuntimeInstanceID: domainNameInstance.KubernetesRuntimeInstanceID,
-		WorkloadDefinitionID:        createdWorkloadDef.ID,
+		WorkloadDefinitionID:        externalDnsWorkloadDefinitionId,
 	}
 	createdExternalDnsWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
 	if err != nil {
