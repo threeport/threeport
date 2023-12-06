@@ -950,7 +950,7 @@ func (cc *ControllerConfig) ExtensionReconcilers() error {
 									"deleted%s",
 									obj,
 								)).Op(":=").Qual(
-									"github.com/threeport/threeport/pkg/api/v0",
+									"github.com/qleet/qleetport/pkg/api/v0",
 									obj,
 								).Values(Dict{
 									Id("Common"): Qual(
@@ -978,7 +978,7 @@ func (cc *ControllerConfig) ExtensionReconcilers() error {
 								),
 
 								Id("_").Op(",").Id("err").Op("=").Qual(
-									"github.com/threeport/threeport/pkg/client/v0",
+									"github.com/qleet/qleetport/pkg/client/v0",
 									fmt.Sprintf("Update%s", obj),
 								).Call(
 									Line().Id("r").Dot("APIClient"),
@@ -999,7 +999,7 @@ func (cc *ControllerConfig) ExtensionReconcilers() error {
 								),
 
 								Id("_").Op(",").Id("err").Op("=").Qual(
-									"github.com/threeport/threeport/pkg/client/v0",
+									"github.com/qleet/qleetport/pkg/client/v0",
 									fmt.Sprintf("Delete%s", obj),
 								).Call(
 									Line().Id("r").Dot("APIClient"),
