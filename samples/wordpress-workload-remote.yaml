@@ -1,8 +1,6 @@
 Workload:
   Name: "wordpress"
-  YAMLDocument: "wordpress-no-db-manifest.yaml"
-  KubernetesRuntimeInstance:
-    Name: eks-remote-0
+  YAMLDocument: "wordpress-manifest-remote.yaml"
   AwsRelationalDatabase:
     Name: wordpress-db
     AwsAccountName: default-account
@@ -14,12 +12,13 @@ Workload:
     MachineSize: XSmall
     WorkloadSecretName: wordpress-db-conn
   DomainName:
-    Domain: example.com
+    Domain: example.com             # update this value
     Zone: Public
-    AdminEmail: admin@example.com
+    AdminEmail: admin@example.com   # update this value
   Gateway:
     TCPPort: 443
     Path: /
     TLSEnabled: true
-    ServiceName: prestashop
-    SubDomain: subdomain
+    ServiceName: getting-started-wordpress
+    SubDomain: www
+
