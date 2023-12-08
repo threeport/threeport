@@ -23,6 +23,7 @@ import (
 
 var disable bool
 var liveReload bool
+var authEnabled bool
 var debugComponentNames string
 var kubeconfigPath string
 var controlPlaneNamespace string
@@ -55,7 +56,7 @@ var DebugCmd = &cobra.Command{
 		cpi.Opts.Debug = !disable
 		cpi.Opts.LiveReload = liveReload
 		cpi.Opts.DevEnvironment = false
-		cpi.Opts.AuthEnabled = false
+		cpi.Opts.AuthEnabled = authEnabled
 		cpi.Opts.Namespace = controlPlaneNamespace
 
 		kubeconfigPath := flag.String("kubeconfig", filepath.Join(homedir.HomeDir(), ".kube", "config"), "path to your kubeconfig file")
@@ -149,6 +150,10 @@ func init() {
 	DebugCmd.Flags().BoolVar(
 		&cliArgs.Verbose,
 		"verbose", false, "Enable verbose logging in control plane components, delve, and cli logs.",
+	)
+	DebugCmd.Flags().BoolVar(
+		&authEnabled,
+		"auth-enabled", false, "Specify if auth is enabled on target control plane.",
 	)
 	DebugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
