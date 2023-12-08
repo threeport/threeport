@@ -36,12 +36,29 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	infraProvider string,
+	infraProvider,
+	encryptionKey string,
 ) error {
-	crdbVolClaimTemplateSpec := cpi.getVolClaimTemplateSpec(infraProvider)
-
 	if err := cpi.CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
+	}
+
+	var encryptionSecret = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "encryption-key",
+				"namespace": cpi.Opts.Namespace,
+			},
+			"stringData": map[string]interface{}{
+				"ENCRYPTION_KEY": encryptionKey,
+			},
+		},
+	}
+
+	if err := cpi.CreateOrUpdateKubeResource(encryptionSecret, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
 
 	var natsPDB = &unstructured.Unstructured{
@@ -612,6 +629,7 @@ store_dir: /data
 		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
+	crdbVolClaimTemplateSpec := cpi.getVolClaimTemplateSpec(infraProvider)
 	var crdbStatefulSet = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"kind":       "StatefulSet",

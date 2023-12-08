@@ -57,7 +57,6 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	encryptionKey string,
 ) error {
 	apiImage := cpi.getImage(cpi.Opts.RestApiInfo.Name, cpi.Opts.RestApiInfo.ImageName, cpi.Opts.RestApiInfo.ImageRepo, cpi.Opts.RestApiInfo.ImageTag)
 	apiArgs := cpi.getAPIArgs()
@@ -115,24 +114,6 @@ NATS_PORT=4222
 	}
 	if err := cpi.CreateOrUpdateKubeResource(apiSecret, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
-	}
-
-	var encryptionSecret = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"metadata": map[string]interface{}{
-				"name":      "encryption-key",
-				"namespace": cpi.Opts.Namespace,
-			},
-			"stringData": map[string]interface{}{
-				"ENCRYPTION_KEY": encryptionKey,
-			},
-		},
-	}
-
-	if err := cpi.CreateOrUpdateKubeResource(encryptionSecret, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
 
 	var apiDeployment = &unstructured.Unstructured{
