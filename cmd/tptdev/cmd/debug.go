@@ -59,10 +59,7 @@ var DebugCmd = &cobra.Command{
 		cpi.Opts.AuthEnabled = authEnabled
 		cpi.Opts.Namespace = controlPlaneNamespace
 
-		kubeconfigPath := flag.String("kubeconfig", filepath.Join(homedir.HomeDir(), ".kube", "config"), "path to your kubeconfig file")
-		flag.Parse()
-
-		restConfig, err := clientcmd.BuildConfigFromFlags("", *kubeconfigPath)
+		restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 		if err != nil {
 			fmt.Printf("Error loading kubeconfig: %v\n", err)
 			os.Exit(1)
