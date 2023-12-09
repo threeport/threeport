@@ -12,7 +12,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -69,7 +68,6 @@ func domainNameInstanceDeleted(
 ) (int64, error) {
 	return 0, nil
 }
-
 
 // validateThreeportStateExternalDns validates the state of the threeport API
 // prior to reconciling a domain name instance.
@@ -223,7 +221,7 @@ func confirmDnsControllerDeployed(
 	}
 
 	// create gateway controller workload definition
-	workloadDefName := "external-dns"
+	workloadDefName := fmt.Sprintf("%s-%s", "external-dns", *kubernetesRuntimeInstance.Name)
 	externalDnsWorkloadDefinition := v0.WorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
 		YAMLDocument: &externalDnsManifest,
@@ -235,25 +233,11 @@ func confirmDnsControllerDeployed(
 		return fmt.Errorf("failed to create external dns controller workload definition: %w", err)
 	}
 
-	// get external dns controller workload definition id
-	var externalDnsWorkloadDefinitionId *uint
-	if !errors.Is(err, client.ErrConflict) {
-		externalDnsWorkloadDefinitionId = createdWorkloadDef.ID
-	} else {
-		existingWorkloadDef, err := client.GetWorkloadDefinitionByName(r.APIClient, r.APIServer, workloadDefName)
-		if err != nil {
-			return fmt.Errorf("failed to get existing workload definition: %w", err)
-		}
-		externalDnsWorkloadDefinitionId = existingWorkloadDef.ID
-	}
-
 	// create external dns workload instance
 	externalDnsWorkloadInstance := v0.WorkloadInstance{
-		Instance: v0.Instance{
-			Name: util.StringPtr(fmt.Sprintf("%s-%s", workloadDefName, *kubernetesRuntimeInstance.Name)),
-		},
+		Instance:                    v0.Instance{Name: &workloadDefName},
 		KubernetesRuntimeInstanceID: domainNameInstance.KubernetesRuntimeInstanceID,
-		WorkloadDefinitionID:        externalDnsWorkloadDefinitionId,
+		WorkloadDefinitionID:        createdWorkloadDef.ID,
 	}
 	createdExternalDnsWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
 	if err != nil {

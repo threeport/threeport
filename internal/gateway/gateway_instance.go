@@ -456,37 +456,23 @@ func confirmGatewayControllerDeployed(
 	manifest := fmt.Sprintf("---\n%s\n---\n%s\n---\n%s\n", supportServicesCollection, certManager, glooEdge)
 
 	// create gateway controller workload definition
-	workloadDefName := "gloo-edge"
+	workloadDefName := fmt.Sprintf("%s-%s", "gloo-edge", *kubernetesRuntimeInstance.Name)
 	glooEdgeWorkloadDefinition := v0.WorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
 		YAMLDocument: &manifest,
 	}
 
-	// ensure gateway controller workload definition exists
+	// create gateway controller workload definition
 	createdWorkloadDef, err := client.CreateWorkloadDefinition(r.APIClient, r.APIServer, &glooEdgeWorkloadDefinition)
-	if err != nil && !errors.Is(err, client.ErrConflict) {
+	if err != nil {
 		return fmt.Errorf("failed to create gateway controller workload definition: %w", err)
-	}
-
-	// get gateway controller workload definition id
-	var glooEdgeWorkloadDefinitionId *uint
-	if !errors.Is(err, client.ErrConflict) {
-		glooEdgeWorkloadDefinitionId = createdWorkloadDef.ID
-	} else {
-		existingWorkloadDef, err := client.GetWorkloadDefinitionByName(r.APIClient, r.APIServer, workloadDefName)
-		if err != nil {
-			return fmt.Errorf("failed to get existing workload definition: %w", err)
-		}
-		glooEdgeWorkloadDefinitionId = existingWorkloadDef.ID
 	}
 
 	// create gateway workload instance
 	glooEdgeWorkloadInstance := v0.WorkloadInstance{
-		Instance: v0.Instance{
-			Name: util.StringPtr(fmt.Sprintf("%s-%s", workloadDefName, *kubernetesRuntimeInstance.Name)),
-		},
+		Instance:                    v0.Instance{Name: &workloadDefName},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		WorkloadDefinitionID:        glooEdgeWorkloadDefinitionId,
+		WorkloadDefinitionID:        createdWorkloadDef.ID,
 	}
 	createdGlooEdgeWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &glooEdgeWorkloadInstance)
 	if err != nil {
