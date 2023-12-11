@@ -255,26 +255,26 @@ func controlPlaneInstanceCreated(
 	threeportAPIEndpoint := fmt.Sprintf("%s.%s:%d", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace, port)
 	controlPlaneRuntimeInstance.ApiServerEndpoint = &threeportAPIEndpoint
 
-	// install the threeport control plane dependencies
-	if err := cpi.InstallThreeportControlPlaneDependencies(
-		dynamicKubeClient,
-		mapper,
-		*kubernetesRuntimeDefinition.InfraProvider,
-	); err != nil {
-		return 0, fmt.Errorf("failed to install threeport control plane dependencies")
-	}
-
 	// generate encryption key
 	encryptionKey, err := encryption.GenerateKey()
 	if err != nil {
 		return 0, fmt.Errorf("failed to generate encryption key: %w", err)
 	}
 
+	// install the threeport control plane dependencies
+	if err := cpi.InstallThreeportControlPlaneDependencies(
+		dynamicKubeClient,
+		mapper,
+		*kubernetesRuntimeDefinition.InfraProvider,
+		encryptionKey,
+	); err != nil {
+		return 0, fmt.Errorf("failed to install threeport control plane dependencies")
+	}
+
 	// install the API
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
-		encryptionKey,
 	); err != nil {
 		return 0, fmt.Errorf("failed to install threeport API server: %w", err)
 	}
