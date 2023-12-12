@@ -513,7 +513,7 @@ store_dir: /data
 						"metadata": map[string]interface{}{
 							"name": "datadir",
 						},
-						"spec": cpi.getVolClaimTemplateSpec(infraProvider),
+						"spec": cpi.getVolClaimTemplateSpec(infraProvider, "5Gi"),
 					},
 				},
 			},
@@ -782,7 +782,7 @@ store_dir: /data
 								"app.kubernetes.io/instance": "crdb",
 							},
 						},
-						"spec": crdbVolClaimTemplateSpec,
+						"spec": cpi.getVolClaimTemplateSpec(infraProvider, "20Gi"),
 					},
 				},
 			},
@@ -795,16 +795,19 @@ store_dir: /data
 	return nil
 }
 
-// getVolClaimTemplateSpec returns the spec for the cockroach DB volume
-// claim template based on the infra provider.
-func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(infraProvider string) map[string]interface{} {
+// getVolClaimTemplateSpec returns the spec for volume claim template for the
+// specified provider with the specified storage amount.
+func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(
+	infraProvider string,
+	storage string,
+) map[string]interface{} {
 	volClaimTemplateSpec := map[string]interface{}{
 		"accessModes": []interface{}{
 			"ReadWriteOnce",
 		},
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
-				"storage": "1Gi",
+				"storage": storage,
 			},
 		},
 	}
