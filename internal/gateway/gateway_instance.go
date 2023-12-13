@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/iancoleman/strcase"
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -765,7 +766,7 @@ func configureIssuer(
 	}
 
 	// set issuer name
-	kebabDomain := getKebabDomain(*domainNameDefinition.Name)
+	kebabDomain := strcase.ToKebab(*domainNameDefinition.Name)
 	err = unstructured.SetNestedField(issuer, kebabDomain, "metadata", "name")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
@@ -851,7 +852,7 @@ func configureCertificate(
 	}
 
 	// set certificate name
-	kebabDomain := getKebabDomain(*domainNameDefinition.Name)
+	kebabDomain := strcase.ToKebab(*domainNameDefinition.Name)
 	err = unstructured.SetNestedField(certificate, kebabDomain, "metadata", "name")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set name on issuer: %w", err)
