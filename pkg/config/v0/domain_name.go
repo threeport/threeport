@@ -33,9 +33,9 @@ type DomainNameInstanceConfig struct {
 // DomainNameInstanceValues contains the attributes needed to manage a domain
 // name instance.
 type DomainNameInstanceValues struct {
-	DomainNameDefinition      DomainNameDefinitionValues      `yaml:"DomainNameDefinition"`
-	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadInstance          WorkloadInstanceValues          `yaml:"WorkloadInstance"`
+	DomainNameDefinition      DomainNameDefinitionValues       `yaml:"DomainNameDefinition"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
 }
 
 // CreateIfNotExist creates a domain name definition if it does not exist in the Threeport
@@ -117,10 +117,14 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 		return nil, err
 	}
 
-	// get kubernetes runtime instance
-	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, d.KubernetesRuntimeInstance.Name)
+	// get kubernetes runtime instance API object
+	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+		d.KubernetesRuntimeInstance,
+		apiClient,
+		apiEndpoint,
+	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to set kubernetes runtime instance: %w", err)
 	}
 
 	// get workload instance
@@ -185,10 +189,6 @@ func (d *DomainNameInstanceValues) Validate() error {
 
 	if d.WorkloadInstance.Name == "" {
 		multiError.AppendError(errors.New("missing required field in config: WorklaodInstance.Name"))
-	}
-
-	if d.KubernetesRuntimeInstance.Name == "" {
-		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
 	}
 
 	if len(multiError.Errors) > 0 {

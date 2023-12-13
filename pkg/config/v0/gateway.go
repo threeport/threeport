@@ -2,6 +2,7 @@ package v0
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -33,9 +34,9 @@ type GatewayInstanceConfig struct {
 // GatewayInstanceValues contains the attributes needed to manage a gateway
 // instance.
 type GatewayInstanceValues struct {
-	GatewayDefinition         GatewayDefinitionValues         `yaml:"GatewayDefinition"`
-	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadInstance          WorkloadInstanceValues          `yaml:"WorkloadInstance"`
+	GatewayDefinition         GatewayDefinitionValues          `yaml:"GatewayDefinition"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
 }
 
 // Validate validates the gateway definition values.
@@ -119,10 +120,6 @@ func (g *GatewayInstanceValues) Validate() error {
 		multiError.AppendError(errors.New("missing required field in config: GatewayDefinition.Name"))
 	}
 
-	if g.KubernetesRuntimeInstance.Name == "" {
-		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
-	}
-
 	if g.WorkloadInstance.Name == "" {
 		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance.Name"))
 	}
@@ -141,10 +138,14 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 		return nil, err
 	}
 
-	// get kubernetes runtime instance
-	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, g.KubernetesRuntimeInstance.Name)
+	// get kubernetes runtime instance API object
+	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+		g.KubernetesRuntimeInstance,
+		apiClient,
+		apiEndpoint,
+	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to set kubernetes runtime instance: %w", err)
 	}
 
 	// get workload instance
