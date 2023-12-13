@@ -206,25 +206,14 @@ func (ci *ControlPlaneInstanceValues) Create(apiClient *http.Client, apiEndpoint
 		return nil, errors.New("missing required field/s in config - required fields: Name, ControlPlaneInstance.Namespace")
 	}
 
-	// get kubernetes runtime instance by name if provided, otherwise default kubernetes runtime
-	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
-	if ci.KubernetesRuntimeInstance == nil {
-		// get default kubernetes runtime instance
-		kubernetesRuntimeInst, err := client.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("kubernetes runtime instance not provided and failed to find default kubernetes runtime instance: %w", err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
-	} else {
-		kubernetesRuntimeInst, err := client.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			ci.KubernetesRuntimeInstance.Name,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find kubernetes runtime instance by name %s: %w", ci.KubernetesRuntimeInstance.Name, err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
+	// get kubernetes runtime instance API object
+	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+		ci.KubernetesRuntimeInstance,
+		apiClient,
+		apiEndpoint,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set kubernetes runtime instance: %w", err)
 	}
 
 	// get control plane definition by name

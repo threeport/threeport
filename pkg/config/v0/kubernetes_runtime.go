@@ -238,3 +238,34 @@ func (kri *KubernetesRuntimeInstanceValues) Delete(apiClient *http.Client, apiEn
 
 	return deletedKubernetesRuntimeInstance, nil
 }
+
+// getKubernetesRuntimeInstanceForConfig takes the config values for a
+// kubernetes runtime instance and returns the API object for a kubernetes
+// runtime instance.
+func setKubernetesRuntimeInstanceForConfig(
+	runtimeInstanceVals *KubernetesRuntimeInstanceValues,
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*v0.KubernetesRuntimeInstance, error) {
+	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
+	if runtimeInstanceVals == nil {
+		// get default kubernetes runtime instance
+		kubernetesRuntimeInst, err := client.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("kubernetes runtime instance not provided and failed to find default kubernetes runtime instance: %w", err)
+		}
+		kubernetesRuntimeInstance = *kubernetesRuntimeInst
+	} else {
+		kubernetesRuntimeInst, err := client.GetKubernetesRuntimeInstanceByName(
+			apiClient,
+			apiEndpoint,
+			runtimeInstanceVals.Name,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find kubernetes runtime instance by name %s: %w", runtimeInstanceVals.Name, err)
+		}
+		kubernetesRuntimeInstance = *kubernetesRuntimeInst
+	}
+
+	return &kubernetesRuntimeInstance, nil
+}
