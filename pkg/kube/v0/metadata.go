@@ -72,10 +72,15 @@ func GetPodAbstractionKinds() []string {
 // setPodTemplateLabels sets required labels on the pod template for a Deployment,
 // StatefulSet, DaemonSet, ReplicaSet or Job.
 func setPodTemplateLabels(kubeObject *unstructured.Unstructured, workloadInstID uint) (*unstructured.Unstructured, error) {
-	podLabels, _, err := unstructured.NestedStringMap(kubeObject.Object, "spec", "template", "metadata", "labels")
+	podLabels, found, err := unstructured.NestedStringMap(kubeObject.Object, "spec", "template", "metadata", "labels")
 	if err != nil {
 		return nil, err
 	}
+
+	if !found {
+		podLabels = make(map[string]string)
+	}
+
 	podLabels[agent.WorkloadInstanceLabelKey] = fmt.Sprintf("%d", workloadInstID)
 	podLabels[ThreeportManagedByLabelKey] = ThreeportManagedByLabelValue
 
