@@ -38,8 +38,6 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	mapper *meta.RESTMapper,
 	infraProvider string,
 ) error {
-	crdbVolClaimTemplateSpec := cpi.getVolClaimTemplateSpec(infraProvider)
-
 	if err := cpi.CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
 	}
