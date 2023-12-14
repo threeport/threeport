@@ -75,7 +75,7 @@ func createExternalDns(
 			"spec": map[string]interface{}{
 				"namespace":          "nukleros-gateway-system",
 				"zoneType":           zoneType,
-				"domainName":         strings.TrimPrefix(domain, "www."),
+				"domainName":         domain,
 				"image":              "registry.k8s.io/external-dns/external-dns",
 				"version":            "v0.13.5",
 				"provider":           provider,
@@ -146,17 +146,15 @@ func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string
 	} else {
 		cleanedDomain := strings.TrimPrefix(domain, "http://")
 		cleanedDomain = strings.TrimPrefix(cleanedDomain, "https://")
-		cleanedDomain = strings.TrimPrefix(cleanedDomain, "www.")
 		domainList = []interface{}{cleanedDomain}
 		virtualServiceName = strcase.ToKebab(cleanedDomain)
 	}
 
 	sslConfig := map[string]interface{}{}
 	if *gatewayDefinition.TLSEnabled {
-		strcase.ToKebab(strings.TrimPrefix(domain, "www."))
 		sslConfig = map[string]interface{}{
 			"secretRef": map[string]interface{}{
-				"name":      getKebabDomain(domain) + "-tls",
+				"name":      strcase.ToKebab(domain) + "-tls",
 				"namespace": "default",
 			},
 			"sniDomains": domainList,
@@ -208,7 +206,7 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail st
 			"apiVersion": "cert-manager.io/v1",
 			"kind":       "Issuer",
 			"metadata": map[string]interface{}{
-				"name": getKebabDomain(domain),
+				"name": strcase.ToKebab(domain),
 			},
 			"spec": map[string]interface{}{
 				"acme": map[string]interface{}{
@@ -221,7 +219,7 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail st
 						map[string]interface{}{
 							"selector": map[string]interface{}{
 								"dnsZones": []interface{}{
-									strings.TrimSuffix(domain, "www."),
+									domain,
 								},
 							},
 							"dns01": map[string]interface{}{
@@ -247,15 +245,15 @@ func createCertificate(gatewayDefinition *v0.GatewayDefinition, domain string) (
 			"apiVersion": "cert-manager.io/v1",
 			"kind":       "Certificate",
 			"metadata": map[string]interface{}{
-				"name": getKebabDomain(domain),
+				"name": strcase.ToKebab(domain),
 			},
 			"spec": map[string]interface{}{
-				"secretName": getKebabDomain(domain) + "-tls",
+				"secretName": strcase.ToKebab(domain) + "-tls",
 				"dnsNames": []interface{}{
-					strings.TrimSuffix(domain, "www."),
+					domain,
 				},
 				"issuerRef": map[string]interface{}{
-					"name": getKebabDomain(domain),
+					"name": strcase.ToKebab(domain),
 					"kind": "Issuer",
 				},
 			},
@@ -273,9 +271,4 @@ func unstructuredToYAMLString(unstructuredManifest *unstructured.Unstructured) (
 	}
 	stringManifest := string(bytes)
 	return stringManifest, nil
-}
-
-// getKebabDomain returns the domain name in kebab case.
-func getKebabDomain(url string) string {
-	return strcase.ToKebab(strings.TrimPrefix(url, "www."))
 }
