@@ -10,24 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// createSupportServicesCollection creates a support services collection.
-func createSupportServicesCollection() (string, error) {
-	var supportServicesCollection = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "orchestration.support-services.nukleros.io/v1alpha1",
-			"kind":       "SupportServices",
-			"metadata": map[string]interface{}{
-				"name": "supportservices-sample",
-			},
-			"spec": map[string]interface{}{
-				"tier": "development",
-			},
-		},
-	}
-
-	return unstructuredToYAMLString(supportServicesCollection)
-}
-
 // createGlooEdge creates a gloo edge custom resource.
 func createGlooEdge() (string, error) {
 

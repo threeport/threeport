@@ -415,12 +415,6 @@ func confirmGatewayControllerDeployed(
 		return fmt.Errorf("failed to create gloo edge resource: %w", err)
 	}
 
-	// generate support services collection manifest
-	supportServicesCollection, err := createSupportServicesCollection()
-	if err != nil {
-		return fmt.Errorf("failed to create support services collection resource: %w", err)
-	}
-
 	// get infra provider
 	infraProvider, err := client.GetInfraProviderByKubernetesRuntimeInstanceID(r.APIClient, r.APIServer, kubernetesRuntimeInstance.ID)
 	if err != nil {
@@ -454,7 +448,7 @@ func confirmGatewayControllerDeployed(
 	}
 
 	// concatenate gloo edge, support services collection, and cert manager manifests
-	manifest := fmt.Sprintf("---\n%s\n---\n%s\n---\n%s\n", supportServicesCollection, certManager, glooEdge)
+	manifest := fmt.Sprintf("---\n%s\n---\n%s\n", certManager, glooEdge)
 
 	// create gateway controller workload definition
 	workloadDefName := fmt.Sprintf("%s-%s", "gloo-edge", *kubernetesRuntimeInstance.Name)
