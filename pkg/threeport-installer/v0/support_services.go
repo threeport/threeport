@@ -779,11 +779,10 @@ func InstallThreeportCRDs(
 										"description": "SupportServicesSpec defines the desired state of SupportServices.",
 										"properties": map[string]interface{}{
 											"defaultIngressController": map[string]interface{}{
-												"default":     "kong",
-												"description": "(Default: \"kong\") The default ingress for setting TLS certs.  One of: kong | nginx.",
+												"default":     "glooedge",
+												"description": "(Default: \"glooedge\") The default ingress controller for the cluster.",
 												"enum": []interface{}{
-													"kong",
-													"nginx",
+													"glooedge",
 												},
 												"type": "string",
 											},
@@ -2515,6 +2514,20 @@ func InstallThreeportSupportServicesOperator(
 	}
 	if _, err := kube.CreateResource(deployment, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create deployment: %w", err)
+	}
+
+	var supportServicesCollection = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "orchestration.support-services.nukleros.io/v1alpha1",
+			"kind":       "SupportServices",
+			"metadata": map[string]interface{}{
+				"name": "threeport-support-services",
+			},
+			"spec": map[string]interface{}{},
+		},
+	}
+	if _, err := kube.CreateResource(supportServicesCollection, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create support services custom resource: %w", err)
 	}
 
 	return nil

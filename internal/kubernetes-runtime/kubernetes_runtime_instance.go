@@ -3,6 +3,7 @@ package kubernetesruntime
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 
@@ -141,6 +142,26 @@ func kubernetesRuntimeInstanceUpdated(
 		*kubernetesRuntimeInstance.Name,
 	); err != nil {
 		return 0, fmt.Errorf("failed to insall compute space control plane components: %w", err)
+	}
+
+	// wait for kube API to persist the change and refresh the client and mapper
+	// this is necessary to have the updated REST mapping for the CRDs as the
+	// support services operator install includes one of those custom resources
+	time.Sleep(time.Second * 10)
+	dynamicKubeClient, mapper, err = kube.GetClient(
+		kubernetesRuntimeInstance,
+		false,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
+	}
+
+	// support services operator
+	if err := threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper); err != nil {
+		return 0, fmt.Errorf("failed to install support services operator: %w", err)
 	}
 
 	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
