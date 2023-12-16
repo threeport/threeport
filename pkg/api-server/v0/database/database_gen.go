@@ -137,6 +137,8 @@ func GetDbInterfaces() []interface{} {
 		&v0.ForwardProxyInstance{},
 		&v0.GatewayDefinition{},
 		&v0.GatewayInstance{},
+		&v0.GatewayHttpPort{},
+		&v0.GatewayTcpPort{},
 		&v0.DomainNameDefinition{},
 		&v0.DomainNameInstance{},
 		&v0.ControlPlaneDefinition{},

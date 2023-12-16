@@ -104,3 +104,13 @@ func StringToInterfaceList(input []string) []interface{} {
 	}
 	return output
 }
+
+// HyphenDelimitedString takes a slice of strings and returns a hyphen delimited string.
+func HyphenDelimitedString(input []string) string {
+	output := ""
+	for _, v := range input {
+		output += fmt.Sprintf("---\n%s", v)
+	}
+
+	return output
+}

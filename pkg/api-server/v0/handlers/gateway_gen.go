@@ -730,6 +730,558 @@ func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// GatewayHttpPort
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetGatewayHttpPortVersions gets the supported versions for the gateway http port API.
+// @Description Get the supported API versions for gateway http ports.
+// @ID gatewayHttpPort-get-versions
+// @Produce json
+// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Router /gateway-http-ports/versions [GET]
+func (h Handler) GetGatewayHttpPortVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeGatewayHttpPort)])
+}
+
+// @Summary adds a new gateway http port.
+// @Description Add a new gateway http port to the Threeport database.
+// @ID add-gatewayHttpPort
+// @Accept json
+// @Produce json
+// @Param gatewayHttpPort body v0.GatewayHttpPort true "GatewayHttpPort object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-http-ports [POST]
+func (h Handler) AddGatewayHttpPort(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayHttpPort
+	var gatewayHttpPort v0.GatewayHttpPort
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, false, objectType, gatewayHttpPort); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&gatewayHttpPort); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, gatewayHttpPort, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&gatewayHttpPort); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, gatewayHttpPort, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all gateway http ports.
+// @Description Get all gateway http ports from the Threeport database.
+// @ID get-gatewayHttpPorts
+// @Accept json
+// @Produce json
+// @Param name query string false "gateway http port search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-http-ports [GET]
+func (h Handler) GetGatewayHttpPorts(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayHttpPort
+	params, err := c.(*iapi.CustomContext).GetPaginationParams()
+	if err != nil {
+		return iapi.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter v0.GatewayHttpPort
+	if err := c.Bind(&filter); err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&v0.GatewayHttpPort{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]v0.GatewayHttpPort{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a gateway http port.
+// @Description Get a particular gateway http port from the database.
+// @ID get-gatewayHttpPort
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-http-ports/{id} [GET]
+func (h Handler) GetGatewayHttpPort(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayHttpPort
+	gatewayHttpPortID := c.Param("id")
+	var gatewayHttpPort v0.GatewayHttpPort
+	if result := h.DB.First(&gatewayHttpPort, gatewayHttpPortID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, gatewayHttpPort, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing gateway http port.
+// @Description Update a gateway http port in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating gateway http port objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-gatewayHttpPort
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param gatewayHttpPort body v0.GatewayHttpPort true "GatewayHttpPort object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-http-ports/{id} [PATCH]
+func (h Handler) UpdateGatewayHttpPort(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayHttpPort
+	gatewayHttpPortID := c.Param("id")
+	var existingGatewayHttpPort v0.GatewayHttpPort
+	if result := h.DB.First(&existingGatewayHttpPort, gatewayHttpPortID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingGatewayHttpPort); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedGatewayHttpPort v0.GatewayHttpPort
+	if err := c.Bind(&updatedGatewayHttpPort); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingGatewayHttpPort).Updates(updatedGatewayHttpPort); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingGatewayHttpPort, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing gateway http port by replacing the entire object.
+// @Description Replace a gateway http port in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating gateway http port objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-gatewayHttpPort
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param gatewayHttpPort body v0.GatewayHttpPort true "GatewayHttpPort object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-http-ports/{id} [PUT]
+func (h Handler) ReplaceGatewayHttpPort(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayHttpPort
+	gatewayHttpPortID := c.Param("id")
+	var existingGatewayHttpPort v0.GatewayHttpPort
+	if result := h.DB.First(&existingGatewayHttpPort, gatewayHttpPortID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingGatewayHttpPort); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedGatewayHttpPort v0.GatewayHttpPort
+	if err := c.Bind(&updatedGatewayHttpPort); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, updatedGatewayHttpPort, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedGatewayHttpPort.ID = existingGatewayHttpPort.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGatewayHttpPort); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingGatewayHttpPort, gatewayHttpPortID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingGatewayHttpPort, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a gateway http port.
+// @Description Delete a gateway http port by ID from the database.
+// @ID delete-gatewayHttpPort
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-http-ports/{id} [DELETE]
+func (h Handler) DeleteGatewayHttpPort(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayHttpPort
+	gatewayHttpPortID := c.Param("id")
+	var gatewayHttpPort v0.GatewayHttpPort
+	if result := h.DB.First(&gatewayHttpPort, gatewayHttpPortID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&gatewayHttpPort); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, gatewayHttpPort, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// GatewayTcpPort
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetGatewayTcpPortVersions gets the supported versions for the gateway tcp port API.
+// @Description Get the supported API versions for gateway tcp ports.
+// @ID gatewayTcpPort-get-versions
+// @Produce json
+// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Router /gateway-tcp-ports/versions [GET]
+func (h Handler) GetGatewayTcpPortVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeGatewayTcpPort)])
+}
+
+// @Summary adds a new gateway tcp port.
+// @Description Add a new gateway tcp port to the Threeport database.
+// @ID add-gatewayTcpPort
+// @Accept json
+// @Produce json
+// @Param gatewayTcpPort body v0.GatewayTcpPort true "GatewayTcpPort object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-tcp-ports [POST]
+func (h Handler) AddGatewayTcpPort(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayTcpPort
+	var gatewayTcpPort v0.GatewayTcpPort
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, false, objectType, gatewayTcpPort); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&gatewayTcpPort); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, gatewayTcpPort, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&gatewayTcpPort); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, gatewayTcpPort, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all gateway tcp ports.
+// @Description Get all gateway tcp ports from the Threeport database.
+// @ID get-gatewayTcpPorts
+// @Accept json
+// @Produce json
+// @Param name query string false "gateway tcp port search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-tcp-ports [GET]
+func (h Handler) GetGatewayTcpPorts(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayTcpPort
+	params, err := c.(*iapi.CustomContext).GetPaginationParams()
+	if err != nil {
+		return iapi.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter v0.GatewayTcpPort
+	if err := c.Bind(&filter); err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&v0.GatewayTcpPort{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]v0.GatewayTcpPort{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a gateway tcp port.
+// @Description Get a particular gateway tcp port from the database.
+// @ID get-gatewayTcpPort
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-tcp-ports/{id} [GET]
+func (h Handler) GetGatewayTcpPort(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayTcpPort
+	gatewayTcpPortID := c.Param("id")
+	var gatewayTcpPort v0.GatewayTcpPort
+	if result := h.DB.First(&gatewayTcpPort, gatewayTcpPortID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, gatewayTcpPort, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing gateway tcp port.
+// @Description Update a gateway tcp port in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating gateway tcp port objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-gatewayTcpPort
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param gatewayTcpPort body v0.GatewayTcpPort true "GatewayTcpPort object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-tcp-ports/{id} [PATCH]
+func (h Handler) UpdateGatewayTcpPort(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayTcpPort
+	gatewayTcpPortID := c.Param("id")
+	var existingGatewayTcpPort v0.GatewayTcpPort
+	if result := h.DB.First(&existingGatewayTcpPort, gatewayTcpPortID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingGatewayTcpPort); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedGatewayTcpPort v0.GatewayTcpPort
+	if err := c.Bind(&updatedGatewayTcpPort); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingGatewayTcpPort).Updates(updatedGatewayTcpPort); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingGatewayTcpPort, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing gateway tcp port by replacing the entire object.
+// @Description Replace a gateway tcp port in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating gateway tcp port objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-gatewayTcpPort
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param gatewayTcpPort body v0.GatewayTcpPort true "GatewayTcpPort object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-tcp-ports/{id} [PUT]
+func (h Handler) ReplaceGatewayTcpPort(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayTcpPort
+	gatewayTcpPortID := c.Param("id")
+	var existingGatewayTcpPort v0.GatewayTcpPort
+	if result := h.DB.First(&existingGatewayTcpPort, gatewayTcpPortID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingGatewayTcpPort); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedGatewayTcpPort v0.GatewayTcpPort
+	if err := c.Bind(&updatedGatewayTcpPort); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, updatedGatewayTcpPort, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedGatewayTcpPort.ID = existingGatewayTcpPort.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGatewayTcpPort); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingGatewayTcpPort, gatewayTcpPortID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingGatewayTcpPort, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a gateway tcp port.
+// @Description Delete a gateway tcp port by ID from the database.
+// @ID delete-gatewayTcpPort
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gateway-tcp-ports/{id} [DELETE]
+func (h Handler) DeleteGatewayTcpPort(c echo.Context) error {
+	objectType := v0.ObjectTypeGatewayTcpPort
+	gatewayTcpPortID := c.Param("id")
+	var gatewayTcpPort v0.GatewayTcpPort
+	if result := h.DB.First(&gatewayTcpPort, gatewayTcpPortID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&gatewayTcpPort); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, gatewayTcpPort, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // DomainNameDefinition
 ///////////////////////////////////////////////////////////////////////////////
 

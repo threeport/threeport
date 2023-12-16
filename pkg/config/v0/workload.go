@@ -328,9 +328,8 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		// add gateway definition operation
 		gatewayDefinitionValues := GatewayDefinitionValues{
 			Name:                 w.Name,
-			TCPPort:              w.Gateway.TCPPort,
-			TLSEnabled:           w.Gateway.TLSEnabled,
-			Path:                 w.Gateway.Path,
+			HttpPorts: 		  w.Gateway.HttpPorts,
+			TcpPorts: 		   w.Gateway.TcpPorts,
 			ServiceName:          w.Gateway.ServiceName,
 			SubDomain:            w.Gateway.SubDomain,
 			DomainNameDefinition: domainNameDefinitionValues,

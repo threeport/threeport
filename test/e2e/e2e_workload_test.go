@@ -18,6 +18,7 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // testWorkload represents a test case for this e2e test.
@@ -105,14 +106,16 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error creating http client")
 
 		gatewayDefinitionName := "gateway-definition"
-		tcpPort := 80
-		tlsEnabled := false
 		gatewayDefinition := &v0.GatewayDefinition{
 			Definition: v0.Definition{
 				Name: &gatewayDefinitionName,
 			},
-			TCPPort:    &tcpPort,
-			TLSEnabled: &tlsEnabled,
+			HttpPorts: []*v0.GatewayHttpPort{
+				{
+					Port:       util.IntPtr(80),
+					TLSEnabled: util.BoolPtr(false),
+				},
+			},
 		}
 
 		// create gateway definition
@@ -124,8 +127,11 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error creating gateway definition")
 
 		// update gateway definition
-		gatewayPort := 443
-		gatewayDefinition.TCPPort = &gatewayPort
+		gatewayDefinition.HttpPorts = []*v0.GatewayHttpPort{
+			{
+				Port: util.IntPtr(443),
+			},
+		}
 		_, err = client.UpdateGatewayDefinition(
 			apiClient,
 			threeportAPIEndpoint,
@@ -294,10 +300,9 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error creating domain name instance")
 
 		// create a gateway instance
-		gatewayInstanceName := "gatewayInstance"
 		gatewayInstance := &v0.GatewayInstance{
 			Instance: v0.Instance{
-				Name: &gatewayInstanceName,
+				Name: util.StringPtr("gatewayInstance"),
 			},
 			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
 			GatewayDefinitionID:         gatewayDefinition.ID,

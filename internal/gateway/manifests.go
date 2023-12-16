@@ -5,9 +5,10 @@ import (
 	"strings"
 
 	"github.com/iancoleman/strcase"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // createSupportServicesCollection creates a support services collection.
@@ -135,67 +136,97 @@ func createCertManager(iamRoleArn string) (string, error) {
 	return unstructuredToYAMLString(certManager)
 }
 
-// createVirtualService creates a virtual service for the given domain.
-func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+// getCleanedDomain returns a cleaned domain.
+func getCleanedDomain(domain string) string {
+	cleanedDomain := strings.TrimPrefix(domain, "http://")
+	cleanedDomain = strings.TrimPrefix(cleanedDomain, "https://")
+	return cleanedDomain
+}
 
-	var domainList []interface{}
-	var virtualServiceName string
-	if domain == "" {
-		domainList = []interface{}{"*"}
-		virtualServiceName = *gatewayDefinition.Name
-	} else {
-		cleanedDomain := strings.TrimPrefix(domain, "http://")
-		cleanedDomain = strings.TrimPrefix(cleanedDomain, "https://")
-		domainList = []interface{}{cleanedDomain}
-		virtualServiceName = strcase.ToKebab(cleanedDomain)
-	}
+// createVirtualServices creates a virtual service for the given domain.
+func createVirtualServices(gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
 
-	sslConfig := map[string]interface{}{}
-	if *gatewayDefinition.TLSEnabled {
-		sslConfig = map[string]interface{}{
-			"secretRef": map[string]interface{}{
-				"name":      strcase.ToKebab(domain) + "-tls",
-				"namespace": "default",
-			},
-			"sniDomains": domainList,
+	var manifests []string
+
+	domain = getCleanedDomain(domain)
+	for _, httpPort := range gatewayDefinition.HttpPorts {
+
+		// configure domain list
+		var domainList []interface{}
+		if domain == "" {
+			domainList = []interface{}{"*"}
+		} else {
+			domainList = []interface{}{domain}
 		}
-	}
 
-	var virtualService = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "gateway.solo.io/v1",
-			"kind":       "VirtualService",
-			"metadata": map[string]interface{}{
-				"name":      virtualServiceName,
-				"namespace": "gloo-system",
-			},
-			"spec": map[string]interface{}{
-				"virtualHost": map[string]interface{}{
-					"domains": domainList,
-					"routes": []interface{}{
-						map[string]interface{}{
-							"matchers": []interface{}{
-								map[string]interface{}{
-									"prefix": *gatewayDefinition.Path,
+		virtualServiceName := getVirtualServiceName(gatewayDefinition, domain, *httpPort.Port)
+
+		sslConfig := map[string]interface{}{}
+		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
+			sslConfig = map[string]interface{}{
+				"secretRef": map[string]interface{}{
+					"name":      strcase.ToKebab(domain) + "-tls",
+					"namespace": "default",
+				},
+				"sniDomains": domainList,
+			}
+		}
+
+		var virtualService = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "gateway.solo.io/v1",
+				"kind":       "VirtualService",
+				"metadata": map[string]interface{}{
+					"name":      virtualServiceName,
+					"namespace": "gloo-system",
+				},
+				"spec": map[string]interface{}{
+					"virtualHost": map[string]interface{}{
+						"domains": domainList,
+						"routes": []interface{}{
+							map[string]interface{}{
+								"matchers": []interface{}{
+									map[string]interface{}{
+										"prefix": *httpPort.Path,
+									},
 								},
-							},
-							"routeAction": map[string]interface{}{
-								"single": map[string]interface{}{
-									"upstream": map[string]interface{}{
-										"name":      "my-upstream",
-										"namespace": "gloo-system",
+								"routeAction": map[string]interface{}{
+									"single": map[string]interface{}{
+										"upstream": map[string]interface{}{
+											"name":      "my-upstream",
+											"namespace": "gloo-system",
+										},
 									},
 								},
 							},
 						},
 					},
+					"sslConfig": sslConfig,
 				},
-				"sslConfig": sslConfig,
 			},
-		},
+		}
+
+		virtualServiceManifest, err := unstructuredToYAMLString(virtualService)
+		if err != nil {
+			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
+		}
+
+		manifests = append(manifests, virtualServiceManifest)
 	}
 
-	return unstructuredToYAMLString(virtualService)
+	// return util.HyphenDelimitedString(manifests), nil
+	return manifests, nil
+}
+
+// getVirtualServiceName returns the name of a virtual service.
+func getVirtualServiceName(gatewayDefinition *v0.GatewayDefinition, domain string, port int) string {
+
+	domain = getCleanedDomain(domain)
+	if domain == "" {
+		return fmt.Sprintf("%s-%d", *gatewayDefinition.Name, port)
+	} else {
+		return fmt.Sprintf("%s-%d", strcase.ToKebab(domain), port)
+	}
 }
 
 // createIssuer creates an issuer for the given domain.

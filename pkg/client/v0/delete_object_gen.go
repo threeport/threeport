@@ -71,6 +71,14 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteGatewayInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete GatewayInstance: %w", err)
 		}
+	case "v0.GatewayHttpPort":
+		if _, err := DeleteGatewayHttpPort(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete GatewayHttpPort: %w", err)
+		}
+	case "v0.GatewayTcpPort":
+		if _, err := DeleteGatewayTcpPort(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete GatewayTcpPort: %w", err)
+		}
 	case "v0.DomainNameDefinition":
 		if _, err := DeleteDomainNameDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete DomainNameDefinition: %w", err)

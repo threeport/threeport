@@ -11,6 +11,8 @@ import (
 const (
 	ObjectTypeGatewayDefinition    ObjectType = "GatewayDefinition"
 	ObjectTypeGatewayInstance      ObjectType = "GatewayInstance"
+	ObjectTypeGatewayHttpPort      ObjectType = "GatewayHttpPort"
+	ObjectTypeGatewayTcpPort       ObjectType = "GatewayTcpPort"
 	ObjectTypeDomainNameDefinition ObjectType = "DomainNameDefinition"
 	ObjectTypeDomainNameInstance   ObjectType = "DomainNameInstance"
 
@@ -26,6 +28,16 @@ const (
 	GatewayInstanceUpdateSubject = "gatewayInstance.update"
 	GatewayInstanceDeleteSubject = "gatewayInstance.delete"
 
+	GatewayHttpPortSubject       = "gatewayHttpPort.*"
+	GatewayHttpPortCreateSubject = "gatewayHttpPort.create"
+	GatewayHttpPortUpdateSubject = "gatewayHttpPort.update"
+	GatewayHttpPortDeleteSubject = "gatewayHttpPort.delete"
+
+	GatewayTcpPortSubject       = "gatewayTcpPort.*"
+	GatewayTcpPortCreateSubject = "gatewayTcpPort.create"
+	GatewayTcpPortUpdateSubject = "gatewayTcpPort.update"
+	GatewayTcpPortDeleteSubject = "gatewayTcpPort.delete"
+
 	DomainNameDefinitionSubject       = "domainNameDefinition.*"
 	DomainNameDefinitionCreateSubject = "domainNameDefinition.create"
 	DomainNameDefinitionUpdateSubject = "domainNameDefinition.update"
@@ -38,6 +50,8 @@ const (
 
 	PathGatewayDefinitions    = "/v0/gateway-definitions"
 	PathGatewayInstances      = "/v0/gateway-instances"
+	PathGatewayHttpPorts      = "/v0/gateway-http-ports"
+	PathGatewayTcpPorts       = "/v0/gateway-tcp-ports"
 	PathDomainNameDefinitions = "/v0/domain-name-definitions"
 	PathDomainNameInstances   = "/v0/domain-name-instances"
 )
@@ -59,6 +73,26 @@ func GetGatewayInstanceSubjects() []string {
 		GatewayInstanceCreateSubject,
 		GatewayInstanceUpdateSubject,
 		GatewayInstanceDeleteSubject,
+	}
+}
+
+// GetGatewayHttpPortSubjects returns the NATS subjects
+// for gateway http ports.
+func GetGatewayHttpPortSubjects() []string {
+	return []string{
+		GatewayHttpPortCreateSubject,
+		GatewayHttpPortUpdateSubject,
+		GatewayHttpPortDeleteSubject,
+	}
+}
+
+// GetGatewayTcpPortSubjects returns the NATS subjects
+// for gateway tcp ports.
+func GetGatewayTcpPortSubjects() []string {
+	return []string{
+		GatewayTcpPortCreateSubject,
+		GatewayTcpPortUpdateSubject,
+		GatewayTcpPortDeleteSubject,
 	}
 }
 
@@ -89,6 +123,8 @@ func GetGatewaySubjects() []string {
 
 	gatewaySubjects = append(gatewaySubjects, GetGatewayDefinitionSubjects()...)
 	gatewaySubjects = append(gatewaySubjects, GetGatewayInstanceSubjects()...)
+	gatewaySubjects = append(gatewaySubjects, GetGatewayHttpPortSubjects()...)
+	gatewaySubjects = append(gatewaySubjects, GetGatewayTcpPortSubjects()...)
 	gatewaySubjects = append(gatewaySubjects, GetDomainNameDefinitionSubjects()...)
 	gatewaySubjects = append(gatewaySubjects, GetDomainNameInstanceSubjects()...)
 
@@ -189,6 +225,102 @@ func (gi *GatewayInstance) GetID() uint {
 // String returns a string representation of the ojbect.
 func (gi GatewayInstance) String() string {
 	return fmt.Sprintf("v0.GatewayInstance")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (ghp *GatewayHttpPort) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       ghp,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", ghp, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (ghp *GatewayHttpPort) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &ghp); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (ghp *GatewayHttpPort) GetID() uint {
+	return *ghp.ID
+}
+
+// String returns a string representation of the ojbect.
+func (ghp GatewayHttpPort) String() string {
+	return fmt.Sprintf("v0.GatewayHttpPort")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (gtp *GatewayTcpPort) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       gtp,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", gtp, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (gtp *GatewayTcpPort) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &gtp); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (gtp *GatewayTcpPort) GetID() uint {
+	return *gtp.ID
+}
+
+// String returns a string representation of the ojbect.
+func (gtp GatewayTcpPort) String() string {
+	return fmt.Sprintf("v0.GatewayTcpPort")
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

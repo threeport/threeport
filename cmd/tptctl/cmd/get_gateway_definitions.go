@@ -12,7 +12,6 @@ import (
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // GetGatewayDefinitionsCmd represents the gateway-definitions command
@@ -43,10 +42,10 @@ var GetGatewayDefinitionsCmd = &cobra.Command{
 		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 		fmt.Fprintln(writer, "NAME\t TCP PORT\t HTTPS REDIRECT\t AGE")
-		for _, g := range *gatewayDefinitions {
-			fmt.Fprintln(writer, *g.Name, "\t", *g.TCPPort, "\t", *g.HTTPSRedirect, "\t",
-				util.GetAge(g.CreatedAt))
-		}
+		// for _, g := range *gatewayDefinitions {
+		// 	fmt.Fprintln(writer, *g.Name, "\t", *g.TCPPort, "\t", *g.HTTPSRedirect, "\t",
+		// 		util.GetAge(g.CreatedAt))
+		// }
 		writer.Flush()
 	},
 }

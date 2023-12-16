@@ -20,7 +20,7 @@ func gatewayDefinitionCreated(
 ) (int64, error) {
 
 	// create gateway kubernetes manifests
-	yamlDocument, err := createYAMLDocument(r, gatewayDefinition)
+	yamlDocument, err := createGateayDefinitionYamlDocument(r, gatewayDefinition)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create yaml document: %w", err)
 	}
@@ -40,8 +40,7 @@ func gatewayDefinitionCreated(
 	}
 
 	// update gateway definition
-	gatewayDefinitionReconciled := true
-	gatewayDefinition.Reconciled = &gatewayDefinitionReconciled
+	gatewayDefinition.Reconciled = util.BoolPtr(true)
 	gatewayDefinition.WorkloadDefinitionID = createdWorkloadDefinition.ID
 	_, err = client.UpdateGatewayDefinition(
 		r.APIClient,
@@ -69,7 +68,7 @@ func gatewayDefinitionUpdated(
 ) (int64, error) {
 
 	// create gateway kubernetes manifests
-	yamlDocument, err := createYAMLDocument(r, gatewayDefinition)
+	yamlDocument, err := createGateayDefinitionYamlDocument(r, gatewayDefinition)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create yaml document: %w", err)
 	}
@@ -95,9 +94,8 @@ func gatewayDefinitionUpdated(
 	}
 
 	// update gateway definition
-	gatewayDefinitionReconciled := true
 	gatewayDefinition.WorkloadDefinitionID = workloadDefinition.ID
-	gatewayDefinition.Reconciled = &gatewayDefinitionReconciled
+	gatewayDefinition.Reconciled = util.BoolPtr(true)
 	_, err = client.UpdateGatewayDefinition(
 		r.APIClient,
 		r.APIServer,
@@ -150,44 +148,26 @@ func gatewayDefinitionDeleted(
 	return 0, nil
 }
 
-// createYAMLDocument creates a YAML document containing the Kubernetes
+// createGateayDefinitionYamlDocument creates a YAML document containing the Kubernetes
 // manifests for a gateway definition.
-func createYAMLDocument(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (string, error) {
+func createGateayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (string, error) {
 	// create Gloo virtual service definition
 
 	manifests := []string{}
 
-	domain := ""
-	adminEmail := ""
-
-	if gatewayDefinition.DomainNameDefinitionID != nil {
-
-		domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *gatewayDefinition.DomainNameDefinitionID)
-		if err != nil {
-			return "", fmt.Errorf("failed to get domain name definition by ID: %w", err)
-		}
-
-		// construct domain based on subdomain, if provided
-		switch {
-		case gatewayDefinition.SubDomain != nil && *gatewayDefinition.SubDomain != "":
-			domain = getSubDomain(gatewayDefinition, domainNameDefinition)
-		case domainNameDefinition != nil:
-			domain = *domainNameDefinition.Domain
-		default:
-			return "", fmt.Errorf("failed to create domain, domain name definition is nil")
-		}
-
-		adminEmail = *domainNameDefinition.AdminEmail
+	domain, adminEmail, err := getDomainInfo(r, gatewayDefinition)
+	if err != nil {
+		return "", fmt.Errorf("failed to get domain info: %w", err)
 	}
 
 	// create Gloo virtual service definition
-	virtualService, err := createVirtualService(gatewayDefinition, domain)
+	virtualServices, err := createVirtualServices(gatewayDefinition, domain)
 	if err != nil {
 		return "", fmt.Errorf("failed to create virtual service: %w", err)
 	}
-	manifests = append(manifests, virtualService)
+	manifests = append(manifests, virtualServices...)
 
-	if *gatewayDefinition.TLSEnabled {
+	if getTlsEnabled(gatewayDefinition) {
 
 		if domain == "" {
 			return "", fmt.Errorf("failed to create issuer and certificate, domain is empty")
@@ -208,11 +188,71 @@ func createYAMLDocument(r *controller.Reconciler, gatewayDefinition *v0.GatewayD
 		manifests = append(manifests, certificate)
 	}
 
-	// concatenate manifests into a single YAML document
-	yamlDocument := ""
-	for _, manifest := range manifests {
-		yamlDocument = fmt.Sprintf("%s---\n%s\n", yamlDocument, manifest)
+	// concatenate manifests into a single YAML document and return
+	return util.HyphenDelimitedString(manifests), nil
+}
+
+// getTlsEnabled returns true if any of the HTTP or TCP ports in a gateway
+// definition have TLS enabled.
+func getTlsEnabled(gatewayDefinition *v0.GatewayDefinition) bool {
+
+	for _, httpPort := range gatewayDefinition.HttpPorts {
+		if httpPort != nil && httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
+			return true
+		}
 	}
 
-	return yamlDocument, nil
+	for _, tcpPort := range gatewayDefinition.TcpPorts {
+		if tcpPort != nil && tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
+			return true
+		}
+	}
+
+	return false
 }
+
+// getDomainInfo returns the domain and admin email for a gateway definition.
+func getDomainInfo(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (string, string, error) {
+	domain := ""
+	adminEmail := ""
+
+	if gatewayDefinition.DomainNameDefinitionID != nil {
+
+		domainNameDefinition, err := client.GetDomainNameDefinitionByID(r.APIClient, r.APIServer, *gatewayDefinition.DomainNameDefinitionID)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get domain name definition by ID: %w", err)
+		}
+
+		// construct domain based on subdomain, if provided
+		switch {
+		case gatewayDefinition.SubDomain != nil && *gatewayDefinition.SubDomain != "":
+			domain = getSubDomain(gatewayDefinition, domainNameDefinition)
+		case domainNameDefinition != nil:
+			domain = *domainNameDefinition.Domain
+		default:
+			return "", "", fmt.Errorf("failed to create domain, domain name definition is nil")
+		}
+
+		adminEmail = *domainNameDefinition.AdminEmail
+	}
+
+	return domain, adminEmail, nil
+}
+
+// // doesPortExist
+// func doesPortExist(gatewayDefinition *v0.GatewayDefinition) bool {
+
+// 	for _, httpPort := range gatewayDefinition.HttpPorts {
+// 		if httpPort != nil && httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
+// 			return true
+// 		}
+// 	}
+
+// 	for _, tcpPort := range gatewayDefinition.TcpPorts {
+// 		if tcpPort != nil && tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
+// 			return true
+// 		}
+// 	}
+
+// 	return false
+// }
