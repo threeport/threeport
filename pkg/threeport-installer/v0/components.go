@@ -1329,7 +1329,7 @@ func (cpi *ControlPlaneInstaller) getAirArgs(name, extraArgs string) []interface
 
 	return []interface{}{
 		"-c", "/threeport/cmd/tptdev/air.toml",
-		"-build.cmd", "go build -gcflags='all=-N -l' -o /threeport-" + name + " /threeport/cmd/" + name + "/" + main,
+		"-build.cmd", "go build -gcflags='all=-N -l' -o /" + name + " /threeport/cmd/" + name + "/" + main,
 		"-build.bin", "/usr/local/bin/dlv",
 		"-build.args_bin", strings.Join(cpi.getDelveArgs(name), " ") + appendedArgs,
 	}
