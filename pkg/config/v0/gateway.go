@@ -93,12 +93,14 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 	var httpPorts []*v0.GatewayHttpPort
 	if g.HttpPorts != nil {
 		for _, httpPort := range g.HttpPorts {
-			httpPorts = append(httpPorts, &v0.GatewayHttpPort{
-				Port:          &httpPort.Port,
-				Path:          &httpPort.Path,
-				TLSEnabled:    &httpPort.TLSEnabled,
-				HTTPSRedirect: &httpPort.HTTPSRedirect,
-			})
+			currentHttpPort := httpPort
+			httpPorts = append(httpPorts,
+				&v0.GatewayHttpPort{
+					Port:          &currentHttpPort.Port,
+					Path:          &currentHttpPort.Path,
+					TLSEnabled:    &currentHttpPort.TLSEnabled,
+					HTTPSRedirect: &currentHttpPort.HTTPSRedirect,
+				})
 		}
 	}
 
@@ -106,10 +108,12 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 	var tcpPorts []*v0.GatewayTcpPort
 	if g.TcpPorts != nil {
 		for _, tcpPort := range g.TcpPorts {
-			tcpPorts = append(tcpPorts, &v0.GatewayTcpPort{
-				Port:       &tcpPort.Port,
-				TLSEnabled: &tcpPort.TLSEnabled,
-			})
+			currentTcpPort := tcpPort
+			tcpPorts = append(tcpPorts,
+				&v0.GatewayTcpPort{
+					Port:       &currentTcpPort.Port,
+					TLSEnabled: &currentTcpPort.TLSEnabled,
+				})
 		}
 	}
 

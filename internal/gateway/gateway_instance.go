@@ -571,8 +571,7 @@ func confirmGatewayPortsExposed(
 	if err != nil {
 		return fmt.Errorf("failed to get gloo edge workload resource instance: %w", err)
 	}
-	gatewayObjectWorkloadResourceObjectReconciled := false
-	glooEdgeObject.Reconciled = &gatewayObjectWorkloadResourceObjectReconciled
+	glooEdgeObject.Reconciled = util.BoolPtr(false)
 	glooEdgeObject.JSONDefinition = &jsonDefinition
 	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, glooEdgeObject)
 	if err != nil {
@@ -622,9 +621,14 @@ func ensureGlooEdgePortExists(protocol string, port int, tlsEnabled bool, ports 
 	// check existing gateways for requested ports
 	for _, portSpec := range ports {
 		spec := portSpec.(map[string]interface{})
+		var portCurrent int64
 		portCurrent, portNumberFound, err := unstructured.NestedInt64(spec, "port")
 		if err != nil {
-			return nil, fmt.Errorf("failed to get port from from gloo edge custom resource: %v", err)
+			portCurrentFloat, _, errFloat := unstructured.NestedFloat64(spec, "port")
+			portCurrent = int64(portCurrentFloat)
+			if errFloat != nil {
+				return nil, fmt.Errorf("failed to get port from from gloo edge custom resource: %v", err)
+			}
 		}
 
 		tlsEnabledCurrent, sslFound, err := unstructured.NestedBool(spec, "ssl")
