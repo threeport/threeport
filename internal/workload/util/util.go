@@ -3,6 +3,8 @@ package util
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -63,7 +65,6 @@ func UnmarshalUniqueWorkloadResourceDefinitionByName(workloadResourceDefinitions
 
 	return service, nil
 }
-
 
 // UnmarshalWorkloadResourceDefinition gets a unique workload resource instance
 // and unmarshals it.
@@ -169,7 +170,26 @@ func GetUniqueWorkloadResourceDefinitionByName(workloadResourceDefinitions *[]v0
 			return nil, fmt.Errorf("failed to unmarshal json: %w", err)
 		}
 
-		if mapDef["kind"] == kind && mapDef["name"] == name {
+		// get object kind
+		manifestKind, kindFound, err := unstructured.NestedString(mapDef, "kind")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get kind: %w", err)
+		}
+		if !kindFound {
+			return nil, fmt.Errorf("kind not found")
+		}
+
+		// get object name
+		manifestName, nameFound, err := unstructured.NestedString(mapDef, "metadata", "name")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get name: %w", err)
+		}
+		if !nameFound {
+			return nil, fmt.Errorf("name not found")
+		}
+
+		if manifestKind == kind &&
+			manifestName == name {
 			objects = append(objects, wrd)
 		}
 	}
@@ -184,7 +204,6 @@ func GetUniqueWorkloadResourceDefinitionByName(workloadResourceDefinitions *[]v0
 	return &objects[0], nil
 
 }
-
 
 // GetUniqueWorkloadResourceDefinition gets a unique workload resource instance.
 func GetWorkloadResourceDefinition(workloadResourceDefinitions *[]v0.WorkloadResourceDefinition, kind, name string) (*v0.WorkloadResourceDefinition, error) {

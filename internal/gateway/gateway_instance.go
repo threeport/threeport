@@ -68,16 +68,14 @@ func gatewayInstanceCreated(
 	}
 
 	// trigger a reconciliation of the workload instance
-	workloadInstanceReconciled := false
-	workloadInstance.Reconciled = &workloadInstanceReconciled
+	workloadInstance.Reconciled = util.BoolPtr(false)
 	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to update workload instance: %w", err)
 	}
 
 	// update gateway instance
-	gatewayInstanceReconciled := true
-	gatewayInstance.Reconciled = &gatewayInstanceReconciled
+	gatewayInstance.Reconciled = util.BoolPtr(true)
 	_, err = client.UpdateGatewayInstance(r.APIClient, r.APIServer, gatewayInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to update gateway instance: %w", err)
@@ -543,14 +541,16 @@ func confirmGatewayPortsExposed(
 
 	// ensure http ports are exposed
 	for _, httpPort := range *gatewayHttpPorts {
-		if ports, err = ensureGlooEdgePortExists("http", *httpPort.Port, *httpPort.TLSEnabled, ports, log); err != nil {
+		ports, err = ensureGlooEdgePortExists("http", *httpPort.Port, *httpPort.TLSEnabled, ports, log)
+		if err != nil {
 			return fmt.Errorf("failed to ensure gloo edge port exists: %w", err)
 		}
 	}
 
 	// ensure tcp ports are exposed
 	for _, tcpPort := range *gatewayTcpPorts {
-		if ports, err = ensureGlooEdgePortExists("tcp", *tcpPort.Port, *tcpPort.TLSEnabled, ports, log); err != nil {
+		ports, err = ensureGlooEdgePortExists("tcp", *tcpPort.Port, *tcpPort.TLSEnabled, ports, log)
+		if err != nil {
 			return fmt.Errorf("failed to ensure gloo edge port exists: %w", err)
 		}
 	}
@@ -620,35 +620,34 @@ func getPortsAsString(gatewayDefinition *v0.GatewayDefinition) string {
 func ensureGlooEdgePortExists(protocol string, port int, tlsEnabled bool, ports []interface{}, log *logr.Logger) ([]interface{}, error) {
 
 	// check existing gateways for requested ports
-	var portFound = false
 	for _, portSpec := range ports {
 		spec := portSpec.(map[string]interface{})
-		portNumber, portNumberFound, err := unstructured.NestedFloat64(spec, "port")
+		portCurrent, portNumberFound, err := unstructured.NestedFloat64(spec, "port")
 		if err != nil {
 			return nil, fmt.Errorf("failed to get port from from gloo edge custom resource: %v", err)
 		}
 
-		ssl, sslFound, err := unstructured.NestedBool(spec, "ssl")
+		tlsEnabledCurrent, sslFound, err := unstructured.NestedBool(spec, "ssl")
 		if err != nil {
 			return nil, fmt.Errorf("failed to get ssl from from gloo edge custom resource: %v", err)
 		}
 
-		if portNumberFound &&
-			sslFound &&
-			ssl == tlsEnabled &&
-			int(portNumber) == port {
-			portFound = true
-			break
+		protocolCurrent, protocolFound, err := unstructured.NestedString(spec, "protocol")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get protocol from from gloo edge custom resource: %v", err)
 		}
-	}
 
-	// return if port is found
-	if portFound {
-		log.V(1).Info(
-			"port already exposed",
-			"port", fmt.Sprintf("%d", port),
-		)
-		return ports, nil
+		// check if current port matches requested port
+		if portNumberFound && sslFound && protocolFound &&
+			tlsEnabledCurrent == tlsEnabled &&
+			int(portCurrent) == port &&
+			protocolCurrent == protocol {
+			log.V(1).Info(
+				"port already exposed",
+				"port", fmt.Sprintf("%d", port),
+			)
+			return ports, nil
+		}
 	}
 
 	// otherwise, update gloo edge configuration
@@ -656,7 +655,7 @@ func ensureGlooEdgePortExists(protocol string, port int, tlsEnabled bool, ports 
 	// create a new gloo edge port object
 	portNumber := int64(port)
 	portString := strconv.Itoa(int(port))
-	glooEdgePort := createGlooEdgePort(portString, portNumber, tlsEnabled)
+	glooEdgePort := createGlooEdgePort(protocol, portString, portNumber, tlsEnabled)
 
 	ports = append(ports, glooEdgePort)
 
@@ -678,7 +677,8 @@ func configureVirtualServices(
 		return nil, fmt.Errorf("failed to get workload resource instances: %w", err)
 	}
 
-	// unmarshal service
+	// if a service name is provided, use it to get the service
+	// otherwise, get the first service
 	var service map[string]interface{}
 	if gatewayDefinition.ServiceName != nil && *gatewayDefinition.ServiceName != "" {
 		service, err = workloadutil.UnmarshalWorkloadResourceInstance(workloadResourceInstances, "Service", *gatewayDefinition.ServiceName)
@@ -716,9 +716,14 @@ func configureVirtualServices(
 		return nil, fmt.Errorf("failed to get domain info: %w", err)
 	}
 
+	gatewayHttpPorts, err := client.GetGatewayHttpPortByGatewayDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway http ports: %w", err)
+	}
+
 	// configure virtual services
 	var virtualServices []*datatypes.JSON
-	for _, httpPort := range gatewayDefinition.HttpPorts {
+	for _, httpPort := range *gatewayHttpPorts {
 		// unmarshal virtual service
 
 		virtualService, err := workloadutil.UnmarshalUniqueWorkloadResourceDefinitionByName(
@@ -964,9 +969,14 @@ func getGatewayInstanceObjects(r *controller.Reconciler, gatewayInstance *v0.Gat
 		return nil, fmt.Errorf("failed to get gateway definition: %w", err)
 	}
 
-	if getTlsEnabled(gatewayDefinition) {
+	tlsEnabled, err := getTlsEnabled(r, gatewayDefinition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tls enabled: %w", err)
+	}
+	if tlsEnabled {
 		return []string{"VirtualService", "Issuer", "Certificate"}, nil
 	}
+
 	return []string{"VirtualService"}, nil
 }
 
@@ -988,7 +998,11 @@ func configureWorkloadResourceInstances(
 	}
 	jsonDefinitions = append(jsonDefinitions, virtualServices...)
 
-	if getTlsEnabled(gatewayDefinition) {
+	tlsEnabled, err := getTlsEnabled(r, gatewayDefinition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tls enabled: %w", err)
+	}
+	if tlsEnabled {
 
 		if gatewayDefinition.DomainNameDefinitionID == nil {
 			return nil, fmt.Errorf("failed to create certificate, domain name definition ID is nil")
@@ -1017,11 +1031,10 @@ func configureWorkloadResourceInstances(
 
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 	for _, jsonDefinition := range jsonDefinitions {
-		workloadResourceInstanceReconciled := false
 		workloadResourceInstance := v0.WorkloadResourceInstance{
 			JSONDefinition:     jsonDefinition,
 			WorkloadInstanceID: workloadInstance.ID,
-			Reconciled:         &workloadResourceInstanceReconciled,
+			Reconciled:         util.BoolPtr(false),
 		}
 		workloadResourceInstances = append(workloadResourceInstances, workloadResourceInstance)
 	}

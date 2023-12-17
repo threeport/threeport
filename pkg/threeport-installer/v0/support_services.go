@@ -14,7 +14,8 @@ import (
 
 const (
 	SupportServicesNamespace     = "support-services-system"
-	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.4.2"
+	// SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.4.2"
+	SupportServicesOperatorImage = "rj9317/support-services-operator:latest"
 	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
 
 	// links the service account delcared in the IngressComponent resource to the
@@ -604,6 +605,9 @@ func InstallThreeportCRDs(
 														},
 														"ssl": map[string]interface{}{
 															"type": "boolean",
+														},
+														"protocol": map[string]interface{}{
+															"type": "string",
 														},
 													},
 													"type": "object",

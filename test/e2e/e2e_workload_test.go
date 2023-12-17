@@ -63,12 +63,11 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 
 		// create a duplicate workload definition
-		yamlDoc := ""
 		duplicateWorkload := v0.WorkloadDefinition{
 			Definition: v0.Definition{
 				Name: &workloadDefName,
 			},
-			YAMLDocument: &yamlDoc,
+			YAMLDocument: util.StringPtr(""),
 		}
 
 		// determine if the API is serving HTTPS or HTTP
@@ -76,10 +75,18 @@ func TestWorkloadE2E(t *testing.T) {
 		var respCodeErr error
 		var resp *http.Response
 		// check HTTPS
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/version", 443))
-		// if we get an error, check HTTP
-		if err != nil {
-			resp, err = http.Get(fmt.Sprintf("http://localhost:%d/version", 80))
+		if err := util.Retry(10, 1, func() error {
+			var err error
+			resp, err = http.Get(fmt.Sprintf("http://localhost:%d/version", 443))
+			// if we get an error, check HTTP
+			if err != nil {
+				resp, err = http.Get(fmt.Sprintf("http://localhost:%d/version", 80))
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
 			assert.Nil(err, "should not get an error when calling threeport API version endpoint")
 		}
 		switch resp.StatusCode {
@@ -105,10 +112,9 @@ func TestWorkloadE2E(t *testing.T) {
 		apiClient, err := threeportConfig.GetHTTPClient(tptdev.DefaultInstanceName)
 		assert.Nil(err, "should have no error creating http client")
 
-		gatewayDefinitionName := "gateway-definition"
 		gatewayDefinition := &v0.GatewayDefinition{
 			Definition: v0.Definition{
-				Name: &gatewayDefinitionName,
+				Name: util.StringPtr("gateway-definition"),
 			},
 			HttpPorts: []*v0.GatewayHttpPort{
 				{
@@ -156,17 +162,13 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.NotNil(err, "duplicate workload definition should throw error")
 
 		// configure domain name definition object
-		domainNameDefinitionName := "domainNameDefinition"
-		domainNameDefinitionDomain := "test.threeport.io"
-		domainNameDefinitionZone := "testZone"
-		domainNameDefinitionAdminEmail := "no-reply@threeport.io"
 		domainNameDefinition := &v0.DomainNameDefinition{
 			Definition: v0.Definition{
-				Name: &domainNameDefinitionName,
+				Name: util.StringPtr("domainNameDefinition"),
 			},
-			Domain:     &domainNameDefinitionDomain,
-			Zone:       &domainNameDefinitionZone,
-			AdminEmail: &domainNameDefinitionAdminEmail,
+			Domain:     util.StringPtr("test.threeport.io"),
+			Zone:       util.StringPtr("testZone"),
+			AdminEmail: util.StringPtr("no-reply@threeport.io"),
 		}
 
 		// create domain name definition

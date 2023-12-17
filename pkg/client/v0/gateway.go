@@ -25,7 +25,7 @@ func GetGatewayHttpPortByGatewayDefinitionID(apiClient *http.Client, apiAddr str
 		return &gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &gatewayHttpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -55,7 +55,7 @@ func GetGatewayTcpPortByGatewayDefinitionID(apiClient *http.Client, apiAddr stri
 		return &gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	jsonData, err := json.Marshal(response.Data[0])
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
 		return &gatewayTcpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

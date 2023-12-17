@@ -9,6 +9,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
 // createSupportServicesCollection creates a support services collection.
@@ -91,12 +93,13 @@ func createExternalDns(
 }
 
 // createGlooEdgePort creates a gloo edge port.
-func createGlooEdgePort(name string, port int64, ssl bool) map[string]interface{} {
+func createGlooEdgePort(protocol, name string, port int64, ssl bool) map[string]interface{} {
 
 	var portObject = map[string]interface{}{
-		"name": name,
-		"port": port,
-		"ssl":  ssl,
+		"name":     name,
+		"protocol": protocol,
+		"port":     port,
+		"ssl":      ssl,
 	}
 
 	return portObject
@@ -144,12 +147,17 @@ func getCleanedDomain(domain string) string {
 }
 
 // createVirtualServices creates a virtual service for the given domain.
-func createVirtualServices(gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
+func createVirtualServices(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
 
 	var manifests []string
 
 	domain = getCleanedDomain(domain)
-	for _, httpPort := range gatewayDefinition.HttpPorts {
+
+	gatewayHttpPorts, err := client.GetGatewayHttpPortByGatewayDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return []string{}, fmt.Errorf("failed to get gateway http ports: %w", err)
+	}
+	for _, httpPort := range *gatewayHttpPorts {
 
 		// configure domain list
 		var domainList []interface{}
