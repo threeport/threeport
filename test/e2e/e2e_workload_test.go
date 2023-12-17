@@ -146,6 +146,12 @@ func TestWorkloadE2E(t *testing.T) {
 					TLSEnabled: util.BoolPtr(true),
 				},
 			},
+			TcpPorts: []*v0.GatewayTcpPort{
+				{
+					Port:       util.IntPtr(22),
+					TLSEnabled: util.BoolPtr(false),
+				},
+			},
 		}
 
 		// create gateway definition

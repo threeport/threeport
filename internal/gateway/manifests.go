@@ -153,7 +153,7 @@ func createVirtualServices(r *controller.Reconciler, gatewayDefinition *v0.Gatew
 
 	domain = getCleanedDomain(domain)
 
-	gatewayHttpPorts, err := client.GetGatewayHttpPortByGatewayDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
 	if err != nil {
 		return []string{}, fmt.Errorf("failed to get gateway http ports: %w", err)
 	}
@@ -222,7 +222,63 @@ func createVirtualServices(r *controller.Reconciler, gatewayDefinition *v0.Gatew
 		manifests = append(manifests, virtualServiceManifest)
 	}
 
-	// return util.HyphenDelimitedString(manifests), nil
+	return manifests, nil
+}
+
+// createTcpGateways creates a tcp gateway for the given domain.
+func createTcpGateways(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) ([]string, error) {
+
+	var manifests []string
+
+	gatewayTcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return []string{}, fmt.Errorf("failed to get gateway tcp ports: %w", err)
+	}
+	for _, tcpPort := range *gatewayTcpPorts {
+
+		tcpGateway := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "gateway.solo.io/v1",
+				"kind":       "Gateway",
+				"metadata": map[string]interface{}{
+					"name":      fmt.Sprintf("%s-%d", *gatewayDefinition.Name, *tcpPort.Port),
+					"namespace": "gloo-system",
+				},
+				"spec": map[string]interface{}{
+					"bindAddress": "::",
+					"bindPort":    8000 + *tcpPort.Port,
+					"tcpGateway": map[string]interface{}{
+						"tcpHosts": []interface{}{
+							map[string]interface{}{
+								"name": "upstream-host",
+								"destination": map[string]interface{}{
+									"single": map[string]interface{}{
+										"upstream": map[string]interface{}{
+											"name":      "my-upstream",
+											"namespace": "gloo-system",
+										},
+									},
+								},
+							},
+						},
+					},
+					"useProxyProto": false,
+				},
+			},
+		}
+
+		// TODO: configure ssl
+		// if tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
+		// }
+
+		virtualServiceManifest, err := unstructuredToYAMLString(tcpGateway)
+		if err != nil {
+			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
+		}
+
+		manifests = append(manifests, virtualServiceManifest)
+	}
+
 	return manifests, nil
 }
 

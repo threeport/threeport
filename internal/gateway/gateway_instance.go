@@ -525,12 +525,12 @@ func confirmGatewayPortsExposed(
 		return fmt.Errorf("failed to get tcp ports from from gloo edge custom resource: %v", err)
 	}
 
-	gatewayHttpPorts, err := client.GetGatewayHttpPortByGatewayDefinitionID(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
+	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
 	if err != nil {
 		return fmt.Errorf("failed to get gateway http ports: %w", err)
 	}
 
-	gatewayTcpPorts, err := client.GetGatewayTcpPortByGatewayDefinitionID(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
+	gatewayTcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
 	if err != nil {
 		return fmt.Errorf("failed to get gateway tcp ports: %w", err)
 	}
@@ -662,9 +662,9 @@ func ensureGlooEdgePortExists(protocol string, port int, tlsEnabled bool, ports 
 	return ports, nil
 }
 
-// configureVirtualServices configures a VirtualService custom resource
+// configureRuntimeParameters configures a VirtualService custom resource
 // based on the configuration of the gateway workload definition
-func configureVirtualServices(
+func configureRuntimeParameters(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
@@ -710,18 +710,66 @@ func configureVirtualServices(
 		return nil, fmt.Errorf("failed to get gateway workload resource definitions: %w", err)
 	}
 
+	// configure virtual services
+	var jsonDefinitions []*datatypes.JSON
+	virtualServiceDefinitions, err := configureVirtualServiceRuntimeParameters(
+		r,
+		gatewayDefinition,
+		workloadInstance,
+		kubernetesRuntimeInstance,
+		gatewayWorkloadResourceDefinitions,
+		namespace,
+		name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure virtual services: %w", err)
+	}
+	jsonDefinitions = append(jsonDefinitions, virtualServiceDefinitions...)
+
+	// configure tcp gateways
+	tcpGatewayDefinitions, err := configureTcpGatewayRuntimeParameters(
+		r,
+		gatewayDefinition,
+		workloadInstance,
+		kubernetesRuntimeInstance,
+		gatewayWorkloadResourceDefinitions,
+		namespace,
+		name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure virtual services: %w", err)
+	}
+	jsonDefinitions = append(jsonDefinitions, tcpGatewayDefinitions...)
+
+	return jsonDefinitions, nil
+
+}
+
+// configureVirtualServiceRuntimeParameters configures runtime parameters
+// for virtual services
+func configureVirtualServiceRuntimeParameters(
+	r *controller.Reconciler,
+	gatewayDefinition *v0.GatewayDefinition,
+	workloadInstance *v0.WorkloadInstance,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	gatewayWorkloadResourceDefinitions *[]v0.WorkloadResourceDefinition,
+	namespace,
+	name string,
+) ([]*datatypes.JSON, error) {
+
 	// get domain info
 	domain, _, err := getDomainInfo(r, gatewayDefinition)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get domain info: %w", err)
 	}
 
-	gatewayHttpPorts, err := client.GetGatewayHttpPortByGatewayDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	// get gateway http ports
+	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gateway http ports: %w", err)
 	}
 
-	// configure virtual services
+	// configure virtual service runtime parameters
 	var virtualServices []*datatypes.JSON
 	for _, httpPort := range *gatewayHttpPorts {
 		// unmarshal virtual service
@@ -735,7 +783,7 @@ func configureVirtualServices(
 			return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
 		}
 
-		// get route array object
+		// get route array
 		routes, found, err := unstructured.NestedSlice(virtualService, "spec", "virtualHost", "routes")
 		if err != nil || !found {
 			return nil, fmt.Errorf("failed to get virtualservice route: %w", err)
@@ -808,7 +856,99 @@ func configureVirtualServices(
 	}
 
 	return virtualServices, nil
+}
 
+// configureTcpGatewayRuntimeParameters configures runtime parameters
+// for tcp gateways
+func configureTcpGatewayRuntimeParameters(
+	r *controller.Reconciler,
+	gatewayDefinition *v0.GatewayDefinition,
+	workloadInstance *v0.WorkloadInstance,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	gatewayWorkloadResourceDefinitions *[]v0.WorkloadResourceDefinition,
+	namespace,
+	name string,
+) ([]*datatypes.JSON, error) {
+
+	// get tcp ports
+	gatewayTcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway http ports: %w", err)
+	}
+
+	// configure tcp gateway runtime parameters
+	var tcpGateways []*datatypes.JSON
+	for _, tcpPort := range *gatewayTcpPorts {
+		// unmarshal tcp gateway
+		virtualService, err := workloadutil.UnmarshalUniqueWorkloadResourceDefinitionByName(
+			gatewayWorkloadResourceDefinitions,
+			"Gateway",
+			fmt.Sprintf("%s-%d", *gatewayDefinition.Name, *tcpPort.Port),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tcp gateway workload resource definition: %w", err)
+		}
+
+		// get tcp hosts array
+		tcpHosts, found, err := unstructured.NestedSlice(virtualService, "spec", "tcpGateway", "tcpHosts")
+		if err != nil || !found {
+			return nil, fmt.Errorf("failed to get tcp gateway hosts: %w", err)
+		}
+		if len(tcpHosts) == 0 {
+			return nil, fmt.Errorf("no tcp gateway hosts found")
+		}
+
+		// set virtual service upstream name field
+		err = unstructured.SetNestedField(
+			tcpHosts[0].(map[string]interface{}),
+			fmt.Sprintf("%s-%s-%d", namespace, name, *tcpPort.Port), // $namespace-$name-$port is convention for gloo edge upstream names
+			"destination",
+			"single",
+			"upstream",
+			"name",
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set upstream name on tcp gateway: %w", err)
+		}
+
+		// get gloo edge namespace
+		glooEdgeNamespace, err := getGlooEdgeNamespace(r, kubernetesRuntimeInstance.GatewayControllerInstanceID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get gloo edge namespace: %w", err)
+		}
+
+		// set virtual service upstream namespace field
+		err = unstructured.SetNestedField(
+			tcpHosts[0].(map[string]interface{}),
+			glooEdgeNamespace,
+			"destination",
+			"single",
+			"upstream",
+			"namespace",
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set upstream name on tcp gateway: %w", err)
+		}
+
+		// set tcp host field
+		err = unstructured.SetNestedSlice(virtualService, tcpHosts, "spec", "tcpGateway", "tcpHosts")
+		if err != nil {
+			return nil, fmt.Errorf("failed to set host on tcp gateway: %w", err)
+		}
+
+		// TODO: configure ssl
+		// if *tcpPort.TLSEnabled {
+		// }
+
+		// marshal virtual service
+		tcpGatewayMarshaled, err := util.MarshalJSON(virtualService)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal virtual service: %w", err)
+		}
+		tcpGateways = append(tcpGateways, &tcpGatewayMarshaled)
+	}
+
+	return tcpGateways, nil
 }
 
 // getSubDomain returns the subdomain for a gateway definition and domain name definition
@@ -992,7 +1132,7 @@ func configureWorkloadResourceInstances(
 	var jsonDefinitions []*datatypes.JSON
 
 	// configure virtual service manifest
-	virtualServices, err := configureVirtualServices(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
+	virtualServices, err := configureRuntimeParameters(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure virtual service: %w", err)
 	}

@@ -9,8 +9,8 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// GetGatewayHttpPortByID fetches a gateway http port by gateway definition ID.
-func GetGatewayHttpPortByGatewayDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.GatewayHttpPort, error) {
+// GetGatewayHttpPortsByGatewayDefinitionId fetches a gateway http port by gateway definition ID.
+func GetGatewayHttpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr string, id uint) (*[]v0.GatewayHttpPort, error) {
 	var gatewayHttpPort []v0.GatewayHttpPort
 
 	response, err := GetResponse(
@@ -39,8 +39,8 @@ func GetGatewayHttpPortByGatewayDefinitionID(apiClient *http.Client, apiAddr str
 	return &gatewayHttpPort, nil
 }
 
-// GetGatewayTcpPortByID fetches a gateway http port by gateway definition ID.
-func GetGatewayTcpPortByGatewayDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.GatewayTcpPort, error) {
+// GetGatewayTcpPortsByGatewayDefinitionId fetches a gateway http port by gateway definition ID.
+func GetGatewayTcpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr string, id uint) (*[]v0.GatewayTcpPort, error) {
 	var gatewayTcpPort []v0.GatewayTcpPort
 
 	response, err := GetResponse(

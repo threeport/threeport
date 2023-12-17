@@ -160,12 +160,19 @@ func createGatewayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefini
 		return "", fmt.Errorf("failed to get domain info: %w", err)
 	}
 
-	// create Gloo virtual service definition
+	// create Gloo virtual service definitions
 	virtualServices, err := createVirtualServices(r, gatewayDefinition, domain)
 	if err != nil {
 		return "", fmt.Errorf("failed to create virtual service: %w", err)
 	}
 	manifests = append(manifests, virtualServices...)
+
+	// create Gloo tcp gateway definitions
+	tcpGateways, err := createTcpGateways(r, gatewayDefinition)
+	if err != nil {
+		return "", fmt.Errorf("failed to create tcp gateway: %w", err)
+	}
+	manifests = append(manifests, tcpGateways...)
 
 	tlsEnabled, err := getTlsEnabled(r, gatewayDefinition)
 	if err != nil {
@@ -199,7 +206,7 @@ func createGatewayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefini
 // getTlsEnabled returns true if any of the HTTP or TCP ports in a gateway
 // definition have TLS enabled.
 func getTlsEnabled(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (bool, error) {
-	gatewayHttpPorts, err := client.GetGatewayHttpPortByGatewayDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get gateway http ports: %w", err)
 	}
@@ -210,7 +217,7 @@ func getTlsEnabled(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefini
 		}
 	}
 
-	gatewayTcpPorts, err := client.GetGatewayTcpPortByGatewayDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	gatewayTcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get gateway tcp ports: %w", err)
 	}
