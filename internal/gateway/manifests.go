@@ -169,17 +169,6 @@ func createVirtualServices(r *controller.Reconciler, gatewayDefinition *v0.Gatew
 
 		virtualServiceName := getVirtualServiceName(gatewayDefinition, domain, *httpPort.Port)
 
-		sslConfig := map[string]interface{}{}
-		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
-			sslConfig = map[string]interface{}{
-				"secretRef": map[string]interface{}{
-					"name":      strcase.ToKebab(domain) + "-tls",
-					"namespace": "default",
-				},
-				"sniDomains": domainList,
-			}
-		}
-
 		var virtualService = &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "gateway.solo.io/v1",
@@ -209,9 +198,20 @@ func createVirtualServices(r *controller.Reconciler, gatewayDefinition *v0.Gatew
 							},
 						},
 					},
-					"sslConfig": sslConfig,
 				},
 			},
+		}
+
+		// configure ssl config
+		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
+			sslConfig := map[string]interface{}{
+				"secretRef": map[string]interface{}{
+					"name":      strcase.ToKebab(domain) + "-tls",
+					"namespace": "default",
+				},
+				"sniDomains": domainList,
+			}
+			unstructured.SetNestedMap(virtualService.Object, sslConfig, "spec", "sslConfig")
 		}
 
 		virtualServiceManifest, err := unstructuredToYAMLString(virtualService)
