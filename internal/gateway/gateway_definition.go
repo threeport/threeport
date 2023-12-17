@@ -20,7 +20,7 @@ func gatewayDefinitionCreated(
 ) (int64, error) {
 
 	// create gateway kubernetes manifests
-	yamlDocument, err := createGateayDefinitionYamlDocument(r, gatewayDefinition)
+	yamlDocument, err := createGatewayDefinitionYamlDocument(r, gatewayDefinition)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create yaml document: %w", err)
 	}
@@ -68,7 +68,7 @@ func gatewayDefinitionUpdated(
 ) (int64, error) {
 
 	// create gateway kubernetes manifests
-	yamlDocument, err := createGateayDefinitionYamlDocument(r, gatewayDefinition)
+	yamlDocument, err := createGatewayDefinitionYamlDocument(r, gatewayDefinition)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create yaml document: %w", err)
 	}
@@ -148,9 +148,9 @@ func gatewayDefinitionDeleted(
 	return 0, nil
 }
 
-// createGateayDefinitionYamlDocument creates a YAML document containing the Kubernetes
+// createGatewayDefinitionYamlDocument creates a YAML document containing the Kubernetes
 // manifests for a gateway definition.
-func createGateayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (string, error) {
+func createGatewayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (string, error) {
 	// create Gloo virtual service definition
 
 	manifests := []string{}
@@ -161,13 +161,17 @@ func createGateayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefinit
 	}
 
 	// create Gloo virtual service definition
-	virtualServices, err := createVirtualServices(gatewayDefinition, domain)
+	virtualServices, err := createVirtualServices(r, gatewayDefinition, domain)
 	if err != nil {
 		return "", fmt.Errorf("failed to create virtual service: %w", err)
 	}
 	manifests = append(manifests, virtualServices...)
 
-	if getTlsEnabled(gatewayDefinition) {
+	tlsEnabled, err := getTlsEnabled(r, gatewayDefinition)
+	if err != nil {
+		return "", fmt.Errorf("failed to get tls enabled: %w", err)
+	}
+	if tlsEnabled {
 
 		if domain == "" {
 			return "", fmt.Errorf("failed to create issuer and certificate, domain is empty")
@@ -194,21 +198,30 @@ func createGateayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefinit
 
 // getTlsEnabled returns true if any of the HTTP or TCP ports in a gateway
 // definition have TLS enabled.
-func getTlsEnabled(gatewayDefinition *v0.GatewayDefinition) bool {
+func getTlsEnabled(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (bool, error) {
+	gatewayHttpPorts, err := client.GetGatewayHttpPortByGatewayDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get gateway http ports: %w", err)
+	}
 
-	for _, httpPort := range gatewayDefinition.HttpPorts {
-		if httpPort != nil && httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
-			return true
+	for _, httpPort := range *gatewayHttpPorts {
+		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
+			return true, nil
 		}
 	}
 
-	for _, tcpPort := range gatewayDefinition.TcpPorts {
-		if tcpPort != nil && tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
-			return true
+	gatewayTcpPorts, err := client.GetGatewayTcpPortByGatewayDefinitionID(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get gateway tcp ports: %w", err)
+	}
+
+	for _, tcpPort := range *gatewayTcpPorts {
+		if tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
+			return true, nil
 		}
 	}
 
-	return false
+	return false, nil
 }
 
 // getDomainInfo returns the domain and admin email for a gateway definition.
