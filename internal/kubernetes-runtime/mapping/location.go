@@ -50,6 +50,7 @@ func getRegionMap() *[]RegionMap {
 	return &[]RegionMap{
 		{
 			Location: "Local",
+			AwsRegion: "us-east-1",
 		},
 		{
 			Location:  "NorthAmerica:NewYork",
