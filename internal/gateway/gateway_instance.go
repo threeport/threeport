@@ -622,7 +622,7 @@ func ensureGlooEdgePortExists(protocol string, port int, tlsEnabled bool, ports 
 	// check existing gateways for requested ports
 	for _, portSpec := range ports {
 		spec := portSpec.(map[string]interface{})
-		portCurrent, portNumberFound, err := unstructured.NestedFloat64(spec, "port")
+		portCurrent, portNumberFound, err := unstructured.NestedInt64(spec, "port")
 		if err != nil {
 			return nil, fmt.Errorf("failed to get port from from gloo edge custom resource: %v", err)
 		}
