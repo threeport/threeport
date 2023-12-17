@@ -112,14 +112,38 @@ func TestWorkloadE2E(t *testing.T) {
 		apiClient, err := threeportConfig.GetHTTPClient(tptdev.DefaultInstanceName)
 		assert.Nil(err, "should have no error creating http client")
 
+		// configure domain name definition object
+		domainNameDefinition := &v0.DomainNameDefinition{
+			Definition: v0.Definition{
+				Name: util.StringPtr("domainNameDefinition"),
+			},
+			Domain:     util.StringPtr("test.threeport.io"),
+			Zone:       util.StringPtr("testZone"),
+			AdminEmail: util.StringPtr("no-reply@threeport.io"),
+		}
+
+		// create domain name definition
+		createdDomainNameDefinition, err := client.CreateDomainNameDefinition(
+			apiClient,
+			threeportAPIEndpoint,
+			domainNameDefinition,
+		)
+		assert.Nil(err, "should have no error creating domain name definition")
+
+		// configure gateway definition object
 		gatewayDefinition := &v0.GatewayDefinition{
 			Definition: v0.Definition{
 				Name: util.StringPtr("gateway-definition"),
 			},
+			DomainNameDefinitionID: createdDomainNameDefinition.ID,
 			HttpPorts: []*v0.GatewayHttpPort{
 				{
 					Port:       util.IntPtr(80),
 					TLSEnabled: util.BoolPtr(false),
+				},
+				{
+					Port:       util.IntPtr(443),
+					TLSEnabled: util.BoolPtr(true),
 				},
 			},
 		}
@@ -160,24 +184,6 @@ func TestWorkloadE2E(t *testing.T) {
 			&duplicateWorkload,
 		)
 		assert.NotNil(err, "duplicate workload definition should throw error")
-
-		// configure domain name definition object
-		domainNameDefinition := &v0.DomainNameDefinition{
-			Definition: v0.Definition{
-				Name: util.StringPtr("domainNameDefinition"),
-			},
-			Domain:     util.StringPtr("test.threeport.io"),
-			Zone:       util.StringPtr("testZone"),
-			AdminEmail: util.StringPtr("no-reply@threeport.io"),
-		}
-
-		// create domain name definition
-		_, err = client.CreateDomainNameDefinition(
-			apiClient,
-			threeportAPIEndpoint,
-			domainNameDefinition,
-		)
-		assert.Nil(err, "should have no error creating domain name definition")
 
 		if assert.NotNil(createdWorkloadDef, "should have a workload definition returned") {
 			assert.NotNil(createdWorkloadDef.ID, "created workload definition should contain unique ID")
