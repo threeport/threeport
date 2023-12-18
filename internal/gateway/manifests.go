@@ -187,19 +187,54 @@ func createVirtualServices(r *controller.Reconciler, gatewayDefinition *v0.Gatew
 										"prefix": *httpPort.Path,
 									},
 								},
-								"routeAction": map[string]interface{}{
-									"single": map[string]interface{}{
-										"upstream": map[string]interface{}{
-											"name":      "my-upstream",
-											"namespace": "gloo-system",
-										},
-									},
-								},
 							},
 						},
 					},
 				},
 			},
+		}
+
+		// get route array
+		routes, found, err := unstructured.NestedSlice(virtualService.Object, "spec", "virtualHost", "routes")
+		if err != nil || !found {
+			return nil, fmt.Errorf("failed to get virtualservice route: %w", err)
+		}
+		if len(routes) == 0 {
+			return nil, fmt.Errorf("no routes found")
+		}
+
+		// configure https redirect
+		if httpPort.HTTPSRedirect != nil && *httpPort.HTTPSRedirect {
+			redirectAction := map[string]interface{}{
+				"hostRedirect":  domain,
+				"httpsRedirect": true,
+			}
+			unstructured.SetNestedMap(
+				routes[0].(map[string]interface{}),
+				redirectAction,
+				"redirectAction",
+			)
+		} else {
+			// configure route action
+			routeAction := map[string]interface{}{
+				"single": map[string]interface{}{
+					"upstream": map[string]interface{}{
+						"name":      "my-upstream",
+						"namespace": "gloo-system",
+					},
+				},
+			}
+			unstructured.SetNestedMap(
+				routes[0].(map[string]interface{}),
+				routeAction,
+				"routeAction",
+			)
+		}
+
+		// set route field
+		err = unstructured.SetNestedSlice(virtualService.Object, routes, "spec", "virtualHost", "routes")
+		if err != nil {
+			return nil, fmt.Errorf("failed to set route on virtual service: %w", err)
 		}
 
 		// configure ssl config

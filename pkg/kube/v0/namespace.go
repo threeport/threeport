@@ -131,7 +131,11 @@ func updateNamespace(jsonDef []byte, namespace string) ([]byte, error) {
 
 	// set the namespace field in the metadata
 	if metadata, ok := mapDef["metadata"].(map[string]interface{}); ok {
-		metadata["namespace"] = namespace
+		if mapDef["kind"] == "Gateway" {
+			metadata["namespace"] = "nukleros-gateway-system"
+		} else {
+			metadata["namespace"] = namespace
+		}
 	} else {
 		return nil, errors.New("failed to find \"metadata\" field in JSON definition")
 	}

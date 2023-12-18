@@ -787,51 +787,62 @@ func configureVirtualServiceRuntimeParameters(
 			return nil, fmt.Errorf("failed to unmarshal virtual service workload resource definition: %w", err)
 		}
 
-		// get route array
-		routes, found, err := unstructured.NestedSlice(virtualService, "spec", "virtualHost", "routes")
-		if err != nil || !found {
-			return nil, fmt.Errorf("failed to get virtualservice route: %w", err)
-		}
-		if len(routes) == 0 {
-			return nil, fmt.Errorf("no routes found")
-		}
+		// if we're not redirecting HTTPS, set the upstream name
+		// and namespace fields
+		if !*httpPort.HTTPSRedirect {
+			// get route array
+			routes, found, err := unstructured.NestedSlice(virtualService, "spec", "virtualHost", "routes")
+			if err != nil || !found {
+				return nil, fmt.Errorf("failed to get virtualservice route: %w", err)
+			}
+			if len(routes) == 0 {
+				return nil, fmt.Errorf("no routes found")
+			}
 
-		// set virtual service upstream name field
-		err = unstructured.SetNestedField(
-			routes[0].(map[string]interface{}),
-			fmt.Sprintf("%s-%s-%d", namespace, name, *httpPort.Port), // $namespace-$name-$port is convention for gloo edge upstream names
-			"routeAction",
-			"single",
-			"upstream",
-			"name",
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
-		}
+			// set upstream port to 80 if tls is enabled
+			// otherwise, use the port provided
+			upstreamPort := *httpPort.Port
+			if *httpPort.TLSEnabled {
+				upstreamPort = 80
+			}
 
-		// get gloo edge namespace
-		glooEdgeNamespace, err := getGlooEdgeNamespace(r, kubernetesRuntimeInstance.GatewayControllerInstanceID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get gloo edge namespace: %w", err)
-		}
+			// set virtual service upstream name field
+			err = unstructured.SetNestedField(
+				routes[0].(map[string]interface{}),
+				fmt.Sprintf("%s-%s-%d", namespace, name, upstreamPort), // $namespace-$name-$port is convention for gloo edge upstream names
+				"routeAction",
+				"single",
+				"upstream",
+				"name",
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
+			}
 
-		// set virtual service upstream namespace field
-		err = unstructured.SetNestedField(
-			routes[0].(map[string]interface{}),
-			glooEdgeNamespace,
-			"routeAction",
-			"single",
-			"upstream",
-			"namespace",
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
-		}
+			// get gloo edge namespace
+			glooEdgeNamespace, err := getGlooEdgeNamespace(r, kubernetesRuntimeInstance.GatewayControllerInstanceID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get gloo edge namespace: %w", err)
+			}
 
-		// set route field
-		err = unstructured.SetNestedSlice(virtualService, routes, "spec", "virtualHost", "routes")
-		if err != nil {
-			return nil, fmt.Errorf("failed to set route on virtual service: %w", err)
+			// set virtual service upstream namespace field
+			err = unstructured.SetNestedField(
+				routes[0].(map[string]interface{}),
+				glooEdgeNamespace,
+				"routeAction",
+				"single",
+				"upstream",
+				"namespace",
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to set upstream name on virtual service: %w", err)
+			}
+
+			// set route field
+			err = unstructured.SetNestedSlice(virtualService, routes, "spec", "virtualHost", "routes")
+			if err != nil {
+				return nil, fmt.Errorf("failed to set route on virtual service: %w", err)
+			}
 		}
 
 		if *httpPort.TLSEnabled {
@@ -902,7 +913,7 @@ func configureTcpGatewayRuntimeParameters(
 			return nil, fmt.Errorf("no tcp gateway hosts found")
 		}
 
-		// set virtual service upstream name field
+		// set tcp gateway upstream name field
 		err = unstructured.SetNestedField(
 			tcpHosts[0].(map[string]interface{}),
 			fmt.Sprintf("%s-%s-%d", namespace, name, *tcpPort.Port), // $namespace-$name-$port is convention for gloo edge upstream names
