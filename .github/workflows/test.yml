@@ -14,7 +14,7 @@ jobs:
     steps:
 
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Build threeport API
       uses: macbre/push-to-ghcr@master
@@ -29,7 +29,7 @@ jobs:
     steps:
 
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Build workload-controller
       uses: macbre/push-to-ghcr@master
@@ -44,7 +44,7 @@ jobs:
     steps:
 
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Build kubernetes-runtime-controller
       uses: macbre/push-to-ghcr@master
@@ -59,7 +59,7 @@ jobs:
     steps:
 
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Build aws-controller
       uses: macbre/push-to-ghcr@master
@@ -74,7 +74,7 @@ jobs:
     steps:
 
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Build gateway-controller
       uses: macbre/push-to-ghcr@master
@@ -89,7 +89,7 @@ jobs:
     steps:
 
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Build threeport-agent
       uses: macbre/push-to-ghcr@master
@@ -111,7 +111,7 @@ jobs:
     steps:
 
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v4
