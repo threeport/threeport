@@ -1,4 +1,9 @@
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: s3-client
+---
+apiVersion: v1
 kind: Secret
 metadata:
   name: getting-started-wordpress
@@ -97,6 +102,7 @@ spec:
         app.kubernetes.io/instance: getting-started
         app.kubernetes.io/managed-by: Helm
     spec:
+      serviceAccountName: s3-client
 
       # yamllint disable rule:indentation
       hostAliases:
@@ -122,8 +128,10 @@ spec:
         fsGroup: 1001
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: default
       containers:
+        - name: s3-client
+          image: cimg/aws:2023.09
+          command: ["sleep", "3600"]  # will run for 1 hour
         - name: wordpress
           image: docker.io/bitnami/wordpress:6.2.0-debian-11-r22
           imagePullPolicy: "IfNotPresent"
