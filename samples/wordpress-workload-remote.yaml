@@ -2,7 +2,7 @@ Workload:
   Name: "wordpress"
   YAMLDocument: "wordpress-manifest-remote.yaml"
   KubernetesRuntimeInstance:
-    Name: congo-non-prod
+    Name: threeport-test
   AwsRelationalDatabase:
     Name: wordpress-db
     AwsAccountName: default-account
