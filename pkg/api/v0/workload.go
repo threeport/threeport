@@ -24,6 +24,13 @@ type WorkloadDefinition struct {
 	// The yaml manifests that define the workload configuration.
 	YAMLDocument *string `json:"YAMLDocument,omitempty" gorm:"not null" validate:"required"`
 
+	// If true, threeport is managing the namespace for the user.  If false, the
+	// user has supplied a namespace resource and is managing namespaces.  This
+	// value is set when user-supplied K8s manifest is parsed.  Not intended to
+	// be set by user at this time.  In future, could be set by user to instruct
+	// threeport to ignore namespaces in user-supplied K8s manifest.
+	ThreeportManagedNamespace *bool `json:"ThreeportManagedNamespace,omitempty" validate:"optional"`
+
 	// The associated workload resource definitions that are derived.
 	WorkloadResourceDefinitions []*WorkloadResourceDefinition `json:"WorkloadResourceDefinitions,omitempty" validate:"optional,association"`
 

@@ -170,6 +170,41 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 		return nil, err
 	}
 
+	// check to see if client is managing namespace
+	if !*workloadDefinition.ThreeportManagedNamespace {
+		// if client managed namespaces, get instances for definition
+		instances, err := client.GetWorkloadInstancesByWorkloadDefinitionID(
+			apiClient,
+			apiEndpoint,
+			*workloadDefinition.ID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// if there's already an instance for a workload with client managed
+		// namespace, check clusters
+		var runtimeNames []string
+		for _, inst := range *instances {
+			runtime, err := client.GetKubernetesRuntimeInstanceByID(
+				apiClient,
+				apiEndpoint,
+				*inst.KubernetesRuntimeInstanceID,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get kubernetes runtime instance ID: %w", err)
+			}
+			runtimeNames = append(runtimeNames, *runtime.Name)
+		}
+		for _, rName := range runtimeNames {
+			// if the workload instance is using a cluster that already has an
+			// instance for this definition, return error
+			if rName == *kubernetesRuntimeInstance.Name {
+				return nil, errors.New("only one workload instance per cluster may be deployed when a Kubernetes namespace is included in the workload definition YAMLDocument")
+			}
+		}
+	}
+
 	// construct workload instance object
 	workloadInstance := v0.WorkloadInstance{
 		Instance: v0.Instance{

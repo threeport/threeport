@@ -1287,26 +1287,21 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - AwsObjectStorageBucketDefinition
-    - AwsObjectStorageBucketInstance
     - GatewayDefinition
     - GatewayInstance
     - GatewayHttpPort
     - GatewayTcpPort
     - DomainNameDefinition
     - DomainNameInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - Profile
     - Tier
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -1315,30 +1310,30 @@ definitions:
     - WorkloadEvent
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - AwsObjectStorageBucketDefinition
+    - AwsObjectStorageBucketInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeAwsObjectStorageBucketDefinition
-    - ObjectTypeAwsObjectStorageBucketInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
     - ObjectTypeGatewayHttpPort
     - ObjectTypeGatewayTcpPort
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeProfile
     - ObjectTypeTier
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -1347,8 +1342,13 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeAwsObjectStorageBucketDefinition
+    - ObjectTypeAwsObjectStorageBucketInstance
   v0.Profile:
     properties:
       Name:
@@ -1457,6 +1457,14 @@ definitions:
       Reconciled:
         description: Indicates if object is considered to be reconciled by the object's
           controller.
+        type: boolean
+      ThreeportManagedNamespace:
+        description: |-
+          If true, threeport is managing the namespace for the user.  If false, the
+          user has supplied a namespace resource and is managing namespaces.  This
+          value is set when user-supplied K8s manifest is parsed.  Not intended to
+          be set by user at this time.  In future, could be set by user to instruct
+          threeport to ignore namespaces in user-supplied K8s manifest.
         type: boolean
       TierID:
         description: |-
@@ -1662,7 +1670,7 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: v0.3.1
+  version: v0.4.0-rc.1
 paths:
   /attached-object-references/versions:
     get:
