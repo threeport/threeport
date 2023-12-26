@@ -53,7 +53,7 @@ func gatewayInstanceCreated(
 	}
 
 	// configure workload resource instances
-	workloadResourceInstances, err := configureWorkloadResourceInstances(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
+	workloadResourceInstances, err := configureGatewayWorkloadResourceInstances(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to configure workload resource instances: %w", err)
 	}
@@ -109,7 +109,7 @@ func gatewayInstanceUpdated(
 	}
 
 	// configure workload resource instances
-	updatedWorkloadResourceInstances, err := configureWorkloadResourceInstances(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
+	updatedWorkloadResourceInstances, err := configureGatewayWorkloadResourceInstances(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to configure workload resource instances: %w", err)
 	}
@@ -649,9 +649,9 @@ func ensureGlooEdgePortExists(protocol string, port int, tlsEnabled bool, ports 
 	return ports, nil
 }
 
-// configureRuntimeParameters configures a VirtualService custom resource
+// configureGatewayManifests configures a VirtualService custom resource
 // based on the configuration of the gateway workload definition
-func configureRuntimeParameters(
+func configureGatewayManifests(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
@@ -697,9 +697,9 @@ func configureRuntimeParameters(
 		return nil, fmt.Errorf("failed to get gateway workload resource definitions: %w", err)
 	}
 
-	// configure virtual services
+	// configure virtual service runtime parameters
 	var jsonDefinitions []*datatypes.JSON
-	virtualServiceDefinitions, err := configureVirtualServiceRuntimeParameters(
+	virtualServiceManifests, err := configureVirtualServiceRuntimeParameters(
 		r,
 		gatewayDefinition,
 		workloadInstance,
@@ -711,10 +711,10 @@ func configureRuntimeParameters(
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure virtual services: %w", err)
 	}
-	jsonDefinitions = append(jsonDefinitions, virtualServiceDefinitions...)
+	jsonDefinitions = append(jsonDefinitions, virtualServiceManifests...)
 
-	// configure tcp gateways
-	tcpGatewayDefinitions, err := configureTcpGatewayRuntimeParameters(
+	// configure tcp gateway runtime parameters
+	tcpGatewayManifests, err := configureTcpGatewayRuntimeParameters(
 		r,
 		gatewayDefinition,
 		workloadInstance,
@@ -726,7 +726,7 @@ func configureRuntimeParameters(
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure virtual services: %w", err)
 	}
-	jsonDefinitions = append(jsonDefinitions, tcpGatewayDefinitions...)
+	jsonDefinitions = append(jsonDefinitions, tcpGatewayManifests...)
 
 	return jsonDefinitions, nil
 
@@ -1118,23 +1118,23 @@ func getGatewayInstanceObjects(r *controller.Reconciler, gatewayInstance *v0.Gat
 	return []string{"VirtualService"}, nil
 }
 
-// configureWorkloadResourceInstances configures the workload resource instances
+// configureGatewayWorkloadResourceInstances configures the workload resource instances
 // required for a gateway instance
-func configureWorkloadResourceInstances(
+func configureGatewayWorkloadResourceInstances(
 	r *controller.Reconciler,
 	gatewayDefinition *v0.GatewayDefinition,
 	workloadInstance *v0.WorkloadInstance,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 ) (*[]v0.WorkloadResourceInstance, error) {
 
-	var jsonDefinitions []*datatypes.JSON
+	var jsonManifests []*datatypes.JSON
 
-	// configure virtual service manifest
-	virtualServices, err := configureRuntimeParameters(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
+	// get gloo edge virtual services and tcp gateways
+	glooEdgeManifests, err := configureGatewayManifests(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure virtual service: %w", err)
 	}
-	jsonDefinitions = append(jsonDefinitions, virtualServices...)
+	jsonManifests = append(jsonManifests, glooEdgeManifests...)
 
 	tlsEnabled, err := getTlsEnabled(r, gatewayDefinition)
 	if err != nil {
@@ -1152,25 +1152,25 @@ func configureWorkloadResourceInstances(
 			return nil, fmt.Errorf("failed to get domain name definition: %w", err)
 		}
 
-		// configure issuer manifest
-		issuer, err := configureIssuer(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, domainNameDefinition)
+		// configure issuerManifest manifest
+		issuerManifest, err := configureIssuer(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, domainNameDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure issuer: %w", err)
 		}
-		jsonDefinitions = append(jsonDefinitions, issuer)
+		jsonManifests = append(jsonManifests, issuerManifest)
 
-		// configure certificate manifest
-		certificate, err := configureCertificate(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, domainNameDefinition)
+		// configure certificateManifest manifest
+		certificateManifest, err := configureCertificate(r, gatewayDefinition, workloadInstance, kubernetesRuntimeInstance, domainNameDefinition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure certificate: %w", err)
 		}
-		jsonDefinitions = append(jsonDefinitions, certificate)
+		jsonManifests = append(jsonManifests, certificateManifest)
 	}
 
 	var workloadResourceInstances []v0.WorkloadResourceInstance
-	for _, jsonDefinition := range jsonDefinitions {
+	for _, jsonManifest := range jsonManifests {
 		workloadResourceInstance := v0.WorkloadResourceInstance{
-			JSONDefinition:     jsonDefinition,
+			JSONDefinition:     jsonManifest,
 			WorkloadInstanceID: workloadInstance.ID,
 			Reconciled:         util.BoolPtr(false),
 		}
