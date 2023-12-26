@@ -2,6 +2,11 @@
 //go:generate threeport-codegen controller --filename $GOFILE
 package v0
 
+import (
+	"fmt"
+	"strings"
+)
+
 // +threeport-codegen:reconciler
 // Gateway is a route for requests to a workload from clients outside the
 // private network of a workload kubernetes runtime.  This
@@ -86,7 +91,7 @@ type GatewayInstance struct {
 
 // GatewayHttpPort is an HTTP port to expose to the outside network.
 type GatewayHttpPort struct {
-	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// GatewayDefinitionID is the definition used to configure the gateway http port.
 	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" query:"gatewaydefinitionid" gorm:"not null" validate:"required"`
@@ -106,7 +111,7 @@ type GatewayHttpPort struct {
 
 // GatewayTcpPort is a TCP port to expose to the outside network.
 type GatewayTcpPort struct {
-	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// GatewayDefinitionID is the definition used to configure the gateway tcp port.
 	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" query:"gatewaydefinitionid" gorm:"not null" validate:"required"`
@@ -167,4 +172,20 @@ type DomainNameInstance struct {
 
 	// The cluster where the workload that is using the domain name is running.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
+}
+
+// GetGatewayPortsAsString returns a string representation of the ports
+// exposed by a gateway definition
+func (g GatewayDefinition) GetGatewayPortsAsString() string {
+	formattedPorts := []string{}
+
+	for _, httpPort := range g.HttpPorts {
+		formattedPorts = append(formattedPorts, fmt.Sprintf("http/%d", *httpPort.Port))
+	}
+
+	for _, tcpPort := range g.TcpPorts {
+		formattedPorts = append(formattedPorts, fmt.Sprintf("tcp/%d", *tcpPort.Port))
+	}
+
+	return strings.Join(formattedPorts, ",")
 }

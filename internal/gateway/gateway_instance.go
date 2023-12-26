@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -591,27 +590,11 @@ func confirmGatewayPortsExposed(
 
 	log.V(1).Info(
 		"updated gateway controller instance to expose requested port",
-		"ports", fmt.Sprintf("%s", getPortsAsString(gatewayDefinition)),
+		"ports", fmt.Sprintf("%s", gatewayDefinition.GetGatewayPortsAsString),
 	)
 
 	return nil
 
-}
-
-// getPortsAsString returns a string representation of the ports
-// exposed by a gateway definition
-func getPortsAsString(gatewayDefinition *v0.GatewayDefinition) string {
-	formattedPorts := []string{}
-
-	for _, httpPort := range gatewayDefinition.HttpPorts {
-		formattedPorts = append(formattedPorts, fmt.Sprintf("http/%d", *httpPort.Port))
-	}
-
-	for _, tcpPort := range gatewayDefinition.TcpPorts {
-		formattedPorts = append(formattedPorts, fmt.Sprintf("tcp/%d", *tcpPort.Port))
-	}
-
-	return strings.Join(formattedPorts, ",")
 }
 
 // ensureGlooEdgePortExists ensures a gloo edge port exists
