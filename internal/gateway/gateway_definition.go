@@ -258,21 +258,3 @@ func getDomainInfo(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefini
 
 	return domain, adminEmail, nil
 }
-
-// // doesPortExist
-// func doesPortExist(gatewayDefinition *v0.GatewayDefinition) bool {
-
-// 	for _, httpPort := range gatewayDefinition.HttpPorts {
-// 		if httpPort != nil && httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
-// 			return true
-// 		}
-// 	}
-
-// 	for _, tcpPort := range gatewayDefinition.TcpPorts {
-// 		if tcpPort != nil && tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
-// 			return true
-// 		}
-// 	}
-
-// 	return false
-// }
