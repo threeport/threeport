@@ -590,7 +590,7 @@ func confirmGatewayPortsExposed(
 
 	log.V(1).Info(
 		"updated gateway controller instance to expose requested port",
-		"ports", fmt.Sprintf("%s", gatewayDefinition.GetGatewayPortsAsString),
+		"ports", fmt.Sprintf("%s", gatewayDefinition.GetGatewayPortsAsString()),
 	)
 
 	return nil
