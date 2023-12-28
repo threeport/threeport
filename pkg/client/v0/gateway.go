@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -67,4 +68,31 @@ func GetGatewayTcpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr str
 	}
 
 	return &gatewayTcpPort, nil
+}
+
+// GetGatewayPortsAsString returns a string representation of the ports
+// exposed by a gateway definition
+func GetGatewayPortsAsString(apiClient *http.Client, apiAddr string, id uint) (string, error) {
+
+	gatewayHttpPorts, err := GetGatewayHttpPortsByGatewayDefinitionId(apiClient, apiAddr, id)
+	if err != nil {
+		return "", fmt.Errorf("failed to get gateway http ports: %w", err)
+	}
+
+	gatewayTcpPorts, err := GetGatewayTcpPortsByGatewayDefinitionId(apiClient, apiAddr, id)
+	if err != nil {
+		return "", fmt.Errorf("failed to get gateway tcp ports: %w", err)
+	}
+
+	formattedPorts := []string{}
+
+	for _, httpPort := range *gatewayHttpPorts {
+		formattedPorts = append(formattedPorts, fmt.Sprintf("http/%d", *httpPort.Port))
+	}
+
+	for _, tcpPort := range *gatewayTcpPorts {
+		formattedPorts = append(formattedPorts, fmt.Sprintf("tcp/%d", *tcpPort.Port))
+	}
+
+	return strings.Join(formattedPorts, ","), nil
 }

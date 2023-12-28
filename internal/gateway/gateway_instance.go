@@ -588,9 +588,14 @@ func confirmGatewayPortsExposed(
 		return fmt.Errorf("failed to update gateway controller workload instance: %w", err)
 	}
 
+	// log the ports that are exposed
+	gatewayPorts, err := client.GetGatewayPortsAsString(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
+	if err != nil {
+		return fmt.Errorf("failed to get gateway ports as string: %w", err)
+	}
 	log.V(1).Info(
 		"updated gateway controller instance to expose requested port",
-		"ports", fmt.Sprintf("%s", gatewayDefinition.GetGatewayPortsAsString()),
+		"ports", fmt.Sprintf("%s", gatewayPorts),
 	)
 
 	return nil

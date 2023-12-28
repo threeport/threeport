@@ -2,11 +2,6 @@
 //go:generate threeport-codegen controller --filename $GOFILE
 package v0
 
-import (
-	"fmt"
-	"strings"
-)
-
 // +threeport-codegen:reconciler
 // Gateway is a route for requests to a workload from clients outside the
 // private network of a workload kubernetes runtime.  This
@@ -172,20 +167,4 @@ type DomainNameInstance struct {
 
 	// The cluster where the workload that is using the domain name is running.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
-}
-
-// GetGatewayPortsAsString returns a string representation of the ports
-// exposed by a gateway definition
-func (g GatewayDefinition) GetGatewayPortsAsString() string {
-	formattedPorts := []string{}
-
-	for _, httpPort := range g.HttpPorts {
-		formattedPorts = append(formattedPorts, fmt.Sprintf("http/%d", *httpPort.Port))
-	}
-
-	for _, tcpPort := range g.TcpPorts {
-		formattedPorts = append(formattedPorts, fmt.Sprintf("tcp/%d", *tcpPort.Port))
-	}
-
-	return strings.Join(formattedPorts, ",")
 }
