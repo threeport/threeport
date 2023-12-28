@@ -28,7 +28,7 @@ func createSupportServicesCollection() (string, error) {
 		},
 	}
 
-	return unstructuredToYAMLString(supportServicesCollection)
+	return unstructuredToYamlString(supportServicesCollection)
 }
 
 // createGlooEdge creates a gloo edge custom resource.
@@ -48,7 +48,7 @@ func createGlooEdge() (string, error) {
 		},
 	}
 
-	return unstructuredToYAMLString(glooEdge)
+	return unstructuredToYamlString(glooEdge)
 }
 
 // createExternalDns creates an external DNS custom resource.
@@ -89,7 +89,7 @@ func createExternalDns(
 		},
 	}
 
-	return unstructuredToYAMLString(externalDns)
+	return unstructuredToYamlString(externalDns)
 }
 
 // createGlooEdgePort creates a gloo edge port.
@@ -136,7 +136,7 @@ func createCertManager(iamRoleArn string) (string, error) {
 		},
 	}
 
-	return unstructuredToYAMLString(certManager)
+	return unstructuredToYamlString(certManager)
 }
 
 // getCleanedDomain returns a cleaned domain.
@@ -146,8 +146,8 @@ func getCleanedDomain(domain string) string {
 	return cleanedDomain
 }
 
-// createVirtualServices creates a virtual service for the given domain.
-func createVirtualServices(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
+// createVirtualServicesYaml creates a virtual service for the given domain.
+func createVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
 
 	var manifests []string
 
@@ -249,7 +249,7 @@ func createVirtualServices(r *controller.Reconciler, gatewayDefinition *v0.Gatew
 			unstructured.SetNestedMap(virtualService.Object, sslConfig, "spec", "sslConfig")
 		}
 
-		virtualServiceManifest, err := unstructuredToYAMLString(virtualService)
+		virtualServiceManifest, err := unstructuredToYamlString(virtualService)
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
 		}
@@ -260,8 +260,8 @@ func createVirtualServices(r *controller.Reconciler, gatewayDefinition *v0.Gatew
 	return manifests, nil
 }
 
-// createTcpGateways creates a tcp gateway for the given domain.
-func createTcpGateways(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) ([]string, error) {
+// createTcpGatewaysYaml creates a tcp gateway for the given domain.
+func createTcpGatewaysYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) ([]string, error) {
 
 	var manifests []string
 
@@ -306,7 +306,7 @@ func createTcpGateways(r *controller.Reconciler, gatewayDefinition *v0.GatewayDe
 		// if tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
 		// }
 
-		virtualServiceManifest, err := unstructuredToYAMLString(tcpGateway)
+		virtualServiceManifest, err := unstructuredToYamlString(tcpGateway)
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
 		}
@@ -328,8 +328,8 @@ func getVirtualServiceName(gatewayDefinition *v0.GatewayDefinition, domain strin
 	}
 }
 
-// createIssuer creates an issuer for the given domain.
-func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
+// createIssuerYaml creates an issuer for the given domain.
+func createIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
 
 	var issuer = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -364,11 +364,11 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail st
 		},
 	}
 
-	return unstructuredToYAMLString(issuer)
+	return unstructuredToYamlString(issuer)
 }
 
-// createCertificate creates a certificate for the given domain.
-func createCertificate(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+// createCertificateYaml creates a certificate for the given domain.
+func createCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 
 	var certificate = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -390,11 +390,11 @@ func createCertificate(gatewayDefinition *v0.GatewayDefinition, domain string) (
 		},
 	}
 
-	return unstructuredToYAMLString(certificate)
+	return unstructuredToYamlString(certificate)
 }
 
-// unstructuredToYAMLString converts an unstructured object into a YAML string.
-func unstructuredToYAMLString(unstructuredManifest *unstructured.Unstructured) (string, error) {
+// unstructuredToYamlString converts an unstructured object into a YAML string.
+func unstructuredToYamlString(unstructuredManifest *unstructured.Unstructured) (string, error) {
 	bytes, err := yaml.Marshal(unstructuredManifest.Object)
 	if err != nil {
 		return "", fmt.Errorf("error marshaling YAML: %w", err)
