@@ -87,11 +87,23 @@ func GetGatewayPortsAsString(apiClient *http.Client, apiAddr string, id uint) (s
 	formattedPorts := []string{}
 
 	for _, httpPort := range *gatewayHttpPorts {
-		formattedPorts = append(formattedPorts, fmt.Sprintf("http/%d", *httpPort.Port))
+		var protocol string
+		if *httpPort.TLSEnabled {
+			protocol = "https"
+		} else {
+			protocol = "http"
+		}
+		formattedPorts = append(formattedPorts, fmt.Sprintf("%s/%d", protocol, *httpPort.Port))
 	}
 
 	for _, tcpPort := range *gatewayTcpPorts {
-		formattedPorts = append(formattedPorts, fmt.Sprintf("tcp/%d", *tcpPort.Port))
+		var protocol string
+		if *tcpPort.TLSEnabled {
+			protocol = "tls"
+		} else {
+			protocol = "tcp"
+		}
+		formattedPorts = append(formattedPorts, fmt.Sprintf("%s/%d", protocol, *tcpPort.Port))
 	}
 
 	return strings.Join(formattedPorts, ","), nil
