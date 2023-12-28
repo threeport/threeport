@@ -16,7 +16,7 @@ func GetGatewayHttpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr st
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/gateway-http-ports?gatewaydefinitionid=%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s%s?gatewaydefinitionid=%d", apiAddr, v0.PathGatewayHttpPorts, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -46,7 +46,7 @@ func GetGatewayTcpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr str
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/gateway-tcp-ports?gatewaydefinitionid=%d", apiAddr, ApiVersion, id),
+		fmt.Sprintf("%s%s?gatewaydefinitionid=%d", apiAddr, v0.PathGatewayTcpPorts, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
