@@ -132,7 +132,7 @@ func updateNamespace(jsonDef []byte, namespace string) ([]byte, error) {
 	// set the namespace field in the metadata
 	if metadata, ok := mapDef["metadata"].(map[string]interface{}); ok {
 		if mapDef["kind"] == "Gateway" {
-			metadata["namespace"] = "nukleros-gateway-system"
+			metadata["namespace"] = util.GatewaySystemNamespace
 		} else {
 			metadata["namespace"] = namespace
 		}

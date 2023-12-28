@@ -11,6 +11,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // createSupportServicesCollection creates a support services collection.
@@ -42,7 +43,7 @@ func createGlooEdge() (string, error) {
 				"name": "glooedge",
 			},
 			"spec": map[string]interface{}{
-				"namespace": "nukleros-gateway-system",
+				"namespace": util.GatewaySystemNamespace,
 				"ports":     []interface{}{},
 			},
 		},
@@ -76,7 +77,7 @@ func createExternalDns(
 				"name": "externaldns-sample",
 			},
 			"spec": map[string]interface{}{
-				"namespace":          "nukleros-gateway-system",
+				"namespace":          util.GatewaySystemNamespace,
 				"zoneType":           zoneType,
 				"domainName":         domain,
 				"image":              "registry.k8s.io/external-dns/external-dns",
