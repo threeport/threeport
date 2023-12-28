@@ -10,18 +10,6 @@ type GatewayDefinition struct {
 	Definition     `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// // TCP Port to expose to outside network.
-	// TCPPort *int `json:"TCPPort,omitempty" query:"tcpport" gorm:"not null" validate:"required"`
-
-	// // Expose port 443 with TLS termination.
-	// HTTPSPort *bool `json:"HTTPSPort,omitempty" query:"httpsport" gorm:"default:true" validate:"optional"`
-
-	// // Expose port 80.
-	// HTTPPort *bool `json:"HTTPPort,omitempty" query:"httpport" gorm:"default:true" validate:"optional"`
-
-	// // Redirect all requests to HTTP port to HTTPS.
-	// HTTPSRedirect *bool `json:"HTTPSRedirect,omitempty" query:"httpsredirect" gorm:"default:true" validate:"optional"`
-
 	// // Allow requests from the public internet.
 	// Public *bool `json:"Public,omitempty" query:"public" gorm:"default:true" validate:"optional"`
 
@@ -29,10 +17,6 @@ type GatewayDefinition struct {
 	// // not from the public internet.
 	// Private *bool `json:"Private,omitempty" query:"private" gorm:"default:false"
 	// validate:"optional"`
-
-	// // Indicates if TLS is enabled.
-	// TLSEnabled *bool `json:"TLSEnabled,omitempty" query:"tlsenabled"
-	// gorm:"default:false" validate:"optional"`
 
 	// HttpPorts is a list of HTTP ports to expose to the outside network.
 	HttpPorts []*GatewayHttpPort `json:"HttpPorts,omitempty" query:"httpports" validate:"optional"`
@@ -42,9 +26,6 @@ type GatewayDefinition struct {
 
 	// The domain name to serve requests for.
 	DomainNameDefinitionID *uint `json:"DomainNameDefinitionID,omitempty" query:"domainnamedefinition" validate:"optional"`
-
-	// // The request paths to serve requests for.
-	// Path *string `json:"Paths,omitempty" query:"paths" gorm:"default:'/'" validate:"optional"`
 
 	// An optional subdomain to add to the domain name.
 	SubDomain *string `json:"SubDomain,omitempty" query:"subdomain" validate:"optional"`
