@@ -789,15 +789,15 @@ func configureVirtualServiceRuntimeParameters(
 
 			// set upstream port to 80 if tls is enabled
 			// otherwise, use the port provided
-			upstreamPort := *httpPort.Port
+			servicePort := *httpPort.Port
 			if *httpPort.TLSEnabled {
-				upstreamPort = 80
+				servicePort = 80
 			}
 
 			// set virtual service upstream name field
 			err = unstructured.SetNestedField(
 				routes[0].(map[string]interface{}),
-				fmt.Sprintf("%s-%s-%d", namespace, name, upstreamPort), // $namespace-$name-$port is convention for gloo edge upstream names
+				fmt.Sprintf("%s-%s-%d", namespace, name, servicePort), // $namespace-$name-$port is convention for gloo edge upstream names
 				"routeAction",
 				"single",
 				"upstream",
