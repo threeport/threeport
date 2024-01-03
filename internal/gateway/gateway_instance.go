@@ -578,10 +578,9 @@ func confirmGatewayPortsExposed(
 	}
 
 	// trigger a reconciliation of the gateway controller workload instance
-	glooEdgeReconciled := false
 	updatedGatewayControllerWorkloadInstance := v0.WorkloadInstance{
 		Common:         v0.Common{ID: kubernetesRuntimeInstance.GatewayControllerInstanceID},
-		Reconciliation: v0.Reconciliation{Reconciled: &glooEdgeReconciled},
+		Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(false)},
 	}
 	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, &updatedGatewayControllerWorkloadInstance)
 	if err != nil {
