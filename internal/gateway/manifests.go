@@ -156,7 +156,7 @@ func createVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.G
 
 	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
 	if err != nil {
-		return []string{}, fmt.Errorf("failed to get gateway http ports: %w", err)
+		return []string{}, fmt.Errorf("failed to get gateway http and tcp ports: %w", err)
 	}
 	for _, httpPort := range *gatewayHttpPorts {
 

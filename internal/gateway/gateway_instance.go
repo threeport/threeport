@@ -518,16 +518,11 @@ func confirmGatewayPortsExposed(
 		return fmt.Errorf("failed to get tcp ports from from gloo edge custom resource: %v", err)
 	}
 
-	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
+	// get gateway http and tcp ports
+	gatewayHttpPorts, gatewayTcpPorts, err := client.GetGatewayHttpAndTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
 	if err != nil {
 		return fmt.Errorf("failed to get gateway http ports: %w", err)
 	}
-
-	gatewayTcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayInstance.GatewayDefinitionID)
-	if err != nil {
-		return fmt.Errorf("failed to get gateway tcp ports: %w", err)
-	}
-
 	if len(*gatewayHttpPorts) == 0 && len(*gatewayTcpPorts) == 0 {
 		return fmt.Errorf("no ports found")
 	}
@@ -747,7 +742,7 @@ func configureVirtualServiceRuntimeParameters(
 	// get gateway http ports
 	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gateway http ports: %w", err)
+		return nil, fmt.Errorf("failed to get gateway http and tcp ports: %w", err)
 	}
 
 	// configure virtual service runtime parameters

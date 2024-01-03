@@ -140,6 +140,28 @@ func gatewayDefinitionDeleted(
 		return 0, nil
 	}
 
+	// get gateway http and tcp ports
+	gatewayHttpPorts, gatewayTcpPorts, err := client.GetGatewayHttpAndTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get gateway http and tcp ports by gateway definition ID: %w", err)
+	}
+
+	// delete gateway http ports
+	for _, httpPort := range *gatewayHttpPorts {
+		_, err := client.DeleteGatewayHttpPort(r.APIClient, r.APIServer, *httpPort.ID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to delete gateway http port: %w", err)
+		}
+	}
+
+	// delete gateway tcp ports
+	 for _, tcpPort := range *gatewayTcpPorts {
+		_, err := client.DeleteGatewayTcpPort(r.APIClient, r.APIServer, *tcpPort.ID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to delete gateway tcp port: %w", err)
+		}
+	}
+
 	log.V(1).Info(
 		"gateway definition deleted",
 		"gatewayDefinitionID", gatewayDefinition.ID,
@@ -206,20 +228,15 @@ func createGatewayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefini
 // getTlsEnabled returns true if any of the HTTP or TCP ports in a gateway
 // definition have TLS enabled.
 func getTlsEnabled(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) (bool, error) {
-	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	gatewayHttpPorts, gatewayTcpPorts, err := client.GetGatewayHttpAndTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get gateway http ports: %w", err)
+		return false, fmt.Errorf("failed to get gateway http and tcp ports by gateway definition ID: %w", err)
 	}
 
 	for _, httpPort := range *gatewayHttpPorts {
 		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
 			return true, nil
 		}
-	}
-
-	gatewayTcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get gateway tcp ports: %w", err)
 	}
 
 	for _, tcpPort := range *gatewayTcpPorts {

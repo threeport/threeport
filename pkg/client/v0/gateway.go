@@ -70,20 +70,28 @@ func GetGatewayTcpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr str
 	return &gatewayTcpPort, nil
 }
 
-// GetGatewayPortsAsString returns a string representation of the ports
-// exposed by a gateway definition
-func GetGatewayPortsAsString(apiClient *http.Client, apiAddr string, id uint) (string, error) {
-
+// GetGatewayHttpAndTcpPortsByGatewayDefinitionId fetches gateway http and tcp ports by gateway definition ID.
+func GetGatewayHttpAndTcpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr string, id uint) (*[]v0.GatewayHttpPort, *[]v0.GatewayTcpPort, error) {
 	gatewayHttpPorts, err := GetGatewayHttpPortsByGatewayDefinitionId(apiClient, apiAddr, id)
 	if err != nil {
-		return "", fmt.Errorf("failed to get gateway http ports: %w", err)
+		return nil, nil, fmt.Errorf("failed to get gateway http and tcp ports: %w", err)
 	}
 
 	gatewayTcpPorts, err := GetGatewayTcpPortsByGatewayDefinitionId(apiClient, apiAddr, id)
 	if err != nil {
-		return "", fmt.Errorf("failed to get gateway tcp ports: %w", err)
+		return nil, nil, fmt.Errorf("failed to get gateway tcp ports: %w", err)
 	}
 
+	return gatewayHttpPorts, gatewayTcpPorts, nil
+}
+
+// GetGatewayPortsAsString returns a string representation of the ports
+// exposed by a gateway definition
+func GetGatewayPortsAsString(apiClient *http.Client, apiAddr string, id uint) (string, error) {
+	gatewayHttpPorts, gatewayTcpPorts, err := GetGatewayHttpAndTcpPortsByGatewayDefinitionId(apiClient, apiAddr, id)
+	if err != nil {
+		return "", fmt.Errorf("failed to get gateway http and tcp ports: %w", err)
+	}
 	formattedPorts := []string{}
 
 	for _, httpPort := range *gatewayHttpPorts {
