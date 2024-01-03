@@ -333,6 +333,21 @@ func controlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to install threeport support services CRDs: %w", err)
 	}
 
+	// wait for kube API to persist the change and refresh the client and mapper
+	// this is necessary to have the updated REST mapping for the CRDs as the
+	// support services operator install includes one of those custom resources
+	time.Sleep(time.Second * 10)
+	dynamicKubeClient, mapper, err = kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
+	}
+
 	// install the support services operator
 	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
 	if err != nil {

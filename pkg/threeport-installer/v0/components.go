@@ -30,6 +30,7 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 		return fmt.Errorf("failed to create threeport control plane namespace: %w", err)
 	}
 
+	// threeport agent
 	if err := cpi.InstallThreeportAgent(
 		kubeClient,
 		mapper,
@@ -42,11 +43,6 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	// threeport CRDs
 	if err := InstallThreeportCRDs(kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to install threeport CRDs: %w", err)
-	}
-
-	// support services operator
-	if err := InstallThreeportSupportServicesOperator(kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to install support services operator: %w", err)
 	}
 
 	return nil

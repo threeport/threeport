@@ -737,6 +737,21 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return cleanOnCreateError("failed to install threeport support services CRDs", err, &controlPlane, kubernetesRuntimeInfra, dynamicKubeClient, mapper, true, cpi, awsConfigUser)
 	}
 
+	// wait for kube API to persist the change and refresh the client and mapper
+	// this is necessary to have the updated REST mapping for the CRDs as the
+	// support services operator install includes one of those custom resources
+	time.Sleep(time.Second * 10)
+	dynamicKubeClient, mapper, err = kube.GetClient(
+		&kubernetesRuntimeInstance,
+		false,
+		nil,
+		"",
+		"",
+	)
+	if err != nil {
+		return cleanOnCreateError("failed to refresh the Kubernetes client and mapper", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
+	}
+
 	// install the support services operator
 	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
 	if err != nil {
