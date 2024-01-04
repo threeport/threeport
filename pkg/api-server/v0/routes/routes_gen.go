@@ -30,6 +30,8 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	LogBackendRoutes(e, h)
 	LogStorageDefinitionRoutes(e, h)
 	LogStorageInstanceRoutes(e, h)
+	RadiusWorkloadDefinitionRoutes(e, h)
+	RadiusWorkloadInstanceRoutes(e, h)
 	WorkloadDefinitionRoutes(e, h)
 	WorkloadResourceDefinitionRoutes(e, h)
 	WorkloadInstanceRoutes(e, h)

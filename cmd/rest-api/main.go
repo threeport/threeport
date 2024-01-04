@@ -152,6 +152,10 @@ func main() {
 		Name:     v0.ControlPlaneStreamName,
 		Subjects: v0.GetControlPlaneSubjects(),
 	})
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.RadiusWorkloadStreamName,
+		Subjects: v0.GetRadiusWorkloadSubjects(),
+	})
 
 	// handlers
 	h := handlers.New(db, nc, js)

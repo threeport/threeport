@@ -67,9 +67,8 @@ its objects for examples.
    Note: not all objects necessarily require reconciliation.  Some just store
    data that is referred to when reconciling state for other objects.
 1. If you have any "Definition" or "Instance objects that are getting a
-   reconciler, you will need to include a `Reconciled` field of type `*bool`.
-   The generated code will expect this.  This is not required if no reconciler
-   exists for the object.
+   reconciler, include an anonymous `Reconciliation` field (which is defined in
+   `pkg/api/v0/common.go`).
 1. Create the following directories based on the name of the source file in the
    API.  For example:
    * `cmd/kubernetes-runtime-controller`
@@ -103,8 +102,8 @@ its objects for examples.
         r *controller.Reconciler,
         kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
         log *logr.Logger,
-    ) error {
-        return nil
+    ) (int64, error) {
+        return 0, nil
     }
 
     // kubernetesRuntimeDefinitionCreated reconciles state for a kubernetes
@@ -113,8 +112,8 @@ its objects for examples.
         r *controller.Reconciler,
         kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
         log *logr.Logger,
-    ) error {
-        return nil
+    ) (int64, error) {
+        return 0, nil
     }
 
     // kubernetesRuntimeDefinitionCreated reconciles state for a kubernetes
@@ -123,8 +122,8 @@ its objects for examples.
         r *controller.Reconciler,
         kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
         log *logr.Logger,
-    ) error {
-        return nil
+    ) (int64, error) {
+        return 0, nil
     }
    ```
    Repeat for each reconciler.

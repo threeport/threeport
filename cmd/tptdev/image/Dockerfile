@@ -19,3 +19,12 @@ RUN go install github.com/cosmtrek/air@latest && \
 FROM base as dev
 ARG BINARY
 COPY bin/${BINARY} /${BINARY}
+
+# radius controller target
+FROM ubuntu:focal as radius
+RUN apt update && apt install -y libicu66
+COPY bin/${BINARY} /${BINARY}
+COPY cmd/tptdev/image/rad /bin/rad
+RUN mkdir -p /root/.rad/bin/
+COPY cmd/tptdev/image/rad-bicep /root/.rad/bin/rad-bicep
+

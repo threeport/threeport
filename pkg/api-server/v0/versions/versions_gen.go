@@ -25,6 +25,8 @@ func AddVersions() {
 	AddLogBackendVersions()
 	AddLogStorageDefinitionVersions()
 	AddLogStorageInstanceVersions()
+	AddRadiusWorkloadDefinitionVersions()
+	AddRadiusWorkloadInstanceVersions()
 	AddWorkloadDefinitionVersions()
 	AddWorkloadResourceDefinitionVersions()
 	AddWorkloadInstanceVersions()

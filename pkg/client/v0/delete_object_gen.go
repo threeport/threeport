@@ -99,6 +99,14 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteLogStorageInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete LogStorageInstance: %w", err)
 		}
+	case "v0.RadiusWorkloadDefinition":
+		if _, err := DeleteRadiusWorkloadDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete RadiusWorkloadDefinition: %w", err)
+		}
+	case "v0.RadiusWorkloadInstance":
+		if _, err := DeleteRadiusWorkloadInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete RadiusWorkloadInstance: %w", err)
+		}
 	case "v0.WorkloadDefinition":
 		if _, err := DeleteWorkloadDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete WorkloadDefinition: %w", err)

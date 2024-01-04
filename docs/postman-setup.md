@@ -25,8 +25,8 @@ Select "Collections" on left pane and then "Import".
 
 ![postman-import](img/postman-import.png)
 
-Click "UploadFiles" and navigage to the file `internal/api/docs/swagger.json` in
-this repo.
+Click "UploadFiles" and navigage to the file
+`pkg/api-server/v0/docs/swagger.json` in this repo.
 
 ![postman-upload](img/postman-upload.png)
 
@@ -45,8 +45,8 @@ If using Postman to do dev and testing on a remote threeport instance with auth
 enabled, follow these instructions to set it up.
 
 These instructions assume you have a threeport config that contains the
-credentials to the threeport instance, such as if you used `tptctl create
-control-plane` to provision it.
+credentials to the threeport instance, such as if you used `tptctl up -p eks`
+to provision it.
 
 ### Generate Creds
 

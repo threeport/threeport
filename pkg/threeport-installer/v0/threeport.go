@@ -15,6 +15,7 @@ const (
 	ThreeportAwsControllerImage               = "threeport-aws-controller"
 	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
 	ThreeportGatewayControllerName            = "gateway-controller"
+	ThreeportRadiusWorkloadControllerImage    = "threeport-radius-workload-controller"
 	ThreeportAgentDeployName                  = "threeport-agent"
 	ThreeportAgentImage                       = "threeport-agent"
 	ThreeportAPIServiceResourceName           = "threeport-api-server"
@@ -23,6 +24,7 @@ const (
 	ThreeportControlPlaneControllerName       = "control-plane-controller"
 	ThreeportAwsControllerName                = "aws-controller"
 	ThreeportRestApiName                      = "rest-api"
+	ThreeportRadiusWorkloadControllerName     = "radius-workload-controller"
 	ThreeportAgentName                        = "agent"
 	DefaultServiceAccount                     = "default"
 )
@@ -70,6 +72,15 @@ var ThreeportControllerList []*v0.ControlPlaneComponent = []*v0.ControlPlaneComp
 		Name:               ThreeportControlPlaneControllerName,
 		BinaryName:         ThreeportControlPlaneControllerName,
 		ImageName:          ThreeportControlPlaneControllerImage,
+		ImageRepo:          ThreeportImageRepo,
+		ImageTag:           version.GetVersion(),
+		ServiceAccountName: DefaultServiceAccount,
+		Enabled:            &enabled,
+	},
+	{
+		Name:               ThreeportRadiusWorkloadControllerName,
+		BinaryName:         ThreeportRadiusWorkloadControllerName,
+		ImageName:          ThreeportRadiusWorkloadControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
 		ServiceAccountName: DefaultServiceAccount,

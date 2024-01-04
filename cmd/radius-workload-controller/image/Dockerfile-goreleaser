@@ -1,0 +1,5 @@
+FROM gcr.io/distroless/static:nonroot
+COPY radius-workload-controller /radius-workload-controller
+USER 65532:65532
+
+ENTRYPOINT ["/radius-workload-controller"]
