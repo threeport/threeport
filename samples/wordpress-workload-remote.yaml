@@ -18,8 +18,10 @@ Workload:
     Zone: Public
     AdminEmail: admin@example.com
   Gateway:
-    TCPPort: 443
-    Path: /
-    TLSEnabled: true
+    HttpPorts:
+    - Port: 80
+      HTTPSRedirect: true
+    - Port: 443
+      TLSEnabled: true
     ServiceName: prestashop
     SubDomain: subdomain
