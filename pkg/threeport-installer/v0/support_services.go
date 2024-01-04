@@ -10,11 +10,12 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 const (
-	SupportServicesNamespace     = "support-services-system"
-	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.4.2"
+	SupportServicesNamespace = "support-services-system"
+	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.5.0"
 	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
 
 	// links the service account delcared in the IngressComponent resource to the
@@ -368,7 +369,7 @@ func InstallThreeportCRDs(
 												"type":        "string",
 											},
 											"namespace": map[string]interface{}{
-												"default":     "nukleros-gateway-system",
+												"default":     util.GatewaySystemNamespace,
 												"description": "(Default: \"nukleros-gateway-system\") Namespace to use for ingress support services.",
 												"type":        "string",
 											},
@@ -588,7 +589,7 @@ func InstallThreeportCRDs(
 												"type": "object",
 											},
 											"namespace": map[string]interface{}{
-												"default":     "nukleros-gateway-system",
+												"default":     util.GatewaySystemNamespace,
 												"description": "(Default: \"nukleros-gateway-system\") Namespace to use for gateway support services.",
 												"type":        "string",
 											},
@@ -604,6 +605,9 @@ func InstallThreeportCRDs(
 														},
 														"ssl": map[string]interface{}{
 															"type": "boolean",
+														},
+														"protocol": map[string]interface{}{
+															"type": "string",
 														},
 													},
 													"type": "object",

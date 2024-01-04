@@ -9,7 +9,7 @@
             "url": "https://threeport.io/support",
             "email": "support@threeport.io"
         },
-        "version": "v0.2.2"
+        "version": "v0.3.1"
     },
     "host": "rest-api.threeport.io",
     "basePath": "/",
@@ -284,6 +284,24 @@
                 }
             }
         },
+        "/gateway-http-ports/versions": {
+            "get": {
+                "description": "Get the supported API versions for gateway http ports.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetGatewayHttpPortVersions gets the supported versions for the gateway http port API.",
+                "operationId": "gatewayHttpPort-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/gateway-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for gateway instances.",
@@ -292,6 +310,24 @@
                 ],
                 "summary": "GetGatewayInstanceVersions gets the supported versions for the gateway instance API.",
                 "operationId": "gatewayInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/gateway-tcp-ports/versions": {
+            "get": {
+                "description": "Get the supported API versions for gateway tcp ports.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetGatewayTcpPortVersions gets the supported versions for the gateway tcp port API.",
+                "operationId": "gatewayTcpPort-get-versions",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4643,6 +4679,287 @@
                 }
             }
         },
+        "/v0/gateway-http-ports": {
+            "get": {
+                "description": "Get all gateway http ports from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all gateway http ports.",
+                "operationId": "get-gatewayHttpPorts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "gateway http port search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new gateway http port to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new gateway http port.",
+                "operationId": "add-gatewayHttpPort",
+                "parameters": [
+                    {
+                        "description": "GatewayHttpPort object",
+                        "name": "gatewayHttpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayHttpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gateway-http-ports/{id}": {
+            "get": {
+                "description": "Get a particular gateway http port from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a gateway http port.",
+                "operationId": "get-gatewayHttpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a gateway http port in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gateway http port objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing gateway http port by replacing the entire object.",
+                "operationId": "replace-gatewayHttpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GatewayHttpPort object",
+                        "name": "gatewayHttpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayHttpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a gateway http port by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a gateway http port.",
+                "operationId": "delete-gatewayHttpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a gateway http port in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gateway http port objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing gateway http port.",
+                "operationId": "update-gatewayHttpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GatewayHttpPort object",
+                        "name": "gatewayHttpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayHttpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/gateway-instances": {
             "get": {
                 "description": "Get all gateway instances from the Threeport database.",
@@ -4893,6 +5210,287 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gateway-tcp-ports": {
+            "get": {
+                "description": "Get all gateway tcp ports from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all gateway tcp ports.",
+                "operationId": "get-gatewayTcpPorts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "gateway tcp port search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new gateway tcp port to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new gateway tcp port.",
+                "operationId": "add-gatewayTcpPort",
+                "parameters": [
+                    {
+                        "description": "GatewayTcpPort object",
+                        "name": "gatewayTcpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayTcpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gateway-tcp-ports/{id}": {
+            "get": {
+                "description": "Get a particular gateway tcp port from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a gateway tcp port.",
+                "operationId": "get-gatewayTcpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a gateway tcp port in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gateway tcp port objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing gateway tcp port by replacing the entire object.",
+                "operationId": "replace-gatewayTcpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GatewayTcpPort object",
+                        "name": "gatewayTcpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayTcpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a gateway tcp port by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a gateway tcp port.",
+                "operationId": "delete-gatewayTcpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a gateway tcp port in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gateway tcp port objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing gateway tcp port.",
+                "operationId": "update-gatewayTcpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GatewayTcpPort object",
+                        "name": "gatewayTcpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayTcpPort"
                         }
                     }
                 ],
@@ -9011,6 +9609,10 @@
                 "Name"
             ],
             "properties": {
+                "BinaryName": {
+                    "description": "The binary name of the component",
+                    "type": "string"
+                },
                 "ControlPlaneInstanceID": {
                     "description": "The control plane instance ID that this component belongs to",
                     "type": "integer"
@@ -9417,8 +10019,7 @@
         "v0.GatewayDefinition": {
             "type": "object",
             "required": [
-                "Name",
-                "TCPPort"
+                "Name"
             ],
             "properties": {
                 "CreationAcknowledged": {
@@ -9456,9 +10057,12 @@
                         "$ref": "#/definitions/v0.GatewayInstance"
                     }
                 },
-                "HTTPSRedirect": {
-                    "description": "Redirect all requests to HTTP port to HTTPS.",
-                    "type": "boolean"
+                "HttpPorts": {
+                    "description": "HttpPorts is a list of HTTP ports to expose to the outside network.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.GatewayHttpPort"
+                    }
                 },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
@@ -9466,10 +10070,6 @@
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
-                    "type": "string"
-                },
-                "Paths": {
-                    "description": "The request paths to serve requests for.",
                     "type": "string"
                 },
                 "ProfileID": {
@@ -9488,13 +10088,12 @@
                     "description": "An optional subdomain to add to the domain name.",
                     "type": "string"
                 },
-                "TCPPort": {
-                    "description": "TCP Port to expose to outside network.",
-                    "type": "integer"
-                },
-                "TLSEnabled": {
-                    "description": "Indicates if TLS is enabled.",
-                    "type": "boolean"
+                "TcpPorts": {
+                    "description": "TcpPorts is a list of TCP ports to expose to the outside network.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.GatewayTcpPort"
+                    }
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
@@ -9503,6 +10102,35 @@
                 "WorkloadDefinitionID": {
                     "description": "The workload definition that belongs to this resource.",
                     "type": "integer"
+                }
+            }
+        },
+        "v0.GatewayHttpPort": {
+            "type": "object",
+            "required": [
+                "GatewayDefinitionID",
+                "Port"
+            ],
+            "properties": {
+                "GatewayDefinitionID": {
+                    "description": "GatewayDefinitionID is the definition used to configure the gateway http port.",
+                    "type": "integer"
+                },
+                "HTTPSRedirect": {
+                    "description": "Redirect all requests to HTTP port to HTTPS.",
+                    "type": "boolean"
+                },
+                "Path": {
+                    "description": "The request path to serve requests for.",
+                    "type": "string"
+                },
+                "Port": {
+                    "description": "The HTTP port to expose.",
+                    "type": "integer"
+                },
+                "TLSEnabled": {
+                    "description": "Indicates if TLS is enabled.",
+                    "type": "boolean"
                 }
             }
         },
@@ -9569,6 +10197,27 @@
                 }
             }
         },
+        "v0.GatewayTcpPort": {
+            "type": "object",
+            "required": [
+                "GatewayDefinitionID",
+                "Port"
+            ],
+            "properties": {
+                "GatewayDefinitionID": {
+                    "description": "GatewayDefinitionID is the definition used to configure the gateway tcp port.",
+                    "type": "integer"
+                },
+                "Port": {
+                    "description": "The TCP port to expose.",
+                    "type": "integer"
+                },
+                "TLSEnabled": {
+                    "description": "Indicates if TLS is enabled.",
+                    "type": "boolean"
+                }
+            }
+        },
         "v0.KubernetesRuntimeDefinition": {
             "type": "object",
             "required": [
@@ -9609,7 +10258,7 @@
                     "type": "string"
                 },
                 "InfraProviderAccountName": {
-                    "description": "The infra provider account ID.  Determines which account the infra is\ndeployed on.",
+                    "description": "The infra provider account name.  Determines which account the infra is\ndeployed on.",
                     "type": "string"
                 },
                 "InterruptReconciliation": {
@@ -9871,10 +10520,9 @@
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "GatewayDefinition",
-                "GatewayInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -9882,29 +10530,31 @@
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
                 "AwsObjectStorageBucketInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "Profile",
-                "Tier",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance",
                 "ControlPlaneDefinition",
                 "ControlPlaneInstance",
+                "Profile",
+                "Tier",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
-                "WorkloadEvent"
+                "WorkloadEvent",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
@@ -9912,23 +10562,26 @@
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
                 "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
                 "ObjectTypeControlPlaneDefinition",
                 "ObjectTypeControlPlaneInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent"
+                "ObjectTypeWorkloadEvent",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance"
             ]
         },
         "v0.Profile": {

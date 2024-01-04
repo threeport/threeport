@@ -18,6 +18,7 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // testWorkload represents a test case for this e2e test.
@@ -62,12 +63,11 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 
 		// create a duplicate workload definition
-		yamlDoc := ""
 		duplicateWorkload := v0.WorkloadDefinition{
 			Definition: v0.Definition{
 				Name: &workloadDefName,
 			},
-			YAMLDocument: &yamlDoc,
+			YAMLDocument: util.StringPtr(""),
 		}
 
 		// determine if the API is serving HTTPS or HTTP
@@ -75,10 +75,18 @@ func TestWorkloadE2E(t *testing.T) {
 		var respCodeErr error
 		var resp *http.Response
 		// check HTTPS
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/version", 443))
-		// if we get an error, check HTTP
-		if err != nil {
-			resp, err = http.Get(fmt.Sprintf("http://localhost:%d/version", 80))
+		if err := util.Retry(10, 1, func() error {
+			var err error
+			resp, err = http.Get(fmt.Sprintf("http://localhost:%d/version", 443))
+			// if we get an error, check HTTP
+			if err != nil {
+				resp, err = http.Get(fmt.Sprintf("http://localhost:%d/version", 80))
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
 			assert.Nil(err, "should not get an error when calling threeport API version endpoint")
 		}
 		switch resp.StatusCode {
@@ -104,15 +112,46 @@ func TestWorkloadE2E(t *testing.T) {
 		apiClient, err := threeportConfig.GetHTTPClient(tptdev.DefaultInstanceName)
 		assert.Nil(err, "should have no error creating http client")
 
-		gatewayDefinitionName := "gateway-definition"
-		tcpPort := 80
-		tlsEnabled := false
+		// configure domain name definition object
+		domainNameDefinition := &v0.DomainNameDefinition{
+			Definition: v0.Definition{
+				Name: util.StringPtr("domainNameDefinition"),
+			},
+			Domain:     util.StringPtr("test.threeport.io"),
+			Zone:       util.StringPtr("testZone"),
+			AdminEmail: util.StringPtr("no-reply@threeport.io"),
+		}
+
+		// create domain name definition
+		createdDomainNameDefinition, err := client.CreateDomainNameDefinition(
+			apiClient,
+			threeportAPIEndpoint,
+			domainNameDefinition,
+		)
+		assert.Nil(err, "should have no error creating domain name definition")
+
+		// configure gateway definition object
 		gatewayDefinition := &v0.GatewayDefinition{
 			Definition: v0.Definition{
-				Name: &gatewayDefinitionName,
+				Name: util.StringPtr("gateway-definition"),
 			},
-			TCPPort:    &tcpPort,
-			TLSEnabled: &tlsEnabled,
+			DomainNameDefinitionID: createdDomainNameDefinition.ID,
+			HttpPorts: []*v0.GatewayHttpPort{
+				{
+					Port:       util.IntPtr(80),
+					TLSEnabled: util.BoolPtr(false),
+				},
+				{
+					Port:       util.IntPtr(443),
+					TLSEnabled: util.BoolPtr(true),
+				},
+			},
+			TcpPorts: []*v0.GatewayTcpPort{
+				{
+					Port:       util.IntPtr(22),
+					TLSEnabled: util.BoolPtr(false),
+				},
+			},
 		}
 
 		// create gateway definition
@@ -124,8 +163,11 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error creating gateway definition")
 
 		// update gateway definition
-		gatewayPort := 443
-		gatewayDefinition.TCPPort = &gatewayPort
+		gatewayDefinition.HttpPorts = []*v0.GatewayHttpPort{
+			{
+				Port: util.IntPtr(443),
+			},
+		}
 		_, err = client.UpdateGatewayDefinition(
 			apiClient,
 			threeportAPIEndpoint,
@@ -148,28 +190,6 @@ func TestWorkloadE2E(t *testing.T) {
 			&duplicateWorkload,
 		)
 		assert.NotNil(err, "duplicate workload definition should throw error")
-
-		// configure domain name definition object
-		domainNameDefinitionName := "domainNameDefinition"
-		domainNameDefinitionDomain := "test.threeport.io"
-		domainNameDefinitionZone := "testZone"
-		domainNameDefinitionAdminEmail := "no-reply@threeport.io"
-		domainNameDefinition := &v0.DomainNameDefinition{
-			Definition: v0.Definition{
-				Name: &domainNameDefinitionName,
-			},
-			Domain:     &domainNameDefinitionDomain,
-			Zone:       &domainNameDefinitionZone,
-			AdminEmail: &domainNameDefinitionAdminEmail,
-		}
-
-		// create domain name definition
-		_, err = client.CreateDomainNameDefinition(
-			apiClient,
-			threeportAPIEndpoint,
-			domainNameDefinition,
-		)
-		assert.Nil(err, "should have no error creating domain name definition")
 
 		if assert.NotNil(createdWorkloadDef, "should have a workload definition returned") {
 			assert.NotNil(createdWorkloadDef.ID, "created workload definition should contain unique ID")
@@ -294,10 +314,9 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error creating domain name instance")
 
 		// create a gateway instance
-		gatewayInstanceName := "gatewayInstance"
 		gatewayInstance := &v0.GatewayInstance{
 			Instance: v0.Instance{
-				Name: &gatewayInstanceName,
+				Name: util.StringPtr("gatewayInstance"),
 			},
 			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
 			GatewayDefinitionID:         gatewayDefinition.ID,

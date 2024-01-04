@@ -160,7 +160,7 @@ NATS_PORT=4222
 								"name":            "api-server",
 								"image":           apiImage,
 								"command":         cpi.getCommand(cpi.Opts.RestApiInfo.BinaryName),
-								"imagePullPolicy": "IfNotPresent",
+								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"args":            apiArgs,
 								"ports": []interface{}{
 									map[string]interface{}{
@@ -1014,7 +1014,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 							map[string]interface{}{
 								"args":            agentArgs,
 								"image":           agentImage,
-								"imagePullPolicy": "IfNotPresent",
+								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"command":         cpi.getCommand(cpi.Opts.AgentInfo.BinaryName),
 								//"livenessProbe": map[string]interface{}{
 								//	"httpGet": map[string]interface{}{
@@ -1325,7 +1325,7 @@ func (cpi *ControlPlaneInstaller) getAirArgs(name, extraArgs string) []interface
 
 	return []interface{}{
 		"-c", "/threeport/cmd/tptdev/air.toml",
-		"-build.cmd", "go build -gcflags='all=-N -l' -o /threeport-" + name + " /threeport/cmd/" + name + "/" + main,
+		"-build.cmd", "go build -gcflags='all=-N -l' -o /" + name + " /threeport/cmd/" + name + "/" + main,
 		"-build.bin", "/usr/local/bin/dlv",
 		"-build.args_bin", strings.Join(cpi.getDelveArgs(name), " ") + appendedArgs,
 	}
@@ -1641,6 +1641,16 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 	}
 }
 
+// getImagePullPolicy returns the image pull policy based on debug mode.
+func (cpi *ControlPlaneInstaller) getImagePullPolicy() string {
+	if cpi.Opts.Debug && !cpi.Opts.LiveReload {
+		return "Always"
+	}
+	return "IfNotPresent"
+}
+
+// getControllerDeployment returns the Kubernetes deployment resource for a
+// controller.
 func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	deployName string,
 	name string,
@@ -1655,11 +1665,6 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	imagePullSecrets []interface{},
 ) *unstructured.Unstructured {
 
-	// set image pull policy based on debug mode
-	imagePullPolicy := "IfNotPresent"
-	if cpi.Opts.Debug && !cpi.Opts.LiveReload {
-		imagePullPolicy = "Always"
-	}
 
 	ports := []map[string]interface{}{}
 	if cpi.Opts.Debug {
@@ -1699,7 +1704,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 								"name":            name,
 								"image":           image,
 								"command":         cpi.getCommand(binaryName),
-								"imagePullPolicy": imagePullPolicy,
+								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"args":            args,
 								"envFrom": []interface{}{
 									map[string]interface{}{

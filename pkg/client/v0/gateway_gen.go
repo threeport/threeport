@@ -482,6 +482,476 @@ func DeleteGatewayInstance(apiClient *http.Client, apiAddr string, id uint) (*v0
 	return &gatewayInstance, nil
 }
 
+// GetGatewayHttpPorts fetches all gateway http ports.
+// TODO: implement pagination
+func GetGatewayHttpPorts(apiClient *http.Client, apiAddr string) (*[]v0.GatewayHttpPort, error) {
+	var gatewayHttpPorts []v0.GatewayHttpPort
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-http-ports", apiAddr, ApiVersion),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayHttpPorts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &gatewayHttpPorts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayHttpPorts); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayHttpPorts, nil
+}
+
+// GetGatewayHttpPortByID fetches a gateway http port by ID.
+func GetGatewayHttpPortByID(apiClient *http.Client, apiAddr string, id uint) (*v0.GatewayHttpPort, error) {
+	var gatewayHttpPort v0.GatewayHttpPort
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-http-ports/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &gatewayHttpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayHttpPort); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayHttpPort, nil
+}
+
+// GetGatewayHttpPortsByQueryString fetches gateway http ports by provided query string.
+func GetGatewayHttpPortsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.GatewayHttpPort, error) {
+	var gatewayHttpPorts []v0.GatewayHttpPort
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-http-ports?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayHttpPorts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &gatewayHttpPorts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayHttpPorts); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayHttpPorts, nil
+}
+
+// GetGatewayHttpPortByName fetches a gateway http port by name.
+func GetGatewayHttpPortByName(apiClient *http.Client, apiAddr, name string) (*v0.GatewayHttpPort, error) {
+	var gatewayHttpPorts []v0.GatewayHttpPort
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-http-ports?name=%s", apiAddr, ApiVersion, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.GatewayHttpPort{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.GatewayHttpPort{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayHttpPorts); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(gatewayHttpPorts) < 1:
+		return &v0.GatewayHttpPort{}, errors.New(fmt.Sprintf("no gateway http port with name %s", name))
+	case len(gatewayHttpPorts) > 1:
+		return &v0.GatewayHttpPort{}, errors.New(fmt.Sprintf("more than one gateway http port with name %s returned", name))
+	}
+
+	return &gatewayHttpPorts[0], nil
+}
+
+// CreateGatewayHttpPort creates a new gateway http port.
+func CreateGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpPort *v0.GatewayHttpPort) (*v0.GatewayHttpPort, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayHttpPort)
+	jsonGatewayHttpPort, err := util.MarshalObject(gatewayHttpPort)
+	if err != nil {
+		return gatewayHttpPort, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-http-ports", apiAddr, ApiVersion),
+		http.MethodPost,
+		bytes.NewBuffer(jsonGatewayHttpPort),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gatewayHttpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayHttpPort); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return gatewayHttpPort, nil
+}
+
+// UpdateGatewayHttpPort updates a gateway http port.
+func UpdateGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpPort *v0.GatewayHttpPort) (*v0.GatewayHttpPort, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayHttpPort)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	gatewayHttpPortID := *gatewayHttpPort.ID
+	payloadGatewayHttpPort := *gatewayHttpPort
+	payloadGatewayHttpPort.ID = nil
+	payloadGatewayHttpPort.CreatedAt = nil
+	payloadGatewayHttpPort.UpdatedAt = nil
+
+	jsonGatewayHttpPort, err := util.MarshalObject(payloadGatewayHttpPort)
+	if err != nil {
+		return gatewayHttpPort, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-http-ports/%d", apiAddr, ApiVersion, gatewayHttpPortID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonGatewayHttpPort),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gatewayHttpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadGatewayHttpPort); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadGatewayHttpPort.ID = &gatewayHttpPortID
+	return &payloadGatewayHttpPort, nil
+}
+
+// DeleteGatewayHttpPort deletes a gateway http port by ID.
+func DeleteGatewayHttpPort(apiClient *http.Client, apiAddr string, id uint) (*v0.GatewayHttpPort, error) {
+	var gatewayHttpPort v0.GatewayHttpPort
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-http-ports/%d", apiAddr, ApiVersion, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &gatewayHttpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayHttpPort); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayHttpPort, nil
+}
+
+// GetGatewayTcpPorts fetches all gateway tcp ports.
+// TODO: implement pagination
+func GetGatewayTcpPorts(apiClient *http.Client, apiAddr string) (*[]v0.GatewayTcpPort, error) {
+	var gatewayTcpPorts []v0.GatewayTcpPort
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-tcp-ports", apiAddr, ApiVersion),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayTcpPorts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &gatewayTcpPorts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayTcpPorts); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayTcpPorts, nil
+}
+
+// GetGatewayTcpPortByID fetches a gateway tcp port by ID.
+func GetGatewayTcpPortByID(apiClient *http.Client, apiAddr string, id uint) (*v0.GatewayTcpPort, error) {
+	var gatewayTcpPort v0.GatewayTcpPort
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-tcp-ports/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &gatewayTcpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayTcpPort); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayTcpPort, nil
+}
+
+// GetGatewayTcpPortsByQueryString fetches gateway tcp ports by provided query string.
+func GetGatewayTcpPortsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.GatewayTcpPort, error) {
+	var gatewayTcpPorts []v0.GatewayTcpPort
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-tcp-ports?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayTcpPorts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &gatewayTcpPorts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayTcpPorts); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayTcpPorts, nil
+}
+
+// GetGatewayTcpPortByName fetches a gateway tcp port by name.
+func GetGatewayTcpPortByName(apiClient *http.Client, apiAddr, name string) (*v0.GatewayTcpPort, error) {
+	var gatewayTcpPorts []v0.GatewayTcpPort
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-tcp-ports?name=%s", apiAddr, ApiVersion, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.GatewayTcpPort{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.GatewayTcpPort{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayTcpPorts); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(gatewayTcpPorts) < 1:
+		return &v0.GatewayTcpPort{}, errors.New(fmt.Sprintf("no gateway tcp port with name %s", name))
+	case len(gatewayTcpPorts) > 1:
+		return &v0.GatewayTcpPort{}, errors.New(fmt.Sprintf("more than one gateway tcp port with name %s returned", name))
+	}
+
+	return &gatewayTcpPorts[0], nil
+}
+
+// CreateGatewayTcpPort creates a new gateway tcp port.
+func CreateGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPort *v0.GatewayTcpPort) (*v0.GatewayTcpPort, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayTcpPort)
+	jsonGatewayTcpPort, err := util.MarshalObject(gatewayTcpPort)
+	if err != nil {
+		return gatewayTcpPort, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-tcp-ports", apiAddr, ApiVersion),
+		http.MethodPost,
+		bytes.NewBuffer(jsonGatewayTcpPort),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gatewayTcpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayTcpPort); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return gatewayTcpPort, nil
+}
+
+// UpdateGatewayTcpPort updates a gateway tcp port.
+func UpdateGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPort *v0.GatewayTcpPort) (*v0.GatewayTcpPort, error) {
+	ReplaceAssociatedObjectsWithNil(gatewayTcpPort)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	gatewayTcpPortID := *gatewayTcpPort.ID
+	payloadGatewayTcpPort := *gatewayTcpPort
+	payloadGatewayTcpPort.ID = nil
+	payloadGatewayTcpPort.CreatedAt = nil
+	payloadGatewayTcpPort.UpdatedAt = nil
+
+	jsonGatewayTcpPort, err := util.MarshalObject(payloadGatewayTcpPort)
+	if err != nil {
+		return gatewayTcpPort, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-tcp-ports/%d", apiAddr, ApiVersion, gatewayTcpPortID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonGatewayTcpPort),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gatewayTcpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadGatewayTcpPort); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadGatewayTcpPort.ID = &gatewayTcpPortID
+	return &payloadGatewayTcpPort, nil
+}
+
+// DeleteGatewayTcpPort deletes a gateway tcp port by ID.
+func DeleteGatewayTcpPort(apiClient *http.Client, apiAddr string, id uint) (*v0.GatewayTcpPort, error) {
+	var gatewayTcpPort v0.GatewayTcpPort
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/gateway-tcp-ports/%d", apiAddr, ApiVersion, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &gatewayTcpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gatewayTcpPort); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gatewayTcpPort, nil
+}
+
 // GetDomainNameDefinitions fetches all domain name definitions.
 // TODO: implement pagination
 func GetDomainNameDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.DomainNameDefinition, error) {

@@ -32,6 +32,30 @@ func GatewayInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.DELETE(v0.PathGatewayInstances+"/:id", h.DeleteGatewayInstance)
 }
 
+// GatewayHttpPortRoutes sets up all routes for the GatewayHttpPort handlers.
+func GatewayHttpPortRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/gateway-http-ports/versions", h.GetGatewayHttpPortVersions)
+
+	e.POST(v0.PathGatewayHttpPorts, h.AddGatewayHttpPort)
+	e.GET(v0.PathGatewayHttpPorts, h.GetGatewayHttpPorts)
+	e.GET(v0.PathGatewayHttpPorts+"/:id", h.GetGatewayHttpPort)
+	e.PATCH(v0.PathGatewayHttpPorts+"/:id", h.UpdateGatewayHttpPort)
+	e.PUT(v0.PathGatewayHttpPorts+"/:id", h.ReplaceGatewayHttpPort)
+	e.DELETE(v0.PathGatewayHttpPorts+"/:id", h.DeleteGatewayHttpPort)
+}
+
+// GatewayTcpPortRoutes sets up all routes for the GatewayTcpPort handlers.
+func GatewayTcpPortRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/gateway-tcp-ports/versions", h.GetGatewayTcpPortVersions)
+
+	e.POST(v0.PathGatewayTcpPorts, h.AddGatewayTcpPort)
+	e.GET(v0.PathGatewayTcpPorts, h.GetGatewayTcpPorts)
+	e.GET(v0.PathGatewayTcpPorts+"/:id", h.GetGatewayTcpPort)
+	e.PATCH(v0.PathGatewayTcpPorts+"/:id", h.UpdateGatewayTcpPort)
+	e.PUT(v0.PathGatewayTcpPorts+"/:id", h.ReplaceGatewayTcpPort)
+	e.DELETE(v0.PathGatewayTcpPorts+"/:id", h.DeleteGatewayTcpPort)
+}
+
 // DomainNameDefinitionRoutes sets up all routes for the DomainNameDefinition handlers.
 func DomainNameDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.GET("/domain-name-definitions/versions", h.GetDomainNameDefinitionVersions)

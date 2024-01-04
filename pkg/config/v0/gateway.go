@@ -18,12 +18,27 @@ type GatewayDefinitionConfig struct {
 // GatewayDefinitionValues contains the attributes needed to manage a gateway.
 type GatewayDefinitionValues struct {
 	Name                 string                     `yaml:"Name"`
-	TCPPort              int                        `yaml:"TCPPort"`
-	TLSEnabled           bool                       `yaml:"TLSEnabled"`
-	Path                 string                     `yaml:"Path"`
+	HttpPorts            []GatewayHttpPortValues    `yaml:"HttpPorts"`
+	TcpPorts             []GatewayTcpPortValues     `yaml:"TcpPorts"`
 	ServiceName          string                     `yaml:"ServiceName"`
 	SubDomain            string                     `yaml:"SubDomain"`
 	DomainNameDefinition DomainNameDefinitionValues `yaml:"DomainNameDefinition"`
+}
+
+// GatewayHttpPortValues contains the attributes needed to manage a gateway
+// http port.
+type GatewayHttpPortValues struct {
+	Port          int    `yaml:"Port"`
+	Path          string `yaml:"Path"`
+	TLSEnabled    bool   `yaml:"TLSEnabled"`
+	HTTPSRedirect bool   `yaml:"HTTPSRedirect"`
+}
+
+// GatewayTcpPortValues contains the attributes needed to manage a gateway
+// tcp port.
+type GatewayTcpPortValues struct {
+	Port       int  `yaml:"Port"`
+	TLSEnabled bool `yaml:"TLSEnabled"`
 }
 
 // GatewayInstanceConfig contains the config for a gateway instance.
@@ -39,27 +54,48 @@ type GatewayInstanceValues struct {
 	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
 }
 
-// Validate validates the gateway definition values.
+// Validate validates gateway definition values.
 func (g *GatewayDefinitionValues) Validate() error {
 	multiError := util.MultiError{}
 
+	// ensure name is set
 	if g.Name == "" {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
-	if g.TCPPort == 0 {
-		multiError.AppendError(errors.New("missing required field in config: TCPPort"))
+	// ensure http ports or tcp ports are set
+	if g.HttpPorts == nil && g.TcpPorts == nil {
+		multiError.AppendError(errors.New("missing required field in config: Must provide one of []HttpPorts or []TcpPorts"))
 	}
 
-	if g.DomainNameDefinition.Domain == "" {
-		multiError.AppendError(errors.New("missing required field in config: DomainNameDefinition.Name"))
+	return multiError.Error()
+}
+
+// Validate validates gateway http port values.
+func (g *GatewayHttpPortValues) Validate() error {
+
+	multiError := util.MultiError{}
+
+	// set path to default if not provided,
+	// this is necessary because we can't tell if the user
+	// didn't set the Path field or if they intended to set it to
+	// a blank string
+	if g.Path == "" {
+		g.Path = "/"
 	}
 
-	if len(multiError.Errors) > 0 {
-		return multiError.Error()
+	// ensure TLS isn't enabled while HTTPSRedirect is also enabled
+	if g.TLSEnabled && g.HTTPSRedirect {
+		multiError.AppendError(errors.New("cannot set both TLSEnabled and HTTPSRedirect to true"))
+
 	}
 
-	return nil
+	// ensure port is set
+	if g.Port == 0 {
+		multiError.AppendError(errors.New("missing required field in config: Port"))
+	}
+
+	return multiError.Error()
 }
 
 // Create creates a gateway definition.
@@ -74,14 +110,49 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 		return nil, err
 	}
 
+	// construct list of http ports
+	var httpPorts []*v0.GatewayHttpPort
+	if g.HttpPorts != nil {
+		for _, httpPort := range g.HttpPorts {
+
+			// create copy of pointer
+			currentHttpPort := httpPort
+
+			// validate port config
+			if err := currentHttpPort.Validate(); err != nil {
+				return nil, err
+			}
+
+			httpPorts = append(httpPorts,
+				&v0.GatewayHttpPort{
+					Port:          &currentHttpPort.Port,
+					Path:          &currentHttpPort.Path,
+					TLSEnabled:    &currentHttpPort.TLSEnabled,
+					HTTPSRedirect: &currentHttpPort.HTTPSRedirect,
+				})
+		}
+	}
+
+	// construct list of tcp ports
+	var tcpPorts []*v0.GatewayTcpPort
+	if g.TcpPorts != nil {
+		for _, tcpPort := range g.TcpPorts {
+			currentTcpPort := tcpPort
+			tcpPorts = append(tcpPorts,
+				&v0.GatewayTcpPort{
+					Port:       &currentTcpPort.Port,
+					TLSEnabled: &currentTcpPort.TLSEnabled,
+				})
+		}
+	}
+
 	// construct gateway definition object
 	gatewayDefinition := v0.GatewayDefinition{
 		Definition: v0.Definition{
 			Name: &g.Name,
 		},
-		TCPPort:                &g.TCPPort,
-		TLSEnabled:             &g.TLSEnabled,
-		Path:                   &g.Path,
+		HttpPorts:              httpPorts,
+		TcpPorts:               tcpPorts,
 		SubDomain:              &g.SubDomain,
 		ServiceName:            &g.ServiceName,
 		DomainNameDefinitionID: domainNameDefinition.ID,

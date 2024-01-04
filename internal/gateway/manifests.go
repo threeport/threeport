@@ -5,10 +5,32 @@ import (
 	"strings"
 
 	"github.com/iancoleman/strcase"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// createSupportServicesCollection creates a support services collection.
+func createSupportServicesCollection() (string, error) {
+	var supportServicesCollection = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "orchestration.support-services.nukleros.io/v1alpha1",
+			"kind":       "SupportServices",
+			"metadata": map[string]interface{}{
+				"name": "supportservices-sample",
+			},
+			"spec": map[string]interface{}{
+				"tier": "development",
+			},
+		},
+	}
+
+	return unstructuredToYamlString(supportServicesCollection)
+}
 
 // createGlooEdge creates a gloo edge custom resource.
 func createGlooEdge() (string, error) {
@@ -21,13 +43,13 @@ func createGlooEdge() (string, error) {
 				"name": "glooedge",
 			},
 			"spec": map[string]interface{}{
-				"namespace": "nukleros-gateway-system",
+				"namespace": util.GatewaySystemNamespace,
 				"ports":     []interface{}{},
 			},
 		},
 	}
 
-	return unstructuredToYAMLString(glooEdge)
+	return unstructuredToYamlString(glooEdge)
 }
 
 // createExternalDns creates an external DNS custom resource.
@@ -55,7 +77,7 @@ func createExternalDns(
 				"name": "externaldns-sample",
 			},
 			"spec": map[string]interface{}{
-				"namespace":          "nukleros-gateway-system",
+				"namespace":          util.GatewaySystemNamespace,
 				"zoneType":           zoneType,
 				"domainName":         domain,
 				"image":              "registry.k8s.io/external-dns/external-dns",
@@ -68,16 +90,17 @@ func createExternalDns(
 		},
 	}
 
-	return unstructuredToYAMLString(externalDns)
+	return unstructuredToYamlString(externalDns)
 }
 
 // createGlooEdgePort creates a gloo edge port.
-func createGlooEdgePort(name string, port int64, ssl bool) map[string]interface{} {
+func createGlooEdgePort(protocol, name string, port int64, ssl bool) map[string]interface{} {
 
 	var portObject = map[string]interface{}{
-		"name": name,
-		"port": port,
-		"ssl":  ssl,
+		"name":     name,
+		"protocol": protocol,
+		"port":     port,
+		"ssl":      ssl,
 	}
 
 	return portObject
@@ -114,74 +137,200 @@ func createCertManager(iamRoleArn string) (string, error) {
 		},
 	}
 
-	return unstructuredToYAMLString(certManager)
+	return unstructuredToYamlString(certManager)
 }
 
-// createVirtualService creates a virtual service for the given domain.
-func createVirtualService(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+// getCleanedDomain returns a cleaned domain.
+func getCleanedDomain(domain string) string {
+	cleanedDomain := strings.TrimPrefix(domain, "http://")
+	cleanedDomain = strings.TrimPrefix(cleanedDomain, "https://")
+	return cleanedDomain
+}
 
-	var domainList []interface{}
-	var virtualServiceName string
-	if domain == "" {
-		domainList = []interface{}{"*"}
-		virtualServiceName = *gatewayDefinition.Name
-	} else {
-		cleanedDomain := strings.TrimPrefix(domain, "http://")
-		cleanedDomain = strings.TrimPrefix(cleanedDomain, "https://")
-		domainList = []interface{}{cleanedDomain}
-		virtualServiceName = strcase.ToKebab(cleanedDomain)
+// createVirtualServicesYaml creates a virtual service for the given domain.
+func createVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
+
+	var manifests []string
+
+	domain = getCleanedDomain(domain)
+
+	gatewayHttpPorts, err := client.GetGatewayHttpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return []string{}, fmt.Errorf("failed to get gateway http and tcp ports: %w", err)
 	}
+	for _, httpPort := range *gatewayHttpPorts {
 
-	sslConfig := map[string]interface{}{}
-	if *gatewayDefinition.TLSEnabled {
-		sslConfig = map[string]interface{}{
-			"secretRef": map[string]interface{}{
-				"name":      strcase.ToKebab(domain) + "-tls",
-				"namespace": "default",
-			},
-			"sniDomains": domainList,
+		// configure domain list
+		var domainList []interface{}
+		if domain == "" {
+			domainList = []interface{}{"*"}
+		} else {
+			domainList = []interface{}{domain}
 		}
-	}
 
-	var virtualService = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "gateway.solo.io/v1",
-			"kind":       "VirtualService",
-			"metadata": map[string]interface{}{
-				"name":      virtualServiceName,
-				"namespace": "gloo-system",
-			},
-			"spec": map[string]interface{}{
-				"virtualHost": map[string]interface{}{
-					"domains": domainList,
-					"routes": []interface{}{
-						map[string]interface{}{
-							"matchers": []interface{}{
-								map[string]interface{}{
-									"prefix": *gatewayDefinition.Path,
-								},
-							},
-							"routeAction": map[string]interface{}{
-								"single": map[string]interface{}{
-									"upstream": map[string]interface{}{
-										"name":      "my-upstream",
-										"namespace": "gloo-system",
+		virtualServiceName := getVirtualServiceName(gatewayDefinition, domain, *httpPort.Port)
+
+		var virtualService = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "gateway.solo.io/v1",
+				"kind":       "VirtualService",
+				"metadata": map[string]interface{}{
+					"name":      virtualServiceName,
+					"namespace": "gloo-system",
+				},
+				"spec": map[string]interface{}{
+					"virtualHost": map[string]interface{}{
+						"domains": domainList,
+						"routes": []interface{}{
+							map[string]interface{}{
+								"matchers": []interface{}{
+									map[string]interface{}{
+										"prefix": *httpPort.Path,
 									},
 								},
 							},
 						},
 					},
 				},
-				"sslConfig": sslConfig,
 			},
-		},
+		}
+
+		// get route array
+		routes, found, err := unstructured.NestedSlice(virtualService.Object, "spec", "virtualHost", "routes")
+		if err != nil || !found {
+			return nil, fmt.Errorf("failed to get virtualservice route: %w", err)
+		}
+		if len(routes) == 0 {
+			return nil, fmt.Errorf("no routes found")
+		}
+
+		// configure https redirect
+		if httpPort.HTTPSRedirect != nil && *httpPort.HTTPSRedirect {
+			redirectAction := map[string]interface{}{
+				"hostRedirect":  domain,
+				"httpsRedirect": true,
+			}
+			unstructured.SetNestedMap(
+				routes[0].(map[string]interface{}),
+				redirectAction,
+				"redirectAction",
+			)
+		} else {
+			// configure route action
+			routeAction := map[string]interface{}{
+				"single": map[string]interface{}{
+					"upstream": map[string]interface{}{
+						"name":      "my-upstream",
+						"namespace": "gloo-system",
+					},
+				},
+			}
+			unstructured.SetNestedMap(
+				routes[0].(map[string]interface{}),
+				routeAction,
+				"routeAction",
+			)
+		}
+
+		// set route field
+		err = unstructured.SetNestedSlice(virtualService.Object, routes, "spec", "virtualHost", "routes")
+		if err != nil {
+			return nil, fmt.Errorf("failed to set route on virtual service: %w", err)
+		}
+
+		// configure ssl config
+		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
+			sslConfig := map[string]interface{}{
+				"secretRef": map[string]interface{}{
+					"name":      strcase.ToKebab(domain) + "-tls",
+					"namespace": "default",
+				},
+				"sniDomains": domainList,
+			}
+			unstructured.SetNestedMap(virtualService.Object, sslConfig, "spec", "sslConfig")
+		}
+
+		virtualServiceManifest, err := unstructuredToYamlString(virtualService)
+		if err != nil {
+			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
+		}
+
+		manifests = append(manifests, virtualServiceManifest)
 	}
 
-	return unstructuredToYAMLString(virtualService)
+	return manifests, nil
 }
 
-// createIssuer creates an issuer for the given domain.
-func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
+// createTcpGatewaysYaml creates a tcp gateway for the given domain.
+func createTcpGatewaysYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) ([]string, error) {
+
+	var manifests []string
+
+	gatewayTcpPorts, err := client.GetGatewayTcpPortsByGatewayDefinitionId(r.APIClient, r.APIServer, *gatewayDefinition.ID)
+	if err != nil {
+		return []string{}, fmt.Errorf("failed to get gateway tcp ports: %w", err)
+	}
+	for _, tcpPort := range *gatewayTcpPorts {
+
+		tcpGateway := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "gateway.solo.io/v1",
+				"kind":       "Gateway",
+				"metadata": map[string]interface{}{
+					"name":      fmt.Sprintf("%s-%d", *gatewayDefinition.Name, *tcpPort.Port),
+					"namespace": "gloo-system",
+				},
+				"spec": map[string]interface{}{
+					"bindAddress": "::",
+					"bindPort":    8000 + *tcpPort.Port,
+					"tcpGateway": map[string]interface{}{
+						"tcpHosts": []interface{}{
+							map[string]interface{}{
+								"name": "upstream-host",
+								"destination": map[string]interface{}{
+									"single": map[string]interface{}{
+										"upstream": map[string]interface{}{
+											"name":      "my-upstream",
+											"namespace": "gloo-system",
+										},
+									},
+								},
+							},
+						},
+					},
+					"useProxyProto": false,
+				},
+			},
+		}
+
+		// TODO: configure ssl
+		// if tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
+		// }
+
+		virtualServiceManifest, err := unstructuredToYamlString(tcpGateway)
+		if err != nil {
+			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
+		}
+
+		manifests = append(manifests, virtualServiceManifest)
+	}
+
+	return manifests, nil
+}
+
+// getVirtualServiceName returns the name of a virtual service.
+func getVirtualServiceName(gatewayDefinition *v0.GatewayDefinition, domain string, port int) string {
+
+	domain = getCleanedDomain(domain)
+	if domain == "" {
+		return fmt.Sprintf("%s-%d", *gatewayDefinition.Name, port)
+	} else {
+		return fmt.Sprintf("%s-%d", strcase.ToKebab(domain), port)
+	}
+}
+
+// createIssuerYaml creates an issuer for the given domain.
+func createIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
 
 	var issuer = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -216,11 +365,11 @@ func createIssuer(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail st
 		},
 	}
 
-	return unstructuredToYAMLString(issuer)
+	return unstructuredToYamlString(issuer)
 }
 
-// createCertificate creates a certificate for the given domain.
-func createCertificate(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+// createCertificateYaml creates a certificate for the given domain.
+func createCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 
 	var certificate = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -242,11 +391,11 @@ func createCertificate(gatewayDefinition *v0.GatewayDefinition, domain string) (
 		},
 	}
 
-	return unstructuredToYAMLString(certificate)
+	return unstructuredToYamlString(certificate)
 }
 
-// unstructuredToYAMLString converts an unstructured object into a YAML string.
-func unstructuredToYAMLString(unstructuredManifest *unstructured.Unstructured) (string, error) {
+// unstructuredToYamlString converts an unstructured object into a YAML string.
+func unstructuredToYamlString(unstructuredManifest *unstructured.Unstructured) (string, error) {
 	bytes, err := yaml.Marshal(unstructuredManifest.Object)
 	if err != nil {
 		return "", fmt.Errorf("error marshaling YAML: %w", err)

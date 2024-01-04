@@ -418,6 +418,9 @@ definitions:
     type: object
   v0.ControlPlaneComponent:
     properties:
+      BinaryName:
+        description: The binary name of the component
+        type: string
       ControlPlaneInstanceID:
         description: The control plane instance ID that this component belongs to
         type: integer
@@ -845,9 +848,11 @@ definitions:
         items:
           $ref: '#/definitions/v0.GatewayInstance'
         type: array
-      HTTPSRedirect:
-        description: Redirect all requests to HTTP port to HTTPS.
-        type: boolean
+      HttpPorts:
+        description: HttpPorts is a list of HTTP ports to expose to the outside network.
+        items:
+          $ref: '#/definitions/v0.GatewayHttpPort'
+        type: array
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -857,9 +862,6 @@ definitions:
         type: boolean
       Name:
         description: An arbitrary name for the definition.
-        type: string
-      Paths:
-        description: The request paths to serve requests for.
         type: string
       ProfileID:
         description: |-
@@ -876,12 +878,11 @@ definitions:
       SubDomain:
         description: An optional subdomain to add to the domain name.
         type: string
-      TCPPort:
-        description: TCP Port to expose to outside network.
-        type: integer
-      TLSEnabled:
-        description: Indicates if TLS is enabled.
-        type: boolean
+      TcpPorts:
+        description: TcpPorts is a list of TCP ports to expose to the outside network.
+        items:
+          $ref: '#/definitions/v0.GatewayTcpPort'
+        type: array
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
@@ -892,7 +893,28 @@ definitions:
         type: integer
     required:
     - Name
-    - TCPPort
+    type: object
+  v0.GatewayHttpPort:
+    properties:
+      GatewayDefinitionID:
+        description: GatewayDefinitionID is the definition used to configure the gateway
+          http port.
+        type: integer
+      HTTPSRedirect:
+        description: Redirect all requests to HTTP port to HTTPS.
+        type: boolean
+      Path:
+        description: The request path to serve requests for.
+        type: string
+      Port:
+        description: The HTTP port to expose.
+        type: integer
+      TLSEnabled:
+        description: Indicates if TLS is enabled.
+        type: boolean
+    required:
+    - GatewayDefinitionID
+    - Port
     type: object
   v0.GatewayInstance:
     properties:
@@ -957,6 +979,22 @@ definitions:
     - Name
     - WorkloadInstanceID
     type: object
+  v0.GatewayTcpPort:
+    properties:
+      GatewayDefinitionID:
+        description: GatewayDefinitionID is the definition used to configure the gateway
+          tcp port.
+        type: integer
+      Port:
+        description: The TCP port to expose.
+        type: integer
+      TLSEnabled:
+        description: Indicates if TLS is enabled.
+        type: boolean
+    required:
+    - GatewayDefinitionID
+    - Port
+    type: object
   v0.KubernetesRuntimeDefinition:
     properties:
       CreationAcknowledged:
@@ -998,7 +1036,7 @@ definitions:
         type: string
       InfraProviderAccountName:
         description: |-
-          The infra provider account ID.  Determines which account the infra is
+          The infra provider account name.  Determines which account the infra is
           deployed on.
         type: string
       InterruptReconciliation:
@@ -1249,10 +1287,9 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - GatewayDefinition
-    - GatewayInstance
-    - DomainNameDefinition
-    - DomainNameInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1260,29 +1297,31 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - Profile
-    - Tier
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
     - ControlPlaneDefinition
     - ControlPlaneInstance
+    - Profile
+    - Tier
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1290,23 +1329,26 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeControlPlaneDefinition
     - ObjectTypeControlPlaneInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
   v0.Profile:
     properties:
       Name:
@@ -1620,7 +1662,7 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: v0.2.2
+  version: v0.3.1
 paths:
   /attached-object-references/versions:
     get:
@@ -1817,6 +1859,19 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetGatewayDefinitionVersions gets the supported versions for the gateway
         definition API.
+  /gateway-http-ports/versions:
+    get:
+      description: Get the supported API versions for gateway http ports.
+      operationId: gatewayHttpPort-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetGatewayHttpPortVersions gets the supported versions for the gateway
+        http port API.
   /gateway-instances/versions:
     get:
       description: Get the supported API versions for gateway instances.
@@ -1830,6 +1885,19 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetGatewayInstanceVersions gets the supported versions for the gateway
         instance API.
+  /gateway-tcp-ports/versions:
+    get:
+      description: Get the supported API versions for gateway tcp ports.
+      operationId: gatewayTcpPort-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetGatewayTcpPortVersions gets the supported versions for the gateway
+        tcp port API.
   /kubernetes-runtime-definitions/versions:
     get:
       description: Get the supported API versions for kubernetes runtime definitions.
@@ -4928,6 +4996,205 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing gateway definition by replacing the entire object.
+  /v0/gateway-http-ports:
+    get:
+      consumes:
+      - application/json
+      description: Get all gateway http ports from the Threeport database.
+      operationId: get-gatewayHttpPorts
+      parameters:
+      - description: gateway http port search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all gateway http ports.
+    post:
+      consumes:
+      - application/json
+      description: Add a new gateway http port to the Threeport database.
+      operationId: add-gatewayHttpPort
+      parameters:
+      - description: GatewayHttpPort object
+        in: body
+        name: gatewayHttpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayHttpPort'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new gateway http port.
+  /v0/gateway-http-ports/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a gateway http port by ID from the database.
+      operationId: delete-gatewayHttpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a gateway http port.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular gateway http port from the database.
+      operationId: get-gatewayHttpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a gateway http port.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a gateway http port in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating gateway http port objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-gatewayHttpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayHttpPort object
+        in: body
+        name: gatewayHttpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayHttpPort'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing gateway http port.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a gateway http port in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating gateway http port objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-gatewayHttpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayHttpPort object
+        in: body
+        name: gatewayHttpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayHttpPort'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing gateway http port by replacing the entire object.
   /v0/gateway-instances:
     get:
       consumes:
@@ -5127,6 +5394,205 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing gateway instance by replacing the entire object.
+  /v0/gateway-tcp-ports:
+    get:
+      consumes:
+      - application/json
+      description: Get all gateway tcp ports from the Threeport database.
+      operationId: get-gatewayTcpPorts
+      parameters:
+      - description: gateway tcp port search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all gateway tcp ports.
+    post:
+      consumes:
+      - application/json
+      description: Add a new gateway tcp port to the Threeport database.
+      operationId: add-gatewayTcpPort
+      parameters:
+      - description: GatewayTcpPort object
+        in: body
+        name: gatewayTcpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayTcpPort'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new gateway tcp port.
+  /v0/gateway-tcp-ports/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a gateway tcp port by ID from the database.
+      operationId: delete-gatewayTcpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a gateway tcp port.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular gateway tcp port from the database.
+      operationId: get-gatewayTcpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a gateway tcp port.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a gateway tcp port in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating gateway tcp port objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-gatewayTcpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayTcpPort object
+        in: body
+        name: gatewayTcpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayTcpPort'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing gateway tcp port.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a gateway tcp port in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating gateway tcp port objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-gatewayTcpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayTcpPort object
+        in: body
+        name: gatewayTcpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayTcpPort'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing gateway tcp port by replacing the entire object.
   /v0/kubernetes-runtime-definitions:
     get:
       consumes:

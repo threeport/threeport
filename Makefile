@@ -132,6 +132,8 @@ dev-reset-crdb:
 		workload_resource_definitions, \
 		workload_instances, \
 		workload_resource_instances, \
+		gateway_http_ports, \
+		gateway_tcp_ports, \
 		gateway_instances, \
 		gateway_definitions, \
 		domain_name_definitions, \

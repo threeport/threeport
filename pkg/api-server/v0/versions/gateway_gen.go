@@ -73,6 +73,70 @@ func AddGatewayInstanceVersions() {
 	api.AddRestApiVersion(versionObj)
 }
 
+// AddGatewayHttpPortVersions adds field validation info and adds it
+// to the REST API versions.
+func AddGatewayHttpPortVersions() {
+	iapi.GatewayHttpPortTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.GatewayHttpPort)),
+		"",
+		iapi.Translate,
+		iapi.GatewayHttpPortTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeGatewayHttpPort),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.GatewayHttpPortTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
+// AddGatewayTcpPortVersions adds field validation info and adds it
+// to the REST API versions.
+func AddGatewayTcpPortVersions() {
+	iapi.GatewayTcpPortTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.GatewayTcpPort)),
+		"",
+		iapi.Translate,
+		iapi.GatewayTcpPortTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeGatewayTcpPort),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.GatewayTcpPortTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
 // AddDomainNameDefinitionVersions adds field validation info and adds it
 // to the REST API versions.
 func AddDomainNameDefinitionVersions() {

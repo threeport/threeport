@@ -18,6 +18,8 @@ func AddVersions() {
 	AddForwardProxyInstanceVersions()
 	AddGatewayDefinitionVersions()
 	AddGatewayInstanceVersions()
+	AddGatewayHttpPortVersions()
+	AddGatewayTcpPortVersions()
 	AddDomainNameDefinitionVersions()
 	AddDomainNameInstanceVersions()
 	AddKubernetesRuntimeDefinitionVersions()

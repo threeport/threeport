@@ -27,6 +27,7 @@ var upCmd = &cobra.Command{
 			cli.Error("failed to create threeport control plane installer", err)
 			os.Exit(1)
 		}
+		cpi.Opts.Debug = cliArgs.Debug
 
 		err = cli.CreateGenesisControlPlane(cpi)
 		if err != nil {

@@ -42,9 +42,17 @@ var GetGatewayDefinitionsCmd = &cobra.Command{
 			os.Exit(0)
 		}
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "NAME\t TCP PORT\t HTTPS REDIRECT\t AGE")
+		fmt.Fprintln(writer, "NAME\t PORTS\t AGE")
 		for _, g := range *gatewayDefinitions {
-			fmt.Fprintln(writer, *g.Name, "\t", *g.TCPPort, "\t", *g.HTTPSRedirect, "\t",
+			// get gateway ports
+			gatewayPorts, err := client.GetGatewayPortsAsString(apiClient, apiEndpoint, *g.Common.ID)
+			if err != nil {
+				cli.Error("failed to get gateway ports as string", err)
+				os.Exit(1)
+			}
+			fmt.Fprintln(
+				writer, *g.Name, "\t",
+				gatewayPorts, "\t",
 				util.GetAge(g.CreatedAt))
 		}
 		writer.Flush()

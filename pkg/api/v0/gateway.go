@@ -10,18 +10,6 @@ type GatewayDefinition struct {
 	Definition     `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// TCP Port to expose to outside network.
-	TCPPort *int `json:"TCPPort,omitempty" query:"tcpport" gorm:"not null" validate:"required"`
-
-	// // Expose port 443 with TLS termination.
-	// HTTPSPort *bool `json:"HTTPSPort,omitempty" query:"httpsport" gorm:"default:true" validate:"optional"`
-
-	// // Expose port 80.
-	// HTTPPort *bool `json:"HTTPPort,omitempty" query:"httpport" gorm:"default:true" validate:"optional"`
-
-	// Redirect all requests to HTTP port to HTTPS.
-	HTTPSRedirect *bool `json:"HTTPSRedirect,omitempty" query:"httpsredirect" gorm:"default:true" validate:"optional"`
-
 	// // Allow requests from the public internet.
 	// Public *bool `json:"Public,omitempty" query:"public" gorm:"default:true" validate:"optional"`
 
@@ -30,14 +18,14 @@ type GatewayDefinition struct {
 	// Private *bool `json:"Private,omitempty" query:"private" gorm:"default:false"
 	// validate:"optional"`
 
-	// Indicates if TLS is enabled.
-	TLSEnabled *bool `json:"TLSEnabled,omitempty" query:"tlsenabled" gorm:"default:false" validate:"optional"`
+	// HttpPorts is a list of HTTP ports to expose to the outside network.
+	HttpPorts []*GatewayHttpPort `json:"HttpPorts,omitempty" query:"httpports" validate:"optional"`
+
+	// TcpPorts is a list of TCP ports to expose to the outside network.
+	TcpPorts []*GatewayTcpPort `json:"TcpPorts,omitempty" query:"tcpports" validate:"optional"`
 
 	// The domain name to serve requests for.
 	DomainNameDefinitionID *uint `json:"DomainNameDefinitionID,omitempty" query:"domainnamedefinition" validate:"optional"`
-
-	// The request paths to serve requests for.
-	Path *string `json:"Paths,omitempty" query:"paths" gorm:"default:'/'" validate:"optional"`
 
 	// An optional subdomain to add to the domain name.
 	SubDomain *string `json:"SubDomain,omitempty" query:"subdomain" validate:"optional"`
@@ -75,6 +63,40 @@ type GatewayInstance struct {
 	// query the workload instance & search for the workload resource instance
 	// The workload resource instances that belong to this instance.
 	// WorkloadResourceInstances *[]WorkloadResourceInstance `json:"WorkloadResourceInstances,omitempty" query:"workloadresourceinstances" validate:"optional,association"`
+}
+
+// GatewayHttpPort is an HTTP port to expose to the outside network.
+type GatewayHttpPort struct {
+	Common `swaggerignore:"true" mapstructure:",squash"`
+
+	// GatewayDefinitionID is the definition used to configure the gateway http port.
+	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" query:"gatewaydefinitionid" gorm:"not null" validate:"required"`
+
+	// The HTTP port to expose.
+	Port *int `json:"Port,omitempty" query:"port" gorm:"not null" validate:"required"`
+
+	// The request path to serve requests for.
+	Path *string `json:"Path,omitempty" query:"path" gorm:"default:'/'" validate:"optional"`
+
+	// Indicates if TLS is enabled.
+	TLSEnabled *bool `json:"TLSEnabled,omitempty" query:"tlsenabled" gorm:"default:false" validate:"optional"`
+
+	// Redirect all requests to HTTP port to HTTPS.
+	HTTPSRedirect *bool `json:"HTTPSRedirect,omitempty" query:"httpsredirect" gorm:"default:false" validate:"optional"`
+}
+
+// GatewayTcpPort is a TCP port to expose to the outside network.
+type GatewayTcpPort struct {
+	Common `swaggerignore:"true" mapstructure:",squash"`
+
+	// GatewayDefinitionID is the definition used to configure the gateway tcp port.
+	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" query:"gatewaydefinitionid" gorm:"not null" validate:"required"`
+
+	// The TCP port to expose.
+	Port *int `json:"Port,omitempty" query:"port" gorm:"not null" validate:"required"`
+
+	// Indicates if TLS is enabled.
+	TLSEnabled *bool `json:"TLSEnabled,omitempty" query:"tlsenabled" gorm:"default:false" validate:"optional"`
 }
 
 // DomainNameDefinition the definition for domain name management for a
