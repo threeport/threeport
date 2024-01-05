@@ -3,18 +3,14 @@ package workload
 import (
 	"errors"
 	"fmt"
-	"io"
-	"strings"
 
 	"github.com/go-logr/logr"
-	yamlv3 "gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/yaml"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
 // workloadDefinitionCreated performs reconciliation when a workload definition
@@ -24,53 +20,19 @@ func workloadDefinitionCreated(
 	workloadDefinition *v0.WorkloadDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-	// iterate over each resource in the yaml doc and construct a workload
-	// resource definition
-	decoder := yamlv3.NewDecoder(strings.NewReader(*workloadDefinition.YAMLDocument))
+	// parse YAMLDocument and get kube objects in JSON
+	jsonObjects, err := kube.GetJsonResourcesFromYamlDoc(*workloadDefinition.YAMLDocument)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get JSON kube objects from YAML document: %w", err)
+	}
+
+	// create workload resource definition objects
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
-	var wrdConstructError error
-	threeportManagedNs := true
-	for {
-		// decode the next resource, exit loop if the end has been reached
-		var node yamlv3.Node
-		err := decoder.Decode(&node)
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			wrdConstructError = fmt.Errorf("failed to decode yaml node in workload definition: %w", err)
-			break
-		}
-
-		// marshal the yaml
-		yamlContent, err := yamlv3.Marshal(&node)
-		if err != nil {
-			wrdConstructError = fmt.Errorf("failed to marshal yaml from workload definition: %w", err)
-			break
-		}
-
-		// convert yaml to json
-		jsonContent, err := yaml.YAMLToJSON(yamlContent)
-		if err != nil {
-			wrdConstructError = fmt.Errorf("failed to convert yaml to json: %w", err)
-			break
-		}
-
-		// build kube unstructured object from json and check for namespace
-		// resource
-		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := kubeObject.UnmarshalJSON(jsonContent); err != nil {
-			return 0, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
-		}
-		if kubeObject.GetKind() == "Namespace" {
-			threeportManagedNs = false
-		}
-
+	for _, jsonContent := range jsonObjects {
 		// unmarshal the json into the type used by API
 		var jsonDefinition datatypes.JSON
 		if err := jsonDefinition.UnmarshalJSON(jsonContent); err != nil {
-			wrdConstructError = fmt.Errorf("failed to unmarshal json to datatypes.JSON: %w", err)
-			break
+			return 0, fmt.Errorf("failed to unmarshal json to datatypes.JSON: %w", err)
 		}
 
 		// build the workload resource definition and marshal to json
@@ -79,27 +41,6 @@ func workloadDefinitionCreated(
 			WorkloadDefinitionID: workloadDefinition.ID,
 		}
 		workloadResourceDefinitions = append(workloadResourceDefinitions, workloadResourceDefinition)
-	}
-
-	// if any workload resource definitions failed construction, abort
-	if wrdConstructError != nil {
-		return 0, fmt.Errorf("failed to construct workload resource definition objects: %w", wrdConstructError)
-	}
-
-	// update workload definition to set ThreeportManagedNamespace field
-	managedNsWorkloadDef := v0.WorkloadDefinition{
-		Common: v0.Common{
-			ID: workloadDefinition.ID,
-		},
-		ThreeportManagedNamespace: &threeportManagedNs,
-	}
-	_, err := client.UpdateWorkloadDefinition(
-		r.APIClient,
-		r.APIServer,
-		&managedNsWorkloadDef,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to update workload definition to set threeport managed namespace field: %w", err)
 	}
 
 	// create workload resource definitions in API

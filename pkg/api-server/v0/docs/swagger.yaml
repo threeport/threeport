@@ -1293,15 +1293,6 @@ definitions:
     - GatewayTcpPort
     - DomainNameDefinition
     - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - Profile
-    - Tier
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -1310,6 +1301,15 @@ definitions:
     - WorkloadEvent
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - Profile
+    - Tier
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1325,15 +1325,6 @@ definitions:
     - ObjectTypeGatewayTcpPort
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -1342,6 +1333,15 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1457,14 +1457,6 @@ definitions:
       Reconciled:
         description: Indicates if object is considered to be reconciled by the object's
           controller.
-        type: boolean
-      ThreeportManagedNamespace:
-        description: |-
-          If true, threeport is managing the namespace for the user.  If false, the
-          user has supplied a namespace resource and is managing namespaces.  This
-          value is set when user-supplied K8s manifest is parsed.  Not intended to
-          be set by user at this time.  In future, could be set by user to instruct
-          threeport to ignore namespaces in user-supplied K8s manifest.
         type: boolean
       TierID:
         description: |-

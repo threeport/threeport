@@ -8,9 +8,12 @@ import (
 	"path"
 	"path/filepath"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -170,8 +173,20 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 		return nil, err
 	}
 
-	// check to see if client is managing namespace
-	if !*workloadDefinition.ThreeportManagedNamespace {
+	// check to see if threeport is managing namespace
+	jsonObjects, err := kube.GetJsonResourcesFromYamlDoc(*workloadDefinition.YAMLDocument)
+	threeportManagedNs := true
+	for _, jsonContent := range jsonObjects {
+		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := kubeObject.UnmarshalJSON(jsonContent); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
+		}
+		if kubeObject.GetKind() == "Namespace" {
+			threeportManagedNs = false
+		}
+	}
+
+	if !threeportManagedNs {
 		// if client managed namespaces, get instances for definition
 		instances, err := client.GetWorkloadInstancesByWorkloadDefinitionID(
 			apiClient,
@@ -200,7 +215,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 			// if the workload instance is using a cluster that already has an
 			// instance for this definition, return error
 			if rName == *kubernetesRuntimeInstance.Name {
-				return nil, errors.New("only one workload instance per cluster may be deployed when a Kubernetes namespace is included in the workload definition YAMLDocument")
+				return nil, errors.New("only one workload instance per Kubernetes runtime may be deployed when a Kubernetes namespace is included in the workload definition YAMLDocument\nif you would like to deploy this workload to the same Kubernetes runtime (and continue to manage namespaces) you will need a new workload definition that uses a different namespace")
 			}
 		}
 	}
