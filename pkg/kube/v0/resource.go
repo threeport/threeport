@@ -252,24 +252,18 @@ func GetJsonResourcesFromYamlDoc(yamlDoc string) ([][]byte, error) {
 		}
 		if err != nil {
 			return jsonObjects, fmt.Errorf("failed to decode yaml node in workload definition: %w", err)
-			//wrdConstructError = fmt.Errorf("failed to decode yaml node in workload definition: %w", err)
-			//break
 		}
 
 		// marshal the yaml
 		yamlContent, err := yamlv3.Marshal(&node)
 		if err != nil {
 			return jsonObjects, fmt.Errorf("failed to marshal yaml from workload definition: %w", err)
-			//wrdConstructError = fmt.Errorf("failed to marshal yaml from workload definition: %w", err)
-			//break
 		}
 
 		// convert yaml to json
 		jsonContent, err := yaml.YAMLToJSON(yamlContent)
 		if err != nil {
 			return jsonObjects, fmt.Errorf("failed to convert yaml to json: %w", err)
-			//wrdConstructError = fmt.Errorf("failed to convert yaml to json: %w", err)
-			//break
 		}
 
 		jsonObjects = append(jsonObjects, jsonContent)
