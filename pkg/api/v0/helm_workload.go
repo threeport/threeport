@@ -31,8 +31,8 @@ type HelmWorkloadInstance struct {
 	// The kubernetes runtime to which the workload is deployed.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
-	// The runtime parameters to provide to the helm chart.
-	HelmValues *string `json:"HelmValues,omitempty" query:"helmvalues" validate:"optional"`
+	// Filepath to the helm values YAML file that provides runtime parameters to the helm chart.
+	HelmValuesDocument *string `json:"HelmValuesDocument,omitempty" query:"helmvaluesdocument" validate:"optional"`
 
 	// The definition used to configure the workload instance.
 	HelmWorkloadDefinitionID *uint `json:"HelmWorkloadDefinitionID,omitempty" query:"helmworkloaddefinitionid" gorm:"not null" validate:"required"`

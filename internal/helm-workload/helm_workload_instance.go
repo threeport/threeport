@@ -1,6 +1,7 @@
 package helmworkload
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -10,10 +11,12 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
+	"sigs.k8s.io/yaml"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // helmWorkloadInstanceCreated reconciles state for a new helm workload
@@ -23,6 +26,16 @@ func helmWorkloadInstanceCreated(
 	helmWorkloadInstance *v0.HelmWorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// get helm workload definition
+	helmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*helmWorkloadInstance.HelmWorkloadDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get helm workload definition: %w", err)
+	}
+
 	// get helm action config and env settings
 	actionConf, settings, err := getHelmActionConfig(r, helmWorkloadInstance)
 	if err != nil {
@@ -36,8 +49,8 @@ func helmWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to load repo files: %w", err)
 	}
 	newEntry := &repo.Entry{
-		Name: "bitnami",
-		URL:  "oci://registry-1.docker.io/bitnamicharts",
+		Name: fmt.Sprintf("%d-repo", *helmWorkloadInstance.ID),
+		URL:  *helmWorkloadDefinition.HelmRepo,
 	}
 	repoFileEntries.Add(newEntry)
 	if err := repoFileEntries.WriteFile(repoFile, 0644); err != nil {
@@ -46,9 +59,11 @@ func helmWorkloadInstanceCreated(
 
 	// install the chart
 	install := action.NewInstall(actionConf)
-	install.ReleaseName = "wordpress-release"
-	install.Namespace = "default"
-	chartPath, err := install.LocateChart("oci://registry-1.docker.io/bitnamicharts/wordpress", settings)
+	install.ReleaseName = fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
+	install.Namespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
+	install.CreateNamespace = true
+	helmChart := fmt.Sprintf("%s/%s", *helmWorkloadDefinition.HelmRepo, *helmWorkloadDefinition.HelmChart)
+	chartPath, err := install.LocateChart(helmChart, settings)
 	if err != nil {
 		return 0, fmt.Errorf("failed to set helm chart path: %w", err)
 	}
@@ -59,13 +74,20 @@ func helmWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to load helm chart: %w", err)
 	}
 
-	// define custom values
-	customValues := map[string]interface{}{
-		// Add more custom values as needed
+	// capture the user-provide helm values
+	var helmValues map[string]interface{}
+	if helmWorkloadInstance.HelmValuesDocument != nil {
+		jsonData, err := yaml.YAMLToJSON([]byte(*helmWorkloadInstance.HelmValuesDocument))
+		if err != nil {
+			return 0, fmt.Errorf("failed to convert YAML helm values to JSON: %w", err)
+		}
+		if err := json.Unmarshal(jsonData, &helmValues); err != nil {
+			return 0, fmt.Errorf("failed to unmarshal helm values from JSON: %w", err)
+		}
 	}
 
 	// deploy the helm workload
-	_, err = install.Run(chart, customValues)
+	_, err = install.Run(chart, helmValues)
 	if err != nil {
 		return 0, fmt.Errorf("failed to install helm chart: %w", err)
 	}
@@ -100,7 +122,7 @@ func helmWorkloadInstanceDeleted(
 	uninstall := action.NewUninstall(actionConf)
 
 	// Running uninstall action
-	releaseName := "wordpress-release"
+	releaseName := fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
 	_, err = uninstall.Run(releaseName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to uninstall helm chart: %w", err)
