@@ -27,6 +27,8 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	GatewayTcpPortRoutes(e, h)
 	DomainNameDefinitionRoutes(e, h)
 	DomainNameInstanceRoutes(e, h)
+	HelmWorkloadDefinitionRoutes(e, h)
+	HelmWorkloadInstanceRoutes(e, h)
 	KubernetesRuntimeDefinitionRoutes(e, h)
 	KubernetesRuntimeInstanceRoutes(e, h)
 	LogBackendRoutes(e, h)

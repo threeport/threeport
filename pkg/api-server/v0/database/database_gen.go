@@ -141,6 +141,8 @@ func GetDbInterfaces() []interface{} {
 		&v0.GatewayTcpPort{},
 		&v0.DomainNameDefinition{},
 		&v0.DomainNameInstance{},
+		&v0.HelmWorkloadDefinition{},
+		&v0.HelmWorkloadInstance{},
 		&v0.ControlPlaneDefinition{},
 		&v0.ControlPlaneInstance{},
 		&v0.LogBackend{},

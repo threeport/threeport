@@ -87,6 +87,14 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteDomainNameInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete DomainNameInstance: %w", err)
 		}
+	case "v0.HelmWorkloadDefinition":
+		if _, err := DeleteHelmWorkloadDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete HelmWorkloadDefinition: %w", err)
+		}
+	case "v0.HelmWorkloadInstance":
+		if _, err := DeleteHelmWorkloadInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete HelmWorkloadInstance: %w", err)
+		}
 	case "v0.KubernetesRuntimeDefinition":
 		if _, err := DeleteKubernetesRuntimeDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete KubernetesRuntimeDefinition: %w", err)

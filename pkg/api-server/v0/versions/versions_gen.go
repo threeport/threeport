@@ -22,6 +22,8 @@ func AddVersions() {
 	AddGatewayTcpPortVersions()
 	AddDomainNameDefinitionVersions()
 	AddDomainNameInstanceVersions()
+	AddHelmWorkloadDefinitionVersions()
+	AddHelmWorkloadInstanceVersions()
 	AddKubernetesRuntimeDefinitionVersions()
 	AddKubernetesRuntimeInstanceVersions()
 	AddLogBackendVersions()

@@ -6,25 +6,30 @@ import (
 )
 
 const (
-	ThreeportImageRepo                        = "ghcr.io/threeport"
+	ThreeportImageRepo = "ghcr.io/threeport"
+
 	ThreeportAPIImage                         = "threeport-rest-api"
 	ThreeportWorkloadControllerImage          = "threeport-workload-controller"
 	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
-	ThreeportKubernetesRuntimeControllerName  = "kubernetes-runtime-controller"
 	ThreeportControlPlaneControllerImage      = "threeport-control-plane-controller"
 	ThreeportAwsControllerImage               = "threeport-aws-controller"
 	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
-	ThreeportGatewayControllerName            = "gateway-controller"
-	ThreeportAgentDeployName                  = "threeport-agent"
+	ThreeportHelmWorkloadControllerImage      = "threeport-helm-workload-controller"
 	ThreeportAgentImage                       = "threeport-agent"
-	ThreeportAPIServiceResourceName           = "threeport-api-server"
-	ThreeportLocalAPIEndpoint                 = "localhost"
-	ThreeportWorkloadControllerName           = "workload-controller"
-	ThreeportControlPlaneControllerName       = "control-plane-controller"
-	ThreeportAwsControllerName                = "aws-controller"
-	ThreeportRestApiName                      = "rest-api"
-	ThreeportAgentName                        = "agent"
-	DefaultServiceAccount                     = "default"
+
+	ThreeportRestApiName                     = "rest-api"
+	ThreeportWorkloadControllerName          = "workload-controller"
+	ThreeportKubernetesRuntimeControllerName = "kubernetes-runtime-controller"
+	ThreeportControlPlaneControllerName      = "control-plane-controller"
+	ThreeportAwsControllerName               = "aws-controller"
+	ThreeportGatewayControllerName           = "gateway-controller"
+	ThreeportHelmWorkloadControllerName      = "helm-workload-controller"
+	ThreeportAgentName                       = "agent"
+
+	ThreeportAPIServiceResourceName = "threeport-api-server"
+	ThreeportLocalAPIEndpoint       = "localhost"
+	ThreeportAgentDeployName        = "threeport-agent"
+	DefaultServiceAccount           = "default"
 )
 
 var enabled bool = true
@@ -70,6 +75,15 @@ var ThreeportControllerList []*v0.ControlPlaneComponent = []*v0.ControlPlaneComp
 		Name:               ThreeportControlPlaneControllerName,
 		BinaryName:         ThreeportControlPlaneControllerName,
 		ImageName:          ThreeportControlPlaneControllerImage,
+		ImageRepo:          ThreeportImageRepo,
+		ImageTag:           version.GetVersion(),
+		ServiceAccountName: DefaultServiceAccount,
+		Enabled:            &enabled,
+	},
+	{
+		Name:               ThreeportHelmWorkloadControllerName,
+		BinaryName:         ThreeportHelmWorkloadControllerName,
+		ImageName:          ThreeportHelmWorkloadControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
 		ServiceAccountName: DefaultServiceAccount,
