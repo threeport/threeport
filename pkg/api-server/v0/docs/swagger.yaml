@@ -1287,26 +1287,12 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - AwsObjectStorageBucketDefinition
-    - AwsObjectStorageBucketInstance
     - GatewayDefinition
     - GatewayInstance
     - GatewayHttpPort
     - GatewayTcpPort
     - DomainNameDefinition
     - DomainNameInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - Profile
-    - Tier
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -1315,30 +1301,30 @@ definitions:
     - WorkloadEvent
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - Profile
+    - Tier
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - AwsObjectStorageBucketDefinition
+    - AwsObjectStorageBucketInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeAwsObjectStorageBucketDefinition
-    - ObjectTypeAwsObjectStorageBucketInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
     - ObjectTypeGatewayHttpPort
     - ObjectTypeGatewayTcpPort
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -1347,8 +1333,22 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeAwsObjectStorageBucketDefinition
+    - ObjectTypeAwsObjectStorageBucketInstance
   v0.Profile:
     properties:
       Name:
@@ -1662,7 +1662,7 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: v0.3.1
+  version: v0.4.0-rc.1
 paths:
   /attached-object-references/versions:
     get:

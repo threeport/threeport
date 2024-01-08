@@ -28,7 +28,7 @@ func CreateQueryStringFromMap(queryMap map[string]string) string {
 	return queryString
 }
 
-// SliceContains returns true if a slice contains a certain string.
+// StringSliceContains returns true if a slice contains a certain string.
 func StringSliceContains(sl []string, name string, caseSensitive bool) bool {
 	for _, value := range sl {
 		switch caseSensitive {
