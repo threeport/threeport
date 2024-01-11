@@ -42,6 +42,8 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	MetricsInstanceRoutes(e, h)
 	LoggingDefinitionRoutes(e, h)
 	LoggingInstanceRoutes(e, h)
+	TerraformDefinitionRoutes(e, h)
+	TerraformInstanceRoutes(e, h)
 	WorkloadDefinitionRoutes(e, h)
 	WorkloadResourceDefinitionRoutes(e, h)
 	WorkloadInstanceRoutes(e, h)

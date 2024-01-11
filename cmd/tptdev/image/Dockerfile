@@ -19,3 +19,12 @@ RUN go install github.com/cosmtrek/air@latest && \
 FROM base as dev
 ARG BINARY
 COPY bin/${BINARY} /${BINARY}
+
+# terraform controller target
+FROM ubuntu as terraform
+COPY bin/${BINARY} /${BINARY}
+RUN apt update && apt install -y wget unzip
+RUN wget https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip
+RUN unzip terraform_1.6.6_linux_amd64.zip
+RUN mv terraform /usr/local/bin/
+

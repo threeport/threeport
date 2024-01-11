@@ -157,6 +157,10 @@ func main() {
 		Subjects: v0.GetHelmWorkloadSubjects(),
 	})
 	js.AddStream(&nats.StreamConfig{
+		Name:     v0.TerraformStreamName,
+		Subjects: v0.GetTerraformSubjects(),
+	})
+	js.AddStream(&nats.StreamConfig{
 		Name:     v0.ObservabilityStreamName,
 		Subjects: v0.GetObservabilitySubjects(),
 	})

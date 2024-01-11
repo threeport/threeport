@@ -37,6 +37,8 @@ func AddVersions() {
 	AddMetricsInstanceVersions()
 	AddLoggingDefinitionVersions()
 	AddLoggingInstanceVersions()
+	AddTerraformDefinitionVersions()
+	AddTerraformInstanceVersions()
 	AddWorkloadDefinitionVersions()
 	AddWorkloadResourceDefinitionVersions()
 	AddWorkloadInstanceVersions()
