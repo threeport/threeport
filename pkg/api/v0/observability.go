@@ -153,7 +153,7 @@ type MetricsDefinition struct {
 	Reconciliation `mapstructure:",squash"`
 
 	// The Helm workload definitions that belongs to this resource.
-	HelmWorkloadDefinitionIDs []pq.Int64Array `json:"HelmWorkloadDefinitionIDs,omitempty" query:"helmworkloaddefinitionid" validate:"optional" gorm:"type:integer[]"`
+	HelmWorkloadDefinitionIDs pq.Int64Array `json:"HelmWorkloadDefinitionIDs,omitempty" query:"helmworkloaddefinitionid" validate:"optional" gorm:"type:integer[]"`
 
 	// Optional Helm workload definition values that can be provided to configure the
 	// underlying charts.
@@ -171,7 +171,7 @@ type MetricsInstance struct {
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
 	// The helm workload instance ids this belongs to.
-	HelmWorkloadInstanceIDs []pq.Int64Array `json:"HelmWorkloadInstanceID,omitempty" query:"helmworkloadinstanceids" gorm:"type:integer[]" validate:"required"`
+	HelmWorkloadInstanceIDs pq.Int64Array `json:"HelmWorkloadInstanceID,omitempty" query:"helmworkloadinstanceids" gorm:"type:integer[]" validate:"required"`
 
 	// Optional Helm workload definition values that can be provided to configure the
 	// underlying kube-prometheus-stack chart.
