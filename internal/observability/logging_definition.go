@@ -66,6 +66,17 @@ func loggingDefinitionCreated(
 		return 0, fmt.Errorf("failed to create promtail helm workload definition: %w", err)
 	}
 
+	// update metrics instance reconciled field
+	loggingDefinition.Reconciled = util.BoolPtr(true)
+	_, err = client.UpdateLoggingDefinition(
+		r.APIClient,
+		r.APIServer,
+		loggingDefinition,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to update logging definition reconciled field: %w", err)
+	}
+
 	return 0, nil
 }
 
