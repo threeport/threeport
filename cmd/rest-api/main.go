@@ -156,6 +156,10 @@ func main() {
 		Name:     v0.HelmWorkloadStreamName,
 		Subjects: v0.GetHelmWorkloadSubjects(),
 	})
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.ObservabilityStreamName,
+		Subjects: v0.GetObservabilitySubjects(),
+	})
 
 	// handlers
 	h := handlers.New(db, nc, js)
