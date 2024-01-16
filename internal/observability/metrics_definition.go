@@ -51,6 +51,17 @@ func metricsDefinitionCreated(
 		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload definition: %w", err)
 	}
 
+	// update metrics instance reconciled field
+	metricsDefinition.Reconciled = util.BoolPtr(true)
+	_, err = client.UpdateMetricsDefinition(
+		r.APIClient,
+		r.APIServer,
+		metricsDefinition,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to update metrics definition reconciled field: %w", err)
+	}
+
 	return 0, nil
 }
 

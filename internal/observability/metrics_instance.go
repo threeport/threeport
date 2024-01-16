@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // metricsInstanceCreated reconciles state for a new kubernetes
@@ -90,6 +91,17 @@ func metricsInstanceCreated(
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
+	}
+
+	// update metrics instance reconciled field
+	metricsInstance.Reconciled = util.BoolPtr(true)
+	_, err = client.UpdateMetricsInstance(
+		r.APIClient,
+		r.APIServer,
+		metricsInstance,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to update metrics instance reconciled field: %w", err)
 	}
 
 	return 0, nil
