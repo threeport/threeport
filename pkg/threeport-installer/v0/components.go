@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -56,7 +57,11 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 ) error {
 	apiImage := cpi.getImage(cpi.Opts.RestApiInfo.Name, cpi.Opts.RestApiInfo.ImageName, cpi.Opts.RestApiInfo.ImageRepo, cpi.Opts.RestApiInfo.ImageTag)
 	apiArgs := cpi.getAPIArgs()
-	apiVols, apiVolMounts := cpi.getAPIVolumes()
+	apiVols, apiVolMounts, err := cpi.getAPIVolumes()
+	if err != nil {
+		return fmt.Errorf("could not get vols: %w", err)
+	}
+
 	apiServiceType := cpi.getAPIServiceType()
 	apiServiceAnnotations := cpi.getAPIServiceAnnotations()
 	apiServicePortName, apiServicePort := cpi.GetAPIServicePort()
@@ -344,37 +349,27 @@ func (cpi *ControlPlaneInstaller) CreateOrUpdateKubeResource(
 func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	installInfo v0.ControlPlaneComponent,
+	controller v0.ControlPlaneComponent,
 ) error {
-	controllerImage := cpi.getImage(installInfo.Name, installInfo.ImageName, installInfo.ImageRepo, installInfo.ImageTag)
-	controllerVols, controllerVolMounts := cpi.getControllerVolumes(installInfo.Name)
-	controllerArgs := cpi.getControllerArgs(installInfo.Name)
-	controllerImagePullSecrets := cpi.getImagePullSecrets(installInfo.ImagePullSecretName)
 
 	var deployName string
-	if cpi.isThreeportManagedController(installInfo) {
-		deployName = fmt.Sprintf("threeport-%s", installInfo.Name)
+	if cpi.isThreeportManagedController(controller) {
+		deployName = fmt.Sprintf("threeport-%s", controller.Name)
 	} else {
-		deployName = fmt.Sprintf("%s-%s", cpi.Opts.Name, installInfo.Name)
+		deployName = fmt.Sprintf("%s-%s", cpi.Opts.Name, controller.Name)
 	}
 
-	serviceAccountName := installInfo.ServiceAccountName
-
-	var controllerDeployment = cpi.getControllerDeployment(
+	controllerDeployment, err := cpi.getControllerDeployment(
 		deployName,
-		installInfo.Name,
 		cpi.Opts.Namespace,
-		serviceAccountName,
-		controllerImage,
-		installInfo.ImageName,
-		installInfo.BinaryName,
-		controllerArgs,
-		controllerVols,
-		controllerVolMounts,
-		controllerImagePullSecrets,
+		controller,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to get %s deployment: %w", controller.Name, err)
+	}
+
 	if err := cpi.CreateOrUpdateKubeResource(controllerDeployment, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create workload controller deployment: %w", err)
+		return fmt.Errorf("failed to create %s deployment: %w", controller.Name, err)
 	}
 	return nil
 }
@@ -438,7 +433,10 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 
 	agentImage := cpi.getImage(cpi.Opts.AgentInfo.Name, cpi.Opts.AgentInfo.ImageName, cpi.Opts.AgentInfo.ImageRepo, cpi.Opts.AgentInfo.ImageTag)
 	agentArgs := cpi.getAgentArgs()
-	agentVols, agentVolMounts := cpi.getControllerVolumes("agent")
+	agentVols, agentVolMounts, err := cpi.getControllerVolumes(*cpi.Opts.AgentInfo)
+	if err != nil {
+		return fmt.Errorf("could not get vols: %w", err)
+	}
 	agentImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.AgentInfo.ImagePullSecretName)
 
 	var threeportAgentCRD = &unstructured.Unstructured{
@@ -1352,7 +1350,7 @@ func (cpi *ControlPlaneInstaller) getDelveArgs(name string) []string {
 }
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
-func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{}) {
+func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{}, error) {
 	vols := []interface{}{
 		map[string]interface{}{
 			"name": "db-config",
@@ -1381,11 +1379,33 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{})
 		},
 	}
 
-	for _, v := range cpi.Opts.AdditionalRestApiVolumes {
+	additionalVolumes := make([]map[string]interface{}, 0)
+	if cpi.Opts.RestApiInfo.AdditionalVolumes != nil {
+		var v []map[string]interface{}
+		err := json.Unmarshal([]byte(*cpi.Opts.RestApiInfo.AdditionalVolumes), &v)
+		if err != nil {
+			return []interface{}{}, []interface{}{}, fmt.Errorf("failed to unmarshal vol json: %w", err)
+		}
+
+		additionalVolumes = v
+	}
+
+	for _, v := range additionalVolumes {
 		vols = append(vols, v)
 	}
 
-	for _, vm := range cpi.Opts.AdditionalRestApiVolumeMounts {
+	additionalVolumeMounts := make([]map[string]interface{}, 0)
+	if cpi.Opts.RestApiInfo.AdditionalVolumeMounts != nil {
+		var v []map[string]interface{}
+		err := json.Unmarshal([]byte(*cpi.Opts.RestApiInfo.AdditionalVolumeMounts), &v)
+		if err != nil {
+			return []interface{}{}, []interface{}{}, fmt.Errorf("failed to unmarshal vol-mount json: %w", err)
+		}
+
+		additionalVolumeMounts = v
+	}
+
+	for _, vm := range additionalVolumeMounts {
 		volMounts = append(volMounts, vm)
 	}
 
@@ -1403,7 +1423,7 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{})
 		vols, volMounts = cpi.getDevEnvironmentVolumes(vols, volMounts)
 	}
 
-	return vols, volMounts
+	return vols, volMounts, nil
 }
 
 // getImage returns the proper container image to use for the
@@ -1424,13 +1444,13 @@ func (cpi *ControlPlaneInstaller) getImage(name, imageName, imageRepo, imageTag 
 
 // getControllerVolumes returns the volumes and volume mounts for the workload
 // controller.
-func (cpi *ControlPlaneInstaller) getControllerVolumes(name string) ([]interface{}, []interface{}) {
+func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlaneComponent) ([]interface{}, []interface{}, error) {
 	vols := []interface{}{}
 	volMounts := []interface{}{}
 
 	if cpi.Opts.AuthEnabled {
-		caVol, caVolMount := cpi.getSecretVols(fmt.Sprintf("%s-ca", name), "/etc/threeport/ca")
-		certVol, certVolMount := cpi.getSecretVols(fmt.Sprintf("%s-cert", name), "/etc/threeport/cert")
+		caVol, caVolMount := cpi.getSecretVols(fmt.Sprintf("%s-ca", controller.Name), "/etc/threeport/ca")
+		certVol, certVolMount := cpi.getSecretVols(fmt.Sprintf("%s-cert", controller.Name), "/etc/threeport/cert")
 
 		vols = append(vols, caVol)
 		vols = append(vols, certVol)
@@ -1442,7 +1462,37 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(name string) ([]interface
 		vols, volMounts = cpi.getDevEnvironmentVolumes(vols, volMounts)
 	}
 
-	return vols, volMounts
+	additionalVolumes := make([]map[string]interface{}, 0)
+	if controller.AdditionalVolumes != nil {
+		var v []map[string]interface{}
+		err := json.Unmarshal([]byte(*controller.AdditionalVolumes), &v)
+		if err != nil {
+			return []interface{}{}, []interface{}{}, fmt.Errorf("failed to unmarshal vol json: %w", err)
+		}
+
+		additionalVolumes = v
+	}
+
+	for _, v := range additionalVolumes {
+		vols = append(vols, v)
+	}
+
+	additionalVolumeMounts := make([]map[string]interface{}, 0)
+	if controller.AdditionalVolumeMounts != nil {
+		var v []map[string]interface{}
+		err := json.Unmarshal([]byte(*controller.AdditionalVolumeMounts), &v)
+		if err != nil {
+			return []interface{}{}, []interface{}{}, fmt.Errorf("failed to unmarshal vol-mount json: %w", err)
+		}
+
+		additionalVolumeMounts = v
+	}
+
+	for _, vm := range additionalVolumeMounts {
+		volMounts = append(volMounts, vm)
+	}
+
+	return vols, volMounts, nil
 }
 
 // getCodePathVols returns the volume and volume mount for dev environments to
@@ -1653,18 +1703,18 @@ func (cpi *ControlPlaneInstaller) getImagePullPolicy() string {
 // controller.
 func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	deployName string,
-	name string,
 	namespace string,
-	saName string,
-	image string,
-	imageName string,
-	binaryName string,
-	args []interface{},
-	volumes []interface{},
-	volumeMounts []interface{},
-	imagePullSecrets []interface{},
-) *unstructured.Unstructured {
+	controller v0.ControlPlaneComponent,
+) (*unstructured.Unstructured, error) {
 
+	controllerImage := cpi.getImage(controller.Name, controller.ImageName, controller.ImageRepo, controller.ImageTag)
+	controllerVols, controllerVolMounts, err := cpi.getControllerVolumes(controller)
+	if err != nil {
+		return nil, fmt.Errorf("could not get vols: %w", err)
+	}
+
+	controllerArgs := cpi.getControllerArgs(controller.Name)
+	controllerImagePullSecrets := cpi.getImagePullSecrets(controller.ImagePullSecretName)
 
 	ports := []map[string]interface{}{}
 	if cpi.Opts.Debug {
@@ -1674,6 +1724,34 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 				"name":          "dlv",
 				"protocol":      "TCP",
 			})
+	}
+
+	envFrom := []interface{}{
+		map[string]interface{}{
+			"secretRef": map[string]interface{}{
+				"name": "controller-config",
+			},
+		},
+		map[string]interface{}{
+			"secretRef": map[string]interface{}{
+				"name": "encryption-key",
+			},
+		},
+	}
+
+	envRef := make([]map[string]interface{}, 0)
+	if controller.AdditionalEnvRef != nil {
+		var v []map[string]interface{}
+		err := json.Unmarshal([]byte(*controller.AdditionalEnvRef), &v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal json: %w", err)
+		}
+
+		envRef = v
+	}
+
+	for _, e := range envRef {
+		envFrom = append(envFrom, e)
 	}
 
 	return &unstructured.Unstructured{
@@ -1698,38 +1776,27 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 						},
 					},
 					"spec": map[string]interface{}{
-						"serviceAccountName": saName,
+						"serviceAccountName": controller.ServiceAccountName,
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            name,
-								"image":           image,
-								"command":         cpi.getCommand(binaryName),
+								"name":            controller.Name,
+								"image":           controllerImage,
+								"command":         cpi.getCommand(controller.BinaryName),
 								"imagePullPolicy": cpi.getImagePullPolicy(),
-								"args":            args,
-								"envFrom": []interface{}{
-									map[string]interface{}{
-										"secretRef": map[string]interface{}{
-											"name": "controller-config",
-										},
-									},
-									map[string]interface{}{
-										"secretRef": map[string]interface{}{
-											"name": "encryption-key",
-										},
-									},
-								},
-								"volumeMounts":   volumeMounts,
-								"readinessProbe": cpi.getReadinessProbe(),
-								"ports":          ports,
+								"args":            controllerArgs,
+								"envFrom":         envRef,
+								"volumeMounts":    controllerVolMounts,
+								"readinessProbe":  cpi.getReadinessProbe(),
+								"ports":           ports,
 							},
 						},
-						"imagePullSecrets": imagePullSecrets,
-						"volumes":          volumes,
+						"imagePullSecrets": controllerImagePullSecrets,
+						"volumes":          controllerVols,
 					},
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func (cpi *ControlPlaneInstaller) getReadinessProbe() map[string]interface{} {

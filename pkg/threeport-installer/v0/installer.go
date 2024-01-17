@@ -9,39 +9,38 @@ type InstallerOption func(o *Options)
 type CustomInstallFunction func(*v0.KubernetesRuntimeInstance, *ControlPlaneInstaller) error
 
 type Options struct {
-	Name                          string
-	Namespace                     string
-	PreInstallFunction            CustomInstallFunction
-	PostInstallFunction           CustomInstallFunction
-	ControllerList                []*v0.ControlPlaneComponent
-	RestApiInfo                   *v0.ControlPlaneComponent
-	AgentInfo                     *v0.ControlPlaneComponent
-	InThreeport                   bool
-	CreateOrUpdateKubeResources   bool
-	AdditionalRestApiVolumes      []map[string]interface{}
-	AdditionalRestApiVolumeMounts []map[string]interface{}
-	AuthEnabled                   bool
-	AwsConfigProfile              string
-	AwsConfigEnv                  bool
-	AwsRegion                     string
-	CfgFile                       string
-	CreateRootDomain              string
-	CreateAdminEmail              string
-	DevEnvironment                bool
-	EncryptionKey                 string
-	ForceOverwriteConfig          bool
-	ControlPlaneName              string
-	InfraProvider                 string
-	KubeconfigPath                string
-	NumWorkerNodes                int
-	ProviderConfigDir             string
-	ThreeportPath                 string
-	Debug                         bool
-	LiveReload                    bool
-	ControlPlaneOnly              bool
-	KindInfraPortForward          []string
-	RestApiEksLoadBalancer        bool
-	Verbose                       bool
+	Name                        string
+	Namespace                   string
+	PreInstallFunction          CustomInstallFunction
+	PostInstallFunction         CustomInstallFunction
+	ControllerList              []*v0.ControlPlaneComponent
+	RestApiInfo                 *v0.ControlPlaneComponent
+	AgentInfo                   *v0.ControlPlaneComponent
+	InThreeport                 bool
+	CreateOrUpdateKubeResources bool
+	AuthEnabled                 bool
+	AwsConfigProfile            string
+	AwsConfigEnv                bool
+	AwsRegion                   string
+	CfgFile                     string
+	CreateRootDomain            string
+	CreateAdminEmail            string
+	DevEnvironment              bool
+	EncryptionKey               string
+	ForceOverwriteConfig        bool
+	ControlPlaneName            string
+	InfraProvider               string
+	KubeconfigPath              string
+	NumWorkerNodes              int
+	ProviderConfigDir           string
+	ThreeportPath               string
+	Debug                       bool
+	LiveReload                  bool
+	ControlPlaneOnly            bool
+	KindInfraPortForward        []string
+	RestApiEksLoadBalancer      bool
+	Verbose                     bool
+	AdditionalOptions           map[string]interface{}
 }
 
 type ControlPlaneInstaller struct {
