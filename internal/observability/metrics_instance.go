@@ -45,6 +45,9 @@ func metricsInstanceCreated(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Instance: v0.Instance{
+				Name: util.StringPtr(GrafanaChartName(*metricsInstance.Name)),
+			},
 			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    metricsDefinition.GrafanaHelmWorkloadDefinitionID,
 			HelmValuesDocument:          &grafanaHelmWorkloadInstanceValues,
@@ -71,6 +74,9 @@ func metricsInstanceCreated(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Instance: v0.Instance{
+				Name: util.StringPtr(KubePrometheusStackChartName(*metricsInstance.Name)),
+			},
 			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
 			HelmValuesDocument:          &kubePrometheusStackHelmWorkloadInstanceValues,
