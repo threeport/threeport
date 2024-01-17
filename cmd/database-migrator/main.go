@@ -6,10 +6,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
+	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	log "github.com/threeport/threeport/pkg/log/v0"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 const (
@@ -48,23 +53,23 @@ func main() {
 
 	ctx := context.TODO()
 
-	// logger, err := log.NewLogger(false)
-	// if err != nil {
-	// 	cli.Error("could not create logger:\n", err)
-	// }
+	logger, err := log.NewLogger(false)
+	if err != nil {
+		cli.Error("could not create logger:\n", err)
+	}
 
-	// gormdb, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-	// 	Logger: &database.ZapLogger{Logger: &logger},
-	// 	NowFunc: func() time.Time {
-	// 		utc, _ := time.LoadLocation("UTC")
-	// 		return time.Now().In(utc).Truncate(time.Microsecond)
-	// 	},
-	// })
-	// if err != nil {
-	// 	cli.Error("could not create gorm db object:\n", err)
-	// }
+	gormdb, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: &database.ZapLogger{Logger: &logger},
+		NowFunc: func() time.Time {
+			utc, _ := time.LoadLocation("UTC")
+			return time.Now().In(utc).Truncate(time.Microsecond)
+		},
+	})
+	if err != nil {
+		cli.Error("could not create gorm db object:\n", err)
+	}
 
-	// ctx = context.WithValue(ctx, "gormdb", gormdb)
+	ctx = context.WithValue(ctx, "gormdb", gormdb)
 
 	goose.SetTableName("threeport_goose_db_version")
 
@@ -73,16 +78,16 @@ func main() {
 	}
 }
 
-// func getGormDbFromContext(ctx context.Context) *gorm.DB {
-// 	contextGorm := ctx.Value("gormdb")
-// 	if contextGorm == nil {
-// 		return nil
-// 	}
+func getGormDbFromContext(ctx context.Context) *gorm.DB {
+	contextGorm := ctx.Value("gormdb")
+	if contextGorm == nil {
+		return nil
+	}
 
-// 	var gormDb *gorm.DB
-// 	if g, ok := contextGorm.(*gorm.DB); ok {
-// 		gormDb = g
-// 	}
+	var gormDb *gorm.DB
+	if g, ok := contextGorm.(*gorm.DB); ok {
+		gormDb = g
+	}
 
-// 	return gormDb
-// }
+	return gormDb
+}
