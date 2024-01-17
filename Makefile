@@ -143,15 +143,11 @@ dev-reset-crdb:
 		gateway_instances, \
 		gateway_definitions, \
 		domain_name_definitions, \
-		domain_name_instances, \
+		domain_name_instances; \
 		metrics_instances, \
 		metrics_definitions, \
 		logging_instances, \
 		logging_definitions, \
-		observability_dashboard_instances, \
-		observability_dashboard_definitions, \
-		observability_stack_instances, \
-		observability_stack_definitions; \
 		set sql_safe_updates = false; \
 		update kubernetes_runtime_instances set gateway_controller_instance_id = NULL; \
 		update kubernetes_runtime_instances set dns_controller_instance_id = NULL; \
