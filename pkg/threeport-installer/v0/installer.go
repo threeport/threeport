@@ -118,6 +118,7 @@ var defaultInstallerOptions = Options{
 	PreInstallFunction:  defaultInstallFunction,
 	PostInstallFunction: defaultInstallFunction,
 	InThreeport:         false,
+	AdditionalOptions:   make(map[string]interface{}),
 }
 
 func NewInstaller(os ...InstallerOption) *ControlPlaneInstaller {

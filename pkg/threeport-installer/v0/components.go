@@ -1784,7 +1784,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 								"command":         cpi.getCommand(controller.BinaryName),
 								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"args":            controllerArgs,
-								"envFrom":         envRef,
+								"envFrom":         envFrom,
 								"volumeMounts":    controllerVolMounts,
 								"readinessProbe":  cpi.getReadinessProbe(),
 								"ports":           ports,
