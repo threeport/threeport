@@ -10,11 +10,18 @@ type HelmWorkloadDefinition struct {
 	Definition     `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// The OCI helm repo URL to pull the helm workload's chart from.
+	// The OCI helm repo URL to pull the helm workload's chart from, e.g.
+	// oci://registry-1.docker.io/bitnamicharts
 	HelmRepo *string `json:"HelmRepo,omitempty" query:"helmrepo" gorm:"not null" validate:"required"`
 
-	// The name of the helm chart.
+	// The name of the helm chart to use from the helm reop, e.g. wordpress
 	HelmChart *string `json:"HelmChart,omitempty" query:"helmchart" gorm:"not null" validate:"required"`
+
+	// The helm values that override the defaults from the helm chart.  These
+	// will be inherited by each helm workload instance derived from this
+	// definition.  The helm values defined here can be further overridden by
+	// values defined on the helm workload instance.
+	HelmValuesDocument *string `json:"HelmValuesDocument,omitempty" query:"helmvaluesdocument" validate:"optional"`
 
 	// The associated helm workload instances that are deployed from this definition.
 	HelmWorkloadInstances []*HelmWorkloadInstance `json:"HelmWorkloadInstances,omitempty" validate:"optional,association"`

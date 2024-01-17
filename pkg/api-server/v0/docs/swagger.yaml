@@ -1024,10 +1024,19 @@ definitions:
           complete delete reconciliation before actually deleting the object from the database.
         type: string
       HelmChart:
-        description: The name of the helm chart.
+        description: The name of the helm chart to use from the helm reop, e.g. wordpress
         type: string
       HelmRepo:
-        description: The OCI helm repo URL to pull the helm workload's chart from.
+        description: |-
+          The OCI helm repo URL to pull the helm workload's chart from, e.g.
+          oci://registry-1.docker.io/bitnamicharts
+        type: string
+      HelmValuesDocument:
+        description: |-
+          The helm values that override the defaults from the helm chart.  These
+          will be inherited by each helm workload instance derived from this
+          definition.  The helm values defined here can be further overridden by
+          values defined on the helm workload instance.
         type: string
       HelmWorkloadInstances:
         description: The associated helm workload instances that are deployed from
@@ -1418,6 +1427,31 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - Profile
+    - Tier
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1425,33 +1459,33 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - Profile
-    - Tier
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1459,31 +1493,6 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       Name:

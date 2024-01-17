@@ -1,7 +1,6 @@
 package helmworkload
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -9,9 +8,9 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
-	"sigs.k8s.io/yaml"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -74,16 +73,40 @@ func helmWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to load helm chart: %w", err)
 	}
 
-	// capture the user-provide helm values
-	var helmValues map[string]interface{}
+	// write the value files to merge as needed
+	var valueFiles []string
+	if helmWorkloadDefinition.HelmValuesDocument != nil {
+		filePath := fmt.Sprintf("/tmp/%d-definition-vals.yaml", (*helmWorkloadInstance.ID))
+		if err := os.WriteFile(
+			filePath,
+			[]byte(*helmWorkloadDefinition.HelmValuesDocument),
+			0644,
+		); err != nil {
+			return 0, fmt.Errorf("failed to values file for helm workload definition values: %w", err)
+		}
+		valueFiles = append(valueFiles, filePath)
+	}
 	if helmWorkloadInstance.HelmValuesDocument != nil {
-		jsonData, err := yaml.YAMLToJSON([]byte(*helmWorkloadInstance.HelmValuesDocument))
+		filePath := fmt.Sprintf("/tmp/%d-instance-vals.yaml", (*helmWorkloadInstance.ID))
+		if err := os.WriteFile(
+			filePath,
+			[]byte(*helmWorkloadInstance.HelmValuesDocument),
+			0644,
+		); err != nil {
+			return 0, fmt.Errorf("failed to values file for helm workload instance values: %w", err)
+		}
+		valueFiles = append(valueFiles, filePath)
+	}
+
+	// merge the helm values
+	var helmValues map[string]interface{}
+	if len(valueFiles) > 0 {
+		vals := values.Options{ValueFiles: valueFiles}
+		helmVals, err := vals.MergeValues(nil)
 		if err != nil {
-			return 0, fmt.Errorf("failed to convert YAML helm values to JSON: %w", err)
+			return 0, fmt.Errorf("failed to merge helm values: %s", err)
 		}
-		if err := json.Unmarshal(jsonData, &helmValues); err != nil {
-			return 0, fmt.Errorf("failed to unmarshal helm values from JSON: %w", err)
-		}
+		helmValues = helmVals
 	}
 
 	// deploy the helm workload
