@@ -6,10 +6,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
+	_ "github.com/threeport/threeport/cmd/database-migrator/migrations"
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
@@ -25,15 +27,30 @@ const (
 	DB_PORT     = 26257
 )
 
-func main() {
-	args := os.Args[1:]
+var AllowedCommands []string = []string{"up", "up-to", "up-by-one", "down", "down-to", "redo", "status"}
 
-	if len(args) != 1 {
-		fmt.Println("please specify 1 migration command for the migrator library")
-		return
+func main() {
+	if len(os.Args) < 2 {
+		cli.Error(fmt.Sprintf("please provide one of available commands: %s", strings.Join(AllowedCommands[:], ",")), nil)
+		os.Exit(1)
 	}
 
+	args := os.Args[1:]
+
 	command := args[0]
+	found := false
+
+	for _, c := range AllowedCommands {
+		if command == c {
+			found = true
+		}
+	}
+
+	if !found {
+		cli.Error(fmt.Sprintf("provided command not in list of commands: %s", strings.Join(AllowedCommands[:], ",")), nil)
+		os.Exit(1)
+	}
+
 	dir := "."
 
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)
@@ -41,21 +58,27 @@ func main() {
 	db, err := goose.OpenDBWithDriver("postgres", dsn)
 	if err != nil {
 		cli.Error("goose: failed to open DB:\n", err)
+		os.Exit(1)
 	}
 
 	defer func() {
 		if err := db.Close(); err != nil {
 			cli.Error("goose: failed to close DB:\n", err)
+			os.Exit(1)
 		}
 	}()
 
 	arguments := []string{}
+	if len(args) > 1 {
+		arguments = args[1:]
+	}
 
 	ctx := context.TODO()
 
 	logger, err := log.NewLogger(false)
 	if err != nil {
 		cli.Error("could not create logger:\n", err)
+		os.Exit(1)
 	}
 
 	gormdb, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
@@ -67,6 +90,7 @@ func main() {
 	})
 	if err != nil {
 		cli.Error("could not create gorm db object:\n", err)
+		os.Exit(1)
 	}
 
 	ctx = context.WithValue(ctx, "gormdb", gormdb)
@@ -75,6 +99,7 @@ func main() {
 
 	if err := goose.RunContext(ctx, command, db, dir, arguments...); err != nil {
 		cli.Error(fmt.Sprintf("goose context run failed %s:", command), err)
+		os.Exit(1)
 	}
 }
 

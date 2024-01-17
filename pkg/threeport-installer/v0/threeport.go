@@ -40,6 +40,9 @@ const (
 
 	// Name of default Kuberentes service account resource
 	DefaultServiceAccount = "default"
+
+	// Database migrator name
+	DatabaseMigratorName = "database-migrator"
 )
 
 var enabled bool = true
@@ -120,6 +123,13 @@ var ThreeportAgent *v0.ControlPlaneComponent = &v0.ControlPlaneComponent{
 	ImageTag:           version.GetVersion(),
 	ServiceAccountName: DefaultServiceAccount,
 	Enabled:            &enabled,
+}
+
+var DatabaseMigrator *v0.ControlPlaneComponent = &v0.ControlPlaneComponent{
+	Name:       DatabaseMigratorName,
+	BinaryName: DatabaseMigratorName,
+	ImageName:  DatabaseMigratorName,
+	ImageRepo:  ThreeportImageRepo,
 }
 
 const (
