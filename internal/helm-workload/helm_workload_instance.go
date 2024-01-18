@@ -61,6 +61,10 @@ func helmWorkloadInstanceCreated(
 	install.ReleaseName = fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
 	install.Namespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
 	install.CreateNamespace = true
+	install.PostRenderer = &ThreeportPostRenderer{
+		HelmWorkloadDefinition: helmWorkloadDefinition,
+		HelmWorkloadInstance:   helmWorkloadInstance,
+	}
 	helmChart := fmt.Sprintf("%s/%s", *helmWorkloadDefinition.HelmRepo, *helmWorkloadDefinition.HelmChart)
 	chartPath, err := install.LocateChart(helmChart, settings)
 	if err != nil {

@@ -138,11 +138,13 @@ func workloadInstanceCreated(
 			return 0, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
 		}
 
-		// set label metadata on kube object
+		// set label metadata on kube object to signal threeport agent
 		kubeObject, err = kube.AddLabels(
 			kubeObject,
 			*workloadDefinition.Name,
-			workloadInstance,
+			*workloadInstance.Name,
+			*workloadInstance.ID,
+			agent.WorkloadInstanceLabelKey,
 		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to add label metadata to objects: %w", err)
