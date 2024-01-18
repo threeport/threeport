@@ -132,7 +132,7 @@ func GetForwardProxyDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 	switch {
 	case len(forwardProxyDefinitions) < 1:
-		return &v0.ForwardProxyDefinition{}, errors.New(fmt.Sprintf("no forward proxy definition with name %s", name))
+		return &v0.ForwardProxyDefinition{}, ErrorObjectNotFound
 	case len(forwardProxyDefinitions) > 1:
 		return &v0.ForwardProxyDefinition{}, errors.New(fmt.Sprintf("more than one forward proxy definition with name %s returned", name))
 	}
@@ -367,7 +367,7 @@ func GetForwardProxyInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(forwardProxyInstances) < 1:
-		return &v0.ForwardProxyInstance{}, errors.New(fmt.Sprintf("no forward proxy instance with name %s", name))
+		return &v0.ForwardProxyInstance{}, ErrorObjectNotFound
 	case len(forwardProxyInstances) > 1:
 		return &v0.ForwardProxyInstance{}, errors.New(fmt.Sprintf("more than one forward proxy instance with name %s returned", name))
 	}

@@ -132,7 +132,7 @@ func GetControlPlaneDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 	switch {
 	case len(controlPlaneDefinitions) < 1:
-		return &v0.ControlPlaneDefinition{}, errors.New(fmt.Sprintf("no control plane definition with name %s", name))
+		return &v0.ControlPlaneDefinition{}, ErrorObjectNotFound
 	case len(controlPlaneDefinitions) > 1:
 		return &v0.ControlPlaneDefinition{}, errors.New(fmt.Sprintf("more than one control plane definition with name %s returned", name))
 	}
@@ -367,7 +367,7 @@ func GetControlPlaneInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(controlPlaneInstances) < 1:
-		return &v0.ControlPlaneInstance{}, errors.New(fmt.Sprintf("no control plane instance with name %s", name))
+		return &v0.ControlPlaneInstance{}, ErrorObjectNotFound
 	case len(controlPlaneInstances) > 1:
 		return &v0.ControlPlaneInstance{}, errors.New(fmt.Sprintf("more than one control plane instance with name %s returned", name))
 	}
