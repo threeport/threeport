@@ -22,21 +22,6 @@ sidecar:
     searchNamespace: ALL
 `
 
-const grafanaLokiDatasource = `
-datasources:
-  loki-datasource.yaml:
-    apiVersion: 1
-    datasources:
-    - name: loki
-      access: proxy
-      editable: false
-      isDefault: false
-      jsonData:
-          tlsSkipVerify: true
-      type: loki
-      url: http://loki:3100
-`
-
 const grafanaPrometheusServiceMonitor = `
 serviceMonitor:
   # If true, a ServiceMonitor CRD is created for a prometheus operator
@@ -71,4 +56,23 @@ loki:
     type: 'filesystem'
 singleBinary:
   replicas: 1
+extraObjects:
+- kind: ConfigMap
+  apiVersion: v1
+  metadata:
+    name: loki-grafana-datasource
+    labels:
+      grafana_datasource: "1"
+  data:
+    loki-datasource.yaml: |-
+      apiVersion: 1
+      datasources:
+      - name: loki
+        access: proxy
+        editable: false
+        isDefault: false
+        jsonData:
+            tlsSkipVerify: true
+        type: loki
+        url: http://loki:3100
 `
