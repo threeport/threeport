@@ -132,7 +132,7 @@ func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (
 
 	switch {
 	case len(workloadDefinitions) < 1:
-		return &v0.WorkloadDefinition{}, ErrObjectNotFound
+		return &v0.WorkloadDefinition{}, ErrorObjectNotFound
 	case len(workloadDefinitions) > 1:
 		return &v0.WorkloadDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
 	}
@@ -367,7 +367,7 @@ func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name s
 
 	switch {
 	case len(workloadResourceDefinitions) < 1:
-		return &v0.WorkloadResourceDefinition{}, ErrObjectNotFound
+		return &v0.WorkloadResourceDefinition{}, ErrorObjectNotFound
 	case len(workloadResourceDefinitions) > 1:
 		return &v0.WorkloadResourceDefinition{}, errors.New(fmt.Sprintf("more than one workload resource definition with name %s returned", name))
 	}
@@ -602,7 +602,7 @@ func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v
 
 	switch {
 	case len(workloadInstances) < 1:
-		return &v0.WorkloadInstance{}, ErrObjectNotFound
+		return &v0.WorkloadInstance{}, ErrorObjectNotFound
 	case len(workloadInstances) > 1:
 		return &v0.WorkloadInstance{}, errors.New(fmt.Sprintf("more than one workload instance with name %s returned", name))
 	}
@@ -837,7 +837,7 @@ func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name stri
 
 	switch {
 	case len(attachedObjectReferences) < 1:
-		return &v0.AttachedObjectReference{}, ErrObjectNotFound
+		return &v0.AttachedObjectReference{}, ErrorObjectNotFound
 	case len(attachedObjectReferences) > 1:
 		return &v0.AttachedObjectReference{}, errors.New(fmt.Sprintf("more than one attached object reference with name %s returned", name))
 	}
@@ -1072,7 +1072,7 @@ func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name str
 
 	switch {
 	case len(workloadResourceInstances) < 1:
-		return &v0.WorkloadResourceInstance{}, ErrObjectNotFound
+		return &v0.WorkloadResourceInstance{}, ErrorObjectNotFound
 	case len(workloadResourceInstances) > 1:
 		return &v0.WorkloadResourceInstance{}, errors.New(fmt.Sprintf("more than one workload resource instance with name %s returned", name))
 	}
@@ -1307,7 +1307,7 @@ func GetWorkloadEventByName(apiClient *http.Client, apiAddr, name string) (*v0.W
 
 	switch {
 	case len(workloadEvents) < 1:
-		return &v0.WorkloadEvent{}, ErrObjectNotFound
+		return &v0.WorkloadEvent{}, ErrorObjectNotFound
 	case len(workloadEvents) > 1:
 		return &v0.WorkloadEvent{}, errors.New(fmt.Sprintf("more than one workload event with name %s returned", name))
 	}
