@@ -132,7 +132,7 @@ func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	switch {
 	case len(gatewayDefinitions) < 1:
-		return &v0.GatewayDefinition{}, ErrObjectNotFound
+		return &v0.GatewayDefinition{}, ErrorObjectNotFound
 	case len(gatewayDefinitions) > 1:
 		return &v0.GatewayDefinition{}, errors.New(fmt.Sprintf("more than one gateway definition with name %s returned", name))
 	}
@@ -367,7 +367,7 @@ func GetGatewayInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	switch {
 	case len(gatewayInstances) < 1:
-		return &v0.GatewayInstance{}, ErrObjectNotFound
+		return &v0.GatewayInstance{}, ErrorObjectNotFound
 	case len(gatewayInstances) > 1:
 		return &v0.GatewayInstance{}, errors.New(fmt.Sprintf("more than one gateway instance with name %s returned", name))
 	}
@@ -602,7 +602,7 @@ func GetGatewayHttpPortByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	switch {
 	case len(gatewayHttpPorts) < 1:
-		return &v0.GatewayHttpPort{}, ErrObjectNotFound
+		return &v0.GatewayHttpPort{}, ErrorObjectNotFound
 	case len(gatewayHttpPorts) > 1:
 		return &v0.GatewayHttpPort{}, errors.New(fmt.Sprintf("more than one gateway http port with name %s returned", name))
 	}
@@ -837,7 +837,7 @@ func GetGatewayTcpPortByName(apiClient *http.Client, apiAddr, name string) (*v0.
 
 	switch {
 	case len(gatewayTcpPorts) < 1:
-		return &v0.GatewayTcpPort{}, ErrObjectNotFound
+		return &v0.GatewayTcpPort{}, ErrorObjectNotFound
 	case len(gatewayTcpPorts) > 1:
 		return &v0.GatewayTcpPort{}, errors.New(fmt.Sprintf("more than one gateway tcp port with name %s returned", name))
 	}
@@ -1072,7 +1072,7 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(domainNameDefinitions) < 1:
-		return &v0.DomainNameDefinition{}, ErrObjectNotFound
+		return &v0.DomainNameDefinition{}, ErrorObjectNotFound
 	case len(domainNameDefinitions) > 1:
 		return &v0.DomainNameDefinition{}, errors.New(fmt.Sprintf("more than one domain name definition with name %s returned", name))
 	}
@@ -1307,7 +1307,7 @@ func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 	switch {
 	case len(domainNameInstances) < 1:
-		return &v0.DomainNameInstance{}, ErrObjectNotFound
+		return &v0.DomainNameInstance{}, ErrorObjectNotFound
 	case len(domainNameInstances) > 1:
 		return &v0.DomainNameInstance{}, errors.New(fmt.Sprintf("more than one domain name instance with name %s returned", name))
 	}

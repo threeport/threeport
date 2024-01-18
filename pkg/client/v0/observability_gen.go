@@ -132,7 +132,7 @@ func GetMetricsDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	switch {
 	case len(metricsDefinitions) < 1:
-		return &v0.MetricsDefinition{}, errors.New(fmt.Sprintf("no metrics definition with name %s", name))
+		return &v0.MetricsDefinition{}, ErrorObjectNotFound
 	case len(metricsDefinitions) > 1:
 		return &v0.MetricsDefinition{}, errors.New(fmt.Sprintf("more than one metrics definition with name %s returned", name))
 	}
@@ -367,7 +367,7 @@ func GetMetricsInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	switch {
 	case len(metricsInstances) < 1:
-		return &v0.MetricsInstance{}, errors.New(fmt.Sprintf("no metrics instance with name %s", name))
+		return &v0.MetricsInstance{}, ErrorObjectNotFound
 	case len(metricsInstances) > 1:
 		return &v0.MetricsInstance{}, errors.New(fmt.Sprintf("more than one metrics instance with name %s returned", name))
 	}
@@ -602,7 +602,7 @@ func GetLoggingDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	switch {
 	case len(loggingDefinitions) < 1:
-		return &v0.LoggingDefinition{}, errors.New(fmt.Sprintf("no logging definition with name %s", name))
+		return &v0.LoggingDefinition{}, ErrorObjectNotFound
 	case len(loggingDefinitions) > 1:
 		return &v0.LoggingDefinition{}, errors.New(fmt.Sprintf("more than one logging definition with name %s returned", name))
 	}
@@ -837,7 +837,7 @@ func GetLoggingInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	switch {
 	case len(loggingInstances) < 1:
-		return &v0.LoggingInstance{}, errors.New(fmt.Sprintf("no logging instance with name %s", name))
+		return &v0.LoggingInstance{}, ErrorObjectNotFound
 	case len(loggingInstances) > 1:
 		return &v0.LoggingInstance{}, errors.New(fmt.Sprintf("more than one logging instance with name %s returned", name))
 	}
