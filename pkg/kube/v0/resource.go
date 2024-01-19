@@ -201,6 +201,34 @@ func DeleteResource(
 	return nil
 }
 
+// DeletePod deletes a pod.
+func DeletePod(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	name,
+	namespace string,
+) error {
+
+	// initiate namespace deletion
+	pod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+		},
+	}
+
+	// delete the service
+	if err := DeleteResource(pod, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to delete the threeport API namespace resource: %w", err)
+	}
+
+	return nil
+}
+
 // DeleteLabelledPodsInNamespace takes a namespace, set of labels, kube client
 // and mapper and deletes all the pods.
 func DeleteLabelledPodsInNamespace(
