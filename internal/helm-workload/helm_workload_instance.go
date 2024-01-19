@@ -86,14 +86,6 @@ func helmWorkloadInstanceCreated(
 			return 0, fmt.Errorf("failed to download index file: %w", err)
 		}
 	}
-	repository, err := repo.NewChartRepository(newEntry, getter.All(settings))
-	if err != nil {
-		return 0, fmt.Errorf("failed to create chart repository: %w", err)
-	}
-	_, err = repository.DownloadIndexFile()
-	if err != nil {
-		return 0, fmt.Errorf("failed to download index file: %w", err)
-	}
 
 	// install the chart
 	install := action.NewInstall(actionConf)
