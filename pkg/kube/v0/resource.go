@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubemetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -221,9 +222,44 @@ func DeletePod(
 		},
 	}
 
-	// delete the service
-	if err := DeleteResource(pod, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to delete the threeport API namespace resource: %w", err)
+	// delete the pod
+	// get the mapping for resource from kube object's group, kind
+	mapping, err := getResourceMapping(pod, *mapper)
+	if err != nil {
+		return fmt.Errorf("failed to get REST mapping for kubernetes resource: %w", err)
+	}
+
+	// Define your label selector here
+	labelSelector := kubemetav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app.kubernetes.io/name": fmt.Sprintf("threeport-%s", name),
+		},
+	}
+
+	// convert label selector to string
+	selector := labels.Set(labelSelector.MatchLabels).String()
+
+	// list all resources matching the label selector
+	resourceList, err := kubeClient.
+		Resource(mapping.Resource).
+		Namespace(pod.GetNamespace()).
+		List(
+			context.Background(),
+			kubemetav1.ListOptions{LabelSelector: selector},
+		)
+	if err != nil {
+		return fmt.Errorf("failed to list kubernetes resources: %w", err)
+	}
+
+	// delete the kube resource
+	for _, resource := range resourceList.Items {
+		err = kubeClient.
+			Resource(mapping.Resource).
+			Namespace(pod.GetNamespace()).
+			Delete(context.Background(), resource.GetName(), kubemetav1.DeleteOptions{})
+		if err != nil && !kubeerr.IsNotFound(err) {
+			return fmt.Errorf("failed to delete kubernetes resource:%w", err)
+		}
 	}
 
 	return nil
