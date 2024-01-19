@@ -9,6 +9,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
+	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
 
@@ -56,6 +57,18 @@ func helmWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to write repo files: %w", err)
 	}
 
+	// download the index file for https-based helm repositories
+	if !registry.IsOCI(*helmWorkloadDefinition.HelmRepo) {
+		repository, err := repo.NewChartRepository(newEntry, getter.All(settings))
+		if err != nil {
+			return 0, fmt.Errorf("failed to create chart repository: %w", err)
+		}
+		_, err = repository.DownloadIndexFile()
+		if err != nil {
+			return 0, fmt.Errorf("failed to download index file: %w", err)
+		}
+	}
+
 	// install the chart
 	install := action.NewInstall(actionConf)
 	install.ReleaseName = fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
@@ -65,8 +78,9 @@ func helmWorkloadInstanceCreated(
 		HelmWorkloadDefinition: helmWorkloadDefinition,
 		HelmWorkloadInstance:   helmWorkloadInstance,
 	}
-	helmChart := fmt.Sprintf("%s/%s", *helmWorkloadDefinition.HelmRepo, *helmWorkloadDefinition.HelmChart)
-	chartPath, err := install.LocateChart(helmChart, settings)
+	install.RepoURL = *helmWorkloadDefinition.HelmRepo
+	install.DependencyUpdate = true
+	chartPath, err := install.LocateChart(*helmWorkloadDefinition.HelmChart, settings)
 	if err != nil {
 		return 0, fmt.Errorf("failed to set helm chart path: %w", err)
 	}
