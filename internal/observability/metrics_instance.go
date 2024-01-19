@@ -67,7 +67,7 @@ func metricsInstanceCreated(
 	}
 
 	// generate shared namespace name for kube-prometheus-stack
-	metricsNamespace := fmt.Sprintf("%s-metrics-%s", *loggingInstance.Name, util.RandomAlphaString(10))
+	metricsNamespace := fmt.Sprintf("%s-metrics-%s", *metricsInstance.Name, util.RandomAlphaString(10))
 
 	// merge grafana helm values if they are provided
 	kubePrometheusStackHelmWorkloadInstanceValues := grafanaValues
