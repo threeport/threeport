@@ -71,6 +71,12 @@ func helmWorkloadInstanceCreated(
 
 	// install the chart
 	install := action.NewInstall(actionConf)
+
+	// configure version if it is supplied by the workload definition
+	if helmWorkloadDefinition.HelmChartVersion != nil && *helmWorkloadDefinition.HelmChartVersion != "" {
+		install.Version = *helmWorkloadDefinition.HelmChartVersion
+	}
+
 	install.ReleaseName = fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
 	install.Namespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
 	install.CreateNamespace = true

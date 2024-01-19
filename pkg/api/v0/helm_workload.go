@@ -14,8 +14,11 @@ type HelmWorkloadDefinition struct {
 	// oci://registry-1.docker.io/bitnamicharts
 	HelmRepo *string `json:"HelmRepo,omitempty" query:"helmrepo" gorm:"not null" validate:"required"`
 
-	// The name of the helm chart to use from the helm reop, e.g. wordpress
+	// The name of the helm chart to use from the helm repo, e.g. wordpress
 	HelmChart *string `json:"HelmChart,omitempty" query:"helmchart" gorm:"not null" validate:"required"`
+
+	// The version of the helm chart to use from the helm repo, e.g. 1.2.3
+	HelmChartVersion *string `json:"HelmChartVersion,omitempty" query:"helmchartversion" gorm:"not null" validate:"optional"`
 
 	// The helm values that override the defaults from the helm chart.  These
 	// will be inherited by each helm workload instance derived from this
