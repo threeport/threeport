@@ -997,6 +997,13 @@ definitions:
     type: object
   v0.HelmWorkloadDefinition:
     properties:
+      Chart:
+        description: The name of the helm chart to use from the helm repo, e.g. wordpress
+        type: string
+      ChartVersion:
+        description: The version of the helm chart to use from the helm repo, e.g.
+          1.2.3
+        type: string
       CreationAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -1023,21 +1030,6 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      HelmChart:
-        description: The name of the helm chart to use from the helm reop, e.g. wordpress
-        type: string
-      HelmRepo:
-        description: |-
-          The OCI helm repo URL to pull the helm workload's chart from, e.g.
-          oci://registry-1.docker.io/bitnamicharts
-        type: string
-      HelmValuesDocument:
-        description: |-
-          The helm values that override the defaults from the helm chart.  These
-          will be inherited by each helm workload instance derived from this
-          definition.  The helm values defined here can be further overridden by
-          values defined on the helm workload instance.
-        type: string
       HelmWorkloadInstances:
         description: The associated helm workload instances that are deployed from
           this definition.
@@ -1063,15 +1055,28 @@ definitions:
         description: Indicates if object is considered to be reconciled by the object's
           controller.
         type: boolean
+      Repo:
+        description: |-
+          The helm repo URL to pull the helm workload's chart from
+          e.g. oci://registry-1.docker.io/bitnamicharts
+          e.g. https://grafana.github.io/helm-charts
+        type: string
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
           criticality for access control.
         type: integer
+      ValuesDocument:
+        description: |-
+          The helm values that override the defaults from the helm chart.  These
+          will be inherited by each helm workload instance derived from this
+          definition.  The helm values defined here can be further overridden by
+          values defined on the helm workload instance.
+        type: string
     required:
-    - HelmChart
-    - HelmRepo
+    - Chart
     - Name
+    - Repo
     type: object
   v0.HelmWorkloadInstance:
     properties:
@@ -1101,12 +1106,8 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      HelmValuesDocument:
-        description: Filepath to the helm values YAML file that provides runtime parameters
-          to the helm chart.
-        type: string
       HelmWorkloadDefinitionID:
-        description: The definition used to configure the workload instance.
+        description: The definition used to configure the helm workload instance.
         type: integer
       InterruptReconciliation:
         description: |-
@@ -1116,7 +1117,7 @@ definitions:
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubernetesRuntimeInstanceID:
-        description: The kubernetes runtime to which the workload is deployed.
+        description: The kubernetes runtime to which the helm workload is deployed.
         type: integer
       Name:
         description: An arbitrary name the instance
@@ -1129,6 +1130,11 @@ definitions:
         description: |-
           The status of the instance.
           TODO: use a custom type
+        type: string
+      ValuesDocument:
+        description: |-
+          Filepath to the helm values YAML file that provides runtime parameters to
+          the helm chart.
         type: string
     required:
     - HelmWorkloadDefinitionID
@@ -1427,31 +1433,17 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - Profile
+    - Tier
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - Profile
-    - Tier
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1459,33 +1451,33 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
     type: string
     x-enum-varnames:
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1493,6 +1485,20 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
   v0.Profile:
     properties:
       Name:

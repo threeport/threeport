@@ -50,7 +50,7 @@ func helmWorkloadInstanceCreated(
 	}
 	newEntry := &repo.Entry{
 		Name: fmt.Sprintf("%d-repo", *helmWorkloadInstance.ID),
-		URL:  *helmWorkloadDefinition.HelmRepo,
+		URL:  *helmWorkloadDefinition.Repo,
 	}
 	repoFileEntries.Add(newEntry)
 	if err := repoFileEntries.WriteFile(repoFile, 0644); err != nil {
@@ -58,7 +58,7 @@ func helmWorkloadInstanceCreated(
 	}
 
 	// download the index file for https-based helm repositories
-	if !registry.IsOCI(*helmWorkloadDefinition.HelmRepo) {
+	if !registry.IsOCI(*helmWorkloadDefinition.Repo) {
 		repository, err := repo.NewChartRepository(newEntry, getter.All(settings))
 		if err != nil {
 			return 0, fmt.Errorf("failed to create chart repository: %w", err)
@@ -73,8 +73,8 @@ func helmWorkloadInstanceCreated(
 	install := action.NewInstall(actionConf)
 
 	// configure version if it is supplied by the workload definition
-	if helmWorkloadDefinition.HelmChartVersion != nil && *helmWorkloadDefinition.HelmChartVersion != "" {
-		install.Version = *helmWorkloadDefinition.HelmChartVersion
+	if helmWorkloadDefinition.ChartVersion != nil && *helmWorkloadDefinition.ChartVersion != "" {
+		install.Version = *helmWorkloadDefinition.ChartVersion
 	}
 
 	install.ReleaseName = fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
@@ -84,9 +84,9 @@ func helmWorkloadInstanceCreated(
 		HelmWorkloadDefinition: helmWorkloadDefinition,
 		HelmWorkloadInstance:   helmWorkloadInstance,
 	}
-	install.RepoURL = *helmWorkloadDefinition.HelmRepo
+	install.RepoURL = *helmWorkloadDefinition.Repo
 	install.DependencyUpdate = true
-	chartPath, err := install.LocateChart(*helmWorkloadDefinition.HelmChart, settings)
+	chartPath, err := install.LocateChart(*helmWorkloadDefinition.Chart, settings)
 	if err != nil {
 		return 0, fmt.Errorf("failed to set helm chart path: %w", err)
 	}
@@ -99,22 +99,22 @@ func helmWorkloadInstanceCreated(
 
 	// write the value files to merge as needed
 	var valueFiles []string
-	if helmWorkloadDefinition.HelmValuesDocument != nil {
+	if helmWorkloadDefinition.ValuesDocument != nil {
 		filePath := fmt.Sprintf("/tmp/%d-definition-vals.yaml", (*helmWorkloadInstance.ID))
 		if err := os.WriteFile(
 			filePath,
-			[]byte(*helmWorkloadDefinition.HelmValuesDocument),
+			[]byte(*helmWorkloadDefinition.ValuesDocument),
 			0644,
 		); err != nil {
 			return 0, fmt.Errorf("failed to values file for helm workload definition values: %w", err)
 		}
 		valueFiles = append(valueFiles, filePath)
 	}
-	if helmWorkloadInstance.HelmValuesDocument != nil {
+	if helmWorkloadInstance.ValuesDocument != nil {
 		filePath := fmt.Sprintf("/tmp/%d-instance-vals.yaml", (*helmWorkloadInstance.ID))
 		if err := os.WriteFile(
 			filePath,
-			[]byte(*helmWorkloadInstance.HelmValuesDocument),
+			[]byte(*helmWorkloadInstance.ValuesDocument),
 			0644,
 		); err != nil {
 			return 0, fmt.Errorf("failed to values file for helm workload instance values: %w", err)

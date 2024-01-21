@@ -10826,11 +10826,19 @@ const docTemplate = `{
         "v0.HelmWorkloadDefinition": {
             "type": "object",
             "required": [
-                "HelmChart",
-                "HelmRepo",
-                "Name"
+                "Chart",
+                "Name",
+                "Repo"
             ],
             "properties": {
+                "Chart": {
+                    "description": "The name of the helm chart to use from the helm repo, e.g. wordpress",
+                    "type": "string"
+                },
+                "ChartVersion": {
+                    "description": "The version of the helm chart to use from the helm repo, e.g. 1.2.3",
+                    "type": "string"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -10853,18 +10861,6 @@ const docTemplate = `{
                 },
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
-                    "type": "string"
-                },
-                "HelmChart": {
-                    "description": "The name of the helm chart to use from the helm reop, e.g. wordpress",
-                    "type": "string"
-                },
-                "HelmRepo": {
-                    "description": "The OCI helm repo URL to pull the helm workload's chart from, e.g.\noci://registry-1.docker.io/bitnamicharts",
-                    "type": "string"
-                },
-                "HelmValuesDocument": {
-                    "description": "The helm values that override the defaults from the helm chart.  These\nwill be inherited by each helm workload instance derived from this\ndefinition.  The helm values defined here can be further overridden by\nvalues defined on the helm workload instance.",
                     "type": "string"
                 },
                 "HelmWorkloadInstances": {
@@ -10890,9 +10886,17 @@ const docTemplate = `{
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
+                "Repo": {
+                    "description": "The helm repo URL to pull the helm workload's chart from\ne.g. oci://registry-1.docker.io/bitnamicharts\ne.g. https://grafana.github.io/helm-charts",
+                    "type": "string"
+                },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
+                },
+                "ValuesDocument": {
+                    "description": "The helm values that override the defaults from the helm chart.  These\nwill be inherited by each helm workload instance derived from this\ndefinition.  The helm values defined here can be further overridden by\nvalues defined on the helm workload instance.",
+                    "type": "string"
                 }
             }
         },
@@ -10928,12 +10932,8 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "HelmValuesDocument": {
-                    "description": "Filepath to the helm values YAML file that provides runtime parameters to the helm chart.",
-                    "type": "string"
-                },
                 "HelmWorkloadDefinitionID": {
-                    "description": "The definition used to configure the workload instance.",
+                    "description": "The definition used to configure the helm workload instance.",
                     "type": "integer"
                 },
                 "InterruptReconciliation": {
@@ -10941,7 +10941,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "KubernetesRuntimeInstanceID": {
-                    "description": "The kubernetes runtime to which the workload is deployed.",
+                    "description": "The kubernetes runtime to which the helm workload is deployed.",
                     "type": "integer"
                 },
                 "Name": {
@@ -10954,6 +10954,10 @@ const docTemplate = `{
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                },
+                "ValuesDocument": {
+                    "description": "Filepath to the helm values YAML file that provides runtime parameters to\nthe helm chart.",
                     "type": "string"
                 }
             }
@@ -11260,72 +11264,72 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
+                "Profile",
+                "Tier",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-                "Profile",
-                "Tier",
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
                 "KubernetesRuntimeDefinition",
                 "KubernetesRuntimeInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "AttachedObjectReference",
-                "WorkloadResourceInstance",
-                "WorkloadEvent",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "GatewayHttpPort",
-                "GatewayTcpPort",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
                 "AwsRelationalDatabaseDefinition",
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance"
+                "AwsObjectStorageBucketInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "AttachedObjectReference",
+                "WorkloadResourceInstance",
+                "WorkloadEvent"
             ],
             "x-enum-varnames": [
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
                 "ObjectTypeKubernetesRuntimeDefinition",
                 "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeGatewayHttpPort",
-                "ObjectTypeGatewayTcpPort",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
                 "ObjectTypeAwsRelationalDatabaseDefinition",
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance"
+                "ObjectTypeAwsObjectStorageBucketInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeAttachedObjectReference",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent"
             ]
         },
         "v0.Profile": {

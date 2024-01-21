@@ -13,19 +13,19 @@ type HelmWorkloadDefinition struct {
 	// The helm repo URL to pull the helm workload's chart from
 	// e.g. oci://registry-1.docker.io/bitnamicharts
 	// e.g. https://grafana.github.io/helm-charts
-	HelmRepo *string `json:"HelmRepo,omitempty" query:"helmrepo" gorm:"not null" validate:"required"`
+	Repo *string `json:"Repo,omitempty" query:"repo" gorm:"not null" validate:"required"`
 
 	// The name of the helm chart to use from the helm repo, e.g. wordpress
-	HelmChart *string `json:"HelmChart,omitempty" query:"helmchart" gorm:"not null" validate:"required"`
+	Chart *string `json:"Chart,omitempty" query:"chart" gorm:"not null" validate:"required"`
 
 	// The version of the helm chart to use from the helm repo, e.g. 1.2.3
-	HelmChartVersion *string `json:"HelmChartVersion,omitempty" query:"helmchartversion" gorm:"not null" validate:"optional"`
+	ChartVersion *string `json:"ChartVersion,omitempty" query:"chartversion" gorm:"not null" validate:"optional"`
 
 	// The helm values that override the defaults from the helm chart.  These
 	// will be inherited by each helm workload instance derived from this
 	// definition.  The helm values defined here can be further overridden by
 	// values defined on the helm workload instance.
-	HelmValuesDocument *string `json:"HelmValuesDocument,omitempty" query:"helmvaluesdocument" validate:"optional"`
+	ValuesDocument *string `json:"ValuesDocument,omitempty" validate:"optional"`
 
 	// The associated helm workload instances that are deployed from this definition.
 	HelmWorkloadInstances []*HelmWorkloadInstance `json:"HelmWorkloadInstances,omitempty" validate:"optional,association"`
@@ -44,7 +44,7 @@ type HelmWorkloadInstance struct {
 
 	// Filepath to the helm values YAML file that provides runtime parameters to
 	// the helm chart.
-	HelmValuesDocument *string `json:"HelmValuesDocument,omitempty" query:"helmvaluesdocument" validate:"optional"`
+	ValuesDocument *string `json:"ValuesDocument,omitempty" query:"valuesdocument" validate:"optional"`
 
 	// The definition used to configure the helm workload instance.
 	HelmWorkloadDefinitionID *uint `json:"HelmWorkloadDefinitionID,omitempty" query:"helmworkloaddefinitionid" gorm:"not null" validate:"required"`
