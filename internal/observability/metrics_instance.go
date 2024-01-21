@@ -133,20 +133,22 @@ func metricsInstanceDeleted(
 ) (int64, error) {
 	// check if logging is deployed,
 	// if it's not then we can clean up grafana chart
-	lokiHelmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(
+	loggingInstance, err := client.GetLoggingInstanceByName(
 		r.APIClient,
 		r.APIServer,
-		LokiHelmChartName(*metricsInstance.Name),
+		*metricsInstance.Name,
 	)
-	if err != nil && errors.Is(err, client.ErrObjectNotFound) ||
-		(lokiHelmWorkloadInstance != nil && lokiHelmWorkloadInstance.DeletionScheduled != nil) {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		return 0, fmt.Errorf("failed to get logging instance: %w", err)
+	} else if err != nil && errors.Is(err, client.ErrObjectNotFound) ||
+		(loggingInstance != nil && loggingInstance.DeletionScheduled != nil) {
 		// delete grafana helm workload instance
 		_, err = client.DeleteHelmWorkloadInstance(
 			r.APIClient,
 			r.APIServer,
 			*metricsInstance.GrafanaHelmWorkloadInstanceID,
 		)
-		if err != nil {
+		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return 0, fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
 		}
 	}

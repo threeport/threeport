@@ -168,21 +168,23 @@ func loggingInstanceDeleted(
 ) (int64, error) {
 	// check if metrics is deployed,
 	// if it's not then we can clean up grafana chart
-	kubePrometheusStackHelmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(
+	metricsInstance, err := client.GetMetricsInstanceByName(
 		r.APIClient,
 		r.APIServer,
-		KubePrometheusStackChartName(*loggingInstance.Name),
+		*loggingInstance.Name,
 	)
-	if err != nil && errors.Is(err, client.ErrObjectNotFound) ||
-		(kubePrometheusStackHelmWorkloadInstance != nil &&
-			kubePrometheusStackHelmWorkloadInstance.DeletionScheduled != nil) {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		return 0, fmt.Errorf("failed to get metrics instance: %w", err)
+	} else if err != nil && errors.Is(err, client.ErrObjectNotFound) ||
+		(metricsInstance != nil &&
+			metricsInstance.DeletionScheduled != nil) {
 		// delete grafana helm workload instance
 		_, err = client.DeleteHelmWorkloadInstance(
 			r.APIClient,
 			r.APIServer,
 			*loggingInstance.GrafanaHelmWorkloadInstanceID,
 		)
-		if err != nil {
+		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return 0, fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
 		}
 	}
