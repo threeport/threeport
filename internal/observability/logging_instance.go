@@ -80,7 +80,7 @@ func loggingInstanceCreated(
 			*loggingInstance.LokiHelmValues,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
+			return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
 		}
 	}
 
@@ -99,7 +99,7 @@ func loggingInstanceCreated(
 		},
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
+		return 0, fmt.Errorf("failed to create loki helm workload instance: %w", err)
 	}
 
 	// merge loki helm values if they are provided
@@ -110,7 +110,7 @@ func loggingInstanceCreated(
 			*loggingInstance.PromtailHelmValues,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
+			return 0, fmt.Errorf("failed to merge promtail helm values: %w", err)
 		}
 	}
 
@@ -129,7 +129,7 @@ func loggingInstanceCreated(
 		},
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
+		return 0, fmt.Errorf("failed to create promtail helm workload instance: %w", err)
 	}
 
 	// update logging instance reconciled field
