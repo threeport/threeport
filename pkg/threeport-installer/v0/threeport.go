@@ -6,8 +6,10 @@ import (
 )
 
 const (
+	// Official image repo for threeport images
 	ThreeportImageRepo = "ghcr.io/threeport"
 
+	// Official image names for threeport control plane components
 	ThreeportAPIImage                         = "threeport-rest-api"
 	ThreeportWorkloadControllerImage          = "threeport-workload-controller"
 	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
@@ -17,6 +19,7 @@ const (
 	ThreeportHelmWorkloadControllerImage      = "threeport-helm-workload-controller"
 	ThreeportAgentImage                       = "threeport-agent"
 
+	// Name of threeport control plane components
 	ThreeportRestApiName                     = "rest-api"
 	ThreeportWorkloadControllerName          = "workload-controller"
 	ThreeportKubernetesRuntimeControllerName = "kubernetes-runtime-controller"
@@ -26,10 +29,17 @@ const (
 	ThreeportHelmWorkloadControllerName      = "helm-workload-controller"
 	ThreeportAgentName                       = "agent"
 
+	// Endpoint for threeport API when running locally
+	ThreeportLocalAPIEndpoint = "localhost"
+
+	// Name of Kubernetes service resource for threeport API
 	ThreeportAPIServiceResourceName = "threeport-api-server"
-	ThreeportLocalAPIEndpoint       = "localhost"
-	ThreeportAgentDeployName        = "threeport-agent"
-	DefaultServiceAccount           = "default"
+
+	// Name of Kubernetes deployment resource for threeport agent
+	ThreeportAgentDeployName = "threeport-agent"
+
+	// Name of default Kuberentes service account resource
+	DefaultServiceAccount = "default"
 )
 
 var enabled bool = true

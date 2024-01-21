@@ -42,7 +42,7 @@ func helmWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
 
-	// add the OCI repo
+	// add the helm repo
 	repoFile := settings.RepositoryConfig
 	repoFileEntries, err := repo.LoadFile(repoFile)
 	if err != nil || repoFileEntries == nil {
@@ -214,7 +214,7 @@ func getHelmActionConfig(
 		r.EncryptionKey,
 	}
 
-	// create OCI registry client
+	// create registry client
 	client, err := registry.NewClient()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create helm registry client: %w", err)
@@ -224,7 +224,7 @@ func getHelmActionConfig(
 	actionConfig := new(action.Configuration)
 	if err := actionConfig.Init(
 		customGetter,
-		settings.Namespace(), // TODO: set namespace properly
+		settings.Namespace(),
 		os.Getenv("HELM_DRIVER"),
 		func(format string, v ...interface{}) {
 			fmt.Sprintf(format, v)
