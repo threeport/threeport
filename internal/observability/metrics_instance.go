@@ -69,9 +69,6 @@ func metricsInstanceCreated(
 		}
 	}
 
-	// generate shared namespace name for kube-prometheus-stack
-	metricsNamespace := fmt.Sprintf("%s-metrics-%s", *metricsInstance.Name, util.RandomAlphaString(10))
-
 	// merge grafana helm values if they are provided
 	kubePrometheusStackHelmWorkloadInstanceValues := grafanaValues
 	if metricsInstance.GrafanaHelmValues != nil {
@@ -95,7 +92,6 @@ func metricsInstanceCreated(
 			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
 			HelmValuesDocument:          &kubePrometheusStackHelmWorkloadInstanceValues,
-			HelmReleaseNamespace:        &metricsNamespace,
 		},
 	)
 	if err != nil {
@@ -137,12 +133,13 @@ func metricsInstanceDeleted(
 ) (int64, error) {
 	// check if logging is deployed,
 	// if it's not then we can clean up grafana chart
-	_, err := client.GetHelmWorkloadInstanceByName(
+	lokiHelmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(
 		r.APIClient,
 		r.APIServer,
 		LokiHelmChartName(*metricsInstance.Name),
 	)
-	if err != nil && errors.Is(err, client.ErrObjectNotFound) {
+	if err != nil && errors.Is(err, client.ErrObjectNotFound) ||
+		(lokiHelmWorkloadInstance != nil && lokiHelmWorkloadInstance.DeletionScheduled != nil) {
 		// delete grafana helm workload instance
 		_, err = client.DeleteHelmWorkloadInstance(
 			r.APIClient,
