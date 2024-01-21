@@ -77,7 +77,7 @@ func helmWorkloadInstanceCreated(
 		install.Version = *helmWorkloadDefinition.ChartVersion
 	}
 
-	install.ReleaseName = fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
+	install.ReleaseName = helmReleaseName(helmWorkloadInstance)
 	install.Namespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
 	install.CreateNamespace = true
 	install.PostRenderer = &ThreeportPostRenderer{
@@ -165,12 +165,11 @@ func helmWorkloadInstanceDeleted(
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
 
-	// Setting up uninstall action
+	// set up uninstall action
 	uninstall := action.NewUninstall(actionConf)
 
-	// Running uninstall action
-	releaseName := fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
-	_, err = uninstall.Run(releaseName)
+	// run uninstall action
+	_, err = uninstall.Run(helmReleaseName(helmWorkloadInstance))
 	if err != nil {
 		return 0, fmt.Errorf("failed to uninstall helm chart: %w", err)
 	}
@@ -236,4 +235,10 @@ func getHelmActionConfig(
 	actionConfig.RegistryClient = client
 
 	return actionConfig, settings, nil
+}
+
+// helmReleaseName returns a standardized helm release name based on a helm
+// workload instance name.
+func helmReleaseName(helmWorkloadInstance *v0.HelmWorkloadInstance) string {
+	return fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
 }
