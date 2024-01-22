@@ -41,8 +41,9 @@ const (
 	// Name of default Kuberentes service account resource
 	DefaultServiceAccount = "default"
 
-	// Database migrator name
+	// Database migrator info
 	DatabaseMigratorName = "database-migrator"
+	DatabaseImageTag     = "v23.1.14"
 )
 
 var enabled bool = true

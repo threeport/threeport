@@ -706,7 +706,7 @@ store_dir: /data
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "db",
-								"image":           "cockroachdb/cockroach:v22.2.2",
+								"image":           fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
 								"args": []interface{}{
 									"shell",

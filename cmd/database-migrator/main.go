@@ -4,11 +4,13 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 	_ "github.com/threeport/threeport/cmd/database-migrator/migrations"
@@ -19,23 +21,23 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
+var (
 	DB_HOST     = "localhost"
 	DB_USER     = "tp_rest_api"
 	DB_PASSWORD = "tp-rest-api-pwd"
 	DB_NAME     = "threeport_api"
-	DB_PORT     = 26257
+	DB_PORT     = "26257"
+	DB_SSL_MODE = "disable"
+
+	AllowedCommands = []string{"up", "up-to", "up-by-one", "down", "down-to", "redo", "status"}
+	envFile         = ""
 )
 
-var AllowedCommands []string = []string{"up", "up-to", "up-by-one", "down", "down-to", "redo", "status"}
-
 func main() {
-	if len(os.Args) < 2 {
-		cli.Error(fmt.Sprintf("please provide one of available commands: %s", strings.Join(AllowedCommands[:], ",")), nil)
-		os.Exit(1)
-	}
+	flag.StringVar(&envFile, "env-file", "", "File from which to load environment")
+	flag.Parse()
 
-	args := os.Args[1:]
+	args := flag.Args()
 
 	command := args[0]
 	found := false
@@ -53,7 +55,35 @@ func main() {
 
 	dir := "."
 
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)
+	// env vars for database and nats connection
+	if envFile != "" {
+		if err := godotenv.Load(envFile); err != nil {
+			cli.Error("failed to load environment variables.", err)
+			os.Exit(1)
+		}
+
+		if db_host, ok := os.LookupEnv("DB_HOST"); ok {
+			DB_HOST = db_host
+		}
+
+		if db_user, ok := os.LookupEnv("DB_USER"); ok {
+			DB_USER = db_user
+		}
+
+		if db_name, ok := os.LookupEnv("DB_NAME"); ok {
+			DB_NAME = db_name
+		}
+
+		if db_port, ok := os.LookupEnv("DB_PORT"); ok {
+			DB_PORT = db_port
+		}
+
+		if db_ssl_mode, ok := os.LookupEnv("DB_SSL_MODE"); ok {
+			DB_SSL_MODE = db_ssl_mode
+		}
+	}
+
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=UTC", DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_SSL_MODE)
 
 	db, err := goose.OpenDBWithDriver("postgres", dsn)
 	if err != nil {
@@ -101,18 +131,4 @@ func main() {
 		cli.Error(fmt.Sprintf("goose context run failed %s:", command), err)
 		os.Exit(1)
 	}
-}
-
-func getGormDbFromContext(ctx context.Context) *gorm.DB {
-	contextGorm := ctx.Value("gormdb")
-	if contextGorm == nil {
-		return nil
-	}
-
-	var gormDb *gorm.DB
-	if g, ok := contextGorm.(*gorm.DB); ok {
-		gormDb = g
-	}
-
-	return gormDb
 }
