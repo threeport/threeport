@@ -15,8 +15,8 @@ func WaitForHelmWorkloadDefinitionReconciled(
 	r *controller.Reconciler,
 	id uint,
 ) error {
-	// wait for loki helm workload instance to be reconciled
-	if err := util.Retry(30, 1, func() error {
+	// wait for helm workload instance to be reconciled
+	if err := util.Retry(15, 1, func() error {
 		var hwrd *v0.HelmWorkloadDefinition
 		var err error
 		if hwrd, err = client.GetHelmWorkloadDefinitionByID(
@@ -41,8 +41,8 @@ func WaitForHelmWorkloadDefinitionDeleted(
 	r *controller.Reconciler,
 	id uint,
 ) error {
-	// wait for loki helm workload definition to be deleted
-	if err := util.Retry(30, 1, func() error {
+	// wait for helm workload definition to be deleted
+	if err := util.Retry(15, 1, func() error {
 		if _, err := client.GetHelmWorkloadDefinitionByID(
 			r.APIClient,
 			r.APIServer,
@@ -51,9 +51,9 @@ func WaitForHelmWorkloadDefinitionDeleted(
 			if errors.Is(err, client.ErrObjectNotFound) {
 				return nil
 			}
-			return fmt.Errorf("failed to get loki helm workload definition: %w", err)
+			return fmt.Errorf("failed to get helm workload definition: %w", err)
 		}
-		return fmt.Errorf("loki helm workload definition still exists")
+		return fmt.Errorf("helm workload definition still exists")
 	}); err != nil {
 		return fmt.Errorf("failed to wait for helm workload definition to be deleted: %w", err)
 	}
@@ -65,8 +65,8 @@ func WaitForHelmWorkloadInstanceReconciled(
 	r *controller.Reconciler,
 	id uint,
 ) error {
-	// wait for loki helm workload instance to be reconciled
-	if err := util.Retry(30, 1, func() error {
+	// wait for helm workload instance to be reconciled
+	if err := util.Retry(60, 1, func() error {
 		var hwri *v0.HelmWorkloadInstance
 		var err error
 		if hwri, err = client.GetHelmWorkloadInstanceByID(
@@ -91,8 +91,8 @@ func WaitForHelmWorkloadInstanceDeleted(
 	r *controller.Reconciler,
 	id uint,
 ) error {
-	// wait for loki helm workload instance to be deleted
-	if err := util.Retry(30, 1, func() error {
+	// wait for helm workload instance to be deleted
+	if err := util.Retry(60, 1, func() error {
 		if _, err := client.GetHelmWorkloadInstanceByID(
 			r.APIClient,
 			r.APIServer,
