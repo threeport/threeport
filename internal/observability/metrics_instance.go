@@ -162,6 +162,18 @@ func (c *MetricsInstanceConfig) createGrafanaHelmWorkloadInstance() error {
 		if err != nil {
 			return fmt.Errorf("failed to get grafana helm workload instance: %w", err)
 		}
+		loggingInstance, err := client.GetLoggingInstanceByName(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.metricsInstance.Name,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get metrics instance: %w", err)
+		}
+		if loggingInstance.GrafanaHelmWorkloadInstanceID != nil &&
+			*loggingInstance.GrafanaHelmWorkloadInstanceID != *grafanaHelmWorkloadInstance.ID {
+			return fmt.Errorf("grafana helm workload instance already exists")
+		}
 	}
 
 	// update grafana helm workload instance
@@ -200,14 +212,14 @@ func (c *MetricsInstanceConfig) deleteGrafanaHelmWorkloadInstance() error {
 		); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
 		}
-	}
 
-	// wait for grafana helm workload instance to be deleted
-	if err := helmworkload.WaitForHelmWorkloadInstanceDeleted(
-		c.r,
-		*c.metricsInstance.GrafanaHelmWorkloadInstanceID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for grafana helm workload instance to be deleted: %w", err)
+		// wait for grafana helm workload instance to be deleted
+		if err := helmworkload.WaitForHelmWorkloadInstanceDeleted(
+			c.r,
+			*c.metricsInstance.GrafanaHelmWorkloadInstanceID,
+		); err != nil {
+			return fmt.Errorf("failed to wait for grafana helm workload instance to be deleted: %w", err)
+		}
 	}
 
 	return nil
