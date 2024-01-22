@@ -300,11 +300,15 @@ func configureObservability(c *KubernetesRuntimeInstanceConfig) error {
 	switch {
 	case *c.kubernetesRuntimeInstance.MetricsEnabled &&
 		c.kubernetesRuntimeInstance.MetricsInstanceID == nil:
+		c.log.Info("enabling metrics")
+
 		if err := c.EnableMetrics(); err != nil {
 			return fmt.Errorf("failed to enable metrics: %w", err)
 		}
 	case !*c.kubernetesRuntimeInstance.MetricsEnabled &&
 		c.kubernetesRuntimeInstance.MetricsInstanceID != nil:
+		c.log.Info("disabling metrics")
+
 		if err := c.DisableMetrics(); err != nil {
 			return fmt.Errorf("failed to disable metrics: %w", err)
 		}
@@ -314,11 +318,15 @@ func configureObservability(c *KubernetesRuntimeInstanceConfig) error {
 	switch {
 	case *c.kubernetesRuntimeInstance.LoggingEnabled &&
 		c.kubernetesRuntimeInstance.LoggingInstanceID == nil:
+		c.log.Info("enabling logging")
+
 		if err := c.EnableLogging(); err != nil {
 			return fmt.Errorf("failed to enable logging: %w", err)
 		}
 	case !*c.kubernetesRuntimeInstance.LoggingEnabled &&
 		c.kubernetesRuntimeInstance.LoggingInstanceID != nil:
+		c.log.Info("disabling logging")
+
 		if err := c.DisableLogging(); err != nil {
 			return fmt.Errorf("failed to disable logging: %w", err)
 		}
