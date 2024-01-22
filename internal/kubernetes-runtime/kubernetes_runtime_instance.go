@@ -302,15 +302,34 @@ func configureObservability(c *KubernetesRuntimeInstanceConfig) error {
 		c.kubernetesRuntimeInstance.MetricsInstanceID == nil:
 		c.log.Info("enabling metrics")
 
-		if err := c.EnableMetrics(); err != nil {
-			return fmt.Errorf("failed to enable metrics: %w", err)
+		// get metrics operations
+		operations := getMetricsOperations(c, nil)
+
+		// execute create metrics operations
+		if err := operations.Create(); err != nil {
+			return fmt.Errorf("failed to execute create metrics operations: %w", err)
 		}
+
 	case !*c.kubernetesRuntimeInstance.MetricsEnabled &&
 		c.kubernetesRuntimeInstance.MetricsInstanceID != nil:
 		c.log.Info("disabling metrics")
 
-		if err := c.DisableMetrics(); err != nil {
-			return fmt.Errorf("failed to disable metrics: %w", err)
+		// get metrics instance
+		metricsInstance, err := client.GetMetricsInstanceByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			uint(c.kubernetesRuntimeInstance.MetricsInstanceID.Int64),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get metrics definition by ID: %w", err)
+		}
+
+		// get metrics operations
+		operations := getMetricsOperations(c, metricsInstance.MetricsDefinitionID)
+
+		// execute delete metrics operations
+		if err := operations.Delete(); err != nil {
+			return fmt.Errorf("failed to execute delete metrics operations: %w", err)
 		}
 	}
 
@@ -320,23 +339,43 @@ func configureObservability(c *KubernetesRuntimeInstanceConfig) error {
 		c.kubernetesRuntimeInstance.LoggingInstanceID == nil:
 		c.log.Info("enabling logging")
 
-		if err := c.EnableLogging(); err != nil {
-			return fmt.Errorf("failed to enable logging: %w", err)
+		// get metrics operations
+		operations := getLoggingOperations(c, nil)
+
+		// execute create metrics operations
+		if err := operations.Create(); err != nil {
+			return fmt.Errorf("failed to execute create logging operations: %w", err)
 		}
+
 	case !*c.kubernetesRuntimeInstance.LoggingEnabled &&
 		c.kubernetesRuntimeInstance.LoggingInstanceID != nil:
 		c.log.Info("disabling logging")
 
-		if err := c.DisableLogging(); err != nil {
-			return fmt.Errorf("failed to disable logging: %w", err)
+		// get logging instance
+		loggingInstance, err := client.GetLoggingInstanceByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			uint(c.kubernetesRuntimeInstance.LoggingInstanceID.Int64),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get logging definition by ID: %w", err)
 		}
+
+		// get metrics operations
+		operations := getLoggingOperations(c, loggingInstance.LoggingDefinitionID)
+
+		// execute delete metrics operations
+		if err := operations.Delete(); err != nil {
+			return fmt.Errorf("failed to execute delete logging operations: %w", err)
+		}
+
 	}
 	return nil
 }
 
-// EnableLogging configures logging for a kubernetes runtime
+// createLoggingDefinition configures a logging definition for a kubernetes runtime
 // instance
-func (c *KubernetesRuntimeInstanceConfig) EnableLogging() error {
+func (c *KubernetesRuntimeInstanceConfig) createLoggingDefinition() (*uint, error) {
 	// create logging definition
 	createdLoggingDefinition, err := client.CreateLoggingDefinition(
 		c.r.APIClient,
@@ -348,7 +387,7 @@ func (c *KubernetesRuntimeInstanceConfig) EnableLogging() error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create logging definition: %w", err)
+		return nil, fmt.Errorf("failed to create logging definition: %w", err)
 	}
 
 	// wait for logging definition to be reconciled
@@ -366,9 +405,15 @@ func (c *KubernetesRuntimeInstanceConfig) EnableLogging() error {
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to wait for logging definition to be created: %w", err)
+		return nil, fmt.Errorf("failed to wait for logging definition to be created: %w", err)
 	}
 
+	return createdLoggingDefinition.ID, nil
+}
+
+// createLoggingInstance configures a logging instance for a kubernetes runtime
+// instance
+func (c *KubernetesRuntimeInstanceConfig) createLoggingInstance(loggingDefinitionID *uint) error {
 	// create logging instance
 	createdLoggingInstance, err := client.CreateLoggingInstance(
 		c.r.APIClient,
@@ -377,7 +422,7 @@ func (c *KubernetesRuntimeInstanceConfig) EnableLogging() error {
 			Instance: v0.Instance{
 				Name: c.kubernetesRuntimeInstance.Name,
 			},
-			LoggingDefinitionID:         createdLoggingDefinition.ID,
+			LoggingDefinitionID:         loggingDefinitionID,
 			KubernetesRuntimeInstanceID: c.kubernetesRuntimeInstance.ID,
 		},
 	)
@@ -409,22 +454,11 @@ func (c *KubernetesRuntimeInstanceConfig) EnableLogging() error {
 	return nil
 }
 
-// DisableLogging disables logging for a kubernetes runtime
+// deleteLoggingInstance disables logging instance for a kubernetes runtime
 // instance
-func (c *KubernetesRuntimeInstanceConfig) DisableLogging() error {
-	// get logging instance
-	loggingInstance, err := client.GetLoggingInstanceByID(
-		c.r.APIClient,
-		c.r.APIServer,
-		uint(c.kubernetesRuntimeInstance.LoggingInstanceID.Int64),
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to get logging instance by ID: %w", err)
-	}
-	loggingDefinitionID := loggingInstance.LoggingDefinitionID
-
+func (c *KubernetesRuntimeInstanceConfig) deleteLoggingInstance() error {
 	// delete logging instance
-	_, err = client.DeleteLoggingInstance(
+	_, err := client.DeleteLoggingInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		uint(c.kubernetesRuntimeInstance.LoggingInstanceID.Int64),
@@ -451,8 +485,14 @@ func (c *KubernetesRuntimeInstanceConfig) DisableLogging() error {
 		return fmt.Errorf("failed to wait for logging instance to be deleted: %w", err)
 	}
 
+	return nil
+}
+
+// deleteLoggingDefinition disables logging instance for a kubernetes runtime
+// instance
+func (c *KubernetesRuntimeInstanceConfig) deleteLoggingDefinition(loggingDefinitionID *uint) error {
 	// delete logging definition
-	_, err = client.DeleteLoggingDefinition(
+	_, err := client.DeleteLoggingDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		*loggingDefinitionID,
@@ -483,9 +523,9 @@ func (c *KubernetesRuntimeInstanceConfig) DisableLogging() error {
 	return nil
 }
 
-// EnableMetrics configures metrics for a kubernetes runtime
+// createMetricsDefinition configures a metrics definition for a kubernetes runtime
 // instance
-func (c *KubernetesRuntimeInstanceConfig) EnableMetrics() error {
+func (c *KubernetesRuntimeInstanceConfig) createMetricsDefinition() (*uint, error) {
 	// create metrics definition
 	createdMetricsDefinition, err := client.CreateMetricsDefinition(
 		c.r.APIClient,
@@ -497,7 +537,7 @@ func (c *KubernetesRuntimeInstanceConfig) EnableMetrics() error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create metrics definition: %w", err)
+		return nil, fmt.Errorf("failed to create metrics definition: %w", err)
 	}
 
 	// wait for metrics definition to be reconciled
@@ -515,9 +555,15 @@ func (c *KubernetesRuntimeInstanceConfig) EnableMetrics() error {
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to wait for metrics definition to be created: %w", err)
+		return nil, fmt.Errorf("failed to wait for metrics definition to be created: %w", err)
 	}
 
+	return createdMetricsDefinition.ID, nil
+}
+
+// createMetricsInstance configures a metrics for a kubernetes runtime
+// instance
+func (c *KubernetesRuntimeInstanceConfig) createMetricsInstance(metricsDefinitionID *uint) error {
 	// create metrics instance
 	createdMetricsInstance, err := client.CreateMetricsInstance(
 		c.r.APIClient,
@@ -526,7 +572,7 @@ func (c *KubernetesRuntimeInstanceConfig) EnableMetrics() error {
 			Instance: v0.Instance{
 				Name: c.kubernetesRuntimeInstance.Name,
 			},
-			MetricsDefinitionID:         createdMetricsDefinition.ID,
+			MetricsDefinitionID:         metricsDefinitionID,
 			KubernetesRuntimeInstanceID: c.kubernetesRuntimeInstance.ID,
 		},
 	)
@@ -558,22 +604,11 @@ func (c *KubernetesRuntimeInstanceConfig) EnableMetrics() error {
 	return nil
 }
 
-// DisableMetrics disables metrics for a kubernetes runtime
+// deleteMetricsInstance disables a metrics definition for a kubernetes runtime
 // instance
-func (c *KubernetesRuntimeInstanceConfig) DisableMetrics() error {
-	// get metrics instance
-	metricsInstance, err := client.GetMetricsInstanceByID(
-		c.r.APIClient,
-		c.r.APIServer,
-		uint(c.kubernetesRuntimeInstance.MetricsInstanceID.Int64),
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to get metrics instance by ID: %w", err)
-	}
-	metricsDefinitionID := metricsInstance.MetricsDefinitionID
-
+func (c *KubernetesRuntimeInstanceConfig) deleteMetricsInstance() error {
 	// delete metrics instance
-	_, err = client.DeleteMetricsInstance(
+	_, err := client.DeleteMetricsInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		uint(c.kubernetesRuntimeInstance.MetricsInstanceID.Int64),
@@ -600,8 +635,15 @@ func (c *KubernetesRuntimeInstanceConfig) DisableMetrics() error {
 		return fmt.Errorf("failed to wait for metrics instance to be deleted: %w", err)
 	}
 
+	return nil
+}
+
+// deleteMetricsDefinition disables a metrics definition for a kubernetes runtime
+// instance
+func (c *KubernetesRuntimeInstanceConfig) deleteMetricsDefinition(metricsDefinitionID *uint) error {
+
 	// delete metrics definition
-	_, err = client.DeleteMetricsDefinition(
+	_, err := client.DeleteMetricsDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		*metricsDefinitionID,
@@ -630,4 +672,96 @@ func (c *KubernetesRuntimeInstanceConfig) DisableMetrics() error {
 	}
 
 	return nil
+}
+
+// getMetricsOperations returns a set of operations for configuring metrics
+func getMetricsOperations(c *KubernetesRuntimeInstanceConfig, metricsDefinitionID *uint) *util.Operations {
+
+	operations := util.Operations{}
+
+	var createdMetricsDefinitionID *uint
+	var err error
+
+	// append metrics definition operations
+	operations.AppendOperation(util.Operation{
+		Name: "metrics definition",
+		Create: func() error {
+			createdMetricsDefinitionID, err = c.createMetricsDefinition()
+			if err != nil {
+				return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
+			}
+			return nil
+		},
+		Delete: func() error {
+			if err = c.deleteMetricsDefinition(metricsDefinitionID); err != nil {
+				return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
+			}
+			return nil
+		},
+	})
+
+	// append metrics instance operations
+	operations.AppendOperation(util.Operation{
+		Name: "metrics instance",
+		Create: func() error {
+			if err := c.createMetricsInstance(createdMetricsDefinitionID); err != nil {
+				return fmt.Errorf("failed to create loki helm workload instance: %w", err)
+			}
+			return nil
+		},
+		Delete: func() error {
+			if err := c.deleteMetricsInstance(); err != nil {
+				return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
+			}
+			return nil
+		},
+	})
+
+	return &operations
+}
+
+// getMetricsOperations returns a set of operations for configuring metrics
+func getLoggingOperations(c *KubernetesRuntimeInstanceConfig, loggingDefinitionID *uint) *util.Operations {
+
+	operations := util.Operations{}
+
+	var loggingMetricsDefinitionID *uint
+	var err error
+
+	// append metrics definition operations
+	operations.AppendOperation(util.Operation{
+		Name: "logging definition",
+		Create: func() error {
+			loggingMetricsDefinitionID, err = c.createLoggingDefinition()
+			if err != nil {
+				return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
+			}
+			return nil
+		},
+		Delete: func() error {
+			if err = c.deleteLoggingDefinition(loggingDefinitionID); err != nil {
+				return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
+			}
+			return nil
+		},
+	})
+
+	// append metrics instance operations
+	operations.AppendOperation(util.Operation{
+		Name: "logging instance",
+		Create: func() error {
+			if err := c.createLoggingInstance(loggingMetricsDefinitionID); err != nil {
+				return fmt.Errorf("failed to create loki helm workload instance: %w", err)
+			}
+			return nil
+		},
+		Delete: func() error {
+			if err := c.deleteLoggingInstance(); err != nil {
+				return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
+			}
+			return nil
+		},
+	})
+
+	return &operations
 }
