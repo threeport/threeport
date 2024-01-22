@@ -9,38 +9,101 @@ type InstallerOption func(o *Options)
 type CustomInstallFunction func(*v0.KubernetesRuntimeInstance, *ControlPlaneInstaller) error
 
 type Options struct {
-	Name                        string
-	Namespace                   string
-	PreInstallFunction          CustomInstallFunction
-	PostInstallFunction         CustomInstallFunction
-	ControllerList              []*v0.ControlPlaneComponent
-	RestApiInfo                 *v0.ControlPlaneComponent
-	AgentInfo                   *v0.ControlPlaneComponent
-	InThreeport                 bool
+	// Name of the control plane being installed, by default it is Threeport.
+	Name string
+
+	// Namespace of the control plane
+	Namespace string
+
+	// A function that is run prior to installing the components for the control plane.
+	PreInstallFunction CustomInstallFunction
+
+	// A function that is run after installing the components for the control plane.
+	PostInstallFunction CustomInstallFunction
+
+	// List of controller to install as part of the control plane
+	ControllerList []*v0.ControlPlaneComponent
+
+	// Info for the Rest Api being installed
+	RestApiInfo *v0.ControlPlaneComponent
+
+	// Info for the agent being installed
+	AgentInfo *v0.ControlPlaneComponent
+
+	// A boolean used to indicate whether the installer is being run from within threeport itself such as a reconciler
+	InThreeport bool
+
+	// CreateOrUpdate Kube resources during install
 	CreateOrUpdateKubeResources bool
-	AuthEnabled                 bool
-	AwsConfigProfile            string
-	AwsConfigEnv                bool
-	AwsRegion                   string
-	CfgFile                     string
-	CreateRootDomain            string
-	CreateAdminEmail            string
-	DevEnvironment              bool
-	EncryptionKey               string
-	ForceOverwriteConfig        bool
-	ControlPlaneName            string
-	InfraProvider               string
-	KubeconfigPath              string
-	NumWorkerNodes              int
-	ProviderConfigDir           string
-	ThreeportPath               string
-	Debug                       bool
-	LiveReload                  bool
-	ControlPlaneOnly            bool
-	KindInfraPortForward        []string
-	RestApiEksLoadBalancer      bool
-	Verbose                     bool
-	AdditionalOptions           map[string]interface{}
+
+	// Installer option to determine auth is enabled/disabled
+	AuthEnabled bool
+
+	// The AWS config profile to draw credentials from when using eks provider.
+	AwsConfigProfile string
+
+	// Retrieve AWS credentials from environment variables when using eks provider.
+	AwsConfigEnv bool
+
+	// AWS region code to install threeport runtimes in.
+	AwsRegion string
+
+	// Path to config file for threeport
+	CfgFile string
+
+	// The root domain name to use for the Threeport API. Requires a public hosted zone in AWS Route53. A subdomain for the Threeport API will be added to the root domain.
+	CreateRootDomain string
+
+	// Email address of control plane admin. Provided to TLS provider.
+	CreateAdminEmail string
+
+	// Bool used to indicate whether installing in Dev environment or not
+	DevEnvironment bool
+
+	// EncryptionKey is the key used to encrypt and decrypt sensitive fields.
+	EncryptionKey string
+
+	// Overwrite any applicable config entried
+	ForceOverwriteConfig bool
+
+	// Name of the Control Plane being installed
+	ControlPlaneName string
+
+	// InfraProvider to instal control plane on e.g. kind, eks etc
+	InfraProvider string
+
+	// Path to kube config
+	KubeconfigPath string
+
+	// Number of additional worker nodes to deploy. Only applies to kind provider. (default is 0)
+	NumWorkerNodes int
+
+	// Path to infra provider config directory
+	ProviderConfigDir string
+
+	// Path to threeport repository root
+	ThreeportPath string
+
+	// Indicate debug mode
+	Debug bool
+
+	// Indicate live reload
+	LiveReload bool
+
+	// Indicate whether only control plane components should be worked on
+	ControlPlaneOnly bool
+
+	// Port forwards for kind infra provider
+	KindInfraPortForward []string
+
+	// Deployed EKS load balancer
+	RestApiEksLoadBalancer bool
+
+	// verbose logging
+	Verbose bool
+
+	// A general map to pass around information between various install phases.
+	AdditionalOptions map[string]interface{}
 }
 
 type ControlPlaneInstaller struct {

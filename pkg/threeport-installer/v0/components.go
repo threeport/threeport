@@ -435,7 +435,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 	agentArgs := cpi.getAgentArgs()
 	agentVols, agentVolMounts, err := cpi.getControllerVolumes(*cpi.Opts.AgentInfo)
 	if err != nil {
-		return fmt.Errorf("could not get vols: %w", err)
+		return fmt.Errorf("could not get agent vols: %w", err)
 	}
 	agentImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.AgentInfo.ImagePullSecretName)
 
@@ -1710,7 +1710,7 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 	controllerImage := cpi.getImage(controller.Name, controller.ImageName, controller.ImageRepo, controller.ImageTag)
 	controllerVols, controllerVolMounts, err := cpi.getControllerVolumes(controller)
 	if err != nil {
-		return nil, fmt.Errorf("could not get vols: %w", err)
+		return nil, fmt.Errorf("could not get vols for controller %s: %w", controller.Name, err)
 	}
 
 	controllerArgs := cpi.getControllerArgs(controller.Name)
