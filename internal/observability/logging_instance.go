@@ -222,12 +222,11 @@ func (c *LoggingInstanceConfig) deleteGrafanaHelmWorkloadInstance() error {
 		(metricsInstance != nil &&
 			metricsInstance.DeletionScheduled != nil) {
 		// delete grafana helm workload instance
-		_, err = client.DeleteHelmWorkloadInstance(
+		if _, err := client.DeleteHelmWorkloadInstance(
 			c.r.APIClient,
 			c.r.APIServer,
 			*c.loggingInstance.GrafanaHelmWorkloadInstanceID,
-		)
-		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
 		}
 
