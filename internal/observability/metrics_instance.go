@@ -151,9 +151,10 @@ func (c *MetricsInstanceConfig) createGrafanaHelmWorkloadInstance() error {
 			HelmValuesDocument:          &c.grafanaHelmWorkloadInstanceValues,
 		},
 	)
-	if err != nil && !errors.Is(err, client.ErrConflict) {
-		return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
-	} else {
+	if err != nil {
+		if !errors.Is(err, client.ErrConflict) {
+			return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
+		}
 		grafanaHelmWorkloadInstance, err = client.GetHelmWorkloadInstanceByName(
 			c.r.APIClient,
 			c.r.APIServer,
