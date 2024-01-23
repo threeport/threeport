@@ -21,7 +21,7 @@ type Options struct {
 	// A function that is run after installing the components for the control plane.
 	PostInstallFunction CustomInstallFunction
 
-	// List of controller to install as part of the control plane
+	// List of controllers to install as part of the control plane
 	ControllerList []*v0.ControlPlaneComponent
 
 	// Info for the Rest Api being installed
@@ -33,10 +33,10 @@ type Options struct {
 	// A boolean used to indicate whether the installer is being run from within threeport itself such as a reconciler
 	InThreeport bool
 
-	// CreateOrUpdate Kube resources during install
+	// CreateOrUpdate Kube resources during install. If true, resources will be updated if they already exist. If false, an error will occur if a resource already exists.
 	CreateOrUpdateKubeResources bool
 
-	// Installer option to determine auth is enabled/disabled
+	// Installer option to determine if auth is enabled/disabled
 	AuthEnabled bool
 
 	// The AWS config profile to draw credentials from when using eks provider.
@@ -45,7 +45,7 @@ type Options struct {
 	// Retrieve AWS credentials from environment variables when using eks provider.
 	AwsConfigEnv bool
 
-	// AWS region code to install threeport runtimes in.
+	// AWS region code to install threeport control plane in.
 	AwsRegion string
 
 	// Path to config file for threeport
@@ -63,7 +63,7 @@ type Options struct {
 	// EncryptionKey is the key used to encrypt and decrypt sensitive fields.
 	EncryptionKey string
 
-	// Overwrite any applicable config entried
+	// Overwrite any applicable config entries
 	ForceOverwriteConfig bool
 
 	// Name of the Control Plane being installed
@@ -78,25 +78,25 @@ type Options struct {
 	// Number of additional worker nodes to deploy. Only applies to kind provider. (default is 0)
 	NumWorkerNodes int
 
-	// Path to infra provider config directory
+	// Path to infra provider config directory where cloud infra inventory is saved.
 	ProviderConfigDir string
 
 	// Path to threeport repository root
 	ThreeportPath string
 
-	// Indicate debug mode
+	// If true, run in debug mode. Appropriate for development environments only.
 	Debug bool
 
-	// Indicate live reload
+	// If true, live changes made in development will be live-reloaded into control plane components. Only applicable for kind infra-provider.
 	LiveReload bool
 
-	// Indicate whether only control plane components should be worked on
+	// If true, infrastructure is not provisioned, control plane is installed on existing infra.
 	ControlPlaneOnly bool
 
 	// Port forwards for kind infra provider
 	KindInfraPortForward []string
 
-	// Deployed EKS load balancer
+	// If true, an EKS load balancer is provisioned for the threeport API.
 	RestApiEksLoadBalancer bool
 
 	// verbose logging
