@@ -48,8 +48,9 @@ func helmWorkloadInstanceCreated(
 	if err != nil || repoFileEntries == nil {
 		return 0, fmt.Errorf("failed to load repo files: %w", err)
 	}
+	repoName := fmt.Sprintf("%d-repo", *helmWorkloadInstance.ID)
 	newEntry := &repo.Entry{
-		Name: fmt.Sprintf("%d-repo", *helmWorkloadInstance.ID),
+		Name: repoName,
 		URL:  *helmWorkloadDefinition.Repo,
 	}
 	repoFileEntries.Add(newEntry)
@@ -80,15 +81,26 @@ func helmWorkloadInstanceCreated(
 	install.ReleaseName = helmReleaseName(helmWorkloadInstance)
 	install.Namespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
 	install.CreateNamespace = true
+	install.DependencyUpdate = true
 	install.PostRenderer = &ThreeportPostRenderer{
 		HelmWorkloadDefinition: helmWorkloadDefinition,
 		HelmWorkloadInstance:   helmWorkloadInstance,
 	}
-	install.RepoURL = *helmWorkloadDefinition.Repo
-	install.DependencyUpdate = true
-	chartPath, err := install.LocateChart(*helmWorkloadDefinition.Chart, settings)
-	if err != nil {
-		return 0, fmt.Errorf("failed to set helm chart path: %w", err)
+	var chartPath string
+	if registry.IsOCI(*helmWorkloadDefinition.Repo) {
+		ociChart := fmt.Sprintf("%s/%s", *helmWorkloadDefinition.Repo, *helmWorkloadDefinition.Chart)
+		chart, err := install.LocateChart(ociChart, settings)
+		if err != nil {
+			return 0, fmt.Errorf("failed to set oci helm chart path: %w", err)
+		}
+		chartPath = chart
+	} else {
+		httpsChart := fmt.Sprintf("%s/%s", repoName, *helmWorkloadDefinition.Chart)
+		chart, err := install.LocateChart(httpsChart, settings)
+		if err != nil {
+			return 0, fmt.Errorf("failed to set https helm chart path: %w", err)
+		}
+		chartPath = chart
 	}
 
 	// load the chart
@@ -167,6 +179,9 @@ func helmWorkloadInstanceDeleted(
 
 	// set up uninstall action
 	uninstall := action.NewUninstall(actionConf)
+
+	// ignore error if release not found
+	uninstall.IgnoreNotFound = true
 
 	// run uninstall action
 	_, err = uninstall.Run(helmReleaseName(helmWorkloadInstance))

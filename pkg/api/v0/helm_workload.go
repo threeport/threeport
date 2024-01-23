@@ -19,7 +19,7 @@ type HelmWorkloadDefinition struct {
 	Chart *string `json:"Chart,omitempty" query:"chart" gorm:"not null" validate:"required"`
 
 	// The version of the helm chart to use from the helm repo, e.g. 1.2.3
-	ChartVersion *string `json:"ChartVersion,omitempty" query:"chartversion" gorm:"not null" validate:"optional"`
+	ChartVersion *string `json:"ChartVersion,omitempty" query:"chartversion" validate:"optional"`
 
 	// The helm values that override the defaults from the helm chart.  These
 	// will be inherited by each helm workload instance derived from this
@@ -44,7 +44,7 @@ type HelmWorkloadInstance struct {
 
 	// Filepath to the helm values YAML file that provides runtime parameters to
 	// the helm chart.
-	ValuesDocument *string `json:"ValuesDocument,omitempty" query:"valuesdocument" validate:"optional"`
+	ValuesDocument *string `json:"ValuesDocument,omitempty" validate:"optional"`
 
 	// The definition used to configure the helm workload instance.
 	HelmWorkloadDefinitionID *uint `json:"HelmWorkloadDefinitionID,omitempty" query:"helmworkloaddefinitionid" gorm:"not null" validate:"required"`
