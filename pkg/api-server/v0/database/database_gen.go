@@ -5,17 +5,16 @@ package database
 import (
 	"context"
 	"fmt"
-	"os"
-	"reflect"
-	"strings"
-	"time"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	zap "go.uber.org/zap"
 	postgres "gorm.io/driver/postgres"
 	gorm "gorm.io/gorm"
 	logger "gorm.io/gorm/logger"
+	"os"
+	"reflect"
+	"strings"
+	"time"
 )
 
 // ZapLogger is a custom GORM logger that forwards log messages to a Zap logger.
@@ -77,8 +76,6 @@ func (zl *ZapLogger) Warn(ctx context.Context, msg string, data ...interface{}) 
 // Error overrides the standard GORM logger's Error method to forward log messages
 // to the zap logger.
 func (zl *ZapLogger) Error(ctx context.Context, msg string, data ...interface{}) {
-	fmt.Println(msg)
-	fmt.Println(data...)
 	fields := make([]zap.Field, 0, len(data))
 	for i := 0; i < len(data); i += 2 {
 		if reflect.TypeOf(data[i]).Kind() == reflect.Ptr {
