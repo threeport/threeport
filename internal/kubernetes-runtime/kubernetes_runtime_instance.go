@@ -83,7 +83,7 @@ func kubernetesRuntimeInstanceCreated(
 	}
 
 	// configure observability
-	if err := configureObservability(c); err != nil {
+	if err := c.configureObservability(); err != nil {
 		return 0, fmt.Errorf("failed to configure observability: %w", err)
 	}
 
@@ -220,7 +220,7 @@ func kubernetesRuntimeInstanceUpdated(
 	}
 
 	// configure observability
-	if err := configureObservability(c); err != nil {
+	if err := c.configureObservability(); err != nil {
 		return 0, fmt.Errorf("failed to configure observability: %w", err)
 	}
 
@@ -295,7 +295,7 @@ func kubernetesRuntimeInstanceDeleted(
 }
 
 // configureObservability configures observability for a kubernetes runtime
-func configureObservability(c *KubernetesRuntimeInstanceConfig) error {
+func (c *KubernetesRuntimeInstanceConfig) configureObservability() error {
 	// configure metrics
 	switch {
 	case *c.kubernetesRuntimeInstance.MetricsEnabled &&
@@ -303,7 +303,7 @@ func configureObservability(c *KubernetesRuntimeInstanceConfig) error {
 		c.log.Info("enabling metrics")
 
 		// get metrics operations
-		operations := getMetricsOperations(c, nil)
+		operations := c.getMetricsOperations(nil)
 
 		// execute create metrics operations
 		if err := operations.Create(); err != nil {
@@ -325,7 +325,7 @@ func configureObservability(c *KubernetesRuntimeInstanceConfig) error {
 		}
 
 		// get metrics operations
-		operations := getMetricsOperations(c, metricsInstance.MetricsDefinitionID)
+		operations := c.getMetricsOperations(metricsInstance.MetricsDefinitionID)
 
 		// execute delete metrics operations
 		if err := operations.Delete(); err != nil {
@@ -340,7 +340,7 @@ func configureObservability(c *KubernetesRuntimeInstanceConfig) error {
 		c.log.Info("enabling logging")
 
 		// get metrics operations
-		operations := getLoggingOperations(c, nil)
+		operations := c.getLoggingOperations(nil)
 
 		// execute create metrics operations
 		if err := operations.Create(); err != nil {
@@ -362,7 +362,7 @@ func configureObservability(c *KubernetesRuntimeInstanceConfig) error {
 		}
 
 		// get metrics operations
-		operations := getLoggingOperations(c, loggingInstance.LoggingDefinitionID)
+		operations := c.getLoggingOperations(loggingInstance.LoggingDefinitionID)
 
 		// execute delete metrics operations
 		if err := operations.Delete(); err != nil {
