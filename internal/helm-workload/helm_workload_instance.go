@@ -1,6 +1,7 @@
 package helmworkload
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -17,6 +18,11 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+const (
+	HelmRepoConfigFile = "/root/repository.yaml"
+	HelmValuesDir      = "/tmp/helm"
 )
 
 // helmWorkloadInstanceCreated reconciles state for a new helm workload
@@ -112,18 +118,18 @@ func helmWorkloadInstanceCreated(
 	// write the value files to merge as needed
 	var valueFiles []string
 	if helmWorkloadDefinition.ValuesDocument != nil {
-		filePath := fmt.Sprintf("/tmp/%d-definition-vals.yaml", (*helmWorkloadInstance.ID))
+		filePath := fmt.Sprintf("%s/%d-definition-vals.yaml", HelmValuesDir, (*helmWorkloadInstance.ID))
 		if err := os.WriteFile(
 			filePath,
 			[]byte(*helmWorkloadDefinition.ValuesDocument),
 			0644,
 		); err != nil {
-			return 0, fmt.Errorf("failed to values file for helm workload definition values: %w", err)
+			return 0, fmt.Errorf("failed to write values file for helm workload definition values: %w", err)
 		}
 		valueFiles = append(valueFiles, filePath)
 	}
 	if helmWorkloadInstance.ValuesDocument != nil {
-		filePath := fmt.Sprintf("/tmp/%d-instance-vals.yaml", (*helmWorkloadInstance.ID))
+		filePath := fmt.Sprintf("%s/%d-instance-vals.yaml", HelmValuesDir, (*helmWorkloadInstance.ID))
 		if err := os.WriteFile(
 			filePath,
 			[]byte(*helmWorkloadInstance.ValuesDocument),
@@ -149,6 +155,13 @@ func helmWorkloadInstanceCreated(
 	_, err = install.Run(chart, helmValues)
 	if err != nil {
 		return 0, fmt.Errorf("failed to install helm chart: %w", err)
+	}
+
+	// clean up files written to disk
+	if err := cleanLocalFiles(); err != nil {
+		// logging err but not returning it as it is non-critical and we do not
+		// want to re-queue reconciliation
+		log.Error(err, "failed to remove files written to disk")
 	}
 
 	return 0, nil
@@ -189,6 +202,13 @@ func helmWorkloadInstanceDeleted(
 		return 0, fmt.Errorf("failed to uninstall helm chart: %w", err)
 	}
 
+	// clean up files written to disk
+	if err := cleanLocalFiles(); err != nil {
+		// logging err but not returning it as it is non-critical and we do not
+		// want to re-queue reconciliation
+		log.Error(err, "failed to remove files written to disk")
+	}
+
 	return 0, nil
 }
 
@@ -210,7 +230,7 @@ func getHelmActionConfig(
 
 	// create env settings and set repo config
 	settings := cli.New()
-	settings.RepositoryConfig = "/root/repository.yaml"
+	settings.RepositoryConfig = HelmRepoConfigFile
 
 	// ensure helm repo config exists
 	if _, err := os.Stat(settings.RepositoryConfig); os.IsNotExist(err) {
@@ -249,6 +269,13 @@ func getHelmActionConfig(
 	// set the registry client in the action config
 	actionConfig.RegistryClient = client
 
+	// create a directory for helm values files
+	if _, err := os.Stat(HelmValuesDir); errors.Is(err, os.ErrNotExist) {
+		if err := os.Mkdir(HelmValuesDir, os.ModePerm); err != nil {
+			return nil, nil, fmt.Errorf("failed to create helm values directory: %w", err)
+		}
+	}
+
 	return actionConfig, settings, nil
 }
 
@@ -256,4 +283,26 @@ func getHelmActionConfig(
 // workload instance name.
 func helmReleaseName(helmWorkloadInstance *v0.HelmWorkloadInstance) string {
 	return fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
+}
+
+// cleanLocalFiles removes all local files written by the helm workload instance
+// reconciler and helm itself so as to not incrementally increase disk usage
+// over time.
+func cleanLocalFiles() error {
+	// remove helm repo config file
+	if err := os.Remove(HelmRepoConfigFile); err != nil {
+		return fmt.Errorf("failed to remove helm repo config file: %w", err)
+	}
+
+	// remove values files
+	if err := os.RemoveAll(HelmValuesDir); err != nil {
+		return fmt.Errorf("failed to remove helm values files: %w", err)
+	}
+
+	// remove helm cache files
+	if err := os.RemoveAll("/root/.cache/helm"); err != nil {
+		return fmt.Errorf("failed to remove helm cache files: %w", err)
+	}
+
+	return nil
 }
