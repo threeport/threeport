@@ -1,6 +1,7 @@
 package helmworkload
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -13,10 +14,14 @@ import (
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -42,8 +47,8 @@ func helmWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to get helm workload definition: %w", err)
 	}
 
-	// get helm action config and env settings
-	actionConf, settings, err := getHelmActionConfig(r, helmWorkloadInstance)
+	// get helm action config, env settings and kube client
+	actionConf, settings, kubeClient, err := getHelmActionConfig(r, helmWorkloadInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
@@ -152,8 +157,15 @@ func helmWorkloadInstanceCreated(
 	}
 
 	// deploy the helm workload
-	_, err = install.Run(chart, helmValues)
+	release, err := install.Run(chart, helmValues)
 	if err != nil {
+		if uninstallErr := uninstallHelmRelease(
+			release.Name,
+			actionConf,
+			kubeClient,
+		); err != nil {
+			return 0, fmt.Errorf("failed to uninstall helm release: %w after failed to install helm chart: %w", uninstallErr, err)
+		}
 		return 0, fmt.Errorf("failed to install helm chart: %w", err)
 	}
 
@@ -184,22 +196,19 @@ func helmWorkloadInstanceDeleted(
 	helmWorkloadInstance *v0.HelmWorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// get helm action config
-	actionConf, _, err := getHelmActionConfig(r, helmWorkloadInstance)
+	// get helm action config and kube client
+	actionConf, _, kubeClient, err := getHelmActionConfig(r, helmWorkloadInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
 
-	// set up uninstall action
-	uninstall := action.NewUninstall(actionConf)
-
-	// ignore error if release not found
-	uninstall.IgnoreNotFound = true
-
-	// run uninstall action
-	_, err = uninstall.Run(helmReleaseName(helmWorkloadInstance))
-	if err != nil {
-		return 0, fmt.Errorf("failed to uninstall helm chart: %w", err)
+	// uninstall helm release
+	if err := uninstallHelmRelease(
+		helmReleaseName(helmWorkloadInstance),
+		actionConf,
+		kubeClient,
+	); err != nil {
+		return 0, fmt.Errorf("failed to uninstall helm release: %w", err)
 	}
 
 	// clean up files written to disk
@@ -212,12 +221,45 @@ func helmWorkloadInstanceDeleted(
 	return 0, nil
 }
 
+// uninstallHelmRelease uninstalls a named helm release.
+func uninstallHelmRelease(
+	releaseName string,
+	actionConf *action.Configuration,
+	kubeClient dynamic.Interface,
+) error {
+	// set up uninstall action
+	uninstall := action.NewUninstall(actionConf)
+
+	// ignore error if release not found
+	uninstall.IgnoreNotFound = true
+
+	// run uninstall action
+	release, err := uninstall.Run(releaseName)
+	if err != nil {
+		return fmt.Errorf("failed to uninstall helm chart: %w", err)
+	}
+
+	// remove namespace
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+	namespaceResource := kubeClient.Resource(gvr)
+	namespace := release.Release.Namespace
+	deletePolicy := metav1.DeletePropagationForeground
+	deleteOptions := metav1.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	}
+	if err = namespaceResource.Delete(context.TODO(), namespace, deleteOptions); err != nil {
+		return fmt.Errorf("failed to delete helm release namespace: %w", err)
+	}
+
+	return nil
+}
+
 // getHelmActionConfig returns a helm action config and cli env settings to use
 // for managing a workload with helm.
 func getHelmActionConfig(
 	r *controller.Reconciler,
 	helmWorkloadInstance *v0.HelmWorkloadInstance,
-) (*action.Configuration, *cli.EnvSettings, error) {
+) (*action.Configuration, *cli.EnvSettings, dynamic.Interface, error) {
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
@@ -225,7 +267,7 @@ func getHelmActionConfig(
 		*helmWorkloadInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get workload kubernetesRuntime instance by ID: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to get workload kubernetesRuntime instance by ID: %w", err)
 	}
 
 	// create env settings and set repo config
@@ -236,7 +278,7 @@ func getHelmActionConfig(
 	if _, err := os.Stat(settings.RepositoryConfig); os.IsNotExist(err) {
 		_, err := os.Create(settings.RepositoryConfig)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to initialize helm repo config: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to initialize helm repo config: %w", err)
 		}
 	}
 
@@ -251,7 +293,7 @@ func getHelmActionConfig(
 	// create registry client
 	client, err := registry.NewClient()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create helm registry client: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to create helm registry client: %w", err)
 	}
 
 	// create helm action config
@@ -263,7 +305,7 @@ func getHelmActionConfig(
 		func(format string, v ...interface{}) {
 			fmt.Sprintf(format, v)
 		}); err != nil {
-		return nil, nil, fmt.Errorf("failed to initialize action config: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to initialize action config: %w", err)
 	}
 
 	// set the registry client in the action config
@@ -272,11 +314,23 @@ func getHelmActionConfig(
 	// create a directory for helm values files
 	if _, err := os.Stat(HelmValuesDir); errors.Is(err, os.ErrNotExist) {
 		if err := os.Mkdir(HelmValuesDir, os.ModePerm); err != nil {
-			return nil, nil, fmt.Errorf("failed to create helm values directory: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to create helm values directory: %w", err)
 		}
 	}
 
-	return actionConfig, settings, nil
+	// get a dynamic kubernetes client
+	kubeClient, _, err := kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get dynamic kubernetes client: %w", err)
+	}
+
+	return actionConfig, settings, kubeClient, nil
 }
 
 // helmReleaseName returns a standardized helm release name based on a helm
