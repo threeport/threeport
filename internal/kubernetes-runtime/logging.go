@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // getMetricsOperations returns a set of operations for configuring metrics
-func getLoggingOperations(c *KubernetesRuntimeInstanceConfig, loggingDefinitionID *uint) *util.Operations {
+func (c *KubernetesRuntimeInstanceConfig) getLoggingOperations(loggingDefinitionID *uint) *util.Operations {
 
 	operations := util.Operations{}
 

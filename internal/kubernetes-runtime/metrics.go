@@ -10,7 +10,7 @@ import (
 )
 
 // getMetricsOperations returns a set of operations for configuring metrics
-func getMetricsOperations(c *KubernetesRuntimeInstanceConfig, metricsDefinitionID *uint) *util.Operations {
+func (c *KubernetesRuntimeInstanceConfig) getMetricsOperations(metricsDefinitionID *uint) *util.Operations {
 
 	operations := util.Operations{}
 
