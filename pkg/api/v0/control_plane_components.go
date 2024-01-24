@@ -1,6 +1,8 @@
 // +threeport-codegen route-exclude
 package v0
 
+import "gorm.io/datatypes"
+
 type ControlPlaneComponent struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
@@ -33,4 +35,13 @@ type ControlPlaneComponent struct {
 
 	// The name of the secret with credentials to pull a private container image
 	ImagePullSecretName string `json:"ImagePullSecretName,omitempty" yaml:"ImagePullSecretName" query:"imagepullsecretname" validate:"optional"`
+
+	// The additional volumes to be added to the deployment spec of the component
+	AdditionalVolumes *datatypes.JSON `json:"AdditionalVolumes,omitempty" yaml:"AdditionalVolumes" query:"additionalvolumes" validate:"optional"`
+
+	// The additional volume mounts to be added to the deployment spec of the component
+	AdditionalVolumeMounts *datatypes.JSON `json:"AdditionalVolumeMounts,omitempty" yaml:"AdditionalVolumeMounts" query:"additionalvolumemounts" validate:"optional"`
+
+	// The additional env reference to be added to the environment variables of the component
+	AdditionalEnvRef *datatypes.JSON `json:"AdditionalEnvRef,omitempty" yaml:"AdditionalEnvRef" query:"additionalenvref" validate:"optional"`
 }

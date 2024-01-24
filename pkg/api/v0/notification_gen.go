@@ -25,6 +25,10 @@ func GetSubjectByReconcilerName(name string) (string, error) {
 		return GatewayInstanceSubject, nil
 	case "DomainNameInstanceReconciler":
 		return DomainNameInstanceSubject, nil
+	case "HelmWorkloadDefinitionReconciler":
+		return HelmWorkloadDefinitionSubject, nil
+	case "HelmWorkloadInstanceReconciler":
+		return HelmWorkloadInstanceSubject, nil
 	case "KubernetesRuntimeDefinitionReconciler":
 		return KubernetesRuntimeDefinitionSubject, nil
 	case "KubernetesRuntimeInstanceReconciler":
