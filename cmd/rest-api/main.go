@@ -29,7 +29,7 @@ import (
 )
 
 // @title Threeport RESTful API
-// @version v0.4.0-rc.1
+// @version v0.4.0-rc.2
 // @description Threeport RESTful API.
 // @termsOfService https://threeport.io/api-tos/
 // @contact.name Threeport Admin
@@ -151,6 +151,10 @@ func main() {
 	js.AddStream(&nats.StreamConfig{
 		Name:     v0.ControlPlaneStreamName,
 		Subjects: v0.GetControlPlaneSubjects(),
+	})
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.HelmWorkloadStreamName,
+		Subjects: v0.GetHelmWorkloadSubjects(),
 	})
 
 	// handlers
