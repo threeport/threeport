@@ -418,6 +418,24 @@ definitions:
     type: object
   v0.ControlPlaneComponent:
     properties:
+      AdditionalEnvRef:
+        description: The additional env reference to be added to the environment variables
+          of the component
+        items:
+          type: integer
+        type: array
+      AdditionalVolumeMounts:
+        description: The additional volume mounts to be added to the deployment spec
+          of the component
+        items:
+          type: integer
+        type: array
+      AdditionalVolumes:
+        description: The additional volumes to be added to the deployment spec of
+          the component
+        items:
+          type: integer
+        type: array
       BinaryName:
         description: The binary name of the component
         type: string
@@ -1433,29 +1451,6 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - Profile
-    - Tier
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1463,33 +1458,33 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
+    - Profile
+    - Tier
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
     - HelmWorkloadDefinition
     - HelmWorkloadInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1497,6 +1492,29 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeHelmWorkloadDefinition
     - ObjectTypeHelmWorkloadInstance
   v0.Profile:

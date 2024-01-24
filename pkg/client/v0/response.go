@@ -74,13 +74,13 @@ func GetResponse(
 		// elsewhere
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			return nil, ErrorObjectNotFound
+			return nil, fmt.Errorf("%w: %s", ErrorObjectNotFound, response.Status.Error)
 		case http.StatusUnauthorized:
-			return nil, ErrUnauthorized
+			return nil, fmt.Errorf("%w: %s", ErrUnauthorized, response.Status.Error)
 		case http.StatusForbidden:
-			return nil, ErrForbidden
+			return nil, fmt.Errorf("%w: %s", ErrForbidden, response.Status.Error)
 		case http.StatusConflict:
-			return nil, ErrConflict
+			return nil, fmt.Errorf("%w: %s", ErrConflict, response.Status.Error)
 		default:
 			return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s\nexpected: %d", response.Status.Code, response.Status.Message, string(status), expectedStatusCode))
 		}

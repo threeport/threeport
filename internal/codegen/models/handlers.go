@@ -22,6 +22,7 @@ func deletionInstanceCheckTypeNames() []string {
 		"KubernetesRuntimeDefinition",
 		"WorkloadDefinition",
 		"ControlPlaneDefinition",
+		"HelmWorkloadDefinition",
 	}
 }
 

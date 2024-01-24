@@ -1,0 +1,5 @@
+HelmWorkloadInstance:
+  Name: wordpress-default
+  HelmWorkloadDefinition:
+    Name: wordpress
+
