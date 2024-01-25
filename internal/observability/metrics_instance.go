@@ -32,15 +32,12 @@ func metricsInstanceCreated(
 	}
 
 	// merge kube-prometheus-stack helm values if they are provided
-	kubePrometheusStackHelmWorkloadInstanceValues := kubePrometheusStackValues
-	if metricsInstance.KubePrometheusStackHelmValues != nil {
-		kubePrometheusStackHelmWorkloadInstanceValues, err = MergeHelmValues(
-			kubePrometheusStackHelmWorkloadInstanceValues,
-			*metricsInstance.KubePrometheusStackHelmValues,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
-		}
+	kubePrometheusStackHelmWorkloadInstanceValues, err := MergeHelmValues(
+		util.StringPtrToString(metricsDefinition.KubePrometheusStackHelmValuesDocument),
+		util.StringPtrToString(metricsInstance.KubePrometheusStackHelmValuesDocument),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
 	}
 
 	// create kube-prometheus-stack helm workload instance
