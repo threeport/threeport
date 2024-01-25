@@ -41,7 +41,7 @@ func observabilityDashboardDefinitionCreated(
 	log *logr.Logger,
 ) (int64, error) {
 	// create observability dashboard helm workload definition
-	kubePrometheusStackHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
+	grafanaHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
@@ -58,7 +58,7 @@ func observabilityDashboardDefinitionCreated(
 	}
 
 	// update metrics definition with helm workload definition id
-	observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID = kubePrometheusStackHelmWorkloadDefinition.ID
+	observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID = grafanaHelmWorkloadDefinition.ID
 
 	// update metrics instance reconciled field
 	observabilityDashboardDefinition.Reconciled = util.BoolPtr(true)
