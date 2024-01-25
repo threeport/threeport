@@ -6,6 +6,18 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
+const grafanaPrometheusServiceMonitor = `
+serviceMonitor:
+  # If true, a ServiceMonitor CRD is created for a prometheus operator
+  # https://github.com/coreos/prometheus-operator
+  #
+  enabled: true
+
+  # Scrape interval. If not set, the Prometheus default scrape interval is used.
+  #
+  interval: ""
+`
+
 // observabilityStackDefinitionCreated reconciles state for a new kubernetes
 // observability stack definition.
 func observabilityStackDefinitionCreated(
