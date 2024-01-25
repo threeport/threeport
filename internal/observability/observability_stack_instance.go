@@ -183,7 +183,7 @@ func (c *ObservabilityStackInstanceConfig) getObservabilityStackInstanceOperatio
 // createObservabilityDashboardInstance creates an observability dashboard instance
 func (c *ObservabilityStackInstanceConfig) createObservabilityDashboardInstance() error {
 	// create observability dashboard instance
-	_, err := client.CreateObservabilityDashboardInstance(
+	observabilityDashboardInstance, err := client.CreateObservabilityDashboardInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.ObservabilityDashboardInstance{
@@ -191,10 +191,15 @@ func (c *ObservabilityStackInstanceConfig) createObservabilityDashboardInstance(
 				Name: util.StringPtr(ObservabilityDashboardName(*c.observabilityStackInstance.Name)),
 			},
 			ObservabilityDashboardDefinitionID: c.observabilityStackDefinition.ObservabilityDashboardDefinitionID,
+			KubernetesRuntimeInstanceID:        c.observabilityStackInstance.KubernetesRuntimeInstanceID,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create observability dashboard instance: %w", err)
 	}
+
+	// update observability dashboard instance id
+	c.observabilityStackInstance.ObservabilityDashboardInstanceID = observabilityDashboardInstance.ID
+
 	return nil
 }
 
@@ -215,18 +220,23 @@ func (c *ObservabilityStackInstanceConfig) deleteObservabilityDashboardInstance(
 // createMetricsInstance creates a metrics instance
 func (c *ObservabilityStackInstanceConfig) createMetricsInstance() error {
 	// create metrics instance
-	_, err := client.CreateMetricsInstance(
+	metricsInstance, err := client.CreateMetricsInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.MetricsInstance{
 			Instance: v0.Instance{
 				Name: util.StringPtr(MetricsName(*c.observabilityStackInstance.Name)),
 			},
-			MetricsDefinitionID: c.observabilityStackDefinition.MetricsDefinitionID,
+			MetricsDefinitionID:         c.observabilityStackDefinition.MetricsDefinitionID,
+			KubernetesRuntimeInstanceID: c.observabilityStackInstance.KubernetesRuntimeInstanceID,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create metrics instance: %w", err)
 	}
+
+	// update metrics instance id
+	c.observabilityStackInstance.MetricsInstanceID = metricsInstance.ID
+
 	return nil
 }
 
@@ -247,18 +257,23 @@ func (c *ObservabilityStackInstanceConfig) deleteMetricsInstance() error {
 // createLoggingInstance creates a logging instance
 func (c *ObservabilityStackInstanceConfig) createLoggingInstance() error {
 	// create logging instance
-	_, err := client.CreateLoggingInstance(
+	loggingInstance, err := client.CreateLoggingInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.LoggingInstance{
 			Instance: v0.Instance{
 				Name: util.StringPtr(LoggingName(*c.observabilityStackInstance.Name)),
 			},
-			LoggingDefinitionID: c.observabilityStackDefinition.LoggingDefinitionID,
+			LoggingDefinitionID:         c.observabilityStackDefinition.LoggingDefinitionID,
+			KubernetesRuntimeInstanceID: c.observabilityStackInstance.KubernetesRuntimeInstanceID,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create logging instance: %w", err)
 	}
+
+	// update logging instance id
+	c.observabilityStackInstance.LoggingInstanceID = loggingInstance.ID
+
 	return nil
 }
 

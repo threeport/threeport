@@ -50,6 +50,13 @@ func PromtailHelmChartName(name string) string {
 // MergeHelmValues merges two helm values documents.
 func MergeHelmValues(base, override string) (string, error) {
 
+	// if one input is empty, return the other
+	if base == "" {
+		return override, nil
+	} else if override == "" {
+		return base, nil
+	}
+
 	temporaryFiles := map[string]string{
 		"/tmp/values.yaml":          base,
 		"/tmp/override-values.yaml": override,
