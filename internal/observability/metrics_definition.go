@@ -40,6 +40,7 @@ func metricsDefinitionCreated(
 	metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID = kubePrometheusStackHelmWorkloadDefinition.ID
 
 	// update metrics instance reconciled field
+	metricsDefinition.Reconciled = util.BoolPtr(true)
 	if _, err := client.UpdateMetricsDefinition(
 		r.APIClient,
 		r.APIServer,
