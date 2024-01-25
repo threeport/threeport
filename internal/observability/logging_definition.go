@@ -52,9 +52,11 @@ extraObjects:
 const promtailValues = ``
 
 type LoggingDefinitionConfig struct {
-	r                 *controller.Reconciler
-	loggingDefinition *v0.LoggingDefinition
-	log               *logr.Logger
+	r                                    *controller.Reconciler
+	loggingDefinition                    *v0.LoggingDefinition
+	log                                  *logr.Logger
+	lokiHelmWorkloadDefinitionValues     string
+	promtailHelmWorkloadDefinitionValues string
 }
 
 // loggingDefinitionCreated reconciles state for a new kubernetes
@@ -64,16 +66,35 @@ func loggingDefinitionCreated(
 	loggingDefinition *v0.LoggingDefinition,
 	log *logr.Logger,
 ) (int64, error) {
+	// merge loki helm values
+	lokiHelmWorkloadDefinitionValues, err := MergeHelmValues(
+		lokiValues,
+		util.StringPtrToString(loggingDefinition.LokiHelmValuesDocument),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
+	}
+
+	// merge promtail helm values
+	promtailHelmWorkloadDefinitionValues, err := MergeHelmValues(
+		promtailValues,
+		util.StringPtrToString(loggingDefinition.PromtailHelmValuesDocument),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
+	}
 
 	// create logging definition config
 	c := &LoggingDefinitionConfig{
-		r:                 r,
-		loggingDefinition: loggingDefinition,
-		log:               log,
+		r:                                    r,
+		loggingDefinition:                    loggingDefinition,
+		log:                                  log,
+		lokiHelmWorkloadDefinitionValues:     lokiHelmWorkloadDefinitionValues,
+		promtailHelmWorkloadDefinitionValues: promtailHelmWorkloadDefinitionValues,
 	}
 
 	// get logging operations
-	operations := getLoggingDefinitionOperations(c)
+	operations := c.getLoggingDefinitionOperations()
 
 	// execute logging definition create operations
 	if err := operations.Create(); err != nil {
@@ -82,7 +103,7 @@ func loggingDefinitionCreated(
 
 	// update logging definition reconciled field
 	loggingDefinition.Reconciled = util.BoolPtr(true)
-	_, err := client.UpdateLoggingDefinition(
+	_, err = client.UpdateLoggingDefinition(
 		r.APIClient,
 		r.APIServer,
 		loggingDefinition,
@@ -119,7 +140,7 @@ func loggingDefinitionDeleted(
 	}
 
 	// get logging operations
-	operations := getLoggingDefinitionOperations(c)
+	operations := c.getLoggingDefinitionOperations()
 
 	// execute logging definition delete operations
 	if err := operations.Delete(); err != nil {
@@ -130,7 +151,7 @@ func loggingDefinitionDeleted(
 }
 
 // getLoggingDefinitionOperations returns a list of operations for a logging definition.
-func getLoggingDefinitionOperations(c *LoggingDefinitionConfig) *util.Operations {
+func (c *LoggingDefinitionConfig) getLoggingDefinitionOperations() *util.Operations {
 	operations := util.Operations{}
 
 	// append loki operations

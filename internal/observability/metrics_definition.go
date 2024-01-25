@@ -31,6 +31,14 @@ func metricsDefinitionCreated(
 	metricsDefinition *v0.MetricsDefinition,
 	log *logr.Logger,
 ) (int64, error) {
+	// merge kube-prometheus-stack helm values if they are provided
+	kubePrometheusStackHelmWorkloadDefinitionValues, err := MergeHelmValues(
+		kubePrometheusStackValues,
+		util.StringPtrToString(metricsDefinition.KubePrometheusStackHelmValuesDocument),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
+	}
 
 	// create kube-prometheus-stack helm workload definition
 	kubePrometheusStackHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
@@ -43,7 +51,7 @@ func metricsDefinitionCreated(
 			Repo:               util.StringPtr(PrometheusCommunityHelmRepo),
 			Chart:              util.StringPtr("kube-prometheus-stack"),
 			HelmChartVersion:   metricsDefinition.KubePrometheusStackHelmChartVersion,
-			HelmValuesDocument: metricsDefinition.KubePrometheusStackHelmValuesDocument,
+			HelmValuesDocument: &kubePrometheusStackHelmWorkloadDefinitionValues,
 		})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload definition: %w", err)
