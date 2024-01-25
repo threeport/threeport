@@ -11,6 +11,19 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+const kubePrometheusStackValues = `
+grafana:
+  enabled: false
+
+  ## ForceDeployDatasources Create datasource configmap even if grafana deployment has been disabled
+  ##
+  forceDeployDatasources: true
+
+  ## ForceDeployDashboard Create dashboard configmap even if grafana deployment has been disabled
+  ##
+  forceDeployDashboards: true
+`
+
 // metricsDefinitionCreated reconciles state for a new kubernetes
 // runtime instance.
 func metricsDefinitionCreated(
