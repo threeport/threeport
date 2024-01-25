@@ -11,6 +11,46 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+const lokiValues = `
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: 'filesystem'
+singleBinary:
+  replicas: 1
+test:
+  enabled: false
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+extraObjects:
+- kind: ConfigMap
+  apiVersion: v1
+  metadata:
+    name: loki-grafana-datasource
+    namespace: "{{ $.Release.Namespace }}"
+    labels:
+      grafana_datasource: "1"
+  data:
+    loki-datasource.yaml: |-
+      apiVersion: 1
+      datasources:
+      - name: loki
+        access: proxy
+        editable: false
+        isDefault: false
+        jsonData:
+            tlsSkipVerify: true
+        type: loki
+        url: http://loki-headless.{{ $.Release.Namespace }}:3100
+`
+
+const promtailValues = ``
+
 type LoggingDefinitionConfig struct {
 	r                 *controller.Reconciler
 	loggingDefinition *v0.LoggingDefinition
