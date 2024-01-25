@@ -55,7 +55,7 @@ func observabilityDashboardDefinitionCreated(
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
 			Definition: v0.Definition{
-				Name: util.StringPtr(KubePrometheusStackChartName(*observabilityDashboardDefinition.Name)),
+				Name: util.StringPtr(GrafanaChartName(*observabilityDashboardDefinition.Name)),
 			},
 			HelmRepo:           util.StringPtr(GrafanaHelmRepo),
 			HelmChart:          util.StringPtr("grafana"),
@@ -63,7 +63,7 @@ func observabilityDashboardDefinitionCreated(
 			HelmValuesDocument: &grafanaHelmValuesDocument,
 		})
 	if err != nil {
-		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload definition: %w", err)
+		return 0, fmt.Errorf("failed to create grafana helm workload definition: %w", err)
 	}
 
 	// update metrics definition with helm workload definition id
@@ -76,7 +76,7 @@ func observabilityDashboardDefinitionCreated(
 		r.APIServer,
 		observabilityDashboardDefinition,
 	); err != nil {
-		return 0, fmt.Errorf("failed to update metrics definition reconciled field: %w", err)
+		return 0, fmt.Errorf("failed to update observibility dashboard definition reconciled field: %w", err)
 	}
 
 	return 0, nil
@@ -99,13 +99,13 @@ func observabilityDashboardDefinitionDeleted(
 	observabilityDashboardDefinition *v0.ObservabilityDashboardDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-	// delete kube-prometheus-stack helm workload definition
+	// delete grafana helm workload definition
 	if _, err := client.DeleteHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,
 		*observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID,
 	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return 0, fmt.Errorf("failed to delete kube-prometheus-stack helm workload definition: %w", err)
+		return 0, fmt.Errorf("failed to delete grafana helm workload definition: %w", err)
 	}
 
 	return 0, nil
