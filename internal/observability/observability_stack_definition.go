@@ -45,7 +45,7 @@ func observabilityStackDefinitionCreated(
 	}
 
 	// get observability stack operations
-	operations := getObservabilityStackDefinitionOperations(c)
+	operations := c.getObservabilityStackDefinitionOperations()
 
 	// execute observability stack operations
 	if err := operations.Create(); err != nil {
@@ -90,7 +90,7 @@ func observabilityStackDefinitionDeleted(
 	}
 
 	// get observability stack operations
-	operations := getObservabilityStackDefinitionOperations(c)
+	operations := c.getObservabilityStackDefinitionOperations()
 
 	// execute observability stack operations
 	if err := operations.Delete(); err != nil {
@@ -102,7 +102,7 @@ func observabilityStackDefinitionDeleted(
 
 // getObservabilityDashboardOperations returns the operations for a observability
 // dashboard
-func getObservabilityStackDefinitionOperations(c *ObservabilityStackDefinitionConfig) *util.Operations {
+func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOperations() *util.Operations {
 
 	operations := util.Operations{}
 
@@ -162,15 +162,30 @@ func getObservabilityStackDefinitionOperations(c *ObservabilityStackDefinitionCo
 
 // createObservabilityDashboardDefinition creates an observability dashboard definition.
 func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinition() error {
+
+	// create observability dashboard definition
+	observabilityDashboardDefinition := &v0.ObservabilityDashboardDefinition{
+		Definition: v0.Definition{
+			Name: util.StringPtr(ObservabilityDashboardName(*c.observabilityStackDefinition.Name)),
+		},
+	}
+
+	// set grafana helm chart version if provided
+	if c.observabilityStackDefinition.GrafanaHelmChartVersion != nil {
+		observabilityDashboardDefinition.GrafanaHelmChartVersion = c.observabilityStackDefinition.GrafanaHelmChartVersion
+	}
+
+	// set grafana helm chart values if provided
+	if c.observabilityStackDefinition.GrafanaHelmValuesDocument != nil {
+		observabilityDashboardDefinition.GrafanaHelmValuesDocument = c.observabilityStackDefinition.GrafanaHelmValuesDocument
+	}
+
 	// create observability dashboard definition
 	observabilityDashboardDefinition, err := client.CreateObservabilityDashboardDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
-		&v0.ObservabilityDashboardDefinition{
-			Definition: v0.Definition{
-				Name: util.StringPtr(ObservabilityDashboardName(*c.observabilityStackDefinition.Name)),
-			},
-		})
+		observabilityDashboardDefinition,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create observability dashboard definition: %w", err)
 	}
@@ -197,6 +212,34 @@ func (c *ObservabilityStackDefinitionConfig) deleteObservabilityDashboardDefinit
 
 // createLoggingDefinition creates a logging definition.
 func (c *ObservabilityStackDefinitionConfig) createLoggingDefinition() error {
+
+	// create logging definition
+	loggingDefinition := &v0.LoggingDefinition{
+		Definition: v0.Definition{
+			Name: util.StringPtr(LoggingName(*c.observabilityStackDefinition.Name)),
+		},
+	}
+
+	// set promtail helm chart version if provided
+	if c.observabilityStackDefinition.PromtailHelmChartVersion != nil {
+		loggingDefinition.PromtailHelmChartVersion = c.observabilityStackDefinition.PromtailHelmChartVersion
+	}
+
+	// set promtail helm chart values if provided
+	if c.observabilityStackDefinition.PromtailHelmValuesDocument != nil {
+		loggingDefinition.PromtailHelmValuesDocument = c.observabilityStackDefinition.PromtailHelmValuesDocument
+	}
+
+	// set loki helm chart version if provided
+	if c.observabilityStackDefinition.LokiHelmChartVersion != nil {
+		loggingDefinition.LokiHelmChartVersion = c.observabilityStackDefinition.LokiHelmChartVersion
+	}
+
+	// set loki helm chart values if provided
+	if c.observabilityStackDefinition.LokiHelmValuesDocument != nil {
+		loggingDefinition.LokiHelmValuesDocument = c.observabilityStackDefinition.LokiHelmValuesDocument
+	}
+
 	// create logging definition
 	loggingDefinition, err := client.CreateLoggingDefinition(
 		c.r.APIClient,
@@ -232,15 +275,30 @@ func (c *ObservabilityStackDefinitionConfig) deleteLoggingDefinition() error {
 
 // createMetricsDefinition creates a metrics definition.
 func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
+
+	// create metrics definition
+	metricsDefinition := &v0.MetricsDefinition{
+		Definition: v0.Definition{
+			Name: util.StringPtr(MetricsName(*c.observabilityStackDefinition.Name)),
+		},
+	}
+
+	// set kube-prometheus-stack helm chart version if provided
+	if c.observabilityStackDefinition.KubePrometheusStackHelmChartVersion != nil {
+		metricsDefinition.KubePrometheusStackHelmChartVersion = c.observabilityStackDefinition.KubePrometheusStackHelmChartVersion
+	}
+
+	// set kube-prometheus-stack helm chart values if provided
+	if c.observabilityStackDefinition.KubePrometheusStackHelmValuesDocument != nil {
+		metricsDefinition.KubePrometheusStackHelmValuesDocument = c.observabilityStackDefinition.KubePrometheusStackHelmValuesDocument
+	}
+
 	// create metrics definition
 	metricsDefinition, err := client.CreateMetricsDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
-		&v0.MetricsDefinition{
-			Definition: v0.Definition{
-				Name: util.StringPtr(MetricsName(*c.observabilityStackDefinition.Name)),
-			},
-		})
+		metricsDefinition,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create metrics definition: %w", err)
 	}

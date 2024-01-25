@@ -43,7 +43,7 @@ func observabilityStackInstanceCreated(
 	}
 
 	// get observability stack operations
-	operations := getObservabilityStackInstanceOperations(c)
+	operations := c.getObservabilityStackInstanceOperations()
 
 	// execute observability stack create operations
 	if err := operations.Create(); err != nil {
@@ -89,7 +89,7 @@ func observabilityStackInstanceDeleted(
 	}
 
 	// get observability stack operations
-	operations := getObservabilityStackInstanceOperations(c)
+	operations := c.getObservabilityStackInstanceOperations()
 
 	// execute observability stack delete operations
 	if err := operations.Delete(); err != nil {
@@ -101,7 +101,7 @@ func observabilityStackInstanceDeleted(
 
 // getObservabilityInstanceOperations returns the operations for a observability
 // dashboard
-func getObservabilityStackInstanceOperations(c *ObservabilityStackInstanceConfig) *util.Operations {
+func (c *ObservabilityStackInstanceConfig) getObservabilityStackInstanceOperations() *util.Operations {
 
 	operations := util.Operations{}
 
