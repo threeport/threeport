@@ -249,10 +249,9 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledAwsObjectStorageBucketInstance := v0.AwsObjectStorageBucketInstance{
 					Common:         v0.Common{ID: awsObjectStorageBucketInstance.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
 				updatedAwsObjectStorageBucketInstance, err := client.UpdateAwsObjectStorageBucketInstance(
 					r.APIClient,

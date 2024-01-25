@@ -249,10 +249,9 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledLoggingDefinition := v0.LoggingDefinition{
 					Common:         v0.Common{ID: loggingDefinition.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
 				updatedLoggingDefinition, err := client.UpdateLoggingDefinition(
 					r.APIClient,

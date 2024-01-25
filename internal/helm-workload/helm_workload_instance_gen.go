@@ -249,10 +249,9 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledHelmWorkloadInstance := v0.HelmWorkloadInstance{
 					Common:         v0.Common{ID: helmWorkloadInstance.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
 				updatedHelmWorkloadInstance, err := client.UpdateHelmWorkloadInstance(
 					r.APIClient,

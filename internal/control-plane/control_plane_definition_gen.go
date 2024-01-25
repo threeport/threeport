@@ -249,10 +249,9 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledControlPlaneDefinition := v0.ControlPlaneDefinition{
 					Common:         v0.Common{ID: controlPlaneDefinition.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
 				updatedControlPlaneDefinition, err := client.UpdateControlPlaneDefinition(
 					r.APIClient,

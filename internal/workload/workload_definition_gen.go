@@ -249,10 +249,9 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledWorkloadDefinition := v0.WorkloadDefinition{
 					Common:         v0.Common{ID: workloadDefinition.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
 				updatedWorkloadDefinition, err := client.UpdateWorkloadDefinition(
 					r.APIClient,

@@ -469,7 +469,6 @@ func (cc *ControllerConfig) Reconcilers() error {
 							"github.com/threeport/threeport/pkg/notifications/v0",
 							"NotificationOperationDeleted",
 						).Block(
-							Id("objectReconciled").Op(":=").Lit(true),
 							Id(fmt.Sprintf(
 								"reconciled%s",
 								obj,
@@ -487,7 +486,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									"github.com/threeport/threeport/pkg/api/v0",
 									"Reconciliation",
 								).Values(Dict{
-									Id("Reconciled"): Op("&").Id("objectReconciled"),
+									Id("Reconciled"): Qual("github.com/threeport/threeport/pkg/util/v0", "BoolPtr").Call(Lit(true)),
 								}),
 							}),
 							Id(fmt.Sprintf(

@@ -249,10 +249,9 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
 					Common:         v0.Common{ID: awsEksKubernetesRuntimeInstance.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
 				updatedAwsEksKubernetesRuntimeInstance, err := client.UpdateAwsEksKubernetesRuntimeInstance(
 					r.APIClient,

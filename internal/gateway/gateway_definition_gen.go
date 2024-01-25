@@ -249,10 +249,9 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledGatewayDefinition := v0.GatewayDefinition{
 					Common:         v0.Common{ID: gatewayDefinition.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
 				updatedGatewayDefinition, err := client.UpdateGatewayDefinition(
 					r.APIClient,
