@@ -204,7 +204,7 @@ func (c *LoggingDefinitionConfig) createLokiHelmWorkloadDefinition() error {
 			Repo:               util.StringPtr(GrafanaHelmRepo),
 			Chart:              util.StringPtr("loki"),
 			HelmChartVersion:   c.loggingDefinition.LokiHelmChartVersion,
-			HelmValuesDocument: c.loggingDefinition.LokiHelmValuesDocument,
+			HelmValuesDocument: &c.lokiHelmWorkloadDefinitionValues,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create loki helm workload definition: %w", err)
@@ -244,7 +244,7 @@ func (c *LoggingDefinitionConfig) createPromtailHelmWorkloadDefinition() error {
 			Repo:               util.StringPtr(GrafanaHelmRepo),
 			Chart:              util.StringPtr("promtail"),
 			HelmChartVersion:   c.loggingDefinition.PromtailHelmChartVersion,
-			HelmValuesDocument: c.loggingDefinition.PromtailHelmValuesDocument,
+			HelmValuesDocument: &c.promtailHelmWorkloadDefinitionValues,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create promtail helm workload definition: %w", err)
