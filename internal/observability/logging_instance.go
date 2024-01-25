@@ -47,26 +47,22 @@ func loggingInstanceCreated(
 	// generate shared namespace name for loki and promtail
 	loggingNamespace := fmt.Sprintf("%s-logging-%s", *loggingInstance.Name, util.RandomAlphaString(10))
 
-	// merge loki helm values if they are provided
-	lokiHelmWorkloadInstanceValues := lokiValues
-	if loggingInstance.LokiHelmValues != nil {
-		if lokiHelmWorkloadInstanceValues, err = MergeHelmValues(
-			lokiValues,
-			*loggingInstance.LokiHelmValues,
-		); err != nil {
-			return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
-		}
+	// merge loki helm values
+	lokiHelmWorkloadInstanceValues, err := MergeHelmValues(
+		util.StringPtrToString(loggingDefinition.LokiHelmValuesDocument),
+		util.StringPtrToString(loggingInstance.LokiHelmValues),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
 	}
 
-	// merge loki helm values if they are provided
-	promtailHelmWorkloadInstanceValues := promtailValues
-	if loggingInstance.PromtailHelmValues != nil {
-		if promtailHelmWorkloadInstanceValues, err = MergeHelmValues(
-			promtailValues,
-			*loggingInstance.PromtailHelmValues,
-		); err != nil {
-			return 0, fmt.Errorf("failed to merge promtail helm values: %w", err)
-		}
+	// merge promtail helm values
+	promtailHelmWorkloadInstanceValues, err := MergeHelmValues(
+		util.StringPtrToString(loggingDefinition.PromtailHelmValuesDocument),
+		util.StringPtrToString(loggingInstance.PromtailHelmValues),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
 	}
 
 	// create logging instance config

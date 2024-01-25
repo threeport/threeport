@@ -11,10 +11,14 @@ import (
 )
 
 type ObservabilityStackInstanceConfig struct {
-	r                            *controller.Reconciler
-	observabilityStackInstance   *v0.ObservabilityStackInstance
-	observabilityStackDefinition *v0.ObservabilityStackDefinition
-	log                          *logr.Logger
+	r                                     *controller.Reconciler
+	observabilityStackInstance            *v0.ObservabilityStackInstance
+	observabilityStackDefinition          *v0.ObservabilityStackDefinition
+	log                                   *logr.Logger
+	grafanaHelmValuesDocument             string
+	kubePrometheusStackHelmValuesDocument string
+	lokiHelmValuesDocument                string
+	promtailHelmValuesDocument            string
 }
 
 // observabilityStackInstanceCreated reconciles state for a new kubernetes
@@ -34,12 +38,25 @@ func observabilityStackInstanceCreated(
 		return 0, fmt.Errorf("failed to get observability dashboard definition: %w", err)
 	}
 
+	// get merged observability stack instance values
+	grafanaHelmValuesDocument, kubePrometheusStackHelmValuesDocument, lokiHelmValuesDocument, promtailHelmValuesDocument, err := getMergedObservabilityStackInstanceValues(
+		observabilityStackInstance,
+		observabilityStackDefinition,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get merged observability stack instance values: %w", err)
+	}
+
 	// create observability stack instance config
 	c := &ObservabilityStackInstanceConfig{
-		r:                            r,
-		observabilityStackInstance:   observabilityStackInstance,
-		observabilityStackDefinition: observabilityStackDefinition,
-		log:                          log,
+		r:                                     r,
+		observabilityStackInstance:            observabilityStackInstance,
+		observabilityStackDefinition:          observabilityStackDefinition,
+		log:                                   log,
+		grafanaHelmValuesDocument:             grafanaHelmValuesDocument,
+		kubePrometheusStackHelmValuesDocument: kubePrometheusStackHelmValuesDocument,
+		lokiHelmValuesDocument:                lokiHelmValuesDocument,
+		promtailHelmValuesDocument:            promtailHelmValuesDocument,
 	}
 
 	// get observability stack operations
@@ -257,4 +274,51 @@ func (c *ObservabilityStackInstanceConfig) deleteLoggingInstance() error {
 		return fmt.Errorf("failed to delete logging instance: %w", err)
 	}
 	return nil
+}
+
+// getMergedObservabilityStackInstanceValues returns the merged values for a observability stack instance
+func getMergedObservabilityStackInstanceValues(osi *v0.ObservabilityStackInstance, osd *v0.ObservabilityStackDefinition) (string, string, string, string, error) {
+
+	grafanaHelmValuesDocument := ""
+	kubePrometheusStackHelmValuesDocument := ""
+	lokiHelmValuesDocument := ""
+	promtailHelmValuesDocument := ""
+
+	// merge grafana values
+	grafanaHelmValuesDocument, err := MergeHelmValues(
+		util.StringPtrToString(osi.GrafanaHelmValuesDocument),
+		util.StringPtrToString(osd.GrafanaHelmValuesDocument),
+	)
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("failed to merge grafana helm values: %w", err)
+	}
+
+	// merge kube-prometheus-stack values
+	kubePrometheusStackHelmValuesDocument, err = MergeHelmValues(
+		util.StringPtrToString(osi.KubePrometheusStackHelmValuesDocument),
+		util.StringPtrToString(osd.KubePrometheusStackHelmValuesDocument),
+	)
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("failed to merge kube-prometheus-stack helm values: %w", err)
+	}
+
+	// merge loki values
+	lokiHelmValuesDocument, err = MergeHelmValues(
+		util.StringPtrToString(osi.LokiHelmValuesDocument),
+		util.StringPtrToString(osd.LokiHelmValuesDocument),
+	)
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("failed to merge loki helm values: %w", err)
+	}
+
+	// merge promtail values
+	promtailHelmValuesDocument, err = MergeHelmValues(
+		util.StringPtrToString(osi.PromtailHelmValuesDocument),
+		util.StringPtrToString(osd.PromtailHelmValuesDocument),
+	)
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("failed to merge promtail helm values: %w", err)
+	}
+
+	return grafanaHelmValuesDocument, kubePrometheusStackHelmValuesDocument, lokiHelmValuesDocument, promtailHelmValuesDocument, nil
 }

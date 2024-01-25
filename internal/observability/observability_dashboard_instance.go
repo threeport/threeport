@@ -31,16 +31,13 @@ func observabilityDashboardInstanceCreated(
 		return 0, fmt.Errorf("metrics definition is not reconciled")
 	}
 
-	// merge grafana helm values if they are provided
-	grafanaWorkloadInstanceValues := grafanaValues
-	if observabilityDashboardInstance.GrafanaHelmValues != nil {
-		grafanaWorkloadInstanceValues, err = MergeHelmValues(
-			grafanaWorkloadInstanceValues,
-			*observabilityDashboardInstance.GrafanaHelmValues,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
-		}
+	// merge grafana helm values
+	grafanaHelmValuesDocument, err := MergeHelmValues(
+		util.StringPtrToString(observabilityDashboardDefinition.GrafanaHelmValuesDocument),
+		util.StringPtrToString(observabilityDashboardInstance.GrafanaHelmValues),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
 	}
 
 	// create grafana helm workload instance
@@ -53,7 +50,7 @@ func observabilityDashboardInstanceCreated(
 			},
 			KubernetesRuntimeInstanceID: observabilityDashboardInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID,
-			HelmValuesDocument:          &grafanaWorkloadInstanceValues,
+			HelmValuesDocument:          &grafanaHelmValuesDocument,
 		},
 	)
 	if err != nil {

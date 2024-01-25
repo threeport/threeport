@@ -182,7 +182,7 @@ type MetricsInstance struct {
 
 	// Optional Helm workload definition values that can be provided to configure the
 	// underlying kube-prometheus-stack chart.
-	KubePrometheusStackHelmValues *string `json:"KubePrometheusStackHelmValues,omitempty" query:"kubeprometheusstackhelmvalues" validate:"optional"`
+	KubePrometheusStackHelmValuesDocument *string `json:"KubePrometheusStackHelmValuesDocument,omitempty" query:"kubeprometheusstackhelmvaluesdocument" validate:"optional"`
 }
 
 // +threeport-codegen:reconciler

@@ -40,6 +40,15 @@ func observabilityDashboardDefinitionCreated(
 	observabilityDashboardDefinition *v0.ObservabilityDashboardDefinition,
 	log *logr.Logger,
 ) (int64, error) {
+	// merge grafana helm values
+	grafanaHelmValuesDocument, err := MergeHelmValues(
+		grafanaValues,
+		util.StringPtrToString(observabilityDashboardDefinition.GrafanaHelmValuesDocument),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
+	}
+
 	// create observability dashboard helm workload definition
 	grafanaHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
 		r.APIClient,
@@ -51,7 +60,7 @@ func observabilityDashboardDefinitionCreated(
 			HelmRepo:           util.StringPtr(GrafanaHelmRepo),
 			HelmChart:          util.StringPtr("grafana"),
 			HelmChartVersion:   observabilityDashboardDefinition.GrafanaHelmChartVersion,
-			HelmValuesDocument: observabilityDashboardDefinition.GrafanaHelmValuesDocument,
+			HelmValuesDocument: &grafanaHelmValuesDocument,
 		})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload definition: %w", err)
