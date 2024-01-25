@@ -249,10 +249,9 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledMetricsDefinition := v0.MetricsDefinition{
 					Common:         v0.Common{ID: metricsDefinition.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
 				updatedMetricsDefinition, err := client.UpdateMetricsDefinition(
 					r.APIClient,
