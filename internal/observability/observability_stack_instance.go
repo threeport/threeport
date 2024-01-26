@@ -122,61 +122,30 @@ func observabilityStackInstanceDeleted(
 // getObservabilityInstanceOperations returns the operations for a observability
 // dashboard
 func (c *ObservabilityStackInstanceConfig) getObservabilityStackInstanceOperations() *util.Operations {
-
 	operations := util.Operations{}
 
 	// append observability dashboard operations
 	operations.AppendOperation(util.Operation{
-		Name: "observability dashboard",
-		Create: func() error {
-			if err := c.createObservabilityDashboardInstance(); err != nil {
-				return fmt.Errorf("failed to create observability dashboard instance: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteObservabilityDashboardInstance(); err != nil {
-				return fmt.Errorf("failed to delete observability dashboard instance: %w", err)
-			}
-			return nil
-		},
+		Name:   "observability dashboard",
+		Create: func() error { return c.createObservabilityDashboardInstance() },
+		Delete: func() error { return c.deleteObservabilityDashboardInstance() },
 	})
 
 	if *c.observabilityStackInstance.LoggingEnabled {
 		// append logging operations
 		operations.AppendOperation(util.Operation{
-			Name: "logging",
-			Create: func() error {
-				if err := c.createLoggingInstance(); err != nil {
-					return fmt.Errorf("failed to create logging instance: %w", err)
-				}
-				return nil
-			},
-			Delete: func() error {
-				if err := c.deleteLoggingInstance(); err != nil {
-					return fmt.Errorf("failed to delete logging instance: %w", err)
-				}
-				return nil
-			},
+			Name:   "logging",
+			Create: func() error { return c.createLoggingInstance() },
+			Delete: func() error { return c.deleteLoggingInstance() },
 		})
 	}
 
 	if *c.observabilityStackInstance.MetricsEnabled {
 		// append metrics operations
 		operations.AppendOperation(util.Operation{
-			Name: "metrics",
-			Create: func() error {
-				if err := c.createMetricsInstance(); err != nil {
-					return fmt.Errorf("failed to create metrics instance: %w", err)
-				}
-				return nil
-			},
-			Delete: func() error {
-				if err := c.deleteMetricsInstance(); err != nil {
-					return fmt.Errorf("failed to delete metrics instance: %w", err)
-				}
-				return nil
-			},
+			Name:   "metrics",
+			Create: func() error { return c.createMetricsInstance() },
+			Delete: func() error { return c.deleteMetricsInstance() },
 		})
 	}
 
