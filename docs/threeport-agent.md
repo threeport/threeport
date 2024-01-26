@@ -37,5 +37,5 @@ calls back to the Threeport API to surface those events to Threeport users.
 
 ## See Also
 
-* [threport-agent README](../cmd/agent/REAMDE.md)
+* [threeport-agent README](../cmd/agent/README.md)
 
