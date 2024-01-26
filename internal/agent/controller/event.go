@@ -15,6 +15,7 @@ import (
 func (r *ThreeportWorkloadReconciler) addEventEventHandlers(
 	ctx context.Context,
 	resourceUID string,
+	workloadType string,
 	workloadInstanceID uint,
 	workloadResourceInstanceID uint,
 	informer cache.SharedInformer,
@@ -30,6 +31,7 @@ func (r *ThreeportWorkloadReconciler) addEventEventHandlers(
 				if workloadResourceInstanceID != 0 {
 					eventSummary = notify.EventSummary{
 						EventUID:                   string(event.ObjectMeta.UID),
+						WorkloadType:               workloadType,
 						WorkloadInstanceID:         workloadInstanceID,
 						WorkloadResourceInstanceID: workloadResourceInstanceID,
 						ObjectNamespace:            event.InvolvedObject.Namespace,
@@ -43,6 +45,7 @@ func (r *ThreeportWorkloadReconciler) addEventEventHandlers(
 				} else {
 					eventSummary = notify.EventSummary{
 						EventUID:           string(event.ObjectMeta.UID),
+						WorkloadType:       workloadType,
 						WorkloadInstanceID: workloadInstanceID,
 						ObjectNamespace:    event.InvolvedObject.Namespace,
 						ObjectKind:         event.InvolvedObject.Kind,

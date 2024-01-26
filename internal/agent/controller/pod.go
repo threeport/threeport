@@ -50,6 +50,7 @@ func (r *ThreeportWorkloadReconciler) createPodInformer(
 // that all events for that pod are sent to threeport API.
 func (r *ThreeportWorkloadReconciler) addPodEventHandlers(
 	ctx context.Context,
+	workloadType string,
 	workloadInstanceID uint,
 	podInformer cache.SharedInformer,
 	podInformerStopChan chan struct{},
@@ -87,7 +88,14 @@ func (r *ThreeportWorkloadReconciler) addPodEventHandlers(
 				eventInformer := cache.NewSharedInformer(listWatcher, &corev1.Event{}, 6e+11) // re-sync every 10 min
 				go eventInformer.Run(stopChan)
 
-				r.addEventEventHandlers(ctx, string(uid), workloadInstanceID, 0, eventInformer)
+				r.addEventEventHandlers(
+					ctx,
+					string(uid),
+					workloadType,
+					workloadInstanceID,
+					0,
+					eventInformer,
+				)
 				podEventInformers[string(uid)] = stopChan
 			}
 		},

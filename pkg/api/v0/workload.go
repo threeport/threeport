@@ -139,4 +139,7 @@ type WorkloadEvent struct {
 
 	// The related workload resource instance.
 	WorkloadResourceInstanceID *uint `json:"WorkloadResourceInstanceID,omitempty" query:"workloadresourceinstanceid" validate:"optional"`
+
+	// The related helm workload instance.
+	HelmWorkloadInstanceID *uint `json:"HelmWorkloadInstanceID,omitempty" query:"helmworkloadinstanceid" validate:"optional"`
 }

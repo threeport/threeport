@@ -8,6 +8,8 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/threeport/threeport/internal/agent"
+	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -290,22 +292,28 @@ func (h *HelmWorkloadInstanceValues) Create(
 	return createdHelmWorkloadInstance, nil
 }
 
-//// Describe returns important failure events related to a helm workload instance.
-//func (h *HelmWorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.HelmWorkloadInstanceStatusDetail, error) {
-//	// get helm workload instance by name
-//	helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, h.Name)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to find helm workload instance with name %s: %w", h.Name, err)
-//	}
-//
-//	// get helm workload instance status
-//	statusDetail := status.GetHelmWorkloadInstanceStatus(apiClient, apiEndpoint, helmWorkloadInstance)
-//	if statusDetail.Error != nil {
-//		return nil, fmt.Errorf("failed to get status for helm workload instance with name %s: %w", h.Name, statusDetail.Error)
-//	}
-//
-//	return statusDetail, nil
-//}
+// Describe returns important failure events related to a helm workload instance.
+func (h *HelmWorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.WorkloadInstanceStatusDetail, error) {
+	// get helm workload instance by name
+	helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, h.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find helm workload instance with name %s: %w", h.Name, err)
+	}
+
+	// get helm workload instance status
+	statusDetail := status.GetWorkloadInstanceStatus(
+		apiClient,
+		apiEndpoint,
+		agent.HelmWorkloadInstanceType,
+		*helmWorkloadInstance.ID,
+		*helmWorkloadInstance.Reconciled,
+	)
+	if statusDetail.Error != nil {
+		return nil, fmt.Errorf("failed to get status for helm workload instance with name %s: %w", h.Name, statusDetail.Error)
+	}
+
+	return statusDetail, nil
+}
 
 // Delete deletes a helm workload instance from the Threeport API.
 func (h *HelmWorkloadInstanceValues) Delete(

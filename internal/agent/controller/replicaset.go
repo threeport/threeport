@@ -51,6 +51,7 @@ func (r *ThreeportWorkloadReconciler) createReplicaSetInformer(
 // that all events for that replicaset are sent to threeport API.
 func (r *ThreeportWorkloadReconciler) addReplicaSetEventHandlers(
 	ctx context.Context,
+	workloadType string,
 	workloadInstanceID uint,
 	replicasetInformer cache.SharedInformer,
 	replicasetInformerStopChan chan struct{},
@@ -88,7 +89,14 @@ func (r *ThreeportWorkloadReconciler) addReplicaSetEventHandlers(
 				eventInformer := cache.NewSharedInformer(listWatcher, &corev1.Event{}, 6e+11) // re-sync every 10 min
 				go eventInformer.Run(stopChan)
 
-				r.addEventEventHandlers(ctx, string(uid), workloadInstanceID, 0, eventInformer)
+				r.addEventEventHandlers(
+					ctx,
+					string(uid),
+					workloadType,
+					workloadInstanceID,
+					0,
+					eventInformer,
+				)
 				replicasetEventInformers[string(uid)] = stopChan
 			}
 		},

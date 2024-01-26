@@ -480,6 +480,14 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 									"spec": map[string]interface{}{
 										"description": "ThreeportWorkloadSpec defines the desired state of ThreeportWorkload",
 										"properties": map[string]interface{}{
+											"workloadType": map[string]interface{}{
+												"description": "WorkloadType informs the threeport agent which threeport API type was used to represent a Kubernetes workload.",
+												"enum": []interface{}{
+													"WorkloadInstance",
+													"HelmWorkloadInstance",
+												},
+												"type": "string",
+											},
 											"workloadInstanceId": map[string]interface{}{
 												"description": "WorkloadInstance is the unique ID for a threeport object that represents a deployed instance of a workload.",
 												"type":        "integer",
