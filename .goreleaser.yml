@@ -17,6 +17,13 @@ builds:
       - linux
     main: cmd/rest-api/main.go
     binary: rest-api
+  - id: threeport-database-migrator
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/database-migrator/main.go
+    binary: database-migrator
   - id: threeport-workload-controller
     env:
       - CGO_ENABLED=0
@@ -105,6 +112,19 @@ dockers:
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source={{.GitURL}}"
       - "--label=org.opencontainers.image.licenses=Apache2"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-database-migrator:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-database-migrator:latest'
+    dockerfile: cmd/database-migrator/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=MIT"
       - "--label=VERSION={{.Version}}"
       - "--platform=linux/amd64"
   - image_templates:

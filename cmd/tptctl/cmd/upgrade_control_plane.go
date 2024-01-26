@@ -24,11 +24,12 @@ import (
 var updateImageTag string
 
 // UpCmd represents the create threeport command
-var UpdateCmd = &cobra.Command{
-	Use:          "update",
-	Example:      "tptctl update --image-tag=v0.5",
-	Short:        "Updates the deployment of the Threeport control plane",
-	Long:         `Updates the deployment of the Threeport control plane.`,
+var UpgradeControlPlaneCmd = &cobra.Command{
+	Use:     "control-plane",
+	Example: "tptctl upgrade control-plane --version=v0.5",
+	Short:   "Upgrades the version of the Threeport control plane",
+	Long: `Upgrades the version of the Threeport control plane. The version should be a valid
+	image tag.`,
 	SilenceUsage: true,
 	PreRun:       commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -271,12 +272,12 @@ func updateImageTagInDeployment(deployment *unstructured.Unstructured, imageTag 
 }
 
 func init() {
-	rootCmd.AddCommand(UpdateCmd)
+	UpgradeCmd.AddCommand(UpgradeControlPlaneCmd)
 
-	UpdateCmd.Flags().StringVarP(
+	UpgradeControlPlaneCmd.Flags().StringVarP(
 		&updateImageTag,
-		"image-tag", "t", "", "Image Tag to update Threeport Control plane.",
+		"version", "t", "", "version to update Threeport Control plane.",
 	)
 
-	UpdateCmd.MarkFlagRequired("image-tag")
+	UpgradeControlPlaneCmd.MarkFlagRequired("version")
 }

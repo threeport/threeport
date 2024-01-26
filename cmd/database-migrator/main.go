@@ -22,13 +22,6 @@ import (
 )
 
 var (
-	DB_HOST     = "localhost"
-	DB_USER     = "tp_rest_api"
-	DB_PASSWORD = "tp-rest-api-pwd"
-	DB_NAME     = "threeport_api"
-	DB_PORT     = "26257"
-	DB_SSL_MODE = "disable"
-
 	AllowedCommands = []string{"up", "up-to", "up-by-one", "down", "down-to", "redo", "status"}
 	envFile         = ""
 )
@@ -55,6 +48,13 @@ func main() {
 
 	dir := "."
 
+	db_host := database.DB_HOST
+	db_user := database.DB_USER
+	db_name := database.DB_NAME
+	db_port := database.DB_PORT
+	db_ssl_mode := database.DB_SSL_MODE
+	db_password := database.DB_PASSWORD
+
 	// env vars for database and nats connection
 	if envFile != "" {
 		if err := godotenv.Load(envFile); err != nil {
@@ -62,28 +62,32 @@ func main() {
 			os.Exit(1)
 		}
 
-		if db_host, ok := os.LookupEnv("DB_HOST"); ok {
-			DB_HOST = db_host
+		if dbhost, ok := os.LookupEnv("DB_HOST"); ok {
+			db_host = dbhost
 		}
 
-		if db_user, ok := os.LookupEnv("DB_USER"); ok {
-			DB_USER = db_user
+		if dbuser, ok := os.LookupEnv("DB_USER"); ok {
+			db_user = dbuser
 		}
 
-		if db_name, ok := os.LookupEnv("DB_NAME"); ok {
-			DB_NAME = db_name
+		if dbpw, ok := os.LookupEnv("DB_PASSWORD"); ok {
+			db_password = dbpw
 		}
 
-		if db_port, ok := os.LookupEnv("DB_PORT"); ok {
-			DB_PORT = db_port
+		if dbname, ok := os.LookupEnv("DB_NAME"); ok {
+			db_name = dbname
 		}
 
-		if db_ssl_mode, ok := os.LookupEnv("DB_SSL_MODE"); ok {
-			DB_SSL_MODE = db_ssl_mode
+		if dbport, ok := os.LookupEnv("DB_PORT"); ok {
+			db_port = dbport
+		}
+
+		if sslmode, ok := os.LookupEnv("DB_SSL_MODE"); ok {
+			db_ssl_mode = sslmode
 		}
 	}
 
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=UTC", DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_SSL_MODE)
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=UTC", db_host, db_port, db_user, db_password, db_name, db_ssl_mode)
 
 	db, err := goose.OpenDBWithDriver("postgres", dsn)
 	if err != nil {
