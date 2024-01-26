@@ -136,41 +136,20 @@ func loggingInstanceDeleted(
 
 // getLoggingInstanceOperations returns a list of operations for a logging instance.
 func getLoggingInstanceOperations(c *LoggingInstanceConfig) *util.Operations {
-
 	operations := util.Operations{}
 
 	// append loki operations
 	operations.AppendOperation(util.Operation{
-		Name: "loki",
-		Create: func() error {
-			if err := c.createLokiHelmWorkloadInstance(); err != nil {
-				return fmt.Errorf("failed to create loki helm workload instance: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteLokiHelmWorkloadInstance(); err != nil {
-				return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
-			}
-			return nil
-		},
+		Name:   "loki",
+		Create: func() error { return c.createLokiHelmWorkloadInstance() },
+		Delete: func() error { return c.deleteLokiHelmWorkloadInstance() },
 	})
 
 	// append promtail operations
 	operations.AppendOperation(util.Operation{
-		Name: "promtail",
-		Create: func() error {
-			if err := c.createPromtailHelmWorkloadInstance(); err != nil {
-				return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deletePromtailHelmWorkloadInstance(); err != nil {
-				return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
-			}
-			return nil
-		},
+		Name:   "promtail",
+		Create: func() error { return c.createPromtailHelmWorkloadInstance() },
+		Delete: func() error { return c.deletePromtailHelmWorkloadInstance() },
 	})
 
 	return &operations

@@ -156,36 +156,16 @@ func (c *LoggingDefinitionConfig) getLoggingDefinitionOperations() *util.Operati
 
 	// append loki operations
 	operations.AppendOperation(util.Operation{
-		Name: "loki",
-		Create: func() error {
-			if err := c.createLokiHelmWorkloadDefinition(); err != nil {
-				return fmt.Errorf("failed to create loki helm workload instance: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteLokiHelmWorkloadDefinition(); err != nil {
-				return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
-			}
-			return nil
-		},
+		Name:   "loki",
+		Create: func() error { return c.createLokiHelmWorkloadDefinition() },
+		Delete: func() error { return c.deleteLokiHelmWorkloadDefinition() },
 	})
 
 	// append promtail operations
 	operations.AppendOperation(util.Operation{
-		Name: "promtail",
-		Create: func() error {
-			if err := c.createPromtailHelmWorkloadDefinition(); err != nil {
-				return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deletePromtailHelmWorkloadDefinition(); err != nil {
-				return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
-			}
-			return nil
-		},
+		Name:   "promtail",
+		Create: func() error { return c.createPromtailHelmWorkloadDefinition() },
+		Delete: func() error { return c.deletePromtailHelmWorkloadDefinition() },
 	})
 
 	return &operations
