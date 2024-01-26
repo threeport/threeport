@@ -132,7 +132,6 @@ func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOper
 
 // createObservabilityDashboardDefinition creates an observability dashboard definition.
 func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinition() error {
-
 	// create observability dashboard definition
 	observabilityDashboardDefinition := &v0.ObservabilityDashboardDefinition{
 		Definition: v0.Definition{
@@ -182,7 +181,6 @@ func (c *ObservabilityStackDefinitionConfig) deleteObservabilityDashboardDefinit
 
 // createLoggingDefinition creates a logging definition.
 func (c *ObservabilityStackDefinitionConfig) createLoggingDefinition() error {
-
 	// create logging definition
 	loggingDefinition := &v0.LoggingDefinition{
 		Definition: v0.Definition{
@@ -242,7 +240,6 @@ func (c *ObservabilityStackDefinitionConfig) deleteLoggingDefinition() error {
 
 // createMetricsDefinition creates a metrics definition.
 func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
-
 	// create metrics definition
 	metricsDefinition := &v0.MetricsDefinition{
 		Definition: v0.Definition{
@@ -261,7 +258,7 @@ func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
 	}
 
 	// create metrics definition
-	metricsDefinition, err := client.CreateMetricsDefinition(
+	createdMetricsDefinition, err := client.CreateMetricsDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		metricsDefinition,
@@ -271,7 +268,7 @@ func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
 	}
 
 	// update observability stack definition with metrics definition id
-	c.observabilityStackDefinition.MetricsDefinitionID = metricsDefinition.ID
+	c.observabilityStackDefinition.MetricsDefinitionID = createdMetricsDefinition.ID
 
 	return nil
 }
