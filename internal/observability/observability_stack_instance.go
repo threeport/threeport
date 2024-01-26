@@ -41,25 +41,20 @@ func observabilityStackInstanceCreated(
 		return 0, fmt.Errorf("failed to get observability dashboard definition: %w", err)
 	}
 
-	// get merged observability stack instance values
-	grafanaValues, kubePrometheusStackValues, lokiValues, promtailValues, err := mergeObservabilityStackInstanceValues(
-		observabilityStackInstance,
-		observabilityStackDefinition,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get merged observability stack instance values: %w", err)
-	}
-
 	// create observability stack instance config
 	c := &ObservabilityStackInstanceConfig{
-		r:                                     r,
-		observabilityStackInstance:            observabilityStackInstance,
-		observabilityStackDefinition:          observabilityStackDefinition,
-		log:                                   log,
-		grafanaHelmValuesDocument:             grafanaValues,
-		kubePrometheusStackHelmValuesDocument: kubePrometheusStackValues,
-		lokiHelmValuesDocument:                lokiValues,
-		promtailHelmValuesDocument:            promtailValues,
+		r:                            r,
+		observabilityStackInstance:   observabilityStackInstance,
+		observabilityStackDefinition: observabilityStackDefinition,
+		log:                          log,
+	}
+
+	// set observability stack instance values
+	if err := c.setMergedObservabilityStackInstanceValues(
+		observabilityStackInstance,
+		observabilityStackDefinition,
+	); err != nil {
+		return 0, fmt.Errorf("failed to set observability stack instance values: %w", err)
 	}
 
 	// get observability stack operations
@@ -264,18 +259,19 @@ func (c *ObservabilityStackInstanceConfig) deleteLoggingInstance() error {
 }
 
 // mergeObservabilityStackInstanceValues returns the merged values for a observability stack instance
-func mergeObservabilityStackInstanceValues(
+func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceValues(
 	osi *v0.ObservabilityStackInstance,
 	osd *v0.ObservabilityStackDefinition,
-) (string, string, string, string, error) {
+) error {
 	// merge grafana values
 	grafanaHelmValuesDocument, err := MergeHelmValues(
 		util.StringPtrToString(osi.GrafanaHelmValuesDocument),
 		util.StringPtrToString(osd.GrafanaHelmValuesDocument),
 	)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("failed to merge grafana helm values: %w", err)
+		return fmt.Errorf("failed to merge grafana helm values: %w", err)
 	}
+	c.grafanaHelmValuesDocument = grafanaHelmValuesDocument
 
 	// merge kube-prometheus-stack values
 	kubePrometheusStackHelmValuesDocument, err := MergeHelmValues(
@@ -283,8 +279,9 @@ func mergeObservabilityStackInstanceValues(
 		util.StringPtrToString(osd.KubePrometheusStackHelmValuesDocument),
 	)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("failed to merge kube-prometheus-stack helm values: %w", err)
+		return fmt.Errorf("failed to merge kube-prometheus-stack helm values: %w", err)
 	}
+	c.kubePrometheusStackHelmValuesDocument = kubePrometheusStackHelmValuesDocument
 
 	// merge loki values
 	lokiHelmValuesDocument, err := MergeHelmValues(
@@ -292,8 +289,9 @@ func mergeObservabilityStackInstanceValues(
 		util.StringPtrToString(osd.LokiHelmValuesDocument),
 	)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("failed to merge loki helm values: %w", err)
+		return fmt.Errorf("failed to merge loki helm values: %w", err)
 	}
+	c.lokiHelmValuesDocument = lokiHelmValuesDocument
 
 	// merge promtail values
 	promtailHelmValuesDocument, err := MergeHelmValues(
@@ -301,8 +299,9 @@ func mergeObservabilityStackInstanceValues(
 		util.StringPtrToString(osd.PromtailHelmValuesDocument),
 	)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("failed to merge promtail helm values: %w", err)
+		return fmt.Errorf("failed to merge promtail helm values: %w", err)
 	}
+	c.promtailHelmValuesDocument = promtailHelmValuesDocument
 
-	return grafanaHelmValuesDocument, kubePrometheusStackHelmValuesDocument, lokiHelmValuesDocument, promtailHelmValuesDocument, nil
+	return nil
 }
