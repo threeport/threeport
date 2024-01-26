@@ -412,10 +412,10 @@ func TestWorkloadE2E(t *testing.T) {
 		eventAttemptsMax := 300
 		eventCheckDurationSeconds := 1
 		for eventAttempts < eventAttemptsMax {
-			workloadEvents, err := client.GetWorkloadEventsByWorkloadInstanceID(
+			workloadEvents, err := client.GetWorkloadEventsByQueryString(
 				apiClient,
 				threeportAPIEndpoint,
-				*createdWorkloadInst.ID,
+				fmt.Sprintf("workloadinstanceid=%d", *createdWorkloadInst.ID),
 			)
 			assert.Nil(err, "should have no error returned when trying to retrieve workload events for workload instance")
 			for _, event := range *workloadEvents {
