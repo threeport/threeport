@@ -104,58 +104,27 @@ func observabilityStackDefinitionDeleted(
 // getObservabilityDashboardOperations returns the operations for a observability
 // dashboard
 func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOperations() *util.Operations {
-
 	operations := util.Operations{}
 
 	// append observability dashboard operations
 	operations.AppendOperation(util.Operation{
-		Name: "observability dashboard",
-		Create: func() error {
-			if err := c.createObservabilityDashboardDefinition(); err != nil {
-				return fmt.Errorf("failed to create observability dashboard definition: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteObservabilityDashboardDefinition(); err != nil {
-				return fmt.Errorf("failed to delete observability dashboard definition: %w", err)
-			}
-			return nil
-		},
+		Name:   "observability dashboard",
+		Create: func() error { return c.createObservabilityDashboardDefinition() },
+		Delete: func() error { return c.deleteObservabilityDashboardDefinition() },
 	})
 
 	// append logging operations
 	operations.AppendOperation(util.Operation{
-		Name: "logging",
-		Create: func() error {
-			if err := c.createLoggingDefinition(); err != nil {
-				return fmt.Errorf("failed to create logging definition: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteLoggingDefinition(); err != nil {
-				return fmt.Errorf("failed to delete logging definition: %w", err)
-			}
-			return nil
-		},
+		Name:   "logging",
+		Create: func() error { return c.createLoggingDefinition() },
+		Delete: func() error { return c.deleteLoggingDefinition() },
 	})
 
 	// append metrics operations
 	operations.AppendOperation(util.Operation{
-		Name: "metrics",
-		Create: func() error {
-			if err := c.createMetricsDefinition(); err != nil {
-				return fmt.Errorf("failed to create metrics definition: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteMetricsDefinition(); err != nil {
-				return fmt.Errorf("failed to delete metrics definition: %w", err)
-			}
-			return nil
-		},
+		Name:   "metrics",
+		Create: func() error { return c.createMetricsDefinition() },
+		Delete: func() error { return c.deleteMetricsDefinition() },
 	})
 
 	return &operations
