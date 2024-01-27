@@ -35,8 +35,8 @@ sidecar:
     searchNamespace: ALL
 `
 
-// observabilityDashboardDefinitionCreated reconciles state for an
-// observability dashboard definition.
+// observabilityDashboardDefinitionCreated reconciles state
+// for a created observability dashboard definition.
 func observabilityDashboardDefinitionCreated(
 	r *controller.Reconciler,
 	observabilityDashboardDefinition *v0.ObservabilityDashboardDefinition,

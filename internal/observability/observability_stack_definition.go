@@ -52,12 +52,12 @@ func observabilityStackDefinitionCreated(
 	// get observability stack operations
 	operations := c.getObservabilityStackDefinitionOperations()
 
-	// execute observability stack operations
+	// execute observability stack definition create operations
 	if err := operations.Create(); err != nil {
-		return 0, fmt.Errorf("failed to execute observability stack operations: %w", err)
+		return 0, fmt.Errorf("failed to execute observability stack create operations: %w", err)
 	}
 
-	// update metrics instance
+	// update observability stack definition
 	observabilityStackDefinition.Reconciled = util.BoolPtr(true)
 	if _, err := client.UpdateObservabilityStackDefinition(
 		r.APIClient,
@@ -70,7 +70,7 @@ func observabilityStackDefinitionCreated(
 	return 0, nil
 }
 
-// observabilityStackDefinitionUpdated reconciles state for an updated kubernetes
+// observabilityStackDefinitionUpdated reconciles state for an updated
 // observability stack definition.
 func observabilityStackDefinitionUpdated(
 	r *controller.Reconciler,
@@ -80,7 +80,7 @@ func observabilityStackDefinitionUpdated(
 	return 0, nil
 }
 
-// observabilityStackDefinitionDeleted reconciles state for a deleted kubernetes
+// observabilityStackDefinitionDeleted reconciles state for a deleted
 // observability stack definition.
 func observabilityStackDefinitionDeleted(
 	r *controller.Reconciler,
@@ -97,9 +97,9 @@ func observabilityStackDefinitionDeleted(
 	// get observability stack operations
 	operations := c.getObservabilityStackDefinitionOperations()
 
-	// execute observability stack operations
+	// execute observability stack definition delete operations
 	if err := operations.Delete(); err != nil {
-		return 0, fmt.Errorf("failed to execute observability stack operations: %w", err)
+		return 0, fmt.Errorf("failed to execute observability stack delete operations: %w", err)
 	}
 
 	return 0, nil
@@ -110,21 +110,21 @@ func observabilityStackDefinitionDeleted(
 func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOperations() *util.Operations {
 	operations := util.Operations{}
 
-	// append observability dashboard operations
+	// append observability dashboard definition operations
 	operations.AppendOperation(util.Operation{
 		Name:   "observability dashboard",
 		Create: func() error { return c.createObservabilityDashboardDefinition() },
 		Delete: func() error { return c.deleteObservabilityDashboardDefinition() },
 	})
 
-	// append logging operations
+	// append logging definition operations
 	operations.AppendOperation(util.Operation{
 		Name:   "logging",
 		Create: func() error { return c.createLoggingDefinition() },
 		Delete: func() error { return c.deleteLoggingDefinition() },
 	})
 
-	// append metrics operations
+	// append metrics definition operations
 	operations.AppendOperation(util.Operation{
 		Name:   "metrics",
 		Create: func() error { return c.createMetricsDefinition() },
