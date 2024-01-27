@@ -11,6 +11,22 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// Helm configuration to configure Grafana
+// for prometheus metrics scraping. This is
+// passed in to the observability dashboard definition
+// when metrics are enabled.
+const grafanaPrometheusServiceMonitor = `
+serviceMonitor:
+  # If true, a ServiceMonitor CRD is created for a prometheus operator
+  # https://github.com/coreos/prometheus-operator
+  #
+  enabled: true
+
+  # Scrape interval. If not set, the Prometheus default scrape interval is used.
+  #
+  interval: ""
+`
+
 // ObservabilityStackInstanceConfig contains the configuration for
 // an observability stack instance reconcile function.
 type ObservabilityStackInstanceConfig struct {
@@ -50,10 +66,7 @@ func observabilityStackInstanceCreated(
 	}
 
 	// set observability stack instance values
-	if err := c.setMergedObservabilityStackInstanceValues(
-		observabilityStackInstance,
-		observabilityStackDefinition,
-	); err != nil {
+	if err := c.setMergedObservabilityStackInstanceValues(); err != nil {
 		return 0, fmt.Errorf("failed to set observability stack instance values: %w", err)
 	}
 
@@ -159,7 +172,7 @@ func (c *ObservabilityStackInstanceConfig) createObservabilityDashboardInstance(
 			},
 			ObservabilityDashboardDefinitionID: c.observabilityStackDefinition.ObservabilityDashboardDefinitionID,
 			KubernetesRuntimeInstanceID:        c.observabilityStackInstance.KubernetesRuntimeInstanceID,
-			GrafanaHelmValuesDocument:                  &c.grafanaHelmValuesDocument,
+			GrafanaHelmValuesDocument:          &c.grafanaHelmValuesDocument,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create observability dashboard instance: %w", err)
@@ -264,25 +277,33 @@ func (c *ObservabilityStackInstanceConfig) deleteLoggingInstance() error {
 
 // setMergedObservabilityStackInstanceValues sets the merged values for
 // an observability stack instance
-func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceValues(
-	osi *v0.ObservabilityStackInstance,
-	osd *v0.ObservabilityStackDefinition,
-) error {
+func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceValues() error {
 	var err error
 
 	// merge grafana values
 	c.grafanaHelmValuesDocument, err = MergeHelmValuesPtrs(
-		osi.GrafanaHelmValuesDocument,
-		osd.GrafanaHelmValuesDocument,
+		c.observabilityStackInstance.GrafanaHelmValuesDocument,
+		c.observabilityStackDefinition.GrafanaHelmValuesDocument,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to merge grafana helm values: %w", err)
 	}
 
+	if *c.observabilityStackInstance.MetricsEnabled {
+		// merge grafana prometheus service monitor
+		c.grafanaHelmValuesDocument, err = MergeHelmValues(
+			c.grafanaHelmValuesDocument,
+			grafanaPrometheusServiceMonitor,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to merge grafana prometheus service monitor: %w", err)
+		}
+	}
+
 	// merge kube-prometheus-stack values
 	c.kubePrometheusStackHelmValuesDocument, err = MergeHelmValuesPtrs(
-		osi.KubePrometheusStackHelmValuesDocument,
-		osd.KubePrometheusStackHelmValuesDocument,
+		c.observabilityStackInstance.KubePrometheusStackHelmValuesDocument,
+		c.observabilityStackDefinition.KubePrometheusStackHelmValuesDocument,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to merge kube-prometheus-stack helm values: %w", err)
@@ -290,8 +311,8 @@ func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceVa
 
 	// merge loki values
 	c.lokiHelmValuesDocument, err = MergeHelmValuesPtrs(
-		osi.LokiHelmValuesDocument,
-		osd.LokiHelmValuesDocument,
+		c.observabilityStackInstance.LokiHelmValuesDocument,
+		c.observabilityStackDefinition.LokiHelmValuesDocument,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to merge loki helm values: %w", err)
@@ -299,8 +320,8 @@ func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceVa
 
 	// merge promtail values
 	c.promtailHelmValuesDocument, err = MergeHelmValuesPtrs(
-		osi.PromtailHelmValuesDocument,
-		osd.PromtailHelmValuesDocument,
+		c.observabilityStackInstance.PromtailHelmValuesDocument,
+		c.observabilityStackDefinition.PromtailHelmValuesDocument,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to merge promtail helm values: %w", err)

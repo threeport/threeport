@@ -11,22 +11,6 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// Helm configuration to configure Grafana
-// for prometheus metrics scraping. This is
-// passed in to the observability dashboard definition
-// when metrics are enabled.
-const grafanaPrometheusServiceMonitor = `
-serviceMonitor:
-  # If true, a ServiceMonitor CRD is created for a prometheus operator
-  # https://github.com/coreos/prometheus-operator
-  #
-  enabled: true
-
-  # Scrape interval. If not set, the Prometheus default scrape interval is used.
-  #
-  interval: ""
-`
-
 // ObservabilityStackDefinitionConfig contains the configuration for an observability dashboard
 // reconcile function.
 type ObservabilityStackDefinitionConfig struct {
