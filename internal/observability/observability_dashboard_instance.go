@@ -25,10 +25,10 @@ func observabilityDashboardInstanceCreated(
 		*observabilityDashboardInstance.ObservabilityDashboardDefinitionID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get metrics definition: %w", err)
+		return 0, fmt.Errorf("failed to get observability dashboard definition: %w", err)
 	}
 	if !*observabilityDashboardDefinition.Reconciled {
-		return 0, fmt.Errorf("metrics definition is not reconciled")
+		return 0, fmt.Errorf("observability dashboard definition is not reconciled")
 	}
 
 	// merge grafana helm values
@@ -67,7 +67,7 @@ func observabilityDashboardInstanceCreated(
 		r.APIServer,
 		observabilityDashboardInstance,
 	); err != nil {
-		return 0, fmt.Errorf("failed to update metrics instance: %w", err)
+		return 0, fmt.Errorf("failed to update observability dashboard instance: %w", err)
 	}
 
 	return 0, nil

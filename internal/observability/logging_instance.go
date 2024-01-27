@@ -76,9 +76,9 @@ func loggingInstanceCreated(
 	// get logging instance operations
 	operations := getLoggingInstanceOperations(c)
 
-	// execute create logging instance operations
+	// execute logging instance create operations
 	if err := operations.Create(); err != nil {
-		return 0, fmt.Errorf("failed to execute create logging instance operations: %w", err)
+		return 0, fmt.Errorf("failed to execute logging instance create operations: %w", err)
 	}
 
 	// update logging instance
@@ -94,8 +94,8 @@ func loggingInstanceCreated(
 	return 0, nil
 }
 
-// loggingInstanceUpdated reconciles state for a new kubernetes
-// runtime instance.
+// loggingInstanceUpdated reconciles state for an
+// updated logging instance.
 func loggingInstanceUpdated(
 	r *controller.Reconciler,
 	loggingInstance *v0.LoggingInstance,
@@ -104,8 +104,8 @@ func loggingInstanceUpdated(
 	return 0, nil
 }
 
-// loggingInstanceDeleted reconciles state for a new kubernetes
-// runtime instance.
+// loggingInstanceDeleted reconciles state for a deleted
+// logging instance.
 func loggingInstanceDeleted(
 	r *controller.Reconciler,
 	loggingInstance *v0.LoggingInstance,

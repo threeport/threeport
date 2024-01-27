@@ -12,7 +12,7 @@ import (
 )
 
 // ObservabilityStackInstanceConfig contains the configuration for
-// an observability stack instance reconcile functions.
+// an observability stack instance reconcile function.
 type ObservabilityStackInstanceConfig struct {
 	r                                     *controller.Reconciler
 	observabilityStackInstance            *v0.ObservabilityStackInstance
@@ -24,21 +24,21 @@ type ObservabilityStackInstanceConfig struct {
 	promtailHelmValuesDocument            string
 }
 
-// observabilityStackInstanceCreated reconciles state for a new
+// observabilityStackInstanceCreated reconciles state for a created
 // observability stack instance.
 func observabilityStackInstanceCreated(
 	r *controller.Reconciler,
 	observabilityStackInstance *v0.ObservabilityStackInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// get observability dashboard definition
+	// get observability stack definition
 	observabilityStackDefinition, err := client.GetObservabilityStackDefinitionByID(
 		r.APIClient,
 		r.APIServer,
 		*observabilityStackInstance.ObservabilityStackDefinitionID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get observability dashboard definition: %w", err)
+		return 0, fmt.Errorf("failed to get observability stack definition: %w", err)
 	}
 
 	// create observability stack instance config
