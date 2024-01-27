@@ -11,8 +11,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// ObservabilityStackInstanceConfig contains the configuration for an observability
-// stack instance reconciler.
+// ObservabilityStackInstanceConfig contains the configuration for
+// an observability stack instance reconcile functions.
 type ObservabilityStackInstanceConfig struct {
 	r                                     *controller.Reconciler
 	observabilityStackInstance            *v0.ObservabilityStackInstance
@@ -24,7 +24,7 @@ type ObservabilityStackInstanceConfig struct {
 	promtailHelmValuesDocument            string
 }
 
-// observabilityStackInstanceCreated reconciles state for a new kubernetes
+// observabilityStackInstanceCreated reconciles state for a new
 // observability stack instance.
 func observabilityStackInstanceCreated(
 	r *controller.Reconciler,
@@ -57,10 +57,10 @@ func observabilityStackInstanceCreated(
 		return 0, fmt.Errorf("failed to set observability stack instance values: %w", err)
 	}
 
-	// get observability stack operations
+	// get observability stack instance operations
 	operations := c.getObservabilityStackInstanceOperations()
 
-	// execute observability stack create operations
+	// execute observability stack instance create operations
 	if err := operations.Create(); err != nil {
 		return 0, fmt.Errorf("failed to execute observability stack create operations: %w", err)
 	}
@@ -78,7 +78,7 @@ func observabilityStackInstanceCreated(
 	return 0, nil
 }
 
-// observabilityStackInstanceUpdated reconciles state for an updated kubernetes
+// observabilityStackInstanceUpdated reconciles state for an updated
 // observability stack instance.
 func observabilityStackInstanceUpdated(
 	r *controller.Reconciler,
@@ -88,7 +88,7 @@ func observabilityStackInstanceUpdated(
 	return 0, nil
 }
 
-// observabilityStackInstanceDeleted reconciles state for a deleted kubernetes
+// observabilityStackInstanceDeleted reconciles state for a deleted
 // observability stack instance.
 func observabilityStackInstanceDeleted(
 	r *controller.Reconciler,
@@ -114,8 +114,8 @@ func observabilityStackInstanceDeleted(
 	return 0, nil
 }
 
-// getObservabilityInstanceOperations returns the operations for a observability
-// dashboard
+// getObservabilityStackInstanceOperations returns the operations
+// for an observabiblity stack instance
 func (c *ObservabilityStackInstanceConfig) getObservabilityStackInstanceOperations() *util.Operations {
 	operations := util.Operations{}
 
@@ -170,7 +170,7 @@ func (c *ObservabilityStackInstanceConfig) createObservabilityDashboardInstance(
 	return nil
 }
 
-// deleteObservabilityDashboardInstance creates an observability dashboard instance
+// deleteObservabilityDashboardInstance deletes an observability dashboard instance
 func (c *ObservabilityStackInstanceConfig) deleteObservabilityDashboardInstance() error {
 	// delete observability dashboard instance
 	if _, err := client.DeleteObservabilityDashboardInstance(
@@ -258,50 +258,49 @@ func (c *ObservabilityStackInstanceConfig) deleteLoggingInstance() error {
 	return nil
 }
 
-// mergeObservabilityStackInstanceValues returns the merged values for a observability stack instance
+// setMergedObservabilityStackInstanceValues sets the merged values for
+// an observability stack instance
 func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceValues(
 	osi *v0.ObservabilityStackInstance,
 	osd *v0.ObservabilityStackDefinition,
 ) error {
+	var err error
+
 	// merge grafana values
-	grafanaHelmValuesDocument, err := MergeHelmValues(
-		util.StringPtrToString(osi.GrafanaHelmValuesDocument),
-		util.StringPtrToString(osd.GrafanaHelmValuesDocument),
+	c.grafanaHelmValuesDocument, err = MergeHelmValuesPtrs(
+		osi.GrafanaHelmValuesDocument,
+		osd.GrafanaHelmValuesDocument,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to merge grafana helm values: %w", err)
 	}
-	c.grafanaHelmValuesDocument = grafanaHelmValuesDocument
 
 	// merge kube-prometheus-stack values
-	kubePrometheusStackHelmValuesDocument, err := MergeHelmValues(
-		util.StringPtrToString(osi.KubePrometheusStackHelmValuesDocument),
-		util.StringPtrToString(osd.KubePrometheusStackHelmValuesDocument),
+	c.kubePrometheusStackHelmValuesDocument, err = MergeHelmValuesPtrs(
+		osi.KubePrometheusStackHelmValuesDocument,
+		osd.KubePrometheusStackHelmValuesDocument,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to merge kube-prometheus-stack helm values: %w", err)
 	}
-	c.kubePrometheusStackHelmValuesDocument = kubePrometheusStackHelmValuesDocument
 
 	// merge loki values
-	lokiHelmValuesDocument, err := MergeHelmValues(
-		util.StringPtrToString(osi.LokiHelmValuesDocument),
-		util.StringPtrToString(osd.LokiHelmValuesDocument),
+	c.lokiHelmValuesDocument, err = MergeHelmValuesPtrs(
+		osi.LokiHelmValuesDocument,
+		osd.LokiHelmValuesDocument,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to merge loki helm values: %w", err)
 	}
-	c.lokiHelmValuesDocument = lokiHelmValuesDocument
 
 	// merge promtail values
-	promtailHelmValuesDocument, err := MergeHelmValues(
-		util.StringPtrToString(osi.PromtailHelmValuesDocument),
-		util.StringPtrToString(osd.PromtailHelmValuesDocument),
+	c.promtailHelmValuesDocument, err = MergeHelmValuesPtrs(
+		osi.PromtailHelmValuesDocument,
+		osd.PromtailHelmValuesDocument,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to merge promtail helm values: %w", err)
 	}
-	c.promtailHelmValuesDocument = promtailHelmValuesDocument
 
 	return nil
 }

@@ -11,6 +11,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// kubePrometheusStackValues contains the default values for the
+// kube-prometheus-stack helm chart.
 const kubePrometheusStackValues = `
 grafana:
   enabled: false
@@ -24,8 +26,8 @@ grafana:
   forceDeployDashboards: true
 `
 
-// metricsDefinitionCreated reconciles state for a new kubernetes
-// runtime instance.
+// metricsDefinitionCreated reconciles state for a
+// created metrics definition.
 func metricsDefinitionCreated(
 	r *controller.Reconciler,
 	metricsDefinition *v0.MetricsDefinition,
@@ -67,14 +69,14 @@ func metricsDefinitionCreated(
 		r.APIServer,
 		metricsDefinition,
 	); err != nil {
-		return 0, fmt.Errorf("failed to update metrics definition reconciled field: %w", err)
+		return 0, fmt.Errorf("failed to update metrics definition: %w", err)
 	}
 
 	return 0, nil
 }
 
-// metricsDefinitionUpdated reconciles state for a new kubernetes
-// runtime instance.
+// metricsDefinitionUpdated reconciles state for an
+// uptaded metrics definition.
 func metricsDefinitionUpdated(
 	r *controller.Reconciler,
 	metricsDefinition *v0.MetricsDefinition,
@@ -83,8 +85,8 @@ func metricsDefinitionUpdated(
 	return 0, nil
 }
 
-// metricsDefinitionDeleted reconciles state for a new kubernetes
-// runtime instance.
+// metricsDefinitionDeleted reconciles state for a
+// deleted metrics definition
 func metricsDefinitionDeleted(
 	r *controller.Reconciler,
 	metricsDefinition *v0.MetricsDefinition,

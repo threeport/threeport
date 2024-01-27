@@ -11,6 +11,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// lokiValues contains the default values for the loki helm chart.
 const lokiValues = `
 loki:
   auth_enabled: false
@@ -49,8 +50,11 @@ extraObjects:
         url: http://loki-headless.{{ $.Release.Namespace }}:3100
 `
 
+// promtailValues contains the default values for the promtail helm chart.
 const promtailValues = ``
 
+// LoggingDefinitionConfig contains configuration for a logging
+// definition reconcile function.
 type LoggingDefinitionConfig struct {
 	r                                    *controller.Reconciler
 	loggingDefinition                    *v0.LoggingDefinition
@@ -59,15 +63,24 @@ type LoggingDefinitionConfig struct {
 	promtailHelmWorkloadDefinitionValues string
 }
 
-// loggingDefinitionCreated reconciles state for a new kubernetes
-// runtime instance.
+// loggingDefinitionCreated reconciles state for a
+// new logging definition.
 func loggingDefinitionCreated(
 	r *controller.Reconciler,
 	loggingDefinition *v0.LoggingDefinition,
 	log *logr.Logger,
 ) (int64, error) {
+	var err error
+
+	// create logging definition config
+	c := &LoggingDefinitionConfig{
+		r:                                    r,
+		loggingDefinition:                    loggingDefinition,
+		log:                                  log,
+	}
+
 	// merge loki helm values
-	lokiHelmWorkloadDefinitionValues, err := MergeHelmValues(
+	c.lokiHelmWorkloadDefinitionValues, err = MergeHelmValues(
 		lokiValues,
 		util.StringPtrToString(loggingDefinition.LokiHelmValuesDocument),
 	)
@@ -76,21 +89,12 @@ func loggingDefinitionCreated(
 	}
 
 	// merge promtail helm values
-	promtailHelmWorkloadDefinitionValues, err := MergeHelmValues(
+	c.promtailHelmWorkloadDefinitionValues, err = MergeHelmValues(
 		promtailValues,
 		util.StringPtrToString(loggingDefinition.PromtailHelmValuesDocument),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
-	}
-
-	// create logging definition config
-	c := &LoggingDefinitionConfig{
-		r:                                    r,
-		loggingDefinition:                    loggingDefinition,
-		log:                                  log,
-		lokiHelmWorkloadDefinitionValues:     lokiHelmWorkloadDefinitionValues,
-		promtailHelmWorkloadDefinitionValues: promtailHelmWorkloadDefinitionValues,
 	}
 
 	// get logging operations
@@ -115,8 +119,8 @@ func loggingDefinitionCreated(
 	return 0, nil
 }
 
-// loggingDefinitionUpdated reconciles state for a new kubernetes
-// runtime instance.
+// loggingDefinitionUpdated reconciles state for an
+// updated logging definition.
 func loggingDefinitionUpdated(
 	r *controller.Reconciler,
 	loggingDefinition *v0.LoggingDefinition,
@@ -125,8 +129,8 @@ func loggingDefinitionUpdated(
 	return 0, nil
 }
 
-// loggingDefinitionDeleted reconciles state for a new kubernetes
-// runtime instance.
+// loggingDefinitionDeleted reconciles state for a
+// deleted logging definition.
 func loggingDefinitionDeleted(
 	r *controller.Reconciler,
 	loggingDefinition *v0.LoggingDefinition,

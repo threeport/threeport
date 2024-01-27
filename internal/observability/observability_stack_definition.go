@@ -27,15 +27,15 @@ serviceMonitor:
   interval: ""
 `
 
-// ObservabilityStackDefinitionConfig contains the configuration for a observability dashboard
-// reconciler.
+// ObservabilityStackDefinitionConfig contains the configuration for an observability dashboard
+// reconcile function.
 type ObservabilityStackDefinitionConfig struct {
 	r                            *controller.Reconciler
 	observabilityStackDefinition *v0.ObservabilityStackDefinition
 	log                          *logr.Logger
 }
 
-// observabilityStackDefinitionCreated reconciles state for a new kubernetes
+// observabilityStackDefinitionCreated reconciles state for a created
 // observability stack definition.
 func observabilityStackDefinitionCreated(
 	r *controller.Reconciler,
@@ -105,8 +105,8 @@ func observabilityStackDefinitionDeleted(
 	return 0, nil
 }
 
-// getObservabilityDashboardOperations returns the operations for a observability
-// dashboard
+// getObservabilityStackDefinitionOperations returns the operations for an observability
+// stack definition
 func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOperations() *util.Operations {
 	operations := util.Operations{}
 
@@ -143,15 +143,11 @@ func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinit
 		},
 	}
 
-	// set grafana helm chart version if provided
-	if c.observabilityStackDefinition.GrafanaHelmChartVersion != nil {
-		observabilityDashboardDefinition.GrafanaHelmChartVersion = c.observabilityStackDefinition.GrafanaHelmChartVersion
-	}
+	// set grafana helm chart version
+	observabilityDashboardDefinition.GrafanaHelmChartVersion = c.observabilityStackDefinition.GrafanaHelmChartVersion
 
-	// set grafana helm chart values if provided
-	if c.observabilityStackDefinition.GrafanaHelmValuesDocument != nil {
-		observabilityDashboardDefinition.GrafanaHelmValuesDocument = c.observabilityStackDefinition.GrafanaHelmValuesDocument
-	}
+	// set grafana helm chart values
+	observabilityDashboardDefinition.GrafanaHelmValuesDocument = c.observabilityStackDefinition.GrafanaHelmValuesDocument
 
 	// create observability dashboard definition
 	createdObservabilityDashboardDefinition, err := client.CreateObservabilityDashboardDefinition(
@@ -192,25 +188,17 @@ func (c *ObservabilityStackDefinitionConfig) createLoggingDefinition() error {
 		},
 	}
 
-	// set promtail helm chart version if provided
-	if c.observabilityStackDefinition.PromtailHelmChartVersion != nil {
-		loggingDefinition.PromtailHelmChartVersion = c.observabilityStackDefinition.PromtailHelmChartVersion
-	}
+	// set promtail helm chart version
+	loggingDefinition.PromtailHelmChartVersion = c.observabilityStackDefinition.PromtailHelmChartVersion
 
-	// set promtail helm chart values if provided
-	if c.observabilityStackDefinition.PromtailHelmValuesDocument != nil {
-		loggingDefinition.PromtailHelmValuesDocument = c.observabilityStackDefinition.PromtailHelmValuesDocument
-	}
+	// set promtail helm chart values
+	loggingDefinition.PromtailHelmValuesDocument = c.observabilityStackDefinition.PromtailHelmValuesDocument
 
-	// set loki helm chart version if provided
-	if c.observabilityStackDefinition.LokiHelmChartVersion != nil {
-		loggingDefinition.LokiHelmChartVersion = c.observabilityStackDefinition.LokiHelmChartVersion
-	}
+	// set loki helm chart version
+	loggingDefinition.LokiHelmChartVersion = c.observabilityStackDefinition.LokiHelmChartVersion
 
-	// set loki helm chart values if provided
-	if c.observabilityStackDefinition.LokiHelmValuesDocument != nil {
-		loggingDefinition.LokiHelmValuesDocument = c.observabilityStackDefinition.LokiHelmValuesDocument
-	}
+	// set loki helm chart values
+	loggingDefinition.LokiHelmValuesDocument = c.observabilityStackDefinition.LokiHelmValuesDocument
 
 	// create logging definition
 	createdLoggingDefinition, err := client.CreateLoggingDefinition(
@@ -251,15 +239,11 @@ func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
 		},
 	}
 
-	// set kube-prometheus-stack helm chart version if provided
-	if c.observabilityStackDefinition.KubePrometheusStackHelmChartVersion != nil {
-		metricsDefinition.KubePrometheusStackHelmChartVersion = c.observabilityStackDefinition.KubePrometheusStackHelmChartVersion
-	}
+	// set kube-prometheus-stack helm chart version
+	metricsDefinition.KubePrometheusStackHelmChartVersion = c.observabilityStackDefinition.KubePrometheusStackHelmChartVersion
 
-	// set kube-prometheus-stack helm chart values if provided
-	if c.observabilityStackDefinition.KubePrometheusStackHelmValuesDocument != nil {
-		metricsDefinition.KubePrometheusStackHelmValuesDocument = c.observabilityStackDefinition.KubePrometheusStackHelmValuesDocument
-	}
+	// set kube-prometheus-stack helm chart values
+	metricsDefinition.KubePrometheusStackHelmValuesDocument = c.observabilityStackDefinition.KubePrometheusStackHelmValuesDocument
 
 	// create metrics definition
 	createdMetricsDefinition, err := client.CreateMetricsDefinition(
