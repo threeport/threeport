@@ -32,9 +32,9 @@ func metricsInstanceCreated(
 	}
 
 	// merge kube-prometheus-stack helm values if they are provided
-	kubePrometheusStackHelmWorkloadInstanceValues, err := MergeHelmValues(
-		util.StringPtrToString(metricsDefinition.KubePrometheusStackHelmValuesDocument),
-		util.StringPtrToString(metricsInstance.KubePrometheusStackHelmValuesDocument),
+	kubePrometheusStackHelmWorkloadInstanceValues, err := MergeHelmValuesPtrs(
+		metricsDefinition.KubePrometheusStackHelmValuesDocument,
+		metricsInstance.KubePrometheusStackHelmValuesDocument,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
@@ -67,7 +67,7 @@ func metricsInstanceCreated(
 		r.APIServer,
 		metricsInstance,
 	); err != nil {
-		return 0, fmt.Errorf("failed to update metrics instance reconciled field: %w", err)
+		return 0, fmt.Errorf("failed to update metrics instance: %w", err)
 	}
 
 	return 0, nil

@@ -11,8 +11,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// observabilityDashboardInstanceCreated reconciles state for a new kubernetes
-// observability dashboard definition.
+// observabilityDashboardInstanceCreated reconciles state for a
+// created observability dashboard instance.
 func observabilityDashboardInstanceCreated(
 	r *controller.Reconciler,
 	observabilityDashboardInstance *v0.ObservabilityDashboardInstance,
@@ -32,9 +32,9 @@ func observabilityDashboardInstanceCreated(
 	}
 
 	// merge grafana helm values
-	grafanaHelmValuesDocument, err := MergeHelmValues(
-		util.StringPtrToString(observabilityDashboardDefinition.GrafanaHelmValuesDocument),
-		util.StringPtrToString(observabilityDashboardInstance.GrafanaHelmValues),
+	grafanaHelmValuesDocument, err := MergeHelmValuesPtrs(
+		observabilityDashboardDefinition.GrafanaHelmValuesDocument,
+		observabilityDashboardInstance.GrafanaHelmValues,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
@@ -46,7 +46,7 @@ func observabilityDashboardInstanceCreated(
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
 			Instance: v0.Instance{
-				Name: util.StringPtr(KubePrometheusStackChartName(*observabilityDashboardInstance.Name)),
+				Name: util.StringPtr(GrafanaChartName(*observabilityDashboardInstance.Name)),
 			},
 			KubernetesRuntimeInstanceID: observabilityDashboardInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID,
@@ -60,21 +60,21 @@ func observabilityDashboardInstanceCreated(
 	// update grafana helm workload instance
 	observabilityDashboardInstance.GrafanaHelmWorkloadInstanceID = grafanaHelmWorkloadInstance.ID
 
-	// update metrics instance
+	// update observability dashboard instance
 	observabilityDashboardInstance.Reconciled = util.BoolPtr(true)
 	if _, err = client.UpdateObservabilityDashboardInstance(
 		r.APIClient,
 		r.APIServer,
 		observabilityDashboardInstance,
 	); err != nil {
-		return 0, fmt.Errorf("failed to update metrics instance reconciled field: %w", err)
+		return 0, fmt.Errorf("failed to update metrics instance: %w", err)
 	}
 
 	return 0, nil
 }
 
-// observabilityDashboardInstanceUpdated reconciles state for an updated kubernetes
-// observability dashboard definition.
+// observabilityDashboardInstanceUpdated reconciles state for an updated
+// observability dashboard instance.
 func observabilityDashboardInstanceUpdated(
 	r *controller.Reconciler,
 	observabilityDashboardInstance *v0.ObservabilityDashboardInstance,
@@ -83,20 +83,20 @@ func observabilityDashboardInstanceUpdated(
 	return 0, nil
 }
 
-// observabilityDashboardInstanceDeleted reconciles state for a deleted kubernetes
-// observability dashboard definition.
+// observabilityDashboardInstanceDeleted reconciles state for a deleted
+// observability dashboard instance.
 func observabilityDashboardInstanceDeleted(
 	r *controller.Reconciler,
 	observabilityDashboardInstance *v0.ObservabilityDashboardInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// delete kube-prometheus-stack helm workload instance
+	// delete grafana helm workload instance
 	if _, err := client.DeleteHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		*observabilityDashboardInstance.GrafanaHelmWorkloadInstanceID,
 	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return 0, fmt.Errorf("failed to delete kube-prometheus-stack helm workload instance: %w", err)
+		return 0, fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
 	}
 
 	return 0, nil
