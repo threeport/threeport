@@ -170,8 +170,8 @@ func (c *ObservabilityStackInstanceConfig) createObservabilityDashboardInstance(
 			Instance: v0.Instance{
 				Name: util.StringPtr(ObservabilityDashboardName(*c.observabilityStackInstance.Name)),
 			},
-			ObservabilityDashboardDefinitionID: c.observabilityStackDefinition.ObservabilityDashboardDefinitionID,
 			KubernetesRuntimeInstanceID:        c.observabilityStackInstance.KubernetesRuntimeInstanceID,
+			ObservabilityDashboardDefinitionID: c.observabilityStackDefinition.ObservabilityDashboardDefinitionID,
 			GrafanaHelmValuesDocument:          &c.grafanaHelmValuesDocument,
 		})
 	if err != nil {
@@ -208,8 +208,8 @@ func (c *ObservabilityStackInstanceConfig) createMetricsInstance() error {
 			Instance: v0.Instance{
 				Name: util.StringPtr(MetricsName(*c.observabilityStackInstance.Name)),
 			},
-			MetricsDefinitionID:                   c.observabilityStackDefinition.MetricsDefinitionID,
 			KubernetesRuntimeInstanceID:           c.observabilityStackInstance.KubernetesRuntimeInstanceID,
+			MetricsDefinitionID:                   c.observabilityStackDefinition.MetricsDefinitionID,
 			KubePrometheusStackHelmValuesDocument: &c.kubePrometheusStackHelmValuesDocument,
 		})
 	if err != nil {
@@ -246,8 +246,8 @@ func (c *ObservabilityStackInstanceConfig) createLoggingInstance() error {
 			Instance: v0.Instance{
 				Name: util.StringPtr(LoggingName(*c.observabilityStackInstance.Name)),
 			},
-			LoggingDefinitionID:         c.observabilityStackDefinition.LoggingDefinitionID,
 			KubernetesRuntimeInstanceID: c.observabilityStackInstance.KubernetesRuntimeInstanceID,
+			LoggingDefinitionID:         c.observabilityStackDefinition.LoggingDefinitionID,
 			LokiHelmValuesDocument:      &c.lokiHelmValuesDocument,
 			PromtailHelmValuesDocument:  &c.promtailHelmValuesDocument,
 		})
