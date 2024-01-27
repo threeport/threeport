@@ -11,8 +11,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// metricsInstanceCreated reconciles state for a new kubernetes
-// runtime instance.
+// metricsInstanceCreated reconciles state for a created
+// metrics instance.
 func metricsInstanceCreated(
 	r *controller.Reconciler,
 	metricsInstance *v0.MetricsInstance,
@@ -73,8 +73,8 @@ func metricsInstanceCreated(
 	return 0, nil
 }
 
-// metricsInstanceUpdated reconciles state for a new kubernetes
-// runtime instance.
+// metricsInstanceUpdated reconciles state for an updated
+// metrics instance.
 func metricsInstanceUpdated(
 	r *controller.Reconciler,
 	metricsInstance *v0.MetricsInstance,
@@ -83,8 +83,8 @@ func metricsInstanceUpdated(
 	return 0, nil
 }
 
-// metricsInstanceDeleted reconciles state for a new kubernetes
-// runtime instance.
+// metricsInstanceDeleted reconciles state for a deleted
+// metrics instance.
 func metricsInstanceDeleted(
 	r *controller.Reconciler,
 	metricsInstance *v0.MetricsInstance,
