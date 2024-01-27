@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/cli/values"
 )
@@ -45,6 +46,19 @@ func LokiHelmChartName(name string) string {
 // PromtailHelmChartName returns the name of the promtail chart
 func PromtailHelmChartName(name string) string {
 	return fmt.Sprintf("%s-promtail", name)
+}
+
+// MergeHelmValuesPtrs merges two helm values documents
+// that are referred to by string pointers.
+func MergeHelmValuesPtrs(base, override *string) (string, error) {
+	mergedHelmValues, err := MergeHelmValues(
+		util.StringPtrToString(base),
+		util.StringPtrToString(override),
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to merge helm values: %w", err)
+	}
+	return mergedHelmValues, nil
 }
 
 // MergeHelmValues merges two helm values documents.

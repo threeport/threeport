@@ -12,20 +12,19 @@ import (
 )
 
 // LoggingInstanceConfig contains the configuration for a logging instance
-// reconciler.
+// reconcile function.
 type LoggingInstanceConfig struct {
 	r                                  *controller.Reconciler
 	loggingInstance                    *v0.LoggingInstance
 	loggingDefinition                  *v0.LoggingDefinition
 	log                                *logr.Logger
 	loggingNamespace                   string
-	grafanaHelmWorkloadInstanceValues  string
 	lokiHelmWorkloadInstanceValues     string
 	promtailHelmWorkloadInstanceValues string
 }
 
-// loggingInstanceCreated reconciles state for a new kubernetes
-// runtime instance.
+// loggingInstanceCreated reconciles state for a created
+// logging instance.
 func loggingInstanceCreated(
 	r *controller.Reconciler,
 	loggingInstance *v0.LoggingInstance,
@@ -47,24 +46,6 @@ func loggingInstanceCreated(
 	// generate shared namespace name for loki and promtail
 	loggingNamespace := fmt.Sprintf("%s-logging-%s", *loggingInstance.Name, util.RandomAlphaString(10))
 
-	// merge loki helm values
-	lokiHelmWorkloadInstanceValues, err := MergeHelmValues(
-		util.StringPtrToString(loggingDefinition.LokiHelmValuesDocument),
-		util.StringPtrToString(loggingInstance.LokiHelmValues),
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
-	}
-
-	// merge promtail helm values
-	promtailHelmWorkloadInstanceValues, err := MergeHelmValues(
-		util.StringPtrToString(loggingDefinition.PromtailHelmValuesDocument),
-		util.StringPtrToString(loggingInstance.PromtailHelmValues),
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
-	}
-
 	// create logging instance config
 	c := &LoggingInstanceConfig{
 		r:                                  r,
@@ -72,11 +53,27 @@ func loggingInstanceCreated(
 		loggingDefinition:                  loggingDefinition,
 		log:                                log,
 		loggingNamespace:                   loggingNamespace,
-		lokiHelmWorkloadInstanceValues:     lokiHelmWorkloadInstanceValues,
-		promtailHelmWorkloadInstanceValues: promtailHelmWorkloadInstanceValues,
 	}
 
-	// get logging operations
+	// merge loki helm values
+	c.lokiHelmWorkloadInstanceValues, err = MergeHelmValuesPtrs(
+		loggingDefinition.LokiHelmValuesDocument,
+		loggingInstance.LokiHelmValues,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
+	}
+
+	// merge promtail helm values
+	c.promtailHelmWorkloadInstanceValues, err = MergeHelmValuesPtrs(
+		loggingDefinition.PromtailHelmValuesDocument,
+		loggingInstance.PromtailHelmValues,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
+	}
+
+	// get logging instance operations
 	operations := getLoggingInstanceOperations(c)
 
 	// execute create logging instance operations
@@ -91,7 +88,7 @@ func loggingInstanceCreated(
 		r.APIServer,
 		loggingInstance,
 	); err != nil {
-		return 0, fmt.Errorf("failed to update logging instance reconciled field: %w", err)
+		return 0, fmt.Errorf("failed to update logging instance: %w", err)
 	}
 
 	return 0, nil
@@ -114,7 +111,6 @@ func loggingInstanceDeleted(
 	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// create logging instance config
 	c := &LoggingInstanceConfig{
 		r:                 r,
@@ -123,10 +119,10 @@ func loggingInstanceDeleted(
 		log:               log,
 	}
 
-	// get logging operations
+	// get logging instance operations
 	operations := getLoggingInstanceOperations(c)
 
-	// execute delete operations
+	// execute delete logging instance operations
 	if err := operations.Delete(); err != nil {
 		return 0, fmt.Errorf("failed to execute logging delete operations: %w", err)
 	}
