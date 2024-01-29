@@ -28,7 +28,7 @@ func CreateQueryStringFromMap(queryMap map[string]string) string {
 	return queryString
 }
 
-// SliceContains returns true if a slice contains a certain string.
+// StringSliceContains returns true if a slice contains a certain string.
 func StringSliceContains(sl []string, name string, caseSensitive bool) bool {
 	for _, value := range sl {
 		switch caseSensitive {
@@ -102,5 +102,15 @@ func StringToInterfaceList(input []string) []interface{} {
 	for i, v := range input {
 		output[i] = v
 	}
+	return output
+}
+
+// HyphenDelimitedString takes a slice of strings and returns a hyphen delimited string.
+func HyphenDelimitedString(input []string) string {
+	output := ""
+	for _, v := range input {
+		output += fmt.Sprintf("---\n%s", v)
+	}
+
 	return output
 }

@@ -97,7 +97,7 @@ func validateThreeportStateExternalDns(
 
 	// ensure gateway controller instance is reconciled
 	if kubernetesRuntimeInstance.GatewayControllerInstanceID == nil {
-		return fmt.Errorf("failed to determine if gateway controller instance is reconciled, gateway controller instance ID is nil")
+		return fmt.Errorf("gateway controller is not deployed, gateway controller instance ID not found")
 	}
 	externalDnsControllerInstanceReconciled, err := client.ConfirmWorkloadInstanceReconciled(r, *kubernetesRuntimeInstance.GatewayControllerInstanceID)
 	if err != nil {

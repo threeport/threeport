@@ -418,6 +418,27 @@ definitions:
     type: object
   v0.ControlPlaneComponent:
     properties:
+      AdditionalEnvRef:
+        description: The additional env reference to be added to the environment variables
+          of the component
+        items:
+          type: integer
+        type: array
+      AdditionalVolumeMounts:
+        description: The additional volume mounts to be added to the deployment spec
+          of the component
+        items:
+          type: integer
+        type: array
+      AdditionalVolumes:
+        description: The additional volumes to be added to the deployment spec of
+          the component
+        items:
+          type: integer
+        type: array
+      BinaryName:
+        description: The binary name of the component
+        type: string
       ControlPlaneInstanceID:
         description: The control plane instance ID that this component belongs to
         type: integer
@@ -845,9 +866,11 @@ definitions:
         items:
           $ref: '#/definitions/v0.GatewayInstance'
         type: array
-      HTTPSRedirect:
-        description: Redirect all requests to HTTP port to HTTPS.
-        type: boolean
+      HttpPorts:
+        description: HttpPorts is a list of HTTP ports to expose to the outside network.
+        items:
+          $ref: '#/definitions/v0.GatewayHttpPort'
+        type: array
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -857,9 +880,6 @@ definitions:
         type: boolean
       Name:
         description: An arbitrary name for the definition.
-        type: string
-      Paths:
-        description: The request paths to serve requests for.
         type: string
       ProfileID:
         description: |-
@@ -876,12 +896,11 @@ definitions:
       SubDomain:
         description: An optional subdomain to add to the domain name.
         type: string
-      TCPPort:
-        description: TCP Port to expose to outside network.
-        type: integer
-      TLSEnabled:
-        description: Indicates if TLS is enabled.
-        type: boolean
+      TcpPorts:
+        description: TcpPorts is a list of TCP ports to expose to the outside network.
+        items:
+          $ref: '#/definitions/v0.GatewayTcpPort'
+        type: array
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
@@ -892,7 +911,28 @@ definitions:
         type: integer
     required:
     - Name
-    - TCPPort
+    type: object
+  v0.GatewayHttpPort:
+    properties:
+      GatewayDefinitionID:
+        description: GatewayDefinitionID is the definition used to configure the gateway
+          http port.
+        type: integer
+      HTTPSRedirect:
+        description: Redirect all requests to HTTP port to HTTPS.
+        type: boolean
+      Path:
+        description: The request path to serve requests for.
+        type: string
+      Port:
+        description: The HTTP port to expose.
+        type: integer
+      TLSEnabled:
+        description: Indicates if TLS is enabled.
+        type: boolean
+    required:
+    - GatewayDefinitionID
+    - Port
     type: object
   v0.GatewayInstance:
     properties:
@@ -957,6 +997,168 @@ definitions:
     - Name
     - WorkloadInstanceID
     type: object
+  v0.GatewayTcpPort:
+    properties:
+      GatewayDefinitionID:
+        description: GatewayDefinitionID is the definition used to configure the gateway
+          tcp port.
+        type: integer
+      Port:
+        description: The TCP port to expose.
+        type: integer
+      TLSEnabled:
+        description: Indicates if TLS is enabled.
+        type: boolean
+    required:
+    - GatewayDefinitionID
+    - Port
+    type: object
+  v0.HelmWorkloadDefinition:
+    properties:
+      Chart:
+        description: The name of the helm chart to use from the helm repo, e.g. wordpress
+        type: string
+      ChartVersion:
+        description: The version of the helm chart to use from the helm repo, e.g.
+          1.2.3
+        type: string
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      HelmWorkloadInstances:
+        description: The associated helm workload instances that are deployed from
+          this definition.
+        items:
+          $ref: '#/definitions/v0.HelmWorkloadInstance'
+        type: array
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      Repo:
+        description: |-
+          The helm repo URL to pull the helm workload's chart from
+          e.g. oci://registry-1.docker.io/bitnamicharts
+          e.g. https://grafana.github.io/helm-charts
+        type: string
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+      ValuesDocument:
+        description: |-
+          The helm values that override the defaults from the helm chart.  These
+          will be inherited by each helm workload instance derived from this
+          definition.  The helm values defined here can be further overridden by
+          values defined on the helm workload instance.
+        type: string
+    required:
+    - Chart
+    - Name
+    - Repo
+    type: object
+  v0.HelmWorkloadInstance:
+    properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      HelmWorkloadDefinitionID:
+        description: The definition used to configure the helm workload instance.
+        type: integer
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      KubernetesRuntimeInstanceID:
+        description: The kubernetes runtime to which the helm workload is deployed.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      ValuesDocument:
+        description: |-
+          Filepath to the helm values YAML file that provides runtime parameters to
+          the helm chart.
+        type: string
+    required:
+    - HelmWorkloadDefinitionID
+    - KubernetesRuntimeInstanceID
+    - Name
+    type: object
   v0.KubernetesRuntimeDefinition:
     properties:
       CreationAcknowledged:
@@ -998,7 +1200,7 @@ definitions:
         type: string
       InfraProviderAccountName:
         description: |-
-          The infra provider account ID.  Determines which account the infra is
+          The infra provider account name.  Determines which account the infra is
           deployed on.
         type: string
       InterruptReconciliation:
@@ -1249,10 +1451,11 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - GatewayDefinition
-    - GatewayInstance
-    - DomainNameDefinition
-    - DomainNameInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1260,29 +1463,33 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - Profile
-    - Tier
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
+    - Profile
+    - Tier
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1290,23 +1497,26 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       Name:
@@ -1441,6 +1651,9 @@ definitions:
     type: object
   v0.WorkloadEvent:
     properties:
+      HelmWorkloadInstanceID:
+        description: The related helm workload instance.
+        type: integer
       Message:
         description: The message associated with the event.
         type: string
@@ -1620,7 +1833,7 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: v0.2.2
+  version: v0.4.0-rc.2
 paths:
   /attached-object-references/versions:
     get:
@@ -1817,6 +2030,19 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetGatewayDefinitionVersions gets the supported versions for the gateway
         definition API.
+  /gateway-http-ports/versions:
+    get:
+      description: Get the supported API versions for gateway http ports.
+      operationId: gatewayHttpPort-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetGatewayHttpPortVersions gets the supported versions for the gateway
+        http port API.
   /gateway-instances/versions:
     get:
       description: Get the supported API versions for gateway instances.
@@ -1830,6 +2056,45 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetGatewayInstanceVersions gets the supported versions for the gateway
         instance API.
+  /gateway-tcp-ports/versions:
+    get:
+      description: Get the supported API versions for gateway tcp ports.
+      operationId: gatewayTcpPort-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetGatewayTcpPortVersions gets the supported versions for the gateway
+        tcp port API.
+  /helm-workload-definitions/versions:
+    get:
+      description: Get the supported API versions for helm workload definitions.
+      operationId: helmWorkloadDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetHelmWorkloadDefinitionVersions gets the supported versions for the
+        helm workload definition API.
+  /helm-workload-instances/versions:
+    get:
+      description: Get the supported API versions for helm workload instances.
+      operationId: helmWorkloadInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetHelmWorkloadInstanceVersions gets the supported versions for the
+        helm workload instance API.
   /kubernetes-runtime-definitions/versions:
     get:
       description: Get the supported API versions for kubernetes runtime definitions.
@@ -4928,6 +5193,205 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing gateway definition by replacing the entire object.
+  /v0/gateway-http-ports:
+    get:
+      consumes:
+      - application/json
+      description: Get all gateway http ports from the Threeport database.
+      operationId: get-gatewayHttpPorts
+      parameters:
+      - description: gateway http port search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all gateway http ports.
+    post:
+      consumes:
+      - application/json
+      description: Add a new gateway http port to the Threeport database.
+      operationId: add-gatewayHttpPort
+      parameters:
+      - description: GatewayHttpPort object
+        in: body
+        name: gatewayHttpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayHttpPort'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new gateway http port.
+  /v0/gateway-http-ports/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a gateway http port by ID from the database.
+      operationId: delete-gatewayHttpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a gateway http port.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular gateway http port from the database.
+      operationId: get-gatewayHttpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a gateway http port.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a gateway http port in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating gateway http port objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-gatewayHttpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayHttpPort object
+        in: body
+        name: gatewayHttpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayHttpPort'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing gateway http port.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a gateway http port in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating gateway http port objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-gatewayHttpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayHttpPort object
+        in: body
+        name: gatewayHttpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayHttpPort'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing gateway http port by replacing the entire object.
   /v0/gateway-instances:
     get:
       consumes:
@@ -5127,6 +5591,605 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing gateway instance by replacing the entire object.
+  /v0/gateway-tcp-ports:
+    get:
+      consumes:
+      - application/json
+      description: Get all gateway tcp ports from the Threeport database.
+      operationId: get-gatewayTcpPorts
+      parameters:
+      - description: gateway tcp port search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all gateway tcp ports.
+    post:
+      consumes:
+      - application/json
+      description: Add a new gateway tcp port to the Threeport database.
+      operationId: add-gatewayTcpPort
+      parameters:
+      - description: GatewayTcpPort object
+        in: body
+        name: gatewayTcpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayTcpPort'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new gateway tcp port.
+  /v0/gateway-tcp-ports/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a gateway tcp port by ID from the database.
+      operationId: delete-gatewayTcpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a gateway tcp port.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular gateway tcp port from the database.
+      operationId: get-gatewayTcpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a gateway tcp port.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a gateway tcp port in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating gateway tcp port objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-gatewayTcpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayTcpPort object
+        in: body
+        name: gatewayTcpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayTcpPort'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing gateway tcp port.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a gateway tcp port in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating gateway tcp port objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-gatewayTcpPort
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: GatewayTcpPort object
+        in: body
+        name: gatewayTcpPort
+        required: true
+        schema:
+          $ref: '#/definitions/v0.GatewayTcpPort'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing gateway tcp port by replacing the entire object.
+  /v0/helm-workload-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all helm workload definitions from the Threeport database.
+      operationId: get-helmWorkloadDefinitions
+      parameters:
+      - description: helm workload definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all helm workload definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new helm workload definition to the Threeport database.
+      operationId: add-helmWorkloadDefinition
+      parameters:
+      - description: HelmWorkloadDefinition object
+        in: body
+        name: helmWorkloadDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.HelmWorkloadDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new helm workload definition.
+  /v0/helm-workload-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a helm workload definition by ID from the database.
+      operationId: delete-helmWorkloadDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a helm workload definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular helm workload definition from the database.
+      operationId: get-helmWorkloadDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a helm workload definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a helm workload definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating helm workload definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-helmWorkloadDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: HelmWorkloadDefinition object
+        in: body
+        name: helmWorkloadDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.HelmWorkloadDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing helm workload definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a helm workload definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating helm workload definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-helmWorkloadDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: HelmWorkloadDefinition object
+        in: body
+        name: helmWorkloadDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.HelmWorkloadDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing helm workload definition by replacing the entire
+        object.
+  /v0/helm-workload-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all helm workload instances from the Threeport database.
+      operationId: get-helmWorkloadInstances
+      parameters:
+      - description: helm workload instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all helm workload instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new helm workload instance to the Threeport database.
+      operationId: add-helmWorkloadInstance
+      parameters:
+      - description: HelmWorkloadInstance object
+        in: body
+        name: helmWorkloadInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.HelmWorkloadInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new helm workload instance.
+  /v0/helm-workload-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a helm workload instance by ID from the database.
+      operationId: delete-helmWorkloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a helm workload instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular helm workload instance from the database.
+      operationId: get-helmWorkloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a helm workload instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a helm workload instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating helm workload instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-helmWorkloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: HelmWorkloadInstance object
+        in: body
+        name: helmWorkloadInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.HelmWorkloadInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing helm workload instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a helm workload instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating helm workload instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-helmWorkloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: HelmWorkloadInstance object
+        in: body
+        name: helmWorkloadInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.HelmWorkloadInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing helm workload instance by replacing the entire
+        object.
   /v0/kubernetes-runtime-definitions:
     get:
       consumes:
@@ -6722,28 +7785,22 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload definition by replacing the entire object.
-  /v0/workload-event-sets/{workloadInstanceID}:
+  /v0/workload-events:
     delete:
       consumes:
       - application/json
-      description: Deletes a set of workload events by workload instance ID from the
-        database.
+      description: Deletes workload events by query parameter from the database.
       operationId: delete-workloadEventSet
       parameters:
-      - description: workloadInstanceID
-        in: path
-        name: workloadInstanceID
-        required: true
-        type: integer
+      - description: workload event search by name
+        in: query
+        name: name
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
         "409":
@@ -6754,40 +7811,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-      summary: deletes a workload event set by workload instance ID.
-    get:
-      consumes:
-      - application/json
-      description: Gets a set of workload events by workload instance ID from the
-        database.
-      operationId: get-workloadEventSet
-      parameters:
-      - description: workloadInstanceID
-        in: path
-        name: workloadInstanceID
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a workload event set by workload instance ID.
-  /v0/workload-events:
+      summary: deletes a workload event set by query parameter.
     get:
       consumes:
       - application/json

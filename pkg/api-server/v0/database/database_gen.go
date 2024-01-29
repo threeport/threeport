@@ -45,12 +45,6 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if autoMigrate {
-		if err := db.AutoMigrate(GetDbInterfaces()...); err != nil {
-			return nil, err
-		}
-	}
-
 	return db, nil
 }
 
@@ -137,8 +131,12 @@ func GetDbInterfaces() []interface{} {
 		&v0.ForwardProxyInstance{},
 		&v0.GatewayDefinition{},
 		&v0.GatewayInstance{},
+		&v0.GatewayHttpPort{},
+		&v0.GatewayTcpPort{},
 		&v0.DomainNameDefinition{},
 		&v0.DomainNameInstance{},
+		&v0.HelmWorkloadDefinition{},
+		&v0.HelmWorkloadInstance{},
 		&v0.ControlPlaneDefinition{},
 		&v0.ControlPlaneInstance{},
 		&v0.LogBackend{},

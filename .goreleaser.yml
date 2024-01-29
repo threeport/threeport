@@ -17,6 +17,13 @@ builds:
       - linux
     main: cmd/rest-api/main.go
     binary: rest-api
+  - id: threeport-database-migrator
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/database-migrator/main.go
+    binary: database-migrator
   - id: threeport-workload-controller
     env:
       - CGO_ENABLED=0
@@ -52,6 +59,13 @@ builds:
       - linux
     main: cmd/control-plane-controller/main_gen.go
     binary: control-plane-controller
+  - id: threeport-helm-workload-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/helm-workload-controller/main_gen.go
+    binary: helm-workload-controller
   - id: threeport-agent
     env:
       - CGO_ENABLED=0
@@ -97,7 +111,20 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source={{.GitURL}}"
-      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=org.opencontainers.image.licenses=Apache2"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-database-migrator:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-database-migrator:latest'
+    dockerfile: cmd/database-migrator/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=Apache2"
       - "--label=VERSION={{.Version}}"
       - "--platform=linux/amd64"
   - image_templates:
@@ -110,7 +137,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source={{.GitURL}}"
-      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=org.opencontainers.image.licenses=Apache2"
       - "--label=VERSION={{.Version}}"
       - "--platform=linux/amd64"
   - image_templates:
@@ -123,7 +150,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source={{.GitURL}}"
-      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=org.opencontainers.image.licenses=Apache2"
       - "--label=VERSION={{.Version}}"
       - "--platform=linux/amd64"
   - image_templates:
@@ -136,7 +163,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source={{.GitURL}}"
-      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=org.opencontainers.image.licenses=Apache2"
       - "--label=VERSION={{.Version}}"
       - "--platform=linux/amd64"
   - image_templates:
@@ -149,7 +176,33 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source={{.GitURL}}"
-      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=org.opencontainers.image.licenses=Apache2"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-control-plane-controller:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-control-plane-controller:latest'
+    dockerfile: cmd/control-plane-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=Apache2"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-helm-workload-controller:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-helm-workload-controller:latest'
+    dockerfile: cmd/helm-workload-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=Apache2"
       - "--label=VERSION={{.Version}}"
       - "--platform=linux/amd64"
   - image_templates:
@@ -175,7 +228,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source={{.GitURL}}"
-      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=org.opencontainers.image.licenses=Apache2"
       - "--label=VERSION={{.Version}}"
       - "--platform=linux/amd64"
 

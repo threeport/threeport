@@ -39,6 +39,11 @@ var (
 
 // ThreeportWorkloadSpec defines the desired state of ThreeportWorkload
 type ThreeportWorkloadSpec struct {
+	// +kubebuilder:validation:Enum=WorkloadInstance;HelmWorkloadInstance
+	// WorkloadType informs the threeport agent which threeport API type was
+	// used to represent a Kubernetes workload.
+	WorkloadType string `json:"workloadType,omitempty"`
+
 	// WorkloadInstance is the unique ID for a threeport object that represents
 	// a deployed instance of a workload.
 	WorkloadInstanceID uint `json:"workloadInstanceId,omitempty"`

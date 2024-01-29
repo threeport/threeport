@@ -71,6 +71,14 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteGatewayInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete GatewayInstance: %w", err)
 		}
+	case "v0.GatewayHttpPort":
+		if _, err := DeleteGatewayHttpPort(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete GatewayHttpPort: %w", err)
+		}
+	case "v0.GatewayTcpPort":
+		if _, err := DeleteGatewayTcpPort(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete GatewayTcpPort: %w", err)
+		}
 	case "v0.DomainNameDefinition":
 		if _, err := DeleteDomainNameDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete DomainNameDefinition: %w", err)
@@ -78,6 +86,14 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 	case "v0.DomainNameInstance":
 		if _, err := DeleteDomainNameInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete DomainNameInstance: %w", err)
+		}
+	case "v0.HelmWorkloadDefinition":
+		if _, err := DeleteHelmWorkloadDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete HelmWorkloadDefinition: %w", err)
+		}
+	case "v0.HelmWorkloadInstance":
+		if _, err := DeleteHelmWorkloadInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete HelmWorkloadInstance: %w", err)
 		}
 	case "v0.KubernetesRuntimeDefinition":
 		if _, err := DeleteKubernetesRuntimeDefinition(apiClient, apiAddr, id); err != nil {

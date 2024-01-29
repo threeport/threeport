@@ -8,6 +8,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // GetHTTPClient returns an HTTP client with TLS configuration when authEnabled
@@ -116,4 +122,34 @@ func GetHTTPClient(
 	}
 
 	return apiClient, nil
+}
+
+// GetKubeDynamicClientAndMapper returns a dynamic client and rest mapper for a given kubeconfig path.
+func GetKubeDynamicClientAndMapper(kubeconfigPath string) (*dynamic.DynamicClient, meta.RESTMapper, error) {
+	// create the config from the path
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Create a dynamic client
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Create a discovery client
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// the rest mapper allows us to determine resource types
+	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
+	if err != nil {
+		return nil, nil, err
+	}
+	mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
+	return dynamicClient, mapper, nil
 }

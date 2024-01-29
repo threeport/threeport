@@ -36,10 +36,29 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	infraProvider string,
+	infraProvider,
+	encryptionKey string,
 ) error {
 	if err := cpi.CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
+	}
+
+	var encryptionSecret = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "encryption-key",
+				"namespace": cpi.Opts.Namespace,
+			},
+			"stringData": map[string]interface{}{
+				"ENCRYPTION_KEY": encryptionKey,
+			},
+		},
+	}
+
+	if err := cpi.CreateOrUpdateKubeResource(encryptionSecret, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
 
 	var natsPDB = &unstructured.Unstructured{
@@ -687,7 +706,7 @@ store_dir: /data
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "db",
-								"image":           "cockroachdb/cockroach:v22.2.2",
+								"image":           fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
 								"args": []interface{}{
 									"shell",

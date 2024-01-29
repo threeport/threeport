@@ -8,9 +8,13 @@ import (
 	"path"
 	"path/filepath"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -102,7 +106,6 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	relativeYamlPath := path.Join(configPath, wd.YAMLDocument)
 
 	// load YAML document
-	//definitionContent, err := os.ReadFile(wd.YAMLDocument)
 	definitionContent, err := os.ReadFile(relativeYamlPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read definition YAMLDocument file %s: %w", wd.YAMLDocument, err)
@@ -170,6 +173,53 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 		return nil, err
 	}
 
+	// check to see if threeport is managing namespace
+	jsonObjects, err := kube.GetJsonResourcesFromYamlDoc(*workloadDefinition.YAMLDocument)
+	threeportManagedNs := true
+	for _, jsonContent := range jsonObjects {
+		kubeObject := &unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := kubeObject.UnmarshalJSON(jsonContent); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
+		}
+		if kubeObject.GetKind() == "Namespace" {
+			threeportManagedNs = false
+		}
+	}
+
+	if !threeportManagedNs {
+		// if client managed namespaces, get instances for definition
+		instances, err := client.GetWorkloadInstancesByWorkloadDefinitionID(
+			apiClient,
+			apiEndpoint,
+			*workloadDefinition.ID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// if there's already an instance for a workload with client managed
+		// namespace, check clusters
+		var runtimeNames []string
+		for _, inst := range *instances {
+			runtime, err := client.GetKubernetesRuntimeInstanceByID(
+				apiClient,
+				apiEndpoint,
+				*inst.KubernetesRuntimeInstanceID,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get kubernetes runtime instance ID: %w", err)
+			}
+			runtimeNames = append(runtimeNames, *runtime.Name)
+		}
+		for _, rName := range runtimeNames {
+			// if the workload instance is using a cluster that already has an
+			// instance for this definition, return error
+			if rName == *kubernetesRuntimeInstance.Name {
+				return nil, errors.New("only one workload instance per Kubernetes runtime may be deployed when a Kubernetes namespace is included in the workload definition YAMLDocument\nif you would like to deploy this workload to the same Kubernetes runtime (and continue to manage namespaces) you will need a new workload definition that uses a different namespace")
+			}
+		}
+	}
+
 	// construct workload instance object
 	workloadInstance := v0.WorkloadInstance{
 		Instance: v0.Instance{
@@ -197,7 +247,13 @@ func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint s
 	}
 
 	// get workload instance status
-	statusDetail := status.GetWorkloadInstanceStatus(apiClient, apiEndpoint, workloadInstance)
+	statusDetail := status.GetWorkloadInstanceStatus(
+		apiClient,
+		apiEndpoint,
+		agent.WorkloadInstanceType,
+		*workloadInstance.ID,
+		*workloadInstance.Reconciled,
+	)
 	if statusDetail.Error != nil {
 		return nil, fmt.Errorf("failed to get status for workload instance with name %s: %w", wi.Name, statusDetail.Error)
 	}
@@ -328,9 +384,8 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		// add gateway definition operation
 		gatewayDefinitionValues := GatewayDefinitionValues{
 			Name:                 w.Name,
-			TCPPort:              w.Gateway.TCPPort,
-			TLSEnabled:           w.Gateway.TLSEnabled,
-			Path:                 w.Gateway.Path,
+			HttpPorts:            w.Gateway.HttpPorts,
+			TcpPorts:             w.Gateway.TcpPorts,
 			ServiceName:          w.Gateway.ServiceName,
 			SubDomain:            w.Gateway.SubDomain,
 			DomainNameDefinition: domainNameDefinitionValues,

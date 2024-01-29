@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/threeport/threeport/internal/agent"
 	tpapi "github.com/threeport/threeport/pkg/api/v0"
 	tpclient "github.com/threeport/threeport/pkg/client/v0"
 	"gorm.io/datatypes"
@@ -23,6 +24,7 @@ type ThreeportNotif struct {
 // ResourceOperation contains information gathered from watches on
 // threeport-managed resources.
 type ResourceOperation struct {
+	WorkloadType               string
 	WorkloadResourceInstanceID uint
 	OperationType              string
 	OperationObject            string
@@ -32,6 +34,7 @@ type ResourceOperation struct {
 // threeport-managed resources.
 type EventSummary struct {
 	EventUID                   string
+	WorkloadType               string
 	WorkloadInstanceID         uint
 	WorkloadResourceInstanceID uint
 	ObjectNamespace            string
@@ -60,6 +63,9 @@ type EventSummary struct {
 //   - all events
 //   - runtime object
 //   - most recent watch operation
+//
+// * HelmWorkloadInstance:
+//   - consolidated status
 func Notify(
 	notifChan chan ThreeportNotif,
 	threeportAPIServer string,
@@ -103,7 +109,12 @@ func Notify(
 			// notif received on channel
 			// add operation details received from resource watch if
 			// applicable
-			if notif.Operation != nil {
+			// Note: when the workload instance type is "HelmWorkloadInstance"
+			// we discard this operation since helm workloads have no equivalent
+			// of a WorkloadResourceInstance in which to store this info in
+			// Threeport. If we want to capture this info, we'll need to add
+			// that to the Threeport API data model.
+			if notif.Operation != nil && notif.Operation.WorkloadType != agent.HelmWorkloadInstanceType {
 				runtimeDef := datatypes.JSON([]byte(notif.Operation.OperationObject))
 				workloadResourceInst := tpapi.WorkloadResourceInstance{
 					Common: tpapi.Common{
@@ -117,7 +128,8 @@ func Notify(
 			// add events for a resource if applicable
 			if notif.Event != nil {
 				var workloadEvent tpapi.WorkloadEvent
-				if notif.Event.WorkloadResourceInstanceID != 0 {
+				switch {
+				case notif.Event.WorkloadResourceInstanceID != 0:
 					workloadEvent = tpapi.WorkloadEvent{
 						RuntimeEventUID:            &notif.Event.EventUID,
 						WorkloadInstanceID:         &notif.Event.WorkloadInstanceID,
@@ -127,7 +139,7 @@ func Notify(
 						Message:                    &notif.Event.Message,
 						Timestamp:                  &notif.Event.Timestamp.Time,
 					}
-				} else {
+				case notif.Event.WorkloadType == agent.WorkloadInstanceType:
 					workloadEvent = tpapi.WorkloadEvent{
 						RuntimeEventUID:    &notif.Event.EventUID,
 						WorkloadInstanceID: &notif.Event.WorkloadInstanceID,
@@ -135,6 +147,15 @@ func Notify(
 						Reason:             &notif.Event.Reason,
 						Message:            &notif.Event.Message,
 						Timestamp:          &notif.Event.Timestamp.Time,
+					}
+				case notif.Event.WorkloadType == agent.HelmWorkloadInstanceType:
+					workloadEvent = tpapi.WorkloadEvent{
+						RuntimeEventUID:        &notif.Event.EventUID,
+						HelmWorkloadInstanceID: &notif.Event.WorkloadInstanceID,
+						Type:                   &notif.Event.Type,
+						Reason:                 &notif.Event.Reason,
+						Message:                &notif.Event.Message,
+						Timestamp:              &notif.Event.Timestamp.Time,
 					}
 				}
 				workloadEvents = append(workloadEvents, workloadEvent)

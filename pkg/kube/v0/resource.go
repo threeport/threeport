@@ -2,17 +2,22 @@ package v0
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	yamlv3 "gopkg.in/yaml.v3"
+	kubeerr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubemetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/yaml"
 )
 
 // GetResource returns a specific Kubernetes resource.  If an empty string for
@@ -78,7 +83,7 @@ func CreateResource(
 		Namespace(kubeObject.GetNamespace()).
 		Create(context.Background(), kubeObject, kubemetav1.CreateOptions{})
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
+		if kubeerr.IsAlreadyExists(err) {
 			return kubeObject, nil
 		} else {
 			return nil, fmt.Errorf("failed to create kubernetes resource:%w", err)
@@ -113,7 +118,7 @@ func CreateOrUpdateResource(
 		// if the resource already exists, update it
 
 		switch {
-		case errors.IsAlreadyExists(err):
+		case kubeerr.IsAlreadyExists(err):
 			if result, err = UpdateResource(kubeObject, kubeClient, mapper, mapping); err != nil {
 				return nil, fmt.Errorf("failed to update kubernetes resource:%w", err)
 			}
@@ -122,7 +127,7 @@ func CreateOrUpdateResource(
 		// kube API will return an IsInvalid error instead of an IsAlreadyExists error.
 		// If the service is not already created and is also invalid, then an error should
 		// be thrown by UpdateResource.
-		case errors.IsInvalid(err) &&
+		case kubeerr.IsInvalid(err) &&
 			mapping.GroupVersionKind.Kind == "Service":
 			if result, err = UpdateResource(kubeObject, kubeClient, mapper, mapping); err != nil {
 				return nil, fmt.Errorf("failed to update kubernetes resource:%w", err)
@@ -190,8 +195,71 @@ func DeleteResource(
 		Resource(mapping.Resource).
 		Namespace(kubeObject.GetNamespace()).
 		Delete(context.Background(), kubeObject.GetName(), kubemetav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !kubeerr.IsNotFound(err) {
 		return fmt.Errorf("failed to delete kubernetes resource:%w", err)
+	}
+
+	return nil
+}
+
+// DeletePod deletes a pod.
+func DeletePod(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	name,
+	namespace string,
+) error {
+
+	// initiate namespace deletion
+	pod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+		},
+	}
+
+	// delete the pod
+	// get the mapping for resource from kube object's group, kind
+	mapping, err := getResourceMapping(pod, *mapper)
+	if err != nil {
+		return fmt.Errorf("failed to get REST mapping for kubernetes resource: %w", err)
+	}
+
+	// Define your label selector here
+	labelSelector := kubemetav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app.kubernetes.io/name": fmt.Sprintf("threeport-%s", name),
+		},
+	}
+
+	// convert label selector to string
+	selector := labels.Set(labelSelector.MatchLabels).String()
+
+	// list all resources matching the label selector
+	resourceList, err := kubeClient.
+		Resource(mapping.Resource).
+		Namespace(pod.GetNamespace()).
+		List(
+			context.Background(),
+			kubemetav1.ListOptions{LabelSelector: selector},
+		)
+	if err != nil {
+		return fmt.Errorf("failed to list kubernetes resources: %w", err)
+	}
+
+	// delete the kube resource
+	for _, resource := range resourceList.Items {
+		err = kubeClient.
+			Resource(mapping.Resource).
+			Namespace(pod.GetNamespace()).
+			Delete(context.Background(), resource.GetName(), kubemetav1.DeleteOptions{})
+		if err != nil && !kubeerr.IsNotFound(err) {
+			return fmt.Errorf("failed to delete kubernetes resource:%w", err)
+		}
 	}
 
 	return nil
@@ -230,6 +298,42 @@ func DeleteLabelledPodsInNamespace(
 	}
 
 	return nil
+}
+
+// GetJsonResourcesFromYamlDoc takes a YAML document with any number of
+// Kubernetes resources defined and returns a slice of JSON objects as byte
+// arrays.
+func GetJsonResourcesFromYamlDoc(yamlDoc string) ([][]byte, error) {
+	decoder := yamlv3.NewDecoder(strings.NewReader(yamlDoc))
+
+	var jsonObjects [][]byte
+	for {
+		// decode the next resource, exit loop if the end has been reached
+		var node yamlv3.Node
+		err := decoder.Decode(&node)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return jsonObjects, fmt.Errorf("failed to decode yaml node in workload definition: %w", err)
+		}
+
+		// marshal the yaml
+		yamlContent, err := yamlv3.Marshal(&node)
+		if err != nil {
+			return jsonObjects, fmt.Errorf("failed to marshal yaml from workload definition: %w", err)
+		}
+
+		// convert yaml to json
+		jsonContent, err := yaml.YAMLToJSON(yamlContent)
+		if err != nil {
+			return jsonObjects, fmt.Errorf("failed to convert yaml to json: %w", err)
+		}
+
+		jsonObjects = append(jsonObjects, jsonContent)
+	}
+
+	return jsonObjects, nil
 }
 
 // getResourceMapping gets the REST mapping for a given unstructured Kubernetes

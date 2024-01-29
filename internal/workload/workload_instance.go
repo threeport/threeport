@@ -61,11 +61,19 @@ func workloadInstanceCreated(
 
 	// construct ThreeportWorkload resource to inform the threeport-agent of
 	// which resources it should watch
+	threeportWorkloadName, err := agent.ThreeportWorkloadName(
+		*workloadInstance.ID,
+		agent.WorkloadInstanceType,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to generate threeport workload resource name: %w", err)
+	}
 	threeportWorkload := agentapi.ThreeportWorkload{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: agent.ThreeportWorkloadName(*workloadInstance.ID),
+			Name: threeportWorkloadName,
 		},
 		Spec: agentapi.ThreeportWorkloadSpec{
+			WorkloadType:       agent.WorkloadInstanceType,
 			WorkloadInstanceID: *workloadInstance.ID,
 		},
 	}
@@ -138,11 +146,13 @@ func workloadInstanceCreated(
 			return 0, fmt.Errorf("failed to unmarshal json to kubernetes unstructured object: %w", err)
 		}
 
-		// set label metadata on kube object
+		// set label metadata on kube object to signal threeport agent
 		kubeObject, err = kube.AddLabels(
 			kubeObject,
 			*workloadDefinition.Name,
-			workloadInstance,
+			*workloadInstance.Name,
+			*workloadInstance.ID,
+			agent.WorkloadInstanceLabelKey,
 		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to add label metadata to objects: %w", err)
@@ -479,7 +489,11 @@ func workloadInstanceDeleted(
 	}
 
 	// delete workload events related to workload instance
-	_, err = client.DeleteWorkloadEventsByWorkloadInstanceID(r.APIClient, r.APIServer, *workloadInstance.ID)
+	_, err = client.DeleteWorkloadEventsByQueryString(
+		r.APIClient,
+		r.APIServer,
+		fmt.Sprintf("workloadinstanceid=%d", *workloadInstance.ID),
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete workload events for workload instance with ID %d: %w", workloadInstance.ID, err)
 	}
@@ -491,9 +505,16 @@ func workloadInstanceDeleted(
 	// delete the ThreeportWorkload resource to inform the threeport-agent the
 	// resources are gone
 	resourceClient := dynamicKubeClient.Resource(agentapi.ThreeportWorkloadGVR)
+	threeportWorkloadName, err := agent.ThreeportWorkloadName(
+		*workloadInstance.ID,
+		agent.WorkloadInstanceType,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to determine threeport workload resource name: %w", err)
+	}
 	if err = resourceClient.Delete(
 		context.Background(),
-		agent.ThreeportWorkloadName(*workloadInstance.ID),
+		threeportWorkloadName,
 		metav1.DeleteOptions{},
 	); err != nil && !kubeerr.IsNotFound(err) {
 		return 0, fmt.Errorf("failed to delete ThreeportWorkload resource: %w", err)

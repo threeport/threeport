@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/workload/status"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -71,7 +72,13 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 			}
 			// get workload status
 			var workloadInstStatus string
-			workloadInstStatusDetail := status.GetWorkloadInstanceStatus(apiClient, apiEndpoint, &wi)
+			workloadInstStatusDetail := status.GetWorkloadInstanceStatus(
+				apiClient,
+				apiEndpoint,
+				agent.WorkloadInstanceType,
+				*wi.ID,
+				*wi.Reconciled,
+			)
 			if workloadInstStatusDetail.Error != nil {
 				metadataErr = true
 				statusErr = workloadInstStatusDetail.Error

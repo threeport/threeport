@@ -142,37 +142,6 @@ func GetWorkloadResourceInstancesByWorkloadInstanceID(apiClient *http.Client, ap
 	return &workloadResourceInstances, nil
 }
 
-// GetWorkloadEventsByWorkloadInstanceID gets all workload events by
-// workload instance ID.
-func GetWorkloadEventsByWorkloadInstanceID(apiClient *http.Client, apiAddr string, workloadInstanceID uint) (*[]v0.WorkloadEvent, error) {
-	var workloadEvents []v0.WorkloadEvent
-
-	response, err := GetResponse(
-		apiClient,
-		fmt.Sprintf("%s/%s/workload-event-sets/%d", apiAddr, ApiVersion, workloadInstanceID),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &workloadEvents, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &workloadEvents, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&workloadEvents); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &workloadEvents, nil
-}
-
 // GetWorkloadInstancesByKubernetesRuntimeInstanceID
 func GetWorkloadInstancesByKubernetesRuntimeInstanceID(apiClient *http.Client, apiAddr string, kubernetesRuntimeID uint) (*[]v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
@@ -203,14 +172,13 @@ func GetWorkloadInstancesByKubernetesRuntimeInstanceID(apiClient *http.Client, a
 	return &workloadInstances, nil
 }
 
-// DeleteWorkloadEventsByWorkloadInstanceID deletes all workload events by
-// workload instance ID.
-func DeleteWorkloadEventsByWorkloadInstanceID(apiClient *http.Client, apiAddr string, workloadInstanceID uint) (*[]v0.WorkloadEvent, error) {
+// DeleteWorkloadEventsByQueryString deletes workload events by provided query string.
+func DeleteWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadEvent, error) {
 	var workloadEvents []v0.WorkloadEvent
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/workload-event-sets/%d", apiAddr, ApiVersion, workloadInstanceID),
+		fmt.Sprintf("%s/%s/workload-events?%s", apiAddr, ApiVersion, queryString),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

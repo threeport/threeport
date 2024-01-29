@@ -4,9 +4,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/threeport/threeport/internal/agent"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 const (
@@ -19,14 +16,16 @@ const (
 // Kubernetes.
 func AddLabels(
 	kubeObject *unstructured.Unstructured,
-	workloadDefName string,
-	workloadInst *v0.WorkloadInstance,
+	definitionName string,
+	instanceName string,
+	instanceId uint,
+	instanceLabelKey string,
 ) (*unstructured.Unstructured, error) {
 	newLabels := map[string]string{
 		"app.kubernetes.io/managed-by": KubeManagedByLabelValue,
-		"app.kubernetes.io/name":       workloadDefName,
-		"app.kubernetes.io/instance":   *workloadInst.Name,
-		agent.WorkloadInstanceLabelKey: fmt.Sprintf("%d", *workloadInst.ID),
+		"app.kubernetes.io/name":       definitionName,
+		"app.kubernetes.io/instance":   instanceName,
+		instanceLabelKey:               fmt.Sprintf("%d", instanceId),
 	}
 
 	for key, value := range newLabels {
@@ -45,7 +44,7 @@ func AddLabels(
 
 	for _, kind := range GetPodAbstractionKinds() {
 		if kubeObject.GetKind() == kind {
-			obj, err := setPodTemplateLabels(kubeObject, *workloadInst.ID)
+			obj, err := setPodTemplateLabels(kubeObject, instanceId, instanceLabelKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to set pod template label: %w", err)
 			}
@@ -71,7 +70,11 @@ func GetPodAbstractionKinds() []string {
 
 // setPodTemplateLabels sets required labels on the pod template for a Deployment,
 // StatefulSet, DaemonSet, ReplicaSet or Job.
-func setPodTemplateLabels(kubeObject *unstructured.Unstructured, workloadInstID uint) (*unstructured.Unstructured, error) {
+func setPodTemplateLabels(
+	kubeObject *unstructured.Unstructured,
+	instanceId uint,
+	instanceLabelKey string,
+) (*unstructured.Unstructured, error) {
 	podLabels, found, err := unstructured.NestedStringMap(kubeObject.Object, "spec", "template", "metadata", "labels")
 	if err != nil {
 		return nil, err
@@ -81,7 +84,7 @@ func setPodTemplateLabels(kubeObject *unstructured.Unstructured, workloadInstID 
 		podLabels = make(map[string]string)
 	}
 
-	podLabels[agent.WorkloadInstanceLabelKey] = fmt.Sprintf("%d", workloadInstID)
+	podLabels[instanceLabelKey] = fmt.Sprintf("%d", instanceId)
 	podLabels[ThreeportManagedByLabelKey] = ThreeportManagedByLabelValue
 
 	if err := unstructured.SetNestedStringMap(kubeObject.Object, podLabels, "spec", "template", "metadata", "labels"); err != nil {

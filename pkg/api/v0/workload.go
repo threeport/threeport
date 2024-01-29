@@ -10,7 +10,6 @@ import (
 
 const (
 	PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-sets"
-	PathWorkloadEventSets              = "/v0/workload-event-sets"
 )
 
 // +threeport-codegen:reconciler
@@ -139,4 +138,7 @@ type WorkloadEvent struct {
 
 	// The related workload resource instance.
 	WorkloadResourceInstanceID *uint `json:"WorkloadResourceInstanceID,omitempty" query:"workloadresourceinstanceid" validate:"optional"`
+
+	// The related helm workload instance.
+	HelmWorkloadInstanceID *uint `json:"HelmWorkloadInstanceID,omitempty" query:"helmworkloadinstanceid" validate:"optional"`
 }

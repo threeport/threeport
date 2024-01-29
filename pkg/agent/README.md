@@ -21,6 +21,7 @@ metadata:
   resourceVersion: "968"
   uid: 1c13ea8d-3753-4e7b-98ae-7f8d4828b1d6
 spec:
+  workloadType: WorkloadInstance
   workloadInstanceId: 877588458330128385
   workloadResourceInstances:
   - kind: Namespace
@@ -45,6 +46,8 @@ spec:
     version: v1
 ```
 
+The `.spec.WorkloadType` field indicates which Threeport workload object was
+used in Threeport to represent the Kubernetes workload.
 The `.spec.workloadInstanceID` field provides the workload instance ID which is
 used by the threeport-agent when making updates in the Threeport API.  The
 `.spec.workloadResourceInstances` field contains an array of all worklod

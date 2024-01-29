@@ -19,9 +19,7 @@ func WorkloadResourceDefinitionSetRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.POST(v0.PathWorkloadResourceDefinitionSets, h.AddWorkloadResourceDefinitions)
 }
 
-// WorkloadEventSetRoutes sets up all routes for the WorkloadEvent set handlers.
-// This custom API route operates on batches of workload events for efficiency.
-func WorkloadEventSetRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET(v0.PathWorkloadEventSets+"/:workloadInstanceID", h.GetWorkloadEventSet)
-	e.DELETE(v0.PathWorkloadEventSets+"/:workloadInstanceID", h.DeleteWorkloadEventSet)
+// WorkloadEventCustomRoutes includes custom routes for WorkloadEvent handlers.
+func WorkloadEventCustomRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.DELETE(v0.PathWorkloadEvents, h.DeleteWorkloadEvents)
 }

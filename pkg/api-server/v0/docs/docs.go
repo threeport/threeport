@@ -291,6 +291,24 @@ const docTemplate = `{
                 }
             }
         },
+        "/gateway-http-ports/versions": {
+            "get": {
+                "description": "Get the supported API versions for gateway http ports.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetGatewayHttpPortVersions gets the supported versions for the gateway http port API.",
+                "operationId": "gatewayHttpPort-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/gateway-instances/versions": {
             "get": {
                 "description": "Get the supported API versions for gateway instances.",
@@ -299,6 +317,60 @@ const docTemplate = `{
                 ],
                 "summary": "GetGatewayInstanceVersions gets the supported versions for the gateway instance API.",
                 "operationId": "gatewayInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/gateway-tcp-ports/versions": {
+            "get": {
+                "description": "Get the supported API versions for gateway tcp ports.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetGatewayTcpPortVersions gets the supported versions for the gateway tcp port API.",
+                "operationId": "gatewayTcpPort-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/helm-workload-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for helm workload definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetHelmWorkloadDefinitionVersions gets the supported versions for the helm workload definition API.",
+                "operationId": "helmWorkloadDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/helm-workload-instances/versions": {
+            "get": {
+                "description": "Get the supported API versions for helm workload instances.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetHelmWorkloadInstanceVersions gets the supported versions for the helm workload instance API.",
+                "operationId": "helmWorkloadInstance-get-versions",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4650,6 +4722,287 @@ const docTemplate = `{
                 }
             }
         },
+        "/v0/gateway-http-ports": {
+            "get": {
+                "description": "Get all gateway http ports from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all gateway http ports.",
+                "operationId": "get-gatewayHttpPorts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "gateway http port search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new gateway http port to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new gateway http port.",
+                "operationId": "add-gatewayHttpPort",
+                "parameters": [
+                    {
+                        "description": "GatewayHttpPort object",
+                        "name": "gatewayHttpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayHttpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gateway-http-ports/{id}": {
+            "get": {
+                "description": "Get a particular gateway http port from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a gateway http port.",
+                "operationId": "get-gatewayHttpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a gateway http port in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gateway http port objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing gateway http port by replacing the entire object.",
+                "operationId": "replace-gatewayHttpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GatewayHttpPort object",
+                        "name": "gatewayHttpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayHttpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a gateway http port by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a gateway http port.",
+                "operationId": "delete-gatewayHttpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a gateway http port in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gateway http port objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing gateway http port.",
+                "operationId": "update-gatewayHttpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GatewayHttpPort object",
+                        "name": "gatewayHttpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayHttpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/gateway-instances": {
             "get": {
                 "description": "Get all gateway instances from the Threeport database.",
@@ -4900,6 +5253,849 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gateway-tcp-ports": {
+            "get": {
+                "description": "Get all gateway tcp ports from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all gateway tcp ports.",
+                "operationId": "get-gatewayTcpPorts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "gateway tcp port search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new gateway tcp port to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new gateway tcp port.",
+                "operationId": "add-gatewayTcpPort",
+                "parameters": [
+                    {
+                        "description": "GatewayTcpPort object",
+                        "name": "gatewayTcpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayTcpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gateway-tcp-ports/{id}": {
+            "get": {
+                "description": "Get a particular gateway tcp port from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a gateway tcp port.",
+                "operationId": "get-gatewayTcpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a gateway tcp port in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gateway tcp port objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing gateway tcp port by replacing the entire object.",
+                "operationId": "replace-gatewayTcpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GatewayTcpPort object",
+                        "name": "gatewayTcpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayTcpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a gateway tcp port by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a gateway tcp port.",
+                "operationId": "delete-gatewayTcpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a gateway tcp port in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gateway tcp port objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing gateway tcp port.",
+                "operationId": "update-gatewayTcpPort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GatewayTcpPort object",
+                        "name": "gatewayTcpPort",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GatewayTcpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/helm-workload-definitions": {
+            "get": {
+                "description": "Get all helm workload definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all helm workload definitions.",
+                "operationId": "get-helmWorkloadDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "helm workload definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new helm workload definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new helm workload definition.",
+                "operationId": "add-helmWorkloadDefinition",
+                "parameters": [
+                    {
+                        "description": "HelmWorkloadDefinition object",
+                        "name": "helmWorkloadDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.HelmWorkloadDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/helm-workload-definitions/{id}": {
+            "get": {
+                "description": "Get a particular helm workload definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a helm workload definition.",
+                "operationId": "get-helmWorkloadDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a helm workload definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating helm workload definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing helm workload definition by replacing the entire object.",
+                "operationId": "replace-helmWorkloadDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "HelmWorkloadDefinition object",
+                        "name": "helmWorkloadDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.HelmWorkloadDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a helm workload definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a helm workload definition.",
+                "operationId": "delete-helmWorkloadDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a helm workload definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating helm workload definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing helm workload definition.",
+                "operationId": "update-helmWorkloadDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "HelmWorkloadDefinition object",
+                        "name": "helmWorkloadDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.HelmWorkloadDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/helm-workload-instances": {
+            "get": {
+                "description": "Get all helm workload instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all helm workload instances.",
+                "operationId": "get-helmWorkloadInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "helm workload instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new helm workload instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new helm workload instance.",
+                "operationId": "add-helmWorkloadInstance",
+                "parameters": [
+                    {
+                        "description": "HelmWorkloadInstance object",
+                        "name": "helmWorkloadInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.HelmWorkloadInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/helm-workload-instances/{id}": {
+            "get": {
+                "description": "Get a particular helm workload instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a helm workload instance.",
+                "operationId": "get-helmWorkloadInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a helm workload instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating helm workload instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing helm workload instance by replacing the entire object.",
+                "operationId": "replace-helmWorkloadInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "HelmWorkloadInstance object",
+                        "name": "helmWorkloadInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.HelmWorkloadInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a helm workload instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a helm workload instance.",
+                "operationId": "delete-helmWorkloadInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a helm workload instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating helm workload instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing helm workload instance.",
+                "operationId": "update-helmWorkloadInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "HelmWorkloadInstance object",
+                        "name": "helmWorkloadInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.HelmWorkloadInstance"
                         }
                     }
                 ],
@@ -7179,100 +8375,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload-event-sets/{workloadInstanceID}": {
-            "get": {
-                "description": "Gets a set of workload events by workload instance ID from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a workload event set by workload instance ID.",
-                "operationId": "get-workloadEventSet",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "workloadInstanceID",
-                        "name": "workloadInstanceID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Deletes a set of workload events by workload instance ID from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a workload event set by workload instance ID.",
-                "operationId": "delete-workloadEventSet",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "workloadInstanceID",
-                        "name": "workloadInstanceID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/v0/workload-events": {
             "get": {
                 "description": "Get all workload events from the Threeport database.",
@@ -7343,6 +8445,45 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes workload events by query parameter from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a workload event set by query parameter.",
+                "operationId": "delete-workloadEventSet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workload event search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -9018,6 +10159,31 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AdditionalEnvRef": {
+                    "description": "The additional env reference to be added to the environment variables of the component",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "AdditionalVolumeMounts": {
+                    "description": "The additional volume mounts to be added to the deployment spec of the component",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "AdditionalVolumes": {
+                    "description": "The additional volumes to be added to the deployment spec of the component",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "BinaryName": {
+                    "description": "The binary name of the component",
+                    "type": "string"
+                },
                 "ControlPlaneInstanceID": {
                     "description": "The control plane instance ID that this component belongs to",
                     "type": "integer"
@@ -9424,8 +10590,7 @@ const docTemplate = `{
         "v0.GatewayDefinition": {
             "type": "object",
             "required": [
-                "Name",
-                "TCPPort"
+                "Name"
             ],
             "properties": {
                 "CreationAcknowledged": {
@@ -9463,9 +10628,12 @@ const docTemplate = `{
                         "$ref": "#/definitions/v0.GatewayInstance"
                     }
                 },
-                "HTTPSRedirect": {
-                    "description": "Redirect all requests to HTTP port to HTTPS.",
-                    "type": "boolean"
+                "HttpPorts": {
+                    "description": "HttpPorts is a list of HTTP ports to expose to the outside network.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.GatewayHttpPort"
+                    }
                 },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
@@ -9473,10 +10641,6 @@ const docTemplate = `{
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
-                    "type": "string"
-                },
-                "Paths": {
-                    "description": "The request paths to serve requests for.",
                     "type": "string"
                 },
                 "ProfileID": {
@@ -9495,13 +10659,12 @@ const docTemplate = `{
                     "description": "An optional subdomain to add to the domain name.",
                     "type": "string"
                 },
-                "TCPPort": {
-                    "description": "TCP Port to expose to outside network.",
-                    "type": "integer"
-                },
-                "TLSEnabled": {
-                    "description": "Indicates if TLS is enabled.",
-                    "type": "boolean"
+                "TcpPorts": {
+                    "description": "TcpPorts is a list of TCP ports to expose to the outside network.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.GatewayTcpPort"
+                    }
                 },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
@@ -9510,6 +10673,35 @@ const docTemplate = `{
                 "WorkloadDefinitionID": {
                     "description": "The workload definition that belongs to this resource.",
                     "type": "integer"
+                }
+            }
+        },
+        "v0.GatewayHttpPort": {
+            "type": "object",
+            "required": [
+                "GatewayDefinitionID",
+                "Port"
+            ],
+            "properties": {
+                "GatewayDefinitionID": {
+                    "description": "GatewayDefinitionID is the definition used to configure the gateway http port.",
+                    "type": "integer"
+                },
+                "HTTPSRedirect": {
+                    "description": "Redirect all requests to HTTP port to HTTPS.",
+                    "type": "boolean"
+                },
+                "Path": {
+                    "description": "The request path to serve requests for.",
+                    "type": "string"
+                },
+                "Port": {
+                    "description": "The HTTP port to expose.",
+                    "type": "integer"
+                },
+                "TLSEnabled": {
+                    "description": "Indicates if TLS is enabled.",
+                    "type": "boolean"
                 }
             }
         },
@@ -9576,6 +10768,166 @@ const docTemplate = `{
                 }
             }
         },
+        "v0.GatewayTcpPort": {
+            "type": "object",
+            "required": [
+                "GatewayDefinitionID",
+                "Port"
+            ],
+            "properties": {
+                "GatewayDefinitionID": {
+                    "description": "GatewayDefinitionID is the definition used to configure the gateway tcp port.",
+                    "type": "integer"
+                },
+                "Port": {
+                    "description": "The TCP port to expose.",
+                    "type": "integer"
+                },
+                "TLSEnabled": {
+                    "description": "Indicates if TLS is enabled.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "v0.HelmWorkloadDefinition": {
+            "type": "object",
+            "required": [
+                "Chart",
+                "Name",
+                "Repo"
+            ],
+            "properties": {
+                "Chart": {
+                    "description": "The name of the helm chart to use from the helm repo, e.g. wordpress",
+                    "type": "string"
+                },
+                "ChartVersion": {
+                    "description": "The version of the helm chart to use from the helm repo, e.g. 1.2.3",
+                    "type": "string"
+                },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CreationConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "CreationFailed": {
+                    "description": "Gets set to true if creation process fails.",
+                    "type": "boolean"
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "HelmWorkloadInstances": {
+                    "description": "The associated helm workload instances that are deployed from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.HelmWorkloadInstance"
+                    }
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "Name": {
+                    "description": "An arbitrary name for the definition.",
+                    "type": "string"
+                },
+                "ProfileID": {
+                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
+                    "type": "integer"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "Repo": {
+                    "description": "The helm repo URL to pull the helm workload's chart from\ne.g. oci://registry-1.docker.io/bitnamicharts\ne.g. https://grafana.github.io/helm-charts",
+                    "type": "string"
+                },
+                "TierID": {
+                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                },
+                "ValuesDocument": {
+                    "description": "The helm values that override the defaults from the helm chart.  These\nwill be inherited by each helm workload instance derived from this\ndefinition.  The helm values defined here can be further overridden by\nvalues defined on the helm workload instance.",
+                    "type": "string"
+                }
+            }
+        },
+        "v0.HelmWorkloadInstance": {
+            "type": "object",
+            "required": [
+                "HelmWorkloadDefinitionID",
+                "KubernetesRuntimeInstanceID",
+                "Name"
+            ],
+            "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CreationConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "CreationFailed": {
+                    "description": "Gets set to true if creation process fails.",
+                    "type": "boolean"
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "HelmWorkloadDefinitionID": {
+                    "description": "The definition used to configure the helm workload instance.",
+                    "type": "integer"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "KubernetesRuntimeInstanceID": {
+                    "description": "The kubernetes runtime to which the helm workload is deployed.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "Status": {
+                    "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                },
+                "ValuesDocument": {
+                    "description": "Filepath to the helm values YAML file that provides runtime parameters to\nthe helm chart.",
+                    "type": "string"
+                }
+            }
+        },
         "v0.KubernetesRuntimeDefinition": {
             "type": "object",
             "required": [
@@ -9616,7 +10968,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "InfraProviderAccountName": {
-                    "description": "The infra provider account ID.  Determines which account the infra is\ndeployed on.",
+                    "description": "The infra provider account name.  Determines which account the infra is\ndeployed on.",
                     "type": "string"
                 },
                 "InterruptReconciliation": {
@@ -9878,10 +11230,11 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "GatewayDefinition",
-                "GatewayInstance",
-                "DomainNameDefinition",
-                "DomainNameInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -9889,29 +11242,33 @@ const docTemplate = `{
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
                 "AwsObjectStorageBucketInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "Profile",
-                "Tier",
                 "KubernetesRuntimeDefinition",
                 "KubernetesRuntimeInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
-                "WorkloadEvent"
+                "WorkloadEvent",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
+                "Profile",
+                "Tier",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
@@ -9919,23 +11276,26 @@ const docTemplate = `{
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
                 "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
                 "ObjectTypeKubernetesRuntimeDefinition",
                 "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent"
+                "ObjectTypeWorkloadEvent",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance"
             ]
         },
         "v0.Profile": {
@@ -10104,6 +11464,10 @@ const docTemplate = `{
                 "Type"
             ],
             "properties": {
+                "HelmWorkloadInstanceID": {
+                    "description": "The related helm workload instance.",
+                    "type": "integer"
+                },
                 "Message": {
                     "description": "The message associated with the event.",
                     "type": "string"
@@ -10295,7 +11659,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.2.2",
+	Version:          "v0.4.0-rc.2",
 	Host:             "rest-api.threeport.io",
 	BasePath:         "/",
 	Schemes:          []string{},
@@ -10303,8 +11667,6 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "Threeport RESTful API.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
-	LeftDelim:        "{{",
-	RightDelim:       "}}",
 }
 
 func init() {

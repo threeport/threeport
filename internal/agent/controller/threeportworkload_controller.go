@@ -134,6 +134,7 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		go r.watchResource(
 			ctx,
 			gvr,
+			threeportWorkload.Spec.WorkloadType,
 			threeportWorkload.Spec.WorkloadInstanceID,
 			workloadResourceInstance.Name,
 			workloadResourceInstance.Namespace,
@@ -149,13 +150,39 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// create pod and replicaset informers, add the their stop channels to the
 	// reconciler, and add event handlers to the informers
-	podInformer, podInformerStopChan := r.createPodInformer(ctx, labelSelector, threeportWorkload.Spec.WorkloadInstanceID)
-	r.addInformerStopChannel(threeportWorkload.Spec.WorkloadInstanceID, podInformerStopChan)
-	r.addPodEventHandlers(ctx, threeportWorkload.Spec.WorkloadInstanceID, podInformer, podInformerStopChan)
+	podInformer, podInformerStopChan := r.createPodInformer(
+		ctx,
+		labelSelector,
+		threeportWorkload.Spec.WorkloadInstanceID,
+	)
+	r.addInformerStopChannel(
+		threeportWorkload.Spec.WorkloadInstanceID,
+		podInformerStopChan,
+	)
+	r.addPodEventHandlers(
+		ctx,
+		threeportWorkload.Spec.WorkloadType,
+		threeportWorkload.Spec.WorkloadInstanceID,
+		podInformer,
+		podInformerStopChan,
+	)
 
-	replicasetInformer, replicasetInformerStopChan := r.createReplicaSetInformer(ctx, labelSelector, threeportWorkload.Spec.WorkloadInstanceID)
-	r.addInformerStopChannel(threeportWorkload.Spec.WorkloadInstanceID, replicasetInformerStopChan)
-	r.addReplicaSetEventHandlers(ctx, threeportWorkload.Spec.WorkloadInstanceID, replicasetInformer, replicasetInformerStopChan)
+	replicasetInformer, replicasetInformerStopChan := r.createReplicaSetInformer(
+		ctx,
+		labelSelector,
+		threeportWorkload.Spec.WorkloadInstanceID,
+	)
+	r.addInformerStopChannel(
+		threeportWorkload.Spec.WorkloadInstanceID,
+		replicasetInformerStopChan,
+	)
+	r.addReplicaSetEventHandlers(
+		ctx,
+		threeportWorkload.Spec.WorkloadType,
+		threeportWorkload.Spec.WorkloadInstanceID,
+		replicasetInformer,
+		replicasetInformerStopChan,
+	)
 
 	// stop informers when threeport-agent is shut down
 	go r.stopInformersOnInterrupt(ctx, podInformerStopChan, replicasetInformerStopChan)
