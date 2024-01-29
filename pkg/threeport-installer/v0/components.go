@@ -1124,7 +1124,7 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	return nil
 }
 
-// DeleteNamespace deletes a list of namespaces from a Kubernetes cluster.
+// DeleteNamespaces deletes a list of namespaces from a Kubernetes cluster.
 func (cpi *ControlPlaneInstaller) DeleteNamespaces(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,

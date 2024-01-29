@@ -13,7 +13,9 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
@@ -24,6 +26,7 @@ var load bool
 var buildComponentNames string
 var arch string
 var parallel int
+var restart bool
 
 // buildCmd represents the up command
 var buildCmd = &cobra.Command{
@@ -128,6 +131,26 @@ var buildCmd = &cobra.Command{
 							os.Exit(1)
 						}
 					}
+
+					if restart {
+						// create dynamic client and rest mapper
+						dynamicKubeClient, mapper, err := client.GetKubeDynamicClientAndMapper(kubeconfigPath)
+						if err != nil {
+							cli.Error("failed to create dynamic kube client and mapper", err)
+							os.Exit(1)
+						}
+
+						// delete pod
+						if err := kube.DeletePod(
+							dynamicKubeClient,
+							&mapper,
+							component.Name,
+							installer.ControlPlaneNamespace,
+						); err != nil {
+							cli.Error("failed to delete pod", err)
+							os.Exit(1)
+						}
+					}
 				}
 			}()
 		}
@@ -178,5 +201,9 @@ func init() {
 	buildCmd.Flags().BoolVar(
 		&load,
 		"load", false, "Load docker images into kind.",
+	)
+	buildCmd.Flags().BoolVar(
+		&restart,
+		"restart", false, "Restart pods after pushing or loading images.",
 	)
 }

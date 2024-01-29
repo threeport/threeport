@@ -4,18 +4,14 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/restmapper"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
@@ -38,6 +34,7 @@ var DebugCmd = &cobra.Command{
 		debugComponents, err := GetComponentList(debugComponentNames, installer.AllControlPlaneComponents())
 		if err != nil {
 			cli.Error("failed to get debug component list: %w", err)
+			os.Exit(1)
 		}
 
 		// update cli args based on env vars
@@ -58,32 +55,12 @@ var DebugCmd = &cobra.Command{
 		cpi.Opts.AuthEnabled = authEnabled
 		cpi.Opts.Namespace = controlPlaneNamespace
 
-		restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+		// create dynamic client and rest mapper
+		dynamicKubeClient, mapper, err := client.GetKubeDynamicClientAndMapper(kubeconfigPath)
 		if err != nil {
-			fmt.Printf("Error loading kubeconfig: %v\n", err)
+			cli.Error("failed to create dynamic kube client and mapper", err)
 			os.Exit(1)
 		}
-
-		// Create a dynamic client
-		dynamicKubeClient, err := dynamic.NewForConfig(restConfig)
-		if err != nil {
-			fmt.Printf("Error creating dynamic client: %v\n", err)
-			os.Exit(1)
-		}
-
-		discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
-		if err != nil {
-			fmt.Printf("Error creating discovery client: %v\n", err)
-			os.Exit(1)
-		}
-
-		// the rest mapper allows us to determine resource types
-		groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
-		if err != nil {
-			fmt.Printf("Error creating rest mapper: %v\n", err)
-			os.Exit(1)
-		}
-		mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
 
 		// update deployments
 		for _, component := range debugComponents {
