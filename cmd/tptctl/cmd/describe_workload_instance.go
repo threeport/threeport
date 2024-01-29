@@ -34,9 +34,10 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// flag validation
-		if err := validateDeleteWorkloadInstanceFlags(
+		if err := cli.ValidateConfigNameFlags(
 			describeWorkloadInstanceConfigPath,
 			describeWorkloadInstanceName,
+			"workload instance",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)

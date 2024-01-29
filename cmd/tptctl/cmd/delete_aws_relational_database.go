@@ -4,7 +4,6 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -34,9 +33,10 @@ the AWS relational database config or name.`,
 		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// flag validation
-		if err := validateDeleteAwsRelationalDatabaseFlags(
+		if err := cli.ValidateConfigNameFlags(
 			deleteAwsRelationalDatabaseConfigPath,
 			deleteAwsRelationalDatabaseName,
+			"AWS relational database",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
@@ -88,17 +88,4 @@ func init() {
 		&deleteAwsRelationalDatabaseName,
 		"name", "n", "", "Name of AWS relational database.",
 	)
-}
-
-// validateDeleteAwsRelationalDatabaseFlags validates flag inputs as needed.
-func validateDeleteAwsRelationalDatabaseFlags(awsRelationalDatabaseConfigPath, awsRelationalDatabaseName string) error {
-	if awsRelationalDatabaseConfigPath == "" && awsRelationalDatabaseName == "" {
-		return errors.New("must provide either AWS relational database name or path to config file")
-	}
-
-	if awsRelationalDatabaseConfigPath != "" && awsRelationalDatabaseName != "" {
-		return errors.New("AWS relational database name and path to config file provided - provide only one")
-	}
-
-	return nil
 }

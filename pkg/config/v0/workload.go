@@ -250,7 +250,6 @@ func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint s
 	statusDetail := status.GetWorkloadInstanceStatus(
 		apiClient,
 		apiEndpoint,
-		//workloadInstance,
 		agent.WorkloadInstanceType,
 		*workloadInstance.ID,
 		*workloadInstance.Reconciled,

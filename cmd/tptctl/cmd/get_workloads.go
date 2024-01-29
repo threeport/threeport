@@ -77,7 +77,6 @@ This command displays all instances and the definitions used to configure them.`
 			workloadInstStatusDetail := status.GetWorkloadInstanceStatus(
 				apiClient,
 				apiEndpoint,
-				//&wi,
 				agent.WorkloadInstanceType,
 				*wi.ID,
 				*wi.Reconciled,

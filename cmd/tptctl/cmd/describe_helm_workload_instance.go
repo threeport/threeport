@@ -34,9 +34,10 @@ var DescribeHelmWorkloadInstanceCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// flag validation
-		if err := validateDeleteHelmWorkloadInstanceFlags(
+		if err := cli.ValidateConfigNameFlags(
 			describeHelmWorkloadInstanceConfigPath,
 			describeHelmWorkloadInstanceName,
+			"helm workload instance",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)

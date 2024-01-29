@@ -4,7 +4,6 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -32,9 +31,10 @@ var DeleteHelmWorkloadInstanceCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// flag validation
-		if err := validateDeleteHelmWorkloadInstanceFlags(
+		if err := cli.ValidateConfigNameFlags(
 			deleteHelmWorkloadInstanceConfigPath,
 			deleteHelmWorkloadInstanceName,
+			"helm workload instance",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
@@ -87,17 +87,4 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
-}
-
-// validateDeleteControlPlaneFlags validates flag inputs as needed.
-func validateDeleteHelmWorkloadInstanceFlags(helmWorkloadInstConfigPath, helmWorkloadInstName string) error {
-	if helmWorkloadInstConfigPath == "" && helmWorkloadInstName == "" {
-		return errors.New("must provide either helm workload instance name or path to config file")
-	}
-
-	if helmWorkloadInstConfigPath != "" && helmWorkloadInstName != "" {
-		return errors.New("helm workload instance name and path to config file provided - provide only one")
-	}
-
-	return nil
 }

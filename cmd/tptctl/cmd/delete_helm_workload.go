@@ -74,9 +74,3 @@ func init() {
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
 }
-
-// validateDeleteHelmWorkloadFlags validates flag inputs as needed.
-func validateDeleteHelmWorkloadFlags(helmWorkloadConfigPath string) error {
-
-	return nil
-}

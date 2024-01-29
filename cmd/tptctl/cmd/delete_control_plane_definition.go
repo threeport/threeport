@@ -4,7 +4,6 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -33,9 +32,10 @@ var DeleteControlPlaneDefinitionCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// flag validation
-		if err := validateDeleteControlPlaneDefinitionFlags(
+		if err := cli.ValidateConfigNameFlags(
 			deleteControlPlaneDefinitionConfigPath,
 			deleteControlPlaneDefinitionName,
+			"control plane definition",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
@@ -84,17 +84,4 @@ func init() {
 		&deleteControlPlaneDefinitionName,
 		"name", "n", "", "Name of control plane definition.",
 	)
-}
-
-// validateDeleteControlPlaneDefinitionFlags validates flag inputs as needed.
-func validateDeleteControlPlaneDefinitionFlags(controlPlaneDefConfigPath, controlPlaneDefName string) error {
-	if controlPlaneDefConfigPath == "" && controlPlaneDefName == "" {
-		return errors.New("must provide either control plane definition name or path to config file")
-	}
-
-	if controlPlaneDefConfigPath != "" && controlPlaneDefName != "" {
-		return errors.New("control plane definition name and path to config file provided - provide only one")
-	}
-
-	return nil
 }
