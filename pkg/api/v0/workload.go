@@ -10,7 +10,6 @@ import (
 
 const (
 	PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-sets"
-	PathWorkloadEventSets              = "/v0/workload-event-sets"
 )
 
 // +threeport-codegen:reconciler

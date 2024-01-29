@@ -53,6 +53,10 @@ func ResponseStatus401(c echo.Context, params *v0.PageRequestParams, error error
 	return c.JSON(http.StatusUnauthorized, v0.CreateResponseWithError401(params, error, objectType))
 }
 
+func ResponseStatus403(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
+	return c.JSON(http.StatusForbidden, v0.CreateResponseWithError403(params, error, objectType))
+}
+
 func ResponseStatus404(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
 	return c.JSON(http.StatusNotFound, v0.CreateResponseWithError404(params, error, objectType))
 }

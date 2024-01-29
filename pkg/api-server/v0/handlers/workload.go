@@ -2,12 +2,15 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 
 	echo "github.com/labstack/echo/v4"
 	gorm "gorm.io/gorm"
 
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // AddWorkloadResourceDefinitions adds a new  set of workload resource definitions.
@@ -80,6 +83,25 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 		return iapi.ResponseStatus400(c, &params, err, objectType)
 	}
 
+	// ensure query parameters are present to prevent client from deleting all
+	// workload events by mistake
+	queryParams := c.QueryParams()
+	if len(queryParams) != 1 {
+		err := errors.New("must provide one - and only one - query parameter when deleting multiple workload events")
+		return iapi.ResponseStatus403(c, &params, err, objectType)
+	}
+
+	// ensure workload events are deleted by workload or helm workload instance
+	// ID
+	validQueryKeys := []string{"workloadinstanceid", "helmworkloadinstanceid"}
+	for k, _ := range queryParams {
+		if !util.StringSliceContains(validQueryKeys, k, false) {
+			//if strings.ToLower(k) != "helmworkloadinstanceid" {
+			err := fmt.Errorf("can only delete multiple workload events using query parameter keys %s", validQueryKeys)
+			return iapi.ResponseStatus403(c, &params, err, objectType)
+		}
+	}
+
 	var filter v0.WorkloadEvent
 	if err := c.Bind(&filter); err != nil {
 		return iapi.ResponseStatus500(c, &params, err, objectType)
@@ -89,6 +111,11 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 	workloadEvents := &[]v0.WorkloadEvent{}
 	if result := h.DB.Where(&filter).Find(workloadEvents).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	// return 404 if no matches found for query parameter
+	if len(*workloadEvents) == 0 {
+		return iapi.ResponseStatus404(c, nil, client.ErrorObjectNotFound, objectType)
 	}
 
 	if result := h.DB.Delete(workloadEvents); result.Error != nil {
