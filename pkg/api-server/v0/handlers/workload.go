@@ -88,7 +88,7 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 	queryParams := c.QueryParams()
 	if len(queryParams) != 1 {
 		err := errors.New("must provide one - and only one - query parameter when deleting multiple workload events")
-		return iapi.ResponseStatus403(c, &params, err, objectType)
+		return iapi.ResponseStatus400(c, &params, err, objectType)
 	}
 
 	// ensure workload events are deleted by workload or helm workload instance
@@ -96,9 +96,8 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 	validQueryKeys := []string{"workloadinstanceid", "helmworkloadinstanceid"}
 	for k, _ := range queryParams {
 		if !util.StringSliceContains(validQueryKeys, k, false) {
-			//if strings.ToLower(k) != "helmworkloadinstanceid" {
 			err := fmt.Errorf("can only delete multiple workload events using query parameter keys %s", validQueryKeys)
-			return iapi.ResponseStatus403(c, &params, err, objectType)
+			return iapi.ResponseStatus400(c, &params, err, objectType)
 		}
 	}
 
