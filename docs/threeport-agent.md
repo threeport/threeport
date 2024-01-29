@@ -10,6 +10,10 @@ order.  Any errors or events that can be derived from the Kubernetes API are
 in-scope for the Threeport Agent.  Observability systems should be used for
 deeper logging and metrics data.
 
+## See Also
+
+* [threeport-agent README](../cmd/agent/README.md)
+
 ## Interface with Kubernetes
 
 When a workload instance controller creates resources in Kubernetes, it uses a
@@ -35,7 +39,24 @@ leveraged.
 When events occur related to watched Kubernetes workload resources, it makes
 calls back to the Threeport API to surface those events to Threeport users.
 
-## See Also
+## Threeport Internals
 
-* [threeport-agent README](../cmd/agent/README.md)
+The Threeport Agent watches and reports on all resources that are deployed as a
+part of a workload.
+
+The following diagram illustrates what the Threeport Agent does internally.
+This example shows what it does to report a Deployment resource in Kubernetes.
+In the case of a Deployment, the Pods and Replicasets are also watched and
+events collected.  The same goes for other Kubernetes resources that abstract
+Pods.  For all other Kubernetes resources those abstracted types aren't
+relevant.
+
+The agent watches the Deployment and reports all operations that are made on it.
+It also starts an informer to collect events that are related to that
+Deployment.  Events related to the derived Repliaset and Pods is also reported.
+
+Everything is sent on channels to a Notifer that is responsible for sending
+updates to the Threeport API.
+
+![threeport-agent internals](../../docs/img/ThreeportAgentInternals.png)
 
