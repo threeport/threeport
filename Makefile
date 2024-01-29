@@ -11,6 +11,10 @@ help:
 install-codegen:
 	go build -o $(GOPATH)/bin/threeport-codegen cmd/codegen/main.go
 
+#build-database-migrator: @ Build database migrator
+build-database-migrator:
+	go build -o bin/database-migrator cmd/database-migrator/main.go
+
 #build-tptdev: @ Build tptdev binary
 build-tptdev:
 	go build -o bin/tptdev cmd/tptdev/main.go

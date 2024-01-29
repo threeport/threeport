@@ -45,12 +45,6 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if autoMigrate {
-		if err := db.AutoMigrate(GetDbInterfaces()...); err != nil {
-			return nil, err
-		}
-	}
-
 	return db, nil
 }
 

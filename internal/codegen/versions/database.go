@@ -110,16 +110,6 @@ func (gvc *GlobalVersionConfig) DatabaseInit() error {
 			),
 		),
 		Line(),
-		If(
-			Id("autoMigrate").Block(
-				If(Id("err").Op(":=").Id("db").Dot("AutoMigrate").Call(
-					Id("GetDbInterfaces").Parens(Empty()).Op("..."),
-				).Op(";").Id("err").Op("!=").Nil().Block(
-					Return().Nil().Op(",").Id("err")),
-				),
-			),
-		),
-		Line(),
 		Return().Id("db").Op(",").Nil(),
 	)
 

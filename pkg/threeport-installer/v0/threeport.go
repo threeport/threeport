@@ -40,6 +40,12 @@ const (
 
 	// Name of default Kuberentes service account resource
 	DefaultServiceAccount = "default"
+
+	// Database migrator info
+	DatabaseMigratorName = "database-migrator"
+
+	// Cockroach db image tag
+	DatabaseImageTag = "v23.1.14"
 )
 
 var enabled bool = true
@@ -120,6 +126,13 @@ var ThreeportAgent *v0.ControlPlaneComponent = &v0.ControlPlaneComponent{
 	ImageTag:           version.GetVersion(),
 	ServiceAccountName: DefaultServiceAccount,
 	Enabled:            &enabled,
+}
+
+var DatabaseMigrator *v0.ControlPlaneComponent = &v0.ControlPlaneComponent{
+	Name:       DatabaseMigratorName,
+	BinaryName: DatabaseMigratorName,
+	ImageName:  DatabaseMigratorName,
+	ImageRepo:  ThreeportImageRepo,
 }
 
 const (

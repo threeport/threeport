@@ -27,6 +27,9 @@ type Options struct {
 	// Info for the Rest Api being installed
 	RestApiInfo *v0.ControlPlaneComponent
 
+	// Info for the Database migrator being installed for the Rest Api
+	DatabaseMigratorInfo *v0.ControlPlaneComponent
+
 	// Info for the agent being installed
 	AgentInfo *v0.ControlPlaneComponent
 
@@ -116,6 +119,7 @@ func (cpi *ControlPlaneInstaller) SetAllImageRepo(imageRepo string) {
 	}
 	cpi.Opts.RestApiInfo.ImageRepo = imageRepo
 	cpi.Opts.AgentInfo.ImageRepo = imageRepo
+	cpi.Opts.DatabaseMigratorInfo.ImageRepo = imageRepo
 }
 
 func (cpi *ControlPlaneInstaller) SetAllImageTags(imageTag string) {
@@ -124,6 +128,7 @@ func (cpi *ControlPlaneInstaller) SetAllImageTags(imageTag string) {
 	}
 	cpi.Opts.RestApiInfo.ImageTag = imageTag
 	cpi.Opts.AgentInfo.ImageTag = imageTag
+	cpi.Opts.DatabaseMigratorInfo.ImageTag = imageTag
 }
 
 func Name(n string) InstallerOption {
@@ -173,15 +178,16 @@ func defaultInstallFunction(kubernetesRuntimeInstance *v0.KubernetesRuntimeInsta
 }
 
 var defaultInstallerOptions = Options{
-	Name:                ControlPlaneName,
-	Namespace:           ControlPlaneNamespace,
-	ControllerList:      ThreeportControllerList,
-	RestApiInfo:         ThreeportRestApi,
-	AgentInfo:           ThreeportAgent,
-	PreInstallFunction:  defaultInstallFunction,
-	PostInstallFunction: defaultInstallFunction,
-	InThreeport:         false,
-	AdditionalOptions:   make(map[string]interface{}),
+	Name:                 ControlPlaneName,
+	Namespace:            ControlPlaneNamespace,
+	ControllerList:       ThreeportControllerList,
+	RestApiInfo:          ThreeportRestApi,
+	DatabaseMigratorInfo: DatabaseMigrator,
+	AgentInfo:            ThreeportAgent,
+	PreInstallFunction:   defaultInstallFunction,
+	PostInstallFunction:  defaultInstallFunction,
+	InThreeport:          false,
+	AdditionalOptions:    make(map[string]interface{}),
 }
 
 func NewInstaller(os ...InstallerOption) *ControlPlaneInstaller {

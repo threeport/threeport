@@ -42,8 +42,12 @@ var buildCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		components := installer.AllControlPlaneComponents()
+		components = append(components, installer.DatabaseMigrator)
+
 		// create list of components to build
-		componentList, err := GetComponentList(buildComponentNames, installer.AllControlPlaneComponents())
+		componentList, err := GetComponentList(buildComponentNames, components)
+
 		if err != nil {
 			cli.Error("failed to get component list:", err)
 		}

@@ -67,6 +67,15 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 	apiServicePortName, apiServicePort := cpi.GetAPIServicePort()
 	apiImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.RestApiInfo.ImagePullSecretName)
 
+	dbMigratorImage := fmt.Sprintf(
+		"%s/%s:%s",
+		cpi.Opts.DatabaseMigratorInfo.ImageRepo,
+		cpi.Opts.DatabaseMigratorInfo.ImageName,
+		cpi.Opts.DatabaseMigratorInfo.ImageTag,
+	)
+
+	dbMigratorArgs := []interface{}{"-env-file=/etc/threeport/env", "up"}
+
 	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -142,7 +151,7 @@ NATS_PORT=4222
 						"initContainers": []interface{}{
 							map[string]interface{}{
 								"name":            "db-init",
-								"image":           "cockroachdb/cockroach:v22.2.2",
+								"image":           fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
 								"imagePullPolicy": "IfNotPresent",
 								"command": []interface{}{
 									"bash",
@@ -156,6 +165,19 @@ NATS_PORT=4222
 									map[string]interface{}{
 										"name":      "db-create",
 										"mountPath": "/etc/threeport/db-create",
+									},
+								},
+							},
+							map[string]interface{}{
+								"name":            "database-migrator",
+								"image":           dbMigratorImage,
+								"imagePullPolicy": "IfNotPresent",
+								"command":         cpi.getCommand(cpi.Opts.DatabaseMigratorInfo.BinaryName),
+								"args":            dbMigratorArgs,
+								"volumeMounts": []interface{}{
+									map[string]interface{}{
+										"name":      "db-config",
+										"mountPath": "/etc/threeport/",
 									},
 								},
 							},
