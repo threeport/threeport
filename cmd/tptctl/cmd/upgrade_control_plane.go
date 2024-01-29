@@ -26,7 +26,7 @@ var updateImageTag string
 // UpCmd represents the create threeport command
 var UpgradeControlPlaneCmd = &cobra.Command{
 	Use:     "control-plane",
-	Example: "tptctl upgrade control-plane --version=v0.5",
+	Example: "tptctl upgrade control-plane --version=v0.5.0",
 	Short:   "Upgrades the version of the Threeport control plane",
 	Long: `Upgrades the version of the Threeport control plane. The version should be a valid
 	image tag.`,
