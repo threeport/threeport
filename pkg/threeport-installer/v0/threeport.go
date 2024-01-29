@@ -43,7 +43,9 @@ const (
 
 	// Database migrator info
 	DatabaseMigratorName = "database-migrator"
-	DatabaseImageTag     = "v23.1.14"
+
+	// Cockroach db image tag
+	DatabaseImageTag = "v23.1.14"
 )
 
 var enabled bool = true
