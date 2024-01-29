@@ -153,6 +153,10 @@ func CreateResponseWithError401(params *PageRequestParams, error error, objectTy
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), error.Error()), objectType)
 }
 
+func CreateResponseWithError403(params *PageRequestParams, error error, objectType ObjectType) *Response {
+	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusForbidden, http.StatusText(http.StatusForbidden), error.Error()), objectType)
+}
+
 func CreateResponseWithError404(params *PageRequestParams, error error, objectType ObjectType) *Response {
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusNotFound, http.StatusText(http.StatusNotFound), error.Error()), objectType)
 }

@@ -4,7 +4,6 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -33,9 +32,10 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// flag validation
-		if err := validateDeleteWorkloadDefinitionFlags(
+		if err := cli.ValidateConfigNameFlags(
 			deleteWorkloadDefinitionConfigPath,
 			deleteWorkloadDefinitionName,
+			"workload definition",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
@@ -88,17 +88,4 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
-}
-
-// validateDeleteWorkloadDefinitionFlags validates flag inputs as needed.
-func validateDeleteWorkloadDefinitionFlags(workloadDefConfigPath, workloadDefName string) error {
-	if workloadDefConfigPath == "" && workloadDefName == "" {
-		return errors.New("must provide either workload definition name or path to config file")
-	}
-
-	if workloadDefConfigPath != "" && workloadDefName != "" {
-		return errors.New("workload definition name and path to config file provided - provide only one")
-	}
-
-	return nil
 }

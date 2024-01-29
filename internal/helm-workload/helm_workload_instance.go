@@ -13,11 +13,17 @@ import (
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/repo"
+	kubeerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	yamlserailizer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/client-go/dynamic"
 
+	"github.com/threeport/threeport/internal/agent"
+	agentapi "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -169,6 +175,63 @@ func helmWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to install helm chart: %w", err)
 	}
 
+	// construct ThreeportWorkload resource to inform the threeport-agent of
+	// which resources it should watch
+	threeportWorkloadName, err := agent.ThreeportWorkloadName(
+		*helmWorkloadInstance.ID,
+		agent.HelmWorkloadInstanceType,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to generate threeport workload resource name: %w", err)
+	}
+	threeportWorkload := agentapi.ThreeportWorkload{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: threeportWorkloadName,
+		},
+		Spec: agentapi.ThreeportWorkloadSpec{
+			WorkloadType:       agent.HelmWorkloadInstanceType,
+			WorkloadInstanceID: *helmWorkloadInstance.ID,
+		},
+	}
+
+	// add workload resource instances to the threeport workload resource
+	splitManifests := releaseutil.SplitManifests(release.Manifest)
+	for _, manifest := range splitManifests {
+		// convert to unstructured kube object
+		serializer := yamlserailizer.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+		kubeObject := &unstructured.Unstructured{}
+		_, _, err := serializer.Decode([]byte(manifest), nil, kubeObject)
+		if err != nil {
+			return 0, fmt.Errorf("failed to decode YAML manifest to unstructured object for threeport workload resource: %w", err)
+		}
+
+		// populate workload resource instances and append to threeeport
+		// workload
+		agentWRI := agentapi.WorkloadResourceInstance{
+			Name:      kubeObject.GetName(),
+			Namespace: kubeObject.GetNamespace(),
+			Group:     kubeObject.GroupVersionKind().Group,
+			Version:   kubeObject.GroupVersionKind().Version,
+			Kind:      kubeObject.GetKind(),
+		}
+		threeportWorkload.Spec.WorkloadResourceInstances = append(
+			threeportWorkload.Spec.WorkloadResourceInstances,
+			agentWRI,
+		)
+	}
+
+	// create the ThreeportWorkload resource to inform the threeport-agent of
+	// the resources that need to be watched
+	resourceClient := kubeClient.Resource(agentapi.ThreeportWorkloadGVR)
+	unstructured, err := agentapi.UnstructuredThreeportWorkload(&threeportWorkload)
+	if err != nil {
+		return 0, fmt.Errorf("failed to generate unstructured object for ThreeportWorkload resource for creation in runtime kubernetes runtime")
+	}
+	_, err = resourceClient.Create(context.Background(), unstructured, metav1.CreateOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to create new ThreeportWorkload resource: %w", err)
+	}
+
 	// clean up files written to disk
 	if err := cleanLocalFiles(); err != nil {
 		// logging err but not returning it as it is non-critical and we do not
@@ -210,6 +273,38 @@ func helmWorkloadInstanceDeleted(
 	); err != nil {
 		return 0, fmt.Errorf("failed to uninstall helm release: %w", err)
 	}
+
+	// delete the ThreeportWorkload resource to inform the threeport-agent the
+	// resources are gone
+	resourceClient := kubeClient.Resource(agentapi.ThreeportWorkloadGVR)
+	threeportWorkloadName, err := agent.ThreeportWorkloadName(
+		*helmWorkloadInstance.ID,
+		agent.HelmWorkloadInstanceType,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to determine threeport workload resource name: %w", err)
+	}
+	if err = resourceClient.Delete(
+		context.Background(),
+		threeportWorkloadName,
+		metav1.DeleteOptions{},
+	); err != nil && !kubeerr.IsNotFound(err) {
+		return 0, fmt.Errorf("failed to delete ThreeportWorkload resource: %w", err)
+	}
+
+	// delete workload events related to workload instance
+	_, err = client.DeleteWorkloadEventsByQueryString(
+		r.APIClient,
+		r.APIServer,
+		fmt.Sprintf("helmworkloadinstanceid=%d", *helmWorkloadInstance.ID),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete workload events for helm workload instance with ID %d: %w", helmWorkloadInstance.ID, err)
+	}
+	log.V(1).Info(
+		"workload events deleted",
+		"helmWorkloadInstanceID", helmWorkloadInstance.ID,
+	)
 
 	// clean up files written to disk
 	if err := cleanLocalFiles(); err != nil {

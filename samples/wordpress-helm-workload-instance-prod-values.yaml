@@ -1,0 +1,4 @@
+replicaCount: 4
+commonLabels:
+  tier: "prod"
+

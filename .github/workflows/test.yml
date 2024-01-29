@@ -84,6 +84,36 @@ jobs:
         dockerfile: cmd/gateway-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
 
+  build-control-plane-controller:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Build control-plane-controller
+      uses: macbre/push-to-ghcr@master
+      with:
+        image_name: threeport/threeport-control-plane-controller
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/control-plane-controller/image/Dockerfile
+        image_tag: ${{ github.sha }}
+
+  build-helm-workload-controller:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Build helm-workload-controller
+      uses: macbre/push-to-ghcr@master
+      with:
+        image_name: threeport/threeport-helm-workload-controller
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/helm-workload-controller/image/Dockerfile
+        image_tag: ${{ github.sha }}
+
   build-threeport-agent:
     runs-on: ubuntu-22.04
     steps:

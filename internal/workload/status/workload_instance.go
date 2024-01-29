@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
+	"github.com/threeport/threeport/internal/agent"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
@@ -52,19 +53,47 @@ type WorkloadInstanceStatusDetail struct {
 func GetWorkloadInstanceStatus(
 	apiClient *http.Client,
 	apiEndpoint string,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstanceType string,
+	workloadInstanceId uint,
+	workloadInstanceReconciled bool,
 ) *WorkloadInstanceStatusDetail {
 	var workloadInstanceStatusDetail WorkloadInstanceStatusDetail
 
 	// retrieve events for workload instance
-	workloadEvents, err := client.GetWorkloadEventsByWorkloadInstanceID(
-		apiClient,
-		apiEndpoint,
-		*workloadInstance.ID,
-	)
-	if err != nil {
+	var workloadEvents *[]v0.WorkloadEvent
+	switch workloadInstanceType {
+	case agent.WorkloadInstanceType:
+		we, err := client.GetWorkloadEventsByQueryString(
+			apiClient,
+			apiEndpoint,
+			fmt.Sprintf("workloadinstanceid=%d", workloadInstanceId),
+		)
+		if err != nil {
+			workloadInstanceStatusDetail.Status = WorkloadInstanceStatusError
+			workloadInstanceStatusDetail.Error = fmt.Errorf("failed to get workload events from API: %w", err)
+			return &workloadInstanceStatusDetail
+		}
+		workloadEvents = we
+	case agent.HelmWorkloadInstanceType:
+		we, err := client.GetWorkloadEventsByQueryString(
+			apiClient,
+			apiEndpoint,
+			fmt.Sprintf("helmworkloadinstanceid=%d", workloadInstanceId),
+		)
+		if err != nil {
+			workloadInstanceStatusDetail.Status = WorkloadInstanceStatusError
+			workloadInstanceStatusDetail.Error = fmt.Errorf("failed to get workload events from API: %w", err)
+			return &workloadInstanceStatusDetail
+		}
+		workloadEvents = we
+	default:
 		workloadInstanceStatusDetail.Status = WorkloadInstanceStatusError
-		workloadInstanceStatusDetail.Error = fmt.Errorf("failed to get workload events from API: %w", err)
+		workloadInstanceStatusDetail.Error = fmt.Errorf(
+			"%s is an unrecognized workload type - recoginzed types: [%s,%s]",
+			workloadInstanceType,
+			agent.WorkloadInstanceType,
+			agent.HelmWorkloadInstanceType,
+		)
 		return &workloadInstanceStatusDetail
 	}
 
@@ -95,7 +124,8 @@ func GetWorkloadInstanceStatus(
 	workloadInstanceStatusDetail.Events = alertEvents
 
 	// check workload instance is reconciled
-	if !*workloadInstance.Reconciled {
+	//if !*workloadInstance.Reconciled {
+	if !workloadInstanceReconciled {
 		workloadInstanceStatusDetail.Status = WorkloadInstanceStatusReconciling
 		return &workloadInstanceStatusDetail
 	}
@@ -104,7 +134,7 @@ func GetWorkloadInstanceStatus(
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
 		apiClient,
 		apiEndpoint,
-		*workloadInstance.ID,
+		workloadInstanceId,
 	)
 	if err != nil {
 		workloadInstanceStatusDetail.Status = WorkloadInstanceStatusError

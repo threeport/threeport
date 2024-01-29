@@ -4,7 +4,6 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -35,9 +34,10 @@ the AWS object storage bucket config or name.`,
 		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// flag validation
-		if err := validateDeleteAwsObjectStorageBucketFlags(
+		if err := cli.ValidateConfigNameFlags(
 			deleteAwsObjectStorageBucketConfigPath,
 			deleteAwsObjectStorageBucketName,
+			"AWS object storage bucket",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
@@ -89,17 +89,4 @@ func init() {
 		&deleteAwsObjectStorageBucketName,
 		"name", "n", "", "Name of AWS object storage bucket.",
 	)
-}
-
-// validateDeleteAwsObjectStorageBucketFlags validates flag inputs as needed.
-func validateDeleteAwsObjectStorageBucketFlags(awsObjectStorageBucketConfigPath, awsObjectStorageBucketName string) error {
-	if awsObjectStorageBucketConfigPath == "" && awsObjectStorageBucketName == "" {
-		return errors.New("must provide either AWS object storage bucket name or path to config file")
-	}
-
-	if awsObjectStorageBucketConfigPath != "" && awsObjectStorageBucketName != "" {
-		return errors.New("AWS object storage bucket name and path to config file provided - provide only one")
-	}
-
-	return nil
 }

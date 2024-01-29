@@ -312,11 +312,17 @@ func (h Handler) DeleteHelmWorkloadDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeHelmWorkloadDefinition
 	helmWorkloadDefinitionID := c.Param("id")
 	var helmWorkloadDefinition v0.HelmWorkloadDefinition
-	if result := h.DB.First(&helmWorkloadDefinition, helmWorkloadDefinitionID); result.Error != nil {
+	if result := h.DB.Preload("HelmWorkloadInstances").First(&helmWorkloadDefinition, helmWorkloadDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check to make sure no dependent instances exist for this definition
+	if len(helmWorkloadDefinition.HelmWorkloadInstances) != 0 {
+		err := errors.New("helm workload definition has related helm workload instances - cannot be deleted")
+		return iapi.ResponseStatus409(c, nil, err, objectType)
 	}
 
 	// schedule for deletion if not already scheduled

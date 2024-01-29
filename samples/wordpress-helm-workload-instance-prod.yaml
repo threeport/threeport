@@ -1,0 +1,6 @@
+HelmWorkloadInstance:
+  Name: wordpress-prod
+  ValuesDocument: samples/wordpress-helm-workload-instance-prod-values.yaml
+  HelmWorkloadDefinition:
+    Name: wordpress
+

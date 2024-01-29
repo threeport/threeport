@@ -26,6 +26,7 @@ import (
 func (r *ThreeportWorkloadReconciler) watchResource(
 	ctx context.Context,
 	gvr schema.GroupVersionResource,
+	workloadType string,
 	workloadInstanceID uint,
 	resourceName string,
 	resourceNamespace string,
@@ -38,6 +39,7 @@ func (r *ThreeportWorkloadReconciler) watchResource(
 		"resource", gvr.Resource,
 		"resourceName", resourceName,
 		"resourceNamespace", resourceNamespace,
+		"workloadType", workloadType,
 		"workloadResourceInstanceID", threeportID,
 	)
 
@@ -71,7 +73,14 @@ func (r *ThreeportWorkloadReconciler) watchResource(
 	go informer.Run(stopChan)
 
 	// add an event handler for the events informer
-	r.addEventEventHandlers(ctx, resourceUID, workloadInstanceID, threeportID, informer)
+	r.addEventEventHandlers(
+		ctx,
+		resourceUID,
+		workloadType,
+		workloadInstanceID,
+		threeportID,
+		informer,
+	)
 
 	// when the manager context receives an interrupt signal to shut down the
 	// threeport-agent, close the watch and the stop the informer
@@ -114,6 +123,7 @@ func (r *ThreeportWorkloadReconciler) watchResource(
 		// create notification object and send over notif channel so that
 		// threeport API gets updated
 		resourceOp := notify.ResourceOperation{
+			WorkloadType:               workloadType,
 			WorkloadResourceInstanceID: threeportID,
 			OperationType:              string(op.Type),
 			OperationObject:            string(objectJSON),

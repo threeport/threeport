@@ -10,6 +10,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -105,7 +106,6 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	relativeYamlPath := path.Join(configPath, wd.YAMLDocument)
 
 	// load YAML document
-	//definitionContent, err := os.ReadFile(wd.YAMLDocument)
 	definitionContent, err := os.ReadFile(relativeYamlPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read definition YAMLDocument file %s: %w", wd.YAMLDocument, err)
@@ -247,7 +247,13 @@ func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint s
 	}
 
 	// get workload instance status
-	statusDetail := status.GetWorkloadInstanceStatus(apiClient, apiEndpoint, workloadInstance)
+	statusDetail := status.GetWorkloadInstanceStatus(
+		apiClient,
+		apiEndpoint,
+		agent.WorkloadInstanceType,
+		*workloadInstance.ID,
+		*workloadInstance.Reconciled,
+	)
 	if statusDetail.Error != nil {
 		return nil, fmt.Errorf("failed to get status for workload instance with name %s: %w", wi.Name, statusDetail.Error)
 	}

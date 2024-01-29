@@ -418,6 +418,24 @@ definitions:
     type: object
   v0.ControlPlaneComponent:
     properties:
+      AdditionalEnvRef:
+        description: The additional env reference to be added to the environment variables
+          of the component
+        items:
+          type: integer
+        type: array
+      AdditionalVolumeMounts:
+        description: The additional volume mounts to be added to the deployment spec
+          of the component
+        items:
+          type: integer
+        type: array
+      AdditionalVolumes:
+        description: The additional volumes to be added to the deployment spec of
+          the component
+        items:
+          type: integer
+        type: array
       BinaryName:
         description: The binary name of the component
         type: string
@@ -1433,15 +1451,20 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - Profile
-    - Tier
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - AwsObjectStorageBucketDefinition
+    - AwsObjectStorageBucketInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -1450,32 +1473,32 @@ definitions:
     - WorkloadEvent
     - ControlPlaneDefinition
     - ControlPlaneInstance
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
+    - Profile
+    - Tier
     - GatewayDefinition
     - GatewayInstance
     - GatewayHttpPort
     - GatewayTcpPort
     - DomainNameDefinition
     - DomainNameInstance
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - AwsObjectStorageBucketDefinition
-    - AwsObjectStorageBucketInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeAwsObjectStorageBucketDefinition
+    - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -1484,21 +1507,16 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeControlPlaneDefinition
     - ObjectTypeControlPlaneInstance
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
     - ObjectTypeGatewayHttpPort
     - ObjectTypeGatewayTcpPort
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeAwsObjectStorageBucketDefinition
-    - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
   v0.Profile:
     properties:
       Name:
@@ -1633,6 +1651,9 @@ definitions:
     type: object
   v0.WorkloadEvent:
     properties:
+      HelmWorkloadInstanceID:
+        description: The related helm workload instance.
+        type: integer
       Message:
         description: The message associated with the event.
         type: string
@@ -7764,28 +7785,22 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload definition by replacing the entire object.
-  /v0/workload-event-sets/{workloadInstanceID}:
+  /v0/workload-events:
     delete:
       consumes:
       - application/json
-      description: Deletes a set of workload events by workload instance ID from the
-        database.
+      description: Deletes workload events by query parameter from the database.
       operationId: delete-workloadEventSet
       parameters:
-      - description: workloadInstanceID
-        in: path
-        name: workloadInstanceID
-        required: true
-        type: integer
+      - description: workload event search by name
+        in: query
+        name: name
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
           schema:
             $ref: '#/definitions/v0.Response'
         "409":
@@ -7796,40 +7811,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-      summary: deletes a workload event set by workload instance ID.
-    get:
-      consumes:
-      - application/json
-      description: Gets a set of workload events by workload instance ID from the
-        database.
-      operationId: get-workloadEventSet
-      parameters:
-      - description: workloadInstanceID
-        in: path
-        name: workloadInstanceID
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a workload event set by workload instance ID.
-  /v0/workload-events:
+      summary: deletes a workload event set by query parameter.
     get:
       consumes:
       - application/json

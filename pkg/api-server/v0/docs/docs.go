@@ -8375,100 +8375,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/workload-event-sets/{workloadInstanceID}": {
-            "get": {
-                "description": "Gets a set of workload events by workload instance ID from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a workload event set by workload instance ID.",
-                "operationId": "get-workloadEventSet",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "workloadInstanceID",
-                        "name": "workloadInstanceID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Deletes a set of workload events by workload instance ID from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a workload event set by workload instance ID.",
-                "operationId": "delete-workloadEventSet",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "workloadInstanceID",
-                        "name": "workloadInstanceID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/v0/workload-events": {
             "get": {
                 "description": "Get all workload events from the Threeport database.",
@@ -8539,6 +8445,45 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes workload events by query parameter from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a workload event set by query parameter.",
+                "operationId": "delete-workloadEventSet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workload event search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/v0.Response"
                         }
@@ -10214,6 +10159,27 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AdditionalEnvRef": {
+                    "description": "The additional env reference to be added to the environment variables of the component",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "AdditionalVolumeMounts": {
+                    "description": "The additional volume mounts to be added to the deployment spec of the component",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "AdditionalVolumes": {
+                    "description": "The additional volumes to be added to the deployment spec of the component",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "BinaryName": {
                     "description": "The binary name of the component",
                     "type": "string"
@@ -11264,15 +11230,20 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "Profile",
-                "Tier",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "AwsObjectStorageBucketDefinition",
+                "AwsObjectStorageBucketInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -11281,32 +11252,32 @@ const docTemplate = `{
                 "WorkloadEvent",
                 "ControlPlaneDefinition",
                 "ControlPlaneInstance",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
+                "Profile",
+                "Tier",
                 "GatewayDefinition",
                 "GatewayInstance",
                 "GatewayHttpPort",
                 "GatewayTcpPort",
                 "DomainNameDefinition",
-                "DomainNameInstance",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance",
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance"
+                "DomainNameInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeAwsObjectStorageBucketDefinition",
+                "ObjectTypeAwsObjectStorageBucketInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
@@ -11315,21 +11286,16 @@ const docTemplate = `{
                 "ObjectTypeWorkloadEvent",
                 "ObjectTypeControlPlaneDefinition",
                 "ObjectTypeControlPlaneInstance",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeGatewayHttpPort",
                 "ObjectTypeGatewayTcpPort",
                 "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance"
+                "ObjectTypeDomainNameInstance"
             ]
         },
         "v0.Profile": {
@@ -11498,6 +11464,10 @@ const docTemplate = `{
                 "Type"
             ],
             "properties": {
+                "HelmWorkloadInstanceID": {
+                    "description": "The related helm workload instance.",
+                    "type": "integer"
+                },
                 "Message": {
                     "description": "The message associated with the event.",
                     "type": "string"
