@@ -72,3 +72,40 @@ Push the tag to trigger the release process with the CI fixes in place.
 git push origin --tag
 ```
 
+## Feature Branch for Subsequent Release
+
+Immediately after cutting a release, create a new feature branch.  Check out
+main branch and ensure you have all remote changes locally.  The examples below
+were used after the v0.4.0 release was cut and a feature branch was created for
+the next 0.5 release.
+
+```bash
+git checkout -b 0.5
+```
+
+Update the base branch check in `.github/workflows/base-branch.yml`.  In this
+example we just need to replace `0.4` with `0.5`.
+
+Commit the change and push the new 0.5 branch.
+
+```bash
+git add .
+git commit -s -m "ci: update base branch check for 0.5 feature branch"
+git push origin 0.5
+```
+
+All new features will now be added to the 0.5 feature branch.
+
+## Bug Fixes
+
+The following applies to bugs that are discovered that affect a released
+version.  In this example, it would be a bug that is present in the v0.4.0
+release.
+
+For bugs that affect v0.4.0, a PR that *only* addresses the bug should be merged
+into the 0.5 feature branch.
+
+Then, that squashed commit from the PR should be cherry picked onto main branch
+and a v0.4.1 release cut (using the process above) to provide a fix to any users
+using the latest releases.
+
