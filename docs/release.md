@@ -1,9 +1,11 @@
 # Threeport Releases
 
-Following is the process for releasing a new version of threeport.
+## Latest Release
+
+Following is the process for releasing a new "latest release" version of Threeport.
 
 Once all PRs have been merged into the feature branch, e.g. 0.5 branch, pull
-all remote changes to the feature branch to your local machine.
+all remote changes on the feature branch to your local machine.
 
 Next, checkout main branch and merge the feature branch.
 
@@ -36,5 +38,37 @@ release candidate version format with the rc suffix.
 
 ```bash
 export RELEASE_VERSION=v0.4.0-rc.2 && make release
+```
+
+## Failed Release CI
+
+Should the CI process for a release fail, take the following steps.
+
+Make the changes necessary to remedy the problem and commit them to the main
+branch.
+
+Delete the tag that marked the release locally.  The following examples are for
+the v0.4.0 release.  Adjust the release tag accordingly.
+
+```bash
+git tag -d v0.4.0
+```
+
+Delete the remote tag.
+
+```bash
+git push --delete origin v0.4.0
+```
+
+Re-apply the tag for the current release.
+
+```bash
+git tag v0.4.0
+```
+
+Push the tag to trigger the release process with the CI fixes in place.
+
+```bash
+git push origin --tag
 ```
 
