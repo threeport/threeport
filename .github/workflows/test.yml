@@ -24,6 +24,21 @@ jobs:
         dockerfile: cmd/rest-api/image/Dockerfile
         image_tag: ${{ github.sha }}
 
+  build-threeport-database-migrator:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Build threeport API
+      uses: macbre/push-to-ghcr@master
+      with:
+        image_name: threeport/threeport-database-migrator
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/database-migrator/image/Dockerfile
+        image_tag: ${{ github.sha }}
+
   build-workload-controller:
     runs-on: ubuntu-22.04
     steps:
