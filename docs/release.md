@@ -86,13 +86,38 @@ git checkout -b 0.5
 Update the base branch check in `.github/workflows/base-branch.yml`.  In this
 example we just need to replace `0.4` with `0.5`.
 
-Commit the change and push the new 0.5 branch.
-
 ```bash
 git add .
 git commit -s -m "ci: update base branch check for 0.5 feature branch"
+```
+
+This is also a good time to update go dependency versions.
+
+```bash
+go get -u ./...
+go mod tidy
+```
+
+Now, you should re-build and test to make sure the dependency updates didn't break
+anything.
+
+```
+make build-tptdev
+./bin/tptdev build
+./bin/tptdev up
+make tests
+```
+
+Provided everything is still in working order, we can now push the changes.
+
+Commit the changes and push the new 0.5 branch.
+
+```bash
+git add .
+git commit -s -m "dev: update go dependencies"
 git push origin 0.5
 ```
+
 
 All new features will now be added to the 0.5 feature branch.
 
