@@ -11,6 +11,7 @@ const (
 
 	// Official image names for threeport control plane components
 	ThreeportAPIImage                         = "threeport-rest-api"
+	ThreeportDatabaseMigratorImage            = "threeport-database-migrator"
 	ThreeportWorkloadControllerImage          = "threeport-workload-controller"
 	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
 	ThreeportControlPlaneControllerImage      = "threeport-control-plane-controller"
@@ -21,6 +22,7 @@ const (
 
 	// Name of threeport control plane components
 	ThreeportRestApiName                     = "rest-api"
+	ThreeportDatabaseMigratorName            = "database-migrator"
 	ThreeportWorkloadControllerName          = "workload-controller"
 	ThreeportKubernetesRuntimeControllerName = "kubernetes-runtime-controller"
 	ThreeportControlPlaneControllerName      = "control-plane-controller"
@@ -40,9 +42,6 @@ const (
 
 	// Name of default Kuberentes service account resource
 	DefaultServiceAccount = "default"
-
-	// Database migrator info
-	DatabaseMigratorName = "database-migrator"
 
 	// Cockroach db image tag
 	DatabaseImageTag = "v23.1.14"
@@ -129,10 +128,11 @@ var ThreeportAgent *v0.ControlPlaneComponent = &v0.ControlPlaneComponent{
 }
 
 var DatabaseMigrator *v0.ControlPlaneComponent = &v0.ControlPlaneComponent{
-	Name:       DatabaseMigratorName,
-	BinaryName: DatabaseMigratorName,
-	ImageName:  DatabaseMigratorName,
+	Name:       ThreeportDatabaseMigratorName,
+	BinaryName: ThreeportDatabaseMigratorName,
+	ImageName:  ThreeportDatabaseMigratorImage,
 	ImageRepo:  ThreeportImageRepo,
+	ImageTag:   version.GetVersion(),
 }
 
 const (
