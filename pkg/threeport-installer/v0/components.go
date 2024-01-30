@@ -62,9 +62,6 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 		return fmt.Errorf("could not get vols: %w", err)
 	}
 
-	apiServiceType := cpi.getAPIServiceType()
-	apiServiceAnnotations := cpi.getAPIServiceAnnotations()
-	apiServicePortName, apiServicePort := cpi.GetAPIServicePort()
 	apiImagePullSecrets := cpi.getImagePullSecrets(cpi.Opts.RestApiInfo.ImagePullSecretName)
 
 	dbMigratorImage := fmt.Sprintf(
@@ -216,40 +213,6 @@ NATS_PORT=4222
 	}
 	if err := cpi.CreateOrUpdateKubeResource(apiDeployment, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create API server deployment: %w", err)
-	}
-
-	// configure node port based on infra provider
-	port := map[string]interface{}{
-		"name":       apiServicePortName,
-		"port":       apiServicePort,
-		"protocol":   "TCP",
-		"targetPort": 1323,
-	}
-	if cpi.Opts.InfraProvider == "kind" && !cpi.Opts.InThreeport {
-		port["nodePort"] = 30000
-	}
-	var apiService = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Service",
-			"metadata": map[string]interface{}{
-				"name":        cpi.Opts.RestApiInfo.ServiceResourceName,
-				"namespace":   cpi.Opts.Namespace,
-				"annotations": apiServiceAnnotations,
-			},
-			"spec": map[string]interface{}{
-				"selector": map[string]interface{}{
-					"app.kubernetes.io/name": cpi.Opts.RestApiInfo.ServiceResourceName,
-				},
-				"ports": []interface{}{
-					port,
-				},
-				"type": apiServiceType,
-			},
-		},
-	}
-	if err := cpi.CreateOrUpdateKubeResource(apiService, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server service: %w", err)
 	}
 
 	return nil
