@@ -938,12 +938,7 @@ func configureTcpGatewayRuntimeParameters(
 	return tcpGateways, nil
 }
 
-// getSubDomain returns the subdomain for a gateway definition and domain name definition
-func getSubDomain(gatewayDefinition *v0.GatewayDefinition, domainNameDefinition *v0.DomainNameDefinition) string {
-	return fmt.Sprintf("%s.%s", *gatewayDefinition.SubDomain, *domainNameDefinition.Domain)
-}
-
-// getSubDomain returns the subdomain for a gateway definition and domain name definition
+// getSubDomain returns the subdomain for a gateway definition and domain name definition.
 func getSubDomain(gatewayDefinition *v0.GatewayDefinition, domainNameDefinition *v0.DomainNameDefinition) string {
 	return fmt.Sprintf("%s.%s", *gatewayDefinition.SubDomain, *domainNameDefinition.Domain)
 }
