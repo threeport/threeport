@@ -172,8 +172,10 @@ NATS_PORT=4222
 								"name":            "database-migrator",
 								"image":           dbMigratorImage,
 								"imagePullPolicy": "IfNotPresent",
-								"command":         cpi.getCommand(cpi.Opts.DatabaseMigratorInfo.BinaryName),
-								"args":            dbMigratorArgs,
+								"command": []interface{}{
+									fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
+								},
+								"args": dbMigratorArgs,
 								"volumeMounts": []interface{}{
 									map[string]interface{}{
 										"name":      "db-config",
