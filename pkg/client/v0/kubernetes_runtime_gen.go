@@ -132,7 +132,7 @@ func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name 
 
 	switch {
 	case len(kubernetesRuntimeDefinitions) < 1:
-		return &v0.KubernetesRuntimeDefinition{}, ErrorObjectNotFound
+		return &v0.KubernetesRuntimeDefinition{}, ErrObjectNotFound
 	case len(kubernetesRuntimeDefinitions) > 1:
 		return &v0.KubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("more than one kubernetes runtime definition with name %s returned", name))
 	}
@@ -367,7 +367,7 @@ func GetKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name st
 
 	switch {
 	case len(kubernetesRuntimeInstances) < 1:
-		return &v0.KubernetesRuntimeInstance{}, ErrorObjectNotFound
+		return &v0.KubernetesRuntimeInstance{}, ErrObjectNotFound
 	case len(kubernetesRuntimeInstances) > 1:
 		return &v0.KubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("more than one kubernetes runtime instance with name %s returned", name))
 	}

@@ -315,7 +315,7 @@ func (cc *ControllerConfig) ClientLib() error {
 					Return().Op("&").Qual(
 						fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 						mc.TypeName,
-					).Values().Op(",").Id("ErrorObjectNotFound"),
+					).Values().Op(",").Id("ErrObjectNotFound"),
 				),
 				Case(Len(Id(pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false))).Op(">").Lit(1)).Block(
 					Return().Op("&").Qual(

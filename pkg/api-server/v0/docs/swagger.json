@@ -12308,6 +12308,22 @@
                     "description": "The geographical location for the runtime cluster.  This is an\nabstraction for the cloud provider regions that is mapped into the\nregions used by providers.",
                     "type": "string"
                 },
+                "LoggingEnabled": {
+                    "description": "If true, logging will be enabled for the cluster.",
+                    "type": "boolean"
+                },
+                "LoggingInstanceId": {
+                    "description": "The LoggingInstanceID of the logging deployment",
+                    "type": "integer"
+                },
+                "MetricsEnabled": {
+                    "description": "If true, metrics will be enabled for the cluster.",
+                    "type": "boolean"
+                },
+                "MetricsInstanceId": {
+                    "description": "The MetricsInstanceID of the metrics deployment",
+                    "type": "integer"
+                },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"

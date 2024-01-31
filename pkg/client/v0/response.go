@@ -74,7 +74,7 @@ func GetResponse(
 		// elsewhere
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			return nil, fmt.Errorf("%w: %s", ErrObjectNotFound, response.Status.Error)
+			return nil, ErrObjectNotFound
 		case http.StatusUnauthorized:
 			return nil, fmt.Errorf("%w: %s", ErrUnauthorized, response.Status.Error)
 		case http.StatusForbidden:
