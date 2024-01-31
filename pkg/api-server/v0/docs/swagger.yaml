@@ -1451,11 +1451,31 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - Profile
+    - Tier
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1463,33 +1483,33 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
-    - Profile
-    - Tier
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1497,26 +1517,6 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       Name:
@@ -1833,7 +1833,7 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: v0.4.0-rc.2
+  version: v0.4.0-rc.1
 paths:
   /attached-object-references/versions:
     get:
@@ -7790,7 +7790,7 @@ paths:
       consumes:
       - application/json
       description: Deletes workload events by query parameter from the database.
-      operationId: delete-workloadEventSet
+      operationId: delete-workloadEvents
       parameters:
       - description: workload event search by name
         in: query
@@ -7811,7 +7811,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v0.Response'
-      summary: deletes a workload event set by query parameter.
+      summary: deletes workload events by query parameter.
     get:
       consumes:
       - application/json
