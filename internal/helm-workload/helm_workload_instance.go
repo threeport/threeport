@@ -28,6 +28,7 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -107,8 +108,12 @@ func helmWorkloadInstanceCreated(
 	if helmWorkloadInstance.HelmReleaseNamespace != nil && *helmWorkloadInstance.HelmReleaseNamespace != "" {
 		install.Namespace = *helmWorkloadInstance.HelmReleaseNamespace
 	} else {
-		install.Namespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
+		generatedNamespace := fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
+		install.Namespace = generatedNamespace
+		helmWorkloadInstance.HelmReleaseNamespace = &generatedNamespace
 	}
+
+	install.ReleaseName = fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
 	install.CreateNamespace = true
 	install.DependencyUpdate = true
 	install.PostRenderer = &ThreeportPostRenderer{
@@ -250,6 +255,13 @@ func helmWorkloadInstanceCreated(
 		// want to re-queue reconciliation
 		log.Error(err, "failed to remove files written to disk")
 	}
+	// update helm workload instance reconciled field
+	helmWorkloadInstance.Reconciled = util.BoolPtr(true)
+	_, err = client.UpdateHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		helmWorkloadInstance,
+	)
 
 	return 0, nil
 }
@@ -324,6 +336,53 @@ func helmWorkloadInstanceDeleted(
 		// want to re-queue reconciliation
 		log.Error(err, "failed to remove files written to disk")
 	}
+
+	// delete the namespace
+	// check if any other helm workload instances are using the namespace
+	helmWorkloadInstances, err := client.GetHelmWorkloadInstancesByQueryString(
+		r.APIClient,
+		r.APIServer,
+		fmt.Sprintf("kubernetes-runtime-instance-id=%d", *helmWorkloadInstance.KubernetesRuntimeInstanceID),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get helm workload instances by query string: %w", err)
+	}
+	for _, hwi := range *helmWorkloadInstances {
+		if hwi.HelmReleaseNamespace != nil &&
+			*hwi.HelmReleaseNamespace == *helmWorkloadInstance.HelmReleaseNamespace &&
+			*hwi.ID != *helmWorkloadInstance.ID {
+			return 0, nil
+		}
+	}
+
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*helmWorkloadInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get workload kubernetes runtime instance by ID: %w", err)
+	}
+
+	// get a Kubernetes client and mapper
+	dynamicKubeClient, mapper, err := kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
+	}
+
+	// delete the namespace
+	installer.DeleteNamespaces(
+		dynamicKubeClient,
+		mapper,
+		[]string{*helmWorkloadInstance.HelmReleaseNamespace},
+	)
 
 	return 0, nil
 }
