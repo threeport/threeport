@@ -96,20 +96,19 @@ func helmWorkloadInstanceCreated(
 	}
 
 	install.ReleaseName = helmReleaseName(helmWorkloadInstance)
-	if helmWorkloadInstance.HelmReleaseNamespace != nil && *helmWorkloadInstance.HelmReleaseNamespace != "" {
-		install.Namespace = *helmWorkloadInstance.HelmReleaseNamespace
+	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
+		install.Namespace = *helmWorkloadInstance.ReleaseNamespace
 	} else {
 		generatedNamespace := fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
 		install.Namespace = generatedNamespace
-		helmWorkloadInstance.HelmReleaseNamespace = &generatedNamespace
+		helmWorkloadInstance.ReleaseNamespace = &generatedNamespace
 	}
 
 	// configure version if it is supplied by the workload definition
-	if helmWorkloadDefinition.HelmChartVersion != nil && *helmWorkloadDefinition.HelmChartVersion != "" {
-		install.Version = *helmWorkloadDefinition.HelmChartVersion
+	if helmWorkloadDefinition.ChartVersion != nil && *helmWorkloadDefinition.ChartVersion != "" {
+		install.Version = *helmWorkloadDefinition.ChartVersion
 	}
 
-	install.ReleaseName = fmt.Sprintf("%s", *helmWorkloadInstance.Name)
 	install.CreateNamespace = true
 	install.DependencyUpdate = true
 	install.PostRenderer = &ThreeportPostRenderer{
@@ -151,11 +150,14 @@ func helmWorkloadInstanceCreated(
 	// deploy the helm workload
 	release, err := install.Run(chart, helmValues)
 	if err != nil {
-		if uninstallErr := uninstallHelmRelease(
-			install.ReleaseName,
-			actionConf,
-		); err != nil {
-			return 0, fmt.Errorf("failed to uninstall helm release: %w after failed to install helm chart: %w", uninstallErr, err)
+		if release != nil {
+			if uninstallErr := uninstallHelmRelease(
+				release.Name,
+				actionConf,
+				kubeClient,
+			); err != nil {
+				return 0, fmt.Errorf("failed to uninstall helm release: %w after failed to install helm chart: %w", uninstallErr, err)
+			}
 		}
 		return 0, fmt.Errorf("failed to install helm chart: %w", err)
 	}
@@ -315,8 +317,8 @@ func helmWorkloadInstanceDeleted(
 		return 0, fmt.Errorf("failed to get helm workload instances by query string: %w", err)
 	}
 	for _, hwi := range *helmWorkloadInstances {
-		if hwi.HelmReleaseNamespace != nil &&
-			*hwi.HelmReleaseNamespace == *helmWorkloadInstance.HelmReleaseNamespace &&
+		if hwi.ReleaseNamespace != nil &&
+			*hwi.ReleaseNamespace == *helmWorkloadInstance.ReleaseNamespace &&
 			*hwi.ID != *helmWorkloadInstance.ID {
 			return 0, nil
 		}
@@ -348,7 +350,7 @@ func helmWorkloadInstanceDeleted(
 	installer.DeleteNamespaces(
 		dynamicKubeClient,
 		mapper,
-		[]string{*helmWorkloadInstance.HelmReleaseNamespace},
+		[]string{*helmWorkloadInstance.ReleaseNamespace},
 	)
 
 	return 0, nil
@@ -369,6 +371,20 @@ func uninstallHelmRelease(
 	_, err := uninstall.Run(releaseName)
 	if err != nil {
 		return fmt.Errorf("failed to uninstall helm chart: %w", err)
+	}
+
+	// remove namespace
+	if release != nil && release.Release != nil {
+		gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+		namespaceResource := kubeClient.Resource(gvr)
+		namespace := release.Release.Namespace
+		deletePolicy := metav1.DeletePropagationForeground
+		deleteOptions := metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		}
+		if err = namespaceResource.Delete(context.TODO(), namespace, deleteOptions); err != nil {
+			return fmt.Errorf("failed to delete helm release namespace: %w", err)
+		}
 	}
 
 	return nil

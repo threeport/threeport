@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -32,7 +33,7 @@ func observabilityDashboardInstanceCreated(
 	}
 
 	// merge grafana helm values
-	grafanaHelmValuesDocument, err := MergeHelmValuesPtrs(
+	grafanaHelmValuesDocument, err := helmworkload.MergeHelmValuesPtrs(
 		observabilityDashboardDefinition.GrafanaHelmValuesDocument,
 		observabilityDashboardInstance.GrafanaHelmValuesDocument,
 	)
@@ -50,7 +51,7 @@ func observabilityDashboardInstanceCreated(
 			},
 			KubernetesRuntimeInstanceID: observabilityDashboardInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID,
-			HelmValuesDocument:          &grafanaHelmValuesDocument,
+			ValuesDocument:              &grafanaHelmValuesDocument,
 		},
 	)
 	if err != nil {

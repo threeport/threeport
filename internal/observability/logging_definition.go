@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -74,13 +75,13 @@ func loggingDefinitionCreated(
 
 	// create logging definition config
 	c := &LoggingDefinitionConfig{
-		r:                                    r,
-		loggingDefinition:                    loggingDefinition,
-		log:                                  log,
+		r:                 r,
+		loggingDefinition: loggingDefinition,
+		log:               log,
 	}
 
 	// merge loki helm values
-	c.lokiHelmWorkloadDefinitionValues, err = MergeHelmValues(
+	c.lokiHelmWorkloadDefinitionValues, err = helmworkload.MergeHelmValuesString(
 		lokiValues,
 		util.StringPtrToString(loggingDefinition.LokiHelmValuesDocument),
 	)
@@ -89,7 +90,7 @@ func loggingDefinitionCreated(
 	}
 
 	// merge promtail helm values
-	c.promtailHelmWorkloadDefinitionValues, err = MergeHelmValues(
+	c.promtailHelmWorkloadDefinitionValues, err = helmworkload.MergeHelmValuesString(
 		promtailValues,
 		util.StringPtrToString(loggingDefinition.PromtailHelmValuesDocument),
 	)
@@ -185,10 +186,10 @@ func (c *LoggingDefinitionConfig) createLokiHelmWorkloadDefinition() error {
 			Definition: v0.Definition{
 				Name: util.StringPtr(LokiHelmChartName(*c.loggingDefinition.Name)),
 			},
-			Repo:               util.StringPtr(GrafanaHelmRepo),
-			Chart:              util.StringPtr("loki"),
-			HelmChartVersion:   c.loggingDefinition.LokiHelmChartVersion,
-			HelmValuesDocument: &c.lokiHelmWorkloadDefinitionValues,
+			Repo:           util.StringPtr(GrafanaHelmRepo),
+			Chart:          util.StringPtr("loki"),
+			ChartVersion:   c.loggingDefinition.LokiHelmChartVersion,
+			ValuesDocument: &c.lokiHelmWorkloadDefinitionValues,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create loki helm workload definition: %w", err)
@@ -224,10 +225,10 @@ func (c *LoggingDefinitionConfig) createPromtailHelmWorkloadDefinition() error {
 			Definition: v0.Definition{
 				Name: util.StringPtr(PromtailHelmChartName(*c.loggingDefinition.Name)),
 			},
-			Repo:               util.StringPtr(GrafanaHelmRepo),
-			Chart:              util.StringPtr("promtail"),
-			HelmChartVersion:   c.loggingDefinition.PromtailHelmChartVersion,
-			HelmValuesDocument: &c.promtailHelmWorkloadDefinitionValues,
+			Repo:           util.StringPtr(GrafanaHelmRepo),
+			Chart:          util.StringPtr("promtail"),
+			ChartVersion:   c.loggingDefinition.PromtailHelmChartVersion,
+			ValuesDocument: &c.promtailHelmWorkloadDefinitionValues,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create promtail helm workload definition: %w", err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -43,7 +44,7 @@ func observabilityDashboardDefinitionCreated(
 	log *logr.Logger,
 ) (int64, error) {
 	// merge grafana helm values
-	grafanaHelmValuesDocument, err := MergeHelmValues(
+	grafanaHelmValuesDocument, err := helmworkload.MergeHelmValuesString(
 		grafanaValues,
 		util.StringPtrToString(observabilityDashboardDefinition.GrafanaHelmValuesDocument),
 	)
@@ -59,10 +60,10 @@ func observabilityDashboardDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(GrafanaChartName(*observabilityDashboardDefinition.Name)),
 			},
-			Repo:               util.StringPtr(GrafanaHelmRepo),
-			Chart:              util.StringPtr("grafana"),
-			HelmChartVersion:   observabilityDashboardDefinition.GrafanaHelmChartVersion,
-			HelmValuesDocument: &grafanaHelmValuesDocument,
+			Repo:           util.StringPtr(GrafanaHelmRepo),
+			Chart:          util.StringPtr("grafana"),
+			ChartVersion:   observabilityDashboardDefinition.GrafanaHelmChartVersion,
+			ValuesDocument: &grafanaHelmValuesDocument,
 		})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create grafana helm workload definition: %w", err)
