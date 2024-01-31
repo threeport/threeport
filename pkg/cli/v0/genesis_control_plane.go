@@ -632,7 +632,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// get threeport API client
 	apiClient, err := threeportConfig.GetHTTPClient(cpi.Opts.ControlPlaneName)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to get threeport certificates from config", err)
+		return cleanOnCreateError("failed to get threeport certificates from config", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
 	}
 
 	err = cpi.Opts.PreInstallFunction(&kubernetesRuntimeInstance, cpi)
