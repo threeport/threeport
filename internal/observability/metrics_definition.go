@@ -90,23 +90,6 @@ func metricsDefinitionDeleted(
 func getMetricsDefinitionOperations(c *MetricsDefinitionConfig) *util.Operations {
 	operations := util.Operations{}
 
-	// append grafana operations
-	operations.AppendOperation(util.Operation{
-		Name: "grafana",
-		Create: func() error {
-			if err := c.createGrafanaHelmWorkloadDefinition(); err != nil {
-				return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteGrafanaHelmWorkloadDefinition(); err != nil {
-				return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
-			}
-			return nil
-		},
-	})
-
 	// append kube-prometheus-stack operations
 	operations.AppendOperation(util.Operation{
 		Name: "kube-prometheus-stack",
@@ -125,69 +108,6 @@ func getMetricsDefinitionOperations(c *MetricsDefinitionConfig) *util.Operations
 	})
 
 	return &operations
-}
-
-// createGrafanaHelmWorkloadDefinition creates a grafana helm workload
-// definition.
-func (c *MetricsDefinitionConfig) createGrafanaHelmWorkloadDefinition() error {
-	// ensure grafana helm workload definition exists
-	grafanaHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
-		c.r.APIClient,
-		c.r.APIServer,
-		&v0.HelmWorkloadDefinition{
-			Definition: v0.Definition{
-				Name: util.StringPtr(GrafanaChartName(*c.metricsDefinition.Name)),
-			},
-			Repo:           util.StringPtr(GrafanaHelmRepo),
-			Chart:          util.StringPtr("grafana"),
-			HelmChartVersion:   c.metricsDefinition.GrafanaHelmChartVersion,
-			HelmValuesDocument: c.metricsDefinition.GrafanaHelmValuesDocument,
-		})
-	if err != nil && !errors.Is(err, client.ErrConflict) {
-		// only return error if it isn't a conflict, since we
-		// expect both MetricsInstance and LoggingInstance to depend
-		// on the same HelmWorkloadDefinition for Grafana
-		return fmt.Errorf("failed to create grafana helm workload definition: %w", err)
-	} else if err != nil && errors.Is(err, client.ErrConflict) {
-		grafanaHelmWorkloadDefinition, err = client.GetHelmWorkloadDefinitionByName(
-			c.r.APIClient,
-			c.r.APIServer,
-			GrafanaChartName(*c.metricsDefinition.Name),
-		)
-	}
-
-	// update metrics definition with helm workload definition id
-	c.metricsDefinition.GrafanaHelmWorkloadDefinitionID = grafanaHelmWorkloadDefinition.ID
-
-	return nil
-}
-
-// deleteGrafanaHelmWorkloadDefinition deletes a grafana helm workload
-// definition.
-func (c *MetricsDefinitionConfig) deleteGrafanaHelmWorkloadDefinition() error {
-	// check if logging is deployed
-	loggingDefinition, err := client.GetLoggingDefinitionByName(
-		c.r.APIClient,
-		c.r.APIServer,
-		*c.metricsDefinition.Name,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to get logging definition: %w", err)
-	} else if err != nil && errors.Is(err, client.ErrObjectNotFound) ||
-		(loggingDefinition != nil && loggingDefinition.DeletionScheduled != nil) {
-
-		// delete grafana helm workload definition
-		_, err := client.DeleteHelmWorkloadDefinition(
-			c.r.APIClient,
-			c.r.APIServer,
-			*c.metricsDefinition.GrafanaHelmWorkloadDefinitionID,
-		)
-		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-			return fmt.Errorf("failed to delete grafana helm workload definition: %w", err)
-		}
-	}
-
-	return nil
 }
 
 // createKubePrometheusStackHelmWorkloadDefinition creates a kube-prometheus-stack helm

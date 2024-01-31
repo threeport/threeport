@@ -1498,18 +1498,6 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      GrafanaHelmChartVersion:
-        description: The version of the grafana helm chart to use from the helm repo,
-          e.g. 1.2.3
-        type: string
-      GrafanaHelmValuesDocument:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying grafana chart.
-        type: string
-      GrafanaHelmWorkloadDefinitionID:
-        description: The Grafana Helm workload definition that belongs to this resource.
-        type: integer
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -1533,8 +1521,7 @@ definitions:
           underlying loki chart.
         type: string
       LokiHelmWorkloadDefinitionID:
-        description: The kube-prometheus-stack Helm workload definition that belongs
-          to this resource.
+        description: The loki Helm workload definition that belongs to this resource.
         type: integer
       Name:
         description: An arbitrary name for the definition.
@@ -1545,7 +1532,7 @@ definitions:
           standard configuration for a definition object.
         type: integer
       PromtailHelmChartVersion:
-        description: The version of the loki helm chart to use from the helm repo,
+        description: The version of the promtail helm chart to use from the helm repo,
           e.g. 1.2.3
         type: string
       PromtailHelmValuesDocument:
@@ -1554,8 +1541,7 @@ definitions:
           underlying promtail chart.
         type: string
       PromtailHelmWorkloadDefinitionID:
-        description: The kube-prometheus-stack Helm workload definition that belongs
-          to this resource.
+        description: The promtail Helm workload definition that belongs to this resource.
         type: integer
       Reconciled:
         description: Indicates if object is considered to be reconciled by the object's
@@ -1597,14 +1583,6 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      GrafanaHelmValues:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying grafana chart.
-        type: string
-      GrafanaHelmWorkloadInstanceID:
-        description: The Grafana Helm workload definition that belongs to this resource.
-        type: integer
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -1622,11 +1600,10 @@ definitions:
       LokiHelmValues:
         description: |-
           Optional Helm workload definition values that can be provided to configure the
-          underlying kube-prometheus-stack chart.
+          underlying loki chart.
         type: string
       LokiHelmWorkloadInstanceID:
-        description: The kube-prometheus-stack Helm workload definition that belongs
-          to this resource.
+        description: The loki Helm workload definition that belongs to this resource.
         type: integer
       Name:
         description: An arbitrary name the instance
@@ -1634,11 +1611,10 @@ definitions:
       PromtailHelmValues:
         description: |-
           Optional Helm workload definition values that can be provided to configure the
-          underlying kube-prometheus-stack chart.
+          underlying promtail chart.
         type: string
       PromtailHelmWorkloadInstanceID:
-        description: The kube-prometheus-stack Helm workload definition that belongs
-          to this resource.
+        description: The promtail Helm workload definition that belongs to this resource.
         type: integer
       Reconciled:
         description: Indicates if object is considered to be reconciled by the object's
@@ -1697,18 +1673,6 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      GrafanaHelmChartVersion:
-        description: The version of the grafana helm chart to use from the helm repo,
-          e.g. 1.2.3
-        type: string
-      GrafanaHelmValuesDocument:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying grafana chart.
-        type: string
-      GrafanaHelmWorkloadDefinitionID:
-        description: The Grafana Helm workload definition that belongs to this resource.
-        type: integer
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -1717,8 +1681,8 @@ definitions:
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
       KubePrometheusStackHelmChartVersion:
-        description: The version of the grafana helm chart to use from the helm repo,
-          e.g. 1.2.3
+        description: The version of the kube-prometheus-stack helm chart to use from
+          the helm repo, e.g. 1.2.3
         type: string
       KubePrometheusStackHelmValuesDocument:
         description: |-
@@ -1783,14 +1747,6 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      GrafanaHelmValues:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying grafana chart.
-        type: string
-      GrafanaHelmWorkloadInstanceID:
-        description: The Grafana Helm workload definition that belongs to this resource.
-        type: integer
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -2702,6 +2658,58 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetMetricsInstanceVersions gets the supported versions for the metrics
         instance API.
+  /observability-dashboard-definitions/versions:
+    get:
+      description: Get the supported API versions for observability dashboard definitions.
+      operationId: observabilityDashboardDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetObservabilityDashboardDefinitionVersions gets the supported versions
+        for the observability dashboard definition API.
+  /observability-dashboard-instances/versions:
+    get:
+      description: Get the supported API versions for observability dashboard instances.
+      operationId: observabilityDashboardInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetObservabilityDashboardInstanceVersions gets the supported versions
+        for the observability dashboard instance API.
+  /observability-stack-definitions/versions:
+    get:
+      description: Get the supported API versions for observability stack definitions.
+      operationId: observabilityStackDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetObservabilityStackDefinitionVersions gets the supported versions
+        for the observability stack definition API.
+  /observability-stack-instances/versions:
+    get:
+      description: Get the supported API versions for observability stack instances.
+      operationId: observabilityStackInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetObservabilityStackInstanceVersions gets the supported versions for
+        the observability stack instance API.
   /profiles/versions:
     get:
       description: Get the supported API versions for profiles.
@@ -8526,6 +8534,807 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing metrics instance by replacing the entire object.
+  /v0/observability-dashboard-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all observability dashboard definitions from the Threeport
+        database.
+      operationId: get-observabilityDashboardDefinitions
+      parameters:
+      - description: observability dashboard definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all observability dashboard definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new observability dashboard definition to the Threeport database.
+      operationId: add-observabilityDashboardDefinition
+      parameters:
+      - description: ObservabilityDashboardDefinition object
+        in: body
+        name: observabilityDashboardDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityDashboardDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new observability dashboard definition.
+  /v0/observability-dashboard-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a observability dashboard definition by ID from the database.
+      operationId: delete-observabilityDashboardDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a observability dashboard definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular observability dashboard definition from the database.
+      operationId: get-observabilityDashboardDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a observability dashboard definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a observability dashboard definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating observability dashboard definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-observabilityDashboardDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ObservabilityDashboardDefinition object
+        in: body
+        name: observabilityDashboardDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityDashboardDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing observability dashboard definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a observability dashboard definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating observability dashboard definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-observabilityDashboardDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ObservabilityDashboardDefinition object
+        in: body
+        name: observabilityDashboardDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityDashboardDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing observability dashboard definition by replacing
+        the entire object.
+  /v0/observability-dashboard-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all observability dashboard instances from the Threeport database.
+      operationId: get-observabilityDashboardInstances
+      parameters:
+      - description: observability dashboard instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all observability dashboard instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new observability dashboard instance to the Threeport database.
+      operationId: add-observabilityDashboardInstance
+      parameters:
+      - description: ObservabilityDashboardInstance object
+        in: body
+        name: observabilityDashboardInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityDashboardInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new observability dashboard instance.
+  /v0/observability-dashboard-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a observability dashboard instance by ID from the database.
+      operationId: delete-observabilityDashboardInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a observability dashboard instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular observability dashboard instance from the database.
+      operationId: get-observabilityDashboardInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a observability dashboard instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a observability dashboard instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating observability dashboard instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-observabilityDashboardInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ObservabilityDashboardInstance object
+        in: body
+        name: observabilityDashboardInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityDashboardInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing observability dashboard instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a observability dashboard instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating observability dashboard instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-observabilityDashboardInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ObservabilityDashboardInstance object
+        in: body
+        name: observabilityDashboardInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityDashboardInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing observability dashboard instance by replacing the
+        entire object.
+  /v0/observability-stack-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all observability stack definitions from the Threeport database.
+      operationId: get-observabilityStackDefinitions
+      parameters:
+      - description: observability stack definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all observability stack definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new observability stack definition to the Threeport database.
+      operationId: add-observabilityStackDefinition
+      parameters:
+      - description: ObservabilityStackDefinition object
+        in: body
+        name: observabilityStackDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityStackDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new observability stack definition.
+  /v0/observability-stack-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a observability stack definition by ID from the database.
+      operationId: delete-observabilityStackDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a observability stack definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular observability stack definition from the database.
+      operationId: get-observabilityStackDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a observability stack definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a observability stack definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating observability stack definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-observabilityStackDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ObservabilityStackDefinition object
+        in: body
+        name: observabilityStackDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityStackDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing observability stack definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a observability stack definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating observability stack definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-observabilityStackDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ObservabilityStackDefinition object
+        in: body
+        name: observabilityStackDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityStackDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing observability stack definition by replacing the
+        entire object.
+  /v0/observability-stack-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all observability stack instances from the Threeport database.
+      operationId: get-observabilityStackInstances
+      parameters:
+      - description: observability stack instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all observability stack instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new observability stack instance to the Threeport database.
+      operationId: add-observabilityStackInstance
+      parameters:
+      - description: ObservabilityStackInstance object
+        in: body
+        name: observabilityStackInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityStackInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new observability stack instance.
+  /v0/observability-stack-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a observability stack instance by ID from the database.
+      operationId: delete-observabilityStackInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a observability stack instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular observability stack instance from the database.
+      operationId: get-observabilityStackInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a observability stack instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a observability stack instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating observability stack instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-observabilityStackInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ObservabilityStackInstance object
+        in: body
+        name: observabilityStackInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityStackInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing observability stack instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a observability stack instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating observability stack instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-observabilityStackInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ObservabilityStackInstance object
+        in: body
+        name: observabilityStackInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ObservabilityStackInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing observability stack instance by replacing the entire
+        object.
   /v0/profiles:
     get:
       consumes:

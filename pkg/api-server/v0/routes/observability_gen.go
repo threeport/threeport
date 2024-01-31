@@ -8,6 +8,54 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
+// ObservabilityStackDefinitionRoutes sets up all routes for the ObservabilityStackDefinition handlers.
+func ObservabilityStackDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/observability-stack-definitions/versions", h.GetObservabilityStackDefinitionVersions)
+
+	e.POST(v0.PathObservabilityStackDefinitions, h.AddObservabilityStackDefinition)
+	e.GET(v0.PathObservabilityStackDefinitions, h.GetObservabilityStackDefinitions)
+	e.GET(v0.PathObservabilityStackDefinitions+"/:id", h.GetObservabilityStackDefinition)
+	e.PATCH(v0.PathObservabilityStackDefinitions+"/:id", h.UpdateObservabilityStackDefinition)
+	e.PUT(v0.PathObservabilityStackDefinitions+"/:id", h.ReplaceObservabilityStackDefinition)
+	e.DELETE(v0.PathObservabilityStackDefinitions+"/:id", h.DeleteObservabilityStackDefinition)
+}
+
+// ObservabilityStackInstanceRoutes sets up all routes for the ObservabilityStackInstance handlers.
+func ObservabilityStackInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/observability-stack-instances/versions", h.GetObservabilityStackInstanceVersions)
+
+	e.POST(v0.PathObservabilityStackInstances, h.AddObservabilityStackInstance)
+	e.GET(v0.PathObservabilityStackInstances, h.GetObservabilityStackInstances)
+	e.GET(v0.PathObservabilityStackInstances+"/:id", h.GetObservabilityStackInstance)
+	e.PATCH(v0.PathObservabilityStackInstances+"/:id", h.UpdateObservabilityStackInstance)
+	e.PUT(v0.PathObservabilityStackInstances+"/:id", h.ReplaceObservabilityStackInstance)
+	e.DELETE(v0.PathObservabilityStackInstances+"/:id", h.DeleteObservabilityStackInstance)
+}
+
+// ObservabilityDashboardDefinitionRoutes sets up all routes for the ObservabilityDashboardDefinition handlers.
+func ObservabilityDashboardDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/observability-dashboard-definitions/versions", h.GetObservabilityDashboardDefinitionVersions)
+
+	e.POST(v0.PathObservabilityDashboardDefinitions, h.AddObservabilityDashboardDefinition)
+	e.GET(v0.PathObservabilityDashboardDefinitions, h.GetObservabilityDashboardDefinitions)
+	e.GET(v0.PathObservabilityDashboardDefinitions+"/:id", h.GetObservabilityDashboardDefinition)
+	e.PATCH(v0.PathObservabilityDashboardDefinitions+"/:id", h.UpdateObservabilityDashboardDefinition)
+	e.PUT(v0.PathObservabilityDashboardDefinitions+"/:id", h.ReplaceObservabilityDashboardDefinition)
+	e.DELETE(v0.PathObservabilityDashboardDefinitions+"/:id", h.DeleteObservabilityDashboardDefinition)
+}
+
+// ObservabilityDashboardInstanceRoutes sets up all routes for the ObservabilityDashboardInstance handlers.
+func ObservabilityDashboardInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/observability-dashboard-instances/versions", h.GetObservabilityDashboardInstanceVersions)
+
+	e.POST(v0.PathObservabilityDashboardInstances, h.AddObservabilityDashboardInstance)
+	e.GET(v0.PathObservabilityDashboardInstances, h.GetObservabilityDashboardInstances)
+	e.GET(v0.PathObservabilityDashboardInstances+"/:id", h.GetObservabilityDashboardInstance)
+	e.PATCH(v0.PathObservabilityDashboardInstances+"/:id", h.UpdateObservabilityDashboardInstance)
+	e.PUT(v0.PathObservabilityDashboardInstances+"/:id", h.ReplaceObservabilityDashboardInstance)
+	e.DELETE(v0.PathObservabilityDashboardInstances+"/:id", h.DeleteObservabilityDashboardInstance)
+}
+
 // MetricsDefinitionRoutes sets up all routes for the MetricsDefinition handlers.
 func MetricsDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.GET("/metrics-definitions/versions", h.GetMetricsDefinitionVersions)
