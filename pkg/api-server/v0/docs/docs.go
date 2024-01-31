@@ -10828,6 +10828,10 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "HelmValuesDocument": {
+                    "description": "The helm values that override the defaults from the helm chart.  These\nwill be inherited by each helm workload instance derived from this\ndefinition.  The helm values defined here can be further overridden by\nvalues defined on the helm workload instance.",
+                    "type": "string"
+                },
                 "HelmWorkloadInstances": {
                     "description": "The associated helm workload instances that are deployed from this definition.",
                     "type": "array",
@@ -10897,15 +10901,12 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-<<<<<<< HEAD
-=======
                 "HelmValuesDocument": {
                     "description": "Filepath to the helm values YAML file that provides runtime parameters to the helm chart.",
                     "type": "string"
                 },
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
                 "HelmWorkloadDefinitionID": {
-                    "description": "The definition used to configure the helm workload instance.",
+                    "description": "The definition used to configure the workload instance.",
                     "type": "integer"
                 },
                 "InterruptReconciliation": {
@@ -11236,31 +11237,12 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-<<<<<<< HEAD
-=======
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
-                "Profile",
-                "Tier",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "GatewayHttpPort",
-                "GatewayTcpPort",
-                "DomainNameDefinition",
-                "DomainNameInstance",
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "AttachedObjectReference",
-                "WorkloadResourceInstance",
-                "WorkloadEvent",
-<<<<<<< HEAD
-                "Profile",
-                "Tier",
                 "KubernetesRuntimeDefinition",
                 "KubernetesRuntimeInstance",
-=======
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
+                "Profile",
+                "Tier",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -11268,15 +11250,17 @@ const docTemplate = `{
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
                 "AwsObjectStorageBucketInstance",
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "AttachedObjectReference",
+                "WorkloadResourceInstance",
+                "WorkloadEvent",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
-<<<<<<< HEAD
                 "GatewayDefinition",
                 "GatewayInstance",
                 "GatewayHttpPort",
@@ -11284,44 +11268,15 @@ const docTemplate = `{
                 "DomainNameDefinition",
                 "DomainNameInstance",
                 "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance"
+                "HelmWorkloadInstance"
             ],
             "x-enum-varnames": [
-=======
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance"
-            ],
-            "x-enum-varnames": [
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeGatewayHttpPort",
-                "ObjectTypeGatewayTcpPort",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent",
-<<<<<<< HEAD
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
                 "ObjectTypeKubernetesRuntimeDefinition",
                 "ObjectTypeKubernetesRuntimeInstance",
-=======
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
@@ -11329,15 +11284,17 @@ const docTemplate = `{
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
                 "ObjectTypeAwsObjectStorageBucketInstance",
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeAttachedObjectReference",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
-<<<<<<< HEAD
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeGatewayHttpPort",
@@ -11345,18 +11302,7 @@ const docTemplate = `{
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
                 "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance"
-=======
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance"
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
+                "ObjectTypeHelmWorkloadInstance"
             ]
         },
         "v0.Profile": {
