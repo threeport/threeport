@@ -72,25 +72,23 @@ func (c *KubernetesRuntimeInstanceConfig) createLoggingDefinition() (*uint, erro
 		return nil, fmt.Errorf("failed to create logging definition: %w", err)
 	}
 
-	// wait for logging definition to be reconciled
-	if err = util.Retry(120, 1, func() error {
-		loggingDefinition, err := client.GetLoggingDefinitionByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			*createdLoggingDefinition.ID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get logging definition by ID: %w", err)
-		}
-		if !*loggingDefinition.Reconciled {
-			return fmt.Errorf("logging definition not reconciled")
-		}
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("failed to wait for logging definition to be created: %w", err)
+	return createdLoggingDefinition.ID, nil
+}
+
+// deleteLoggingDefinition disables logging instance for a kubernetes runtime
+// instance
+func (c *KubernetesRuntimeInstanceConfig) deleteLoggingDefinition(loggingDefinitionID *uint) error {
+	// delete logging definition
+	_, err := client.DeleteLoggingDefinition(
+		c.r.APIClient,
+		c.r.APIServer,
+		*loggingDefinitionID,
+	)
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		return fmt.Errorf("failed to delete logging definition: %w", err)
 	}
 
-	return createdLoggingDefinition.ID, nil
+	return nil
 }
 
 // createLoggingInstance configures a logging instance for a kubernetes runtime
@@ -112,24 +110,6 @@ func (c *KubernetesRuntimeInstanceConfig) createLoggingInstance(loggingDefinitio
 		return fmt.Errorf("failed to create logging instance: %w", err)
 	}
 
-	// wait for logging instance to be reconciled
-	if err = util.Retry(120, 1, func() error {
-		loggingInstance, err := client.GetLoggingInstanceByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			*createdLoggingInstance.ID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get logging instance by ID: %w", err)
-		}
-		if !*loggingInstance.Reconciled {
-			return fmt.Errorf("logging instance not reconciled")
-		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to wait for logging instance to be created: %w", err)
-	}
-
 	// update kubernetes runtime instance with logging instance ID
 	c.kubernetesRuntimeInstance.LoggingInstanceID = util.SqlNullInt64(createdLoggingInstance.ID)
 
@@ -149,58 +129,8 @@ func (c *KubernetesRuntimeInstanceConfig) deleteLoggingInstance() error {
 		return fmt.Errorf("failed to delete logging instance: %w", err)
 	}
 
-	// wait for logging instance to be deleted
-	if err = util.Retry(120, 1, func() error {
-		_, err = client.GetLoggingInstanceByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			uint(c.kubernetesRuntimeInstance.LoggingInstanceID.Int64),
-		)
-		if err != nil {
-			if errors.Is(err, client.ErrObjectNotFound) {
-				return nil
-			}
-			return fmt.Errorf("failed to get logging instance by ID: %w", err)
-		}
-		return fmt.Errorf("logging instance still exists")
-	}); err != nil {
-		return fmt.Errorf("failed to wait for logging instance to be deleted: %w", err)
-	}
-
-	return nil
-}
-
-// deleteLoggingDefinition disables logging instance for a kubernetes runtime
-// instance
-func (c *KubernetesRuntimeInstanceConfig) deleteLoggingDefinition(loggingDefinitionID *uint) error {
-	// delete logging definition
-	_, err := client.DeleteLoggingDefinition(
-		c.r.APIClient,
-		c.r.APIServer,
-		*loggingDefinitionID,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to delete logging definition: %w", err)
-	}
-
-	// wait for logging definition to be deleted
-	if err = util.Retry(120, 1, func() error {
-		_, err = client.GetLoggingDefinitionByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			*loggingDefinitionID,
-		)
-		if err != nil {
-			if errors.Is(err, client.ErrObjectNotFound) {
-				return nil
-			}
-			return fmt.Errorf("failed to get logging definition by ID: %w", err)
-		}
-		return fmt.Errorf("logging definition still exists")
-	}); err != nil {
-		return fmt.Errorf("failed to wait for logging definition to be deleted: %w", err)
-	}
-
+	// update kubernetes runtime instance with logging instance ID
 	c.kubernetesRuntimeInstance.LoggingInstanceID = util.SqlNullInt64(nil)
+
 	return nil
 }

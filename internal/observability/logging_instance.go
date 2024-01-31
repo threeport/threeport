@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -151,213 +150,6 @@ func loggingInstanceDeleted(
 	return 0, nil
 }
 
-// createGrafanaHelmWorkloadInstance creates grafana helm workload instance if metrics
-// instance is not deployed.
-func (c *LoggingInstanceConfig) createGrafanaHelmWorkloadInstance() error {
-	// ensure grafana helm workload instance is deployed
-	grafanaHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
-		c.r.APIClient,
-		c.r.APIServer,
-		&v0.HelmWorkloadInstance{
-			Instance: v0.Instance{
-				Name: util.StringPtr(GrafanaChartName(*c.loggingInstance.Name)),
-			},
-			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    c.loggingDefinition.GrafanaHelmWorkloadDefinitionID,
-			HelmValuesDocument:          &c.grafanaHelmWorkloadInstanceValues,
-		},
-	)
-	if err != nil {
-		if !errors.Is(err, client.ErrConflict) {
-			return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
-		}
-		grafanaHelmWorkloadInstance, err = client.GetHelmWorkloadInstanceByName(
-			c.r.APIClient,
-			c.r.APIServer,
-			GrafanaChartName(*c.loggingInstance.Name),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get grafana helm workload instance: %w", err)
-		}
-		metricsInstance, err := client.GetMetricsInstanceByName(
-			c.r.APIClient,
-			c.r.APIServer,
-			*c.loggingInstance.Name,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get metrics instance: %w", err)
-		}
-		if metricsInstance.GrafanaHelmWorkloadInstanceID != nil &&
-			*metricsInstance.GrafanaHelmWorkloadInstanceID != *grafanaHelmWorkloadInstance.ID {
-			return fmt.Errorf("grafana helm workload instance already exists")
-		}
-	}
-
-	// update metrics instance grafana helm workload instance id
-	c.loggingInstance.GrafanaHelmWorkloadInstanceID = grafanaHelmWorkloadInstance.ID
-
-	// wait for grafana helm workload instance to be reconciled
-	if err := helmworkload.WaitForHelmWorkloadInstanceReconciled(
-		c.r,
-		*grafanaHelmWorkloadInstance.ID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for grafana helm workload instance to be reconciled: %w", err)
-	}
-
-	return nil
-}
-
-// deleteGrafanaHelmWorkloadInstance deletes grafana helm workload instance if metrics
-// instance is not deployed.
-func (c *LoggingInstanceConfig) deleteGrafanaHelmWorkloadInstance() error {
-	// check if metrics is deployed,
-	// if it's not then we can clean up grafana chart
-	metricsInstance, err := client.GetMetricsInstanceByName(
-		c.r.APIClient,
-		c.r.APIServer,
-		*c.loggingInstance.Name,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to get metrics instance: %w", err)
-	} else if err != nil && errors.Is(err, client.ErrObjectNotFound) ||
-		(metricsInstance != nil &&
-			metricsInstance.DeletionScheduled != nil) {
-		// delete grafana helm workload instance
-		if _, err := client.DeleteHelmWorkloadInstance(
-			c.r.APIClient,
-			c.r.APIServer,
-			*c.loggingInstance.GrafanaHelmWorkloadInstanceID,
-		); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-			return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
-		}
-
-		// wait for grafana helm workload instance to be deleted
-		if err := helmworkload.WaitForHelmWorkloadInstanceDeleted(
-			c.r,
-			*c.loggingInstance.GrafanaHelmWorkloadInstanceID,
-		); err != nil {
-			return fmt.Errorf("failed to wait for grafana helm workload instance to be deleted: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// createLokiHelmWorkloadInstance creates loki helm workload instance
-func (c *LoggingInstanceConfig) createLokiHelmWorkloadInstance() error {
-	// create loki helm workload instance
-	lokiHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
-		c.r.APIClient,
-		c.r.APIServer,
-		&v0.HelmWorkloadInstance{
-			Instance: v0.Instance{
-				Name: util.StringPtr(LokiHelmChartName(*c.loggingInstance.Name)),
-			},
-			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    c.loggingDefinition.LokiHelmWorkloadDefinitionID,
-			HelmValuesDocument:          &c.lokiHelmWorkloadInstanceValues,
-			HelmReleaseNamespace:        &c.loggingNamespace,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create loki helm workload instance: %w", err)
-	}
-
-	// update logging instance loki helm workload instance id
-	c.loggingInstance.LokiHelmWorkloadInstanceID = lokiHelmWorkloadInstance.ID
-
-	// wait for loki helm workload instance to be reconciled
-	if err := helmworkload.WaitForHelmWorkloadInstanceReconciled(
-		c.r,
-		*lokiHelmWorkloadInstance.ID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for loki helm workload instance to be reconciled: %w", err)
-	}
-
-	return nil
-}
-
-// deleteLokiHelmWorkloadInstance deletes loki helm workload instance
-func (c *LoggingInstanceConfig) deleteLokiHelmWorkloadInstance() error {
-
-	// delete loki helm workload instance
-	_, err := client.DeleteHelmWorkloadInstance(
-		c.r.APIClient,
-		c.r.APIServer,
-		*c.loggingInstance.LokiHelmWorkloadInstanceID,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
-	}
-
-	// wait for loki helm workload instance to be deleted
-	if err := helmworkload.WaitForHelmWorkloadInstanceDeleted(
-		c.r,
-		*c.loggingInstance.LokiHelmWorkloadInstanceID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for loki helm workload instance to be deleted: %w", err)
-	}
-
-	return nil
-}
-
-// createPromtailHelmWorkloadInstance creates promtail helm workload instance
-func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
-	// create promtail helm workload instance
-	promtailHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
-		c.r.APIClient,
-		c.r.APIServer,
-		&v0.HelmWorkloadInstance{
-			Instance: v0.Instance{
-				Name: util.StringPtr(PromtailHelmChartName(*c.loggingInstance.Name)),
-			},
-			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    c.loggingDefinition.PromtailHelmWorkloadDefinitionID,
-			HelmValuesDocument:          &c.promtailHelmWorkloadInstanceValues,
-			HelmReleaseNamespace:        &c.loggingNamespace,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
-	}
-
-	// update logging instance promtail helm workload instance id
-	c.loggingInstance.PromtailHelmWorkloadInstanceID = promtailHelmWorkloadInstance.ID
-
-	// wait for promtail helm workload instance to be reconciled
-	if err := helmworkload.WaitForHelmWorkloadInstanceReconciled(
-		c.r,
-		*promtailHelmWorkloadInstance.ID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for promtail helm workload instance to be reconciled: %w", err)
-	}
-
-	return nil
-}
-
-// deletePromtailHelmWorkloadInstance creates promtail helm workload instance
-func (c *LoggingInstanceConfig) deletePromtailHelmWorkloadInstance() error {
-	// delete promtail helm workload instance
-	_, err := client.DeleteHelmWorkloadInstance(
-		c.r.APIClient,
-		c.r.APIServer,
-		*c.loggingInstance.PromtailHelmWorkloadInstanceID,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
-	}
-
-	// wait for promtail helm workload instance to be deleted
-	if err := helmworkload.WaitForHelmWorkloadInstanceDeleted(
-		c.r,
-		*c.loggingInstance.PromtailHelmWorkloadInstanceID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for promtail helm workload instance to be deleted: %w", err)
-	}
-
-	return nil
-}
-
 // getLoggingInstanceOperations returns a list of operations for a logging instance.
 func getLoggingInstanceOperations(c *LoggingInstanceConfig) *util.Operations {
 
@@ -415,4 +207,163 @@ func getLoggingInstanceOperations(c *LoggingInstanceConfig) *util.Operations {
 	})
 
 	return &operations
+}
+
+// createGrafanaHelmWorkloadInstance creates grafana helm workload instance if metrics
+// instance is not deployed.
+func (c *LoggingInstanceConfig) createGrafanaHelmWorkloadInstance() error {
+	// ensure grafana helm workload instance is deployed
+	grafanaHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
+		c.r.APIClient,
+		c.r.APIServer,
+		&v0.HelmWorkloadInstance{
+			Instance: v0.Instance{
+				Name: util.StringPtr(GrafanaChartName(*c.loggingInstance.Name)),
+			},
+			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
+			HelmWorkloadDefinitionID:    c.loggingDefinition.GrafanaHelmWorkloadDefinitionID,
+			HelmValuesDocument:          &c.grafanaHelmWorkloadInstanceValues,
+		},
+	)
+	if err != nil {
+		if !errors.Is(err, client.ErrConflict) {
+			return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
+		}
+		grafanaHelmWorkloadInstance, err = client.GetHelmWorkloadInstanceByName(
+			c.r.APIClient,
+			c.r.APIServer,
+			GrafanaChartName(*c.loggingInstance.Name),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get grafana helm workload instance: %w", err)
+		}
+		metricsInstance, err := client.GetMetricsInstanceByName(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.loggingInstance.Name,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get metrics instance: %w", err)
+		}
+		if metricsInstance.GrafanaHelmWorkloadInstanceID != nil &&
+			*metricsInstance.GrafanaHelmWorkloadInstanceID != *grafanaHelmWorkloadInstance.ID {
+			return fmt.Errorf("grafana helm workload instance already exists")
+		}
+	}
+
+	// update metrics instance grafana helm workload instance id
+	c.loggingInstance.GrafanaHelmWorkloadInstanceID = grafanaHelmWorkloadInstance.ID
+
+	return nil
+}
+
+// deleteGrafanaHelmWorkloadInstance deletes grafana helm workload instance if metrics
+// instance is not deployed.
+func (c *LoggingInstanceConfig) deleteGrafanaHelmWorkloadInstance() error {
+	// check if metrics is deployed,
+	// if it's not then we can clean up grafana chart
+	metricsInstance, err := client.GetMetricsInstanceByName(
+		c.r.APIClient,
+		c.r.APIServer,
+		*c.loggingInstance.Name,
+	)
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		return fmt.Errorf("failed to get metrics instance: %w", err)
+	} else if err != nil && errors.Is(err, client.ErrObjectNotFound) ||
+		(metricsInstance != nil &&
+			metricsInstance.DeletionScheduled != nil) {
+		// delete grafana helm workload instance
+		if _, err := client.DeleteHelmWorkloadInstance(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.loggingInstance.GrafanaHelmWorkloadInstanceID,
+		); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+			return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// createLokiHelmWorkloadInstance creates loki helm workload instance
+func (c *LoggingInstanceConfig) createLokiHelmWorkloadInstance() error {
+	// create loki helm workload instance
+	lokiHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
+		c.r.APIClient,
+		c.r.APIServer,
+		&v0.HelmWorkloadInstance{
+			Instance: v0.Instance{
+				Name: util.StringPtr(LokiHelmChartName(*c.loggingInstance.Name)),
+			},
+			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
+			HelmWorkloadDefinitionID:    c.loggingDefinition.LokiHelmWorkloadDefinitionID,
+			HelmValuesDocument:          &c.lokiHelmWorkloadInstanceValues,
+			HelmReleaseNamespace:        &c.loggingNamespace,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create loki helm workload instance: %w", err)
+	}
+
+	// update logging instance loki helm workload instance id
+	c.loggingInstance.LokiHelmWorkloadInstanceID = lokiHelmWorkloadInstance.ID
+
+	return nil
+}
+
+// deleteLokiHelmWorkloadInstance deletes loki helm workload instance
+func (c *LoggingInstanceConfig) deleteLokiHelmWorkloadInstance() error {
+
+	// delete loki helm workload instance
+	_, err := client.DeleteHelmWorkloadInstance(
+		c.r.APIClient,
+		c.r.APIServer,
+		*c.loggingInstance.LokiHelmWorkloadInstanceID,
+	)
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
+	}
+
+	return nil
+}
+
+// createPromtailHelmWorkloadInstance creates promtail helm workload instance
+func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
+	// create promtail helm workload instance
+	promtailHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
+		c.r.APIClient,
+		c.r.APIServer,
+		&v0.HelmWorkloadInstance{
+			Instance: v0.Instance{
+				Name: util.StringPtr(PromtailHelmChartName(*c.loggingInstance.Name)),
+			},
+			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
+			HelmWorkloadDefinitionID:    c.loggingDefinition.PromtailHelmWorkloadDefinitionID,
+			HelmValuesDocument:          &c.promtailHelmWorkloadInstanceValues,
+			HelmReleaseNamespace:        &c.loggingNamespace,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
+	}
+
+	// update logging instance promtail helm workload instance id
+	c.loggingInstance.PromtailHelmWorkloadInstanceID = promtailHelmWorkloadInstance.ID
+
+	return nil
+}
+
+// deletePromtailHelmWorkloadInstance creates promtail helm workload instance
+func (c *LoggingInstanceConfig) deletePromtailHelmWorkloadInstance() error {
+	// delete promtail helm workload instance
+	_, err := client.DeleteHelmWorkloadInstance(
+		c.r.APIClient,
+		c.r.APIServer,
+		*c.loggingInstance.PromtailHelmWorkloadInstanceID,
+	)
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
+	}
+
+	return nil
 }

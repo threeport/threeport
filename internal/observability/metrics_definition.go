@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -160,14 +159,6 @@ func (c *MetricsDefinitionConfig) createGrafanaHelmWorkloadDefinition() error {
 	// update metrics definition with helm workload definition id
 	c.metricsDefinition.GrafanaHelmWorkloadDefinitionID = grafanaHelmWorkloadDefinition.ID
 
-	// wait for grafana helm workload definition to be reconciled
-	if err := helmworkload.WaitForHelmWorkloadDefinitionReconciled(
-		c.r,
-		*grafanaHelmWorkloadDefinition.ID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for grafana helm workload definition to be reconciled: %w", err)
-	}
-
 	return nil
 }
 
@@ -194,16 +185,8 @@ func (c *MetricsDefinitionConfig) deleteGrafanaHelmWorkloadDefinition() error {
 		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return fmt.Errorf("failed to delete grafana helm workload definition: %w", err)
 		}
-
-		// wait for grafana helm workload definition to be deleted
-		if err := helmworkload.WaitForHelmWorkloadDefinitionDeleted(
-			c.r,
-			*c.metricsDefinition.GrafanaHelmWorkloadDefinitionID,
-		); err != nil {
-			return fmt.Errorf("failed to wait for grafana helm workload definition to be deleted: %w", err)
-		}
-
 	}
+
 	return nil
 }
 
@@ -230,14 +213,6 @@ func (c *MetricsDefinitionConfig) createKubePrometheusStackHelmWorkloadDefinitio
 	// update metrics definition with helm workload definition id
 	c.metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID = kubePrometheusStackHelmWorkloadDefinition.ID
 
-	// wait for kube-prometheus-stack helm workload definition to be reconciled
-	if err := helmworkload.WaitForHelmWorkloadDefinitionReconciled(
-		c.r,
-		*kubePrometheusStackHelmWorkloadDefinition.ID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for kube-prometheus-stack helm workload definition to be reconciled: %w", err)
-	}
-
 	return nil
 }
 
@@ -251,14 +226,6 @@ func (c *MetricsDefinitionConfig) deleteKubePrometheusStackHelmWorkloadDefinitio
 		*c.metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
 	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete kube-prometheus-stack helm workload definition: %w", err)
-	}
-
-	// wait for kube-prometheus-stack helm workload definition to be deleted
-	if err := helmworkload.WaitForHelmWorkloadDefinitionDeleted(
-		c.r,
-		*c.metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for kube-prometheus-stack helm workload definition to be deleted: %w", err)
 	}
 
 	return nil
