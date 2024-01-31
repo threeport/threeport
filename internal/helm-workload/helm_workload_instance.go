@@ -107,8 +107,12 @@ func helmWorkloadInstanceCreated(
 	if helmWorkloadInstance.HelmReleaseNamespace != nil && *helmWorkloadInstance.HelmReleaseNamespace != "" {
 		install.Namespace = *helmWorkloadInstance.HelmReleaseNamespace
 	} else {
-		install.Namespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
+		generatedNamespace := fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
+		install.Namespace = generatedNamespace
+		helmWorkloadInstance.HelmReleaseNamespace = &generatedNamespace
 	}
+
+	install.ReleaseName = fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
 	install.CreateNamespace = true
 	install.DependencyUpdate = true
 	install.PostRenderer = &ThreeportPostRenderer{
@@ -313,22 +317,41 @@ func helmWorkloadInstanceDeleted(
 	if err != nil {
 		return 0, fmt.Errorf("failed to get helm workload instances by query string: %w", err)
 	}
-
-	// if any other helm workload instances are using the namespace, do not
-	// delete it
 	for _, hwi := range *helmWorkloadInstances {
-		if hwi.ReleaseNamespace != nil &&
-			*hwi.ReleaseNamespace == *helmWorkloadInstance.ReleaseNamespace &&
+		if hwi.HelmReleaseNamespace != nil &&
+			*hwi.HelmReleaseNamespace == *helmWorkloadInstance.HelmReleaseNamespace &&
 			*hwi.ID != *helmWorkloadInstance.ID {
 			return 0, nil
 		}
 	}
 
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*helmWorkloadInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get workload kubernetes runtime instance by ID: %w", err)
+	}
+
+	// get a Kubernetes client and mapper
+	dynamicKubeClient, mapper, err := kube.GetClient(
+		kubernetesRuntimeInstance,
+		true,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
+	}
+
 	// delete the namespace
 	installer.DeleteNamespaces(
-		kubeClient,
+		dynamicKubeClient,
 		mapper,
-		[]string{*helmWorkloadInstance.ReleaseNamespace},
+		[]string{*helmWorkloadInstance.HelmReleaseNamespace},
 	)
 
 	return 0, nil

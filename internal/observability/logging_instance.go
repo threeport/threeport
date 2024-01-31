@@ -67,7 +67,7 @@ func loggingInstanceCreated(
 	}
 
 	// generate shared namespace name for loki and promtail
-	lokiPromtailNamespace := fmt.Sprintf("%s-loki-promtail-%s", *loggingInstance.Name, util.RandomAlphaString(10))
+	loggingNamespace := fmt.Sprintf("%s-logging-%s", *loggingInstance.Name, util.RandomAlphaString(10))
 
 	// merge loki helm values if they are provided
 	lokiHelmWorkloadInstanceValues := lokiValues
@@ -92,7 +92,7 @@ func loggingInstanceCreated(
 			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    loggingDefinition.LokiHelmWorkloadDefinitionID,
 			HelmValuesDocument:          &lokiHelmWorkloadInstanceValues,
-			HelmReleaseNamespace:        &lokiPromtailNamespace,
+			HelmReleaseNamespace:        &loggingNamespace,
 		},
 	)
 	if err != nil {
@@ -122,7 +122,7 @@ func loggingInstanceCreated(
 			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    loggingDefinition.PromtailHelmWorkloadDefinitionID,
 			HelmValuesDocument:          &promtailHelmWorkloadInstanceValues,
-			HelmReleaseNamespace:        &lokiPromtailNamespace,
+			HelmReleaseNamespace:        &loggingNamespace,
 		},
 	)
 	if err != nil {
