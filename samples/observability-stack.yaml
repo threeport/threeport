@@ -1,0 +1,6 @@
+ObservabilityStack:
+  Name: threeport-observability
+  KubernetesRuntimeInstance:
+    Name: threeport-dev-0
+  MetricsEnabled: true
+  LoggingEnabled: true
