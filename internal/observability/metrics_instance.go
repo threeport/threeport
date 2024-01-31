@@ -28,36 +28,33 @@ func metricsInstanceCreated(
 		return 0, fmt.Errorf("failed to get metrics definition: %w", err)
 	}
 
-	var grafanaHelmWorkloadInstance *v0.HelmWorkloadInstance
-	if metricsDefinition.GrafanaHelmWorkloadDefinitionID != nil {
-		// merge grafana helm values if they are provided
-		grafanaHelmWorkloadInstanceValues := grafanaValues
-		if metricsInstance.GrafanaHelmValues != nil {
-			grafanaHelmWorkloadInstanceValues, err = MergeHelmValues(
-				grafanaValues,
-				*metricsInstance.GrafanaHelmValues,
-			)
-			if err != nil {
-				return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
-			}
-		}
-
-		// ensure grafana helm workload instance is deployed
-		grafanaHelmWorkloadInstance, err = client.CreateHelmWorkloadInstance(
-			r.APIClient,
-			r.APIServer,
-			&v0.HelmWorkloadInstance{
-				Instance: v0.Instance{
-					Name: util.StringPtr(GrafanaChartName(*metricsInstance.Name)),
-				},
-				KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
-				HelmWorkloadDefinitionID:    metricsDefinition.GrafanaHelmWorkloadDefinitionID,
-				HelmValuesDocument:          &grafanaHelmWorkloadInstanceValues,
-			},
+	// merge grafana helm values if they are provided
+	grafanaHelmWorkloadInstanceValues := grafanaValues
+	if metricsInstance.GrafanaHelmValues != nil {
+		grafanaHelmWorkloadInstanceValues, err = MergeHelmValues(
+			grafanaValues,
+			*metricsInstance.GrafanaHelmValues,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create grafana helm workload instance: %w", err)
+			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
 		}
+	}
+
+	// ensure grafana helm workload instance is deployed
+	grafanaHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		&v0.HelmWorkloadInstance{
+			Instance: v0.Instance{
+				Name: util.StringPtr(GrafanaChartName(*metricsInstance.Name)),
+			},
+			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
+			HelmWorkloadDefinitionID:    metricsDefinition.GrafanaHelmWorkloadDefinitionID,
+			HelmValuesDocument:          &grafanaHelmWorkloadInstanceValues,
+		},
+	)
+	if err != nil && !errors.Is(err, client.ErrConflict) {
+		return 0, fmt.Errorf("failed to create grafana helm workload instance: %w", err)
 	} else {
 		grafanaHelmWorkloadInstance, err = client.GetHelmWorkloadInstanceByName(
 			r.APIClient,
@@ -148,7 +145,6 @@ func metricsInstanceDeleted(
 		if err != nil {
 			return 0, fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
 		}
-		return 0, nil
 	}
 
 	// delete kube-prometheus-stack helm workload instance
