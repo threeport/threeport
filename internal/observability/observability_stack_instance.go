@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -281,7 +282,7 @@ func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceVa
 	var err error
 
 	// merge grafana values
-	c.grafanaHelmValuesDocument, err = MergeHelmValuesPtrs(
+	c.grafanaHelmValuesDocument, err = helmworkload.MergeHelmValuesPtrs(
 		c.observabilityStackInstance.GrafanaHelmValuesDocument,
 		c.observabilityStackDefinition.GrafanaHelmValuesDocument,
 	)
@@ -291,7 +292,7 @@ func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceVa
 
 	if *c.observabilityStackInstance.MetricsEnabled {
 		// merge grafana prometheus service monitor
-		c.grafanaHelmValuesDocument, err = MergeHelmValues(
+		c.grafanaHelmValuesDocument, err = helmworkload.MergeHelmValuesString(
 			c.grafanaHelmValuesDocument,
 			grafanaPrometheusServiceMonitor,
 		)
@@ -301,7 +302,7 @@ func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceVa
 	}
 
 	// merge kube-prometheus-stack values
-	c.kubePrometheusStackHelmValuesDocument, err = MergeHelmValuesPtrs(
+	c.kubePrometheusStackHelmValuesDocument, err = helmworkload.MergeHelmValuesPtrs(
 		c.observabilityStackInstance.KubePrometheusStackHelmValuesDocument,
 		c.observabilityStackDefinition.KubePrometheusStackHelmValuesDocument,
 	)
@@ -310,7 +311,7 @@ func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceVa
 	}
 
 	// merge loki values
-	c.lokiHelmValuesDocument, err = MergeHelmValuesPtrs(
+	c.lokiHelmValuesDocument, err = helmworkload.MergeHelmValuesPtrs(
 		c.observabilityStackInstance.LokiHelmValuesDocument,
 		c.observabilityStackDefinition.LokiHelmValuesDocument,
 	)
@@ -319,7 +320,7 @@ func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceVa
 	}
 
 	// merge promtail values
-	c.promtailHelmValuesDocument, err = MergeHelmValuesPtrs(
+	c.promtailHelmValuesDocument, err = helmworkload.MergeHelmValuesPtrs(
 		c.observabilityStackInstance.PromtailHelmValuesDocument,
 		c.observabilityStackDefinition.PromtailHelmValuesDocument,
 	)

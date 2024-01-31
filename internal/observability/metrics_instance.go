@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -32,7 +33,7 @@ func metricsInstanceCreated(
 	}
 
 	// merge kube-prometheus-stack helm values if they are provided
-	kubePrometheusStackHelmWorkloadInstanceValues, err := MergeHelmValuesPtrs(
+	kubePrometheusStackHelmWorkloadInstanceValues, err := helmworkload.MergeHelmValuesPtrs(
 		metricsDefinition.KubePrometheusStackHelmValuesDocument,
 		metricsInstance.KubePrometheusStackHelmValuesDocument,
 	)
@@ -50,7 +51,7 @@ func metricsInstanceCreated(
 			},
 			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
-			HelmValuesDocument:          &kubePrometheusStackHelmWorkloadInstanceValues,
+			ValuesDocument:              &kubePrometheusStackHelmWorkloadInstanceValues,
 		},
 	)
 	if err != nil {
