@@ -1,6 +1,7 @@
 package kubernetesruntime
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -295,10 +296,10 @@ func configureObservability(
 	r *controller.Reconciler,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	log *logr.Logger,
-) (*uint, *uint, error) {
+) (*sql.NullInt64, *sql.NullInt64, error) {
 
-	var metricsInstanceID *uint
-	var loggingInstanceID *uint
+	var metricsInstanceID *sql.NullInt64
+	var loggingInstanceID *sql.NullInt64
 
 	// configure metrics
 	if *kubernetesRuntimeInstance.MetricsEnabled &&
@@ -332,7 +333,7 @@ func configureObservability(
 		if err != nil && !errors.Is(err, client.ErrConflict) {
 			return nil, nil, fmt.Errorf("failed to create metrics instance: %w", err)
 		}
-		metricsInstanceID = metricsInstance.ID
+		metricsInstanceID = util.SqlNullInt64(metricsInstance.ID)
 
 	} else if !*kubernetesRuntimeInstance.MetricsEnabled &&
 		kubernetesRuntimeInstance.MetricsInstanceID != nil {
@@ -340,7 +341,7 @@ func configureObservability(
 		metricsInstance, err := client.GetMetricsInstanceByID(
 			r.APIClient,
 			r.APIServer,
-			*kubernetesRuntimeInstance.MetricsInstanceID,
+			uint(kubernetesRuntimeInstance.MetricsInstanceID.Int64),
 		)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get metrics instance by ID: %w", err)
@@ -351,7 +352,7 @@ func configureObservability(
 		_, err = client.DeleteMetricsInstance(
 			r.APIClient,
 			r.APIServer,
-			*kubernetesRuntimeInstance.MetricsInstanceID,
+			uint(kubernetesRuntimeInstance.MetricsInstanceID.Int64),
 		)
 		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return nil, nil, fmt.Errorf("failed to delete metrics instance: %w", err)
@@ -366,7 +367,7 @@ func configureObservability(
 		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return nil, nil, fmt.Errorf("failed to delete metrics definition: %w", err)
 		}
-		metricsInstanceID = nil
+		metricsInstanceID = util.SqlNullInt64(nil)
 	}
 
 	// configure logging
@@ -401,14 +402,14 @@ func configureObservability(
 		if err != nil && !errors.Is(err, client.ErrConflict) {
 			return nil, nil, fmt.Errorf("failed to create logging instance: %w", err)
 		}
-		loggingInstanceID = loggingInstance.ID
+		loggingInstanceID = util.SqlNullInt64(loggingInstance.ID)
 	} else if !*kubernetesRuntimeInstance.LoggingEnabled &&
 		kubernetesRuntimeInstance.LoggingInstanceID != nil {
 		// get logging instance
 		loggingInstance, err := client.GetLoggingInstanceByID(
 			r.APIClient,
 			r.APIServer,
-			*kubernetesRuntimeInstance.LoggingInstanceID,
+			uint(kubernetesRuntimeInstance.LoggingInstanceID.Int64),
 		)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get logging instance by ID: %w", err)
@@ -419,7 +420,7 @@ func configureObservability(
 		_, err = client.DeleteLoggingInstance(
 			r.APIClient,
 			r.APIServer,
-			*kubernetesRuntimeInstance.LoggingInstanceID,
+			uint(kubernetesRuntimeInstance.LoggingInstanceID.Int64),
 		)
 		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return nil, nil, fmt.Errorf("failed to delete logging instance: %w", err)
@@ -434,7 +435,7 @@ func configureObservability(
 		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return nil, nil, fmt.Errorf("failed to delete logging definition: %w", err)
 		}
-		loggingInstanceID = nil
+		loggingInstanceID = util.SqlNullInt64(nil)
 	}
 
 	return metricsInstanceID, loggingInstanceID, nil
