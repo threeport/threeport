@@ -159,6 +159,7 @@ func (c *ObservabilityStackInstanceConfig) createObservabilityDashboardInstance(
 			},
 			ObservabilityDashboardDefinitionID: c.observabilityStackDefinition.ObservabilityDashboardDefinitionID,
 			KubernetesRuntimeInstanceID:        c.observabilityStackInstance.KubernetesRuntimeInstanceID,
+			GrafanaHelmValuesDocument:                  &c.grafanaHelmValuesDocument,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create observability dashboard instance: %w", err)
@@ -194,8 +195,9 @@ func (c *ObservabilityStackInstanceConfig) createMetricsInstance() error {
 			Instance: v0.Instance{
 				Name: util.StringPtr(MetricsName(*c.observabilityStackInstance.Name)),
 			},
-			MetricsDefinitionID:         c.observabilityStackDefinition.MetricsDefinitionID,
-			KubernetesRuntimeInstanceID: c.observabilityStackInstance.KubernetesRuntimeInstanceID,
+			MetricsDefinitionID:                   c.observabilityStackDefinition.MetricsDefinitionID,
+			KubernetesRuntimeInstanceID:           c.observabilityStackInstance.KubernetesRuntimeInstanceID,
+			KubePrometheusStackHelmValuesDocument: &c.kubePrometheusStackHelmValuesDocument,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create metrics instance: %w", err)
@@ -233,6 +235,8 @@ func (c *ObservabilityStackInstanceConfig) createLoggingInstance() error {
 			},
 			LoggingDefinitionID:         c.observabilityStackDefinition.LoggingDefinitionID,
 			KubernetesRuntimeInstanceID: c.observabilityStackInstance.KubernetesRuntimeInstanceID,
+			LokiHelmValuesDocument:      &c.lokiHelmValuesDocument,
+			PromtailHelmValuesDocument:  &c.promtailHelmValuesDocument,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create logging instance: %w", err)
