@@ -11,17 +11,6 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// MetricsInstanceConfig is the configuration for a metrics instance
-// reconciler.
-type MetricsInstanceConfig struct {
-	r                                             *controller.Reconciler
-	metricsInstance                               *v0.MetricsInstance
-	metricsDefinition                             *v0.MetricsDefinition
-	log                                           *logr.Logger
-	grafanaHelmWorkloadInstanceValues             string
-	kubePrometheusStackHelmWorkloadInstanceValues string
-}
-
 // metricsInstanceCreated reconciles state for a new kubernetes
 // runtime instance.
 func metricsInstanceCreated(
@@ -43,7 +32,7 @@ func metricsInstanceCreated(
 	}
 
 	// merge kube-prometheus-stack helm values if they are provided
-	kubePrometheusStackHelmWorkloadInstanceValues := grafanaValues
+	kubePrometheusStackHelmWorkloadInstanceValues := kubePrometheusStackValues
 	if metricsInstance.KubePrometheusStackHelmValues != nil {
 		kubePrometheusStackHelmWorkloadInstanceValues, err = MergeHelmValues(
 			kubePrometheusStackHelmWorkloadInstanceValues,
@@ -54,25 +43,27 @@ func metricsInstanceCreated(
 		}
 	}
 
-	// configure metrics instance config
-	c := &MetricsInstanceConfig{
-		r:                                 r,
-		metricsInstance:                   metricsInstance,
-		metricsDefinition:                 metricsDefinition,
-		log:                               log,
-		kubePrometheusStackHelmWorkloadInstanceValues: kubePrometheusStackHelmWorkloadInstanceValues,
+	// create kube-prometheus-stack helm workload instance
+	kubePrometheusStackHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		&v0.HelmWorkloadInstance{
+			Instance: v0.Instance{
+				Name: util.StringPtr(KubePrometheusStackChartName(*metricsInstance.Name)),
+			},
+			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
+			HelmWorkloadDefinitionID:    metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
+			HelmValuesDocument:          &kubePrometheusStackHelmWorkloadInstanceValues,
+		},
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
 	}
 
-	// get metrics instance operations
-	operations := getMetricsInstanceOperations(c)
-
-	// execute create metrics instance operations
-	if err := operations.Create(); err != nil {
-		return 0, fmt.Errorf("failed to execute create metrics instance operations: %w", err)
-	}
+	// update kube-prometheus-stack helm workload instance
+	metricsInstance.KubePrometheusStackHelmWorkloadInstanceID = kubePrometheusStackHelmWorkloadInstance.ID
 
 	// update metrics instance reconciled field
-	metricsInstance.Reconciled = util.BoolPtr(true)
 	if _, err = client.UpdateMetricsInstance(
 		r.APIClient,
 		r.APIServer,
@@ -102,87 +93,14 @@ func metricsInstanceDeleted(
 	log *logr.Logger,
 ) (int64, error) {
 
-	// create logging instance config
-	c := &MetricsInstanceConfig{
-		r:                 r,
-		metricsInstance:   metricsInstance,
-		metricsDefinition: nil,
-		log:               log,
-	}
-
-	// get logging operations
-	operations := getMetricsInstanceOperations(c)
-
-	// execute delete operations
-	if err := operations.Delete(); err != nil {
-		return 0, fmt.Errorf("failed to execute logging delete operations: %w", err)
+	// delete kube-prometheus-stack helm workload instance
+	if _, err := client.DeleteHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		*metricsInstance.KubePrometheusStackHelmWorkloadInstanceID,
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		return 0, fmt.Errorf("failed to delete kube-prometheus-stack helm workload instance: %w", err)
 	}
 
 	return 0, nil
-}
-
-// getMetricsInstanceOperations returns a list of operations for a
-// metrics instance.
-func getMetricsInstanceOperations(c *MetricsInstanceConfig) *util.Operations {
-	operations := util.Operations{}
-
-	// append kube-prometheus-stack operations
-	operations.AppendOperation(util.Operation{
-		Name: "kube-prometheus-stack",
-		Create: func() error {
-			if err := c.createKubePrometheusStackHelmWorkloadInstance(); err != nil {
-				return fmt.Errorf("failed to create loki helm workload instance: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteKubePrometheusStackHelmWorkloadInstance(); err != nil {
-				return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
-			}
-			return nil
-		},
-	})
-
-	return &operations
-}
-
-// createKubePrometheusStackHelmWorkloadInstance creates a kube-prometheus-stack helm
-// workload instance.
-func (c *MetricsInstanceConfig) createKubePrometheusStackHelmWorkloadInstance() error {
-	// create kube-prometheus-stack helm workload instance
-	kubePrometheusStackHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
-		c.r.APIClient,
-		c.r.APIServer,
-		&v0.HelmWorkloadInstance{
-			Instance: v0.Instance{
-				Name: util.StringPtr(KubePrometheusStackChartName(*c.metricsInstance.Name)),
-			},
-			KubernetesRuntimeInstanceID: c.metricsInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    c.metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
-			HelmValuesDocument:          &c.kubePrometheusStackHelmWorkloadInstanceValues,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
-	}
-
-	// update kube-prometheus-stack helm workload instance
-	c.metricsInstance.KubePrometheusStackHelmWorkloadInstanceID = kubePrometheusStackHelmWorkloadInstance.ID
-
-	return nil
-}
-
-// deleteKubePrometheusStackHelmWorkloadInstance deletes a kube-prometheus-stack helm
-// workload instance.
-func (c *MetricsInstanceConfig) deleteKubePrometheusStackHelmWorkloadInstance() error {
-	// delete kube-prometheus-stack helm workload instance
-	if _, err := client.DeleteHelmWorkloadInstance(
-		c.r.APIClient,
-		c.r.APIServer,
-		*c.metricsInstance.KubePrometheusStackHelmWorkloadInstanceID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to delete kube-prometheus-stack helm workload instance: %w", err)
-	}
-
-	return nil
 }
