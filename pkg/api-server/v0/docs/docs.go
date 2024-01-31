@@ -542,6 +542,78 @@ const docTemplate = `{
                 }
             }
         },
+        "/observability-dashboard-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for observability dashboard definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetObservabilityDashboardDefinitionVersions gets the supported versions for the observability dashboard definition API.",
+                "operationId": "observabilityDashboardDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/observability-dashboard-instances/versions": {
+            "get": {
+                "description": "Get the supported API versions for observability dashboard instances.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetObservabilityDashboardInstanceVersions gets the supported versions for the observability dashboard instance API.",
+                "operationId": "observabilityDashboardInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/observability-stack-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for observability stack definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetObservabilityStackDefinitionVersions gets the supported versions for the observability stack definition API.",
+                "operationId": "observabilityStackDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/observability-stack-instances/versions": {
+            "get": {
+                "description": "Get the supported API versions for observability stack instances.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetObservabilityStackInstanceVersions gets the supported versions for the observability stack instance API.",
+                "operationId": "observabilityStackInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/profiles/versions": {
             "get": {
                 "description": "Get the supported API versions for profiles.",
@@ -8727,6 +8799,1130 @@ const docTemplate = `{
                 }
             }
         },
+        "/v0/observability-dashboard-definitions": {
+            "get": {
+                "description": "Get all observability dashboard definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all observability dashboard definitions.",
+                "operationId": "get-observabilityDashboardDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "observability dashboard definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new observability dashboard definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new observability dashboard definition.",
+                "operationId": "add-observabilityDashboardDefinition",
+                "parameters": [
+                    {
+                        "description": "ObservabilityDashboardDefinition object",
+                        "name": "observabilityDashboardDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityDashboardDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/observability-dashboard-definitions/{id}": {
+            "get": {
+                "description": "Get a particular observability dashboard definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a observability dashboard definition.",
+                "operationId": "get-observabilityDashboardDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a observability dashboard definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating observability dashboard definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing observability dashboard definition by replacing the entire object.",
+                "operationId": "replace-observabilityDashboardDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ObservabilityDashboardDefinition object",
+                        "name": "observabilityDashboardDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityDashboardDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a observability dashboard definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a observability dashboard definition.",
+                "operationId": "delete-observabilityDashboardDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a observability dashboard definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating observability dashboard definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing observability dashboard definition.",
+                "operationId": "update-observabilityDashboardDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ObservabilityDashboardDefinition object",
+                        "name": "observabilityDashboardDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityDashboardDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/observability-dashboard-instances": {
+            "get": {
+                "description": "Get all observability dashboard instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all observability dashboard instances.",
+                "operationId": "get-observabilityDashboardInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "observability dashboard instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new observability dashboard instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new observability dashboard instance.",
+                "operationId": "add-observabilityDashboardInstance",
+                "parameters": [
+                    {
+                        "description": "ObservabilityDashboardInstance object",
+                        "name": "observabilityDashboardInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityDashboardInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/observability-dashboard-instances/{id}": {
+            "get": {
+                "description": "Get a particular observability dashboard instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a observability dashboard instance.",
+                "operationId": "get-observabilityDashboardInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a observability dashboard instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating observability dashboard instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing observability dashboard instance by replacing the entire object.",
+                "operationId": "replace-observabilityDashboardInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ObservabilityDashboardInstance object",
+                        "name": "observabilityDashboardInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityDashboardInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a observability dashboard instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a observability dashboard instance.",
+                "operationId": "delete-observabilityDashboardInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a observability dashboard instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating observability dashboard instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing observability dashboard instance.",
+                "operationId": "update-observabilityDashboardInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ObservabilityDashboardInstance object",
+                        "name": "observabilityDashboardInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityDashboardInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/observability-stack-definitions": {
+            "get": {
+                "description": "Get all observability stack definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all observability stack definitions.",
+                "operationId": "get-observabilityStackDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "observability stack definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new observability stack definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new observability stack definition.",
+                "operationId": "add-observabilityStackDefinition",
+                "parameters": [
+                    {
+                        "description": "ObservabilityStackDefinition object",
+                        "name": "observabilityStackDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityStackDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/observability-stack-definitions/{id}": {
+            "get": {
+                "description": "Get a particular observability stack definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a observability stack definition.",
+                "operationId": "get-observabilityStackDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a observability stack definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating observability stack definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing observability stack definition by replacing the entire object.",
+                "operationId": "replace-observabilityStackDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ObservabilityStackDefinition object",
+                        "name": "observabilityStackDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityStackDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a observability stack definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a observability stack definition.",
+                "operationId": "delete-observabilityStackDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a observability stack definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating observability stack definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing observability stack definition.",
+                "operationId": "update-observabilityStackDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ObservabilityStackDefinition object",
+                        "name": "observabilityStackDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityStackDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/observability-stack-instances": {
+            "get": {
+                "description": "Get all observability stack instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all observability stack instances.",
+                "operationId": "get-observabilityStackInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "observability stack instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new observability stack instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new observability stack instance.",
+                "operationId": "add-observabilityStackInstance",
+                "parameters": [
+                    {
+                        "description": "ObservabilityStackInstance object",
+                        "name": "observabilityStackInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityStackInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/observability-stack-instances/{id}": {
+            "get": {
+                "description": "Get a particular observability stack instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a observability stack instance.",
+                "operationId": "get-observabilityStackInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a observability stack instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating observability stack instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing observability stack instance by replacing the entire object.",
+                "operationId": "replace-observabilityStackInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ObservabilityStackInstance object",
+                        "name": "observabilityStackInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityStackInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a observability stack instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a observability stack instance.",
+                "operationId": "delete-observabilityStackInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a observability stack instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating observability stack instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing observability stack instance.",
+                "operationId": "update-observabilityStackInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ObservabilityStackInstance object",
+                        "name": "observabilityStackInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ObservabilityStackInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/profiles": {
             "get": {
                 "description": "Get all profiles from the Threeport database.",
@@ -12484,18 +13680,6 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "GrafanaHelmChartVersion": {
-                    "description": "The version of the grafana helm chart to use from the helm repo, e.g. 1.2.3",
-                    "type": "string"
-                },
-                "GrafanaHelmValuesDocument": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying grafana chart.",
-                    "type": "string"
-                },
-                "GrafanaHelmWorkloadDefinitionID": {
-                    "description": "The Grafana Helm workload definition that belongs to this resource.",
-                    "type": "integer"
-                },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
@@ -12516,7 +13700,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "LokiHelmWorkloadDefinitionID": {
-                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
+                    "description": "The loki Helm workload definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Name": {
@@ -12528,7 +13712,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "PromtailHelmChartVersion": {
-                    "description": "The version of the loki helm chart to use from the helm repo, e.g. 1.2.3",
+                    "description": "The version of the promtail helm chart to use from the helm repo, e.g. 1.2.3",
                     "type": "string"
                 },
                 "PromtailHelmValuesDocument": {
@@ -12536,7 +13720,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "PromtailHelmWorkloadDefinitionID": {
-                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
+                    "description": "The promtail Helm workload definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Reconciled": {
@@ -12581,14 +13765,6 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "GrafanaHelmValues": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying grafana chart.",
-                    "type": "string"
-                },
-                "GrafanaHelmWorkloadInstanceID": {
-                    "description": "The Grafana Helm workload definition that belongs to this resource.",
-                    "type": "integer"
-                },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
@@ -12602,11 +13778,11 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "LokiHelmValues": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying kube-prometheus-stack chart.",
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying loki chart.",
                     "type": "string"
                 },
                 "LokiHelmWorkloadInstanceID": {
-                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
+                    "description": "The loki Helm workload definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Name": {
@@ -12614,11 +13790,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "PromtailHelmValues": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying kube-prometheus-stack chart.",
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying promtail chart.",
                     "type": "string"
                 },
                 "PromtailHelmWorkloadInstanceID": {
-                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
+                    "description": "The promtail Helm workload definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Reconciled": {
@@ -12681,24 +13857,12 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "GrafanaHelmChartVersion": {
-                    "description": "The version of the grafana helm chart to use from the helm repo, e.g. 1.2.3",
-                    "type": "string"
-                },
-                "GrafanaHelmValuesDocument": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying grafana chart.",
-                    "type": "string"
-                },
-                "GrafanaHelmWorkloadDefinitionID": {
-                    "description": "The Grafana Helm workload definition that belongs to this resource.",
-                    "type": "integer"
-                },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
                 },
                 "KubePrometheusStackHelmChartVersion": {
-                    "description": "The version of the grafana helm chart to use from the helm repo, e.g. 1.2.3",
+                    "description": "The version of the kube-prometheus-stack helm chart to use from the helm repo, e.g. 1.2.3",
                     "type": "string"
                 },
                 "KubePrometheusStackHelmValuesDocument": {
@@ -12765,14 +13929,6 @@ const docTemplate = `{
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
-                },
-                "GrafanaHelmValues": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying grafana chart.",
-                    "type": "string"
-                },
-                "GrafanaHelmWorkloadInstanceID": {
-                    "description": "The Grafana Helm workload definition that belongs to this resource.",
-                    "type": "integer"
                 },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
@@ -13090,7 +14246,7 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "GrafanaHelmValuesDocument": {
+                "GrafanaHelmValues": {
                     "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying grafana chart.",
                     "type": "string"
                 },

@@ -93,23 +93,6 @@ func loggingDefinitionDeleted(
 func getLoggingDefinitionOperations(c *LoggingDefinitionConfig) *util.Operations {
 	operations := util.Operations{}
 
-	// append grafana operations
-	operations.AppendOperation(util.Operation{
-		Name: "grafana",
-		Create: func() error {
-			if err := c.createGrafanaHelmWorkloadDefinition(); err != nil {
-				return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteGrafanaHelmWorkloadDefinition(); err != nil {
-				return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
-			}
-			return nil
-		},
-	})
-
 	// append loki operations
 	operations.AppendOperation(util.Operation{
 		Name: "loki",
@@ -145,66 +128,6 @@ func getLoggingDefinitionOperations(c *LoggingDefinitionConfig) *util.Operations
 	})
 
 	return &operations
-}
-
-// createGrafanaHelmWorkloadDefinition creates a grafana helm workload definition.
-func (c *LoggingDefinitionConfig) createGrafanaHelmWorkloadDefinition() error {
-	var err error
-	// ensure grafana helm workload definition exists
-	grafanaHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
-		c.r.APIClient,
-		c.r.APIServer,
-		&v0.HelmWorkloadDefinition{
-			Definition: v0.Definition{
-				Name: util.StringPtr(GrafanaChartName(*c.loggingDefinition.Name)),
-			},
-			Repo:               util.StringPtr(GrafanaHelmRepo),
-			Chart:              util.StringPtr("grafana"),
-			HelmChartVersion:   c.loggingDefinition.GrafanaHelmChartVersion,
-			HelmValuesDocument: c.loggingDefinition.GrafanaHelmValuesDocument,
-		})
-	if err != nil && !errors.Is(err, client.ErrConflict) {
-		// only return error if it isn't a conflict, since we
-		// expect both MetricsInstance and LoggingInstance to depend
-		// on the same HelmWorkloadDefinition for Grafana
-		return fmt.Errorf("failed to create grafana helm workload definition: %w", err)
-	} else if err != nil && errors.Is(err, client.ErrConflict) {
-		grafanaHelmWorkloadDefinition, err = client.GetHelmWorkloadDefinitionByName(
-			c.r.APIClient,
-			c.r.APIServer,
-			GrafanaChartName(*c.loggingDefinition.Name),
-		)
-	}
-
-	// update logging definition with grafana helm workload definition id
-	c.loggingDefinition.GrafanaHelmWorkloadDefinitionID = grafanaHelmWorkloadDefinition.ID
-
-	return nil
-}
-
-// deleteGrafanaHelmWorkloadDefinition creates a grafana helm workload definition.
-func (c *LoggingDefinitionConfig) deleteGrafanaHelmWorkloadDefinition() error {
-	// check if metrics is deployed
-	metricsDefinition, err := client.GetMetricsDefinitionByName(
-		c.r.APIClient,
-		c.r.APIServer,
-		*c.loggingDefinition.Name,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to get metrics definition: %w", err)
-	} else if err != nil && errors.Is(err, client.ErrObjectNotFound) ||
-		(metricsDefinition != nil && metricsDefinition.DeletionScheduled != nil) {
-		// delete grafana helm workload definition
-		_, err := client.DeleteHelmWorkloadDefinition(
-			c.r.APIClient,
-			c.r.APIServer,
-			*c.loggingDefinition.GrafanaHelmWorkloadDefinitionID,
-		)
-		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-			return fmt.Errorf("failed to delete grafana helm workload definition: %w", err)
-		}
-	}
-	return nil
 }
 
 // createLokiHelmWorkloadDefinition creates a loki helm workload definition.
