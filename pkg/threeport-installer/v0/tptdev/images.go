@@ -40,9 +40,9 @@ type ErrorDetail struct {
 
 type imageTagFetcher func(nodes.Node, string) (map[string]bool, error)
 
-// PrepareDevImages builds and loads the threeport control plane images for
+// PrepareDevImage builds and loads the threeport control plane images for
 // development use.
-func PrepareDevImages(threeportPath, kindKubernetesRuntimeName string, cpi *threeport.ControlPlaneInstaller) error {
+func PrepareDevImage(threeportPath, kindKubernetesRuntimeName string, cpi *threeport.ControlPlaneInstaller) error {
 
 	if err := BuildDevImage(threeportPath); err != nil {
 		return fmt.Errorf("failed to build dev images: %w", err)

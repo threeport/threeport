@@ -34,7 +34,6 @@ import (
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
-	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -609,13 +608,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	apiClient, err := threeportConfig.GetHTTPClient(cpi.Opts.ControlPlaneName)
 	if err != nil {
 		return cleanOnCreateError("failed to get threeport certificates from config", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
-	}
-
-	// for dev environment, build and load dev images for API and controllers
-	if cpi.Opts.DevEnvironment {
-		if err := tptdev.PrepareDevImages(cpi.Opts.ThreeportPath, provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName), cpi); err != nil {
-			return cleanOnCreateError("failed to build and load dev control plane images", err, &controlPlane, kubernetesRuntimeInfra, nil, nil, false, cpi, awsConfigUser)
-		}
 	}
 
 	err = cpi.Opts.PreInstallFunction(&kubernetesRuntimeInstance, cpi)
