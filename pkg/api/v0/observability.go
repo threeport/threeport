@@ -2,10 +2,6 @@
 //go:generate threeport-codegen controller --filename $GOFILE
 package v0
 
-import (
-	pq "github.com/lib/pq"
-)
-
 // +threeport-codegen:reconciler
 // MetricsDefinition defines a metrics aggregation layer for a workload.
 type MetricsDefinition struct {
@@ -13,12 +9,24 @@ type MetricsDefinition struct {
 	Definition     `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// The Helm workload definitions that belongs to this resource.
-	HelmWorkloadDefinitionIDs pq.Int64Array `json:"HelmWorkloadDefinitionIDs,omitempty" query:"helmworkloaddefinitionid" validate:"optional" gorm:"type:integer[]"`
+	// The Grafana Helm workload definition that belongs to this resource.
+	GrafanaHelmWorkloadDefinitionID *uint `json:"GrafanaHelmWorkloadDefinitionID,omitempty" query:"grafanahelmworkloaddefinitionid" validate:"optional"`
 
-	// Optional Helm workload definition values that can be provided to configure the
-	// underlying charts.
-	HelmWorkloadDefinitionValues *string `json:"HelmWorkloadDefinitionValues,omitempty" query:"helmworkloaddefinitionvalues" validate:"optional"`
+	// The kube-prometheus-stack Helm workload definition that belongs to this resource.
+	KubePrometheusStackHelmWorkloadDefinitionID *uint `json:"KubePrometheusStackHelmWorkloadDefinitionID,omitempty" query:"kubeprometheusstackhelmworkloaddefinitionid" validate:"optional"`
+
+	// // Optional Helm workload definition values that can be provided to configure the
+	// // underlying grafana chart.
+	// GrafanaHelmValues *string `json:"GrafanaHelmValues,omitempty" query:"grafanahelmvalues" validate:"optional"`
+
+	// // Optional Helm workload definition values that can be provided to configure the
+	// // underlying kube-prometheus-stack chart.
+	// KubePrometheusStackHelmValues *string
+	// `json:"KubePrometheusStackHelmValues,omitempty"
+	// query:"kubeprometheusstackhelmvalues" validate:"optional"`
+
+	// The associated metrics instances that are deployed from this definition.
+	MetricsInstances []*MetricsInstance `json:"MetricsInstances,omitempty" validate:"optional,association"`
 }
 
 // +threeport-codegen:reconciler
@@ -28,13 +36,23 @@ type MetricsInstance struct {
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
+	// MetricsDefinitionID is the definition used to configure the workload instance.
+	MetricsDefinitionID *uint `json:"MetricsDefinitionID,omitempty" query:"metricsdefinitionid" gorm:"not null" validate:"required"`
+
 	// The kubernetes runtime where the ingress layer is installed.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
-	// The helm workload instance ids this belongs to.
-	HelmWorkloadInstanceIDs pq.Int64Array `json:"HelmWorkloadInstanceID,omitempty" query:"helmworkloadinstanceids" gorm:"type:integer[]" validate:"required"`
+	// The Grafana Helm workload definition that belongs to this resource.
+	GrafanaHelmWorkloadInstanceID *uint `json:"GrafanaHelmWorkloadInstanceID,omitempty" query:"grafanahelmworkloadinstanceid" validate:"optional"`
+
+	// The kube-prometheus-stack Helm workload definition that belongs to this resource.
+	KubePrometheusStackHelmWorkloadInstanceID *uint `json:"KubePrometheusStackHelmWorkloadInstanceID,omitempty" query:"kubeprometheusstackhelmworkloadinstanceid" validate:"optional"`
 
 	// Optional Helm workload definition values that can be provided to configure the
-	// underlying charts.
-	HelmWorkloadInstanceValues *string `json:"HelmWorkloadInstanceValues,omitempty" query:"helmworkloadinstancevalues" validate:"optional"`
+	// underlying grafana chart.
+	GrafanaHelmValues *string `json:"GrafanaHelmValues,omitempty" query:"grafanahelmvalues" validate:"optional"`
+
+	// Optional Helm workload definition values that can be provided to configure the
+	// underlying kube-prometheus-stack chart.
+	KubePrometheusStackHelmValues *string `json:"KubePrometheusStackHelmValues,omitempty" query:"kubeprometheusstackhelmvalues" validate:"optional"`
 }

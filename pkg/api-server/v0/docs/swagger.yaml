@@ -1488,18 +1488,9 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      HelmWorkloadDefinitionIDs:
-        description: The Helm workload definitions that belongs to this resource.
-        items:
-          items:
-            type: integer
-          type: array
-        type: array
-      HelmWorkloadDefinitionValues:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying charts.
-        type: string
+      GrafanaHelmWorkloadDefinitionID:
+        description: The Grafana Helm workload definition that belongs to this resource.
+        type: integer
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -1507,6 +1498,16 @@ definitions:
           situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
+      KubePrometheusStackHelmWorkloadDefinitionID:
+        description: The kube-prometheus-stack Helm workload definition that belongs
+          to this resource.
+        type: integer
+      MetricsInstances:
+        description: The associated metrics instances that are deployed from this
+          definition.
+        items:
+          $ref: '#/definitions/v0.MetricsInstance'
+        type: array
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -1555,18 +1556,14 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      HelmWorkloadInstanceID:
-        description: The helm workload instance ids this belongs to.
-        items:
-          items:
-            type: integer
-          type: array
-        type: array
-      HelmWorkloadInstanceValues:
+      GrafanaHelmValues:
         description: |-
           Optional Helm workload definition values that can be provided to configure the
-          underlying charts.
+          underlying grafana chart.
         type: string
+      GrafanaHelmWorkloadInstanceID:
+        description: The Grafana Helm workload definition that belongs to this resource.
+        type: integer
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -1574,8 +1571,21 @@ definitions:
           situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
+      KubePrometheusStackHelmValues:
+        description: |-
+          Optional Helm workload definition values that can be provided to configure the
+          underlying kube-prometheus-stack chart.
+        type: string
+      KubePrometheusStackHelmWorkloadInstanceID:
+        description: The kube-prometheus-stack Helm workload definition that belongs
+          to this resource.
+        type: integer
       KubernetesRuntimeInstanceID:
         description: The kubernetes runtime where the ingress layer is installed.
+        type: integer
+      MetricsDefinitionID:
+        description: MetricsDefinitionID is the definition used to configure the workload
+          instance.
         type: integer
       Name:
         description: An arbitrary name the instance
@@ -1590,35 +1600,12 @@ definitions:
           TODO: use a custom type
         type: string
     required:
-    - HelmWorkloadInstanceID
     - KubernetesRuntimeInstanceID
+    - MetricsDefinitionID
     - Name
     type: object
   v0.ObjectType:
     enum:
-    - Profile
-    - Tier
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1626,35 +1613,35 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - Profile
+    - Tier
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     - MetricsDefinition
     - MetricsInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1662,10 +1649,33 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeMetricsDefinition
     - ObjectTypeMetricsInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
   v0.Profile:
     properties:
       Name:
