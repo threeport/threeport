@@ -92,7 +92,7 @@ func loggingInstanceCreated(
 	}
 
 	// get logging operations
-	operations := getLoggingOperations(c)
+	operations := getLoggingInstanceOperations(c)
 
 	// execute logging operations
 	if err := operations.Create(); err != nil {
@@ -164,19 +164,40 @@ func loggingInstanceDeleted(
 	}
 
 	// get logging operations
-	operations := getLoggingOperations(c)
+	operations := getLoggingInstanceOperations(c)
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
 		return 0, fmt.Errorf("failed to execute logging delete operations: %w", err)
 	}
 
+	// wait for helm workload definitions to be deleted
+	for _, id := range []*uint{
+		loggingInstance.GrafanaHelmWorkloadInstanceID,
+		loggingInstance.LokiHelmWorkloadInstanceID,
+		loggingInstance.PromtailHelmWorkloadInstanceID,
+	} {
+		current := id
+		if err := util.Retry(60, 1, func() error {
+			if _, err := client.GetHelmWorkloadInstanceByID(
+				r.APIClient,
+				r.APIServer,
+				*current,
+			); err == nil {
+				return fmt.Errorf("helm workload instance still present: %w", err)
+			}
+			return nil
+		}); err != nil {
+			return 0, fmt.Errorf("failed to wait for helm workload instance to be deleted: %w", err)
+		}
+	}
+
 	return 0, nil
 }
 
-// createGrafana creates grafana helm workload instance if metrics
+// createGrafanaHelmWorkloadInstance creates grafana helm workload instance if metrics
 // instance is not deployed.
-func (c *LoggingInstanceConfig) createGrafana() error {
+func (c *LoggingInstanceConfig) createGrafanaHelmWorkloadInstance() error {
 	// ensure grafana helm workload instance is deployed
 	grafanaHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
 		c.r.APIClient,
@@ -218,9 +239,9 @@ func (c *LoggingInstanceConfig) createGrafana() error {
 	return nil
 }
 
-// deleteGrafana deletes grafana helm workload instance if metrics
+// deleteGrafanaHelmWorkloadInstance deletes grafana helm workload instance if metrics
 // instance is not deployed.
-func (c *LoggingInstanceConfig) deleteGrafana() error {
+func (c *LoggingInstanceConfig) deleteGrafanaHelmWorkloadInstance() error {
 	// check if metrics is deployed,
 	// if it's not then we can clean up grafana chart
 	metricsInstance, err := client.GetMetricsInstanceByName(
@@ -269,8 +290,8 @@ func (c *LoggingInstanceConfig) createLoki() error {
 	return nil
 }
 
-// deleteLoki deletes loki helm workload instance
-func (c *LoggingInstanceConfig) deleteLoki() error {
+// deleteLokiHelmWorkloadInstance deletes loki helm workload instance
+func (c *LoggingInstanceConfig) deleteLokiHelmWorkloadInstance() error {
 
 	// delete loki helm workload instance
 	_, err := client.DeleteHelmWorkloadInstance(
@@ -285,8 +306,8 @@ func (c *LoggingInstanceConfig) deleteLoki() error {
 	return nil
 }
 
-// createPromtail creates promtail helm workload instance
-func (c *LoggingInstanceConfig) createPromtail() error {
+// createPromtailHelmWorkloadInstance creates promtail helm workload instance
+func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
 	// create promtail helm workload instance
 	promtailHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
 		c.r.APIClient,
@@ -308,8 +329,8 @@ func (c *LoggingInstanceConfig) createPromtail() error {
 	return nil
 }
 
-// deletePromtail creates promtail helm workload instance
-func (c *LoggingInstanceConfig) deletePromtail() error {
+// deletePromtailHelmWorkloadInstance creates promtail helm workload instance
+func (c *LoggingInstanceConfig) deletePromtailHelmWorkloadInstance() error {
 	// delete promtail helm workload instance
 	_, err := client.DeleteHelmWorkloadInstance(
 		c.r.APIClient,
@@ -322,8 +343,8 @@ func (c *LoggingInstanceConfig) deletePromtail() error {
 	return nil
 }
 
-// getLoggingOperations returns a list of operations for a logging instance.
-func getLoggingOperations(c *LoggingInstanceConfig) *util.Operations {
+// getLoggingInstanceOperations returns a list of operations for a logging instance.
+func getLoggingInstanceOperations(c *LoggingInstanceConfig) *util.Operations {
 
 	operations := util.Operations{}
 
@@ -331,13 +352,13 @@ func getLoggingOperations(c *LoggingInstanceConfig) *util.Operations {
 	operations.AppendOperation(util.Operation{
 		Name: "grafana",
 		Create: func() error {
-			if err := c.createGrafana(); err != nil {
+			if err := c.createGrafanaHelmWorkloadInstance(); err != nil {
 				return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
 			}
 			return nil
 		},
 		Delete: func() error {
-			if err := c.deleteGrafana(); err != nil {
+			if err := c.deleteGrafanaHelmWorkloadInstance(); err != nil {
 				return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
 			}
 			return nil
@@ -354,7 +375,7 @@ func getLoggingOperations(c *LoggingInstanceConfig) *util.Operations {
 			return nil
 		},
 		Delete: func() error {
-			if err := c.deleteLoki(); err != nil {
+			if err := c.deleteLokiHelmWorkloadInstance(); err != nil {
 				return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
 			}
 			return nil
@@ -365,13 +386,13 @@ func getLoggingOperations(c *LoggingInstanceConfig) *util.Operations {
 	operations.AppendOperation(util.Operation{
 		Name: "promtail",
 		Create: func() error {
-			if err := c.createPromtail(); err != nil {
+			if err := c.createPromtailHelmWorkloadInstance(); err != nil {
 				return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
 			}
 			return nil
 		},
 		Delete: func() error {
-			if err := c.deletePromtail(); err != nil {
+			if err := c.deletePromtailHelmWorkloadInstance(); err != nil {
 				return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
 			}
 			return nil
