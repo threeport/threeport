@@ -1048,6 +1048,13 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      HelmValuesDocument:
+        description: |-
+          The helm values that override the defaults from the helm chart.  These
+          will be inherited by each helm workload instance derived from this
+          definition.  The helm values defined here can be further overridden by
+          values defined on the helm workload instance.
+        type: string
       HelmWorkloadInstances:
         description: The associated helm workload instances that are deployed from
           this definition.
@@ -1124,13 +1131,10 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-<<<<<<< HEAD
-=======
       HelmValuesDocument:
         description: Filepath to the helm values YAML file that provides runtime parameters
           to the helm chart.
         type: string
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
       HelmWorkloadDefinitionID:
         description: The definition used to configure the workload instance.
         type: integer
@@ -1763,47 +1767,12 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-<<<<<<< HEAD
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - Profile
-    - Tier
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - ControlPlaneDefinition
     - ControlPlaneInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-=======
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
     - Profile
     - Tier
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-<<<<<<< HEAD
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
-=======
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1811,60 +1780,33 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-<<<<<<< HEAD
-    type: string
-    x-enum-varnames:
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-=======
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
     - ObjectTypeProfile
     - ObjectTypeTier
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-<<<<<<< HEAD
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
-=======
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1872,18 +1814,25 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-<<<<<<< HEAD
-=======
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
->>>>>>> 3a8d32fa (feat: parameterize helm deployments)
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
   v0.Profile:
     properties:
       Name:
