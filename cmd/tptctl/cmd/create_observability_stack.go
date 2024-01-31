@@ -35,14 +35,14 @@ and observability stack instance based on the observability stack config.`,
 			os.Exit(1)
 		}
 		var observabilityStackConfig config.ObservabilityStack
-		if err := yaml.UnmarshalStrict(configContent, &observabilityStackConfig); err != nil {
+		if err := yaml.Unmarshal(configContent, &observabilityStackConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
 
 		// add path to workload config - used to determine relative path from
 		// user's working directory to YAML document
-		observabilityStackConfig.ObservabilityStack.ObservabilityStackConfigPath = createObservabilityStackConfigPath
+		observabilityStackConfig.ObservabilityStack.ConfigPath = createObservabilityStackConfigPath
 
 		// create observabilityStack
 		observabilityStack := observabilityStackConfig.ObservabilityStack
