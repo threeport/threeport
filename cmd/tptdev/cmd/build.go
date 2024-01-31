@@ -4,7 +4,6 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -34,12 +33,6 @@ var buildCmd = &cobra.Command{
 	Short: "Build threeport docker images.",
 	Long:  `Build threeport docker images. Useful for development and debugging. Only supports pushing to Dockerhub and loading into kind.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		// validate flags
-		if push && load {
-			cli.Error("error: %w", errors.New("cannot use --push and --load together"))
-			os.Exit(1)
-		}
 
 		components := installer.AllControlPlaneComponents()
 		components = append(components, installer.DatabaseMigrator)
