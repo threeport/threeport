@@ -10897,6 +10897,13 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+<<<<<<< HEAD
+=======
+                "HelmValuesDocument": {
+                    "description": "Filepath to the helm values YAML file that provides runtime parameters to the helm chart.",
+                    "type": "string"
+                },
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
                 "HelmWorkloadDefinitionID": {
                     "description": "The definition used to configure the helm workload instance.",
                     "type": "integer"
@@ -11229,16 +11236,39 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+<<<<<<< HEAD
+=======
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
+                "Profile",
+                "Tier",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
+<<<<<<< HEAD
                 "Profile",
                 "Tier",
                 "KubernetesRuntimeDefinition",
                 "KubernetesRuntimeInstance",
+=======
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "AwsObjectStorageBucketDefinition",
+                "AwsObjectStorageBucketInstance",
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
@@ -11246,6 +11276,7 @@ const docTemplate = `{
                 "ControlPlaneInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
+<<<<<<< HEAD
                 "GatewayDefinition",
                 "GatewayInstance",
                 "GatewayHttpPort",
@@ -11263,16 +11294,42 @@ const docTemplate = `{
                 "AwsObjectStorageBucketInstance"
             ],
             "x-enum-varnames": [
+=======
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance"
+            ],
+            "x-enum-varnames": [
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
+<<<<<<< HEAD
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
                 "ObjectTypeKubernetesRuntimeDefinition",
                 "ObjectTypeKubernetesRuntimeInstance",
+=======
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeAwsObjectStorageBucketDefinition",
+                "ObjectTypeAwsObjectStorageBucketInstance",
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
@@ -11280,6 +11337,7 @@ const docTemplate = `{
                 "ObjectTypeControlPlaneInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
+<<<<<<< HEAD
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeGatewayHttpPort",
@@ -11295,6 +11353,10 @@ const docTemplate = `{
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
                 "ObjectTypeAwsObjectStorageBucketInstance"
+=======
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance"
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
             ]
         },
         "v0.Profile": {

@@ -1124,6 +1124,13 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+<<<<<<< HEAD
+=======
+      HelmValuesDocument:
+        description: Filepath to the helm values YAML file that provides runtime parameters
+          to the helm chart.
+        type: string
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
       HelmWorkloadDefinitionID:
         description: The definition used to configure the helm workload instance.
         type: integer
@@ -1451,6 +1458,7 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+<<<<<<< HEAD
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -1468,14 +1476,29 @@ definitions:
     - ControlPlaneInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
+=======
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
+    - Profile
+    - Tier
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
     - GatewayDefinition
     - GatewayInstance
     - GatewayHttpPort
     - GatewayTcpPort
     - DomainNameDefinition
     - DomainNameInstance
+<<<<<<< HEAD
     - HelmWorkloadDefinition
     - HelmWorkloadInstance
+=======
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1483,6 +1506,7 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
+<<<<<<< HEAD
     type: string
     x-enum-varnames:
     - ObjectTypeWorkloadDefinition
@@ -1502,14 +1526,40 @@ definitions:
     - ObjectTypeControlPlaneInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
+=======
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    type: string
+    x-enum-varnames:
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
     - ObjectTypeGatewayHttpPort
     - ObjectTypeGatewayTcpPort
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+<<<<<<< HEAD
     - ObjectTypeHelmWorkloadDefinition
     - ObjectTypeHelmWorkloadInstance
+=======
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1517,6 +1567,18 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
+<<<<<<< HEAD
+=======
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+>>>>>>> 3a8d32fa (feat: parameterize helm deployments)
   v0.Profile:
     properties:
       Name:
