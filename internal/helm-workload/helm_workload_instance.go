@@ -104,6 +104,11 @@ func helmWorkloadInstanceCreated(
 		helmWorkloadInstance.HelmReleaseNamespace = &generatedNamespace
 	}
 
+	// configure version if it is supplied by the workload definition
+	if helmWorkloadDefinition.HelmChartVersion != nil && *helmWorkloadDefinition.HelmChartVersion != "" {
+		install.Version = *helmWorkloadDefinition.HelmChartVersion
+	}
+
 	install.ReleaseName = fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
 	install.CreateNamespace = true
 	install.DependencyUpdate = true
