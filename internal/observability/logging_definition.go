@@ -18,8 +18,10 @@ func loggingDefinitionCreated(
 	loggingDefinition *v0.LoggingDefinition,
 	log *logr.Logger,
 ) (int64, error) {
+	var err error
 	// ensure grafana helm workload definition exists
-	grafanaHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
+	var grafanaHelmWorkloadDefinition *v0.HelmWorkloadDefinition
+	grafanaHelmWorkloadDefinition, err = client.CreateHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
@@ -34,6 +36,12 @@ func loggingDefinitionCreated(
 		// expect both MetricsInstance and LoggingInstance to depend
 		// on the same HelmWorkloadDefinition for Grafana
 		return 0, fmt.Errorf("failed to create grafana helm workload definition: %w", err)
+	} else if err != nil && errors.Is(err, client.ErrConflict) {
+		grafanaHelmWorkloadDefinition, err = client.GetHelmWorkloadDefinitionByName(
+			r.APIClient,
+			r.APIServer,
+			GrafanaChartName(*loggingDefinition.Name),
+		)
 	}
 
 	// create loki helm workload definition
