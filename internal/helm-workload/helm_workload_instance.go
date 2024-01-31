@@ -110,7 +110,7 @@ func helmWorkloadInstanceCreated(
 		install.Version = *helmWorkloadDefinition.HelmChartVersion
 	}
 
-	install.ReleaseName = fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
+	install.ReleaseName = fmt.Sprintf("%s", *helmWorkloadInstance.Name)
 	install.CreateNamespace = true
 	install.DependencyUpdate = true
 	install.PostRenderer = &ThreeportPostRenderer{

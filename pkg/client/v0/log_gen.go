@@ -132,7 +132,7 @@ func GetLogBackendByName(apiClient *http.Client, apiAddr, name string) (*v0.LogB
 
 	switch {
 	case len(logBackends) < 1:
-		return &v0.LogBackend{}, ErrorObjectNotFound
+		return &v0.LogBackend{}, ErrObjectNotFound
 	case len(logBackends) > 1:
 		return &v0.LogBackend{}, errors.New(fmt.Sprintf("more than one log backend with name %s returned", name))
 	}
@@ -367,7 +367,7 @@ func GetLogStorageDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(logStorageDefinitions) < 1:
-		return &v0.LogStorageDefinition{}, ErrorObjectNotFound
+		return &v0.LogStorageDefinition{}, ErrObjectNotFound
 	case len(logStorageDefinitions) > 1:
 		return &v0.LogStorageDefinition{}, errors.New(fmt.Sprintf("more than one log storage definition with name %s returned", name))
 	}
@@ -602,7 +602,7 @@ func GetLogStorageInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 	switch {
 	case len(logStorageInstances) < 1:
-		return &v0.LogStorageInstance{}, ErrorObjectNotFound
+		return &v0.LogStorageInstance{}, ErrObjectNotFound
 	case len(logStorageInstances) > 1:
 		return &v0.LogStorageInstance{}, errors.New(fmt.Sprintf("more than one log storage instance with name %s returned", name))
 	}

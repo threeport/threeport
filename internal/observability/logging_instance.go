@@ -27,6 +27,9 @@ func loggingInstanceCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to get logging definition: %w", err)
 	}
+	if !*loggingDefinition.Reconciled {
+		return 0, fmt.Errorf("logging definition is not reconciled")
+	}
 
 	// merge grafana helm values if they are provided
 	grafanaHelmWorkloadInstanceValues := grafanaValues
@@ -170,7 +173,7 @@ func loggingInstanceDeleted(
 		r.APIServer,
 		KubePrometheusStackChartName(*loggingInstance.Name),
 	)
-	if err != nil && errors.Is(err, client.ErrorObjectNotFound) {
+	if err != nil && errors.Is(err, client.ErrObjectNotFound) {
 		// delete grafana helm workload instance
 		_, err = client.DeleteHelmWorkloadInstance(
 			r.APIClient,
@@ -188,7 +191,7 @@ func loggingInstanceDeleted(
 		r.APIServer,
 		*loggingInstance.LokiHelmWorkloadInstanceID,
 	)
-	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete loki helm workload instance: %w", err)
 	}
 
@@ -198,7 +201,7 @@ func loggingInstanceDeleted(
 		r.APIServer,
 		*loggingInstance.PromtailHelmWorkloadInstanceID,
 	)
-	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
 	}
 

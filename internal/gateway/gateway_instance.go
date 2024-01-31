@@ -195,7 +195,7 @@ func gatewayInstanceDeleted(
 	// get workload resource instances
 	workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *gatewayInstance.WorkloadInstanceID)
 	if err != nil {
-		if errors.Is(err, client.ErrorObjectNotFound) {
+		if errors.Is(err, client.ErrObjectNotFound) {
 			// workload instance has already been deleted
 			return 0, nil
 		}
@@ -205,7 +205,7 @@ func gatewayInstanceDeleted(
 	// get gateway instance objects
 	gatewayInstanceObjects, err := getGatewayInstanceObjects(r, gatewayInstance)
 	if err != nil {
-		if errors.Is(err, client.ErrorObjectNotFound) {
+		if errors.Is(err, client.ErrObjectNotFound) {
 			// workload instance has already been deleted
 			return 0, nil
 		}
@@ -231,7 +231,7 @@ func gatewayInstanceDeleted(
 		}
 		_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
 		if err != nil {
-			if errors.Is(err, client.ErrorObjectNotFound) {
+			if errors.Is(err, client.ErrObjectNotFound) {
 				// workload resource instance has already been deleted
 				return 0, nil
 			}
@@ -250,7 +250,7 @@ func gatewayInstanceDeleted(
 	}
 	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
-		if errors.Is(err, client.ErrorObjectNotFound) {
+		if errors.Is(err, client.ErrObjectNotFound) {
 			// workload resource instance has already been deleted
 			return 0, nil
 		}

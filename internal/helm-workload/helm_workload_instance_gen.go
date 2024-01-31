@@ -111,7 +111,7 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 				*helmWorkloadInstance.ID,
 			)
 			// check if error is 404 - if object no longer exists, no need to requeue
-			if errors.Is(err, client.ErrorObjectNotFound) {
+			if errors.Is(err, client.ErrObjectNotFound) {
 				log.Info(fmt.Sprintf(
 					"object with ID %d no longer exists - halting reconciliation",
 					*helmWorkloadInstance.ID,

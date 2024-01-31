@@ -210,7 +210,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 						Comment("check if error is 404 - if object no longer exists, no need to requeue"),
 						If(Qual("errors", "Is").Call(Id("err"), Qual(
 							"github.com/threeport/threeport/pkg/client/v0",
-							"ErrorObjectNotFound",
+							"ErrObjectNotFound",
 						))).Block(
 							Id("log").Dot("Info").Call(Qual(
 								"fmt", "Sprintf",
@@ -781,7 +781,7 @@ func (cc *ControllerConfig) ExtensionReconcilers() error {
 						Comment("check if error is 404 - if object no longer exists, no need to requeue"),
 						If(Qual("errors", "Is").Call(Id("err"), Qual(
 							"github.com/threeport/threeport/pkg/client/v0",
-							"ErrorObjectNotFound",
+							"ErrObjectNotFound",
 						))).Block(
 							Id("log").Dot("Info").Call(Qual(
 								"fmt", "Sprintf",

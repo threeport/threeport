@@ -28,8 +28,8 @@ func metricsDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(GrafanaChartName(*metricsDefinition.Name)),
 			},
-			HelmRepo:           util.StringPtr(GrafanaHelmRepo),
-			HelmChart:          util.StringPtr("grafana"),
+			Repo:           util.StringPtr(GrafanaHelmRepo),
+			Chart:          util.StringPtr("grafana"),
 			HelmChartVersion:   metricsDefinition.GrafanaHelmChartVersion,
 			HelmValuesDocument: metricsDefinition.GrafanaHelmValuesDocument,
 		})
@@ -54,8 +54,8 @@ func metricsDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(KubePrometheusStackChartName(*metricsDefinition.Name)),
 			},
-			HelmRepo:           util.StringPtr(PrometheusCommunityHelmRepo),
-			HelmChart:          util.StringPtr("kube-prometheus-stack"),
+			Repo:           util.StringPtr(PrometheusCommunityHelmRepo),
+			Chart:          util.StringPtr("kube-prometheus-stack"),
 			HelmChartVersion:   metricsDefinition.KubePrometheusStackHelmChartVersion,
 			HelmValuesDocument: metricsDefinition.KubePrometheusStackHelmValuesDocument,
 		})
@@ -102,7 +102,7 @@ func metricsDefinitionDeleted(
 		r.APIServer,
 		*metricsDefinition.GrafanaHelmWorkloadDefinitionID,
 	)
-	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete grafana helm workload definition: %w", err)
 	}
 
@@ -112,7 +112,7 @@ func metricsDefinitionDeleted(
 		r.APIServer,
 		*metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
 	)
-	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete kube-prometheus-stack helm workload definition: %w", err)
 	}
 

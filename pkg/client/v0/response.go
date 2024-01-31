@@ -11,7 +11,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-var ErrorObjectNotFound = errors.New("object not found")
+var ErrObjectNotFound = errors.New("object not found")
 var ErrUnauthorized = errors.New("unauthorized")
 var ErrForbidden = errors.New("forbidden")
 var ErrConflict = errors.New("conflict")
@@ -74,7 +74,7 @@ func GetResponse(
 		// elsewhere
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			return nil, fmt.Errorf("%w: %s", ErrorObjectNotFound, response.Status.Error)
+			return nil, ErrObjectNotFound
 		case http.StatusUnauthorized:
 			return nil, fmt.Errorf("%w: %s", ErrUnauthorized, response.Status.Error)
 		case http.StatusForbidden:

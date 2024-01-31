@@ -444,7 +444,7 @@ func workloadInstanceDeleted(
 		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.Type, *object.ObjectID)
 		if err != nil {
 			switch {
-			case errors.Is(err, client.ErrorObjectNotFound):
+			case errors.Is(err, client.ErrObjectNotFound):
 				log.Info("attached object has already been deleted", "objectID", *object.ObjectID)
 			case errors.Is(err, client.ErrConflict):
 				log.Info("attached object is already being deleted", "objectID", *object.ObjectID)

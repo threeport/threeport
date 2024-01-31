@@ -457,7 +457,7 @@ func TestWorkloadE2E(t *testing.T) {
 		for deletedCheckAttempts < deletedCheckAttemptsMax {
 			_, err := client.GetWorkloadInstanceByID(apiClient, threeportAPIEndpoint, *createdWorkloadInst.ID)
 			if err != nil {
-				if errors.Is(err, client.ErrorObjectNotFound) {
+				if errors.Is(err, client.ErrObjectNotFound) {
 					workloadInstanceDeleted = true
 					break
 				}
