@@ -19,7 +19,7 @@ func metricsDefinitionCreated(
 	log *logr.Logger,
 ) (int64, error) {
 	// ensure grafana helm workload definition exists
-	_, err := client.CreateHelmWorkloadDefinition(
+	grafanaHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
@@ -37,7 +37,7 @@ func metricsDefinitionCreated(
 	}
 
 	// create kube-prometheus-stack helm workload definition
-	_, err = client.CreateHelmWorkloadDefinition(
+	kubePrometheusStackHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
@@ -53,6 +53,8 @@ func metricsDefinitionCreated(
 
 	// update metrics instance reconciled field
 	metricsDefinition.Reconciled = util.BoolPtr(true)
+	metricsDefinition.GrafanaHelmWorkloadDefinitionID = grafanaHelmWorkloadDefinition.ID
+	metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID = kubePrometheusStackHelmWorkloadDefinition.ID
 	_, err = client.UpdateMetricsDefinition(
 		r.APIClient,
 		r.APIServer,
