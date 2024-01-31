@@ -336,8 +336,8 @@ func configureObservability(c *KubernetesRuntimeInstanceConfig) error {
 // EnableLogging configures logging for a kubernetes runtime
 // instance
 func (c *KubernetesRuntimeInstanceConfig) EnableLogging() error {
-	// ensure logging definition exists
-	loggingDefinition, err := client.CreateLoggingDefinition(
+	// create logging definition
+	createdLoggingDefinition, err := client.CreateLoggingDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.LoggingDefinition{
@@ -346,26 +346,65 @@ func (c *KubernetesRuntimeInstanceConfig) EnableLogging() error {
 			},
 		},
 	)
-	if err != nil && !errors.Is(err, client.ErrConflict) {
+	if err != nil {
 		return fmt.Errorf("failed to create logging definition: %w", err)
 	}
 
-	// ensure logging instance exists
-	loggingInstance, err := client.CreateLoggingInstance(
+	// wait for logging definition to be reconciled
+	if err = util.Retry(120, 1, func() error {
+		loggingDefinition, err := client.GetLoggingDefinitionByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			*createdLoggingDefinition.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get logging definition by ID: %w", err)
+		}
+		if !*loggingDefinition.Reconciled {
+			return fmt.Errorf("logging definition not reconciled")
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to wait for logging definition to be created: %w", err)
+	}
+
+	// create logging instance
+	createdLoggingInstance, err := client.CreateLoggingInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.LoggingInstance{
 			Instance: v0.Instance{
 				Name: c.kubernetesRuntimeInstance.Name,
 			},
-			LoggingDefinitionID:         loggingDefinition.ID,
+			LoggingDefinitionID:         createdLoggingDefinition.ID,
 			KubernetesRuntimeInstanceID: c.kubernetesRuntimeInstance.ID,
 		},
 	)
-	if err != nil && !errors.Is(err, client.ErrConflict) {
+	if err != nil {
 		return fmt.Errorf("failed to create logging instance: %w", err)
 	}
-	c.kubernetesRuntimeInstance.LoggingInstanceID = util.SqlNullInt64(loggingInstance.ID)
+
+	// wait for logging instance to be reconciled
+	if err = util.Retry(120, 1, func() error {
+		loggingInstance, err := client.GetLoggingInstanceByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			*createdLoggingInstance.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get logging instance by ID: %w", err)
+		}
+		if !*loggingInstance.Reconciled {
+			return fmt.Errorf("logging instance not reconciled")
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to wait for logging instance to be created: %w", err)
+	}
+
+	// update kubernetes runtime instance with logging instance ID
+	c.kubernetesRuntimeInstance.LoggingInstanceID = util.SqlNullInt64(createdLoggingInstance.ID)
+
 	return nil
 }
 
@@ -378,7 +417,7 @@ func (c *KubernetesRuntimeInstanceConfig) DisableLogging() error {
 		c.r.APIServer,
 		uint(c.kubernetesRuntimeInstance.LoggingInstanceID.Int64),
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to get logging instance by ID: %w", err)
 	}
 	loggingDefinitionID := loggingInstance.LoggingDefinitionID
@@ -394,14 +433,17 @@ func (c *KubernetesRuntimeInstanceConfig) DisableLogging() error {
 	}
 
 	// wait for logging instance to be deleted
-	if err = util.Retry(60, 1, func() error {
+	if err = util.Retry(120, 1, func() error {
 		_, err = client.GetLoggingInstanceByID(
 			c.r.APIClient,
 			c.r.APIServer,
 			uint(c.kubernetesRuntimeInstance.LoggingInstanceID.Int64),
 		)
-		if err != nil && errors.Is(err, client.ErrObjectNotFound) {
-			return nil
+		if err != nil {
+			if errors.Is(err, client.ErrObjectNotFound) {
+				return nil
+			}
+			return fmt.Errorf("failed to get logging instance by ID: %w", err)
 		}
 		return fmt.Errorf("logging instance still exists")
 	}); err != nil {
@@ -419,14 +461,17 @@ func (c *KubernetesRuntimeInstanceConfig) DisableLogging() error {
 	}
 
 	// wait for logging definition to be deleted
-	if err = util.Retry(60, 1, func() error {
+	if err = util.Retry(120, 1, func() error {
 		_, err = client.GetLoggingDefinitionByID(
 			c.r.APIClient,
 			c.r.APIServer,
 			*loggingDefinitionID,
 		)
-		if err != nil && errors.Is(err, client.ErrObjectNotFound) {
-			return nil
+		if err != nil {
+			if errors.Is(err, client.ErrObjectNotFound) {
+				return nil
+			}
+			return fmt.Errorf("failed to get logging definition by ID: %w", err)
 		}
 		return fmt.Errorf("logging definition still exists")
 	}); err != nil {
@@ -440,8 +485,8 @@ func (c *KubernetesRuntimeInstanceConfig) DisableLogging() error {
 // EnableMetrics configures metrics for a kubernetes runtime
 // instance
 func (c *KubernetesRuntimeInstanceConfig) EnableMetrics() error {
-	// ensure metrics definition exists
-	metricsDefinition, err := client.CreateMetricsDefinition(
+	// create metrics definition
+	createdMetricsDefinition, err := client.CreateMetricsDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.MetricsDefinition{
@@ -450,34 +495,37 @@ func (c *KubernetesRuntimeInstanceConfig) EnableMetrics() error {
 			},
 		},
 	)
-	if err != nil && !errors.Is(err, client.ErrConflict) {
+	if err != nil {
 		return fmt.Errorf("failed to create metrics definition: %w", err)
 	}
 
-	// wait for metrics definition to be created
-	if err = util.Retry(60, 1, func() error {
-		_, err = client.GetMetricsDefinitionByID(
+	// wait for metrics definition to be reconciled
+	if err = util.Retry(120, 1, func() error {
+		metricsDefinition, err := client.GetMetricsDefinitionByID(
 			c.r.APIClient,
 			c.r.APIServer,
-			*metricsDefinition.ID,
+			*createdMetricsDefinition.ID,
 		)
-		if err != nil && errors.Is(err, client.ErrObjectNotFound) {
-			return nil
+		if err != nil {
+			return fmt.Errorf("failed to get metrics definition by ID: %w", err)
 		}
-		return fmt.Errorf("metrics definition not yet created")
+		if !*metricsDefinition.Reconciled {
+			return fmt.Errorf("metrics definition not reconciled")
+		}
+		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to wait for metrics definition to be created: %w", err)
 	}
 
-	// ensure metrics instance exists
-	metricsInstance, err := client.CreateMetricsInstance(
+	// create metrics instance
+	createdMetricsInstance, err := client.CreateMetricsInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		&v0.MetricsInstance{
 			Instance: v0.Instance{
 				Name: c.kubernetesRuntimeInstance.Name,
 			},
-			MetricsDefinitionID:         metricsDefinition.ID,
+			MetricsDefinitionID:         createdMetricsDefinition.ID,
 			KubernetesRuntimeInstanceID: c.kubernetesRuntimeInstance.ID,
 		},
 	)
@@ -485,22 +533,26 @@ func (c *KubernetesRuntimeInstanceConfig) EnableMetrics() error {
 		return fmt.Errorf("failed to create metrics instance: %w", err)
 	}
 
-	// wait for metrics instance to be created
-	if err = util.Retry(60, 1, func() error {
-		_, err = client.GetMetricsInstanceByID(
+	// wait for metrics instance to be reconciled
+	if err = util.Retry(120, 1, func() error {
+		metricsInstance, err := client.GetMetricsInstanceByID(
 			c.r.APIClient,
 			c.r.APIServer,
-			*metricsInstance.ID,
+			*createdMetricsInstance.ID,
 		)
-		if err != nil && errors.Is(err, client.ErrObjectNotFound) {
-			return nil
+		if err != nil {
+			return fmt.Errorf("failed to get metrics instance by ID: %w", err)
 		}
-		return fmt.Errorf("metrics instance not yet created")
+		if !*metricsInstance.Reconciled {
+			return fmt.Errorf("metrics instance not reconciled")
+		}
+		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to wait for metrics instance to be created: %w", err)
 	}
 
-	c.kubernetesRuntimeInstance.MetricsInstanceID = util.SqlNullInt64(metricsInstance.ID)
+	// update kubernetes runtime instance with metrics instance ID
+	c.kubernetesRuntimeInstance.MetricsInstanceID = util.SqlNullInt64(createdMetricsInstance.ID)
 
 	return nil
 }
@@ -514,7 +566,7 @@ func (c *KubernetesRuntimeInstanceConfig) DisableMetrics() error {
 		c.r.APIServer,
 		uint(c.kubernetesRuntimeInstance.MetricsInstanceID.Int64),
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to get metrics instance by ID: %w", err)
 	}
 	metricsDefinitionID := metricsInstance.MetricsDefinitionID
@@ -530,14 +582,17 @@ func (c *KubernetesRuntimeInstanceConfig) DisableMetrics() error {
 	}
 
 	// wait for metrics instance to be deleted
-	if err = util.Retry(60, 1, func() error {
+	if err = util.Retry(120, 1, func() error {
 		_, err = client.GetMetricsInstanceByID(
 			c.r.APIClient,
 			c.r.APIServer,
 			uint(c.kubernetesRuntimeInstance.MetricsInstanceID.Int64),
 		)
-		if err != nil && errors.Is(err, client.ErrObjectNotFound) {
-			return nil
+		if err != nil {
+			if errors.Is(err, client.ErrObjectNotFound) {
+				return nil
+			}
+			return fmt.Errorf("failed to get metrics instance by ID: %w", err)
 		}
 		return fmt.Errorf("metrics instance still exists")
 	}); err != nil {
@@ -556,14 +611,17 @@ func (c *KubernetesRuntimeInstanceConfig) DisableMetrics() error {
 	c.kubernetesRuntimeInstance.MetricsInstanceID = util.SqlNullInt64(nil)
 
 	// wait for metrics definition to be deleted
-	if err = util.Retry(60, 1, func() error {
+	if err = util.Retry(120, 1, func() error {
 		_, err = client.GetMetricsDefinitionByID(
 			c.r.APIClient,
 			c.r.APIServer,
 			*metricsDefinitionID,
 		)
-		if err != nil && errors.Is(err, client.ErrObjectNotFound) {
-			return nil
+		if err != nil {
+			if errors.Is(err, client.ErrObjectNotFound) {
+				return nil
+			}
+			return fmt.Errorf("failed to get metrics definition by ID: %w", err)
 		}
 		return fmt.Errorf("metrics definition still exists")
 	}); err != nil {

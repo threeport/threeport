@@ -5,13 +5,15 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// LoggingInstanceConfig contains the configuration for a logging instance.
+// LoggingInstanceConfig contains the configuration for a logging instance
+// reconciler.
 type LoggingInstanceConfig struct {
 	r                                  *controller.Reconciler
 	loggingInstance                    *v0.LoggingInstance
@@ -94,43 +96,18 @@ func loggingInstanceCreated(
 	// get logging operations
 	operations := getLoggingInstanceOperations(c)
 
-	// execute logging operations
+	// execute create logging instance operations
 	if err := operations.Create(); err != nil {
-		return 0, fmt.Errorf("failed to execute logging create operations: %w", err)
-	}
-
-	// wait for helm workload instances to be reconciled
-	var hwri *v0.HelmWorkloadInstance
-	for _, id := range []*uint{
-		loggingInstance.GrafanaHelmWorkloadInstanceID,
-		loggingInstance.LokiHelmWorkloadInstanceID,
-		loggingInstance.PromtailHelmWorkloadInstanceID,
-	} {
-		current := id
-		if err = util.Retry(60, 1, func() error {
-			if hwri, err = client.GetHelmWorkloadInstanceByID(
-				r.APIClient,
-				r.APIServer,
-				*current,
-			); err != nil {
-				return fmt.Errorf("failed to get helm workload instance: %w", err)
-			} else if !*hwri.Reconciled {
-				return fmt.Errorf("helm workload instance is not reconciled")
-			}
-			return nil
-		}); err != nil {
-			return 0, fmt.Errorf("failed to wait for helm workload instance to be reconciled: %w", err)
-		}
+		return 0, fmt.Errorf("failed to execute create logging instance operations: %w", err)
 	}
 
 	// update logging instance reconciled field
 	loggingInstance.Reconciled = util.BoolPtr(true)
-	_, err = client.UpdateLoggingInstance(
+	if _, err = client.UpdateLoggingInstance(
 		r.APIClient,
 		r.APIServer,
 		loggingInstance,
-	)
-	if err != nil {
+	); err != nil {
 		return 0, fmt.Errorf("failed to update logging instance reconciled field: %w", err)
 	}
 
@@ -169,27 +146,6 @@ func loggingInstanceDeleted(
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
 		return 0, fmt.Errorf("failed to execute logging delete operations: %w", err)
-	}
-
-	// wait for helm workload definitions to be deleted
-	for _, id := range []*uint{
-		loggingInstance.GrafanaHelmWorkloadInstanceID,
-		loggingInstance.LokiHelmWorkloadInstanceID,
-		loggingInstance.PromtailHelmWorkloadInstanceID,
-	} {
-		current := id
-		if err := util.Retry(60, 1, func() error {
-			if _, err := client.GetHelmWorkloadInstanceByID(
-				r.APIClient,
-				r.APIServer,
-				*current,
-			); err == nil {
-				return fmt.Errorf("helm workload instance still present: %w", err)
-			}
-			return nil
-		}); err != nil {
-			return 0, fmt.Errorf("failed to wait for helm workload instance to be deleted: %w", err)
-		}
 	}
 
 	return 0, nil
@@ -235,7 +191,18 @@ func (c *LoggingInstanceConfig) createGrafanaHelmWorkloadInstance() error {
 			return fmt.Errorf("grafana helm workload instance already exists")
 		}
 	}
+
+	// update metrics instance grafana helm workload instance id
 	c.loggingInstance.GrafanaHelmWorkloadInstanceID = grafanaHelmWorkloadInstance.ID
+
+	// wait for grafana helm workload instance to be reconciled
+	if err := helmworkload.WaitForHelmWorkloadInstanceReconciled(
+		c.r,
+		*grafanaHelmWorkloadInstance.ID,
+	); err != nil {
+		return fmt.Errorf("failed to wait for grafana helm workload instance to be reconciled: %w", err)
+	}
+
 	return nil
 }
 
@@ -263,12 +230,21 @@ func (c *LoggingInstanceConfig) deleteGrafanaHelmWorkloadInstance() error {
 		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
 		}
+
+		// wait for grafana helm workload instance to be deleted
+		if err := helmworkload.WaitForHelmWorkloadInstanceDeleted(
+			c.r,
+			*c.loggingInstance.GrafanaHelmWorkloadInstanceID,
+		); err != nil {
+			return fmt.Errorf("failed to wait for grafana helm workload instance to be deleted: %w", err)
+		}
 	}
+
 	return nil
 }
 
-// createLoki creates loki helm workload instance
-func (c *LoggingInstanceConfig) createLoki() error {
+// createLokiHelmWorkloadInstance creates loki helm workload instance
+func (c *LoggingInstanceConfig) createLokiHelmWorkloadInstance() error {
 	// create loki helm workload instance
 	lokiHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
 		c.r.APIClient,
@@ -286,7 +262,18 @@ func (c *LoggingInstanceConfig) createLoki() error {
 	if err != nil {
 		return fmt.Errorf("failed to create loki helm workload instance: %w", err)
 	}
+
+	// update logging instance loki helm workload instance id
 	c.loggingInstance.LokiHelmWorkloadInstanceID = lokiHelmWorkloadInstance.ID
+
+	// wait for loki helm workload instance to be reconciled
+	if err := helmworkload.WaitForHelmWorkloadInstanceReconciled(
+		c.r,
+		*lokiHelmWorkloadInstance.ID,
+	); err != nil {
+		return fmt.Errorf("failed to wait for loki helm workload instance to be reconciled: %w", err)
+	}
+
 	return nil
 }
 
@@ -301,6 +288,14 @@ func (c *LoggingInstanceConfig) deleteLokiHelmWorkloadInstance() error {
 	)
 	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
+	}
+
+	// wait for loki helm workload instance to be deleted
+	if err := helmworkload.WaitForHelmWorkloadInstanceDeleted(
+		c.r,
+		*c.loggingInstance.LokiHelmWorkloadInstanceID,
+	); err != nil {
+		return fmt.Errorf("failed to wait for loki helm workload instance to be deleted: %w", err)
 	}
 
 	return nil
@@ -325,7 +320,18 @@ func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
 	if err != nil {
 		return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
 	}
+
+	// update logging instance promtail helm workload instance id
 	c.loggingInstance.PromtailHelmWorkloadInstanceID = promtailHelmWorkloadInstance.ID
+
+	// wait for promtail helm workload instance to be reconciled
+	if err := helmworkload.WaitForHelmWorkloadInstanceReconciled(
+		c.r,
+		*promtailHelmWorkloadInstance.ID,
+	); err != nil {
+		return fmt.Errorf("failed to wait for promtail helm workload instance to be reconciled: %w", err)
+	}
+
 	return nil
 }
 
@@ -340,6 +346,15 @@ func (c *LoggingInstanceConfig) deletePromtailHelmWorkloadInstance() error {
 	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
 	}
+
+	// wait for promtail helm workload instance to be deleted
+	if err := helmworkload.WaitForHelmWorkloadInstanceDeleted(
+		c.r,
+		*c.loggingInstance.PromtailHelmWorkloadInstanceID,
+	); err != nil {
+		return fmt.Errorf("failed to wait for promtail helm workload instance to be deleted: %w", err)
+	}
+
 	return nil
 }
 
@@ -369,7 +384,7 @@ func getLoggingInstanceOperations(c *LoggingInstanceConfig) *util.Operations {
 	operations.AppendOperation(util.Operation{
 		Name: "loki",
 		Create: func() error {
-			if err := c.createLoki(); err != nil {
+			if err := c.createLokiHelmWorkloadInstance(); err != nil {
 				return fmt.Errorf("failed to create loki helm workload instance: %w", err)
 			}
 			return nil

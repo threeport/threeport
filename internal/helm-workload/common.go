@@ -1,97 +1,111 @@
 package helmworkload
 
 import (
+	"errors"
 	"fmt"
-	"os"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"gopkg.in/yaml.v2"
-	"helm.sh/helm/v3/pkg/cli/values"
 )
 
-// MergeHelmValuesGo merges two helm values documents and
-// returns the result as a map[string]interface{}.
-func MergeHelmValuesGo(base, override string) (map[string]interface{}, error) {
-
-	temporaryFiles := map[string]string{
-		"/tmp/values.yaml":          base,
-		"/tmp/override-values.yaml": override,
-	}
-
-	var valueFiles []string
-	// create temporary files in /tmp and populate valueFiles
-	for path, file := range temporaryFiles {
-		err := os.WriteFile(path, []byte(file), 0644)
-		if err != nil {
-			return map[string]interface{}{}, fmt.Errorf("failed to write base helm values: %w", err)
+// WaitForHelmWorkloadInstanceReconciled waits for helm workload instance to be reconciled
+func WaitForHelmWorkloadDefinitionReconciled(
+	r *controller.Reconciler,
+	id uint,
+) error {
+	// wait for loki helm workload instance to be reconciled
+	if err := util.Retry(30, 1, func() error {
+		var hwrd *v0.HelmWorkloadDefinition
+		var err error
+		if hwrd, err = client.GetHelmWorkloadDefinitionByID(
+			r.APIClient,
+			r.APIServer,
+			id,
+		); err != nil {
+			return fmt.Errorf("failed to get helm workload definition: %w", err)
 		}
-		valueFiles = append(valueFiles, path)
-	}
-
-	values := values.Options{
-		ValueFiles: valueFiles,
-	}
-	grafanaGoValues, err := values.MergeValues(nil)
-	if err != nil {
-		return map[string]interface{}{}, fmt.Errorf("failed to merge grafana helm values: %w", err)
-	}
-
-	// clean up temporary files
-	for filePath := range temporaryFiles {
-		err := os.Remove(filePath)
-		if err != nil {
-			return map[string]interface{}{}, fmt.Errorf("failed to remove temporary file: %w", err)
+		if !*hwrd.Reconciled {
+			return fmt.Errorf("helm workload definition is not reconciled")
 		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to wait for helm workload definition to be reconciled: %w", err)
 	}
-
-	return grafanaGoValues, nil
+	return nil
 }
 
-// MergeHelmValuesString merges two helm values documents and
-// returns the result as a string.
-func MergeHelmValuesString(base, override string) (string, error) {
-
-	// if one input is empty, return the other
-	if base == "" {
-		return override, nil
-	} else if override == "" {
-		return base, nil
+// WaitForHelmWorkloadInstanceDeleted waits for helm workload instance to be deleted
+func WaitForHelmWorkloadDefinitionDeleted(
+	r *controller.Reconciler,
+	id uint,
+) error {
+	// wait for loki helm workload definition to be deleted
+	if err := util.Retry(30, 1, func() error {
+		if _, err := client.GetHelmWorkloadDefinitionByID(
+			r.APIClient,
+			r.APIServer,
+			id,
+		); err != nil {
+			if errors.Is(err, client.ErrObjectNotFound) {
+				return nil
+			}
+			return fmt.Errorf("failed to get loki helm workload definition: %w", err)
+		}
+		return fmt.Errorf("loki helm workload definition still exists")
+	}); err != nil {
+		return fmt.Errorf("failed to wait for helm workload definition to be deleted: %w", err)
 	}
-
-	// merge the helm values
-	grafanaGoValues, err := MergeHelmValuesGo(base, override)
-	if err != nil {
-		return "", fmt.Errorf("failed to merge helm values: %w", err)
-	}
-
-	// marshal the merged helm values
-	grafanaByteValues, err := yaml.Marshal(grafanaGoValues)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal grafana helm values: %w", err)
-	}
-
-	return string(grafanaByteValues), nil
+	return nil
 }
 
-// MergeHelmValuesPtrs merges two helm values documents
-// that are referred to by string pointers.
-func MergeHelmValuesPtrs(base, override *string) (string, error) {
-	mergedHelmValues, err := MergeHelmValuesString(
-		util.StringPtrToString(base),
-		util.StringPtrToString(override),
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to merge helm values: %w", err)
+// WaitForHelmWorkloadInstanceReconciled waits for helm workload instance to be reconciled
+func WaitForHelmWorkloadInstanceReconciled(
+	r *controller.Reconciler,
+	id uint,
+) error {
+	// wait for loki helm workload instance to be reconciled
+	if err := util.Retry(30, 1, func() error {
+		var hwri *v0.HelmWorkloadInstance
+		var err error
+		if hwri, err = client.GetHelmWorkloadInstanceByID(
+			r.APIClient,
+			r.APIServer,
+			id,
+		); err != nil {
+			return fmt.Errorf("failed to get helm workload instance: %w", err)
+		}
+		if !*hwri.Reconciled {
+			return fmt.Errorf("helm workload instance is not reconciled")
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to wait for helm workload instance to be reconciled: %w", err)
 	}
-	return mergedHelmValues, nil
+	return nil
 }
 
-// UnmarshalHelmValues unmarshals a helm values document.
-func UnmarshalHelmValues(helmValues string) (map[string]interface{}, error) {
-	var values map[string]interface{}
-	err := yaml.Unmarshal([]byte(helmValues), &values)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal helm values: %w", err)
+// WaitForHelmWorkloadInstanceDeleted waits for helm workload instance to be deleted
+func WaitForHelmWorkloadInstanceDeleted(
+	r *controller.Reconciler,
+	id uint,
+) error {
+	// wait for loki helm workload instance to be deleted
+	if err := util.Retry(30, 1, func() error {
+		if _, err := client.GetHelmWorkloadInstanceByID(
+			r.APIClient,
+			r.APIServer,
+			id,
+		); err != nil {
+			if errors.Is(err, client.ErrObjectNotFound) {
+				return nil
+			}
+			return fmt.Errorf("failed to get helm workload instance: %w", err)
+		}
+		return fmt.Errorf("workload instance still exists")
+	}); err != nil {
+		return fmt.Errorf("failed to wait for helm workload instance to be deleted: %w", err)
 	}
-	return values, nil
+	return nil
 }

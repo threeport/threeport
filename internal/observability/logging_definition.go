@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -38,29 +39,6 @@ func loggingDefinitionCreated(
 	// execute logging definition create operations
 	if err := operations.Create(); err != nil {
 		return 0, fmt.Errorf("failed to execute logging definition create operations: %w", err)
-	}
-
-	// wait for helm workload definitions to be reconciled
-	for _, id := range []*uint{
-		loggingDefinition.GrafanaHelmWorkloadDefinitionID,
-		loggingDefinition.LokiHelmWorkloadDefinitionID,
-		loggingDefinition.PromtailHelmWorkloadDefinitionID,
-	} {
-		current := id
-		if err := util.Retry(60, 1, func() error {
-			if hwrd, err := client.GetHelmWorkloadDefinitionByID(
-				r.APIClient,
-				r.APIServer,
-				*current,
-			); err != nil {
-				return fmt.Errorf("failed to get helm workload definition: %w", err)
-			} else if !*hwrd.Reconciled {
-				return fmt.Errorf("helm workload definition is not reconciled")
-			}
-			return nil
-		}); err != nil {
-			return 0, fmt.Errorf("failed to wait for helm workload definition to be reconciled: %w", err)
-		}
 	}
 
 	// update logging definition reconciled field
@@ -109,27 +87,6 @@ func loggingDefinitionDeleted(
 		return 0, fmt.Errorf("failed to execute logging definition delete operations: %w", err)
 	}
 
-	// wait for helm workload definitions to be deleted
-	for _, id := range []*uint{
-		loggingDefinition.GrafanaHelmWorkloadDefinitionID,
-		loggingDefinition.LokiHelmWorkloadDefinitionID,
-		loggingDefinition.PromtailHelmWorkloadDefinitionID,
-	} {
-		current := id
-		if err := util.Retry(60, 1, func() error {
-			if _, err := client.GetHelmWorkloadDefinitionByID(
-				r.APIClient,
-				r.APIServer,
-				*current,
-			); err == nil {
-				return fmt.Errorf("helm workload definition still present: %w", err)
-			}
-			return nil
-		}); err != nil {
-			return 0, fmt.Errorf("failed to wait for helm workload definition to be deleted: %w", err)
-		}
-	}
-
 	return 0, nil
 }
 
@@ -161,22 +118,51 @@ func (c *LoggingDefinitionConfig) createGrafanaHelmWorkloadDefinition() error {
 			GrafanaChartName(*c.loggingDefinition.Name),
 		)
 	}
+
+	// update logging definition with grafana helm workload definition id
 	c.loggingDefinition.GrafanaHelmWorkloadDefinitionID = grafanaHelmWorkloadDefinition.ID
+
+	// wait for grafana helm workload definition to be reconciled
+	if err := helmworkload.WaitForHelmWorkloadDefinitionReconciled(
+		c.r,
+		*grafanaHelmWorkloadDefinition.ID,
+	); err != nil {
+		return fmt.Errorf("failed to wait for grafana helm workload definition to be reconciled: %w", err)
+	}
+
 	return nil
 }
 
 // deleteGrafanaHelmWorkloadDefinition creates a grafana helm workload definition.
 func (c *LoggingDefinitionConfig) deleteGrafanaHelmWorkloadDefinition() error {
-	// delete grafana helm workload definition
-	_, err := client.DeleteHelmWorkloadDefinition(
+	// check if metrics is deployed
+	metricsDefinition, err := client.GetMetricsDefinitionByName(
 		c.r.APIClient,
 		c.r.APIServer,
-		*c.loggingDefinition.GrafanaHelmWorkloadDefinitionID,
+		*c.loggingDefinition.Name,
 	)
 	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to delete grafana helm workload definition: %w", err)
-	}
+		return fmt.Errorf("failed to get metrics definition: %w", err)
+	} else if err != nil && errors.Is(err, client.ErrObjectNotFound) ||
+		(metricsDefinition != nil && metricsDefinition.DeletionScheduled != nil) {
+		// delete grafana helm workload definition
+		_, err := client.DeleteHelmWorkloadDefinition(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.loggingDefinition.GrafanaHelmWorkloadDefinitionID,
+		)
+		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+			return fmt.Errorf("failed to delete grafana helm workload definition: %w", err)
+		}
 
+		// wait for grafana helm workload definition to be deleted
+		if err := helmworkload.WaitForHelmWorkloadDefinitionDeleted(
+			c.r,
+			*c.loggingDefinition.GrafanaHelmWorkloadDefinitionID,
+		); err != nil {
+			return fmt.Errorf("failed to wait for grafana helm workload definition to be deleted: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -198,11 +184,22 @@ func (c *LoggingDefinitionConfig) createLokiHelmWorkloadDefinition() error {
 	if err != nil {
 		return fmt.Errorf("failed to create loki helm workload definition: %w", err)
 	}
+
+	// update logging definition with loki helm workload definition id
 	c.loggingDefinition.LokiHelmWorkloadDefinitionID = lokiHelmWorkloadDefinition.ID
+
+	// wait for loki helm workload definition to be reconciled
+	if err := helmworkload.WaitForHelmWorkloadDefinitionReconciled(
+		c.r,
+		*lokiHelmWorkloadDefinition.ID,
+	); err != nil {
+		return fmt.Errorf("failed to wait for loki helm workload definition to be reconciled: %w", err)
+	}
+
 	return nil
 }
 
-// deleteLokiHelmWorkloadDefinition creates a loki helm workload definition.
+// deleteLokiHelmWorkloadDefinition deletes a loki helm workload definition.
 func (c *LoggingDefinitionConfig) deleteLokiHelmWorkloadDefinition() error {
 	// delete loki helm workload definition
 	_, err := client.DeleteHelmWorkloadDefinition(
@@ -212,6 +209,14 @@ func (c *LoggingDefinitionConfig) deleteLokiHelmWorkloadDefinition() error {
 	)
 	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete loki helm workload definition: %w", err)
+	}
+
+	// wait for loki helm workload definition to be deleted
+	if err := helmworkload.WaitForHelmWorkloadDefinitionDeleted(
+		c.r,
+		*c.loggingDefinition.LokiHelmWorkloadDefinitionID,
+	); err != nil {
+		return fmt.Errorf("failed to wait for loki helm workload definition to be deleted: %w", err)
 	}
 
 	return nil
@@ -235,7 +240,18 @@ func (c *LoggingDefinitionConfig) createPromtailHelmWorkloadDefinition() error {
 	if err != nil {
 		return fmt.Errorf("failed to create promtail helm workload definition: %w", err)
 	}
+
+	// update logging definition with promtail helm workload definition id
 	c.loggingDefinition.PromtailHelmWorkloadDefinitionID = promtailHelmWorkloadDefinition.ID
+
+	// wait for promtail helm workload definition to be reconciled
+	if err := helmworkload.WaitForHelmWorkloadDefinitionReconciled(
+		c.r,
+		*promtailHelmWorkloadDefinition.ID,
+	); err != nil {
+		return fmt.Errorf("failed to wait for promtail helm workload definition to be reconciled: %w", err)
+	}
+
 	return nil
 }
 
@@ -250,6 +266,15 @@ func (c *LoggingDefinitionConfig) deletePromtailHelmWorkloadDefinition() error {
 	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete promtail helm workload definition: %w", err)
 	}
+
+	// wait for promtail helm workload definition to be deleted
+	if err := helmworkload.WaitForHelmWorkloadDefinitionDeleted(
+		c.r,
+		*c.loggingDefinition.PromtailHelmWorkloadDefinitionID,
+	); err != nil {
+		return fmt.Errorf("failed to wait for promtail helm workload definition to be deleted: %w", err)
+	}
+
 	return nil
 }
 
