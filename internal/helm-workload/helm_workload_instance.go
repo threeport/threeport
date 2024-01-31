@@ -104,7 +104,11 @@ func helmWorkloadInstanceCreated(
 	}
 
 	install.ReleaseName = helmReleaseName(helmWorkloadInstance)
-	install.Namespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
+	if helmWorkloadInstance.HelmReleaseNamespace != nil && *helmWorkloadInstance.HelmReleaseNamespace != "" {
+		install.Namespace = *helmWorkloadInstance.HelmReleaseNamespace
+	} else {
+		install.Namespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
+	}
 	install.CreateNamespace = true
 	install.DependencyUpdate = true
 	install.PostRenderer = &ThreeportPostRenderer{

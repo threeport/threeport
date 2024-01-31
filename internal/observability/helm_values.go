@@ -56,11 +56,19 @@ loki:
     type: 'filesystem'
 singleBinary:
   replicas: 1
+test:
+  enabled: false
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
 extraObjects:
 - kind: ConfigMap
   apiVersion: v1
   metadata:
     name: loki-grafana-datasource
+    namespace: "{{ $.Release.Namespace }}"
     labels:
       grafana_datasource: "1"
   data:
@@ -74,5 +82,6 @@ extraObjects:
         jsonData:
             tlsSkipVerify: true
         type: loki
-        url: http://loki:3100
+        url: http://loki-headless.{{ $.Release.Namespace }}:3100
 `
+const promtailValues = ``

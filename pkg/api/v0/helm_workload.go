@@ -55,6 +55,9 @@ type HelmWorkloadInstance struct {
 	// Filepath to the helm values YAML file that provides runtime parameters to the helm chart.
 	HelmValuesDocument *string `json:"HelmValuesDocument,omitempty" query:"helmvaluesdocument" validate:"optional"`
 
+	// Namespace to deploy the helm chart to.
+	HelmReleaseNamespace *string `json:"HelmReleaseNamespace,omitempty" query:"helmreleasenamespace" validate:"optional"`
+
 	// The definition used to configure the workload instance.
 	HelmWorkloadDefinitionID *uint `json:"HelmWorkloadDefinitionID,omitempty" query:"helmworkloaddefinitionid" gorm:"not null" validate:"required"`
 }
