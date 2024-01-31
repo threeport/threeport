@@ -84,7 +84,7 @@ func loggingInstanceCreated(
 		return 0, fmt.Errorf("failed to execute create logging instance operations: %w", err)
 	}
 
-	// update logging instance reconciled field
+	// update logging instance
 	loggingInstance.Reconciled = util.BoolPtr(true)
 	if _, err = client.UpdateLoggingInstance(
 		r.APIClient,
@@ -206,12 +206,11 @@ func (c *LoggingInstanceConfig) createLokiHelmWorkloadInstance() error {
 func (c *LoggingInstanceConfig) deleteLokiHelmWorkloadInstance() error {
 
 	// delete loki helm workload instance
-	_, err := client.DeleteHelmWorkloadInstance(
+	if _, err := client.DeleteHelmWorkloadInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.loggingInstance.LokiHelmWorkloadInstanceID,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
 	}
 
@@ -247,12 +246,11 @@ func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
 // deletePromtailHelmWorkloadInstance creates promtail helm workload instance
 func (c *LoggingInstanceConfig) deletePromtailHelmWorkloadInstance() error {
 	// delete promtail helm workload instance
-	_, err := client.DeleteHelmWorkloadInstance(
+	if _, err := client.DeleteHelmWorkloadInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.loggingInstance.PromtailHelmWorkloadInstanceID,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
 	}
 

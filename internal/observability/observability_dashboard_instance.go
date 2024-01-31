@@ -60,7 +60,7 @@ func observabilityDashboardInstanceCreated(
 	// update grafana helm workload instance
 	observabilityDashboardInstance.GrafanaHelmWorkloadInstanceID = grafanaHelmWorkloadInstance.ID
 
-	// update metrics instance reconciled field
+	// update metrics instance
 	observabilityDashboardInstance.Reconciled = util.BoolPtr(true)
 	if _, err = client.UpdateObservabilityDashboardInstance(
 		r.APIClient,
