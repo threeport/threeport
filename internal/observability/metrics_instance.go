@@ -27,6 +27,9 @@ func metricsInstanceCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to get metrics definition: %w", err)
 	}
+	if !*metricsDefinition.Reconciled {
+		return 0, fmt.Errorf("metrics definition is not reconciled")
+	}
 
 	// merge grafana helm values if they are provided
 	grafanaHelmWorkloadInstanceValues := grafanaValues
@@ -139,7 +142,7 @@ func metricsInstanceDeleted(
 		r.APIServer,
 		LokiHelmChartName(*metricsInstance.Name),
 	)
-	if err != nil && errors.Is(err, client.ErrorObjectNotFound) {
+	if err != nil && errors.Is(err, client.ErrObjectNotFound) {
 		// delete grafana helm workload instance
 		_, err = client.DeleteHelmWorkloadInstance(
 			r.APIClient,
@@ -157,7 +160,7 @@ func metricsInstanceDeleted(
 		r.APIServer,
 		*metricsInstance.KubePrometheusStackHelmWorkloadInstanceID,
 	)
-	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete kube-prometheus-stack helm workload instance: %w", err)
 	}
 

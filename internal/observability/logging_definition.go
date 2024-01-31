@@ -28,8 +28,8 @@ func loggingDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(GrafanaChartName(*loggingDefinition.Name)),
 			},
-			HelmRepo:           util.StringPtr(GrafanaHelmRepo),
-			HelmChart:          util.StringPtr("grafana"),
+			Repo:               util.StringPtr(GrafanaHelmRepo),
+			Chart:              util.StringPtr("grafana"),
 			HelmChartVersion:   loggingDefinition.GrafanaHelmChartVersion,
 			HelmValuesDocument: loggingDefinition.GrafanaHelmValuesDocument,
 		})
@@ -54,8 +54,8 @@ func loggingDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(LokiHelmChartName(*loggingDefinition.Name)),
 			},
-			HelmRepo:           util.StringPtr(GrafanaHelmRepo),
-			HelmChart:          util.StringPtr("loki"),
+			Repo:               util.StringPtr(GrafanaHelmRepo),
+			Chart:              util.StringPtr("loki"),
 			HelmChartVersion:   loggingDefinition.LokiHelmChartVersion,
 			HelmValuesDocument: loggingDefinition.LokiHelmValuesDocument,
 		})
@@ -71,8 +71,8 @@ func loggingDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(PromtailHelmChartName(*loggingDefinition.Name)),
 			},
-			HelmRepo:           util.StringPtr(GrafanaHelmRepo),
-			HelmChart:          util.StringPtr("promtail"),
+			Repo:               util.StringPtr(GrafanaHelmRepo),
+			Chart:              util.StringPtr("promtail"),
 			HelmChartVersion:   loggingDefinition.PromtailHelmChartVersion,
 			HelmValuesDocument: loggingDefinition.PromtailHelmValuesDocument,
 		})
@@ -120,7 +120,7 @@ func loggingDefinitionDeleted(
 		r.APIServer,
 		*loggingDefinition.GrafanaHelmWorkloadDefinitionID,
 	)
-	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete grafana helm workload definition: %w", err)
 	}
 
@@ -130,7 +130,7 @@ func loggingDefinitionDeleted(
 		r.APIServer,
 		*loggingDefinition.LokiHelmWorkloadDefinitionID,
 	)
-	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete loki helm workload definition: %w", err)
 	}
 
@@ -140,7 +140,7 @@ func loggingDefinitionDeleted(
 		r.APIServer,
 		*loggingDefinition.PromtailHelmWorkloadDefinitionID,
 	)
-	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete promtail helm workload definition: %w", err)
 	}
 

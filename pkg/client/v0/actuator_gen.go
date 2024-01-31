@@ -132,7 +132,7 @@ func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile
 
 	switch {
 	case len(profiles) < 1:
-		return &v0.Profile{}, ErrorObjectNotFound
+		return &v0.Profile{}, ErrObjectNotFound
 	case len(profiles) > 1:
 		return &v0.Profile{}, errors.New(fmt.Sprintf("more than one profile with name %s returned", name))
 	}
@@ -367,7 +367,7 @@ func GetTierByName(apiClient *http.Client, apiAddr, name string) (*v0.Tier, erro
 
 	switch {
 	case len(tiers) < 1:
-		return &v0.Tier{}, ErrorObjectNotFound
+		return &v0.Tier{}, ErrObjectNotFound
 	case len(tiers) > 1:
 		return &v0.Tier{}, errors.New(fmt.Sprintf("more than one tier with name %s returned", name))
 	}
