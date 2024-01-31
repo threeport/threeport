@@ -72,3 +72,67 @@ func AddMetricsInstanceVersions() {
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)
 }
+
+// AddLoggingDefinitionVersions adds field validation info and adds it
+// to the REST API versions.
+func AddLoggingDefinitionVersions() {
+	iapi.LoggingDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.LoggingDefinition)),
+		"",
+		iapi.Translate,
+		iapi.LoggingDefinitionTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeLoggingDefinition),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.LoggingDefinitionTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
+// AddLoggingInstanceVersions adds field validation info and adds it
+// to the REST API versions.
+func AddLoggingInstanceVersions() {
+	iapi.LoggingInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.LoggingInstance)),
+		"",
+		iapi.Translate,
+		iapi.LoggingInstanceTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeLoggingInstance),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.LoggingInstanceTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}

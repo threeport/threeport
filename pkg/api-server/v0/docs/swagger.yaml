@@ -1476,6 +1476,9 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      GrafanaHelmWorkloadDefinitionID:
+        description: The Grafana Helm workload definition that belongs to this resource.
+        type: integer
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -1483,24 +1486,16 @@ definitions:
           situation where future reconciliation could be descructive such as
           spinning up more infrastructure when there is a unresolved problem.
         type: boolean
-      LoggingInstances:
+      LokiHelmWorkloadDefinitionID:
+        description: The kube-prometheus-stack Helm workload definition that belongs
+          to this resource.
+        type: integer
+      MetricsInstances:
         description: The associated metrics instances that are deployed from this
           definition.
         items:
-          $ref: '#/definitions/v0.LoggingInstance'
+          $ref: '#/definitions/v0.MetricsInstance'
         type: array
-      LokiHelmChartVersion:
-        description: The version of the loki helm chart to use from the helm repo,
-          e.g. 1.2.3
-        type: string
-      LokiHelmValuesDocument:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying loki chart.
-        type: string
-      LokiHelmWorkloadDefinitionID:
-        description: The loki Helm workload definition that belongs to this resource.
-        type: integer
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -1509,17 +1504,9 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
-      PromtailHelmChartVersion:
-        description: The version of the promtail helm chart to use from the helm repo,
-          e.g. 1.2.3
-        type: string
-      PromtailHelmValuesDocument:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying promtail chart.
-        type: string
       PromtailHelmWorkloadDefinitionID:
-        description: The promtail Helm workload definition that belongs to this resource.
+        description: The kube-prometheus-stack Helm workload definition that belongs
+          to this resource.
         type: integer
       Reconciled:
         description: Indicates if object is considered to be reconciled by the object's
@@ -1561,6 +1548,14 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      GrafanaHelmValues:
+        description: |-
+          Optional Helm workload definition values that can be provided to configure the
+          underlying grafana chart.
+        type: string
+      GrafanaHelmWorkloadInstanceID:
+        description: The Grafana Helm workload definition that belongs to this resource.
+        type: integer
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -1575,24 +1570,26 @@ definitions:
         description: MetricsDefinitionID is the definition used to configure the workload
           instance.
         type: integer
-      LokiHelmValuesDocument:
+      LokiHelmValues:
         description: |-
           Optional Helm workload definition values that can be provided to configure the
-          underlying loki chart.
+          underlying kube-prometheus-stack chart.
         type: string
       LokiHelmWorkloadInstanceID:
-        description: The loki Helm workload definition that belongs to this resource.
+        description: The kube-prometheus-stack Helm workload definition that belongs
+          to this resource.
         type: integer
       Name:
         description: An arbitrary name the instance
         type: string
-      PromtailHelmValuesDocument:
+      PromtailHelmValues:
         description: |-
           Optional Helm workload definition values that can be provided to configure the
-          underlying promtail chart.
+          underlying kube-prometheus-stack chart.
         type: string
       PromtailHelmWorkloadInstanceID:
-        description: The promtail Helm workload definition that belongs to this resource.
+        description: The kube-prometheus-stack Helm workload definition that belongs
+          to this resource.
         type: integer
       Reconciled:
         description: Indicates if object is considered to be reconciled by the object's
@@ -1769,32 +1766,6 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - AwsObjectStorageBucketDefinition
-    - AwsObjectStorageBucketInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - Profile
-    - Tier
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - MetricsDefinition
-    - MetricsInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
     - ForwardProxyDefinition
     - ForwardProxyInstance
     - GatewayDefinition
@@ -1803,34 +1774,36 @@ definitions:
     - GatewayTcpPort
     - DomainNameDefinition
     - DomainNameInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - AwsObjectStorageBucketDefinition
+    - AwsObjectStorageBucketInstance
+    - MetricsDefinition
+    - MetricsInstance
+    - LoggingDefinition
+    - LoggingInstance
+    - Profile
+    - Tier
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeAwsObjectStorageBucketDefinition
-    - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeMetricsDefinition
-    - ObjectTypeMetricsInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
     - ObjectTypeGatewayDefinition
@@ -1839,6 +1812,34 @@ definitions:
     - ObjectTypeGatewayTcpPort
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeAwsObjectStorageBucketDefinition
+    - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeMetricsDefinition
+    - ObjectTypeMetricsInstance
+    - ObjectTypeLoggingDefinition
+    - ObjectTypeLoggingInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
   v0.Profile:
     properties:
       Name:
@@ -2482,6 +2483,32 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetLogStorageInstanceVersions gets the supported versions for the log
         storage instance API.
+  /logging-definitions/versions:
+    get:
+      description: Get the supported API versions for logging definitions.
+      operationId: loggingDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetLoggingDefinitionVersions gets the supported versions for the logging
+        definition API.
+  /logging-instances/versions:
+    get:
+      description: Get the supported API versions for logging instances.
+      operationId: loggingInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetLoggingInstanceVersions gets the supported versions for the logging
+        instance API.
   /metrics-definitions/versions:
     get:
       description: Get the supported API versions for metrics definitions.
@@ -7536,6 +7563,404 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing log storage instance by replacing the entire object.
+  /v0/logging-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all logging definitions from the Threeport database.
+      operationId: get-loggingDefinitions
+      parameters:
+      - description: logging definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all logging definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new logging definition to the Threeport database.
+      operationId: add-loggingDefinition
+      parameters:
+      - description: LoggingDefinition object
+        in: body
+        name: loggingDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LoggingDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new logging definition.
+  /v0/logging-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a logging definition by ID from the database.
+      operationId: delete-loggingDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a logging definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular logging definition from the database.
+      operationId: get-loggingDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a logging definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a logging definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating logging definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-loggingDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: LoggingDefinition object
+        in: body
+        name: loggingDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LoggingDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing logging definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a logging definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating logging definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-loggingDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: LoggingDefinition object
+        in: body
+        name: loggingDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LoggingDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing logging definition by replacing the entire object.
+  /v0/logging-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all logging instances from the Threeport database.
+      operationId: get-loggingInstances
+      parameters:
+      - description: logging instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all logging instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new logging instance to the Threeport database.
+      operationId: add-loggingInstance
+      parameters:
+      - description: LoggingInstance object
+        in: body
+        name: loggingInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LoggingInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new logging instance.
+  /v0/logging-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a logging instance by ID from the database.
+      operationId: delete-loggingInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a logging instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular logging instance from the database.
+      operationId: get-loggingInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a logging instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a logging instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating logging instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-loggingInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: LoggingInstance object
+        in: body
+        name: loggingInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LoggingInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing logging instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a logging instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating logging instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-loggingInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: LoggingInstance object
+        in: body
+        name: loggingInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LoggingInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing logging instance by replacing the entire object.
   /v0/metrics-definitions:
     get:
       consumes:

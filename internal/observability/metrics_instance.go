@@ -112,7 +112,6 @@ func metricsInstanceDeleted(
 	metricsInstance *v0.MetricsInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// delete grafana helm workload instance
 	_, err := client.DeleteHelmWorkloadInstance(
 		r.APIClient,

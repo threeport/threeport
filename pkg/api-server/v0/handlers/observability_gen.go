@@ -722,3 +722,711 @@ func (h Handler) DeleteMetricsInstance(c echo.Context) error {
 
 	return iapi.ResponseStatus200(c, *response)
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// LoggingDefinition
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetLoggingDefinitionVersions gets the supported versions for the logging definition API.
+// @Description Get the supported API versions for logging definitions.
+// @ID loggingDefinition-get-versions
+// @Produce json
+// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Router /logging-definitions/versions [GET]
+func (h Handler) GetLoggingDefinitionVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeLoggingDefinition)])
+}
+
+// @Summary adds a new logging definition.
+// @Description Add a new logging definition to the Threeport database.
+// @ID add-loggingDefinition
+// @Accept json
+// @Produce json
+// @Param loggingDefinition body v0.LoggingDefinition true "LoggingDefinition object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-definitions [POST]
+func (h Handler) AddLoggingDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingDefinition
+	var loggingDefinition v0.LoggingDefinition
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, false, objectType, loggingDefinition); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&loggingDefinition); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, loggingDefinition, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingLoggingDefinition v0.LoggingDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", loggingDefinition.Name).First(&existingLoggingDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&loggingDefinition); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*loggingDefinition.Reconciled {
+		notifPayload, err := loggingDefinition.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.LoggingDefinitionCreateSubject, *notifPayload)
+	}
+
+	response, err := v0.CreateResponse(nil, loggingDefinition, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all logging definitions.
+// @Description Get all logging definitions from the Threeport database.
+// @ID get-loggingDefinitions
+// @Accept json
+// @Produce json
+// @Param name query string false "logging definition search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-definitions [GET]
+func (h Handler) GetLoggingDefinitions(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingDefinition
+	params, err := c.(*iapi.CustomContext).GetPaginationParams()
+	if err != nil {
+		return iapi.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter v0.LoggingDefinition
+	if err := c.Bind(&filter); err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&v0.LoggingDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]v0.LoggingDefinition{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a logging definition.
+// @Description Get a particular logging definition from the database.
+// @ID get-loggingDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-definitions/{id} [GET]
+func (h Handler) GetLoggingDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingDefinition
+	loggingDefinitionID := c.Param("id")
+	var loggingDefinition v0.LoggingDefinition
+	if result := h.DB.First(&loggingDefinition, loggingDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, loggingDefinition, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing logging definition.
+// @Description Update a logging definition in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating logging definition objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-loggingDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param loggingDefinition body v0.LoggingDefinition true "LoggingDefinition object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-definitions/{id} [PATCH]
+func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingDefinition
+	loggingDefinitionID := c.Param("id")
+	var existingLoggingDefinition v0.LoggingDefinition
+	if result := h.DB.First(&existingLoggingDefinition, loggingDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingLoggingDefinition); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedLoggingDefinition v0.LoggingDefinition
+	if err := c.Bind(&updatedLoggingDefinition); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingLoggingDefinition).Updates(updatedLoggingDefinition); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*existingLoggingDefinition.Reconciled {
+		notifPayload, err := existingLoggingDefinition.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.LoggingDefinitionUpdateSubject, *notifPayload)
+	}
+
+	response, err := v0.CreateResponse(nil, existingLoggingDefinition, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing logging definition by replacing the entire object.
+// @Description Replace a logging definition in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating logging definition objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-loggingDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param loggingDefinition body v0.LoggingDefinition true "LoggingDefinition object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-definitions/{id} [PUT]
+func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingDefinition
+	loggingDefinitionID := c.Param("id")
+	var existingLoggingDefinition v0.LoggingDefinition
+	if result := h.DB.First(&existingLoggingDefinition, loggingDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingLoggingDefinition); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedLoggingDefinition v0.LoggingDefinition
+	if err := c.Bind(&updatedLoggingDefinition); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, updatedLoggingDefinition, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedLoggingDefinition.ID = existingLoggingDefinition.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedLoggingDefinition); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingLoggingDefinition, loggingDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingLoggingDefinition, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a logging definition.
+// @Description Delete a logging definition by ID from the database.
+// @ID delete-loggingDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-definitions/{id} [DELETE]
+func (h Handler) DeleteLoggingDefinition(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingDefinition
+	loggingDefinitionID := c.Param("id")
+	var loggingDefinition v0.LoggingDefinition
+	if result := h.DB.First(&loggingDefinition, loggingDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if loggingDefinition.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledLoggingDefinition := v0.LoggingDefinition{
+			Reconciliation: v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&loggingDefinition).Updates(scheduledLoggingDefinition); result.Error != nil {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := loggingDefinition.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.LoggingDefinitionDeleteSubject, *notifPayload)
+	} else {
+		if loggingDefinition.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return iapi.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*loggingDefinition.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&loggingDefinition); result.Error != nil {
+				return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
+	}
+
+	response, err := v0.CreateResponse(nil, loggingDefinition, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// LoggingInstance
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetLoggingInstanceVersions gets the supported versions for the logging instance API.
+// @Description Get the supported API versions for logging instances.
+// @ID loggingInstance-get-versions
+// @Produce json
+// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Router /logging-instances/versions [GET]
+func (h Handler) GetLoggingInstanceVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.RestapiVersions[string(v0.ObjectTypeLoggingInstance)])
+}
+
+// @Summary adds a new logging instance.
+// @Description Add a new logging instance to the Threeport database.
+// @ID add-loggingInstance
+// @Accept json
+// @Produce json
+// @Param loggingInstance body v0.LoggingInstance true "LoggingInstance object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-instances [POST]
+func (h Handler) AddLoggingInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingInstance
+	var loggingInstance v0.LoggingInstance
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, false, objectType, loggingInstance); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&loggingInstance); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, loggingInstance, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingLoggingInstance v0.LoggingInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", loggingInstance.Name).First(&existingLoggingInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&loggingInstance); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*loggingInstance.Reconciled {
+		notifPayload, err := loggingInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.LoggingInstanceCreateSubject, *notifPayload)
+	}
+
+	response, err := v0.CreateResponse(nil, loggingInstance, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all logging instances.
+// @Description Get all logging instances from the Threeport database.
+// @ID get-loggingInstances
+// @Accept json
+// @Produce json
+// @Param name query string false "logging instance search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-instances [GET]
+func (h Handler) GetLoggingInstances(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingInstance
+	params, err := c.(*iapi.CustomContext).GetPaginationParams()
+	if err != nil {
+		return iapi.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter v0.LoggingInstance
+	if err := c.Bind(&filter); err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&v0.LoggingInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]v0.LoggingInstance{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *records, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a logging instance.
+// @Description Get a particular logging instance from the database.
+// @ID get-loggingInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-instances/{id} [GET]
+func (h Handler) GetLoggingInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingInstance
+	loggingInstanceID := c.Param("id")
+	var loggingInstance v0.LoggingInstance
+	if result := h.DB.First(&loggingInstance, loggingInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, loggingInstance, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing logging instance.
+// @Description Update a logging instance in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating logging instance objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-loggingInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param loggingInstance body v0.LoggingInstance true "LoggingInstance object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-instances/{id} [PATCH]
+func (h Handler) UpdateLoggingInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingInstance
+	loggingInstanceID := c.Param("id")
+	var existingLoggingInstance v0.LoggingInstance
+	if result := h.DB.First(&existingLoggingInstance, loggingInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingLoggingInstance); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedLoggingInstance v0.LoggingInstance
+	if err := c.Bind(&updatedLoggingInstance); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingLoggingInstance).Updates(updatedLoggingInstance); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*existingLoggingInstance.Reconciled {
+		notifPayload, err := existingLoggingInstance.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.LoggingInstanceUpdateSubject, *notifPayload)
+	}
+
+	response, err := v0.CreateResponse(nil, existingLoggingInstance, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing logging instance by replacing the entire object.
+// @Description Replace a logging instance in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating logging instance objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-loggingInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param loggingInstance body v0.LoggingInstance true "LoggingInstance object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-instances/{id} [PUT]
+func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingInstance
+	loggingInstanceID := c.Param("id")
+	var existingLoggingInstance v0.LoggingInstance
+	if result := h.DB.First(&existingLoggingInstance, loggingInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := iapi.PayloadCheck(c, true, objectType, existingLoggingInstance); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedLoggingInstance v0.LoggingInstance
+	if err := c.Bind(&updatedLoggingInstance); err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := iapi.ValidateBoundData(c, updatedLoggingInstance, objectType); err != nil {
+		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedLoggingInstance.ID = existingLoggingInstance.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedLoggingInstance); result.Error != nil {
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingLoggingInstance, loggingInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := v0.CreateResponse(nil, existingLoggingInstance, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a logging instance.
+// @Description Delete a logging instance by ID from the database.
+// @ID delete-loggingInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/logging-instances/{id} [DELETE]
+func (h Handler) DeleteLoggingInstance(c echo.Context) error {
+	objectType := v0.ObjectTypeLoggingInstance
+	loggingInstanceID := c.Param("id")
+	var loggingInstance v0.LoggingInstance
+	if result := h.DB.First(&loggingInstance, loggingInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if loggingInstance.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledLoggingInstance := v0.LoggingInstance{
+			Reconciliation: v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&loggingInstance).Updates(scheduledLoggingInstance); result.Error != nil {
+			return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := loggingInstance.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return iapi.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(v0.LoggingInstanceDeleteSubject, *notifPayload)
+	} else {
+		if loggingInstance.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return iapi.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*loggingInstance.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&loggingInstance); result.Error != nil {
+				return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
+	}
+
+	response, err := v0.CreateResponse(nil, loggingInstance, objectType)
+	if err != nil {
+		return iapi.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return iapi.ResponseStatus200(c, *response)
+}
