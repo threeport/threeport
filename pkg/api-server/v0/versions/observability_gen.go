@@ -9,6 +9,134 @@ import (
 	"reflect"
 )
 
+// AddObservabilityStackDefinitionVersions adds field validation info and adds it
+// to the REST API versions.
+func AddObservabilityStackDefinitionVersions() {
+	iapi.ObservabilityStackDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.ObservabilityStackDefinition)),
+		"",
+		iapi.Translate,
+		iapi.ObservabilityStackDefinitionTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeObservabilityStackDefinition),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.ObservabilityStackDefinitionTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
+// AddObservabilityStackInstanceVersions adds field validation info and adds it
+// to the REST API versions.
+func AddObservabilityStackInstanceVersions() {
+	iapi.ObservabilityStackInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.ObservabilityStackInstance)),
+		"",
+		iapi.Translate,
+		iapi.ObservabilityStackInstanceTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeObservabilityStackInstance),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.ObservabilityStackInstanceTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
+// AddObservabilityDashboardDefinitionVersions adds field validation info and adds it
+// to the REST API versions.
+func AddObservabilityDashboardDefinitionVersions() {
+	iapi.ObservabilityDashboardDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.ObservabilityDashboardDefinition)),
+		"",
+		iapi.Translate,
+		iapi.ObservabilityDashboardDefinitionTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeObservabilityDashboardDefinition),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.ObservabilityDashboardDefinitionTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
+// AddObservabilityDashboardInstanceVersions adds field validation info and adds it
+// to the REST API versions.
+func AddObservabilityDashboardInstanceVersions() {
+	iapi.ObservabilityDashboardInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.ObservabilityDashboardInstance)),
+		"",
+		iapi.Translate,
+		iapi.ObservabilityDashboardInstanceTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeObservabilityDashboardInstance),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.ObservabilityDashboardInstanceTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
 // AddMetricsDefinitionVersions adds field validation info and adds it
 // to the REST API versions.
 func AddMetricsDefinitionVersions() {

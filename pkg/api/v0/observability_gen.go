@@ -9,12 +9,36 @@ import (
 )
 
 const (
-	ObjectTypeMetricsDefinition ObjectType = "MetricsDefinition"
-	ObjectTypeMetricsInstance   ObjectType = "MetricsInstance"
-	ObjectTypeLoggingDefinition ObjectType = "LoggingDefinition"
-	ObjectTypeLoggingInstance   ObjectType = "LoggingInstance"
+	ObjectTypeObservabilityStackDefinition     ObjectType = "ObservabilityStackDefinition"
+	ObjectTypeObservabilityStackInstance       ObjectType = "ObservabilityStackInstance"
+	ObjectTypeObservabilityDashboardDefinition ObjectType = "ObservabilityDashboardDefinition"
+	ObjectTypeObservabilityDashboardInstance   ObjectType = "ObservabilityDashboardInstance"
+	ObjectTypeMetricsDefinition                ObjectType = "MetricsDefinition"
+	ObjectTypeMetricsInstance                  ObjectType = "MetricsInstance"
+	ObjectTypeLoggingDefinition                ObjectType = "LoggingDefinition"
+	ObjectTypeLoggingInstance                  ObjectType = "LoggingInstance"
 
 	ObservabilityStreamName = "observabilityStream"
+
+	ObservabilityStackDefinitionSubject       = "observabilityStackDefinition.*"
+	ObservabilityStackDefinitionCreateSubject = "observabilityStackDefinition.create"
+	ObservabilityStackDefinitionUpdateSubject = "observabilityStackDefinition.update"
+	ObservabilityStackDefinitionDeleteSubject = "observabilityStackDefinition.delete"
+
+	ObservabilityStackInstanceSubject       = "observabilityStackInstance.*"
+	ObservabilityStackInstanceCreateSubject = "observabilityStackInstance.create"
+	ObservabilityStackInstanceUpdateSubject = "observabilityStackInstance.update"
+	ObservabilityStackInstanceDeleteSubject = "observabilityStackInstance.delete"
+
+	ObservabilityDashboardDefinitionSubject       = "observabilityDashboardDefinition.*"
+	ObservabilityDashboardDefinitionCreateSubject = "observabilityDashboardDefinition.create"
+	ObservabilityDashboardDefinitionUpdateSubject = "observabilityDashboardDefinition.update"
+	ObservabilityDashboardDefinitionDeleteSubject = "observabilityDashboardDefinition.delete"
+
+	ObservabilityDashboardInstanceSubject       = "observabilityDashboardInstance.*"
+	ObservabilityDashboardInstanceCreateSubject = "observabilityDashboardInstance.create"
+	ObservabilityDashboardInstanceUpdateSubject = "observabilityDashboardInstance.update"
+	ObservabilityDashboardInstanceDeleteSubject = "observabilityDashboardInstance.delete"
 
 	MetricsDefinitionSubject       = "metricsDefinition.*"
 	MetricsDefinitionCreateSubject = "metricsDefinition.create"
@@ -36,11 +60,55 @@ const (
 	LoggingInstanceUpdateSubject = "loggingInstance.update"
 	LoggingInstanceDeleteSubject = "loggingInstance.delete"
 
-	PathMetricsDefinitions = "/v0/metrics-definitions"
-	PathMetricsInstances   = "/v0/metrics-instances"
-	PathLoggingDefinitions = "/v0/logging-definitions"
-	PathLoggingInstances   = "/v0/logging-instances"
+	PathObservabilityStackDefinitions     = "/v0/observability-stack-definitions"
+	PathObservabilityStackInstances       = "/v0/observability-stack-instances"
+	PathObservabilityDashboardDefinitions = "/v0/observability-dashboard-definitions"
+	PathObservabilityDashboardInstances   = "/v0/observability-dashboard-instances"
+	PathMetricsDefinitions                = "/v0/metrics-definitions"
+	PathMetricsInstances                  = "/v0/metrics-instances"
+	PathLoggingDefinitions                = "/v0/logging-definitions"
+	PathLoggingInstances                  = "/v0/logging-instances"
 )
+
+// GetObservabilityStackDefinitionSubjects returns the NATS subjects
+// for observability stack definitions.
+func GetObservabilityStackDefinitionSubjects() []string {
+	return []string{
+		ObservabilityStackDefinitionCreateSubject,
+		ObservabilityStackDefinitionUpdateSubject,
+		ObservabilityStackDefinitionDeleteSubject,
+	}
+}
+
+// GetObservabilityStackInstanceSubjects returns the NATS subjects
+// for observability stack instances.
+func GetObservabilityStackInstanceSubjects() []string {
+	return []string{
+		ObservabilityStackInstanceCreateSubject,
+		ObservabilityStackInstanceUpdateSubject,
+		ObservabilityStackInstanceDeleteSubject,
+	}
+}
+
+// GetObservabilityDashboardDefinitionSubjects returns the NATS subjects
+// for observability dashboard definitions.
+func GetObservabilityDashboardDefinitionSubjects() []string {
+	return []string{
+		ObservabilityDashboardDefinitionCreateSubject,
+		ObservabilityDashboardDefinitionUpdateSubject,
+		ObservabilityDashboardDefinitionDeleteSubject,
+	}
+}
+
+// GetObservabilityDashboardInstanceSubjects returns the NATS subjects
+// for observability dashboard instances.
+func GetObservabilityDashboardInstanceSubjects() []string {
+	return []string{
+		ObservabilityDashboardInstanceCreateSubject,
+		ObservabilityDashboardInstanceUpdateSubject,
+		ObservabilityDashboardInstanceDeleteSubject,
+	}
+}
 
 // GetMetricsDefinitionSubjects returns the NATS subjects
 // for metrics definitions.
@@ -87,12 +155,208 @@ func GetLoggingInstanceSubjects() []string {
 func GetObservabilitySubjects() []string {
 	var observabilitySubjects []string
 
+	observabilitySubjects = append(observabilitySubjects, GetObservabilityStackDefinitionSubjects()...)
+	observabilitySubjects = append(observabilitySubjects, GetObservabilityStackInstanceSubjects()...)
+	observabilitySubjects = append(observabilitySubjects, GetObservabilityDashboardDefinitionSubjects()...)
+	observabilitySubjects = append(observabilitySubjects, GetObservabilityDashboardInstanceSubjects()...)
 	observabilitySubjects = append(observabilitySubjects, GetMetricsDefinitionSubjects()...)
 	observabilitySubjects = append(observabilitySubjects, GetMetricsInstanceSubjects()...)
 	observabilitySubjects = append(observabilitySubjects, GetLoggingDefinitionSubjects()...)
 	observabilitySubjects = append(observabilitySubjects, GetLoggingInstanceSubjects()...)
 
 	return observabilitySubjects
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (osd *ObservabilityStackDefinition) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       osd,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", osd, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (osd *ObservabilityStackDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &osd); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (osd *ObservabilityStackDefinition) GetID() uint {
+	return *osd.ID
+}
+
+// String returns a string representation of the ojbect.
+func (osd ObservabilityStackDefinition) String() string {
+	return fmt.Sprintf("v0.ObservabilityStackDefinition")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (osi *ObservabilityStackInstance) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       osi,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", osi, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (osi *ObservabilityStackInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &osi); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (osi *ObservabilityStackInstance) GetID() uint {
+	return *osi.ID
+}
+
+// String returns a string representation of the ojbect.
+func (osi ObservabilityStackInstance) String() string {
+	return fmt.Sprintf("v0.ObservabilityStackInstance")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (odd *ObservabilityDashboardDefinition) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       odd,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", odd, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (odd *ObservabilityDashboardDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &odd); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (odd *ObservabilityDashboardDefinition) GetID() uint {
+	return *odd.ID
+}
+
+// String returns a string representation of the ojbect.
+func (odd ObservabilityDashboardDefinition) String() string {
+	return fmt.Sprintf("v0.ObservabilityDashboardDefinition")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (odi *ObservabilityDashboardInstance) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       odi,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", odi, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (odi *ObservabilityDashboardInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &odi); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (odi *ObservabilityDashboardInstance) GetID() uint {
+	return *odi.ID
+}
+
+// String returns a string representation of the ojbect.
+func (odi ObservabilityDashboardInstance) String() string {
+	return fmt.Sprintf("v0.ObservabilityDashboardInstance")
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

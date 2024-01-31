@@ -25,6 +25,26 @@ import (
 
 func main() {
 	// flags
+	var observabilityStackDefinitionConcurrentReconciles = flag.Int(
+		"ObservabilityStackDefinition-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for observability stack definitions",
+	)
+	var observabilityStackInstanceConcurrentReconciles = flag.Int(
+		"ObservabilityStackInstance-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for observability stack instances",
+	)
+	var observabilityDashboardDefinitionConcurrentReconciles = flag.Int(
+		"ObservabilityDashboardDefinition-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for observability dashboard definitions",
+	)
+	var observabilityDashboardInstanceConcurrentReconciles = flag.Int(
+		"ObservabilityDashboardInstance-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for observability dashboard instances",
+	)
 	var metricsDefinitionConcurrentReconciles = flag.Int(
 		"MetricsDefinition-concurrent-reconciles",
 		1,
@@ -144,6 +164,34 @@ func main() {
 
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *observabilityStackDefinitionConcurrentReconciles,
+		Name:                 "ObservabilityStackDefinitionReconciler",
+		NotifSubject:         v0.ObservabilityStackDefinitionSubject,
+		ObjectType:           v0.ObjectTypeObservabilityStackDefinition,
+		ReconcileFunc:        observability.ObservabilityStackDefinitionReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *observabilityStackInstanceConcurrentReconciles,
+		Name:                 "ObservabilityStackInstanceReconciler",
+		NotifSubject:         v0.ObservabilityStackInstanceSubject,
+		ObjectType:           v0.ObjectTypeObservabilityStackInstance,
+		ReconcileFunc:        observability.ObservabilityStackInstanceReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *observabilityDashboardDefinitionConcurrentReconciles,
+		Name:                 "ObservabilityDashboardDefinitionReconciler",
+		NotifSubject:         v0.ObservabilityDashboardDefinitionSubject,
+		ObjectType:           v0.ObjectTypeObservabilityDashboardDefinition,
+		ReconcileFunc:        observability.ObservabilityDashboardDefinitionReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *observabilityDashboardInstanceConcurrentReconciles,
+		Name:                 "ObservabilityDashboardInstanceReconciler",
+		NotifSubject:         v0.ObservabilityDashboardInstanceSubject,
+		ObjectType:           v0.ObjectTypeObservabilityDashboardInstance,
+		ReconcileFunc:        observability.ObservabilityDashboardInstanceReconciler,
+	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
 		ConcurrentReconciles: *metricsDefinitionConcurrentReconciles,
 		Name:                 "MetricsDefinitionReconciler",
