@@ -28,6 +28,9 @@ type HelmWorkloadDefinition struct {
 	// values defined on the helm workload instance.
 	ValuesDocument *string `json:"ValuesDocument,omitempty" validate:"optional"`
 
+	// The version of the helm chart to use from the helm repo, e.g. 1.2.3
+	HelmChartVersion *string `json:"HelmChartVersion,omitempty" query:"helmchartversion" gorm:"not null" validate:"optional"`
+
 	// The helm values that override the defaults from the helm chart.  These
 	// will be inherited by each helm workload instance derived from this
 	// definition.  The helm values defined here can be further overridden by
