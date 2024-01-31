@@ -72,25 +72,24 @@ func (c *KubernetesRuntimeInstanceConfig) createMetricsDefinition() (*uint, erro
 		return nil, fmt.Errorf("failed to create metrics definition: %w", err)
 	}
 
-	// wait for metrics definition to be reconciled
-	if err = util.Retry(120, 1, func() error {
-		metricsDefinition, err := client.GetMetricsDefinitionByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			*createdMetricsDefinition.ID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get metrics definition by ID: %w", err)
-		}
-		if !*metricsDefinition.Reconciled {
-			return fmt.Errorf("metrics definition not reconciled")
-		}
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("failed to wait for metrics definition to be created: %w", err)
+	return createdMetricsDefinition.ID, nil
+}
+
+// deleteMetricsDefinition disables a metrics definition for a kubernetes runtime
+// instance
+func (c *KubernetesRuntimeInstanceConfig) deleteMetricsDefinition(metricsDefinitionID *uint) error {
+
+	// delete metrics definition
+	_, err := client.DeleteMetricsDefinition(
+		c.r.APIClient,
+		c.r.APIServer,
+		*metricsDefinitionID,
+	)
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		return fmt.Errorf("failed to delete metrics definition: %w", err)
 	}
 
-	return createdMetricsDefinition.ID, nil
+	return nil
 }
 
 // createMetricsInstance configures a metrics for a kubernetes runtime
@@ -112,24 +111,6 @@ func (c *KubernetesRuntimeInstanceConfig) createMetricsInstance(metricsDefinitio
 		return fmt.Errorf("failed to create metrics instance: %w", err)
 	}
 
-	// wait for metrics instance to be reconciled
-	if err = util.Retry(120, 1, func() error {
-		metricsInstance, err := client.GetMetricsInstanceByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			*createdMetricsInstance.ID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get metrics instance by ID: %w", err)
-		}
-		if !*metricsInstance.Reconciled {
-			return fmt.Errorf("metrics instance not reconciled")
-		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to wait for metrics instance to be created: %w", err)
-	}
-
 	// update kubernetes runtime instance with metrics instance ID
 	c.kubernetesRuntimeInstance.MetricsInstanceID = util.SqlNullInt64(createdMetricsInstance.ID)
 
@@ -149,59 +130,8 @@ func (c *KubernetesRuntimeInstanceConfig) deleteMetricsInstance() error {
 		return fmt.Errorf("failed to delete metrics instance: %w", err)
 	}
 
-	// wait for metrics instance to be deleted
-	if err = util.Retry(120, 1, func() error {
-		_, err = client.GetMetricsInstanceByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			uint(c.kubernetesRuntimeInstance.MetricsInstanceID.Int64),
-		)
-		if err != nil {
-			if errors.Is(err, client.ErrObjectNotFound) {
-				return nil
-			}
-			return fmt.Errorf("failed to get metrics instance by ID: %w", err)
-		}
-		return fmt.Errorf("metrics instance still exists")
-	}); err != nil {
-		return fmt.Errorf("failed to wait for metrics instance to be deleted: %w", err)
-	}
-
-	return nil
-}
-
-// deleteMetricsDefinition disables a metrics definition for a kubernetes runtime
-// instance
-func (c *KubernetesRuntimeInstanceConfig) deleteMetricsDefinition(metricsDefinitionID *uint) error {
-
-	// delete metrics definition
-	_, err := client.DeleteMetricsDefinition(
-		c.r.APIClient,
-		c.r.APIServer,
-		*metricsDefinitionID,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
-		return fmt.Errorf("failed to delete metrics definition: %w", err)
-	}
+	// update kubernetes runtime instance with metrics instance ID
 	c.kubernetesRuntimeInstance.MetricsInstanceID = util.SqlNullInt64(nil)
-
-	// wait for metrics definition to be deleted
-	if err = util.Retry(120, 1, func() error {
-		_, err = client.GetMetricsDefinitionByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			*metricsDefinitionID,
-		)
-		if err != nil {
-			if errors.Is(err, client.ErrObjectNotFound) {
-				return nil
-			}
-			return fmt.Errorf("failed to get metrics definition by ID: %w", err)
-		}
-		return fmt.Errorf("metrics definition still exists")
-	}); err != nil {
-		return fmt.Errorf("failed to wait for metrics definition to be deleted: %w", err)
-	}
 
 	return nil
 }

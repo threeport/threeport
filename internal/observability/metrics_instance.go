@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -135,6 +134,48 @@ func metricsInstanceDeleted(
 	return 0, nil
 }
 
+// getMetricsInstanceOperations returns a list of operations for a
+// metrics instance.
+func getMetricsInstanceOperations(c *MetricsInstanceConfig) *util.Operations {
+	operations := util.Operations{}
+
+	// append grafana operations
+	operations.AppendOperation(util.Operation{
+		Name: "grafana",
+		Create: func() error {
+			if err := c.createGrafanaHelmWorkloadInstance(); err != nil {
+				return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
+			}
+			return nil
+		},
+		Delete: func() error {
+			if err := c.deleteGrafanaHelmWorkloadInstance(); err != nil {
+				return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
+			}
+			return nil
+		},
+	})
+
+	// append kube-prometheus-stack operations
+	operations.AppendOperation(util.Operation{
+		Name: "kube-prometheus-stack",
+		Create: func() error {
+			if err := c.createKubePrometheusStackHelmWorkloadInstance(); err != nil {
+				return fmt.Errorf("failed to create loki helm workload instance: %w", err)
+			}
+			return nil
+		},
+		Delete: func() error {
+			if err := c.deleteKubePrometheusStackHelmWorkloadInstance(); err != nil {
+				return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
+			}
+			return nil
+		},
+	})
+
+	return &operations
+}
+
 // createGrafanaHelmWorkloadInstance creates a grafana helm workload
 // instance.
 func (c *MetricsInstanceConfig) createGrafanaHelmWorkloadInstance() error {
@@ -180,14 +221,6 @@ func (c *MetricsInstanceConfig) createGrafanaHelmWorkloadInstance() error {
 	// update grafana helm workload instance
 	c.metricsInstance.GrafanaHelmWorkloadInstanceID = grafanaHelmWorkloadInstance.ID
 
-	// wait for grafana helm workload instance to be reconciled
-	if err := helmworkload.WaitForHelmWorkloadInstanceReconciled(
-		c.r,
-		*grafanaHelmWorkloadInstance.ID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for grafana helm workload instance to be reconciled: %w", err)
-	}
-
 	return nil
 }
 
@@ -212,14 +245,6 @@ func (c *MetricsInstanceConfig) deleteGrafanaHelmWorkloadInstance() error {
 			*c.metricsInstance.GrafanaHelmWorkloadInstanceID,
 		); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
-		}
-
-		// wait for grafana helm workload instance to be deleted
-		if err := helmworkload.WaitForHelmWorkloadInstanceDeleted(
-			c.r,
-			*c.metricsInstance.GrafanaHelmWorkloadInstanceID,
-		); err != nil {
-			return fmt.Errorf("failed to wait for grafana helm workload instance to be deleted: %w", err)
 		}
 	}
 
@@ -249,14 +274,6 @@ func (c *MetricsInstanceConfig) createKubePrometheusStackHelmWorkloadInstance() 
 	// update kube-prometheus-stack helm workload instance
 	c.metricsInstance.KubePrometheusStackHelmWorkloadInstanceID = kubePrometheusStackHelmWorkloadInstance.ID
 
-	// wait for kube-prometheus-stack helm workload instance to be reconciled
-	if err := helmworkload.WaitForHelmWorkloadInstanceReconciled(
-		c.r,
-		*kubePrometheusStackHelmWorkloadInstance.ID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for kube-prometheus-stack helm workload instance to be reconciled: %w", err)
-	}
-
 	return nil
 }
 
@@ -272,55 +289,5 @@ func (c *MetricsInstanceConfig) deleteKubePrometheusStackHelmWorkloadInstance() 
 		return fmt.Errorf("failed to delete kube-prometheus-stack helm workload instance: %w", err)
 	}
 
-	// wait for kube-prometheus-stack helm workload instance to be deleted
-	if err := helmworkload.WaitForHelmWorkloadInstanceDeleted(
-		c.r,
-		*c.metricsInstance.KubePrometheusStackHelmWorkloadInstanceID,
-	); err != nil {
-		return fmt.Errorf("failed to wait for kube-prometheus-stack helm workload instance to be deleted: %w", err)
-	}
-
 	return nil
-}
-
-// getMetricsInstanceOperations returns a list of operations for a
-// metrics instance.
-func getMetricsInstanceOperations(c *MetricsInstanceConfig) *util.Operations {
-	operations := util.Operations{}
-
-	// append grafana operations
-	operations.AppendOperation(util.Operation{
-		Name: "grafana",
-		Create: func() error {
-			if err := c.createGrafanaHelmWorkloadInstance(); err != nil {
-				return fmt.Errorf("failed to create grafana helm workload instance: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteGrafanaHelmWorkloadInstance(); err != nil {
-				return fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
-			}
-			return nil
-		},
-	})
-
-	// append kube-prometheus-stack operations
-	operations.AppendOperation(util.Operation{
-		Name: "kube-prometheus-stack",
-		Create: func() error {
-			if err := c.createKubePrometheusStackHelmWorkloadInstance(); err != nil {
-				return fmt.Errorf("failed to create loki helm workload instance: %w", err)
-			}
-			return nil
-		},
-		Delete: func() error {
-			if err := c.deleteKubePrometheusStackHelmWorkloadInstance(); err != nil {
-				return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
-			}
-			return nil
-		},
-	})
-
-	return &operations
 }
