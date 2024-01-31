@@ -12023,23 +12023,24 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "HelmWorkloadDefinitionIDs": {
-                    "description": "The Helm workload definitions that belongs to this resource.",
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
-                },
-                "HelmWorkloadDefinitionValues": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying charts.",
-                    "type": "string"
+                "GrafanaHelmWorkloadDefinitionID": {
+                    "description": "The Grafana Helm workload definition that belongs to this resource.",
+                    "type": "integer"
                 },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
+                },
+                "KubePrometheusStackHelmWorkloadDefinitionID": {
+                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
+                    "type": "integer"
+                },
+                "MetricsInstances": {
+                    "description": "The associated metrics instances that are deployed from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.MetricsInstance"
+                    }
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
@@ -12062,8 +12063,8 @@ const docTemplate = `{
         "v0.MetricsInstance": {
             "type": "object",
             "required": [
-                "HelmWorkloadInstanceID",
                 "KubernetesRuntimeInstanceID",
+                "MetricsDefinitionID",
                 "Name"
             ],
             "properties": {
@@ -12091,26 +12092,32 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "HelmWorkloadInstanceID": {
-                    "description": "The helm workload instance ids this belongs to.",
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
-                },
-                "HelmWorkloadInstanceValues": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying charts.",
+                "GrafanaHelmValues": {
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying grafana chart.",
                     "type": "string"
+                },
+                "GrafanaHelmWorkloadInstanceID": {
+                    "description": "The Grafana Helm workload definition that belongs to this resource.",
+                    "type": "integer"
                 },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
                 },
+                "KubePrometheusStackHelmValues": {
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying kube-prometheus-stack chart.",
+                    "type": "string"
+                },
+                "KubePrometheusStackHelmWorkloadInstanceID": {
+                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
+                    "type": "integer"
+                },
                 "KubernetesRuntimeInstanceID": {
                     "description": "The kubernetes runtime where the ingress layer is installed.",
+                    "type": "integer"
+                },
+                "MetricsDefinitionID": {
+                    "description": "MetricsDefinitionID is the definition used to configure the workload instance.",
                     "type": "integer"
                 },
                 "Name": {
@@ -12130,29 +12137,6 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "Profile",
-                "Tier",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "GatewayHttpPort",
-                "GatewayTcpPort",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "AttachedObjectReference",
-                "WorkloadResourceInstance",
-                "WorkloadEvent",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -12160,35 +12144,35 @@ const docTemplate = `{
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
                 "AwsObjectStorageBucketInstance",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "Profile",
+                "Tier",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "MetricsDefinition",
+                "MetricsInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "AttachedObjectReference",
+                "WorkloadResourceInstance",
+                "WorkloadEvent",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
-                "MetricsDefinition",
-                "MetricsInstance"
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeGatewayHttpPort",
-                "ObjectTypeGatewayTcpPort",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
@@ -12196,10 +12180,33 @@ const docTemplate = `{
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
                 "ObjectTypeAwsObjectStorageBucketInstance",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeMetricsDefinition",
+                "ObjectTypeMetricsInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeAttachedObjectReference",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
-                "ObjectTypeMetricsDefinition",
-                "ObjectTypeMetricsInstance"
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance"
             ]
         },
         "v0.ObservabilityDashboardDefinition": {
