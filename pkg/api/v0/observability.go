@@ -84,7 +84,7 @@ type LoggingDefinition struct {
 	// query:"kubeprometheusstackhelmvalues" validate:"optional"`
 
 	// The associated metrics instances that are deployed from this definition.
-	MetricsInstances []*MetricsInstance `json:"MetricsInstances,omitempty" validate:"optional,association"`
+	LoggingInstances []*LoggingInstance `json:"LoggingInstances,omitempty" validate:"optional,association"`
 }
 
 // +threeport-codegen:reconciler

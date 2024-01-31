@@ -18,17 +18,14 @@ func metricsInstanceCreated(
 	metricsInstance *v0.MetricsInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
-	var err error
-
-	// get grafana helm workload definition
-	grafanaHelmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(
+	// get metrics definition
+	metricsDefinition, err := client.GetMetricsDefinitionByID(
 		r.APIClient,
 		r.APIServer,
-		GrafanaChartName(*metricsInstance.Name),
+		*metricsInstance.MetricsDefinitionID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get grafana helm workload definition: %w", err)
+		return 0, fmt.Errorf("failed to get metrics definition: %w", err)
 	}
 
 	// merge grafana helm values if they are provided
@@ -44,27 +41,17 @@ func metricsInstanceCreated(
 	}
 
 	// ensure grafana helm workload instance is deployed
-	_, err = client.CreateHelmWorkloadInstance(
+	grafanaWorkloadInstance, err := client.CreateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
 			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    grafanaHelmWorkloadDefinition.ID,
+			HelmWorkloadDefinitionID:    metricsDefinition.GrafanaHelmWorkloadDefinitionID,
 			HelmValuesDocument:          &grafanaHelmWorkloadInstanceValues,
 		},
 	)
 	if err != nil && !errors.Is(err, client.ErrConflict) {
 		return 0, fmt.Errorf("failed to create grafana helm workload instance: %w", err)
-	}
-
-	// get kube-prometheus-stack helm workload definition
-	kubePrometheusStackHelmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(
-		r.APIClient,
-		r.APIServer,
-		KubePrometheusStackChartName(*metricsInstance.Name),
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get kube-prometheus-stack helm workload definition: %w", err)
 	}
 
 	// merge grafana helm values if they are provided
@@ -80,12 +67,12 @@ func metricsInstanceCreated(
 	}
 
 	// create kube-prometheus-stack helm workload instance
-	_, err = client.CreateHelmWorkloadInstance(
+	kubePrometheusStackHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
 			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    kubePrometheusStackHelmWorkloadDefinition.ID,
+			HelmWorkloadDefinitionID:    metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
 			HelmValuesDocument:          &kubePrometheusStackHelmWorkloadInstanceValues,
 		},
 	)
@@ -95,6 +82,8 @@ func metricsInstanceCreated(
 
 	// update metrics instance reconciled field
 	metricsInstance.Reconciled = util.BoolPtr(true)
+	metricsInstance.GrafanaHelmWorkloadInstanceID = grafanaWorkloadInstance.ID
+	metricsInstance.KubePrometheusStackHelmWorkloadInstanceID = kubePrometheusStackHelmWorkloadInstance.ID
 	_, err = client.UpdateMetricsInstance(
 		r.APIClient,
 		r.APIServer,

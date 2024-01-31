@@ -18,16 +18,14 @@ func loggingInstanceCreated(
 	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	var err error
-
-	// get grafana helm workload definition
-	grafanaHelmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(
+	// get logging definition
+	loggingDefinition, err := client.GetLoggingDefinitionByID(
 		r.APIClient,
 		r.APIServer,
-		GrafanaChartName(*loggingInstance.Name),
+		*loggingInstance.LoggingDefinitionID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get grafana helm workload definition: %w", err)
+		return 0, fmt.Errorf("failed to get logging definition: %w", err)
 	}
 
 	// merge grafana helm values if they are provided
@@ -43,33 +41,35 @@ func loggingInstanceCreated(
 	}
 
 	// ensure grafana helm workload instance is deployed
-	_, err = client.CreateHelmWorkloadInstance(
+	grafanaHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Instance: v0.Instance{
+				Name: util.StringPtr(GrafanaChartName(*loggingInstance.Name)),
+			},
 			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    grafanaHelmWorkloadDefinition.ID,
+			HelmWorkloadDefinitionID:    loggingDefinition.GrafanaHelmWorkloadDefinitionID,
 			HelmValuesDocument:          &grafanaHelmWorkloadInstanceValues,
 		},
 	)
 	if err != nil && !errors.Is(err, client.ErrConflict) {
 		return 0, fmt.Errorf("failed to create grafana helm workload instance: %w", err)
+	} else {
+		grafanaHelmWorkloadInstance, err = client.GetHelmWorkloadInstanceByName(
+			r.APIClient,
+			r.APIServer,
+			GrafanaChartName(*loggingInstance.Name),
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get grafana helm workload instance: %w", err)
+		}
 	}
 
-	// get kube-prometheus-stack helm workload definition
-	lokiHelmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(
-		r.APIClient,
-		r.APIServer,
-		LokiHelmChartName(*loggingInstance.Name),
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get kube-prometheus-stack helm workload definition: %w", err)
-	}
-
-	// merge grafana helm values if they are provided
-	lokiWorkloadInstanceValues := lokiValues
+	// merge loki helm values if they are provided
+	lokiHelmWorkloadInstanceValues := lokiValues
 	if loggingInstance.GrafanaHelmValues != nil {
-		lokiWorkloadInstanceValues, err = MergeHelmValues(
+		lokiHelmWorkloadInstanceValues, err = MergeHelmValues(
 			lokiValues,
 			*loggingInstance.LokiHelmValues,
 		)
@@ -79,27 +79,32 @@ func loggingInstanceCreated(
 	}
 
 	// create loki helm workload instance
-	_, err = client.CreateHelmWorkloadInstance(
+	lokiHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Instance: v0.Instance{
+				Name: util.StringPtr(LokiHelmChartName(*loggingInstance.Name)),
+			},
 			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    lokiHelmWorkloadDefinition.ID,
-			HelmValuesDocument:          &lokiWorkloadInstanceValues,
+			HelmWorkloadDefinitionID:    loggingDefinition.LokiHelmWorkloadDefinitionID,
+			HelmValuesDocument:          &lokiHelmWorkloadInstanceValues,
 		},
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
 	}
 
-	// merge grafana helm values if they are provided
-	// create loki helm workload instance
-	_, err = client.CreateHelmWorkloadInstance(
+	// create promtail helm workload instance
+	promtailHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
+			Instance: v0.Instance{
+				Name: util.StringPtr(PromtailHelmChartName(*loggingInstance.Name)),
+			},
 			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    lokiHelmWorkloadDefinition.ID,
+			HelmWorkloadDefinitionID:    loggingDefinition.PromtailHelmWorkloadDefinitionID,
 			HelmValuesDocument:          loggingInstance.PromtailHelmValues,
 		},
 	)
@@ -109,6 +114,9 @@ func loggingInstanceCreated(
 
 	// update logging instance reconciled field
 	loggingInstance.Reconciled = util.BoolPtr(true)
+	loggingInstance.GrafanaHelmWorkloadInstanceID = grafanaHelmWorkloadInstance.ID
+	loggingInstance.LokiHelmWorkloadInstanceID = lokiHelmWorkloadInstance.ID
+	loggingInstance.PromtailHelmWorkloadInstanceID = promtailHelmWorkloadInstance.ID
 	_, err = client.UpdateLoggingInstance(
 		r.APIClient,
 		r.APIServer,

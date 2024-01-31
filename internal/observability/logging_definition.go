@@ -19,7 +19,7 @@ func loggingDefinitionCreated(
 	log *logr.Logger,
 ) (int64, error) {
 	// ensure grafana helm workload definition exists
-	_, err := client.CreateHelmWorkloadDefinition(
+	grafanaHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
@@ -37,7 +37,7 @@ func loggingDefinitionCreated(
 	}
 
 	// create loki helm workload definition
-	_, err = client.CreateHelmWorkloadDefinition(
+	lokiHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
@@ -52,7 +52,7 @@ func loggingDefinitionCreated(
 	}
 
 	// create promtail helm workload definition
-	_, err = client.CreateHelmWorkloadDefinition(
+	promtailHelmWorkloadDefinition, err := client.CreateHelmWorkloadDefinition(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
@@ -68,6 +68,9 @@ func loggingDefinitionCreated(
 
 	// update metrics instance reconciled field
 	loggingDefinition.Reconciled = util.BoolPtr(true)
+	loggingDefinition.GrafanaHelmWorkloadDefinitionID = grafanaHelmWorkloadDefinition.ID
+	loggingDefinition.LokiHelmWorkloadDefinitionID = lokiHelmWorkloadDefinition.ID
+	loggingDefinition.PromtailHelmWorkloadDefinitionID = promtailHelmWorkloadDefinition.ID
 	_, err = client.UpdateLoggingDefinition(
 		r.APIClient,
 		r.APIServer,
