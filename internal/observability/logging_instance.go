@@ -1,89 +1,116 @@
 package observability
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
-	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// loggingInstanceCreated reconciles state for a created
-// logging instance.
+// loggingInstanceCreated reconciles state for a new kubernetes
+// runtime instance.
 func loggingInstanceCreated(
 	r *controller.Reconciler,
 	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// get logging definition
-	loggingDefinition, err := client.GetLoggingDefinitionByID(
+	var err error
+
+	// get grafana helm workload definition
+	grafanaHelmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(
 		r.APIClient,
 		r.APIServer,
-		*loggingInstance.LoggingDefinitionID,
+		GrafanaChartName(*loggingInstance.Name),
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get logging definition: %w", err)
-	}
-	if !*loggingDefinition.Reconciled {
-		return 0, fmt.Errorf("logging definition is not reconciled")
+		return 0, fmt.Errorf("failed to get grafana helm workload definition: %w", err)
 	}
 
-	// generate shared namespace name for loki and promtail
-	loggingNamespace := fmt.Sprintf("%s-logging-%s", *loggingInstance.Name, util.RandomAlphaString(10))
-
-	// create logging instance config
-	c := &LoggingInstanceConfig{
-		r:                 r,
-		loggingInstance:   loggingInstance,
-		loggingDefinition: loggingDefinition,
-		log:               log,
-		loggingNamespace:  loggingNamespace,
+	// merge grafana helm values if they are provided
+	grafanaHelmWorkloadInstanceValues := grafanaValues
+	if loggingInstance.GrafanaHelmValues != nil {
+		grafanaHelmWorkloadInstanceValues, err = MergeHelmValues(
+			grafanaValues,
+			*loggingInstance.GrafanaHelmValues,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
+		}
 	}
 
-	// merge loki helm values
-	c.lokiHelmWorkloadInstanceValues, err = helmworkload.MergeHelmValuesPtrs(
-		loggingDefinition.LokiHelmValuesDocument,
-		loggingInstance.LokiHelmValuesDocument,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
-	}
-
-	// merge promtail helm values
-	c.promtailHelmWorkloadInstanceValues, err = helmworkload.MergeHelmValuesPtrs(
-		loggingDefinition.PromtailHelmValuesDocument,
-		loggingInstance.PromtailHelmValuesDocument,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
-	}
-
-	// get logging instance operations
-	operations := getLoggingInstanceOperations(c)
-
-	// execute logging instance create operations
-	if err := operations.Create(); err != nil {
-		return 0, fmt.Errorf("failed to execute logging instance create operations: %w", err)
-	}
-
-	// update logging instance
-	loggingInstance.Reconciled = util.BoolPtr(true)
-	if _, err = client.UpdateLoggingInstance(
+	// ensure grafana helm workload instance is deployed
+	_, err = client.CreateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
-		loggingInstance,
-	); err != nil {
-		return 0, fmt.Errorf("failed to update logging instance: %w", err)
+		&v0.HelmWorkloadInstance{
+			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
+			HelmWorkloadDefinitionID:    grafanaHelmWorkloadDefinition.ID,
+			HelmValuesDocument:          &grafanaHelmWorkloadInstanceValues,
+		},
+	)
+	if err != nil && !errors.Is(err, client.ErrConflict) {
+		return 0, fmt.Errorf("failed to create grafana helm workload instance: %w", err)
+	}
+
+	// get kube-prometheus-stack helm workload definition
+	lokiHelmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(
+		r.APIClient,
+		r.APIServer,
+		LokiHelmChartName(*loggingInstance.Name),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get kube-prometheus-stack helm workload definition: %w", err)
+	}
+
+	// merge grafana helm values if they are provided
+	lokiWorkloadInstanceValues := lokiValues
+	if loggingInstance.GrafanaHelmValues != nil {
+		lokiWorkloadInstanceValues, err = MergeHelmValues(
+			lokiValues,
+			*loggingInstance.LokiHelmValues,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
+		}
+	}
+
+	// create loki helm workload instance
+	_, err = client.CreateHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		&v0.HelmWorkloadInstance{
+			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
+			HelmWorkloadDefinitionID:    lokiHelmWorkloadDefinition.ID,
+			HelmValuesDocument:          &lokiWorkloadInstanceValues,
+		},
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
+	}
+
+	// merge grafana helm values if they are provided
+	// create loki helm workload instance
+	_, err = client.CreateHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		&v0.HelmWorkloadInstance{
+			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
+			HelmWorkloadDefinitionID:    lokiHelmWorkloadDefinition.ID,
+			HelmValuesDocument:          loggingInstance.PromtailHelmValues,
+		},
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
 	}
 
 	return 0, nil
 }
 
-// loggingInstanceUpdated reconciles state for an
-// updated logging instance.
+// loggingInstanceUpdated reconciles state for a new kubernetes
+// runtime instance.
 func loggingInstanceUpdated(
 	r *controller.Reconciler,
 	loggingInstance *v0.LoggingInstance,
@@ -92,27 +119,41 @@ func loggingInstanceUpdated(
 	return 0, nil
 }
 
-// loggingInstanceDeleted reconciles state for a deleted
-// logging instance.
+// loggingInstanceDeleted reconciles state for a new kubernetes
+// runtime instance.
 func loggingInstanceDeleted(
 	r *controller.Reconciler,
 	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// create logging instance config
-	c := &LoggingInstanceConfig{
-		r:                 r,
-		loggingInstance:   loggingInstance,
-		loggingDefinition: nil,
-		log:               log,
+	// delete grafana helm workload instance
+	_, err := client.DeleteHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		*loggingInstance.GrafanaHelmWorkloadInstanceID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
 	}
 
-	// get logging instance operations
-	operations := getLoggingInstanceOperations(c)
+	// delete loki helm workload instance
+	_, err = client.DeleteHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		*loggingInstance.LokiHelmWorkloadInstanceID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete loki helm workload instance: %w", err)
+	}
 
-	// execute delete logging instance operations
-	if err := operations.Delete(); err != nil {
-		return 0, fmt.Errorf("failed to execute logging delete operations: %w", err)
+	// delete promtail helm workload instance
+	_, err = client.DeleteHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		*loggingInstance.PromtailHelmWorkloadInstanceID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
 	}
 
 	return 0, nil

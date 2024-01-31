@@ -464,6 +464,42 @@
                 }
             }
         },
+        "/logging-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for logging definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetLoggingDefinitionVersions gets the supported versions for the logging definition API.",
+                "operationId": "loggingDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/logging-instances/versions": {
+            "get": {
+                "description": "Get the supported API versions for logging instances.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetLoggingInstanceVersions gets the supported versions for the logging instance API.",
+                "operationId": "loggingInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/metrics-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for metrics definitions.",
@@ -7561,6 +7597,568 @@
                 }
             }
         },
+        "/v0/logging-definitions": {
+            "get": {
+                "description": "Get all logging definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all logging definitions.",
+                "operationId": "get-loggingDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "logging definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new logging definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new logging definition.",
+                "operationId": "add-loggingDefinition",
+                "parameters": [
+                    {
+                        "description": "LoggingDefinition object",
+                        "name": "loggingDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.LoggingDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/logging-definitions/{id}": {
+            "get": {
+                "description": "Get a particular logging definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a logging definition.",
+                "operationId": "get-loggingDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a logging definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating logging definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing logging definition by replacing the entire object.",
+                "operationId": "replace-loggingDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "LoggingDefinition object",
+                        "name": "loggingDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.LoggingDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a logging definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a logging definition.",
+                "operationId": "delete-loggingDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a logging definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating logging definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing logging definition.",
+                "operationId": "update-loggingDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "LoggingDefinition object",
+                        "name": "loggingDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.LoggingDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/logging-instances": {
+            "get": {
+                "description": "Get all logging instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all logging instances.",
+                "operationId": "get-loggingInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "logging instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new logging instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new logging instance.",
+                "operationId": "add-loggingInstance",
+                "parameters": [
+                    {
+                        "description": "LoggingInstance object",
+                        "name": "loggingInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.LoggingInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/logging-instances/{id}": {
+            "get": {
+                "description": "Get a particular logging instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a logging instance.",
+                "operationId": "get-loggingInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a logging instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating logging instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing logging instance by replacing the entire object.",
+                "operationId": "replace-loggingInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "LoggingInstance object",
+                        "name": "loggingInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.LoggingInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a logging instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a logging instance.",
+                "operationId": "delete-loggingInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a logging instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating logging instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing logging instance.",
+                "operationId": "update-loggingInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "LoggingInstance object",
+                        "name": "loggingInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.LoggingInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/metrics-definitions": {
             "get": {
                 "description": "Get all metrics definitions from the Threeport database.",
@@ -11840,28 +12438,24 @@
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "GrafanaHelmWorkloadDefinitionID": {
+                    "description": "The Grafana Helm workload definition that belongs to this resource.",
+                    "type": "integer"
+                },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
                 },
-                "LoggingInstances": {
+                "LokiHelmWorkloadDefinitionID": {
+                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
+                    "type": "integer"
+                },
+                "MetricsInstances": {
                     "description": "The associated metrics instances that are deployed from this definition.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/v0.LoggingInstance"
+                        "$ref": "#/definitions/v0.MetricsInstance"
                     }
-                },
-                "LokiHelmChartVersion": {
-                    "description": "The version of the loki helm chart to use from the helm repo, e.g. 1.2.3",
-                    "type": "string"
-                },
-                "LokiHelmValuesDocument": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying loki chart.",
-                    "type": "string"
-                },
-                "LokiHelmWorkloadDefinitionID": {
-                    "description": "The loki Helm workload definition that belongs to this resource.",
-                    "type": "integer"
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
@@ -11871,16 +12465,8 @@
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
                 },
-                "PromtailHelmChartVersion": {
-                    "description": "The version of the promtail helm chart to use from the helm repo, e.g. 1.2.3",
-                    "type": "string"
-                },
-                "PromtailHelmValuesDocument": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying promtail chart.",
-                    "type": "string"
-                },
                 "PromtailHelmWorkloadDefinitionID": {
-                    "description": "The promtail Helm workload definition that belongs to this resource.",
+                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Reconciled": {
@@ -11925,6 +12511,14 @@
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "GrafanaHelmValues": {
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying grafana chart.",
+                    "type": "string"
+                },
+                "GrafanaHelmWorkloadInstanceID": {
+                    "description": "The Grafana Helm workload definition that belongs to this resource.",
+                    "type": "integer"
+                },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
@@ -11937,24 +12531,24 @@
                     "description": "MetricsDefinitionID is the definition used to configure the workload instance.",
                     "type": "integer"
                 },
-                "LokiHelmValuesDocument": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying loki chart.",
+                "LokiHelmValues": {
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying kube-prometheus-stack chart.",
                     "type": "string"
                 },
                 "LokiHelmWorkloadInstanceID": {
-                    "description": "The loki Helm workload definition that belongs to this resource.",
+                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
-                "PromtailHelmValuesDocument": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying promtail chart.",
+                "PromtailHelmValues": {
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying kube-prometheus-stack chart.",
                     "type": "string"
                 },
                 "PromtailHelmWorkloadInstanceID": {
-                    "description": "The promtail Helm workload definition that belongs to this resource.",
+                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Reconciled": {
@@ -12131,32 +12725,6 @@
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "Profile",
-                "Tier",
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "MetricsDefinition",
-                "MetricsInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "AttachedObjectReference",
-                "WorkloadResourceInstance",
-                "WorkloadEvent",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
                 "GatewayDefinition",
@@ -12164,35 +12732,37 @@
                 "GatewayHttpPort",
                 "GatewayTcpPort",
                 "DomainNameDefinition",
-                "DomainNameInstance"
+                "DomainNameInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "AttachedObjectReference",
+                "WorkloadResourceInstance",
+                "WorkloadEvent",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "AwsObjectStorageBucketDefinition",
+                "AwsObjectStorageBucketInstance",
+                "MetricsDefinition",
+                "MetricsInstance",
+                "LoggingDefinition",
+                "LoggingInstance",
+                "Profile",
+                "Tier",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeMetricsDefinition",
-                "ObjectTypeMetricsInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
                 "ObjectTypeGatewayDefinition",
@@ -12200,7 +12770,35 @@
                 "ObjectTypeGatewayHttpPort",
                 "ObjectTypeGatewayTcpPort",
                 "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance"
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeAttachedObjectReference",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeAwsObjectStorageBucketDefinition",
+                "ObjectTypeAwsObjectStorageBucketInstance",
+                "ObjectTypeMetricsDefinition",
+                "ObjectTypeMetricsInstance",
+                "ObjectTypeLoggingDefinition",
+                "ObjectTypeLoggingInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance"
             ]
         },
         "v0.ObservabilityDashboardDefinition": {

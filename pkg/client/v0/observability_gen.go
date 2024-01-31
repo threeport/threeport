@@ -481,3 +481,473 @@ func DeleteMetricsInstance(apiClient *http.Client, apiAddr string, id uint) (*v0
 
 	return &metricsInstance, nil
 }
+
+// GetLoggingDefinitions fetches all logging definitions.
+// TODO: implement pagination
+func GetLoggingDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.LoggingDefinition, error) {
+	var loggingDefinitions []v0.LoggingDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-definitions", apiAddr, ApiVersion),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &loggingDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &loggingDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &loggingDefinitions, nil
+}
+
+// GetLoggingDefinitionByID fetches a logging definition by ID.
+func GetLoggingDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.LoggingDefinition, error) {
+	var loggingDefinition v0.LoggingDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-definitions/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &loggingDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &loggingDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &loggingDefinition, nil
+}
+
+// GetLoggingDefinitionsByQueryString fetches logging definitions by provided query string.
+func GetLoggingDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.LoggingDefinition, error) {
+	var loggingDefinitions []v0.LoggingDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-definitions?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &loggingDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &loggingDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &loggingDefinitions, nil
+}
+
+// GetLoggingDefinitionByName fetches a logging definition by name.
+func GetLoggingDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.LoggingDefinition, error) {
+	var loggingDefinitions []v0.LoggingDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-definitions?name=%s", apiAddr, ApiVersion, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.LoggingDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.LoggingDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(loggingDefinitions) < 1:
+		return &v0.LoggingDefinition{}, errors.New(fmt.Sprintf("no logging definition with name %s", name))
+	case len(loggingDefinitions) > 1:
+		return &v0.LoggingDefinition{}, errors.New(fmt.Sprintf("more than one logging definition with name %s returned", name))
+	}
+
+	return &loggingDefinitions[0], nil
+}
+
+// CreateLoggingDefinition creates a new logging definition.
+func CreateLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDefinition *v0.LoggingDefinition) (*v0.LoggingDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(loggingDefinition)
+	jsonLoggingDefinition, err := util.MarshalObject(loggingDefinition)
+	if err != nil {
+		return loggingDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-definitions", apiAddr, ApiVersion),
+		http.MethodPost,
+		bytes.NewBuffer(jsonLoggingDefinition),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return loggingDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return loggingDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return loggingDefinition, nil
+}
+
+// UpdateLoggingDefinition updates a logging definition.
+func UpdateLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDefinition *v0.LoggingDefinition) (*v0.LoggingDefinition, error) {
+	ReplaceAssociatedObjectsWithNil(loggingDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	loggingDefinitionID := *loggingDefinition.ID
+	payloadLoggingDefinition := *loggingDefinition
+	payloadLoggingDefinition.ID = nil
+	payloadLoggingDefinition.CreatedAt = nil
+	payloadLoggingDefinition.UpdatedAt = nil
+
+	jsonLoggingDefinition, err := util.MarshalObject(payloadLoggingDefinition)
+	if err != nil {
+		return loggingDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-definitions/%d", apiAddr, ApiVersion, loggingDefinitionID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonLoggingDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return loggingDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return loggingDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadLoggingDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadLoggingDefinition.ID = &loggingDefinitionID
+	return &payloadLoggingDefinition, nil
+}
+
+// DeleteLoggingDefinition deletes a logging definition by ID.
+func DeleteLoggingDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.LoggingDefinition, error) {
+	var loggingDefinition v0.LoggingDefinition
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-definitions/%d", apiAddr, ApiVersion, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &loggingDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &loggingDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &loggingDefinition, nil
+}
+
+// GetLoggingInstances fetches all logging instances.
+// TODO: implement pagination
+func GetLoggingInstances(apiClient *http.Client, apiAddr string) (*[]v0.LoggingInstance, error) {
+	var loggingInstances []v0.LoggingInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-instances", apiAddr, ApiVersion),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &loggingInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &loggingInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &loggingInstances, nil
+}
+
+// GetLoggingInstanceByID fetches a logging instance by ID.
+func GetLoggingInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.LoggingInstance, error) {
+	var loggingInstance v0.LoggingInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-instances/%d", apiAddr, ApiVersion, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &loggingInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &loggingInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &loggingInstance, nil
+}
+
+// GetLoggingInstancesByQueryString fetches logging instances by provided query string.
+func GetLoggingInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.LoggingInstance, error) {
+	var loggingInstances []v0.LoggingInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-instances?%s", apiAddr, ApiVersion, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &loggingInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &loggingInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &loggingInstances, nil
+}
+
+// GetLoggingInstanceByName fetches a logging instance by name.
+func GetLoggingInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.LoggingInstance, error) {
+	var loggingInstances []v0.LoggingInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-instances?name=%s", apiAddr, ApiVersion, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.LoggingInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.LoggingInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(loggingInstances) < 1:
+		return &v0.LoggingInstance{}, errors.New(fmt.Sprintf("no logging instance with name %s", name))
+	case len(loggingInstances) > 1:
+		return &v0.LoggingInstance{}, errors.New(fmt.Sprintf("more than one logging instance with name %s returned", name))
+	}
+
+	return &loggingInstances[0], nil
+}
+
+// CreateLoggingInstance creates a new logging instance.
+func CreateLoggingInstance(apiClient *http.Client, apiAddr string, loggingInstance *v0.LoggingInstance) (*v0.LoggingInstance, error) {
+	ReplaceAssociatedObjectsWithNil(loggingInstance)
+	jsonLoggingInstance, err := util.MarshalObject(loggingInstance)
+	if err != nil {
+		return loggingInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-instances", apiAddr, ApiVersion),
+		http.MethodPost,
+		bytes.NewBuffer(jsonLoggingInstance),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return loggingInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return loggingInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return loggingInstance, nil
+}
+
+// UpdateLoggingInstance updates a logging instance.
+func UpdateLoggingInstance(apiClient *http.Client, apiAddr string, loggingInstance *v0.LoggingInstance) (*v0.LoggingInstance, error) {
+	ReplaceAssociatedObjectsWithNil(loggingInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	loggingInstanceID := *loggingInstance.ID
+	payloadLoggingInstance := *loggingInstance
+	payloadLoggingInstance.ID = nil
+	payloadLoggingInstance.CreatedAt = nil
+	payloadLoggingInstance.UpdatedAt = nil
+
+	jsonLoggingInstance, err := util.MarshalObject(payloadLoggingInstance)
+	if err != nil {
+		return loggingInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-instances/%d", apiAddr, ApiVersion, loggingInstanceID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonLoggingInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return loggingInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return loggingInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadLoggingInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadLoggingInstance.ID = &loggingInstanceID
+	return &payloadLoggingInstance, nil
+}
+
+// DeleteLoggingInstance deletes a logging instance by ID.
+func DeleteLoggingInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.LoggingInstance, error) {
+	var loggingInstance v0.LoggingInstance
+
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/logging-instances/%d", apiAddr, ApiVersion, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &loggingInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &loggingInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&loggingInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &loggingInstance, nil
+}

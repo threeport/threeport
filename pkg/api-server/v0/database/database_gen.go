@@ -144,6 +144,8 @@ func GetDbInterfaces() []interface{} {
 		&v0.LogStorageInstance{},
 		&v0.MetricsDefinition{},
 		&v0.MetricsInstance{},
+		&v0.LoggingDefinition{},
+		&v0.LoggingInstance{},
 		&v0.WorkloadDefinition{},
 		&v0.WorkloadResourceDefinition{},
 		&v0.WorkloadInstance{},

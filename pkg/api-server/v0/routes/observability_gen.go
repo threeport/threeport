@@ -31,3 +31,27 @@ func MetricsInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.PUT(v0.PathMetricsInstances+"/:id", h.ReplaceMetricsInstance)
 	e.DELETE(v0.PathMetricsInstances+"/:id", h.DeleteMetricsInstance)
 }
+
+// LoggingDefinitionRoutes sets up all routes for the LoggingDefinition handlers.
+func LoggingDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/logging-definitions/versions", h.GetLoggingDefinitionVersions)
+
+	e.POST(v0.PathLoggingDefinitions, h.AddLoggingDefinition)
+	e.GET(v0.PathLoggingDefinitions, h.GetLoggingDefinitions)
+	e.GET(v0.PathLoggingDefinitions+"/:id", h.GetLoggingDefinition)
+	e.PATCH(v0.PathLoggingDefinitions+"/:id", h.UpdateLoggingDefinition)
+	e.PUT(v0.PathLoggingDefinitions+"/:id", h.ReplaceLoggingDefinition)
+	e.DELETE(v0.PathLoggingDefinitions+"/:id", h.DeleteLoggingDefinition)
+}
+
+// LoggingInstanceRoutes sets up all routes for the LoggingInstance handlers.
+func LoggingInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/logging-instances/versions", h.GetLoggingInstanceVersions)
+
+	e.POST(v0.PathLoggingInstances, h.AddLoggingInstance)
+	e.GET(v0.PathLoggingInstances, h.GetLoggingInstances)
+	e.GET(v0.PathLoggingInstances+"/:id", h.GetLoggingInstance)
+	e.PATCH(v0.PathLoggingInstances+"/:id", h.UpdateLoggingInstance)
+	e.PUT(v0.PathLoggingInstances+"/:id", h.ReplaceLoggingInstance)
+	e.DELETE(v0.PathLoggingInstances+"/:id", h.DeleteLoggingInstance)
+}
