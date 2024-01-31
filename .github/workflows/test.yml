@@ -115,7 +115,6 @@ jobs:
         image_tag: ${{ github.sha }}
 
   build-control-plane-controller:
-    runs-on: ubuntu-22.04
     steps:
     - name: Check out code
       uses: actions/checkout@v4
@@ -141,7 +140,6 @@ jobs:
         image_name: threeport/threeport-helm-workload-controller
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dockerfile: cmd/helm-workload-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
 
   build-threeport-agent:
     runs-on: ubuntu-22.04
