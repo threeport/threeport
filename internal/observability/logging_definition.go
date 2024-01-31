@@ -101,7 +101,7 @@ func loggingDefinitionCreated(
 		return 0, fmt.Errorf("failed to execute logging definition create operations: %w", err)
 	}
 
-	// update logging definition reconciled field
+	// update logging definition
 	loggingDefinition.Reconciled = util.BoolPtr(true)
 	_, err = client.UpdateLoggingDefinition(
 		r.APIClient,
@@ -109,7 +109,7 @@ func loggingDefinitionCreated(
 		loggingDefinition,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to update logging definition reconciled field: %w", err)
+		return 0, fmt.Errorf("failed to update logging definition: %w", err)
 	}
 
 	return 0, nil
@@ -219,12 +219,11 @@ func (c *LoggingDefinitionConfig) createLokiHelmWorkloadDefinition() error {
 // deleteLokiHelmWorkloadDefinition deletes a loki helm workload definition.
 func (c *LoggingDefinitionConfig) deleteLokiHelmWorkloadDefinition() error {
 	// delete loki helm workload definition
-	_, err := client.DeleteHelmWorkloadDefinition(
+	if _, err := client.DeleteHelmWorkloadDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.loggingDefinition.LokiHelmWorkloadDefinitionID,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete loki helm workload definition: %w", err)
 	}
 
@@ -259,12 +258,11 @@ func (c *LoggingDefinitionConfig) createPromtailHelmWorkloadDefinition() error {
 // deletePromtailHelmWorkloadDefinition creates a promtail helm workload definition.
 func (c *LoggingDefinitionConfig) deletePromtailHelmWorkloadDefinition() error {
 	// delete promtail helm workload definition
-	_, err := client.DeleteHelmWorkloadDefinition(
+	if _, err := client.DeleteHelmWorkloadDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.loggingDefinition.PromtailHelmWorkloadDefinitionID,
-	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete promtail helm workload definition: %w", err)
 	}
 

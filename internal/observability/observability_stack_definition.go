@@ -1,6 +1,7 @@
 package observability
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -52,14 +53,14 @@ func observabilityStackDefinitionCreated(
 		return 0, fmt.Errorf("failed to execute observability stack operations: %w", err)
 	}
 
-	// update metrics instance reconciled field
+	// update metrics instance
 	observabilityStackDefinition.Reconciled = util.BoolPtr(true)
 	if _, err := client.UpdateObservabilityStackDefinition(
 		r.APIClient,
 		r.APIServer,
 		observabilityStackDefinition,
 	); err != nil {
-		return 0, fmt.Errorf("failed to update metrics definition reconciled field: %w", err)
+		return 0, fmt.Errorf("failed to update observability stack definition: %w", err)
 	}
 
 	return 0, nil
@@ -111,13 +112,13 @@ func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOper
 		Name: "observability dashboard",
 		Create: func() error {
 			if err := c.createObservabilityDashboardDefinition(); err != nil {
-				return fmt.Errorf("failed to create loki helm workload instance: %w", err)
+				return fmt.Errorf("failed to create observability dashboard definition: %w", err)
 			}
 			return nil
 		},
 		Delete: func() error {
 			if err := c.deleteObservabilityDashboardDefinition(); err != nil {
-				return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
+				return fmt.Errorf("failed to delete observability dashboard definition: %w", err)
 			}
 			return nil
 		},
@@ -128,13 +129,13 @@ func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOper
 		Name: "logging",
 		Create: func() error {
 			if err := c.createLoggingDefinition(); err != nil {
-				return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
+				return fmt.Errorf("failed to create logging definition: %w", err)
 			}
 			return nil
 		},
 		Delete: func() error {
 			if err := c.deleteLoggingDefinition(); err != nil {
-				return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
+				return fmt.Errorf("failed to delete logging definition: %w", err)
 			}
 			return nil
 		},
@@ -145,13 +146,13 @@ func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOper
 		Name: "metrics",
 		Create: func() error {
 			if err := c.createMetricsDefinition(); err != nil {
-				return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
+				return fmt.Errorf("failed to create metrics definition: %w", err)
 			}
 			return nil
 		},
 		Delete: func() error {
 			if err := c.deleteMetricsDefinition(); err != nil {
-				return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
+				return fmt.Errorf("failed to delete metrics definition: %w", err)
 			}
 			return nil
 		},
@@ -181,7 +182,7 @@ func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinit
 	}
 
 	// create observability dashboard definition
-	observabilityDashboardDefinition, err := client.CreateObservabilityDashboardDefinition(
+	createdObservabilityDashboardDefinition, err := client.CreateObservabilityDashboardDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		observabilityDashboardDefinition,
@@ -191,7 +192,7 @@ func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinit
 	}
 
 	// update observability stack definition with observability dashboard definition id
-	c.observabilityStackDefinition.ObservabilityDashboardDefinitionID = observabilityDashboardDefinition.ID
+	c.observabilityStackDefinition.ObservabilityDashboardDefinitionID = createdObservabilityDashboardDefinition.ID
 
 	return nil
 }
@@ -203,7 +204,7 @@ func (c *ObservabilityStackDefinitionConfig) deleteObservabilityDashboardDefinit
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackDefinition.ObservabilityDashboardDefinitionID,
-	); err != nil {
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete observability dashboard definition: %w", err)
 	}
 
@@ -241,20 +242,17 @@ func (c *ObservabilityStackDefinitionConfig) createLoggingDefinition() error {
 	}
 
 	// create logging definition
-	loggingDefinition, err := client.CreateLoggingDefinition(
+	createdLoggingDefinition, err := client.CreateLoggingDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
-		&v0.LoggingDefinition{
-			Definition: v0.Definition{
-				Name: util.StringPtr(LoggingName(*c.observabilityStackDefinition.Name)),
-			},
-		})
+		loggingDefinition,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create logging definition: %w", err)
 	}
 
 	// update observability stack definition with logging definition id
-	c.observabilityStackDefinition.LoggingDefinitionID = loggingDefinition.ID
+	c.observabilityStackDefinition.LoggingDefinitionID = createdLoggingDefinition.ID
 
 	return nil
 }
@@ -266,7 +264,7 @@ func (c *ObservabilityStackDefinitionConfig) deleteLoggingDefinition() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackDefinition.LoggingDefinitionID,
-	); err != nil {
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete logging definition: %w", err)
 	}
 
@@ -316,7 +314,7 @@ func (c *ObservabilityStackDefinitionConfig) deleteMetricsDefinition() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackDefinition.MetricsDefinitionID,
-	); err != nil {
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete metrics definition: %w", err)
 	}
 

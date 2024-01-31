@@ -1,6 +1,7 @@
 package observability
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -10,6 +11,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// ObservabilityStackInstanceConfig contains the configuration for an observability
+// stack instance reconciler.
 type ObservabilityStackInstanceConfig struct {
 	r                                     *controller.Reconciler
 	observabilityStackInstance            *v0.ObservabilityStackInstance
@@ -39,7 +42,7 @@ func observabilityStackInstanceCreated(
 	}
 
 	// get merged observability stack instance values
-	grafanaHelmValuesDocument, kubePrometheusStackHelmValuesDocument, lokiHelmValuesDocument, promtailHelmValuesDocument, err := getMergedObservabilityStackInstanceValues(
+	grafanaValues, kubePrometheusStackValues, lokiValues, promtailValues, err := mergeObservabilityStackInstanceValues(
 		observabilityStackInstance,
 		observabilityStackDefinition,
 	)
@@ -53,10 +56,10 @@ func observabilityStackInstanceCreated(
 		observabilityStackInstance:            observabilityStackInstance,
 		observabilityStackDefinition:          observabilityStackDefinition,
 		log:                                   log,
-		grafanaHelmValuesDocument:             grafanaHelmValuesDocument,
-		kubePrometheusStackHelmValuesDocument: kubePrometheusStackHelmValuesDocument,
-		lokiHelmValuesDocument:                lokiHelmValuesDocument,
-		promtailHelmValuesDocument:            promtailHelmValuesDocument,
+		grafanaHelmValuesDocument:             grafanaValues,
+		kubePrometheusStackHelmValuesDocument: kubePrometheusStackValues,
+		lokiHelmValuesDocument:                lokiValues,
+		promtailHelmValuesDocument:            promtailValues,
 	}
 
 	// get observability stack operations
@@ -64,17 +67,17 @@ func observabilityStackInstanceCreated(
 
 	// execute observability stack create operations
 	if err := operations.Create(); err != nil {
-		return 0, fmt.Errorf("failed to execute observability stack operations: %w", err)
+		return 0, fmt.Errorf("failed to execute observability stack create operations: %w", err)
 	}
 
-	// update metrics instance reconciled field
+	// update observability stack instance
 	observabilityStackInstance.Reconciled = util.BoolPtr(true)
 	if _, err := client.UpdateObservabilityStackInstance(
 		r.APIClient,
 		r.APIServer,
 		observabilityStackInstance,
 	); err != nil {
-		return 0, fmt.Errorf("failed to update metrics definition reconciled field: %w", err)
+		return 0, fmt.Errorf("failed to update observability stack instance: %w", err)
 	}
 
 	return 0, nil
@@ -110,7 +113,7 @@ func observabilityStackInstanceDeleted(
 
 	// execute observability stack delete operations
 	if err := operations.Delete(); err != nil {
-		return 0, fmt.Errorf("failed to execute observability stack operations: %w", err)
+		return 0, fmt.Errorf("failed to execute observability stack delete operations: %w", err)
 	}
 
 	return 0, nil
@@ -127,13 +130,13 @@ func (c *ObservabilityStackInstanceConfig) getObservabilityStackInstanceOperatio
 		Name: "observability dashboard",
 		Create: func() error {
 			if err := c.createObservabilityDashboardInstance(); err != nil {
-				return fmt.Errorf("failed to create loki helm workload instance: %w", err)
+				return fmt.Errorf("failed to create observability dashboard instance: %w", err)
 			}
 			return nil
 		},
 		Delete: func() error {
 			if err := c.deleteObservabilityDashboardInstance(); err != nil {
-				return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
+				return fmt.Errorf("failed to delete observability dashboard instance: %w", err)
 			}
 			return nil
 		},
@@ -145,13 +148,13 @@ func (c *ObservabilityStackInstanceConfig) getObservabilityStackInstanceOperatio
 			Name: "logging",
 			Create: func() error {
 				if err := c.createLoggingInstance(); err != nil {
-					return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
+					return fmt.Errorf("failed to create logging instance: %w", err)
 				}
 				return nil
 			},
 			Delete: func() error {
 				if err := c.deleteLoggingInstance(); err != nil {
-					return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
+					return fmt.Errorf("failed to delete logging instance: %w", err)
 				}
 				return nil
 			},
@@ -164,13 +167,13 @@ func (c *ObservabilityStackInstanceConfig) getObservabilityStackInstanceOperatio
 			Name: "metrics",
 			Create: func() error {
 				if err := c.createMetricsInstance(); err != nil {
-					return fmt.Errorf("failed to create promtail helm workload instance: %w", err)
+					return fmt.Errorf("failed to create metrics instance: %w", err)
 				}
 				return nil
 			},
 			Delete: func() error {
 				if err := c.deleteMetricsInstance(); err != nil {
-					return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
+					return fmt.Errorf("failed to delete metrics instance: %w", err)
 				}
 				return nil
 			},
@@ -206,14 +209,14 @@ func (c *ObservabilityStackInstanceConfig) createObservabilityDashboardInstance(
 // deleteObservabilityDashboardInstance creates an observability dashboard instance
 func (c *ObservabilityStackInstanceConfig) deleteObservabilityDashboardInstance() error {
 	// delete observability dashboard instance
-	_, err := client.DeleteObservabilityDashboardInstance(
+	if _, err := client.DeleteObservabilityDashboardInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackInstance.ObservabilityDashboardInstanceID,
-	)
-	if err != nil {
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete observability dashboard instance: %w", err)
 	}
+
 	return nil
 }
 
@@ -243,14 +246,14 @@ func (c *ObservabilityStackInstanceConfig) createMetricsInstance() error {
 // deleteMetricsInstance deletes a metrics instance
 func (c *ObservabilityStackInstanceConfig) deleteMetricsInstance() error {
 	// delete metrics instance
-	_, err := client.DeleteMetricsInstance(
+	if _, err := client.DeleteMetricsInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackInstance.MetricsInstanceID,
-	)
-	if err != nil {
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete metrics instance: %w", err)
 	}
+
 	return nil
 }
 
@@ -280,25 +283,22 @@ func (c *ObservabilityStackInstanceConfig) createLoggingInstance() error {
 // deleteLoggingInstance deletes a logging instance
 func (c *ObservabilityStackInstanceConfig) deleteLoggingInstance() error {
 	// delete logging instance
-	_, err := client.DeleteLoggingInstance(
+	if _, err := client.DeleteLoggingInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackInstance.LoggingInstanceID,
-	)
-	if err != nil {
+	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete logging instance: %w", err)
 	}
+
 	return nil
 }
 
-// getMergedObservabilityStackInstanceValues returns the merged values for a observability stack instance
-func getMergedObservabilityStackInstanceValues(osi *v0.ObservabilityStackInstance, osd *v0.ObservabilityStackDefinition) (string, string, string, string, error) {
-
-	grafanaHelmValuesDocument := ""
-	kubePrometheusStackHelmValuesDocument := ""
-	lokiHelmValuesDocument := ""
-	promtailHelmValuesDocument := ""
-
+// mergeObservabilityStackInstanceValues returns the merged values for a observability stack instance
+func mergeObservabilityStackInstanceValues(
+	osi *v0.ObservabilityStackInstance,
+	osd *v0.ObservabilityStackDefinition,
+) (string, string, string, string, error) {
 	// merge grafana values
 	grafanaHelmValuesDocument, err := MergeHelmValues(
 		util.StringPtrToString(osi.GrafanaHelmValuesDocument),
@@ -309,7 +309,7 @@ func getMergedObservabilityStackInstanceValues(osi *v0.ObservabilityStackInstanc
 	}
 
 	// merge kube-prometheus-stack values
-	kubePrometheusStackHelmValuesDocument, err = MergeHelmValues(
+	kubePrometheusStackHelmValuesDocument, err := MergeHelmValues(
 		util.StringPtrToString(osi.KubePrometheusStackHelmValuesDocument),
 		util.StringPtrToString(osd.KubePrometheusStackHelmValuesDocument),
 	)
@@ -318,7 +318,7 @@ func getMergedObservabilityStackInstanceValues(osi *v0.ObservabilityStackInstanc
 	}
 
 	// merge loki values
-	lokiHelmValuesDocument, err = MergeHelmValues(
+	lokiHelmValuesDocument, err := MergeHelmValues(
 		util.StringPtrToString(osi.LokiHelmValuesDocument),
 		util.StringPtrToString(osd.LokiHelmValuesDocument),
 	)
@@ -327,7 +327,7 @@ func getMergedObservabilityStackInstanceValues(osi *v0.ObservabilityStackInstanc
 	}
 
 	// merge promtail values
-	promtailHelmValuesDocument, err = MergeHelmValues(
+	promtailHelmValuesDocument, err := MergeHelmValues(
 		util.StringPtrToString(osi.PromtailHelmValuesDocument),
 		util.StringPtrToString(osd.PromtailHelmValuesDocument),
 	)
