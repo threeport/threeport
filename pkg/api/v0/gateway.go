@@ -25,7 +25,7 @@ type GatewayDefinition struct {
 	TcpPorts []*GatewayTcpPort `json:"TcpPorts,omitempty" query:"tcpports" validate:"optional"`
 
 	// The domain name to serve requests for.
-	DomainNameDefinitionID *uint `json:"DomainNameDefinitionID,omitempty" query:"domainnamedefinition" validate:"optional"`
+	DomainNameDefinitionID *uint `json:"DomainNameDefinitionID,omitempty" query:"domainnamedefinitionid" validate:"optional"`
 
 	// An optional subdomain to add to the domain name.
 	SubDomain *string `json:"SubDomain,omitempty" query:"subdomain" validate:"optional"`

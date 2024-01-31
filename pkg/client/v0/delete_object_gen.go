@@ -115,6 +115,14 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteLogStorageInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete LogStorageInstance: %w", err)
 		}
+	case "v0.MetricsDefinition":
+		if _, err := DeleteMetricsDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete MetricsDefinition: %w", err)
+		}
+	case "v0.MetricsInstance":
+		if _, err := DeleteMetricsInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete MetricsInstance: %w", err)
+		}
 	case "v0.WorkloadDefinition":
 		if _, err := DeleteWorkloadDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete WorkloadDefinition: %w", err)

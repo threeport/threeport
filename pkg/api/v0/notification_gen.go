@@ -33,6 +33,10 @@ func GetSubjectByReconcilerName(name string) (string, error) {
 		return KubernetesRuntimeDefinitionSubject, nil
 	case "KubernetesRuntimeInstanceReconciler":
 		return KubernetesRuntimeInstanceSubject, nil
+	case "MetricsDefinitionReconciler":
+		return MetricsDefinitionSubject, nil
+	case "MetricsInstanceReconciler":
+		return MetricsInstanceSubject, nil
 	case "WorkloadDefinitionReconciler":
 		return WorkloadDefinitionSubject, nil
 	case "WorkloadInstanceReconciler":
