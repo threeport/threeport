@@ -12097,6 +12097,10 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "HelmReleaseNamespace": {
+                    "description": "Namespace to deploy the helm chart to.",
+                    "type": "string"
+                },
                 "HelmValuesDocument": {
                     "description": "Filepath to the helm values YAML file that provides runtime parameters to the helm chart.",
                     "type": "string"
@@ -12452,16 +12456,16 @@ const docTemplate = `{
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
                 },
-                "LokiHelmWorkloadDefinitionID": {
-                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
-                    "type": "integer"
-                },
-                "MetricsInstances": {
+                "LoggingInstances": {
                     "description": "The associated metrics instances that are deployed from this definition.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/v0.MetricsInstance"
+                        "$ref": "#/definitions/v0.LoggingInstance"
                     }
+                },
+                "LokiHelmWorkloadDefinitionID": {
+                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
+                    "type": "integer"
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
@@ -12745,6 +12749,26 @@ const docTemplate = `{
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
+                "MetricsDefinition",
+                "MetricsInstance",
+                "LoggingDefinition",
+                "LoggingInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "Profile",
+                "Tier",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -12783,6 +12807,26 @@ const docTemplate = `{
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
+                "ObjectTypeMetricsDefinition",
+                "ObjectTypeMetricsInstance",
+                "ObjectTypeLoggingDefinition",
+                "ObjectTypeLoggingInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",

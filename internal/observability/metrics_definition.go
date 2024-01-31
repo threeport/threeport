@@ -90,7 +90,7 @@ func metricsDefinitionDeleted(
 		r.APIServer,
 		*metricsDefinition.GrafanaHelmWorkloadDefinitionID,
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete grafana helm workload definition: %w", err)
 	}
 
@@ -100,7 +100,7 @@ func metricsDefinitionDeleted(
 		r.APIServer,
 		*metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete kube-prometheus-stack helm workload definition: %w", err)
 	}
 

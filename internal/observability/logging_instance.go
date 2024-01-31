@@ -28,47 +28,53 @@ func loggingInstanceCreated(
 		return 0, fmt.Errorf("failed to get logging definition: %w", err)
 	}
 
-	// merge grafana helm values if they are provided
-	grafanaHelmWorkloadInstanceValues := grafanaValues
-	if loggingInstance.GrafanaHelmValues != nil {
-		grafanaHelmWorkloadInstanceValues, err = MergeHelmValues(
-			grafanaValues,
-			*loggingInstance.GrafanaHelmValues,
+	var grafanaHelmWorkloadInstance *v0.HelmWorkloadInstance
+	if loggingDefinition.GrafanaHelmWorkloadDefinitionID != nil {
+		// merge grafana helm values if they are provided
+		grafanaHelmWorkloadInstanceValues := grafanaValues
+		if loggingInstance.GrafanaHelmValues != nil {
+			grafanaHelmWorkloadInstanceValues, err = MergeHelmValues(
+				grafanaValues,
+				*loggingInstance.GrafanaHelmValues,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
+			}
+		}
+
+		// ensure grafana helm workload instance is deployed
+		grafanaHelmWorkloadInstance, err = client.CreateHelmWorkloadInstance(
+			r.APIClient,
+			r.APIServer,
+			&v0.HelmWorkloadInstance{
+				Instance: v0.Instance{
+					Name: util.StringPtr(GrafanaChartName(*loggingInstance.Name)),
+				},
+				KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
+				HelmWorkloadDefinitionID:    loggingDefinition.GrafanaHelmWorkloadDefinitionID,
+				HelmValuesDocument:          &grafanaHelmWorkloadInstanceValues,
+			},
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
+			return 0, fmt.Errorf("failed to create grafana helm workload instance: %w", err)
+		} else {
+			grafanaHelmWorkloadInstance, err = client.GetHelmWorkloadInstanceByName(
+				r.APIClient,
+				r.APIServer,
+				GrafanaChartName(*loggingInstance.Name),
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to get grafana helm workload instance: %w", err)
+			}
 		}
 	}
 
-	// ensure grafana helm workload instance is deployed
-	grafanaHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		&v0.HelmWorkloadInstance{
-			Instance: v0.Instance{
-				Name: util.StringPtr(GrafanaChartName(*loggingInstance.Name)),
-			},
-			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    loggingDefinition.GrafanaHelmWorkloadDefinitionID,
-			HelmValuesDocument:          &grafanaHelmWorkloadInstanceValues,
-		},
-	)
-	if err != nil && !errors.Is(err, client.ErrConflict) {
-		return 0, fmt.Errorf("failed to create grafana helm workload instance: %w", err)
-	} else {
-		grafanaHelmWorkloadInstance, err = client.GetHelmWorkloadInstanceByName(
-			r.APIClient,
-			r.APIServer,
-			GrafanaChartName(*loggingInstance.Name),
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get grafana helm workload instance: %w", err)
-		}
-	}
+	// generate shared namespace name for loki and promtail
+	lokiPromtailNamespace := fmt.Sprintf("%s-loki-promtail-%s", *loggingInstance.Name, util.RandomAlphaString(10))
 
 	// merge loki helm values if they are provided
 	lokiHelmWorkloadInstanceValues := lokiValues
-	if loggingInstance.GrafanaHelmValues != nil {
+	if loggingInstance.LokiHelmValues != nil {
 		lokiHelmWorkloadInstanceValues, err = MergeHelmValues(
 			lokiValues,
 			*loggingInstance.LokiHelmValues,
@@ -89,10 +95,23 @@ func loggingInstanceCreated(
 			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    loggingDefinition.LokiHelmWorkloadDefinitionID,
 			HelmValuesDocument:          &lokiHelmWorkloadInstanceValues,
+			HelmReleaseNamespace:        &lokiPromtailNamespace,
 		},
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
+	}
+
+	// merge loki helm values if they are provided
+	promtailHelmWorkloadInstanceValues := promtailValues
+	if loggingInstance.PromtailHelmValues != nil {
+		promtailHelmWorkloadInstanceValues, err = MergeHelmValues(
+			promtailValues,
+			*loggingInstance.PromtailHelmValues,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
+		}
 	}
 
 	// create promtail helm workload instance
@@ -105,7 +124,8 @@ func loggingInstanceCreated(
 			},
 			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    loggingDefinition.PromtailHelmWorkloadDefinitionID,
-			HelmValuesDocument:          loggingInstance.PromtailHelmValues,
+			HelmValuesDocument:          &promtailHelmWorkloadInstanceValues,
+			HelmReleaseNamespace:        &lokiPromtailNamespace,
 		},
 	)
 	if err != nil {
@@ -146,14 +166,24 @@ func loggingInstanceDeleted(
 	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// delete grafana helm workload instance
-	_, err := client.DeleteHelmWorkloadInstance(
+	// check if metrics is deployed,
+	// if it's not then we can clean up grafana chart
+	_, err := client.GetHelmWorkloadInstanceByName(
 		r.APIClient,
 		r.APIServer,
-		*loggingInstance.GrafanaHelmWorkloadInstanceID,
+		KubePrometheusStackChartName(*loggingInstance.Name),
 	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
+	if err != nil && errors.Is(err, client.ErrorObjectNotFound) {
+		// delete grafana helm workload instance
+		_, err = client.DeleteHelmWorkloadInstance(
+			r.APIClient,
+			r.APIServer,
+			*loggingInstance.GrafanaHelmWorkloadInstanceID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
+		}
+		return 0, nil
 	}
 
 	// delete loki helm workload instance
@@ -162,7 +192,7 @@ func loggingInstanceDeleted(
 		r.APIServer,
 		*loggingInstance.LokiHelmWorkloadInstanceID,
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete loki helm workload instance: %w", err)
 	}
 
@@ -172,7 +202,7 @@ func loggingInstanceDeleted(
 		r.APIServer,
 		*loggingInstance.PromtailHelmWorkloadInstanceID,
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, client.ErrorObjectNotFound) {
 		return 0, fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
 	}
 
