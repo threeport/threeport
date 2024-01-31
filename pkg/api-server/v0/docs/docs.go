@@ -13777,7 +13777,7 @@ const docTemplate = `{
                     "description": "MetricsDefinitionID is the definition used to configure the workload instance.",
                     "type": "integer"
                 },
-                "LokiHelmValues": {
+                "LokiHelmValuesDocument": {
                     "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying loki chart.",
                     "type": "string"
                 },
@@ -13789,7 +13789,7 @@ const docTemplate = `{
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
-                "PromtailHelmValues": {
+                "PromtailHelmValuesDocument": {
                     "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying promtail chart.",
                     "type": "string"
                 },
@@ -13934,7 +13934,7 @@ const docTemplate = `{
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
                 },
-                "KubePrometheusStackHelmValues": {
+                "KubePrometheusStackHelmValuesDocument": {
                     "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying kube-prometheus-stack chart.",
                     "type": "string"
                 },
@@ -14025,6 +14025,16 @@ const docTemplate = `{
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -14113,6 +14123,16 @@ const docTemplate = `{
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
@@ -14246,7 +14266,7 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "GrafanaHelmValues": {
+                "GrafanaHelmValuesDocument": {
                     "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying grafana chart.",
                     "type": "string"
                 },

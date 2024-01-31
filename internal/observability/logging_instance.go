@@ -48,17 +48,17 @@ func loggingInstanceCreated(
 
 	// create logging instance config
 	c := &LoggingInstanceConfig{
-		r:                                  r,
-		loggingInstance:                    loggingInstance,
-		loggingDefinition:                  loggingDefinition,
-		log:                                log,
-		loggingNamespace:                   loggingNamespace,
+		r:                 r,
+		loggingInstance:   loggingInstance,
+		loggingDefinition: loggingDefinition,
+		log:               log,
+		loggingNamespace:  loggingNamespace,
 	}
 
 	// merge loki helm values
 	c.lokiHelmWorkloadInstanceValues, err = MergeHelmValuesPtrs(
 		loggingDefinition.LokiHelmValuesDocument,
-		loggingInstance.LokiHelmValues,
+		loggingInstance.LokiHelmValuesDocument,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
@@ -67,7 +67,7 @@ func loggingInstanceCreated(
 	// merge promtail helm values
 	c.promtailHelmWorkloadInstanceValues, err = MergeHelmValuesPtrs(
 		loggingDefinition.PromtailHelmValuesDocument,
-		loggingInstance.PromtailHelmValues,
+		loggingInstance.PromtailHelmValuesDocument,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)

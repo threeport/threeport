@@ -140,7 +140,7 @@ type ObservabilityDashboardInstance struct {
 
 	// Optional Helm workload definition values that can be provided to configure the
 	// underlying grafana chart.
-	GrafanaHelmValues *string `json:"GrafanaHelmValues,omitempty" query:"grafanahelmvalues" validate:"optional"`
+	GrafanaHelmValuesDocument *string `json:"GrafanaHelmValuesDocument,omitempty" query:"grafanahelmvaluedsdocument" validate:"optional"`
 }
 
 // +threeport-codegen:reconciler
@@ -237,9 +237,9 @@ type LoggingInstance struct {
 
 	// Optional Helm workload definition values that can be provided to configure the
 	// underlying loki chart.
-	LokiHelmValues *string `json:"LokiHelmValues,omitempty" query:"lokihelmvalues" validate:"optional"`
+	LokiHelmValuesDocument *string `json:"LokiHelmValuesDocument,omitempty" query:"lokihelmvaluesdocument" validate:"optional"`
 
 	// Optional Helm workload definition values that can be provided to configure the
 	// underlying promtail chart.
-	PromtailHelmValues *string `json:"PromtailHelmValues,omitempty" query:"promtailhelmvalues" validate:"optional"`
+	PromtailHelmValuesDocument *string `json:"PromtailHelmValuesDocument,omitempty" query:"promtailhelmvaluesdocument" validate:"optional"`
 }
