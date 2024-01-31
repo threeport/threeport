@@ -28,8 +28,10 @@ func loggingDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(GrafanaChartName(*loggingDefinition.Name)),
 			},
-			HelmRepo:  util.StringPtr("https://grafana.github.io/helm-charts"),
-			HelmChart: util.StringPtr("grafana"),
+			HelmRepo:           util.StringPtr(GrafanaHelmRepo),
+			HelmChart:          util.StringPtr("grafana"),
+			HelmChartVersion:   loggingDefinition.GrafanaHelmChartVersion,
+			HelmValuesDocument: loggingDefinition.GrafanaHelmValuesDocument,
 		})
 	if err != nil && !errors.Is(err, client.ErrConflict) {
 		// only return error if it isn't a conflict, since we
@@ -52,8 +54,10 @@ func loggingDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(LokiHelmChartName(*loggingDefinition.Name)),
 			},
-			HelmRepo:  util.StringPtr("https://grafana.github.io/helm-charts"),
-			HelmChart: util.StringPtr("loki"),
+			HelmRepo:           util.StringPtr(GrafanaHelmRepo),
+			HelmChart:          util.StringPtr("loki"),
+			HelmChartVersion:   loggingDefinition.LokiHelmChartVersion,
+			HelmValuesDocument: loggingDefinition.LokiHelmValuesDocument,
 		})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create loki helm workload definition: %w", err)
@@ -67,8 +71,10 @@ func loggingDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(PromtailHelmChartName(*loggingDefinition.Name)),
 			},
-			HelmRepo:  util.StringPtr("https://grafana.github.io/helm-charts"),
-			HelmChart: util.StringPtr("promtail"),
+			HelmRepo:           util.StringPtr(GrafanaHelmRepo),
+			HelmChart:          util.StringPtr("promtail"),
+			HelmChartVersion:   loggingDefinition.PromtailHelmChartVersion,
+			HelmValuesDocument: loggingDefinition.PromtailHelmValuesDocument,
 		})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create promtail helm workload definition: %w", err)
