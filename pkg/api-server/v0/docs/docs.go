@@ -10916,6 +10916,18 @@ const docTemplate = `{
                 }
             }
         },
+        "sql.NullInt64": {
+            "type": "object",
+            "properties": {
+                "int64": {
+                    "type": "integer"
+                },
+                "valid": {
+                    "description": "Valid is true if Int64 is not NULL",
+                    "type": "boolean"
+                }
+            }
+        },
         "v0.AttachedObjectReference": {
             "type": "object",
             "required": [
@@ -12316,7 +12328,11 @@ const docTemplate = `{
                 },
                 "LoggingInstanceId": {
                     "description": "The LoggingInstanceID of the logging deployment",
-                    "type": "integer"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/sql.NullInt64"
+                        }
+                    ]
                 },
                 "MetricsEnabled": {
                     "description": "If true, metrics will be enabled for the cluster.",
@@ -12324,7 +12340,11 @@ const docTemplate = `{
                 },
                 "MetricsInstanceId": {
                     "description": "The MetricsInstanceID of the metrics deployment",
-                    "type": "integer"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/sql.NullInt64"
+                        }
+                    ]
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
@@ -12856,6 +12876,12 @@ const docTemplate = `{
                 "MetricsInstance",
                 "LoggingDefinition",
                 "LoggingInstance",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "AttachedObjectReference",
+                "WorkloadResourceInstance",
+                "WorkloadEvent",
                 "Profile",
                 "Tier",
                 "ControlPlaneDefinition",
@@ -12938,6 +12964,12 @@ const docTemplate = `{
                 "ObjectTypeMetricsInstance",
                 "ObjectTypeLoggingDefinition",
                 "ObjectTypeLoggingInstance",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeAttachedObjectReference",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
                 "ObjectTypeControlPlaneDefinition",
