@@ -14,6 +14,14 @@ definitions:
     - API
     - Versions
     type: object
+  sql.NullInt64:
+    properties:
+      int64:
+        type: integer
+      valid:
+        description: Valid is true if Int64 is not NULL
+        type: boolean
+    type: object
   v0.AttachedObjectReference:
     properties:
       ObjectID:
@@ -1359,14 +1367,16 @@ definitions:
         description: If true, logging will be enabled for the cluster.
         type: boolean
       LoggingInstanceId:
+        allOf:
+        - $ref: '#/definitions/sql.NullInt64'
         description: The LoggingInstanceID of the logging deployment
-        type: integer
       MetricsEnabled:
         description: If true, metrics will be enabled for the cluster.
         type: boolean
       MetricsInstanceId:
+        allOf:
+        - $ref: '#/definitions/sql.NullInt64'
         description: The MetricsInstanceID of the metrics deployment
-        type: integer
       Name:
         description: An arbitrary name the instance
         type: string
@@ -1895,6 +1905,12 @@ definitions:
     - MetricsInstance
     - LoggingDefinition
     - LoggingInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
     - Profile
     - Tier
     - ControlPlaneDefinition
@@ -1977,6 +1993,12 @@ definitions:
     - ObjectTypeMetricsInstance
     - ObjectTypeLoggingDefinition
     - ObjectTypeLoggingInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
     - ObjectTypeProfile
     - ObjectTypeTier
     - ObjectTypeControlPlaneDefinition
