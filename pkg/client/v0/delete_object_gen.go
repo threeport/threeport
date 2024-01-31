@@ -115,22 +115,6 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteLogStorageInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete LogStorageInstance: %w", err)
 		}
-	case "v0.ObservabilityStackDefinition":
-		if _, err := DeleteObservabilityStackDefinition(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete ObservabilityStackDefinition: %w", err)
-		}
-	case "v0.ObservabilityStackInstance":
-		if _, err := DeleteObservabilityStackInstance(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete ObservabilityStackInstance: %w", err)
-		}
-	case "v0.ObservabilityDashboardDefinition":
-		if _, err := DeleteObservabilityDashboardDefinition(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete ObservabilityDashboardDefinition: %w", err)
-		}
-	case "v0.ObservabilityDashboardInstance":
-		if _, err := DeleteObservabilityDashboardInstance(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete ObservabilityDashboardInstance: %w", err)
-		}
 	case "v0.MetricsDefinition":
 		if _, err := DeleteMetricsDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete MetricsDefinition: %w", err)
@@ -138,14 +122,6 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 	case "v0.MetricsInstance":
 		if _, err := DeleteMetricsInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete MetricsInstance: %w", err)
-		}
-	case "v0.LoggingDefinition":
-		if _, err := DeleteLoggingDefinition(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete LoggingDefinition: %w", err)
-		}
-	case "v0.LoggingInstance":
-		if _, err := DeleteLoggingInstance(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete LoggingInstance: %w", err)
 		}
 	case "v0.WorkloadDefinition":
 		if _, err := DeleteWorkloadDefinition(apiClient, apiAddr, id); err != nil {
