@@ -35,6 +35,16 @@ func main() {
 		1,
 		"Number of concurrent reconcilers to run for metrics instances",
 	)
+	var loggingDefinitionConcurrentReconciles = flag.Int(
+		"LoggingDefinition-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for logging definitions",
+	)
+	var loggingInstanceConcurrentReconciles = flag.Int(
+		"LoggingInstance-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for logging instances",
+	)
 
 	var apiServer = flag.String("api-server", "threeport-api-server", "Threepoort REST API server endpoint")
 	var msgBrokerHost = flag.String("msg-broker-host", "", "Threeport message broker hostname")
@@ -147,6 +157,20 @@ func main() {
 		NotifSubject:         v0.MetricsInstanceSubject,
 		ObjectType:           v0.ObjectTypeMetricsInstance,
 		ReconcileFunc:        observability.MetricsInstanceReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *loggingDefinitionConcurrentReconciles,
+		Name:                 "LoggingDefinitionReconciler",
+		NotifSubject:         v0.LoggingDefinitionSubject,
+		ObjectType:           v0.ObjectTypeLoggingDefinition,
+		ReconcileFunc:        observability.LoggingDefinitionReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *loggingInstanceConcurrentReconciles,
+		Name:                 "LoggingInstanceReconciler",
+		NotifSubject:         v0.LoggingInstanceSubject,
+		ObjectType:           v0.ObjectTypeLoggingInstance,
+		ReconcileFunc:        observability.LoggingInstanceReconciler,
 	})
 
 	for _, r := range reconcilerConfigs {

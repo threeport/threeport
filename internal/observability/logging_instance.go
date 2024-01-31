@@ -10,21 +10,20 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
-// metricsInstanceCreated reconciles state for a new kubernetes
+// loggingInstanceCreated reconciles state for a new kubernetes
 // runtime instance.
-func metricsInstanceCreated(
+func loggingInstanceCreated(
 	r *controller.Reconciler,
-	metricsInstance *v0.MetricsInstance,
+	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	var err error
 
 	// get grafana helm workload definition
 	grafanaHelmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(
 		r.APIClient,
 		r.APIServer,
-		GrafanaChartName(*metricsInstance.Name),
+		GrafanaChartName(*loggingInstance.Name),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get grafana helm workload definition: %w", err)
@@ -32,10 +31,10 @@ func metricsInstanceCreated(
 
 	// merge grafana helm values if they are provided
 	grafanaHelmWorkloadInstanceValues := grafanaValues
-	if metricsInstance.GrafanaHelmValues != nil {
+	if loggingInstance.GrafanaHelmValues != nil {
 		grafanaHelmWorkloadInstanceValues, err = MergeHelmValues(
 			grafanaValues,
-			*metricsInstance.GrafanaHelmValues,
+			*loggingInstance.GrafanaHelmValues,
 		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
@@ -47,7 +46,7 @@ func metricsInstanceCreated(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
-			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
+			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    grafanaHelmWorkloadDefinition.ID,
 			HelmValuesDocument:          &grafanaHelmWorkloadInstanceValues,
 		},
@@ -57,35 +56,50 @@ func metricsInstanceCreated(
 	}
 
 	// get kube-prometheus-stack helm workload definition
-	kubePrometheusStackHelmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(
+	lokiHelmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(
 		r.APIClient,
 		r.APIServer,
-		KubePrometheusStackChartName(*metricsInstance.Name),
+		LokiHelmChartName(*loggingInstance.Name),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get kube-prometheus-stack helm workload definition: %w", err)
 	}
 
 	// merge grafana helm values if they are provided
-	kubePrometheusStackHelmWorkloadInstanceValues := grafanaValues
-	if metricsInstance.GrafanaHelmValues != nil {
-		kubePrometheusStackHelmWorkloadInstanceValues, err = MergeHelmValues(
-			grafanaValues,
-			*metricsInstance.GrafanaHelmValues,
+	lokiWorkloadInstanceValues := lokiValues
+	if loggingInstance.GrafanaHelmValues != nil {
+		lokiWorkloadInstanceValues, err = MergeHelmValues(
+			lokiValues,
+			*loggingInstance.LokiHelmValues,
 		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
 		}
 	}
 
-	// create kube-prometheus-stack helm workload instance
+	// create loki helm workload instance
 	_, err = client.CreateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
-			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
-			HelmWorkloadDefinitionID:    kubePrometheusStackHelmWorkloadDefinition.ID,
-			HelmValuesDocument:          &kubePrometheusStackHelmWorkloadInstanceValues,
+			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
+			HelmWorkloadDefinitionID:    lokiHelmWorkloadDefinition.ID,
+			HelmValuesDocument:          &lokiWorkloadInstanceValues,
+		},
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload instance: %w", err)
+	}
+
+	// merge grafana helm values if they are provided
+	// create loki helm workload instance
+	_, err = client.CreateHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		&v0.HelmWorkloadInstance{
+			KubernetesRuntimeInstanceID: loggingInstance.KubernetesRuntimeInstanceID,
+			HelmWorkloadDefinitionID:    lokiHelmWorkloadDefinition.ID,
+			HelmValuesDocument:          loggingInstance.PromtailHelmValues,
 		},
 	)
 	if err != nil {
@@ -95,41 +109,51 @@ func metricsInstanceCreated(
 	return 0, nil
 }
 
-// metricsInstanceUpdated reconciles state for a new kubernetes
+// loggingInstanceUpdated reconciles state for a new kubernetes
 // runtime instance.
-func metricsInstanceUpdated(
+func loggingInstanceUpdated(
 	r *controller.Reconciler,
-	metricsInstance *v0.MetricsInstance,
+	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	return 0, nil
 }
 
-// metricsInstanceDeleted reconciles state for a new kubernetes
+// loggingInstanceDeleted reconciles state for a new kubernetes
 // runtime instance.
-func metricsInstanceDeleted(
+func loggingInstanceDeleted(
 	r *controller.Reconciler,
-	metricsInstance *v0.MetricsInstance,
+	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	// delete grafana helm workload instance
 	_, err := client.DeleteHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
-		*metricsInstance.GrafanaHelmWorkloadInstanceID,
+		*loggingInstance.GrafanaHelmWorkloadInstanceID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete grafana helm workload instance: %w", err)
 	}
 
-	// delete kube-prometheus-stack helm workload instance
+	// delete loki helm workload instance
 	_, err = client.DeleteHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
-		*metricsInstance.KubePrometheusStackHelmWorkloadInstanceID,
+		*loggingInstance.LokiHelmWorkloadInstanceID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to delete kube-prometheus-stack helm workload instance: %w", err)
+		return 0, fmt.Errorf("failed to delete loki helm workload instance: %w", err)
+	}
+
+	// delete promtail helm workload instance
+	_, err = client.DeleteHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		*loggingInstance.PromtailHelmWorkloadInstanceID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
 	}
 
 	return 0, nil

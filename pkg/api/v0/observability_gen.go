@@ -11,6 +11,8 @@ import (
 const (
 	ObjectTypeMetricsDefinition ObjectType = "MetricsDefinition"
 	ObjectTypeMetricsInstance   ObjectType = "MetricsInstance"
+	ObjectTypeLoggingDefinition ObjectType = "LoggingDefinition"
+	ObjectTypeLoggingInstance   ObjectType = "LoggingInstance"
 
 	ObservabilityStreamName = "observabilityStream"
 
@@ -24,8 +26,20 @@ const (
 	MetricsInstanceUpdateSubject = "metricsInstance.update"
 	MetricsInstanceDeleteSubject = "metricsInstance.delete"
 
+	LoggingDefinitionSubject       = "loggingDefinition.*"
+	LoggingDefinitionCreateSubject = "loggingDefinition.create"
+	LoggingDefinitionUpdateSubject = "loggingDefinition.update"
+	LoggingDefinitionDeleteSubject = "loggingDefinition.delete"
+
+	LoggingInstanceSubject       = "loggingInstance.*"
+	LoggingInstanceCreateSubject = "loggingInstance.create"
+	LoggingInstanceUpdateSubject = "loggingInstance.update"
+	LoggingInstanceDeleteSubject = "loggingInstance.delete"
+
 	PathMetricsDefinitions = "/v0/metrics-definitions"
 	PathMetricsInstances   = "/v0/metrics-instances"
+	PathLoggingDefinitions = "/v0/logging-definitions"
+	PathLoggingInstances   = "/v0/logging-instances"
 )
 
 // GetMetricsDefinitionSubjects returns the NATS subjects
@@ -48,6 +62,26 @@ func GetMetricsInstanceSubjects() []string {
 	}
 }
 
+// GetLoggingDefinitionSubjects returns the NATS subjects
+// for logging definitions.
+func GetLoggingDefinitionSubjects() []string {
+	return []string{
+		LoggingDefinitionCreateSubject,
+		LoggingDefinitionUpdateSubject,
+		LoggingDefinitionDeleteSubject,
+	}
+}
+
+// GetLoggingInstanceSubjects returns the NATS subjects
+// for logging instances.
+func GetLoggingInstanceSubjects() []string {
+	return []string{
+		LoggingInstanceCreateSubject,
+		LoggingInstanceUpdateSubject,
+		LoggingInstanceDeleteSubject,
+	}
+}
+
 // GetObservabilitySubjects returns the NATS subjects
 // for all observability objects.
 func GetObservabilitySubjects() []string {
@@ -55,6 +89,8 @@ func GetObservabilitySubjects() []string {
 
 	observabilitySubjects = append(observabilitySubjects, GetMetricsDefinitionSubjects()...)
 	observabilitySubjects = append(observabilitySubjects, GetMetricsInstanceSubjects()...)
+	observabilitySubjects = append(observabilitySubjects, GetLoggingDefinitionSubjects()...)
+	observabilitySubjects = append(observabilitySubjects, GetLoggingInstanceSubjects()...)
 
 	return observabilitySubjects
 }
@@ -153,4 +189,100 @@ func (mi *MetricsInstance) GetID() uint {
 // String returns a string representation of the ojbect.
 func (mi MetricsInstance) String() string {
 	return fmt.Sprintf("v0.MetricsInstance")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (ld *LoggingDefinition) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       ld,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", ld, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (ld *LoggingDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &ld); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (ld *LoggingDefinition) GetID() uint {
+	return *ld.ID
+}
+
+// String returns a string representation of the ojbect.
+func (ld LoggingDefinition) String() string {
+	return fmt.Sprintf("v0.LoggingDefinition")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (li *LoggingInstance) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       li,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", li, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (li *LoggingInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &li); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (li *LoggingInstance) GetID() uint {
+	return *li.ID
+}
+
+// String returns a string representation of the ojbect.
+func (li LoggingInstance) String() string {
+	return fmt.Sprintf("v0.LoggingInstance")
 }

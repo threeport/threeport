@@ -13,8 +13,19 @@ func GrafanaChartName(name string) string {
 }
 
 // KubePrometheusStackChartName returns the name of the kube-prometheus-stack
+// chart
 func KubePrometheusStackChartName(name string) string {
 	return fmt.Sprintf("%s-kube-prometheus-stack", name)
+}
+
+// LokiHelmChartName returns the name of the loki chart
+func LokiHelmChartName(name string) string {
+	return fmt.Sprintf("%s-loki", name)
+}
+
+// PromtailHelmChartName returns the name of the promtail chart
+func PromtailHelmChartName(name string) string {
+	return fmt.Sprintf("%s-promtail", name)
 }
 
 // MergeHelmValues merges two helm values documents.

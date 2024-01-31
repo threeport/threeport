@@ -18,7 +18,6 @@ func metricsDefinitionCreated(
 	metricsDefinition *v0.MetricsDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// ensure grafana helm workload definition exists
 	_, err := client.CreateHelmWorkloadDefinition(
 		r.APIClient,
@@ -34,7 +33,7 @@ func metricsDefinitionCreated(
 		// only return error if it isn't a conflict, since we
 		// expect both MetricsInstance and LoggingInstance to depend
 		// on the same HelmWorkloadDefinition for Grafana
-		return 0, nil
+		return 0, fmt.Errorf("failed to create grafana helm workload definition: %w", err)
 	}
 
 	// create kube-prometheus-stack helm workload definition
@@ -49,8 +48,9 @@ func metricsDefinitionCreated(
 			HelmChart: util.StringPtr("kube-prometheus-stack"),
 		})
 	if err != nil {
-		return 0, nil
+		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload definition: %w", err)
 	}
+
 	return 0, nil
 }
 
