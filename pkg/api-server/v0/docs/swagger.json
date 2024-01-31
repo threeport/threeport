@@ -12438,6 +12438,14 @@
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "GrafanaHelmChartVersion": {
+                    "description": "The version of the grafana helm chart to use from the helm repo, e.g. 1.2.3",
+                    "type": "string"
+                },
+                "GrafanaHelmValuesDocument": {
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying grafana chart.",
+                    "type": "string"
+                },
                 "GrafanaHelmWorkloadDefinitionID": {
                     "description": "The Grafana Helm workload definition that belongs to this resource.",
                     "type": "integer"
@@ -12453,6 +12461,14 @@
                         "$ref": "#/definitions/v0.LoggingInstance"
                     }
                 },
+                "LokiHelmChartVersion": {
+                    "description": "The version of the loki helm chart to use from the helm repo, e.g. 1.2.3",
+                    "type": "string"
+                },
+                "LokiHelmValuesDocument": {
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying loki chart.",
+                    "type": "string"
+                },
                 "LokiHelmWorkloadDefinitionID": {
                     "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
                     "type": "integer"
@@ -12464,6 +12480,14 @@
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
+                },
+                "PromtailHelmChartVersion": {
+                    "description": "The version of the loki helm chart to use from the helm repo, e.g. 1.2.3",
+                    "type": "string"
+                },
+                "PromtailHelmValuesDocument": {
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying promtail chart.",
+                    "type": "string"
                 },
                 "PromtailHelmWorkloadDefinitionID": {
                     "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
@@ -12611,6 +12635,14 @@
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "GrafanaHelmChartVersion": {
+                    "description": "The version of the grafana helm chart to use from the helm repo, e.g. 1.2.3",
+                    "type": "string"
+                },
+                "GrafanaHelmValuesDocument": {
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying grafana chart.",
+                    "type": "string"
+                },
                 "GrafanaHelmWorkloadDefinitionID": {
                     "description": "The Grafana Helm workload definition that belongs to this resource.",
                     "type": "integer"
@@ -12618,6 +12650,14 @@
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
+                },
+                "KubePrometheusStackHelmChartVersion": {
+                    "description": "The version of the grafana helm chart to use from the helm repo, e.g. 1.2.3",
+                    "type": "string"
+                },
+                "KubePrometheusStackHelmValuesDocument": {
+                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying kube-prometheus-stack chart.",
+                    "type": "string"
                 },
                 "KubePrometheusStackHelmWorkloadDefinitionID": {
                     "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
@@ -12766,14 +12806,23 @@
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "MetricsDefinition",
                 "MetricsInstance",
                 "LoggingDefinition",
                 "LoggingInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -12839,14 +12888,23 @@
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeMetricsDefinition",
                 "ObjectTypeMetricsInstance",
                 "ObjectTypeLoggingDefinition",
                 "ObjectTypeLoggingInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",

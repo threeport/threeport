@@ -28,8 +28,10 @@ func metricsDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(GrafanaChartName(*metricsDefinition.Name)),
 			},
-			HelmRepo:  util.StringPtr("https://grafana.github.io/helm-charts"),
-			HelmChart: util.StringPtr("grafana"),
+			HelmRepo:           util.StringPtr(GrafanaHelmRepo),
+			HelmChart:          util.StringPtr("grafana"),
+			HelmChartVersion:   metricsDefinition.GrafanaHelmChartVersion,
+			HelmValuesDocument: metricsDefinition.GrafanaHelmValuesDocument,
 		})
 	if err != nil && !errors.Is(err, client.ErrConflict) {
 		// only return error if it isn't a conflict, since we
@@ -52,8 +54,10 @@ func metricsDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(KubePrometheusStackChartName(*metricsDefinition.Name)),
 			},
-			HelmRepo:  util.StringPtr("https://prometheus-community.github.io/helm-charts"),
-			HelmChart: util.StringPtr("kube-prometheus-stack"),
+			HelmRepo:           util.StringPtr(PrometheusCommunityHelmRepo),
+			HelmChart:          util.StringPtr("kube-prometheus-stack"),
+			HelmChartVersion:   metricsDefinition.KubePrometheusStackHelmChartVersion,
+			HelmValuesDocument: metricsDefinition.KubePrometheusStackHelmValuesDocument,
 		})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload definition: %w", err)

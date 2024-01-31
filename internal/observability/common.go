@@ -8,6 +8,9 @@ import (
 	"helm.sh/helm/v3/pkg/cli/values"
 )
 
+const GrafanaHelmRepo = "https://grafana.github.io/helm-charts"
+const PrometheusCommunityHelmRepo = "https://prometheus-community.github.io/helm-charts"
+
 // GrafanaChartName returns the name of the grafana chart
 func GrafanaChartName(name string) string {
 	return fmt.Sprintf("%s-grafana", name)

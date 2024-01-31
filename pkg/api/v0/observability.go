@@ -15,15 +15,19 @@ type MetricsDefinition struct {
 	// The kube-prometheus-stack Helm workload definition that belongs to this resource.
 	KubePrometheusStackHelmWorkloadDefinitionID *uint `json:"KubePrometheusStackHelmWorkloadDefinitionID,omitempty" query:"kubeprometheusstackhelmworkloaddefinitionid" validate:"optional"`
 
-	// // Optional Helm workload definition values that can be provided to configure the
-	// // underlying grafana chart.
-	// GrafanaHelmValues *string `json:"GrafanaHelmValues,omitempty" query:"grafanahelmvalues" validate:"optional"`
+	// The version of the grafana helm chart to use from the helm repo, e.g. 1.2.3
+	GrafanaHelmChartVersion *string `json:"GrafanaHelmChartVersion,omitempty" query:"grafanahelmchartversion" gorm:"default:'7.2.1'" validate:"optional"`
 
-	// // Optional Helm workload definition values that can be provided to configure the
-	// // underlying kube-prometheus-stack chart.
-	// KubePrometheusStackHelmValues *string
-	// `json:"KubePrometheusStackHelmValues,omitempty"
-	// query:"kubeprometheusstackhelmvalues" validate:"optional"`
+	// The version of the grafana helm chart to use from the helm repo, e.g. 1.2.3
+	KubePrometheusStackHelmChartVersion *string `json:"KubePrometheusStackHelmChartVersion,omitempty" query:"kubeprometheusstackhelmchartversion" gorm:"default:'55.8.1'" validate:"optional"`
+
+	// Optional Helm workload definition values that can be provided to configure the
+	// underlying grafana chart.
+	GrafanaHelmValuesDocument *string `json:"GrafanaHelmValuesDocument,omitempty" query:"grafanahelmvaluesdocument" validate:"optional"`
+
+	// Optional Helm workload definition values that can be provided to configure the
+	// underlying kube-prometheus-stack chart.
+	KubePrometheusStackHelmValuesDocument *string `json:"KubePrometheusStackHelmValuesDocument,omitempty" query:"kubeprometheusstackhelmvaluesdocument" validate:"optional"`
 
 	// The associated metrics instances that are deployed from this definition.
 	MetricsInstances []*MetricsInstance `json:"MetricsInstances,omitempty" validate:"optional,association"`
@@ -73,15 +77,26 @@ type LoggingDefinition struct {
 	// The kube-prometheus-stack Helm workload definition that belongs to this resource.
 	PromtailHelmWorkloadDefinitionID *uint `json:"PromtailHelmWorkloadDefinitionID,omitempty" query:"promtailhelmworkloaddefinitionid" validate:"optional"`
 
-	// // Optional Helm workload definition values that can be provided to configure the
-	// // underlying grafana chart.
-	// GrafanaHelmValues *string `json:"GrafanaHelmValues,omitempty" query:"grafanahelmvalues" validate:"optional"`
+	// The version of the grafana helm chart to use from the helm repo, e.g. 1.2.3
+	GrafanaHelmChartVersion *string `json:"GrafanaHelmChartVersion,omitempty" query:"grafanahelmchartversion" gorm:"default:'7.2.1'" validate:"optional"`
 
-	// // Optional Helm workload definition values that can be provided to configure the
-	// // underlying kube-prometheus-stack chart.
-	// KubePrometheusStackHelmValues *string
-	// `json:"KubePrometheusStackHelmValues,omitempty"
-	// query:"kubeprometheusstackhelmvalues" validate:"optional"`
+	// The version of the loki helm chart to use from the helm repo, e.g. 1.2.3
+	LokiHelmChartVersion *string `json:"LokiHelmChartVersion,omitempty" query:"lokihelmchartversion" gorm:"default:'5.41.6'" validate:"optional"`
+
+	// The version of the loki helm chart to use from the helm repo, e.g. 1.2.3
+	PromtailHelmChartVersion *string `json:"PromtailHelmChartVersion,omitempty" query:"promtailhelmchartversion" gorm:"default:'6.15.3'" validate:"optional"`
+
+	// Optional Helm workload definition values that can be provided to configure the
+	// underlying grafana chart.
+	GrafanaHelmValuesDocument *string `json:"GrafanaHelmValuesDocument,omitempty" query:"grafanahelmvaluesdocument" validate:"optional"`
+
+	// Optional Helm workload definition values that can be provided to configure the
+	// underlying loki chart.
+	LokiHelmValuesDocument *string `json:"LokiHelmValuesDocument,omitempty" query:"lokihelmvaluesdocument" validate:"optional"`
+
+	// Optional Helm workload definition values that can be provided to configure the
+	// underlying promtail chart.
+	PromtailHelmValuesDocument *string `json:"PromtailHelmValuesDocument,omitempty" query:"promtailhelmvaluesdocument" validate:"optional"`
 
 	// The associated metrics instances that are deployed from this definition.
 	LoggingInstances []*LoggingInstance `json:"LoggingInstances,omitempty" validate:"optional,association"`
