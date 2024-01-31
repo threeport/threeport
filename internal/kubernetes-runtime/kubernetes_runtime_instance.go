@@ -3,6 +3,7 @@ package kubernetesruntime
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 
@@ -10,14 +11,10 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
-
-type KubernetesRuntimeInstanceConfig struct {
-	r                         *controller.Reconciler
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance
-	log                       *logr.Logger
-}
 
 // kubernetesRuntimeInstanceCreated reconciles state for a new kubernetes
 // runtime instance.
@@ -75,28 +72,6 @@ func kubernetesRuntimeInstanceCreated(
 		}
 	}
 
-	// configure kubernetes runtime instance config
-	c := &KubernetesRuntimeInstanceConfig{
-		r:                         r,
-		kubernetesRuntimeInstance: kubernetesRuntimeInstance,
-		log:                       log,
-	}
-
-	// configure observability
-	if err := c.configureObservability(); err != nil {
-		return 0, fmt.Errorf("failed to configure observability: %w", err)
-	}
-
-	// update kubernetes runtime instance with observability info
-	kubernetesRuntimeInstance.Reconciled = util.BoolPtr(true)
-	if _, err = client.UpdateKubernetesRuntimeInstance(
-		r.APIClient,
-		r.APIServer,
-		kubernetesRuntimeInstance,
-	); err != nil {
-		return 0, fmt.Errorf("failed to update kubernetes runtime instance: %w", err)
-	}
-
 	return 0, nil
 }
 
@@ -107,131 +82,109 @@ func kubernetesRuntimeInstanceUpdated(
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// // check to see if we have API endpoint - no further reconciliation can
-	// // occur until we have that
-	// if kubernetesRuntimeInstance.APIEndpoint == nil {
-	// 	return 0, nil
-	// }
-
-	// // check to see if kubernetes runtime is being deleted - if so no updates
-	// // required
-	// if kubernetesRuntimeInstance.DeletionScheduled != nil {
-	// 	return 0, nil
-	// }
-
-	// // get runtime definition
-	// kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
-	// 	r.APIClient,
-	// 	r.APIServer,
-	// 	*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
-	// )
-	// if err != nil {
-	// 	return 0, fmt.Errorf("failed to retrieve kubernetes runtime definition by ID: %w", err)
-	// }
-
-	// // get kube client to install compute space control plane components
-	// dynamicKubeClient, mapper, err := kube.GetClient(
-	// 	kubernetesRuntimeInstance,
-	// 	false,
-	// 	r.APIClient,
-	// 	r.APIServer,
-	// 	r.EncryptionKey,
-	// )
-	// if err != nil {
-	// 	return 0, fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
-	// }
-
-	// // TODO: sort out an elegant way to pass the custom image info for
-	// // install compute space control plane components
-	// var agentImage string
-	// if kubernetesRuntimeInstance.ThreeportAgentImage != nil {
-	// 	agentImage = *kubernetesRuntimeInstance.ThreeportAgentImage
-	// }
-
-	// cpi := threeport.NewInstaller()
-
-	// if agentImage != "" {
-	// 	agentRegistry, _, agentTag, err := util.ParseImage(agentImage)
-	// 	if err != nil {
-	// 		return 0, fmt.Errorf("failed to parse custom threeport agent image: %w", err)
-	// 	}
-
-	// 	cpi.Opts.AgentInfo.ImageRepo = agentRegistry
-	// 	cpi.Opts.AgentInfo.ImageTag = agentTag
-	// }
-
-	// // threeport control plane components
-	// if err := cpi.InstallComputeSpaceControlPlaneComponents(
-	// 	dynamicKubeClient,
-	// 	mapper,
-	// 	*kubernetesRuntimeInstance.Name,
-	// ); err != nil {
-	// 	return 0, fmt.Errorf("failed to insall compute space control plane components: %w", err)
-	// }
-
-	// // wait for kube API to persist the change and refresh the client and mapper
-	// // this is necessary to have the updated REST mapping for the CRDs as the
-	// // support services operator install includes one of those custom resources
-	// time.Sleep(time.Second * 10)
-	// dynamicKubeClient, mapper, err = kube.GetClient(
-	// 	kubernetesRuntimeInstance,
-	// 	false,
-	// 	r.APIClient,
-	// 	r.APIServer,
-	// 	r.EncryptionKey,
-	// )
-	// if err != nil {
-	// 	return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
-	// }
-
-	// // support services operator
-	// if err := threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper); err != nil {
-	// 	return 0, fmt.Errorf("failed to install support services operator: %w", err)
-	// }
-
-	// if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
-	// 	// get aws account
-	// 	awsAccount, err := client.GetAwsAccountByName(
-	// 		r.APIClient,
-	// 		r.APIServer,
-	// 		*kubernetesRuntimeDefinition.InfraProviderAccountName,
-	// 	)
-	// 	if err != nil {
-	// 		return 0, fmt.Errorf("failed to get AWS account by name: %w", err)
-	// 	}
-
-	// 	// system components e.g. cluster-autoscaler
-	// 	if err := threeport.InstallThreeportSystemServices(
-	// 		dynamicKubeClient,
-	// 		mapper,
-	// 		*kubernetesRuntimeDefinition.InfraProvider,
-	// 		*kubernetesRuntimeInstance.Name,
-	// 		*awsAccount.AccountID,
-	// 	); err != nil {
-	// 		return 0, fmt.Errorf("failed to install system services: %w", err)
-	// 	}
-	// }
-
-	// configure kubernetes runtime instance config
-	c := &KubernetesRuntimeInstanceConfig{
-		r:                         r,
-		kubernetesRuntimeInstance: kubernetesRuntimeInstance,
-		log:                       log,
+	// check to see if we have API endpoint - no further reconciliation can
+	// occur until we have that
+	if kubernetesRuntimeInstance.APIEndpoint == nil {
+		return 0, nil
 	}
 
-	// configure observability
-	if err := c.configureObservability(); err != nil {
-		return 0, fmt.Errorf("failed to configure observability: %w", err)
+	// check to see if kubernetes runtime is being deleted - if so no updates
+	// required
+	if kubernetesRuntimeInstance.DeletionScheduled != nil {
+		return 0, nil
 	}
 
-	// update kubernetes runtime instance with observability info
-	kubernetesRuntimeInstance.Reconciled = util.BoolPtr(true)
-	if _, err := client.UpdateKubernetesRuntimeInstance(
+	// get runtime definition
+	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
 		r.APIClient,
 		r.APIServer,
+		*kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve kubernetes runtime definition by ID: %w", err)
+	}
+
+	// get kube client to install compute space control plane components
+	dynamicKubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
+		false,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
+	}
+
+	// TODO: sort out an elegant way to pass the custom image info for
+	// install compute space control plane components
+	var agentImage string
+	if kubernetesRuntimeInstance.ThreeportAgentImage != nil {
+		agentImage = *kubernetesRuntimeInstance.ThreeportAgentImage
+	}
+
+	cpi := threeport.NewInstaller()
+
+	if agentImage != "" {
+		agentRegistry, _, agentTag, err := util.ParseImage(agentImage)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse custom threeport agent image: %w", err)
+		}
+
+		cpi.Opts.AgentInfo.ImageRepo = agentRegistry
+		cpi.Opts.AgentInfo.ImageTag = agentTag
+	}
+
+	// threeport control plane components
+	if err := cpi.InstallComputeSpaceControlPlaneComponents(
+		dynamicKubeClient,
+		mapper,
+		*kubernetesRuntimeInstance.Name,
 	); err != nil {
-		return 0, fmt.Errorf("failed to update kubernetes runtime instance: %w", err)
+		return 0, fmt.Errorf("failed to insall compute space control plane components: %w", err)
+	}
+
+	// wait for kube API to persist the change and refresh the client and mapper
+	// this is necessary to have the updated REST mapping for the CRDs as the
+	// support services operator install includes one of those custom resources
+	time.Sleep(time.Second * 10)
+	dynamicKubeClient, mapper, err = kube.GetClient(
+		kubernetesRuntimeInstance,
+		false,
+		r.APIClient,
+		r.APIServer,
+		r.EncryptionKey,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to refresh dynamic kube API client: %w", err)
+	}
+
+	// support services operator
+	if err := threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper); err != nil {
+		return 0, fmt.Errorf("failed to install support services operator: %w", err)
+	}
+
+	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
+		// get aws account
+		awsAccount, err := client.GetAwsAccountByName(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeDefinition.InfraProviderAccountName,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get AWS account by name: %w", err)
+		}
+
+		// system components e.g. cluster-autoscaler
+		if err := threeport.InstallThreeportSystemServices(
+			dynamicKubeClient,
+			mapper,
+			*kubernetesRuntimeDefinition.InfraProvider,
+			*kubernetesRuntimeInstance.Name,
+			*awsAccount.AccountID,
+		); err != nil {
+			return 0, fmt.Errorf("failed to install system services: %w", err)
+		}
 	}
 
 	return 0, nil
@@ -292,83 +245,4 @@ func kubernetesRuntimeInstanceDeleted(
 	}
 
 	return 0, nil
-}
-
-// configureObservability configures observability for a kubernetes runtime
-func (c *KubernetesRuntimeInstanceConfig) configureObservability() error {
-	// configure metrics
-	switch {
-	case *c.kubernetesRuntimeInstance.MetricsEnabled &&
-		c.kubernetesRuntimeInstance.MetricsInstanceID == nil:
-		c.log.Info("enabling metrics")
-
-		// get metrics operations
-		operations := c.getMetricsOperations(nil)
-
-		// execute create metrics operations
-		if err := operations.Create(); err != nil {
-			return fmt.Errorf("failed to execute create metrics operations: %w", err)
-		}
-
-	case !*c.kubernetesRuntimeInstance.MetricsEnabled &&
-		c.kubernetesRuntimeInstance.MetricsInstanceID != nil:
-		c.log.Info("disabling metrics")
-
-		// get metrics instance
-		metricsInstance, err := client.GetMetricsInstanceByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			uint(c.kubernetesRuntimeInstance.MetricsInstanceID.Int64),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get metrics definition by ID: %w", err)
-		}
-
-		// get metrics operations
-		operations := c.getMetricsOperations(metricsInstance.MetricsDefinitionID)
-
-		// execute delete metrics operations
-		if err := operations.Delete(); err != nil {
-			return fmt.Errorf("failed to execute delete metrics operations: %w", err)
-		}
-	}
-
-	// configure logging
-	switch {
-	case *c.kubernetesRuntimeInstance.LoggingEnabled &&
-		c.kubernetesRuntimeInstance.LoggingInstanceID == nil:
-		c.log.Info("enabling logging")
-
-		// get metrics operations
-		operations := c.getLoggingOperations(nil)
-
-		// execute create metrics operations
-		if err := operations.Create(); err != nil {
-			return fmt.Errorf("failed to execute create logging operations: %w", err)
-		}
-
-	case !*c.kubernetesRuntimeInstance.LoggingEnabled &&
-		c.kubernetesRuntimeInstance.LoggingInstanceID != nil:
-		c.log.Info("disabling logging")
-
-		// get logging instance
-		loggingInstance, err := client.GetLoggingInstanceByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			uint(c.kubernetesRuntimeInstance.LoggingInstanceID.Int64),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get logging definition by ID: %w", err)
-		}
-
-		// get metrics operations
-		operations := c.getLoggingOperations(loggingInstance.LoggingDefinitionID)
-
-		// execute delete metrics operations
-		if err := operations.Delete(); err != nil {
-			return fmt.Errorf("failed to execute delete logging operations: %w", err)
-		}
-
-	}
-	return nil
 }
