@@ -7,7 +7,7 @@ grafana.ini:
   auth.anonymous:
     enabled: true
     org_name: Main Org.
-    org_role: Viewer
+    org_role: Admin
 
 persistence:
   enabled: true
