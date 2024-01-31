@@ -2,6 +2,7 @@ package observability
 
 import (
 	"fmt"
+	"os"
 
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/cli/values"
@@ -31,13 +32,23 @@ func PromtailHelmChartName(name string) string {
 // MergeHelmValues merges two helm values documents.
 func MergeHelmValues(base, override string) (string, error) {
 
-	// var settings = cli.New()
-	// p := getter.All(settings)
+	temporaryFiles := map[string]string{
+		"/tmp/values.yaml":          base,
+		"/tmp/override-values.yaml": override,
+	}
+
+	var valueFiles []string
+	// create temporary files in /tmp and populate valueFiles
+	for path, file := range temporaryFiles {
+		err := os.WriteFile(path, []byte(file), 0644)
+		if err != nil {
+			return "", fmt.Errorf("failed to write base helm values: %w", err)
+		}
+		valueFiles = append(valueFiles, path)
+	}
+
 	values := values.Options{
-		JSONValues: []string{
-			base,
-			override,
-		},
+		ValueFiles: valueFiles,
 	}
 	grafanaGoValues, err := values.MergeValues(nil)
 	if err != nil {
@@ -46,6 +57,14 @@ func MergeHelmValues(base, override string) (string, error) {
 	grafanaByteValues, err := yaml.Marshal(grafanaGoValues)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal grafana helm values: %w", err)
+	}
+
+	// clean up temporary files
+	for filePath := range temporaryFiles {
+		err := os.Remove(filePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to remove temporary file: %w", err)
+		}
 	}
 
 	return string(grafanaByteValues), nil
