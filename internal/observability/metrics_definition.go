@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -34,7 +35,7 @@ func metricsDefinitionCreated(
 	log *logr.Logger,
 ) (int64, error) {
 	// merge kube-prometheus-stack helm values if they are provided
-	kubePrometheusStackHelmWorkloadDefinitionValues, err := MergeHelmValues(
+	kubePrometheusStackHelmWorkloadDefinitionValues, err := helmworkload.MergeHelmValuesString(
 		kubePrometheusStackValues,
 		util.StringPtrToString(metricsDefinition.KubePrometheusStackHelmValuesDocument),
 	)
@@ -50,10 +51,10 @@ func metricsDefinitionCreated(
 			Definition: v0.Definition{
 				Name: util.StringPtr(KubePrometheusStackChartName(*metricsDefinition.Name)),
 			},
-			Repo:               util.StringPtr(PrometheusCommunityHelmRepo),
-			Chart:              util.StringPtr("kube-prometheus-stack"),
-			HelmChartVersion:   metricsDefinition.KubePrometheusStackHelmChartVersion,
-			HelmValuesDocument: &kubePrometheusStackHelmWorkloadDefinitionValues,
+			Repo:           util.StringPtr(PrometheusCommunityHelmRepo),
+			Chart:          util.StringPtr("kube-prometheus-stack"),
+			ChartVersion:   metricsDefinition.KubePrometheusStackHelmChartVersion,
+			ValuesDocument: &kubePrometheusStackHelmWorkloadDefinitionValues,
 		})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create kube-prometheus-stack helm workload definition: %w", err)

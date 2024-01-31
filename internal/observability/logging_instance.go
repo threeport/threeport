@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -56,7 +57,7 @@ func loggingInstanceCreated(
 	}
 
 	// merge loki helm values
-	c.lokiHelmWorkloadInstanceValues, err = MergeHelmValuesPtrs(
+	c.lokiHelmWorkloadInstanceValues, err = helmworkload.MergeHelmValuesPtrs(
 		loggingDefinition.LokiHelmValuesDocument,
 		loggingInstance.LokiHelmValuesDocument,
 	)
@@ -65,7 +66,7 @@ func loggingInstanceCreated(
 	}
 
 	// merge promtail helm values
-	c.promtailHelmWorkloadInstanceValues, err = MergeHelmValuesPtrs(
+	c.promtailHelmWorkloadInstanceValues, err = helmworkload.MergeHelmValuesPtrs(
 		loggingDefinition.PromtailHelmValuesDocument,
 		loggingInstance.PromtailHelmValuesDocument,
 	)
@@ -163,8 +164,8 @@ func (c *LoggingInstanceConfig) createLokiHelmWorkloadInstance() error {
 			},
 			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    c.loggingDefinition.LokiHelmWorkloadDefinitionID,
-			HelmValuesDocument:          &c.lokiHelmWorkloadInstanceValues,
-			HelmReleaseNamespace:        &c.loggingNamespace,
+			ValuesDocument:              &c.lokiHelmWorkloadInstanceValues,
+			ReleaseNamespace:            &c.loggingNamespace,
 		},
 	)
 	if err != nil {
@@ -204,8 +205,8 @@ func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
 			},
 			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    c.loggingDefinition.PromtailHelmWorkloadDefinitionID,
-			HelmValuesDocument:          &c.promtailHelmWorkloadInstanceValues,
-			HelmReleaseNamespace:        &c.loggingNamespace,
+			ValuesDocument:              &c.promtailHelmWorkloadInstanceValues,
+			ReleaseNamespace:            &c.loggingNamespace,
 		},
 	)
 	if err != nil {
