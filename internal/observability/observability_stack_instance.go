@@ -57,6 +57,9 @@ func observabilityStackInstanceCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to get observability stack definition: %w", err)
 	}
+	if !*observabilityStackDefinition.Reconciled {
+		return 0, fmt.Errorf("observability stack definition not reconciled")
+	}
 
 	// create observability stack instance config
 	c := &ObservabilityStackInstanceConfig{
