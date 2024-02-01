@@ -18,11 +18,15 @@ type ObservabilityStackValues struct {
 	KubernetesRuntimeInstance             *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	MetricsEnabled                        bool                             `yaml:"MetricsEnabled"`
 	LoggingEnabled                        bool                             `yaml:"LoggingEnabled"`
+	GrafanaHelmValues                     string                           `yaml:"GrafanaHelmValues"`
 	GrafanaHelmValuesDocument             string                           `yaml:"GrafanaHelmValuesDocument"`
+	LokiHelmValues                        string                           `yaml:"LokiHelmValues"`
 	LokiHelmValuesDocument                string                           `yaml:"LokiHelmValuesDocument"`
+	PromtailHelmValues                    string                           `yaml:"PromtailHelmValues"`
 	PromtailHelmValuesDocument            string                           `yaml:"PromtailHelmValuesDocument"`
+	KubePrometheusStackHelmValues         string                           `yaml:"KubePrometheusStackHelmValues"`
 	KubePrometheusStackHelmValuesDocument string                           `yaml:"KubePrometheusStackHelmValuesDocument"`
-	ConfigPath                            string                           `yaml:"ConfigPath"`
+	ObservabilityStackConfigPath          string                           `yaml:"ObservabilityStackConfigPath"`
 }
 
 // Create creates an observability stack definition and instance
@@ -43,18 +47,45 @@ func (o *ObservabilityStackValues) Create(apiClient *http.Client, apiEndpoint st
 	}
 
 	// create observability stack definition
+	osd := &v0.ObservabilityStackDefinition{
+		Definition: v0.Definition{
+			Name: &o.Name,
+		},
+	}
+
+	// set grafana helm values if present
+	grafanaHelmValuesDocument, err := GetValuesFromDocumentOrInline(o.GrafanaHelmValues, o.GrafanaHelmValuesDocument, o.ObservabilityStackConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to get grafana values document from path: %w", err)
+	}
+	osd.GrafanaHelmValuesDocument = grafanaHelmValuesDocument
+
+	// set loki helm values if present
+	lokiHelmValuesDocument, err := GetValuesFromDocumentOrInline(o.LokiHelmValues, o.LokiHelmValuesDocument, o.ObservabilityStackConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to get loki values document from path: %w", err)
+	}
+	osd.LokiHelmValuesDocument = lokiHelmValuesDocument
+
+	// set promtail helm values if present
+	promtailHelmValuesDocument, err := GetValuesFromDocumentOrInline(o.PromtailHelmValues, o.PromtailHelmValuesDocument, o.ObservabilityStackConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to get promtail values document from path: %w", err)
+	}
+	osd.PromtailHelmValuesDocument = promtailHelmValuesDocument
+
+	// set kube-prometheus-stack helm values if present
+	kubePrometheusStackHelmValuesDocument, err := GetValuesFromDocumentOrInline(o.KubePrometheusStackHelmValues, o.KubePrometheusStackHelmValuesDocument, o.ObservabilityStackConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to get kube-prometheus-stack values document from path: %w", err)
+	}
+	osd.KubePrometheusStackHelmValuesDocument = kubePrometheusStackHelmValuesDocument
+
+	// create observability stack definition
 	createdOsd, err := client.CreateObservabilityStackDefinition(
 		apiClient,
 		apiEndpoint,
-		&v0.ObservabilityStackDefinition{
-			Definition: v0.Definition{
-				Name: &o.Name,
-			},
-			GrafanaHelmValuesDocument:             &o.GrafanaHelmValuesDocument,
-			LokiHelmValuesDocument:                &o.LokiHelmValuesDocument,
-			PromtailHelmValuesDocument:            &o.PromtailHelmValuesDocument,
-			KubePrometheusStackHelmValuesDocument: &o.KubePrometheusStackHelmValuesDocument,
-		},
+		osd,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create observability stack definition: %w", err)
