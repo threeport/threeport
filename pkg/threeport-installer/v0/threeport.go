@@ -31,6 +31,7 @@ const (
 	ThreeportAwsControllerName               = "aws-controller"
 	ThreeportGatewayControllerName           = "gateway-controller"
 	ThreeportHelmWorkloadControllerName      = "helm-workload-controller"
+	ThreeportTerraformControllerName         = "terraform-controller"
 	ThreeportObservabilityControllerName     = "observability-controller"
 	ThreeportAgentName                       = "agent"
 
