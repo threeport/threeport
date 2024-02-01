@@ -14,11 +14,15 @@ type ObservabilityStack struct {
 
 // ObservabilityStackValues provides the configuration for an observability stack
 type ObservabilityStackValues struct {
-	Name                      string                           `yaml:"Name"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	MetricsEnabled            bool                             `yaml:"MetricsEnabled"`
-	LoggingEnabled            bool                             `yaml:"LoggingEnabled"`
-	ConfigPath                string                           `yaml:"ConfigPath"`
+	Name                                  string                           `yaml:"Name"`
+	KubernetesRuntimeInstance             *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	MetricsEnabled                        bool                             `yaml:"MetricsEnabled"`
+	LoggingEnabled                        bool                             `yaml:"LoggingEnabled"`
+	GrafanaHelmValuesDocument             string                           `yaml:"GrafanaHelmValuesDocument"`
+	LokiHelmValuesDocument                string                           `yaml:"LokiHelmValuesDocument"`
+	PromtailHelmValuesDocument            string                           `yaml:"PromtailHelmValuesDocument"`
+	KubePrometheusStackHelmValuesDocument string                           `yaml:"KubePrometheusStackHelmValuesDocument"`
+	ConfigPath                            string                           `yaml:"ConfigPath"`
 }
 
 // Create creates an observability stack definition and instance
@@ -46,6 +50,10 @@ func (o *ObservabilityStackValues) Create(apiClient *http.Client, apiEndpoint st
 			Definition: v0.Definition{
 				Name: &o.Name,
 			},
+			GrafanaHelmValuesDocument:             &o.GrafanaHelmValuesDocument,
+			LokiHelmValuesDocument:                &o.LokiHelmValuesDocument,
+			PromtailHelmValuesDocument:            &o.PromtailHelmValuesDocument,
+			KubePrometheusStackHelmValuesDocument: &o.KubePrometheusStackHelmValuesDocument,
 		},
 	)
 	if err != nil {

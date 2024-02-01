@@ -1,6 +1,15 @@
 ObservabilityStack:
-  Name: threeport-observability
+  Name: observability
   KubernetesRuntimeInstance:
     Name: eks-remote
   MetricsEnabled: true
   LoggingEnabled: true
+  Test: false
+  # LokiHelmValuesDocument: |
+  # PromtailHelmValuesDocument: |
+  # KubePrometheusStackHelmValuesDocument: |
+  # GrafanaHelmValuesDocument: |
+  #   grafana.ini:
+  #     auth.anonymous:
+  #       enabled: true
+  #       org_role: Admin
