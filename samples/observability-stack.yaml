@@ -4,7 +4,6 @@ ObservabilityStack:
     Name: threeport-dev-0
   MetricsEnabled: true
   LoggingEnabled: true
-  Test: false
   # LokiHelmValuesDocument: |
   # PromtailHelmValuesDocument: |
   # KubePrometheusStackHelmValuesDocument: |
