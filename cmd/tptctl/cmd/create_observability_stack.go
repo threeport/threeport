@@ -42,7 +42,7 @@ and observability stack instance based on the observability stack config.`,
 
 		// add path to workload config - used to determine relative path from
 		// user's working directory to YAML document
-		observabilityStackConfig.ObservabilityStack.ConfigPath = createObservabilityStackConfigPath
+		observabilityStackConfig.ObservabilityStack.ObservabilityStackConfigPath = createObservabilityStackConfigPath
 
 		// create observabilityStack
 		observabilityStack := observabilityStackConfig.ObservabilityStack
