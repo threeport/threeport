@@ -29,32 +29,32 @@ and observability stack instance based on the observability stack config.`,
 		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		// load observability stack config
-		configContent, err := os.ReadFile(createObservabilityStackConfigPath)
+		configContent, err := os.ReadFile(deleteObservabilityStackConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
 		var observabilityStackConfig config.ObservabilityStack
-		if err := yaml.Unmarshal(configContent, &observabilityStackConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &observabilityStackConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
 
 		// add path to workload config - used to determine relative path from
 		// user's working directory to YAML document
-		observabilityStackConfig.ObservabilityStack.ConfigPath = createWorkloadConfigPath
+		observabilityStackConfig.ObservabilityStack.ConfigPath = deleteObservabilityStackConfigPath
 
-		// create observabilityStack
+		// delete observabilityStack
 		observabilityStack := observabilityStackConfig.ObservabilityStack
-		err = observabilityStack.Create(apiClient, apiEndpoint)
+		err = observabilityStack.Delete(apiClient, apiEndpoint)
 		if err != nil {
-			cli.Error("failed to create workload", err)
+			cli.Error("failed to delete workload", err)
 			os.Exit(1)
 		}
 
-		cli.Info(fmt.Sprintf("observability stack definition %s created", observabilityStack.Name))
-		cli.Info(fmt.Sprintf("observability stack instance %s created", observabilityStack.Name))
-		cli.Complete(fmt.Sprintf("observability stack %s created", observabilityStackConfig.ObservabilityStack.Name))
+		cli.Info(fmt.Sprintf("observability stack definition %s deleted", observabilityStack.Name))
+		cli.Info(fmt.Sprintf("observability stack instance %s deleted", observabilityStack.Name))
+		cli.Complete(fmt.Sprintf("observability stack %s deleted", observabilityStackConfig.ObservabilityStack.Name))
 	},
 }
 
@@ -62,7 +62,7 @@ func init() {
 	DeleteCmd.AddCommand(DeleteObservabilityStackCmd)
 
 	DeleteObservabilityStackCmd.Flags().StringVarP(
-		&createWorkloadConfigPath,
+		&deleteObservabilityStackConfigPath,
 		"config", "c", "", "Path to file with workload config.",
 	)
 	DeleteObservabilityStackCmd.MarkFlagRequired("config")
