@@ -28,7 +28,9 @@ type HelmWorkloadValues struct {
 	Repo                      string                           `yaml:"Repo"`
 	Chart                     string                           `yaml:"Chart"`
 	ChartVersion              string                           `yaml:"ChartVersion"`
+	DefinitionValues          string                           `yaml:"DefinitionValues"`
 	DefinitionValuesDocument  string                           `yaml:"DefinitionValuesDocument"`
+	InstanceValues            string                           `yaml:"InstanceValues"`
 	InstanceValuesDocument    string                           `yaml:"InstanceValuesDocument"`
 	HelmWorkloadConfigPath    string                           `yaml:"HelmWorkloadConfigPath"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
@@ -50,6 +52,7 @@ type HelmWorkloadDefinitionValues struct {
 	Repo                   string `yaml:"Repo"`
 	Chart                  string `yaml:"Chart"`
 	ChartVersion           string `yaml:"ChartVersion"`
+	Values                 string `yaml:"Values"`
 	ValuesDocument         string `yaml:"ValuesDocument"`
 	HelmWorkloadConfigPath string `yaml:"HelmWorkloadConfigPath"`
 }
@@ -63,6 +66,7 @@ type HelmWorkloadInstanceConfig struct {
 // instance.
 type HelmWorkloadInstanceValues struct {
 	Name                      string                           `yaml:"Name"`
+	Values                    string                           `yaml:"Values"`
 	ValuesDocument            string                           `yaml:"ValuesDocument"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	HelmWorkloadDefinition    HelmWorkloadDefinitionValues     `yaml:"HelmWorkloadDefinition"`
@@ -76,7 +80,10 @@ func (h *HelmWorkloadValues) Create(
 ) (*v0.HelmWorkloadDefinition, *v0.HelmWorkloadInstance, error) {
 
 	// get operations
-	operations, createdHelmWorkloadDefinition, createdHelmWorkloadInstance := h.GetOperations(apiClient, apiEndpoint)
+	operations, createdHelmWorkloadDefinition, createdHelmWorkloadInstance, err := h.GetOperations(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
@@ -95,7 +102,10 @@ func (h *HelmWorkloadValues) Delete(
 ) (*v0.HelmWorkloadDefinition, *v0.HelmWorkloadInstance, error) {
 
 	// get operation
-	operations, _, _ := h.GetOperations(apiClient, apiEndpoint)
+	operations, _, _, err := h.GetOperations(apiClient, apiEndpoint)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
@@ -125,7 +135,7 @@ func (h *HelmWorkloadDefinitionValues) Create(
 	}
 
 	// set helm values if present
-	values, err := GetValuesDocumentFromPath(h.ValuesDocument, h.HelmWorkloadConfigPath)
+	values, err := GetValuesFromDocumentOrInline(h.Values, h.ValuesDocument, h.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get values document from path: %w", err)
 	}
@@ -207,21 +217,12 @@ func (h *HelmWorkloadInstanceValues) Create(
 		HelmWorkloadDefinitionID:    helmWorkloadDefinition.ID,
 	}
 
-	// set helm values if present
-	if h.ValuesDocument != "" {
-		// build the path to the values document relative to the user's working
-		// directory
-		configPath, _ := filepath.Split(h.HelmWorkloadConfigPath)
-		relativeValuesPath := path.Join(configPath, h.ValuesDocument)
-
-		// load vaules document
-		valuesContent, err := os.ReadFile(relativeValuesPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read instance ValuesDocument file %s: %w", h.ValuesDocument, err)
-		}
-		stringContent := string(valuesContent)
-		helmWorkloadInstance.ValuesDocument = &stringContent
+	// get helm instance values
+	values, err := GetValuesFromDocumentOrInline(h.Values, h.ValuesDocument, h.HelmWorkloadConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get helm instance values document from path: %w", err)
 	}
+	helmWorkloadInstance.ValuesDocument = values
 
 	// create helm workload instance
 	createdHelmWorkloadInstance, err := client.CreateHelmWorkloadInstance(
@@ -296,7 +297,7 @@ func (h *HelmWorkloadInstanceValues) Delete(
 func (h *HelmWorkloadValues) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*util.Operations, *v0.HelmWorkloadDefinition, *v0.HelmWorkloadInstance) {
+) (*util.Operations, *v0.HelmWorkloadDefinition, *v0.HelmWorkloadInstance, error) {
 
 	var err error
 	var createdHelmWorkloadInstance v0.HelmWorkloadInstance
@@ -304,13 +305,19 @@ func (h *HelmWorkloadValues) GetOperations(
 
 	operations := util.Operations{}
 
+	// get helm definition values
+	helmDefinitionValues, err := GetValuesFromDocumentOrInline(h.DefinitionValues, h.DefinitionValuesDocument, h.HelmWorkloadConfigPath)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get helm instance values document from path: %w", err)
+	}
+
 	// add helm workload definition operation
 	helmWorkloadDefinitionValues := HelmWorkloadDefinitionValues{
 		Name:                   h.Name,
 		Repo:                   h.Repo,
 		Chart:                  h.Chart,
 		ChartVersion:           h.ChartVersion,
-		ValuesDocument:         h.DefinitionValuesDocument,
+		Values:                 *helmDefinitionValues,
 		HelmWorkloadConfigPath: h.HelmWorkloadConfigPath,
 	}
 	operations.AppendOperation(util.Operation{
@@ -329,10 +336,16 @@ func (h *HelmWorkloadValues) GetOperations(
 		},
 	})
 
+	// get helm instance values
+	helmInstanceValues, err := GetValuesFromDocumentOrInline(h.InstanceValues, h.InstanceValuesDocument, h.HelmWorkloadConfigPath)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get helm instance values document from path: %w", err)
+	}
+
 	// add helm workload instance operation
 	helmWorkloadInstanceValues := HelmWorkloadInstanceValues{
 		Name:                      h.Name,
-		ValuesDocument:            h.InstanceValuesDocument,
+		Values:                    *helmInstanceValues,
 		HelmWorkloadConfigPath:    h.HelmWorkloadConfigPath,
 		KubernetesRuntimeInstance: h.KubernetesRuntimeInstance,
 		HelmWorkloadDefinition: HelmWorkloadDefinitionValues{
