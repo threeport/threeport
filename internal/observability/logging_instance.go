@@ -138,15 +138,15 @@ func getLoggingInstanceOperations(c *LoggingInstanceConfig) *util.Operations {
 	// append loki operations
 	operations.AppendOperation(util.Operation{
 		Name:   "loki",
-		Create: func() error { return c.createLokiHelmWorkloadInstance() },
-		Delete: func() error { return c.deleteLokiHelmWorkloadInstance() },
+		Create: c.createLokiHelmWorkloadInstance,
+		Delete: c.deleteLokiHelmWorkloadInstance,
 	})
 
 	// append promtail operations
 	operations.AppendOperation(util.Operation{
 		Name:   "promtail",
-		Create: func() error { return c.createPromtailHelmWorkloadInstance() },
-		Delete: func() error { return c.deletePromtailHelmWorkloadInstance() },
+		Create: c.createPromtailHelmWorkloadInstance,
+		Delete: c.deletePromtailHelmWorkloadInstance,
 	})
 
 	return &operations
