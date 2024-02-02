@@ -632,33 +632,3 @@ func GetValuesFromDocumentOrInline(inline, valuesDocument, helmWorkloadConfigPat
 	}
 	return GetValuesDocumentFromPath(valuesDocument, helmWorkloadConfigPath)
 }
-
-// GetValuesDocumentFromPath returns the values document content from the path
-// provided.
-func GetValuesDocumentFromPath(valuesDocument, helmWorkloadConfigPath string) (*string, error) {
-	// set helm values if present
-	if valuesDocument != "" {
-		// build the path to the values document relative to the user's working
-		// directory
-		configPath, _ := filepath.Split(helmWorkloadConfigPath)
-		relativeValuesPath := path.Join(configPath, valuesDocument)
-
-		// load vaules document
-		valuesContent, err := os.ReadFile(relativeValuesPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read definition ValuesDocument file %s: %w", valuesDocument, err)
-		}
-		stringContent := string(valuesContent)
-		return &stringContent, nil
-	}
-	return nil, nil
-}
-
-// GetValuesFromDocumentOrInline returns the values document content from the
-// inline value provided first, then from the document provided
-func GetValuesFromDocumentOrInline(inline, valuesDocument, helmWorkloadConfigPath string) (*string, error) {
-	if inline != "" {
-		return &inline, nil
-	}
-	return GetValuesDocumentFromPath(valuesDocument, helmWorkloadConfigPath)
-}
