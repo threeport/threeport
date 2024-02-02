@@ -6,6 +6,7 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 type ObservabilityStack struct {
@@ -154,16 +155,44 @@ func (o *ObservabilityStackValues) Delete(apiClient *http.Client, apiEndpoint st
 
 // ValidateCreate validates the observability stack values for creation
 func (o *ObservabilityStackValues) ValidateCreate() error {
+	multiError := util.MultiError{}
+
+	// ensure name is set
 	if o.Name == "" {
-		return fmt.Errorf("name is required")
+		multiError.AppendError(fmt.Errorf("name is required"))
 	}
+
+	// ensure kubernetes runtime instance is set
 	if o.KubernetesRuntimeInstance == nil {
-		return fmt.Errorf("KubernetesRuntimeInstance is required")
+		multiError.AppendError(fmt.Errorf("KubernetesRuntimeInstance is required"))
 	}
+
+	// ensure kubernetes runtime instance name is set
 	if o.KubernetesRuntimeInstance.Name == "" {
-		return fmt.Errorf("KubernetesRuntimeInstance.Name is required")
+		multiError.AppendError(fmt.Errorf("KubernetesRuntimeInstance.Name is required"))
 	}
-	return nil
+
+	// ensure grafana helm values or document is set
+	if o.GrafanaHelmValues != "" && o.GrafanaHelmValuesDocument != "" {
+		multiError.AppendError(fmt.Errorf("GrafanaHelmValues and GrafanaHelmValuesDocument cannot both be set"))
+	}
+
+	// ensure loki helm values or document is set
+	if o.LokiHelmValues != "" && o.LokiHelmValuesDocument != "" {
+		multiError.AppendError(fmt.Errorf("LokiHelmValues and LokiHelmValuesDocument cannot both be set"))
+	}
+
+	// ensure promtail helm values or document is set
+	if o.PromtailHelmValues != "" && o.PromtailHelmValuesDocument != "" {
+		multiError.AppendError(fmt.Errorf("PromtailHelmValues and PromtailHelmValuesDocument cannot both be set"))
+	}
+
+	// ensure kube-prometheus-stack helm values or document is set
+	if o.KubePrometheusStackHelmValues != "" && o.KubePrometheusStackHelmValuesDocument != "" {
+		multiError.AppendError(fmt.Errorf("KubePrometheusStackHelmValues and KubePrometheusStackHelmValuesDocument cannot both be set"))
+	}
+
+	return multiError.Error()
 }
 
 // ValidateDelete validates the observability stack values for deletion
