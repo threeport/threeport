@@ -91,7 +91,6 @@ func metricsInstanceDeleted(
 	metricsInstance *v0.MetricsInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// delete kube-prometheus-stack helm workload instance
 	if _, err := client.DeleteHelmWorkloadInstance(
 		r.APIClient,
