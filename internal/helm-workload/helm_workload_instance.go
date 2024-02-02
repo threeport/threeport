@@ -104,11 +104,6 @@ func helmWorkloadInstanceCreated(
 		helmWorkloadInstance.ReleaseNamespace = &generatedNamespace
 	}
 
-	// configure version if it is supplied by the workload definition
-	if helmWorkloadDefinition.ChartVersion != nil && *helmWorkloadDefinition.ChartVersion != "" {
-		install.Version = *helmWorkloadDefinition.ChartVersion
-	}
-
 	install.CreateNamespace = true
 	install.DependencyUpdate = true
 	install.PostRenderer = &ThreeportPostRenderer{
