@@ -176,7 +176,7 @@ func (h *HelmWorkloadDefinitionValues) Create(
 	}
 
 	// set helm values if present
-	values, err := GetValuesDocumentFromPath(h.ValuesDocument, h.HelmWorkloadConfigPath)
+	values, err := GetValuesFromDocumentOrInline(h.Values, h.ValuesDocument, h.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get values document from path: %w", err)
 	}
