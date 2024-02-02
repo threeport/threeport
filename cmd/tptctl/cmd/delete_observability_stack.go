@@ -15,7 +15,6 @@ import (
 )
 
 var deleteObservabilityStackConfigPath string
-var deleteObservabilityStackName string
 
 // DeleteObservabilityStackCmd represents the delete observability stack command
 var DeleteObservabilityStackCmd = &cobra.Command{
@@ -30,32 +29,23 @@ and observability stack instance based on the observability stack config.`,
 		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
 
 		var observabilityStackConfig config.ObservabilityStack
-		if deleteObservabilityStackConfigPath != "" {
-			// load observability stack config
-			configContent, err := os.ReadFile(deleteObservabilityStackConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &observabilityStackConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			observabilityStackConfig = config.ObservabilityStack{
-				ObservabilityStack: &config.ObservabilityStackValues{
-					Name: deleteObservabilityStackName,
-				},
-			}
+		// load observability stack config
+		configContent, err := os.ReadFile(deleteObservabilityStackConfigPath)
+		if err != nil {
+			cli.Error("failed to read config file", err)
+			os.Exit(1)
 		}
-
+		if err := yaml.UnmarshalStrict(configContent, &observabilityStackConfig); err != nil {
+			cli.Error("failed to unmarshal config file yaml content", err)
+			os.Exit(1)
+		}
 		// add path to workload config - used to determine relative path from
 		// user's working directory to YAML document
 		observabilityStackConfig.ObservabilityStack.ObservabilityStackConfigPath = deleteObservabilityStackConfigPath
 
 		// delete observabilityStack
 		observabilityStack := observabilityStackConfig.ObservabilityStack
-		err := observabilityStack.Delete(apiClient, apiEndpoint)
+		err = observabilityStack.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete workload", err)
 			os.Exit(1)
@@ -78,9 +68,5 @@ func init() {
 	DeleteObservabilityStackCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-	DeleteObservabilityStackCmd.Flags().StringVarP(
-		&deleteObservabilityStackName,
-		"name", "n", "", "Optional. Name of observability stack.",
 	)
 }
