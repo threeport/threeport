@@ -140,6 +140,7 @@ jobs:
         image_name: threeport/threeport-helm-workload-controller
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dockerfile: cmd/helm-workload-controller/image/Dockerfile
+        image_tag: ${{ github.sha }}
 
   build-threeport-agent:
     runs-on: ubuntu-22.04
