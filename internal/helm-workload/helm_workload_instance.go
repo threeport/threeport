@@ -148,7 +148,6 @@ func helmWorkloadInstanceCreated(
 		if uninstallErr := uninstallHelmRelease(
 			install.ReleaseName,
 			actionConf,
-			kubeClient,
 		); err != nil {
 			return 0, fmt.Errorf("failed to uninstall helm release: %w after failed to install helm chart: %w", uninstallErr, err)
 		}
@@ -309,6 +308,9 @@ func helmWorkloadInstanceDeleted(
 	if err != nil {
 		return 0, fmt.Errorf("failed to get helm workload instances by query string: %w", err)
 	}
+
+	// if any other helm workload instances are using the namespace, do not
+	// delete it
 	for _, hwi := range *helmWorkloadInstances {
 		if hwi.ReleaseNamespace != nil &&
 			*hwi.ReleaseNamespace == *helmWorkloadInstance.ReleaseNamespace &&
@@ -317,31 +319,9 @@ func helmWorkloadInstanceDeleted(
 		}
 	}
 
-	// get kubernetes runtime instance
-	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
-		r.APIClient,
-		r.APIServer,
-		*helmWorkloadInstance.KubernetesRuntimeInstanceID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get workload kubernetes runtime instance by ID: %w", err)
-	}
-
-	// get a Kubernetes client and mapper
-	dynamicKubeClient, mapper, err := kube.GetClient(
-		kubernetesRuntimeInstance,
-		true,
-		r.APIClient,
-		r.APIServer,
-		r.EncryptionKey,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
-	}
-
 	// delete the namespace
 	installer.DeleteNamespaces(
-		dynamicKubeClient,
+		kubeClient,
 		mapper,
 		[]string{*helmWorkloadInstance.ReleaseNamespace},
 	)
@@ -364,20 +344,6 @@ func uninstallHelmRelease(
 	_, err := uninstall.Run(releaseName)
 	if err != nil {
 		return fmt.Errorf("failed to uninstall helm chart: %w", err)
-	}
-
-	// remove namespace
-	if release != nil && release.Release != nil {
-		gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
-		namespaceResource := kubeClient.Resource(gvr)
-		namespace := release.Release.Namespace
-		deletePolicy := metav1.DeletePropagationForeground
-		deleteOptions := metav1.DeleteOptions{
-			PropagationPolicy: &deletePolicy,
-		}
-		if err = namespaceResource.Delete(context.TODO(), namespace, deleteOptions); err != nil {
-			return fmt.Errorf("failed to delete helm release namespace: %w", err)
-		}
 	}
 
 	return nil
