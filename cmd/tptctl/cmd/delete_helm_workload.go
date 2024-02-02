@@ -48,6 +48,10 @@ and helm workload instance based on the helm workload config or name.`,
 			os.Exit(1)
 		}
 
+		// add path to helm workload config - used to determine relative path from
+		// user's working directory to YAML document
+		helmWorkloadConfig.HelmWorkload.HelmWorkloadConfigPath = deleteHelmWorkloadConfigPath
+
 		// delete helm workload
 		helmWorkload := helmWorkloadConfig.HelmWorkload
 		_, _, err = helmWorkload.Delete(apiClient, apiEndpoint)
