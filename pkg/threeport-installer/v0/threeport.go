@@ -18,8 +18,8 @@ const (
 	ThreeportAwsControllerImage               = "threeport-aws-controller"
 	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
 	ThreeportHelmWorkloadControllerImage      = "threeport-helm-workload-controller"
-	ThreeportAgentImage                       = "threeport-agent"
 	ThreeportObservabilityControllerImage     = "threeport-observability-controller"
+	ThreeportAgentImage                       = "threeport-agent"
 
 	// Name of threeport control plane components
 	ThreeportRestApiName                     = "rest-api"
@@ -30,8 +30,8 @@ const (
 	ThreeportAwsControllerName               = "aws-controller"
 	ThreeportGatewayControllerName           = "gateway-controller"
 	ThreeportHelmWorkloadControllerName      = "helm-workload-controller"
-	ThreeportAgentName                       = "agent"
 	ThreeportObservabilityControllerName     = "observability-controller"
+	ThreeportAgentName                       = "agent"
 
 	// Endpoint for threeport API when running locally
 	ThreeportLocalAPIEndpoint = "localhost"
