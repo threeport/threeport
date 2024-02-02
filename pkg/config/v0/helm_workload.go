@@ -79,6 +79,11 @@ func (h *HelmWorkloadValues) Create(
 	apiEndpoint string,
 ) (*v0.HelmWorkloadDefinition, *v0.HelmWorkloadInstance, error) {
 
+	// validate required fields
+	if err := h.ValidateCreate(); err != nil {
+		return nil, nil, err
+	}
+
 	// get operations
 	operations, createdHelmWorkloadDefinition, createdHelmWorkloadInstance, err := h.GetOperations(apiClient, apiEndpoint)
 	if err != nil {
@@ -91,6 +96,38 @@ func (h *HelmWorkloadValues) Create(
 	}
 
 	return createdHelmWorkloadDefinition, createdHelmWorkloadInstance, nil
+}
+
+// ValidateCreate validates the helm workload values before creating a helm workload
+func (h *HelmWorkloadValues) ValidateCreate() error {
+	multiError := util.MultiError{}
+
+	// ensure name is set
+	if h.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: Name"))
+	}
+
+	// ensure repo is set
+	if h.Repo == "" {
+		multiError.AppendError(errors.New("missing required field in config: Repo"))
+	}
+
+	// ensure chart is set
+	if h.Chart == "" {
+		multiError.AppendError(errors.New("missing required field in config: Chart"))
+	}
+
+	// ensure definition values or definition values document is set
+	if h.DefinitionValues != "" && h.DefinitionValuesDocument != "" {
+		multiError.AppendError(errors.New("cannot set both DefinitionValues and DefinitionValuesDocument"))
+	}
+
+	// ensure instance values or instance values document is set
+	if h.InstanceValues != "" && h.InstanceValuesDocument != "" {
+		multiError.AppendError(errors.New("cannot set both InstanceValues and InstanceValuesDocument"))
+	}
+
+	return multiError.Error()
 }
 
 // Delete deletes a helm workload definition, helm workload instance,
@@ -152,6 +189,34 @@ func (h *HelmWorkloadDefinitionValues) Create(
 	}
 
 	return createdHelmWorkloadDefinition, nil
+}
+
+// ValidateCreate validates the helm workload definition values before creating a helm
+// workload definition
+func (h *HelmWorkloadDefinitionValues) ValidateCreate() error {
+	multiError := util.MultiError{}
+
+	// ensure name is set
+	if h.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: Name"))
+	}
+
+	// ensure repo is set
+	if h.Repo == "" {
+		multiError.AppendError(errors.New("missing required field in config: Repo"))
+	}
+
+	// ensure chart is set
+	if h.Chart == "" {
+		multiError.AppendError(errors.New("missing required field in config: Chart"))
+	}
+
+	// ensure values or values document is set
+	if h.Values != "" && h.ValuesDocument != "" {
+		multiError.AppendError(errors.New("cannot set both Values and ValuesDocument"))
+	}
+
+	return multiError.Error()
 }
 
 // Delete deletes a helm workload definition from the Threeport API.
@@ -235,6 +300,39 @@ func (h *HelmWorkloadInstanceValues) Create(
 	}
 
 	return createdHelmWorkloadInstance, nil
+}
+
+// ValidateCreate validates the helm workload instance values before creating a helm
+// workload instance
+func (h *HelmWorkloadInstanceValues) ValidateCreate() error {
+	multiError := util.MultiError{}
+
+	// ensure name is set
+	if h.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: Name"))
+	}
+
+	// ensure kubernetes runtime instance is set
+	if h.KubernetesRuntimeInstance == nil {
+		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance"))
+	}
+
+	// ensure kubernetes runtime instance name is set
+	if h.KubernetesRuntimeInstance.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
+	}
+
+	// ensure helm workload definition name is set
+	if h.HelmWorkloadDefinition.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: HelmWorkloadDefinition.Name"))
+	}
+
+	// ensure values or values document is set
+	if h.Values != "" && h.ValuesDocument != "" {
+		multiError.AppendError(errors.New("cannot set both Values and ValuesDocument"))
+	}
+
+	return multiError.Error()
 }
 
 // Describe returns important failure events related to a helm workload instance.
