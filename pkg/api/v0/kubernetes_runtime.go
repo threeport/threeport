@@ -102,23 +102,11 @@ type KubernetesRuntimeInstance struct {
 	// If true, delete the runtime even if there are workloads present.
 	ForceDelete *bool `json:"ForceDelete,omitempty" query:"forcedelete" gorm:"default:false" validate:"optional"`
 
-	// If true, metrics will be enabled for the cluster.
-	MetricsEnabled *bool `json:"MetricsEnabled,omitempty" query:"metricsenabled" gorm:"default:false" validate:"optional"`
-
-	// If true, logging will be enabled for the cluster.
-	LoggingEnabled *bool `json:"LoggingEnabled,omitempty" query:"loggingenabled" gorm:"default:false" validate:"optional"`
-
 	// The WorkloadInstanceID of the gateway support service
 	GatewayControllerInstanceID *uint `json:"GatewayWorkloadInstanceID,omitempty" validate:"optional"`
 
 	// The WorkloadInstanceID of the gateway support service
 	DnsControllerInstanceID *uint `json:"DnsControllerInstanceId,omitempty" validate:"optional"`
-
-	// The MetricsInstanceID of the metrics deployment
-	MetricsInstanceID *sql.NullInt64 `json:"MetricsInstanceId,omitempty" validate:"optional"`
-
-	// The LoggingInstanceID of the logging deployment
-	LoggingInstanceID *sql.NullInt64 `json:"LoggingInstanceId,omitempty" validate:"optional"`
 
 	// An alternate threeport image to use when deploying threeport agent to
 	// managed Kubernetes runtime clusters.  If not supplied, the official image
