@@ -97,22 +97,22 @@ func (c *ObservabilityStackDefinitionConfig) getObservabilityStackDefinitionOper
 	// append observability dashboard definition operations
 	operations.AppendOperation(util.Operation{
 		Name:   "observability dashboard",
-		Create: func() error { return c.createObservabilityDashboardDefinition() },
-		Delete: func() error { return c.deleteObservabilityDashboardDefinition() },
+		Create: c.createObservabilityDashboardDefinition,
+		Delete: c.deleteObservabilityDashboardDefinition,
 	})
 
 	// append logging definition operations
 	operations.AppendOperation(util.Operation{
 		Name:   "logging",
-		Create: func() error { return c.createLoggingDefinition() },
-		Delete: func() error { return c.deleteLoggingDefinition() },
+		Create: c.createLoggingDefinition,
+		Delete: c.deleteLoggingDefinition,
 	})
 
 	// append metrics definition operations
 	operations.AppendOperation(util.Operation{
 		Name:   "metrics",
-		Create: func() error { return c.createMetricsDefinition() },
-		Delete: func() error { return c.deleteMetricsDefinition() },
+		Create: c.createMetricsDefinition,
+		Delete: c.deleteMetricsDefinition,
 	})
 
 	return &operations

@@ -162,15 +162,15 @@ func (c *LoggingDefinitionConfig) getLoggingDefinitionOperations() *util.Operati
 	// append loki operations
 	operations.AppendOperation(util.Operation{
 		Name:   "loki",
-		Create: func() error { return c.createLokiHelmWorkloadDefinition() },
-		Delete: func() error { return c.deleteLokiHelmWorkloadDefinition() },
+		Create: c.createLokiHelmWorkloadDefinition,
+		Delete: c.deleteLokiHelmWorkloadDefinition,
 	})
 
 	// append promtail operations
 	operations.AppendOperation(util.Operation{
 		Name:   "promtail",
-		Create: func() error { return c.createPromtailHelmWorkloadDefinition() },
-		Delete: func() error { return c.deletePromtailHelmWorkloadDefinition() },
+		Create: c.createPromtailHelmWorkloadDefinition,
+		Delete: c.deletePromtailHelmWorkloadDefinition,
 	})
 
 	return &operations
