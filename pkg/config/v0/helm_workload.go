@@ -502,7 +502,7 @@ func (h *HelmWorkloadValues) GetOperations(
 	//	})
 	//}
 
-	return &operations, &createdHelmWorkloadDefinition, &createdHelmWorkloadInstance
+	return &operations, &createdHelmWorkloadDefinition, &createdHelmWorkloadInstance, nil
 }
 
 // GetValuesDocumentFromPath returns the values document content from the path
