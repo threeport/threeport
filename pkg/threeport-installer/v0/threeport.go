@@ -20,7 +20,6 @@ const (
 	ThreeportHelmWorkloadControllerImage      = "threeport-helm-workload-controller"
 	ThreeportObservabilityControllerImage     = "threeport-observability-controller"
 	ThreeportAgentImage                       = "threeport-agent"
-	ThreeportObservabilityControllerImage     = "threeport-observability-controller"
 
 	// Name of threeport control plane components
 	ThreeportRestApiName                     = "rest-api"
@@ -33,7 +32,6 @@ const (
 	ThreeportHelmWorkloadControllerName      = "helm-workload-controller"
 	ThreeportObservabilityControllerName     = "observability-controller"
 	ThreeportAgentName                       = "agent"
-	ThreeportObservabilityControllerName     = "observability-controller"
 
 	// Endpoint for threeport API when running locally
 	ThreeportLocalAPIEndpoint = "localhost"
