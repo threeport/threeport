@@ -33,7 +33,7 @@ func Up00002(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	if err := gormDb.AutoMigrate(getObservabilityStackInterfaces()...); err != nil {
+	if err := gormDb.AutoMigrate(getObservabilityStackInterfaces()); err != nil {
 		return fmt.Errorf("could not run gorm AutoMigrate: %w", err)
 	}
 
