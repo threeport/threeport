@@ -14,14 +14,6 @@ definitions:
     - API
     - Versions
     type: object
-  sql.NullInt64:
-    properties:
-      int64:
-        type: integer
-      valid:
-        description: Valid is true if Int64 is not NULL
-        type: boolean
-    type: object
   v0.AttachedObjectReference:
     properties:
       ObjectID:
@@ -1056,13 +1048,6 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      HelmValuesDocument:
-        description: |-
-          The helm values that override the defaults from the helm chart.  These
-          will be inherited by each helm workload instance derived from this
-          definition.  The helm values defined here can be further overridden by
-          values defined on the helm workload instance.
-        type: string
       HelmWorkloadInstances:
         description: The associated helm workload instances that are deployed from
           this definition.
@@ -1139,13 +1124,6 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
-      HelmReleaseNamespace:
-        description: Namespace to deploy the helm chart to.
-        type: string
-      HelmValuesDocument:
-        description: Filepath to the helm values YAML file that provides runtime parameters
-          to the helm chart.
-        type: string
       HelmWorkloadDefinitionID:
         description: The definition used to configure the workload instance.
         type: integer
@@ -1166,6 +1144,9 @@ definitions:
         description: Indicates if object is considered to be reconciled by the object's
           controller.
         type: boolean
+      ReleaseNamespace:
+        description: Namespace to deploy the helm chart to.
+        type: string
       Status:
         description: |-
           The status of the instance.
@@ -1360,20 +1341,6 @@ definitions:
           abstraction for the cloud provider regions that is mapped into the
           regions used by providers.
         type: string
-      LoggingEnabled:
-        description: If true, logging will be enabled for the cluster.
-        type: boolean
-      LoggingInstanceId:
-        allOf:
-        - $ref: '#/definitions/sql.NullInt64'
-        description: The LoggingInstanceID of the logging deployment
-      MetricsEnabled:
-        description: If true, metrics will be enabled for the cluster.
-        type: boolean
-      MetricsInstanceId:
-        allOf:
-        - $ref: '#/definitions/sql.NullInt64'
-        description: The MetricsInstanceID of the metrics deployment
       Name:
         description: An arbitrary name the instance
         type: string
@@ -1789,20 +1756,10 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
+    - ObservabilityStackDefinition
+    - ObservabilityStackInstance
+    - ObservabilityDashboardDefinition
+    - ObservabilityDashboardInstance
     - MetricsDefinition
     - MetricsInstance
     - LoggingDefinition
@@ -1811,52 +1768,27 @@ definitions:
     - HelmWorkloadInstance
     - ControlPlaneDefinition
     - ControlPlaneInstance
-    - Profile
-    - Tier
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
-    - MetricsDefinition
-    - MetricsInstance
-    - LoggingDefinition
-    - LoggingInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
+    - Profile
+    - Tier
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1864,43 +1796,12 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - MetricsDefinition
-    - MetricsInstance
-    - LoggingDefinition
-    - LoggingInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - Profile
-    - Tier
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
+    - ObjectTypeObservabilityStackDefinition
+    - ObjectTypeObservabilityStackInstance
+    - ObjectTypeObservabilityDashboardDefinition
+    - ObjectTypeObservabilityDashboardInstance
     - ObjectTypeMetricsDefinition
     - ObjectTypeMetricsInstance
     - ObjectTypeLoggingDefinition
@@ -1909,52 +1810,27 @@ definitions:
     - ObjectTypeHelmWorkloadInstance
     - ObjectTypeControlPlaneDefinition
     - ObjectTypeControlPlaneInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
-    - ObjectTypeMetricsDefinition
-    - ObjectTypeMetricsInstance
-    - ObjectTypeLoggingDefinition
-    - ObjectTypeLoggingInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1962,27 +1838,358 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeMetricsDefinition
-    - ObjectTypeMetricsInstance
-    - ObjectTypeLoggingDefinition
-    - ObjectTypeLoggingInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
+  v0.ObservabilityDashboardDefinition:
+    properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      GrafanaHelmChartVersion:
+        description: The version of the grafana helm chart to use from the helm repo,
+          e.g. 1.2.3
+        type: string
+      GrafanaHelmValuesDocument:
+        description: |-
+          Optional Helm workload definition values that can be provided to configure the
+          underlying grafana chart.
+        type: string
+      GrafanaHelmWorkloadDefinitionID:
+        description: The Grafana Helm workload definition that belongs to this resource.
+        type: integer
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ObservabilityDashboardInstances:
+        description: The associated observability dashboard instances that are deployed
+          from this definition.
+        items:
+          $ref: '#/definitions/v0.ObservabilityDashboardInstance'
+        type: array
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.ObservabilityDashboardInstance:
+    properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      GrafanaHelmValuesDocument:
+        description: |-
+          Optional Helm workload definition values that can be provided to configure the
+          underlying grafana chart.
+        type: string
+      GrafanaHelmWorkloadInstanceID:
+        description: The Grafana Helm workload definition that belongs to this resource.
+        type: integer
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      KubernetesRuntimeInstanceID:
+        description: The kubernetes runtime where the ingress layer is installed.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      ObservabilityDashboardDefinitionID:
+        description: ObservabilityDashboardDefinitionID is the definition used to
+          configure the workload instance.
+        type: integer
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+    required:
+    - KubernetesRuntimeInstanceID
+    - Name
+    - ObservabilityDashboardDefinitionID
+    type: object
+  v0.ObservabilityStackDefinition:
+    properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      GrafanaHelmChartVersion:
+        description: The version of the grafana helm chart to use from the helm repo,
+          e.g. 1.2.3
+        type: string
+      GrafanaHelmValuesDocument:
+        description: |-
+          Optional Helm workload definition values that can be provided to configure the
+          underlying grafana chart.
+        type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      KubePrometheusStackHelmChartVersion:
+        description: The version of the kube-prometheus-stack helm chart to use from
+          the helm repo, e.g. 1.2.3
+        type: string
+      KubePrometheusStackHelmValuesDocument:
+        description: |-
+          Optional Helm workload definition values that can be provided to configure the
+          underlying kube-prometheus-stack chart.
+        type: string
+      LoggingDefinitionID:
+        description: |-
+          Logging
+          The logging definition that belongs to this resource.
+        type: integer
+      LokiHelmChartVersion:
+        description: The version of the loki helm chart to use from the helm repo,
+          e.g. 1.2.3
+        type: string
+      LokiHelmValuesDocument:
+        description: |-
+          Optional Helm workload definition values that can be provided to configure the
+          underlying loki chart.
+        type: string
+      MetricsDefinitionID:
+        description: |-
+          Metrics
+          The metrics definition that belongs to this resource.
+        type: integer
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ObservabilityDashboardDefinitionID:
+        description: |-
+          Dashboard
+          The observability dashboard definition that belongs to this resource.
+        type: integer
+      ObservabilityStackInstances:
+        description: The associated observability stack instances that are deployed
+          from this definition.
+        items:
+          $ref: '#/definitions/v0.ObservabilityStackInstance'
+        type: array
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      PromtailHelmChartVersion:
+        description: The version of the promtail helm chart to use from the helm repo,
+          e.g. 1.2.3
+        type: string
+      PromtailHelmValuesDocument:
+        description: |-
+          Optional Helm workload definition values that can be provided to configure the
+          underlying promtail chart.
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+    required:
+    - Name
+    type: object
+  v0.ObservabilityStackInstance:
+    properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      GrafanaHelmValuesDocument:
+        description: |-
+          Optional Helm workload instance values that can be provided to configure the
+          underlying grafana chart.
+        type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      KubePrometheusStackHelmValuesDocument:
+        description: |-
+          Optional Helm workload instance values that can be provided to configure the
+          underlying kube-prometheus-stack chart.
+        type: string
+      KubernetesRuntimeInstanceID:
+        description: The kubernetes runtime where the ingress layer is installed.
+        type: integer
+      LoggingEnabled:
+        description: If true, logging will be enabled for the observability stack.
+        type: boolean
+      LoggingInstanceID:
+        description: |-
+          Logging
+          The logging instance that belongs to this resource.
+        type: integer
+      LokiHelmValuesDocument:
+        description: |-
+          Optional Helm workload instance values that can be provided to configure the
+          underlying loki chart.
+        type: string
+      MetricsEnabled:
+        description: If true, metrics will be enabled for the observability stack.
+        type: boolean
+      MetricsInstanceID:
+        description: |-
+          Metrics
+          The metrics instance that belongs to this resource.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      ObservabilityDashboardInstanceID:
+        description: |-
+          Dashboard
+          The observability dashboard instance that belongs to this resource.
+        type: integer
+      ObservabilityStackDefinitionID:
+        description: ObservabilityStackDefinitionID is the definition used to configure
+          the workload instance.
+        type: integer
+      PromtailHelmValuesDocument:
+        description: |-
+          Optional Helm workload Instancehat can be provided to configure the
+          underlying promtail chart.
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+    required:
+    - KubernetesRuntimeInstanceID
+    - Name
+    - ObservabilityStackDefinitionID
+    type: object
   v0.Profile:
     properties:
       Name:
