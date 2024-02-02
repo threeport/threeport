@@ -1,13 +1,16 @@
 package v0
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/version"
@@ -1135,19 +1138,27 @@ func DeleteNamespaces(
 
 	// initiate namespace deletion
 	for _, name := range namespaces {
-		namespace := &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Namespace",
-				"metadata": map[string]interface{}{
-					"name": name,
-				},
+
+		// configure resource interface
+		namespaceResource := kubeClient.Resource(
+			schema.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "namespaces",
 			},
+		)
+		deletePolicy := metav1.DeletePropagationForeground
+		deleteOptions := metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
 		}
 
-		// delete the service
-		if err := kube.DeleteResource(namespace, kubeClient, *mapper); err != nil {
-			return fmt.Errorf("failed to delete the threeport API namespace resource: %w", err)
+		// delete the namespace
+		if err := namespaceResource.Delete(
+			context.TODO(),
+			name,
+			deleteOptions,
+		); err != nil {
+			return fmt.Errorf("failed to delete namespace: %w", err)
 		}
 	}
 
