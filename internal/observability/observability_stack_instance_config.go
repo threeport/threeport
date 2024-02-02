@@ -187,6 +187,9 @@ func (c *ObservabilityStackInstanceConfig) setMergedObservabilityStackInstanceVa
 		return fmt.Errorf("failed to merge grafana helm values: %w", err)
 	}
 
+	// Only configure grafana service monitor if metrics are enabled, as
+	// this depends on the ServiceMonitor CRD being installed in the cluster
+	// and the kube-prometheus-stack being installed to scrape its metrics.
 	if *c.observabilityStackInstance.MetricsEnabled {
 		// merge grafana prometheus service monitor
 		c.grafanaHelmValuesDocument, err = helmworkload.MergeHelmValuesString(
