@@ -25,7 +25,7 @@ type HelmWorkloadDefinition struct {
 	// will be inherited by each helm workload instance derived from this
 	// definition.  The helm values defined here can be further overridden by
 	// values defined on the helm workload instance.
-	ValuesDocument *string `json:"ValuesDocument,omitempty"  validate:"optional"`
+	ValuesDocument *string `json:"ValuesDocument,omitempty" validate:"optional"`
 
 	// The associated helm workload instances that are deployed from this definition.
 	HelmWorkloadInstances []*HelmWorkloadInstance `json:"HelmWorkloadInstances,omitempty" validate:"optional,association"`
