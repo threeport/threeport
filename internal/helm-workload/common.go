@@ -9,7 +9,8 @@ import (
 	"helm.sh/helm/v3/pkg/cli/values"
 )
 
-// MergeHelmValuesGo merges two helm values documents.
+// MergeHelmValuesGo merges two helm values documents and
+// returns the result as a map[string]interface{}.
 func MergeHelmValuesGo(base, override string) (map[string]interface{}, error) {
 
 	temporaryFiles := map[string]string{
@@ -46,7 +47,8 @@ func MergeHelmValuesGo(base, override string) (map[string]interface{}, error) {
 	return grafanaGoValues, nil
 }
 
-// MergeHelmValuesString merges two helm values documents.
+// MergeHelmValuesString merges two helm values documents and
+// returns the result as a string.
 func MergeHelmValuesString(base, override string) (string, error) {
 
 	// if one input is empty, return the other
