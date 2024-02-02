@@ -4,10 +4,11 @@ ObservabilityStack:
     Name: eks-remote
   MetricsEnabled: true
   LoggingEnabled: true
-  # LokiHelmValuesDocument: |
-  # PromtailHelmValuesDocument: |
-  # KubePrometheusStackHelmValuesDocument: |
-  # GrafanaHelmValuesDocument: |
+  # LokiHelmValues: |
+  # PromtailHelmValues: |
+  # KubePrometheusStackHelmValues: |
+  # KubePrometheusStackHelmValuesDocument: kube-prometheus-stack-values.yaml
+  # GrafanaHelmValues: |
   #   grafana.ini:
   #     auth.anonymous:
   #       enabled: true
