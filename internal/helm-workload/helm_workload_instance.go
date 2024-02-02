@@ -145,14 +145,12 @@ func helmWorkloadInstanceCreated(
 	// deploy the helm workload
 	release, err := install.Run(chart, helmValues)
 	if err != nil {
-		if release != nil {
-			if uninstallErr := uninstallHelmRelease(
-				release.Name,
-				actionConf,
-				kubeClient,
-			); err != nil {
-				return 0, fmt.Errorf("failed to uninstall helm release: %w after failed to install helm chart: %w", uninstallErr, err)
-			}
+		if uninstallErr := uninstallHelmRelease(
+			install.ReleaseName,
+			actionConf,
+			kubeClient,
+		); err != nil {
+			return 0, fmt.Errorf("failed to uninstall helm release: %w after failed to install helm chart: %w", uninstallErr, err)
 		}
 		return 0, fmt.Errorf("failed to install helm chart: %w", err)
 	}
