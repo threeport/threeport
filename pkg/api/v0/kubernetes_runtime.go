@@ -2,9 +2,7 @@
 //go:generate threeport-codegen controller --filename $GOFILE
 package v0
 
-import (
-	"time"
-)
+import "time"
 
 // +threeport-codegen:reconciler
 // KubernetesRuntimeDefinition is the configuration for a Kubernetes cluster.
