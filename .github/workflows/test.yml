@@ -115,6 +115,7 @@ jobs:
         image_tag: ${{ github.sha }}
 
   build-control-plane-controller:
+    runs-on: ubuntu-22.04
     steps:
     - name: Check out code
       uses: actions/checkout@v4
