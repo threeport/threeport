@@ -809,6 +809,44 @@ store_dir: /data
 	if err := cpi.CreateOrUpdateKubeResource(crdbStatefulSet, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
+
+	// configure threeport api service
+	apiServicePortName, apiServicePort := cpi.GetAPIServicePort()
+
+	// configure node port based on infra provider
+	port := map[string]interface{}{
+		"name":       apiServicePortName,
+		"port":       apiServicePort,
+		"protocol":   "TCP",
+		"targetPort": 1323,
+	}
+	if cpi.Opts.InfraProvider == "kind" && !cpi.Opts.InThreeport {
+		port["nodePort"] = 30000
+	}
+	var apiService = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Service",
+			"metadata": map[string]interface{}{
+				"name":        cpi.Opts.RestApiInfo.ServiceResourceName,
+				"namespace":   cpi.Opts.Namespace,
+				"annotations": cpi.getAPIServiceAnnotations(),
+			},
+			"spec": map[string]interface{}{
+				"selector": map[string]interface{}{
+					"app.kubernetes.io/name": cpi.Opts.RestApiInfo.ServiceResourceName,
+				},
+				"ports": []interface{}{
+					port,
+				},
+				"type": cpi.getAPIServiceType(),
+			},
+		},
+	}
+	if err := cpi.CreateOrUpdateKubeResource(apiService, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create/update API server service: %w", err)
+	}
+
 	return nil
 }
 
