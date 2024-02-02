@@ -161,10 +161,14 @@ jobs:
   test:
     needs:
       - build-threeport-api
+      - build-threeport-database-migrator
       - build-workload-controller
       - build-kubernetes-runtime-controller
       - build-aws-controller
       - build-gateway-controller
+      - build-observability-controller
+      - build-control-plane-controller
+      - build-helm-workload-controller
       - build-threeport-agent
     runs-on: ubuntu-22.04
     steps:
