@@ -17,6 +17,7 @@ import (
 
 var (
 	deleteHelmWorkloadConfigPath string
+	deleteHelmWorkloadName       string
 )
 
 // DeleteHelmWorkloadCmd represents the helm-workload command
@@ -37,15 +38,23 @@ and helm workload instance based on the helm workload config or name.`,
 		}
 
 		var helmWorkloadConfig config.HelmWorkloadConfig
-		// load helm workload definition config
-		configContent, err := os.ReadFile(deleteHelmWorkloadConfigPath)
-		if err != nil {
-			cli.Error("failed to read config file", err)
-			os.Exit(1)
-		}
-		if err := yaml.Unmarshal(configContent, &helmWorkloadConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
-			os.Exit(1)
+		if deleteHelmWorkloadConfigPath != "" {
+			// load helm workload definition config
+			configContent, err := os.ReadFile(deleteHelmWorkloadConfigPath)
+			if err != nil {
+				cli.Error("failed to read config file", err)
+				os.Exit(1)
+			}
+			if err := yaml.Unmarshal(configContent, &helmWorkloadConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+		} else {
+			helmWorkloadConfig = config.HelmWorkloadConfig{
+				HelmWorkload: config.HelmWorkloadValues{
+					Name: deleteHelmWorkloadName,
+				},
+			}
 		}
 
 		// add path to helm workload config - used to determine relative path from
@@ -54,7 +63,7 @@ and helm workload instance based on the helm workload config or name.`,
 
 		// delete helm workload
 		helmWorkload := helmWorkloadConfig.HelmWorkload
-		_, _, err = helmWorkload.Delete(apiClient, apiEndpoint)
+		_, _, err := helmWorkload.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete helm workload", err)
 			os.Exit(1)
@@ -76,5 +85,9 @@ func init() {
 	DeleteHelmWorkloadCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteHelmWorkloadCmd.Flags().StringVarP(
+		&deleteHelmWorkloadName,
+		"name", "n", "", "Optional. Name of helm workload.",
 	)
 }
