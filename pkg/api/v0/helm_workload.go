@@ -2,6 +2,8 @@
 //go:generate threeport-codegen controller --filename $GOFILE
 package v0
 
+import "gorm.io/datatypes"
+
 // +threeport-codegen:reconciler
 // HelmWorkloadDefinition includes the helm repo and chart that is used to
 // configure the workload.
@@ -29,6 +31,9 @@ type HelmWorkloadDefinition struct {
 
 	// The associated helm workload instances that are deployed from this definition.
 	HelmWorkloadInstances []*HelmWorkloadInstance `json:"HelmWorkloadInstances,omitempty" validate:"optional,association"`
+
+	// Extra objects to be applied to the helm workload instance.
+	ExtraObjects []*datatypes.JSON `json:"ExtraObjects,omitempty" validate:"optional"`
 }
 
 // +threeport-codegen:reconciler
@@ -51,4 +56,7 @@ type HelmWorkloadInstance struct {
 
 	// The definition used to configure the workload instance.
 	HelmWorkloadDefinitionID *uint `json:"HelmWorkloadDefinitionID,omitempty" query:"helmworkloaddefinitionid" gorm:"not null" validate:"required"`
+
+	// Extra objects to be applied to the helm workload instance.
+	ExtraObjects []*datatypes.JSON `json:"ExtraObjects,omitempty" validate:"optional"`
 }

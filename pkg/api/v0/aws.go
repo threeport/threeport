@@ -193,3 +193,29 @@ type AwsObjectStorageBucketInstance struct {
 	// The ID of the workload instance that uses the S3 bucket.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 }
+
+// +threeport-codegen:reconciler
+// AwsSecretDefinition is the configuration for a secret stored in
+// AWS Secrets Manager.
+type AwsSecretDefinition struct {
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Instance       `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
+
+	// The secret value to be stored in the provider.
+	Data *datatypes.JSON `json:"Data,omitempty" query:"data" gorm:"not null" validate:"required" encrypt:"true"`
+}
+
+// AwsSecretInstance is the configuration for a secret stored in
+// AWS Secrets Manager that is used by a workload.
+type AwsSecretInstance struct {
+	Common         `swaggerignore:"true" mapstructure:",squash"`
+	Instance       `mapstructure:",squash"`
+	Reconciliation `mapstructure:",squash"`
+
+	// The workload instance that the secret is associated with.
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" validate:"optional"`
+
+	// The helm workload instance that the secret is associated with.
+	HelmWorkloadInstanceID *uint `json:"HelmWorkloadInstanceID,omitempty" query:"helmworkloadinstanceid" validate:"optional"`
+}
