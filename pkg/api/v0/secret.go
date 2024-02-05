@@ -15,7 +15,8 @@ type SecretDefinition struct {
 	Provider *string `json:"Provider,omitempty" query:"provider" gorm:"not null;default'aws'" validate:"required"`
 
 	// The secret value to be stored in the provider.
-	Data *datatypes.JSON `json:"Data,omitempty" query:"data" gorm:"not null" validate:"required" encrypt:"true"`
+	// todo: update BeforeCreate(), BeforeUpdate() to skip if persist=true
+	Data *datatypes.JSON `json:"Data,omitempty" query:"data" validate:"required" persist:"false"`
 }
 
 // +threeport-codegen:reconciler
