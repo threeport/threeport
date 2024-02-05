@@ -632,6 +632,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/secret-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for secret definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetSecretDefinitionVersions gets the supported versions for the secret definition API.",
+                "operationId": "secretDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/secret-instances/versions": {
+            "get": {
+                "description": "Get the supported API versions for secret instances.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetSecretInstanceVersions gets the supported versions for the secret instance API.",
+                "operationId": "secretInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/tiers/versions": {
             "get": {
                 "description": "Get the supported API versions for tiers.",
@@ -10204,6 +10240,568 @@ const docTemplate = `{
                 }
             }
         },
+        "/v0/secret-definitions": {
+            "get": {
+                "description": "Get all secret definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all secret definitions.",
+                "operationId": "get-secretDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "secret definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new secret definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new secret definition.",
+                "operationId": "add-secretDefinition",
+                "parameters": [
+                    {
+                        "description": "SecretDefinition object",
+                        "name": "secretDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/secret-definitions/{id}": {
+            "get": {
+                "description": "Get a particular secret definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a secret definition.",
+                "operationId": "get-secretDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a secret definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating secret definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing secret definition by replacing the entire object.",
+                "operationId": "replace-secretDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "SecretDefinition object",
+                        "name": "secretDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a secret definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a secret definition.",
+                "operationId": "delete-secretDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a secret definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating secret definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing secret definition.",
+                "operationId": "update-secretDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "SecretDefinition object",
+                        "name": "secretDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/secret-instances": {
+            "get": {
+                "description": "Get all secret instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all secret instances.",
+                "operationId": "get-secretInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "secret instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new secret instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new secret instance.",
+                "operationId": "add-secretInstance",
+                "parameters": [
+                    {
+                        "description": "SecretInstance object",
+                        "name": "secretInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/secret-instances/{id}": {
+            "get": {
+                "description": "Get a particular secret instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a secret instance.",
+                "operationId": "get-secretInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a secret instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating secret instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing secret instance by replacing the entire object.",
+                "operationId": "replace-secretInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "SecretInstance object",
+                        "name": "secretInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a secret instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a secret instance.",
+                "operationId": "delete-secretInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a secret instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating secret instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing secret instance.",
+                "operationId": "update-secretInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "SecretInstance object",
+                        "name": "secretInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/tiers": {
             "get": {
                 "description": "Get all tiers from the Threeport database.",
@@ -13220,6 +13818,16 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
+                "ExtraObjects": {
+                    "description": "Extra objects to be applied to the helm workload instance.",
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
                 "HelmWorkloadInstances": {
                     "description": "The associated helm workload instances that are deployed from this definition.",
                     "type": "array",
@@ -13288,6 +13896,16 @@ const docTemplate = `{
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
+                },
+                "ExtraObjects": {
+                    "description": "Extra objects to be applied to the helm workload instance.",
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
                 },
                 "HelmWorkloadDefinitionID": {
                     "description": "The definition used to configure the workload instance.",
@@ -13919,18 +14537,27 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ObservabilityStackDefinition",
-                "ObservabilityStackInstance",
-                "ObservabilityDashboardDefinition",
-                "ObservabilityDashboardInstance",
-                "MetricsDefinition",
-                "MetricsInstance",
-                "LoggingDefinition",
-                "LoggingInstance",
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "AwsObjectStorageBucketDefinition",
+                "AwsObjectStorageBucketInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "SecretDefinition",
+                "SecretInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "Profile",
+                "Tier",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
@@ -13940,39 +14567,33 @@ const docTemplate = `{
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "Profile",
-                "Tier",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "GatewayHttpPort",
-                "GatewayTcpPort",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance"
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeObservabilityStackDefinition",
-                "ObjectTypeObservabilityStackInstance",
-                "ObjectTypeObservabilityDashboardDefinition",
-                "ObjectTypeObservabilityDashboardInstance",
-                "ObjectTypeMetricsDefinition",
-                "ObjectTypeMetricsInstance",
-                "ObjectTypeLoggingDefinition",
-                "ObjectTypeLoggingInstance",
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeAwsObjectStorageBucketDefinition",
+                "ObjectTypeAwsObjectStorageBucketInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeSecretDefinition",
+                "ObjectTypeSecretInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
@@ -13982,25 +14603,10 @@ const docTemplate = `{
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeGatewayHttpPort",
-                "ObjectTypeGatewayTcpPort",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance"
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance"
             ]
         },
         "v0.ObservabilityDashboardDefinition": {
@@ -14385,6 +14991,131 @@ const docTemplate = `{
                 }
             }
         },
+        "v0.SecretDefinition": {
+            "type": "object",
+            "required": [
+                "Data",
+                "Name",
+                "Provider"
+            ],
+            "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CreationConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "CreationFailed": {
+                    "description": "Gets set to true if creation process fails.",
+                    "type": "boolean"
+                },
+                "Data": {
+                    "description": "The secret value to be stored in the provider.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "Name": {
+                    "description": "An arbitrary name for the definition.",
+                    "type": "string"
+                },
+                "ProfileID": {
+                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
+                    "type": "integer"
+                },
+                "Provider": {
+                    "description": "The provider that the secret is stored in.",
+                    "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "TierID": {
+                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                }
+            }
+        },
+        "v0.SecretInstance": {
+            "type": "object",
+            "required": [
+                "Name"
+            ],
+            "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CreationConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "CreationFailed": {
+                    "description": "Gets set to true if creation process fails.",
+                    "type": "boolean"
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "HelmWorkloadInstanceID": {
+                    "description": "The helm workload instance that the secret is associated with.",
+                    "type": "integer"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "SecretDefinitionID": {
+                    "description": "The SecretDefinition that the secret instance is derived from.",
+                    "type": "integer"
+                },
+                "Status": {
+                    "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                },
+                "WorkloadInstanceID": {
+                    "description": "The workload instance that the secret is associated with.",
+                    "type": "integer"
+                }
+            }
+        },
         "v0.Status": {
             "type": "object",
             "properties": {
@@ -14698,7 +15429,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.4.0-rc.1",
+	Version:          "v0.4.0",
 	Host:             "rest-api.threeport.io",
 	BasePath:         "/",
 	Schemes:          []string{},

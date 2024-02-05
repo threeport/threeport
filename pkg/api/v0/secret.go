@@ -4,6 +4,7 @@ package v0
 
 import "gorm.io/datatypes"
 
+// +threeport-codegen:reconciler
 // SecretDefinition defines a secret that can be deployed to a runtime.
 type SecretDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -11,12 +12,13 @@ type SecretDefinition struct {
 	Reconciliation `mapstructure:",squash"`
 
 	// The provider that the secret is stored in.
-	Provider *string `json:"Provider,omitempty" query:"provider" gorm:"not null;default'awssm'" validate:"required"`
+	Provider *string `json:"Provider,omitempty" query:"provider" gorm:"not null;default'aws'" validate:"required"`
 
 	// The secret value to be stored in the provider.
 	Data *datatypes.JSON `json:"Data,omitempty" query:"data" gorm:"not null" validate:"required" encrypt:"true"`
 }
 
+// +threeport-codegen:reconciler
 // SecretInstance is an instance of a secret deployed to a runtime.
 type SecretInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
