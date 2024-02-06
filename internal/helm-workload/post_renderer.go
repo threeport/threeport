@@ -2,8 +2,10 @@ package helmworkload
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 
+	"gorm.io/datatypes"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	yamlserailizer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
@@ -58,5 +60,57 @@ func (p *ThreeportPostRenderer) Run(renderedManifests *bytes.Buffer) (*bytes.Buf
 		postRenderedManifests += string(yamlBytes)
 	}
 
+	// append additional resources to post-rendered manifests
+	// from helm workload definition
+	postRenderedManifests, err := p.AppendAdditionalResources(
+		postRenderedManifests,
+		p.HelmWorkloadDefinition.AdditionalResources,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to append additional resources from helm workload definition: %w", err)
+	}
+
+	// append additional resources to post-rendered manifests
+	// from helm workload instance
+	postRenderedManifests, err = p.AppendAdditionalResources(
+		postRenderedManifests,
+		p.HelmWorkloadInstance.AdditionalResources,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to append additional resources from helm workload instance: %w", err)
+	}
+
 	return bytes.NewBuffer([]byte(postRenderedManifests)), nil
+}
+
+// AppendAdditionalResources appends additional resources to the given manifests.
+func (p *ThreeportPostRenderer) AppendAdditionalResources(
+	manifests string,
+	additionalResources *datatypes.JSON,
+) (string, error) {
+	if additionalResources == nil {
+		return manifests, nil
+	}
+
+	var v []map[string]interface{}
+	err := json.Unmarshal([]byte(*additionalResources), &v)
+	if err != nil {
+		return manifests, fmt.Errorf("failed to unmarshal vol json: %w", err)
+	}
+
+	for _, additionalResource := range v {
+		// convert unstructured kube object back to yaml
+
+		kubeObject := &unstructured.Unstructured{Object: additionalResource}
+		kubeObject.SetNamespace(*p.HelmWorkloadInstance.ReleaseNamespace)
+		yamlBytes, err := yaml.Marshal(additionalResource)
+		if err != nil {
+			return "", fmt.Errorf("failed to convert unstructured object back to YAML: %w", err)
+		}
+
+		manifests += "---\n"
+		manifests += string(yamlBytes)
+	}
+
+	return manifests, nil
 }
