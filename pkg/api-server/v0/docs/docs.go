@@ -13786,6 +13786,13 @@ const docTemplate = `{
                 "Repo"
             ],
             "properties": {
+                "AdditionalResources": {
+                    "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "Chart": {
                     "description": "The name of the helm chart to use from the helm repo, e.g. wordpress",
                     "type": "string"
@@ -13817,16 +13824,6 @@ const docTemplate = `{
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
-                },
-                "ExtraObjects": {
-                    "description": "Extra objects to be applied to the helm workload instance.",
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
                 },
                 "HelmWorkloadInstances": {
                     "description": "The associated helm workload instances that are deployed from this definition.",
@@ -13873,6 +13870,13 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AdditionalResources": {
+                    "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -13896,16 +13900,6 @@ const docTemplate = `{
                 "DeletionScheduled": {
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
-                },
-                "ExtraObjects": {
-                    "description": "Extra objects to be applied to the helm workload instance.",
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
                 },
                 "HelmWorkloadDefinitionID": {
                     "description": "The definition used to configure the workload instance.",
@@ -14537,76 +14531,92 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
-                "SecretDefinition",
-                "SecretInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "GatewayHttpPort",
-                "GatewayTcpPort",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "Profile",
-                "Tier",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance",
+                "ObservabilityStackDefinition",
+                "ObservabilityStackInstance",
+                "ObservabilityDashboardDefinition",
+                "ObservabilityDashboardInstance",
+                "MetricsDefinition",
+                "MetricsInstance",
+                "LoggingDefinition",
+                "LoggingInstance",
+                "SecretDefinition",
+                "SecretInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "Profile",
+                "Tier",
                 "HelmWorkloadDefinition",
-                "HelmWorkloadInstance"
+                "HelmWorkloadInstance",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "AwsObjectStorageBucketDefinition",
+                "AwsObjectStorageBucketInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
-                "ObjectTypeSecretDefinition",
-                "ObjectTypeSecretInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeGatewayHttpPort",
-                "ObjectTypeGatewayTcpPort",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
+                "ObjectTypeObservabilityStackDefinition",
+                "ObjectTypeObservabilityStackInstance",
+                "ObjectTypeObservabilityDashboardDefinition",
+                "ObjectTypeObservabilityDashboardInstance",
+                "ObjectTypeMetricsDefinition",
+                "ObjectTypeMetricsInstance",
+                "ObjectTypeLoggingDefinition",
+                "ObjectTypeLoggingInstance",
+                "ObjectTypeSecretDefinition",
+                "ObjectTypeSecretInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance"
+                "ObjectTypeHelmWorkloadInstance",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeAwsObjectStorageBucketDefinition",
+                "ObjectTypeAwsObjectStorageBucketInstance"
             ]
         },
         "v0.ObservabilityDashboardDefinition": {
@@ -15012,7 +15022,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "Data": {
-                    "description": "The secret value to be stored in the provider.",
+                    "description": "The secret value to be stored in the provider.\ntodo: update BeforeCreate(), BeforeUpdate() to skip if persist=true",
                     "type": "array",
                     "items": {
                         "type": "integer"
@@ -15429,7 +15439,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.4.0",
+	Version:          "v0.4.0-rc.1",
 	Host:             "rest-api.threeport.io",
 	BasePath:         "/",
 	Schemes:          []string{},

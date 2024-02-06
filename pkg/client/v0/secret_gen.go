@@ -132,7 +132,7 @@ func GetSecretDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v
 
 	switch {
 	case len(secretDefinitions) < 1:
-		return &v0.SecretDefinition{}, errors.New(fmt.Sprintf("no secret definition with name %s", name))
+		return &v0.SecretDefinition{}, ErrObjectNotFound
 	case len(secretDefinitions) > 1:
 		return &v0.SecretDefinition{}, errors.New(fmt.Sprintf("more than one secret definition with name %s returned", name))
 	}
@@ -367,7 +367,7 @@ func GetSecretInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.
 
 	switch {
 	case len(secretInstances) < 1:
-		return &v0.SecretInstance{}, errors.New(fmt.Sprintf("no secret instance with name %s", name))
+		return &v0.SecretInstance{}, ErrObjectNotFound
 	case len(secretInstances) > 1:
 		return &v0.SecretInstance{}, errors.New(fmt.Sprintf("more than one secret instance with name %s returned", name))
 	}

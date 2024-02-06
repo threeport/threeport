@@ -111,7 +111,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 				*secretDefinition.ID,
 			)
 			// check if error is 404 - if object no longer exists, no need to requeue
-			if errors.Is(err, client.ErrorObjectNotFound) {
+			if errors.Is(err, client.ErrObjectNotFound) {
 				log.Info(fmt.Sprintf(
 					"object with ID %d no longer exists - halting reconciliation",
 					*secretDefinition.ID,
@@ -249,10 +249,9 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledSecretDefinition := v0.SecretDefinition{
 					Common:         v0.Common{ID: secretDefinition.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
 				updatedSecretDefinition, err := client.UpdateSecretDefinition(
 					r.APIClient,
