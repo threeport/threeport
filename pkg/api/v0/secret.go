@@ -5,20 +5,17 @@ package v0
 import "gorm.io/datatypes"
 
 // +threeport-codegen:reconciler
+// +threeport-codegen:add-custom-middleware
 // SecretDefinition defines a secret that can be deployed to a runtime.
 type SecretDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Definition     `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// // The provider that the secret is stored in.
-	// Provider *string `json:"Provider,omitempty" query:"provider" gorm:"not null;default'aws'" validate:"required"`
-
 	// The AWS account ID, if the provider is AWS.
 	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" validate:"optional"`
 
 	// The secret value to be stored in the provider.
-	// todo: update BeforeCreate(), BeforeUpdate() to skip if persist=true
 	Data *datatypes.JSON `json:"Data,omitempty" query:"data" validate:"required" persist:"false"`
 }
 
