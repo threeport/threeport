@@ -3,7 +3,6 @@ package aws
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -63,9 +62,10 @@ func awsObjectStorageBucketInstanceCreated(
 	err := client.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
-		reflect.TypeOf(*awsObjectStorageBucketInstance).String(),
-		awsObjectStorageBucketInstance.ID,
+		util.TypeName(v0.WorkloadInstance{}),
 		awsObjectStorageBucketInstance.WorkloadInstanceID,
+		util.TypeName(*awsObjectStorageBucketInstance),
+		awsObjectStorageBucketInstance.ID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)

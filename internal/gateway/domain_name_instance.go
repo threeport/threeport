@@ -3,7 +3,6 @@ package gateway
 import (
 	"errors"
 	"fmt"
-	"reflect"
 
 	"strconv"
 
@@ -12,6 +11,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -26,9 +26,10 @@ func domainNameInstanceCreated(
 	err := client.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
-		reflect.TypeOf(*domainNameInstance).String(),
-		domainNameInstance.ID,
+		util.TypeName(v0.WorkloadInstance{}),
 		domainNameInstance.WorkloadInstanceID,
+		util.TypeName(*domainNameInstance),
+		domainNameInstance.ID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)

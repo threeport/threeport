@@ -436,20 +436,20 @@ func workloadInstanceDeleted(
 	// This is because the AttachedObjectReferences relation is deleted when the
 	// WorkloadInstance is deleted, so we can't use those references anymore in
 	// the deletion handler.
-	attachedObjectReferences, err := client.GetAttachedObjectReferencesByWorkloadInstanceID(r.APIClient, r.APIServer, *workloadInstance.ID)
+	attachedObjectReferences, err := client.GetAttachedObjectReferencesByObjectID(r.APIClient, r.APIServer, *workloadInstance.ID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
 	}
 	for _, object := range *attachedObjectReferences {
-		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.Type, *object.ObjectID)
+		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.AttachedObjectType, *object.AttachedObjectID)
 		if err != nil {
 			switch {
 			case errors.Is(err, client.ErrObjectNotFound):
-				log.Info("attached object has already been deleted", "objectID", *object.ObjectID)
+				log.Info("attached object has already been deleted", "objectID", *object.AttachedObjectID)
 			case errors.Is(err, client.ErrConflict):
-				log.Info("attached object is already being deleted", "objectID", *object.ObjectID)
+				log.Info("attached object is already being deleted", "objectID", *object.AttachedObjectID)
 			default:
-				return 0, fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.Type, *object.ID, err)
+				return 0, fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.AttachedObjectType, *object.ID, err)
 			}
 		}
 		_, err = client.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *object.ID)
