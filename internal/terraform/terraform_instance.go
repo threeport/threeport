@@ -6,12 +6,12 @@ import (
 	"os/exec"
 
 	"github.com/go-logr/logr"
-	"gorm.io/datatypes"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // terraformInstanceCreated reconciles state for a new terraform instance.
@@ -30,55 +30,39 @@ func terraformInstanceCreated(
 		return 0, fmt.Errorf("failed to set up terraform: %w", err)
 	}
 
-	// write terraform vars if applicable
-	tfVarsFilepath := fmt.Sprintf("%s/terraform.tfvars", tfDirName)
-	if terraformInstance.TerraformVarsDocument != nil {
-		if err := os.WriteFile(tfVarsFilepath, []byte(*terraformInstance.TerraformVarsDocument), 0644); err != nil {
-			return 0, fmt.Errorf("failed to write terraform vars to file: %w", err)
-		}
+	c := &TerraformInstanceConfig{
+		r:                 r,
+		terraformInstance: terraformInstance,
+		log:               log,
+		tfDirName:         tfDirName,
+		accessKeyId:       accessKeyId,
+		secretAccessKey:   secretAccessKey,
 	}
 
-	// execute 'terrform apply'
-	applyCmd := exec.Command(
-		"terraform",
-		fmt.Sprintf("-chdir=%s", tfDirName),
-		"apply",
-		"-auto-approve",
-	)
-	applyCmd.Env = append(
-		applyCmd.Environ(),
-		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", accessKeyId),
-		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", secretAccessKey),
-	)
-	applyOut, err := applyCmd.CombinedOutput()
-	if err != nil {
-		return 0, fmt.Errorf("failed to apply terrform config with output '%s': %w", string(applyOut), err)
-	}
-	log.V(0).Info(
-		"terraform apply command executed",
-		"output", string(applyOut),
-	)
+	// get terraform instance operations
+	operations := getTerraformInstanceOperations(c)
 
-	// capture the terraform state and store
-	tfStateContent, err := os.ReadFile(fmt.Sprintf("%s/terraform.tfstate", tfDirName))
-	if err != nil {
-		return 0, fmt.Errorf("failed to read terraform state file: %w", err)
+	// execute terraform instance create
+	if err := operations.Create(); err != nil {
+		return 0, fmt.Errorf("failed to execute terraform instance create operations: %w", err)
 	}
-	tfStateJson := datatypes.JSON(tfStateContent)
-	terraformInstance.TerraformStateDocument = &tfStateJson
-	_, err = client.UpdateTerraformInstance(
+
+	// update the terraform instance
+	terraformInstance.Reconciled = util.BoolPtr(true)
+	terraformInstance.TerraformStateDocument = &c.tfState
+	terraformInstance.TerraformOutputs = &c.tfOutput
+	if _, err := client.UpdateTerraformInstance(
 		r.APIClient,
 		r.APIServer,
 		terraformInstance,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to update terraform state for terraform instance: %w", err)
+	); err != nil {
+		return 0, fmt.Errorf("failed to update terraform instance: %w", err)
 	}
 
 	return 0, nil
 }
 
-// terraformInstanceCreated reconciles state for a terraform instance when it is
+// terraformInstanceUpadated reconciles state for a terraform instance when it is
 // changed.
 func terraformInstanceUpdated(
 	r *controller.Reconciler,
@@ -88,7 +72,7 @@ func terraformInstanceUpdated(
 	return 0, nil
 }
 
-// terraformInstanceCreated reconciles state for a terraform instance when it is
+// terraformInstanceDeleted reconciles state for a terraform instance when it is
 // removed.
 func terraformInstanceDeleted(
 	r *controller.Reconciler,
@@ -105,39 +89,22 @@ func terraformInstanceDeleted(
 		return 0, fmt.Errorf("failed to set up terraform: %w", err)
 	}
 
-	// write terraform state file
-	_, err = os.Stat(tfDirName)
-	if os.IsNotExist(err) {
-		if err := os.Mkdir(tfDirName, os.ModePerm); err != nil {
-			return 0, fmt.Errorf("failed to create directory for terraform config: %w", err)
-		}
-	}
-	tfStateFilepath := fmt.Sprintf("%s/terraform.tfstate", tfDirName)
-	if err := os.WriteFile(tfStateFilepath, []byte(*terraformInstance.TerraformStateDocument), 0644); err != nil {
-		return 0, fmt.Errorf("failed to write terraform state to file: %w", err)
+	c := &TerraformInstanceConfig{
+		r:                 r,
+		terraformInstance: terraformInstance,
+		log:               log,
+		tfDirName:         tfDirName,
+		accessKeyId:       accessKeyId,
+		secretAccessKey:   secretAccessKey,
 	}
 
-	// execute 'terrform destroy'
-	destroyCmd := exec.Command(
-		"terraform",
-		fmt.Sprintf("-chdir=%s", tfDirName),
-		"destroy",
-		"-auto-approve",
-	)
-	destroyCmd.Env = append(
-		destroyCmd.Environ(),
-		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", accessKeyId),
-		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", secretAccessKey),
-	)
-	destroyOut, err := destroyCmd.CombinedOutput()
-	if err != nil {
-		return 0, fmt.Errorf("failed to destroy terrform config with output '%s': %w", string(destroyOut), err)
-	}
+	// get terraform instance operations
+	operations := getTerraformInstanceOperations(c)
 
-	log.V(0).Info(
-		"terraform destroy command executed",
-		"output", string(destroyOut),
-	)
+	// execute terraform instance create
+	if err := operations.Delete(); err != nil {
+		return 0, fmt.Errorf("failed to execute terraform instance delete operations: %w", err)
+	}
 
 	return 0, nil
 }
@@ -177,6 +144,7 @@ func setupTerraform(
 		"terraform",
 		fmt.Sprintf("-chdir=%s", tfDirName),
 		"init",
+		"-no-color",
 	)
 	initOut, err := initCmd.CombinedOutput()
 	if err != nil {
@@ -203,6 +171,29 @@ func setupTerraform(
 	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to decrypt AWS account secret access key: %w", err)
+	}
+
+	// decrypt encrypted values
+	if terraformInstance.TerraformVarsDocument != nil {
+		terraformVarsDoc, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.TerraformVarsDocument)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to decrypt terraform vars document: %w", err)
+		}
+		terraformInstance.TerraformVarsDocument = &terraformVarsDoc
+	}
+	if terraformInstance.TerraformStateDocument != nil {
+		terraformStateDoc, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.TerraformStateDocument)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to decrypt terraform state document: %w", err)
+		}
+		terraformInstance.TerraformStateDocument = &terraformStateDoc
+	}
+	if terraformInstance.TerraformOutputs != nil {
+		terraformOutputs, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.TerraformOutputs)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to decrypt terraform outputs: %w", err)
+		}
+		terraformInstance.TerraformOutputs = &terraformOutputs
 	}
 
 	return tfDirName, accessKeyId, secretAccessKey, nil

@@ -14517,8 +14517,14 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
+                "ObservabilityStackDefinition",
+                "ObservabilityStackInstance",
+                "ObservabilityDashboardDefinition",
+                "ObservabilityDashboardInstance",
+                "MetricsDefinition",
+                "MetricsInstance",
+                "LoggingDefinition",
+                "LoggingInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
@@ -14529,8 +14535,6 @@ const docTemplate = `{
                 "ControlPlaneInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
-                "TerraformDefinition",
-                "TerraformInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -14538,6 +14542,8 @@ const docTemplate = `{
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
                 "AwsObjectStorageBucketInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
                 "Profile",
                 "Tier",
                 "GatewayDefinition",
@@ -14546,23 +14552,23 @@ const docTemplate = `{
                 "GatewayTcpPort",
                 "DomainNameDefinition",
                 "DomainNameInstance",
-                "ObservabilityStackDefinition",
-                "ObservabilityStackInstance",
-                "ObservabilityDashboardDefinition",
-                "ObservabilityDashboardInstance",
-                "MetricsDefinition",
-                "MetricsInstance",
-                "LoggingDefinition",
-                "LoggingInstance",
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
                 "LogBackend",
                 "LogStorageDefinition",
-                "LogStorageInstance"
+                "LogStorageInstance",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
+                "TerraformDefinition",
+                "TerraformInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeObservabilityStackDefinition",
+                "ObjectTypeObservabilityStackInstance",
+                "ObjectTypeObservabilityDashboardDefinition",
+                "ObjectTypeObservabilityDashboardInstance",
+                "ObjectTypeMetricsDefinition",
+                "ObjectTypeMetricsInstance",
+                "ObjectTypeLoggingDefinition",
+                "ObjectTypeLoggingInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
@@ -14573,8 +14579,6 @@ const docTemplate = `{
                 "ObjectTypeControlPlaneInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
-                "ObjectTypeTerraformDefinition",
-                "ObjectTypeTerraformInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
@@ -14582,6 +14586,8 @@ const docTemplate = `{
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
                 "ObjectTypeAwsObjectStorageBucketInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeProfile",
                 "ObjectTypeTier",
                 "ObjectTypeGatewayDefinition",
@@ -14590,19 +14596,13 @@ const docTemplate = `{
                 "ObjectTypeGatewayTcpPort",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
-                "ObjectTypeObservabilityStackDefinition",
-                "ObjectTypeObservabilityStackInstance",
-                "ObjectTypeObservabilityDashboardDefinition",
-                "ObjectTypeObservabilityDashboardInstance",
-                "ObjectTypeMetricsDefinition",
-                "ObjectTypeMetricsInstance",
-                "ObjectTypeLoggingDefinition",
-                "ObjectTypeLoggingInstance",
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance"
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
+                "ObjectTypeTerraformDefinition",
+                "ObjectTypeTerraformInstance"
             ]
         },
         "v0.ObservabilityDashboardDefinition": {
@@ -15127,12 +15127,13 @@ const docTemplate = `{
                     "description": "The definition used to configure the terraform resources.",
                     "type": "integer"
                 },
+                "TerraformOutputs": {
+                    "description": "The outputs defined in the terraform config that are collected from\nTerraform.",
+                    "type": "string"
+                },
                 "TerraformStateDocument": {
                     "description": "The terraform state json object that stores the inventory of\ninfrastructure being managed by terraform.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "TerraformVarsDocument": {
                     "description": "The .tfvars document that contains runtime parameters for an instance of\nsome terraform resources.",

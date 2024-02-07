@@ -1756,8 +1756,14 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
+    - ObservabilityStackDefinition
+    - ObservabilityStackInstance
+    - ObservabilityDashboardDefinition
+    - ObservabilityDashboardInstance
+    - MetricsDefinition
+    - MetricsInstance
+    - LoggingDefinition
+    - LoggingInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -1768,8 +1774,6 @@ definitions:
     - ControlPlaneInstance
     - ForwardProxyDefinition
     - ForwardProxyInstance
-    - TerraformDefinition
-    - TerraformInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1777,6 +1781,8 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     - Profile
     - Tier
     - GatewayDefinition
@@ -1785,23 +1791,23 @@ definitions:
     - GatewayTcpPort
     - DomainNameDefinition
     - DomainNameInstance
-    - ObservabilityStackDefinition
-    - ObservabilityStackInstance
-    - ObservabilityDashboardDefinition
-    - ObservabilityDashboardInstance
-    - MetricsDefinition
-    - MetricsInstance
-    - LoggingDefinition
-    - LoggingInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
+    - TerraformDefinition
+    - TerraformInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeObservabilityStackDefinition
+    - ObjectTypeObservabilityStackInstance
+    - ObjectTypeObservabilityDashboardDefinition
+    - ObjectTypeObservabilityDashboardInstance
+    - ObjectTypeMetricsDefinition
+    - ObjectTypeMetricsInstance
+    - ObjectTypeLoggingDefinition
+    - ObjectTypeLoggingInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -1812,8 +1818,6 @@ definitions:
     - ObjectTypeControlPlaneInstance
     - ObjectTypeForwardProxyDefinition
     - ObjectTypeForwardProxyInstance
-    - ObjectTypeTerraformDefinition
-    - ObjectTypeTerraformInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1821,6 +1825,8 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeProfile
     - ObjectTypeTier
     - ObjectTypeGatewayDefinition
@@ -1829,19 +1835,13 @@ definitions:
     - ObjectTypeGatewayTcpPort
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeObservabilityStackDefinition
-    - ObjectTypeObservabilityStackInstance
-    - ObjectTypeObservabilityDashboardDefinition
-    - ObjectTypeObservabilityDashboardInstance
-    - ObjectTypeMetricsDefinition
-    - ObjectTypeMetricsInstance
-    - ObjectTypeLoggingDefinition
-    - ObjectTypeLoggingInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeTerraformDefinition
+    - ObjectTypeTerraformInstance
   v0.ObservabilityDashboardDefinition:
     properties:
       CreationAcknowledged:
@@ -2360,13 +2360,16 @@ definitions:
       TerraformDefinitionID:
         description: The definition used to configure the terraform resources.
         type: integer
+      TerraformOutputs:
+        description: |-
+          The outputs defined in the terraform config that are collected from
+          Terraform.
+        type: string
       TerraformStateDocument:
         description: |-
           The terraform state json object that stores the inventory of
           infrastructure being managed by terraform.
-        items:
-          type: integer
-        type: array
+        type: string
       TerraformVarsDocument:
         description: |-
           The .tfvars document that contains runtime parameters for an instance of

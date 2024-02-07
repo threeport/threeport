@@ -111,3 +111,15 @@ func Decrypt(key, ciphertext string) (string, error) {
 	// return the plaintext as a string
 	return string(plaintext), nil
 }
+
+// IsEncrypted attempts to decrypt a value.  If decryption fails it returns
+// false to indicate the value provided is not encrypted.  If decryption is
+// successful it returns true to indicate the value is encrypted.
+func IsEncrypted(key, value string) bool {
+	_, err := Decrypt(key, value)
+	if err != nil {
+		return false
+	}
+
+	return true
+}
