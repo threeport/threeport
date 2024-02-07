@@ -493,6 +493,7 @@ func (cc *ControllerConfig) ExtensionMainPackage() error {
 
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/v0", "client")
 	f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
+	f.ImportAlias("github.com/qleet/qleetport/pkg/config/v0", "config")
 
 	//controllerShortName := strings.TrimSuffix(cc.Name, "-controller")
 	//controllerStreamName := fmt.Sprintf("%sStreamName", strcase.ToCamel(cc.ShortName))
@@ -652,6 +653,19 @@ func (cc *ControllerConfig) ExtensionMainPackage() error {
 					"NewLogger",
 				).Call(Id("zapLog")).Dot("WithValues").Call(Lit("controllerID"), Id("controllerID")),
 			),
+		),
+
+		Line().Comment("config setup"),
+		Id("err").Op(":=").Qual(
+			"github.com/qleet/qleetport/pkg/config/v0",
+			"InitServerConfig",
+		).Call(),
+		If(Err().Op("!=").Nil()).Block(
+			Id("log").Dot("Error").Call(
+				Err(),
+				Lit("failed to initialize controller config"),
+			),
+			Qual("os", "Exit").Call(Lit(1)),
 		),
 
 		Line().Comment("connect to NATS server"),
