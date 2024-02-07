@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -121,4 +122,9 @@ func StringPtrToString(input *string) string {
 		return ""
 	}
 	return *input
+}
+
+// TypeName returns the type name of the input.
+func TypeName(in any) string {
+	return reflect.TypeOf(in).String()
 }

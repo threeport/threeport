@@ -68,16 +68,6 @@ type WorkloadInstance struct {
 	AttachedObjectReferences []*AttachedObjectReference `json:"AttachedObjectReferences,omitempty" query:"attachedobjectreferences" validate:"optional,association"`
 }
 
-// AttachedObjectReference is a reference to an attached object.
-type AttachedObjectReference struct {
-	Common   `swaggerignore:"true" mapstructure:",squash"`
-	ObjectID *uint   `json:"ObjectID,omitempty" query:"objectid" gorm:"not null" validate:"optional"`
-	Type     *string `json:"Type,omitempty" query:"type" gorm:"not null" validate:"optional"`
-
-	// The workload definition this resource belongs to.
-	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
-}
-
 // WorkloadResourceInstance is a Kubernetes resource instance.
 type WorkloadResourceInstance struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`

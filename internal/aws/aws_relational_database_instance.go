@@ -3,7 +3,6 @@ package aws
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -45,9 +44,10 @@ func awsRelationalDatabaseInstanceCreated(
 	err := client.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
-		reflect.TypeOf(*awsRelationalDatabaseInstance).String(),
-		awsRelationalDatabaseInstance.ID,
+		util.TypeName(v0.WorkloadInstance{}),
 		awsRelationalDatabaseInstance.WorkloadInstanceID,
+		util.TypeName(*awsRelationalDatabaseInstance),
+		awsRelationalDatabaseInstance.ID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)

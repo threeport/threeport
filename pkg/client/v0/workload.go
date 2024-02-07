@@ -202,14 +202,14 @@ func DeleteWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, q
 	return &workloadEvents, nil
 }
 
-// GetAttachedObjectReferencesByWorkloadInstanceID fetches an attached object reference
+// GetAttachedObjectReferencesByObjectID fetches an attached object reference
 // by object ID.
-func GetAttachedObjectReferencesByWorkloadInstanceID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.AttachedObjectReference, error) {
+func GetAttachedObjectReferencesByObjectID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.AttachedObjectReference, error) {
 	var attachedObjectReferences []v0.AttachedObjectReference
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?workloadinstanceid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
+		fmt.Sprintf("%s%s?objectid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -235,26 +235,33 @@ func GetAttachedObjectReferencesByWorkloadInstanceID(apiClient *http.Client, api
 
 // EnsureAttachedObjectReferenceExists ensures that an attached object reference
 // exists for the given object type and ID.
-func EnsureAttachedObjectReferenceExists(apiClient *http.Client, apiAddr, objectType string, id, workloadInstanceID *uint) error {
-
-	attachedObjectReferences, err := GetAttachedObjectReferencesByWorkloadInstanceID(apiClient, apiAddr, *workloadInstanceID)
+func EnsureAttachedObjectReferenceExists(
+	apiClient *http.Client,
+	apiAddr string,
+	objectType string,
+	objectID *uint,
+	attachedObjectType string,
+	attachedObjectID *uint,
+) error {
+	attachedObjectReferences, err := GetAttachedObjectReferencesByObjectID(apiClient, apiAddr, *objectID)
 	if err != nil {
-		return fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
+		return fmt.Errorf("failed to get attached object references by object ID: %w", err)
 	}
 
 	// check if attached object reference already exists
 	for _, attachedObjectReference := range *attachedObjectReferences {
-		if *attachedObjectReference.Type == objectType &&
-			*attachedObjectReference.ObjectID == *id {
+		if *attachedObjectReference.AttachedObjectType == attachedObjectType &&
+			*attachedObjectReference.AttachedObjectID == *attachedObjectID {
 			return nil
 		}
 	}
 
 	// create attached object reference
 	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
-		Type:               &objectType,
-		ObjectID:           id,
-		WorkloadInstanceID: workloadInstanceID,
+		ObjectID:           objectID,
+		ObjectType:         &objectType,
+		AttachedObjectType: &attachedObjectType,
+		AttachedObjectID:   attachedObjectID,
 	}
 	_, err = CreateAttachedObjectReference(apiClient, apiAddr, workloadInstanceAttachedObjectReference)
 	if err != nil {
@@ -262,7 +269,6 @@ func EnsureAttachedObjectReferenceExists(apiClient *http.Client, apiAddr, object
 	}
 
 	return nil
-
 }
 
 // ConfirmWorkloadInstanceReconciled confirms whether a workload instance

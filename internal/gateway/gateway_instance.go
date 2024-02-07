@@ -3,7 +3,6 @@ package gateway
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -32,9 +31,10 @@ func gatewayInstanceCreated(
 	err := client.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
-		reflect.TypeOf(*gatewayInstance).String(),
-		gatewayInstance.ID,
+		util.TypeName(v0.WorkloadInstance{}),
 		gatewayInstance.WorkloadInstanceID,
+		util.TypeName(*gatewayInstance),
+		gatewayInstance.ID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)
