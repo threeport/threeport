@@ -5,14 +5,15 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
+
 	echo "github.com/labstack/echo/v4"
 	api "github.com/threeport/threeport/pkg/api"
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	gorm "gorm.io/gorm"
-	"net/http"
-	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,9 +74,11 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 	}
 
 	// persist to DB
+	data := secretDefinition.Data
 	if result := h.DB.Create(&secretDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
+	secretDefinition.Data = data
 
 	// notify controller if reconciliation is required
 	if !*secretDefinition.Reconciled {
