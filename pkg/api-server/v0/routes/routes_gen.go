@@ -47,8 +47,8 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	WorkloadDefinitionRoutes(e, h)
 	WorkloadResourceDefinitionRoutes(e, h)
 	WorkloadInstanceRoutes(e, h)
-	AttachedObjectReferenceRoutes(e, h)
 	WorkloadResourceInstanceRoutes(e, h)
 	WorkloadEventRoutes(e, h)
+	AttachedObjectReferenceRoutes(e, h)
 
 }

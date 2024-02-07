@@ -105,38 +105,6 @@ func AddWorkloadInstanceVersions() {
 	api.AddRestApiVersion(versionObj)
 }
 
-// AddAttachedObjectReferenceVersions adds field validation info and adds it
-// to the REST API versions.
-func AddAttachedObjectReferenceVersions() {
-	iapi.AttachedObjectReferenceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
-		Optional:             []string{},
-		OptionalAssociations: []string{},
-		Required:             []string{},
-		TagName:              iapi.TagNameValidate,
-	}
-
-	// parse struct and populate the FieldsByTag object
-	iapi.ParseStruct(
-		iapi.TagNameValidate,
-		reflect.ValueOf(new(v0.AttachedObjectReference)),
-		"",
-		iapi.Translate,
-		iapi.AttachedObjectReferenceTaggedFields,
-	)
-
-	// create a version object which contains the object name and versions
-	versionObj := iapi.VersionObject{
-		Object:  string(v0.ObjectTypeAttachedObjectReference),
-		Version: iapi.V0,
-	}
-
-	// add the object tagged fields to the global tagged fields map
-	iapi.ObjectTaggedFields[versionObj] = iapi.AttachedObjectReferenceTaggedFields[iapi.TagNameValidate]
-
-	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
-}
-
 // AddWorkloadResourceInstanceVersions adds field validation info and adds it
 // to the REST API versions.
 func AddWorkloadResourceInstanceVersions() {
@@ -196,6 +164,38 @@ func AddWorkloadEventVersions() {
 
 	// add the object tagged fields to the global tagged fields map
 	iapi.ObjectTaggedFields[versionObj] = iapi.WorkloadEventTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
+// AddAttachedObjectReferenceVersions adds field validation info and adds it
+// to the REST API versions.
+func AddAttachedObjectReferenceVersions() {
+	iapi.AttachedObjectReferenceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.AttachedObjectReference)),
+		"",
+		iapi.Translate,
+		iapi.AttachedObjectReferenceTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeAttachedObjectReference),
+		Version: iapi.V0,
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.AttachedObjectReferenceTaggedFields[iapi.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)
