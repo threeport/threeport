@@ -1,0 +1,5 @@
+Name: "billing-controller"
+ImageTag: "v0.2-custom"
+ImageName: "billing-aggregator-service"
+ImageRepo: "testrepo"
+Enabled: true

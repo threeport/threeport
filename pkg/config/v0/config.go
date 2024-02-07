@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -61,6 +62,9 @@ type ControlPlane struct {
 
 	// Client authentication credentials to threeport API.
 	Credentials []Credential `yaml:"Credentials"`
+
+	// Auth config
+	AuthConfig *auth.AuthConfig `yaml:"AuthConfig"`
 
 	// The encryption key used to encrypt secrets.
 	EncryptionKey string `yaml:"EncryptionKey"`
@@ -163,6 +167,16 @@ func (cfg *ThreeportConfig) GetEncryptionKey(requestedControlPlane string) (stri
 		return "", errors.New("current instance not found when retrieving encryption key")
 	}
 	return controlPlane.EncryptionKey, nil
+}
+
+// GetEncryptionKey returns the encryption key from the threeport
+// config.
+func (cfg *ThreeportConfig) GetAuthConfig(requestedControlPlane string) (*auth.AuthConfig, error) {
+	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return nil, errors.New("current instance not found when retrieving encryption key")
+	}
+	return controlPlane.AuthConfig, nil
 }
 
 // GetThreeportCertificatesForControlPlane returns the CA certificate, client

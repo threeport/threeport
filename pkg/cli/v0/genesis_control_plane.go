@@ -593,6 +593,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			c.AuthEnabled = true
 			c.Credentials = append(c.Credentials, *clientCredentials)
 			c.CACert = authConfig.CABase64Encoded
+			c.AuthConfig = authConfig
 		}); err != nil {
 			return fmt.Errorf("failed to update threeport config: %w", err)
 		}
