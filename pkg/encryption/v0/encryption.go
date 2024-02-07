@@ -111,3 +111,29 @@ func Decrypt(key, ciphertext string) (string, error) {
 	// return the plaintext as a string
 	return string(plaintext), nil
 }
+
+// EncryptStringMap encrypts a map of strings using AES-GCM.
+func EncryptStringMap(key string, input map[string]string) (map[string]string, error) {
+	encryptedMap := make(map[string]string)
+	for k, v := range input {
+		encryptedVal, err := Encrypt(key, v)
+		if err != nil {
+			return input, err
+		}
+		encryptedMap[k] = encryptedVal
+	}
+	return encryptedMap, nil
+}
+
+// DecryptStringMap encrypts a map of strings using AES-GCM.
+func DecryptStringMap(key string, input map[string]string) (map[string]string, error) {
+	decryptedMap := make(map[string]string)
+	for k, v := range input {
+		decryptedVal, err := Decrypt(key, v)
+		if err != nil {
+			return input, err
+		}
+		decryptedMap[k] = decryptedVal
+	}
+	return decryptedMap, nil
+}
