@@ -1,19 +1,12 @@
 package secret
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/go-logr/logr"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	kube "github.com/threeport/threeport/pkg/kube/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // secretDefinitionCreated reconciles state for a new secret
@@ -23,160 +16,18 @@ func secretDefinitionCreated(
 	secretDefinition *v0.SecretDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-
-	switch {
-
-	case secretDefinition.AwsAccountID != nil:
-
-		// configure aws session
-		awsAccount, err := client.GetAwsAccountByID(
-			r.APIClient,
-			r.APIServer,
-			*secretDefinition.AwsAccountID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
-		}
-
-		// get aws config
-		awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsAccount.DefaultRegion, awsAccount)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AWS config from AWS account: %w", err)
-		}
-
-		// Create a Secrets Manager awssmClient
-		awssmClient := secretsmanager.NewFromConfig(*awsConfig)
-
-		// Define the secret name and value
-		var secretData map[string]string
-		if err = json.Unmarshal([]byte(*secretDefinition.Data), &secretData); err != nil {
-			return 0, fmt.Errorf("failed to unmarshal secret data")
-		}
-
-		// Marshal the map into JSON format
-		jsonBytes, err := json.Marshal(secretData)
-		if err != nil {
-			return 0, fmt.Errorf("failed to marshal secret data")
-		}
-
-		// Convert JSON bytes to a string
-		jsonString := string(jsonBytes)
-
-		// create secrets
-		// get existing secrets
-		batchGetSecretValueOutput, err := awssmClient.BatchGetSecretValue(context.Background(), &secretsmanager.BatchGetSecretValueInput{
-			Filters: []types.Filter{
-				{
-					Key: types.FilterNameStringTypeName,
-					Values: []string{
-						*secretDefinition.Name,
-					},
-				},
-			},
-		})
-		if err != nil {
-			return 0, fmt.Errorf("failed to batch get secret value")
-		}
-
-		// ensure secret does not already exist
-		for _, secret := range batchGetSecretValueOutput.SecretValues {
-			if secret.Name == secretDefinition.Name {
-				return 0, fmt.Errorf("secret already exists")
-			}
-		}
-
-		// Create input for the CreateSecret operation
-		input := &secretsmanager.CreateSecretInput{
-			Name:         secretDefinition.Name,
-			SecretString: util.StringPtr(jsonString),
-		}
-
-		// Call the CreateSecret operation
-		_, err = awssmClient.CreateSecret(context.Background(), input)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create secret")
-		}
-		// // configure secret store
-		// store := &esv1beta1.SecretStore{
-		// 	Spec: esv1beta1.SecretStoreSpec{
-		// 		Provider: &esv1beta1.SecretStoreProvider{
-		// 			AWS: &esv1beta1.AWSProvider{
-		// 				Service: esv1beta1.AWSServiceSecretsManager,
-		// 			},
-		// 		},
-		// 	},
-		// }
-
-		// // get aws provider
-		// prov, err := util.GetAWSProvider(store)
-		// if err != nil {
-		// 	return 0, err
-		// }
-
-		// // configure aws session
-		// awsAccount, err := client.GetAwsAccountByID(
-		// 	r.APIClient,
-		// 	r.APIServer,
-		// 	*secretDefinition.AwsAccountID,
-		// )
-		// if err != nil {
-		// 	return 0, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
-		// }
-
-		// // get aws config
-		// awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, "us-east-2", awsAccount)
-		// if err != nil {
-		// 	return 0, fmt.Errorf("failed to get AWS config from AWS account: %w", err)
-		// }
-
-		// // // convert to v1 config
-		// // awsv1Config, err := kube.ConvertV2ConfigToV1(*awsConfig)
-		// // if err != nil {
-		// // 	return 0, fmt.Errorf("failed to convert AWS config to v1: %w", err)
-		// // }
-
-		// // // create secrets manager client
-		// // awsv1Config = awsv1Config.WithRegion("us-east-1").WithEndpointResolver(awsauth.ResolveEndpoint())
-		// // sess := &session.Session{Config: awsv1Config}
-
-		// cfg := awsv1.NewConfig().WithRegion("eu-west-1").WithEndpointResolver(awsauth.ResolveEndpoint())
-		// credentials, err := awsConfig.Credentials.Retrieve(context.Background())
-		// if err != nil {
-		// 	return 0, fmt.Errorf("failed to retrieve AWS credentials: %w", err)
-		// }
-		// cfg.Credentials = v1credentials.NewStaticCredentials(
-		// 	credentials.AccessKeyID,
-		// 	credentials.SecretAccessKey,
-		// 	credentials.SessionToken,
-		// )
-		// sess := &session.Session{Config: cfg}
-
-		// secretsManager, err := awssecretsmanager.New(sess, cfg, prov.SecretsManager, true)
-		// if err != nil {
-		// 	return 0, fmt.Errorf("failed to create secrets manager client: %w", err)
-		// }
-
-		// // create fake secret
-		// fakeSecret := &corev1.Secret{
-		// 	Data: map[string][]byte{
-		// 		"key": []byte("value"),
-		// 	},
-		// }
-
-		// // push secret
-		// psd := v1alpha1.PushSecretData{
-		// 	Match: v1alpha1.PushSecretMatch{
-		// 		SecretKey: "key",
-		// 		RemoteRef: v1alpha1.PushSecretRemoteRef{
-		// 			RemoteKey: "remotekey",
-		// 		},
-		// 	},
-		// }
-		// if err := secretsManager.PushSecret(context.Background(), fakeSecret, psd); err != nil {
-		// 	return 0, err
-		// }
-
+	// configure secret definition config
+	secretDefinitionConfig := &SecretDefinitionConfig{
+		r:                r,
+		secretDefinition: secretDefinition,
+		log:              log,
 	}
+
+	// push secret
+	if err := secretDefinitionConfig.PushSecret(); err != nil {
+		return 0, fmt.Errorf("failed to push secret: %w", err)
+	}
+
 	return 0, nil
 }
 
