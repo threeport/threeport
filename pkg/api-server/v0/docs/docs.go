@@ -12713,18 +12713,27 @@ const docTemplate = `{
         "v0.AttachedObjectReference": {
             "type": "object",
             "required": [
-                "WorkloadInstanceID"
+                "AttachedObjectID",
+                "AttachedObjectType",
+                "ObjectID",
+                "ObjectType"
             ],
             "properties": {
-                "ObjectID": {
+                "AttachedObjectID": {
+                    "description": "The object ID of the attached object.",
                     "type": "integer"
                 },
-                "Type": {
+                "AttachedObjectType": {
+                    "description": "The object type of the attached object.",
                     "type": "string"
                 },
-                "WorkloadInstanceID": {
-                    "description": "The workload definition this resource belongs to.",
+                "ObjectID": {
+                    "description": "The object ID of the base object.",
                     "type": "integer"
+                },
+                "ObjectType": {
+                    "description": "The object type of the base object.",
+                    "type": "string"
                 }
             }
         },
@@ -14531,24 +14540,35 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "AttachedObjectReference",
-                "WorkloadResourceInstance",
-                "WorkloadEvent",
                 "KubernetesRuntimeDefinition",
                 "KubernetesRuntimeInstance",
                 "ForwardProxyDefinition",
                 "ForwardProxyInstance",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
                 "GatewayDefinition",
                 "GatewayInstance",
                 "GatewayHttpPort",
                 "GatewayTcpPort",
                 "DomainNameDefinition",
                 "DomainNameInstance",
+                "Profile",
+                "Tier",
+                "WorkloadDefinition",
+                "WorkloadResourceDefinition",
+                "WorkloadInstance",
+                "WorkloadResourceInstance",
+                "WorkloadEvent",
+                "AttachedObjectReference",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "AwsObjectStorageBucketDefinition",
+                "AwsObjectStorageBucketInstance",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
                 "ObservabilityStackDefinition",
                 "ObservabilityStackInstance",
                 "ObservabilityDashboardDefinition",
@@ -14557,42 +14577,42 @@ const docTemplate = `{
                 "MetricsInstance",
                 "LoggingDefinition",
                 "LoggingInstance",
-                "SecretDefinition",
-                "SecretInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-                "Profile",
-                "Tier",
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance"
+                "SecretDefinition",
+                "SecretInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent",
                 "ObjectTypeKubernetesRuntimeDefinition",
                 "ObjectTypeKubernetesRuntimeInstance",
                 "ObjectTypeForwardProxyDefinition",
                 "ObjectTypeForwardProxyInstance",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeGatewayHttpPort",
                 "ObjectTypeGatewayTcpPort",
                 "ObjectTypeDomainNameDefinition",
                 "ObjectTypeDomainNameInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeWorkloadDefinition",
+                "ObjectTypeWorkloadResourceDefinition",
+                "ObjectTypeWorkloadInstance",
+                "ObjectTypeWorkloadResourceInstance",
+                "ObjectTypeWorkloadEvent",
+                "ObjectTypeAttachedObjectReference",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeAwsObjectStorageBucketDefinition",
+                "ObjectTypeAwsObjectStorageBucketInstance",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
                 "ObjectTypeObservabilityStackDefinition",
                 "ObjectTypeObservabilityStackInstance",
                 "ObjectTypeObservabilityDashboardDefinition",
@@ -14601,22 +14621,11 @@ const docTemplate = `{
                 "ObjectTypeMetricsInstance",
                 "ObjectTypeLoggingDefinition",
                 "ObjectTypeLoggingInstance",
-                "ObjectTypeSecretDefinition",
-                "ObjectTypeSecretInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance"
+                "ObjectTypeSecretDefinition",
+                "ObjectTypeSecretInstance"
             ]
         },
         "v0.ObservabilityDashboardDefinition": {
@@ -15005,10 +15014,13 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "Data",
-                "Name",
-                "Provider"
+                "Name"
             ],
             "properties": {
+                "AwsAccountID": {
+                    "description": "The AWS account ID, if the provider is AWS.",
+                    "type": "integer"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -15051,10 +15063,6 @@ const docTemplate = `{
                 "ProfileID": {
                     "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
                     "type": "integer"
-                },
-                "Provider": {
-                    "description": "The provider that the secret is stored in.",
-                    "type": "string"
                 },
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
@@ -15286,13 +15294,6 @@ const docTemplate = `{
                 "WorkloadDefinitionID"
             ],
             "properties": {
-                "AttachedObjectReferences": {
-                    "description": "The threeport objects that are deployed to support the workload instance.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.AttachedObjectReference"
-                    }
-                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"

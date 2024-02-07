@@ -155,9 +155,9 @@ func GetDbInterfaces() []interface{} {
 		&v0.WorkloadDefinition{},
 		&v0.WorkloadResourceDefinition{},
 		&v0.WorkloadInstance{},
-		&v0.AttachedObjectReference{},
 		&v0.WorkloadResourceInstance{},
 		&v0.WorkloadEvent{},
+		&v0.AttachedObjectReference{},
 	}
 }
 

@@ -164,6 +164,10 @@ func main() {
 		Name:     v0.ObservabilityStreamName,
 		Subjects: v0.GetObservabilitySubjects(),
 	})
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.SecretStreamName,
+		Subjects: v0.GetSecretSubjects(),
+	})
 
 	// handlers
 	h := handlers.New(db, nc, js)
