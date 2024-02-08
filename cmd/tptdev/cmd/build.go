@@ -35,13 +35,9 @@ var buildCmd = &cobra.Command{
 	Long:  `Build threeport docker images. Useful for development and debugging. Only supports pushing to Dockerhub and loading into kind.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		// validate cli args
-		switch {
-		case push && load:
+		// validate flags
+		if push && load {
 			cli.Error("error: %w", errors.New("cannot use --push and --load together"))
-			os.Exit(1)
-		case !(push || load):
-			cli.Error("error: %w", errors.New("must use either --push or --load"))
 			os.Exit(1)
 		}
 
@@ -99,15 +95,17 @@ var buildCmd = &cobra.Command{
 					)
 
 					// build docker image
-					if err := tptdev.DockerBuildxImage(
-						cpi.Opts.ThreeportPath,
-						"cmd/tptdev/image/Dockerfile",
-						tag,
-						arch,
-						component,
-					); err != nil {
-						cli.Error("failed to build docker image:", err)
-						os.Exit(1)
+					if push || load {
+						if err := tptdev.DockerBuildxImage(
+							cpi.Opts.ThreeportPath,
+							"cmd/tptdev/image/Dockerfile",
+							tag,
+							arch,
+							component,
+						); err != nil {
+							cli.Error("failed to build docker image:", err)
+							os.Exit(1)
+						}
 					}
 
 					switch {
@@ -132,7 +130,8 @@ var buildCmd = &cobra.Command{
 						}
 					}
 
-					if restart {
+					// restart pods
+					if (push || load) && restart {
 						// create dynamic client and rest mapper
 						dynamicKubeClient, mapper, err := client.GetKubeDynamicClientAndMapper(kubeconfigPath)
 						if err != nil {

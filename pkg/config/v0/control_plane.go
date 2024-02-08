@@ -130,7 +130,7 @@ func (c *ControlPlaneValues) Delete(apiClient *http.Client, apiEndpoint string) 
 	for deletedCheckAttempts < deletedCheckAttemptsMax {
 		_, err := client.GetControlPlaneInstanceByID(apiClient, apiEndpoint, *controlPlaneInstance.ID)
 		if err != nil {
-			if errors.Is(err, client.ErrorObjectNotFound) {
+			if errors.Is(err, client.ErrObjectNotFound) {
 				controlPlaneInstanceDeleted = true
 				break
 			} else {

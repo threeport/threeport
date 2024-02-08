@@ -210,7 +210,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 						Comment("check if error is 404 - if object no longer exists, no need to requeue"),
 						If(Qual("errors", "Is").Call(Id("err"), Qual(
 							"github.com/threeport/threeport/pkg/client/v0",
-							"ErrorObjectNotFound",
+							"ErrObjectNotFound",
 						))).Block(
 							Id("log").Dot("Info").Call(Qual(
 								"fmt", "Sprintf",
@@ -469,7 +469,6 @@ func (cc *ControllerConfig) Reconcilers() error {
 							"github.com/threeport/threeport/pkg/notifications/v0",
 							"NotificationOperationDeleted",
 						).Block(
-							Id("objectReconciled").Op(":=").Lit(true),
 							Id(fmt.Sprintf(
 								"reconciled%s",
 								obj,
@@ -487,7 +486,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									"github.com/threeport/threeport/pkg/api/v0",
 									"Reconciliation",
 								).Values(Dict{
-									Id("Reconciled"): Op("&").Id("objectReconciled"),
+									Id("Reconciled"): Qual("github.com/threeport/threeport/pkg/util/v0", "BoolPtr").Call(Lit(true)),
 								}),
 							}),
 							Id(fmt.Sprintf(
@@ -781,7 +780,7 @@ func (cc *ControllerConfig) ExtensionReconcilers() error {
 						Comment("check if error is 404 - if object no longer exists, no need to requeue"),
 						If(Qual("errors", "Is").Call(Id("err"), Qual(
 							"github.com/threeport/threeport/pkg/client/v0",
-							"ErrorObjectNotFound",
+							"ErrObjectNotFound",
 						))).Block(
 							Id("log").Dot("Info").Call(Qual(
 								"fmt", "Sprintf",
