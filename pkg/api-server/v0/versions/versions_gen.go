@@ -29,6 +29,7 @@ func AddVersions() {
 	AddLogBackendVersions()
 	AddLogStorageDefinitionVersions()
 	AddLogStorageInstanceVersions()
+	AddAttachedObjectReferenceVersions()
 	AddObservabilityStackDefinitionVersions()
 	AddObservabilityStackInstanceVersions()
 	AddObservabilityDashboardDefinitionVersions()
@@ -44,6 +45,5 @@ func AddVersions() {
 	AddWorkloadInstanceVersions()
 	AddWorkloadResourceInstanceVersions()
 	AddWorkloadEventVersions()
-	AddAttachedObjectReferenceVersions()
 
 }

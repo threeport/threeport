@@ -115,6 +115,10 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteLogStorageInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete LogStorageInstance: %w", err)
 		}
+	case "v0.AttachedObjectReference":
+		if _, err := DeleteAttachedObjectReference(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete AttachedObjectReference: %w", err)
+		}
 	case "v0.ObservabilityStackDefinition":
 		if _, err := DeleteObservabilityStackDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete ObservabilityStackDefinition: %w", err)
@@ -174,10 +178,6 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 	case "v0.WorkloadEvent":
 		if _, err := DeleteWorkloadEvent(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete WorkloadEvent: %w", err)
-		}
-	case "v0.AttachedObjectReference":
-		if _, err := DeleteAttachedObjectReference(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete AttachedObjectReference: %w", err)
 		}
 
 	}
