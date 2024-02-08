@@ -1778,6 +1778,13 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
+    - Profile
+    - Tier
+    - AttachedObjectReference
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -1785,9 +1792,12 @@ definitions:
     - WorkloadEvent
     - SecretDefinition
     - SecretInstance
-    - AttachedObjectReference
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
     - ObservabilityStackDefinition
     - ObservabilityStackInstance
     - ObservabilityDashboardDefinition
@@ -1796,23 +1806,6 @@ definitions:
     - MetricsInstance
     - LoggingDefinition
     - LoggingInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - Profile
-    - Tier
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1820,8 +1813,22 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
     type: string
     x-enum-varnames:
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -1829,9 +1836,12 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeSecretDefinition
     - ObjectTypeSecretInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeObservabilityStackDefinition
     - ObjectTypeObservabilityStackInstance
     - ObjectTypeObservabilityDashboardDefinition
@@ -1840,23 +1850,6 @@ definitions:
     - ObjectTypeMetricsInstance
     - ObjectTypeLoggingDefinition
     - ObjectTypeLoggingInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1864,6 +1857,13 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
   v0.ObservabilityDashboardDefinition:
     properties:
       CreationAcknowledged:
