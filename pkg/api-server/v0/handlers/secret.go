@@ -82,6 +82,8 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 			return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 		}
 
+		// create copy of Data field in memory, as it will be
+		// set to nil in the secretDefinition.BeforeCreate() method
 		data := secretDefinition.Data
 
 		// persist to DB
@@ -95,17 +97,19 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 			return errors.New("environment variable ENCRYPTION_KEY is not set")
 		}
 
-		// Define the secret name and value
+		// define the secret name and value
 		var secretData map[string]string
 		if err := json.Unmarshal([]byte(*data), &secretData); err != nil {
 			return fmt.Errorf("failed to unmarshal secret data")
 		}
 
+		// encrypt the secret data's values
 		encryptedDataMap, err := encryption.EncryptStringMap(encryptionKey, secretData)
 		if err != nil {
 			return fmt.Errorf("failed to encrypt secret data")
 		}
 
+		// marshal back to json and update secretDefinition
 		marshaledJson, err := json.Marshal(encryptedDataMap)
 		if err != nil {
 			return fmt.Errorf("failed to marshal encrypted secret data")
