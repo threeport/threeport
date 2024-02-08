@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/dave/jennifer/jen"
 	. "github.com/dave/jennifer/jen"
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
@@ -14,6 +15,65 @@ import (
 // controller's main package.
 func controllerMainPackagePath(controllerName string) string {
 	return filepath.Join("..", "..", "..", "cmd", controllerName)
+}
+
+func (cc *ControllerConfig) CheckPersist(obj string) bool {
+	if val, ok := cc.StructTags[obj]; ok {
+		if val1, ok1 := val["Data"]; ok1 {
+			if val2, ok2 := val1["persist"]; ok2 {
+				if val2 == "false" {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+func (cc *ControllerConfig) AddDurableConsumer(g *jen.Group, durable bool) {
+	consumer := Lit("")
+	if durable {
+		consumer = Id("consumer")
+		g.Line().Comment("create JetStream consumer")
+		g.Id("consumer").Op(":=").Id("r").Dot("Name").Op("+").Lit("Consumer")
+		g.Id("js").Dot("AddConsumer").Call(Qual(
+			"github.com/threeport/threeport/pkg/api/v0",
+			cc.StreamName,
+		).Op(",").Op("&").Qual(
+			"github.com/nats-io/nats.go",
+			"ConsumerConfig",
+		).Values(Dict{
+			Id("Durable"): consumer,
+			Id("AckPolicy"): Qual(
+				"github.com/nats-io/nats.go",
+				"AckExplicitPolicy",
+			),
+			Id("FilterSubject"): Id("r").Dot("NotifSubject"),
+		}),
+		)
+	}
+
+	g.Line().Comment("create durable pull subscription")
+	g.Id("sub").Op(",").Id("err").Op(":=").Id("js").Dot("PullSubscribe").Call(
+		Id("r").Dot("NotifSubject"),
+		consumer,
+		Qual(
+			"github.com/nats-io/nats.go",
+			"BindStream",
+		).Call(Qual(
+			"github.com/threeport/threeport/pkg/api/v0",
+			cc.StreamName,
+		)),
+	)
+	g.If(Id("err").Op("!=").Nil()).Block(
+		Id("log").Dot("Error").Call(
+			Id("err"),
+			Lit("failed to create pull subscription for reconciler notifications"),
+			Lit("reconcilerName"),
+			Id("r").Dot("Name"),
+		),
+		Qual("os", "Exit").Call(Lit(1)),
+	)
 }
 
 // MainPackage generates the source code for a controller's main package.
@@ -52,7 +112,11 @@ func (cc *ControllerConfig) MainPackage() error {
 	}
 
 	reconcilerConfigs := &Statement{}
+	durable := true
 	for _, obj := range cc.ReconciledObjects {
+		if !cc.CheckPersist(obj) {
+			durable = false
+		}
 		reconcilerConfigs.Id("reconcilerConfigs").Op("=").Append(Id("reconcilerConfigs").Op(",").Qual(
 			"github.com/threeport/threeport/pkg/controller/v0",
 			"ReconcilerConfig",
@@ -320,53 +384,14 @@ func (cc *ControllerConfig) MainPackage() error {
 
 		For(
 			Id("_").Op(",").Id("r").Op(":=").Range().Id("reconcilerConfigs"),
-		).Block(
-			Line().Comment("create JetStream consumer"),
-			Id("consumer").Op(":=").Id("r").Dot("Name").Op("+").Lit("Consumer"),
-			Id("js").Dot("AddConsumer").Call(Qual(
-				"github.com/threeport/threeport/pkg/api/v0",
-				cc.StreamName,
-			).Op(",").Op("&").Qual(
-				"github.com/nats-io/nats.go",
-				"ConsumerConfig",
-			).Values(Dict{
-				Id("Durable"): Id("consumer"),
-				Id("AckPolicy"): Qual(
-					"github.com/nats-io/nats.go",
-					"AckExplicitPolicy",
-				),
-				Id("FilterSubject"): Id("r").Dot("NotifSubject"),
-			}),
-			),
+		).BlockFunc(func(g *jen.Group) {
+			cc.AddDurableConsumer(g, durable)
+			g.Line().Comment("create exit channel")
+			g.Id("shutdownChan").Op(":=").Make(Chan().Bool(), Lit(1))
+			g.Id("shutdownChans").Op("=").Append(Id("shutdownChans"), Id("shutdownChan"))
 
-			Line().Comment("create durable pull subscription"),
-			Id("sub").Op(",").Id("err").Op(":=").Id("js").Dot("PullSubscribe").Call(
-				Id("r").Dot("NotifSubject"),
-				Id("consumer"),
-				Qual(
-					"github.com/nats-io/nats.go",
-					"BindStream",
-				).Call(Qual(
-					"github.com/threeport/threeport/pkg/api/v0",
-					cc.StreamName,
-				)),
-			),
-			If(Id("err").Op("!=").Nil()).Block(
-				Id("log").Dot("Error").Call(
-					Id("err"),
-					Lit("failed to create pull subscription for reconciler notifications"),
-					Lit("reconcilerName"),
-					Id("r").Dot("Name"),
-				),
-				Qual("os", "Exit").Call(Lit(1)),
-			),
-
-			Line().Comment("create exit channel"),
-			Id("shutdownChan").Op(":=").Make(Chan().Bool(), Lit(1)),
-			Id("shutdownChans").Op("=").Append(Id("shutdownChans"), Id("shutdownChan")),
-
-			Line().Comment("create reconciler"),
-			Id("reconciler").Op(":=").Id("controller").Dot("Reconciler").Values(Dict{
+			g.Line().Comment("create reconciler")
+			g.Id("reconciler").Op(":=").Id("controller").Dot("Reconciler").Values(Dict{
 				Id("Name"):             Id("r").Dot("Name"),
 				Id("ObjectType"):       Id("r").Dot("ObjectType"),
 				Id("APIServer"):        Op("*").Id("apiServer"),
@@ -379,11 +404,11 @@ func (cc *ControllerConfig) MainPackage() error {
 				Id("Shutdown"):         Id("shutdownChan"),
 				Id("ShutdownWait"):     Op("&").Id("shutdownWait"),
 				Id("EncryptionKey"):    Id("encryptionKey"),
-			}),
+			})
 
-			Line().Comment("start reconciler"),
-			Id("go").Id("r").Dot("ReconcileFunc").Call(Op("&").Id("reconciler")),
-		),
+			g.Line().Comment("start reconciler")
+			g.Id("go").Id("r").Dot("ReconcileFunc").Call(Op("&").Id("reconciler"))
+		}),
 		Line(),
 
 		Id("log").Dot("Info").Call(
@@ -522,7 +547,11 @@ func (cc *ControllerConfig) ExtensionMainPackage() error {
 	}
 
 	reconcilerConfigs := &Statement{}
+	durable := true
 	for _, obj := range cc.ReconciledObjects {
+		if !cc.CheckPersist(obj) {
+			durable = false
+		}
 		reconcilerConfigs.Id("reconcilerConfigs").Op("=").Append(Id("reconcilerConfigs").Op(",").Qual(
 			"github.com/threeport/threeport/pkg/controller/v0",
 			"ReconcilerConfig",
@@ -803,53 +832,14 @@ func (cc *ControllerConfig) ExtensionMainPackage() error {
 
 		For(
 			Id("_").Op(",").Id("r").Op(":=").Range().Id("reconcilerConfigs"),
-		).Block(
-			Line().Comment("create JetStream consumer"),
-			Id("consumer").Op(":=").Id("r").Dot("Name").Op("+").Lit("Consumer"),
-			Id("js").Dot("AddConsumer").Call(Qual(
-				"github.com/qleet/qleetport/pkg/api/v0",
-				cc.StreamName,
-			).Op(",").Op("&").Qual(
-				"github.com/nats-io/nats.go",
-				"ConsumerConfig",
-			).Values(Dict{
-				Id("Durable"): Id("consumer"),
-				Id("AckPolicy"): Qual(
-					"github.com/nats-io/nats.go",
-					"AckExplicitPolicy",
-				),
-				Id("FilterSubject"): Id("r").Dot("NotifSubject"),
-			}),
-			),
+		).BlockFunc(func(g *jen.Group) {
+			cc.AddDurableConsumer(g, durable)
+			g.Line().Comment("create exit channel")
+			g.Id("shutdownChan").Op(":=").Make(Chan().Bool(), Lit(1))
+			g.Id("shutdownChans").Op("=").Append(Id("shutdownChans"), Id("shutdownChan"))
 
-			Line().Comment("create durable pull subscription"),
-			Id("sub").Op(",").Id("err").Op(":=").Id("js").Dot("PullSubscribe").Call(
-				Id("r").Dot("NotifSubject"),
-				Id("consumer"),
-				Qual(
-					"github.com/nats-io/nats.go",
-					"BindStream",
-				).Call(Qual(
-					"github.com/qleet/qleetport/pkg/api/v0",
-					cc.StreamName,
-				)),
-			),
-			If(Id("err").Op("!=").Nil()).Block(
-				Id("log").Dot("Error").Call(
-					Id("err"),
-					Lit("failed to create pull subscription for reconciler notifications"),
-					Lit("reconcilerName"),
-					Id("r").Dot("Name"),
-				),
-				Qual("os", "Exit").Call(Lit(1)),
-			),
-
-			Line().Comment("create exit channel"),
-			Id("shutdownChan").Op(":=").Make(Chan().Bool(), Lit(1)),
-			Id("shutdownChans").Op("=").Append(Id("shutdownChans"), Id("shutdownChan")),
-
-			Line().Comment("create reconciler"),
-			Id("reconciler").Op(":=").Id("controller").Dot("Reconciler").Values(Dict{
+			g.Line().Comment("create reconciler")
+			g.Id("reconciler").Op(":=").Id("controller").Dot("Reconciler").Values(Dict{
 				Id("Name"):             Id("r").Dot("Name"),
 				Id("ObjectType"):       Id("r").Dot("ObjectType"),
 				Id("APIServer"):        Op("*").Id("apiServer"),
@@ -862,11 +852,11 @@ func (cc *ControllerConfig) ExtensionMainPackage() error {
 				Id("Shutdown"):         Id("shutdownChan"),
 				Id("ShutdownWait"):     Op("&").Id("shutdownWait"),
 				Id("EncryptionKey"):    Id("encryptionKey"),
-			}),
+			})
 
-			Line().Comment("start reconciler"),
-			Id("go").Id("r").Dot("ReconcileFunc").Call(Op("&").Id("reconciler")),
-		),
+			g.Line().Comment("start reconciler")
+			g.Id("go").Id("r").Dot("ReconcileFunc").Call(Op("&").Id("reconciler"))
+		}),
 		Line(),
 
 		Id("log").Dot("Info").Call(

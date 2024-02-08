@@ -151,16 +151,8 @@ func main() {
 
 	for _, r := range reconcilerConfigs {
 
-		// create JetStream consumer
-		consumer := r.Name + "Consumer"
-		js.AddConsumer(v0.SecretStreamName, &natsgo.ConsumerConfig{
-			AckPolicy:     natsgo.AckExplicitPolicy,
-			Durable:       consumer,
-			FilterSubject: r.NotifSubject,
-		})
-
 		// create durable pull subscription
-		sub, err := js.PullSubscribe(r.NotifSubject, consumer, natsgo.BindStream(v0.SecretStreamName))
+		sub, err := js.PullSubscribe(r.NotifSubject, "", natsgo.BindStream(v0.SecretStreamName))
 		if err != nil {
 			log.Error(err, "failed to create pull subscription for reconciler notifications", "reconcilerName", r.Name)
 			os.Exit(1)
