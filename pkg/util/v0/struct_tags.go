@@ -6,7 +6,7 @@ import (
 
 )
 
-// parseStructTag parses the struct tag string into a map[string]string
+// ParseStructTag parses a struct tag string into a map[string]string
 func ParseStructTag(tagString string) map[string]string {
 	tag := reflect.StructTag(strings.Trim(tagString, "`"))
 	tagMap := make(map[string]string)
