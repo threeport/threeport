@@ -142,6 +142,7 @@ func GetDbInterfaces() []interface{} {
 		&v0.LogBackend{},
 		&v0.LogStorageDefinition{},
 		&v0.LogStorageInstance{},
+		&v0.AttachedObjectReference{},
 		&v0.ObservabilityStackDefinition{},
 		&v0.ObservabilityStackInstance{},
 		&v0.ObservabilityDashboardDefinition{},
@@ -157,7 +158,6 @@ func GetDbInterfaces() []interface{} {
 		&v0.WorkloadInstance{},
 		&v0.WorkloadResourceInstance{},
 		&v0.WorkloadEvent{},
-		&v0.AttachedObjectReference{},
 	}
 }
 
