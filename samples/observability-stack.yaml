@@ -1,0 +1,15 @@
+ObservabilityStack:
+  Name: observability
+  KubernetesRuntimeInstance:
+    Name: threeport-dev-0
+  MetricsEnabled: true
+  LoggingEnabled: true
+  # LokiHelmValues: |
+  # PromtailHelmValues: |
+  # KubePrometheusStackHelmValues: |
+  # KubePrometheusStackHelmValuesDocument: kube-prometheus-stack-values.yaml
+  # GrafanaHelmValues: |
+  #   grafana.ini:
+  #     auth.anonymous:
+  #       enabled: true
+  #       org_role: Admin

@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Connect to server",
+            "name": "Connect to delve server",
             "type": "go",
             "request": "attach",
             "mode": "remote",
@@ -67,7 +67,7 @@
             ],
         },
         {
-            "name": "Debug tptctl",
+            "name": "tptctl create control-plane",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -81,32 +81,6 @@
                 "--aws-region=us-east-1",
                 "--aws-config-profile=default",
             ],
-        },
-        {
-            "name": "Debug workload-controller",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/cmd/workload-controller",
-            "args": [
-                "-api-server=localhost:1323",
-                "-msg-broker-host=localhost",
-                "-msg-broker-port=4222",
-                "--auth-enabled=false",
-            ],
-        },
-        {
-            "name": "Debug gateway-controller",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/cmd/gateway-controller",
-            "args": [
-                "-api-server=localhost:1323",
-                "-msg-broker-host=localhost",
-                "-msg-broker-port=4222",
-                "--auth-enabled=false",
-            ],
-        },
+        }
     ]
 }

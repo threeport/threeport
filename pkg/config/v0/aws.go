@@ -510,7 +510,7 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 	for deletedCheckAttempts < deletedCheckAttemptsMax {
 		_, err := client.GetAwsRelationalDatabaseInstanceByID(apiClient, apiEndpoint, *awsRelationalDatabaseInstance.ID)
 		if err != nil {
-			if errors.Is(err, client.ErrorObjectNotFound) {
+			if errors.Is(err, client.ErrObjectNotFound) {
 				awsRelationalDatabaseInstanceDeleted = true
 				break
 			} else {
@@ -729,7 +729,7 @@ func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoin
 	for deletedCheckAttempts < deletedCheckAttemptsMax {
 		_, err := client.GetAwsObjectStorageBucketInstanceByID(apiClient, apiEndpoint, *awsObjectStorageBucketInstance.ID)
 		if err != nil {
-			if errors.Is(err, client.ErrorObjectNotFound) {
+			if errors.Is(err, client.ErrObjectNotFound) {
 				awsObjectStorageBucketInstanceDeleted = true
 				break
 			} else {

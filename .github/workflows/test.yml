@@ -99,10 +99,24 @@ jobs:
         dockerfile: cmd/gateway-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
 
-  build-control-plane-controller:
+  build-observability-controller:
     runs-on: ubuntu-22.04
     steps:
 
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Build observability-controller
+      uses: macbre/push-to-ghcr@master
+      with:
+        image_name: threeport/threeport-observability-controller
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/observability-controller/image/Dockerfile
+        image_tag: ${{ github.sha }}
+
+  build-control-plane-controller:
+    runs-on: ubuntu-22.04
+    steps:
     - name: Check out code
       uses: actions/checkout@v4
 
@@ -147,10 +161,14 @@ jobs:
   test:
     needs:
       - build-threeport-api
+      - build-threeport-database-migrator
       - build-workload-controller
       - build-kubernetes-runtime-controller
       - build-aws-controller
       - build-gateway-controller
+      - build-observability-controller
+      - build-control-plane-controller
+      - build-helm-workload-controller
       - build-threeport-agent
     runs-on: ubuntu-22.04
     steps:

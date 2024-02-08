@@ -26,6 +26,7 @@ func AddLabels(
 		"app.kubernetes.io/name":       definitionName,
 		"app.kubernetes.io/instance":   instanceName,
 		instanceLabelKey:               fmt.Sprintf("%d", instanceId),
+		ThreeportManagedByLabelKey:     ThreeportManagedByLabelValue,
 	}
 
 	for key, value := range newLabels {
@@ -38,9 +39,6 @@ func AddLabels(
 		}
 		kubeObject.SetLabels(labels)
 	}
-
-	// ensure the threeport managed-by label is always present
-	kubeObject.SetLabels(map[string]string{ThreeportManagedByLabelKey: ThreeportManagedByLabelValue})
 
 	for _, kind := range GetPodAbstractionKinds() {
 		if kubeObject.GetKind() == kind {

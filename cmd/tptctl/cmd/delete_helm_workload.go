@@ -15,9 +15,7 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-var (
-	deleteHelmWorkloadConfigPath string
-)
+var deleteHelmWorkloadConfigPath string
 
 // DeleteHelmWorkloadCmd represents the helm-workload command
 var DeleteHelmWorkloadCmd = &cobra.Command{
@@ -47,6 +45,9 @@ and helm workload instance based on the helm workload config or name.`,
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
+		// add path to helm workload config - used to determine relative path from
+		// user's working directory to YAML document
+		helmWorkloadConfig.HelmWorkload.HelmWorkloadConfigPath = deleteHelmWorkloadConfigPath
 
 		// delete helm workload
 		helmWorkload := helmWorkloadConfig.HelmWorkload

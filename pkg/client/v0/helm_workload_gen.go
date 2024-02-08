@@ -132,7 +132,7 @@ func GetHelmWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 	switch {
 	case len(helmWorkloadDefinitions) < 1:
-		return &v0.HelmWorkloadDefinition{}, errors.New(fmt.Sprintf("no helm workload definition with name %s", name))
+		return &v0.HelmWorkloadDefinition{}, ErrObjectNotFound
 	case len(helmWorkloadDefinitions) > 1:
 		return &v0.HelmWorkloadDefinition{}, errors.New(fmt.Sprintf("more than one helm workload definition with name %s returned", name))
 	}
@@ -367,7 +367,7 @@ func GetHelmWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(helmWorkloadInstances) < 1:
-		return &v0.HelmWorkloadInstance{}, errors.New(fmt.Sprintf("no helm workload instance with name %s", name))
+		return &v0.HelmWorkloadInstance{}, ErrObjectNotFound
 	case len(helmWorkloadInstances) > 1:
 		return &v0.HelmWorkloadInstance{}, errors.New(fmt.Sprintf("more than one helm workload instance with name %s returned", name))
 	}

@@ -114,7 +114,7 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 
 	// return 404 if no matches found for query parameter
 	if len(*workloadEvents) == 0 {
-		return iapi.ResponseStatus404(c, nil, client.ErrorObjectNotFound, objectType)
+		return iapi.ResponseStatus404(c, nil, client.ErrObjectNotFound, objectType)
 	}
 
 	if result := h.DB.Delete(workloadEvents); result.Error != nil {
