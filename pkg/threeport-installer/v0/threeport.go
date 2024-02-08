@@ -18,6 +18,7 @@ const (
 	ThreeportAwsControllerImage               = "threeport-aws-controller"
 	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
 	ThreeportHelmWorkloadControllerImage      = "threeport-helm-workload-controller"
+	ThreeportObservabilityControllerImage     = "threeport-observability-controller"
 	ThreeportAgentImage                       = "threeport-agent"
 
 	// Name of threeport control plane components
@@ -29,6 +30,7 @@ const (
 	ThreeportAwsControllerName               = "aws-controller"
 	ThreeportGatewayControllerName           = "gateway-controller"
 	ThreeportHelmWorkloadControllerName      = "helm-workload-controller"
+	ThreeportObservabilityControllerName     = "observability-controller"
 	ThreeportAgentName                       = "agent"
 
 	// Endpoint for threeport API when running locally
@@ -99,6 +101,15 @@ var ThreeportControllerList []*v0.ControlPlaneComponent = []*v0.ControlPlaneComp
 		Name:               ThreeportHelmWorkloadControllerName,
 		BinaryName:         ThreeportHelmWorkloadControllerName,
 		ImageName:          ThreeportHelmWorkloadControllerImage,
+		ImageRepo:          ThreeportImageRepo,
+		ImageTag:           version.GetVersion(),
+		ServiceAccountName: DefaultServiceAccount,
+		Enabled:            &enabled,
+	},
+	{
+		Name:               ThreeportObservabilityControllerName,
+		BinaryName:         ThreeportObservabilityControllerName,
+		ImageName:          ThreeportObservabilityControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
 		ServiceAccountName: DefaultServiceAccount,

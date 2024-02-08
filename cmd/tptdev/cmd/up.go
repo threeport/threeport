@@ -92,6 +92,10 @@ func init() {
 		&cliArgs.Verbose,
 		"verbose", false, "Enable verbose logging in control plane components, delve, and cli logs.",
 	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.SkipTeardown,
+		"skip-teardown", false, "Skip the teardown of control plane components if an error is encountered.",
+	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)
 	})

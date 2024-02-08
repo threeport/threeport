@@ -111,7 +111,7 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 				*domainNameInstance.ID,
 			)
 			// check if error is 404 - if object no longer exists, no need to requeue
-			if errors.Is(err, client.ErrorObjectNotFound) {
+			if errors.Is(err, client.ErrObjectNotFound) {
 				log.Info(fmt.Sprintf(
 					"object with ID %d no longer exists - halting reconciliation",
 					*domainNameInstance.ID,
@@ -249,10 +249,9 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledDomainNameInstance := v0.DomainNameInstance{
 					Common:         v0.Common{ID: domainNameInstance.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
 				updatedDomainNameInstance, err := client.UpdateDomainNameInstance(
 					r.APIClient,

@@ -126,6 +126,10 @@ func init() {
 		"debug", false, "Enable debug mode. Defaults to false.",
 	)
 	UpCmd.Flags().BoolVar(
+		&cliArgs.SkipTeardown,
+		"skip-teardown", false, "Skip the teardown of control plane components if an error is encountered.",
+	)
+	UpCmd.Flags().BoolVar(
 		&cliArgs.ControlPlaneOnly,
 		"control-plane-only", false, "Deploy the control plane on an existing runtime. Defaults to false.",
 	)

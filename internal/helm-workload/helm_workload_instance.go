@@ -10,15 +10,14 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/repo"
 	kubeerr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlserailizer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/client-go/dynamic"
 
@@ -28,6 +27,7 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -54,7 +54,7 @@ func helmWorkloadInstanceCreated(
 	}
 
 	// get helm action config, env settings and kube client
-	actionConf, settings, kubeClient, err := getHelmActionConfig(r, helmWorkloadInstance)
+	actionConf, settings, kubeClient, _, err := getHelmActionConfig(r, helmWorkloadInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
@@ -96,7 +96,14 @@ func helmWorkloadInstanceCreated(
 	}
 
 	install.ReleaseName = helmReleaseName(helmWorkloadInstance)
-	install.Namespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
+	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
+		install.Namespace = *helmWorkloadInstance.ReleaseNamespace
+	} else {
+		generatedNamespace := fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
+		install.Namespace = generatedNamespace
+		helmWorkloadInstance.ReleaseNamespace = &generatedNamespace
+	}
+
 	install.CreateNamespace = true
 	install.DependencyUpdate = true
 	install.PostRenderer = &ThreeportPostRenderer{
@@ -126,49 +133,21 @@ func helmWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to load helm chart: %w", err)
 	}
 
-	// write the value files to merge as needed
-	var valueFiles []string
-	if helmWorkloadDefinition.ValuesDocument != nil {
-		filePath := fmt.Sprintf("%s/%d-definition-vals.yaml", HelmValuesDir, (*helmWorkloadInstance.ID))
-		if err := os.WriteFile(
-			filePath,
-			[]byte(*helmWorkloadDefinition.ValuesDocument),
-			0644,
-		); err != nil {
-			return 0, fmt.Errorf("failed to write values file for helm workload definition values: %w", err)
-		}
-		valueFiles = append(valueFiles, filePath)
-	}
-	if helmWorkloadInstance.ValuesDocument != nil {
-		filePath := fmt.Sprintf("%s/%d-instance-vals.yaml", HelmValuesDir, (*helmWorkloadInstance.ID))
-		if err := os.WriteFile(
-			filePath,
-			[]byte(*helmWorkloadInstance.ValuesDocument),
-			0644,
-		); err != nil {
-			return 0, fmt.Errorf("failed to values file for helm workload instance values: %w", err)
-		}
-		valueFiles = append(valueFiles, filePath)
-	}
-
-	// merge the helm values
-	var helmValues map[string]interface{}
-	if len(valueFiles) > 0 {
-		vals := values.Options{ValueFiles: valueFiles}
-		helmVals, err := vals.MergeValues(nil)
-		if err != nil {
-			return 0, fmt.Errorf("failed to merge helm values: %s", err)
-		}
-		helmValues = helmVals
+	// merge helm values
+	helmValues, err := MergeHelmValuesGo(
+		util.StringPtrToString(helmWorkloadDefinition.ValuesDocument),
+		util.StringPtrToString(helmWorkloadInstance.ValuesDocument),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to merge helm values: %w", err)
 	}
 
 	// deploy the helm workload
 	release, err := install.Run(chart, helmValues)
 	if err != nil {
 		if uninstallErr := uninstallHelmRelease(
-			release.Name,
+			install.ReleaseName,
 			actionConf,
-			kubeClient,
 		); err != nil {
 			return 0, fmt.Errorf("failed to uninstall helm release: %w after failed to install helm chart: %w", uninstallErr, err)
 		}
@@ -238,6 +217,13 @@ func helmWorkloadInstanceCreated(
 		// want to re-queue reconciliation
 		log.Error(err, "failed to remove files written to disk")
 	}
+	// update helm workload instance reconciled field
+	helmWorkloadInstance.Reconciled = util.BoolPtr(true)
+	_, err = client.UpdateHelmWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		helmWorkloadInstance,
+	)
 
 	return 0, nil
 }
@@ -260,7 +246,7 @@ func helmWorkloadInstanceDeleted(
 	log *logr.Logger,
 ) (int64, error) {
 	// get helm action config and kube client
-	actionConf, _, kubeClient, err := getHelmActionConfig(r, helmWorkloadInstance)
+	actionConf, _, kubeClient, mapper, err := getHelmActionConfig(r, helmWorkloadInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
@@ -269,7 +255,6 @@ func helmWorkloadInstanceDeleted(
 	if err := uninstallHelmRelease(
 		helmReleaseName(helmWorkloadInstance),
 		actionConf,
-		kubeClient,
 	); err != nil {
 		return 0, fmt.Errorf("failed to uninstall helm release: %w", err)
 	}
@@ -313,6 +298,34 @@ func helmWorkloadInstanceDeleted(
 		log.Error(err, "failed to remove files written to disk")
 	}
 
+	// delete the namespace
+	// check if any other helm workload instances are using the namespace
+	helmWorkloadInstances, err := client.GetHelmWorkloadInstancesByQueryString(
+		r.APIClient,
+		r.APIServer,
+		fmt.Sprintf("kubernetes-runtime-instance-id=%d", *helmWorkloadInstance.KubernetesRuntimeInstanceID),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get helm workload instances by query string: %w", err)
+	}
+
+	// if any other helm workload instances are using the namespace, do not
+	// delete it
+	for _, hwi := range *helmWorkloadInstances {
+		if hwi.ReleaseNamespace != nil &&
+			*hwi.ReleaseNamespace == *helmWorkloadInstance.ReleaseNamespace &&
+			*hwi.ID != *helmWorkloadInstance.ID {
+			return 0, nil
+		}
+	}
+
+	// delete the namespace
+	installer.DeleteNamespaces(
+		kubeClient,
+		mapper,
+		[]string{*helmWorkloadInstance.ReleaseNamespace},
+	)
+
 	return 0, nil
 }
 
@@ -320,7 +333,6 @@ func helmWorkloadInstanceDeleted(
 func uninstallHelmRelease(
 	releaseName string,
 	actionConf *action.Configuration,
-	kubeClient dynamic.Interface,
 ) error {
 	// set up uninstall action
 	uninstall := action.NewUninstall(actionConf)
@@ -329,21 +341,9 @@ func uninstallHelmRelease(
 	uninstall.IgnoreNotFound = true
 
 	// run uninstall action
-	release, err := uninstall.Run(releaseName)
+	_, err := uninstall.Run(releaseName)
 	if err != nil {
 		return fmt.Errorf("failed to uninstall helm chart: %w", err)
-	}
-
-	// remove namespace
-	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
-	namespaceResource := kubeClient.Resource(gvr)
-	namespace := release.Release.Namespace
-	deletePolicy := metav1.DeletePropagationForeground
-	deleteOptions := metav1.DeleteOptions{
-		PropagationPolicy: &deletePolicy,
-	}
-	if err = namespaceResource.Delete(context.TODO(), namespace, deleteOptions); err != nil {
-		return fmt.Errorf("failed to delete helm release namespace: %w", err)
 	}
 
 	return nil
@@ -354,7 +354,7 @@ func uninstallHelmRelease(
 func getHelmActionConfig(
 	r *controller.Reconciler,
 	helmWorkloadInstance *v0.HelmWorkloadInstance,
-) (*action.Configuration, *cli.EnvSettings, dynamic.Interface, error) {
+) (*action.Configuration, *cli.EnvSettings, dynamic.Interface, *meta.RESTMapper, error) {
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,
@@ -362,7 +362,7 @@ func getHelmActionConfig(
 		*helmWorkloadInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get workload kubernetesRuntime instance by ID: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get workload kubernetesRuntime instance by ID: %w", err)
 	}
 
 	// create env settings and set repo config
@@ -373,7 +373,7 @@ func getHelmActionConfig(
 	if _, err := os.Stat(settings.RepositoryConfig); os.IsNotExist(err) {
 		_, err := os.Create(settings.RepositoryConfig)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to initialize helm repo config: %w", err)
+			return nil, nil, nil, nil, fmt.Errorf("failed to initialize helm repo config: %w", err)
 		}
 	}
 
@@ -388,7 +388,7 @@ func getHelmActionConfig(
 	// create registry client
 	client, err := registry.NewClient()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to create helm registry client: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to create helm registry client: %w", err)
 	}
 
 	// create helm action config
@@ -400,7 +400,7 @@ func getHelmActionConfig(
 		func(format string, v ...interface{}) {
 			fmt.Sprintf(format, v)
 		}); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to initialize action config: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to initialize action config: %w", err)
 	}
 
 	// set the registry client in the action config
@@ -409,12 +409,12 @@ func getHelmActionConfig(
 	// create a directory for helm values files
 	if _, err := os.Stat(HelmValuesDir); errors.Is(err, os.ErrNotExist) {
 		if err := os.Mkdir(HelmValuesDir, os.ModePerm); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to create helm values directory: %w", err)
+			return nil, nil, nil, nil, fmt.Errorf("failed to create helm values directory: %w", err)
 		}
 	}
 
 	// get a dynamic kubernetes client
-	kubeClient, _, err := kube.GetClient(
+	kubeClient, mapper, err := kube.GetClient(
 		kubernetesRuntimeInstance,
 		true,
 		r.APIClient,
@@ -422,10 +422,10 @@ func getHelmActionConfig(
 		r.EncryptionKey,
 	)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get dynamic kubernetes client: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get dynamic kubernetes client: %w", err)
 	}
 
-	return actionConfig, settings, kubeClient, nil
+	return actionConfig, settings, kubeClient, mapper, nil
 }
 
 // helmReleaseName returns a standardized helm release name based on a helm

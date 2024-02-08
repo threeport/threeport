@@ -202,7 +202,7 @@ func sendThreeportUpdates(
 			tpAPIServer,
 			&wri,
 		)
-		if err != nil && !errors.Is(err, tpclient.ErrorObjectNotFound) {
+		if err != nil && !errors.Is(err, tpclient.ErrObjectNotFound) {
 			unsentWRIs = append(unsentWRIs, wriCopy)
 		}
 	}
