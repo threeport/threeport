@@ -4,15 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	v1 "github.com/aws/aws-sdk-go/aws"
-	v1Credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -411,27 +408,4 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	}
 
 	return awsConfig, nil
-}
-
-// ConvertV2ConfigToV1 converts an AWS SDK for Go v2 aws.Config to an AWS SDK for Go v1 aws.Config.
-func ConvertV2ConfigToV1(v2Config aws.Config) (*v1.Config, error) {
-	// Initialize an empty v1 Config
-	v1Config := v1.Config{
-		Region: &v2Config.Region,
-	}
-
-	// Extract credentials from v2 config
-	creds, err := v2Config.Credentials.Retrieve(context.Background())
-	if err != nil {
-		log.Fatalf("Failed to retrieve credentials from v2 config: %v", err)
-	}
-
-	// Set credentials in v1 config
-	v1Config.Credentials = v1Credentials.NewStaticCredentials(
-		creds.AccessKeyID,
-		creds.SecretAccessKey,
-		creds.SessionToken,
-	)
-
-	return &v1Config, nil
 }

@@ -165,16 +165,6 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	// 	return fmt.Errorf("failed to get AWS config from AWS account: %w", err)
 	// }
 
-	// // // convert to v1 config
-	// // awsv1Config, err := kube.ConvertV2ConfigToV1(*awsConfig)
-	// // if err != nil {
-	// // 	return fmt.Errorf("failed to convert AWS config to v1: %w", err)
-	// // }
-
-	// // // create secrets manager client
-	// // awsv1Config = awsv1Config.WithRegion("us-east-1").WithEndpointResolver(awsauth.ResolveEndpoint())
-	// // sess := &session.Session{Config: awsv1Config}
-
 	// cfg := awsv1.NewConfig().WithRegion("eu-west-1").WithEndpointResolver(awsauth.ResolveEndpoint())
 	// credentials, err := awsConfig.Credentials.Retrieve(context.Background())
 	// if err != nil {
