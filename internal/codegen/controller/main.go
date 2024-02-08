@@ -17,65 +17,6 @@ func controllerMainPackagePath(controllerName string) string {
 	return filepath.Join("..", "..", "..", "cmd", controllerName)
 }
 
-func (cc *ControllerConfig) CheckPersist(obj string) bool {
-	if val, ok := cc.StructTags[obj]; ok {
-		if val1, ok1 := val["Data"]; ok1 {
-			if val2, ok2 := val1["persist"]; ok2 {
-				if val2 == "false" {
-					return false
-				}
-			}
-		}
-	}
-	return true
-}
-
-func (cc *ControllerConfig) AddDurableConsumer(g *jen.Group, durable bool) {
-	consumer := Lit("")
-	if durable {
-		consumer = Id("consumer")
-		g.Line().Comment("create JetStream consumer")
-		g.Id("consumer").Op(":=").Id("r").Dot("Name").Op("+").Lit("Consumer")
-		g.Id("js").Dot("AddConsumer").Call(Qual(
-			"github.com/threeport/threeport/pkg/api/v0",
-			cc.StreamName,
-		).Op(",").Op("&").Qual(
-			"github.com/nats-io/nats.go",
-			"ConsumerConfig",
-		).Values(Dict{
-			Id("Durable"): consumer,
-			Id("AckPolicy"): Qual(
-				"github.com/nats-io/nats.go",
-				"AckExplicitPolicy",
-			),
-			Id("FilterSubject"): Id("r").Dot("NotifSubject"),
-		}),
-		)
-	}
-
-	g.Line().Comment("create durable pull subscription")
-	g.Id("sub").Op(",").Id("err").Op(":=").Id("js").Dot("PullSubscribe").Call(
-		Id("r").Dot("NotifSubject"),
-		consumer,
-		Qual(
-			"github.com/nats-io/nats.go",
-			"BindStream",
-		).Call(Qual(
-			"github.com/threeport/threeport/pkg/api/v0",
-			cc.StreamName,
-		)),
-	)
-	g.If(Id("err").Op("!=").Nil()).Block(
-		Id("log").Dot("Error").Call(
-			Id("err"),
-			Lit("failed to create pull subscription for reconciler notifications"),
-			Lit("reconcilerName"),
-			Id("r").Dot("Name"),
-		),
-		Qual("os", "Exit").Call(Lit(1)),
-	)
-}
-
 // MainPackage generates the source code for a controller's main package.
 func (cc *ControllerConfig) MainPackage() error {
 	pluralize := pluralize.NewClient()
@@ -114,7 +55,12 @@ func (cc *ControllerConfig) MainPackage() error {
 	reconcilerConfigs := &Statement{}
 	durable := true
 	for _, obj := range cc.ReconciledObjects {
-		if !cc.CheckPersist(obj) {
+		// If any of the reconciled objects has a struct tag with "persist" set to
+		// "false", then set the controller's consumer to be ephemeral. This will
+		// prevent all of the nats streams associated with this controller from
+		// being persisted to disk, and will result in nats messages being lost in the
+		// event of a nats server failure or restart.
+		if cc.CheckStructTagMap(obj, "Data", "persist", "false") {
 			durable = false
 		}
 		reconcilerConfigs.Id("reconcilerConfigs").Op("=").Append(Id("reconcilerConfigs").Op(",").Qual(
@@ -385,7 +331,7 @@ func (cc *ControllerConfig) MainPackage() error {
 		For(
 			Id("_").Op(",").Id("r").Op(":=").Range().Id("reconcilerConfigs"),
 		).BlockFunc(func(g *jen.Group) {
-			cc.AddDurableConsumer(g, durable)
+			cc.ConfigurePullSubscription(g, durable)
 			g.Line().Comment("create exit channel")
 			g.Id("shutdownChan").Op(":=").Make(Chan().Bool(), Lit(1))
 			g.Id("shutdownChans").Op("=").Append(Id("shutdownChans"), Id("shutdownChan"))
@@ -549,7 +495,12 @@ func (cc *ControllerConfig) ExtensionMainPackage() error {
 	reconcilerConfigs := &Statement{}
 	durable := true
 	for _, obj := range cc.ReconciledObjects {
-		if !cc.CheckPersist(obj) {
+		// If any of the reconciled objects has a struct tag with "persist" set to
+		// "false", then set the controller's consumer to be ephemeral. This will
+		// prevent all of the nats streams associated with this controller from
+		// being persisted to disk, and will result in nats messages being lost in the
+		// event of a nats server failure or restart.
+		if cc.CheckStructTagMap(obj, "Data", "persist", "false") {
 			durable = false
 		}
 		reconcilerConfigs.Id("reconcilerConfigs").Op("=").Append(Id("reconcilerConfigs").Op(",").Qual(
@@ -833,7 +784,7 @@ func (cc *ControllerConfig) ExtensionMainPackage() error {
 		For(
 			Id("_").Op(",").Id("r").Op(":=").Range().Id("reconcilerConfigs"),
 		).BlockFunc(func(g *jen.Group) {
-			cc.AddDurableConsumer(g, durable)
+			cc.ConfigurePullSubscription(g, durable)
 			g.Line().Comment("create exit channel")
 			g.Id("shutdownChan").Op(":=").Make(Chan().Bool(), Lit(1))
 			g.Id("shutdownChans").Op("=").Append(Id("shutdownChans"), Id("shutdownChan"))
@@ -956,4 +907,51 @@ func (cc *ControllerConfig) ExtensionMainPackage() error {
 
 	return nil
 
+}
+
+// ConfigurePullSubscription adds a durable consumer to a controller's main package.
+func (cc *ControllerConfig) ConfigurePullSubscription(g *jen.Group, durable bool) {
+	consumer := Lit("")
+	if durable {
+		consumer = Id("consumer")
+		g.Line().Comment("create JetStream consumer")
+		g.Id("consumer").Op(":=").Id("r").Dot("Name").Op("+").Lit("Consumer")
+		g.Id("js").Dot("AddConsumer").Call(Qual(
+			"github.com/threeport/threeport/pkg/api/v0",
+			cc.StreamName,
+		).Op(",").Op("&").Qual(
+			"github.com/nats-io/nats.go",
+			"ConsumerConfig",
+		).Values(Dict{
+			Id("Durable"): consumer,
+			Id("AckPolicy"): Qual(
+				"github.com/nats-io/nats.go",
+				"AckExplicitPolicy",
+			),
+			Id("FilterSubject"): Id("r").Dot("NotifSubject"),
+		}),
+		)
+	}
+
+	g.Line().Comment("create durable pull subscription")
+	g.Id("sub").Op(",").Id("err").Op(":=").Id("js").Dot("PullSubscribe").Call(
+		Id("r").Dot("NotifSubject"),
+		consumer,
+		Qual(
+			"github.com/nats-io/nats.go",
+			"BindStream",
+		).Call(Qual(
+			"github.com/threeport/threeport/pkg/api/v0",
+			cc.StreamName,
+		)),
+	)
+	g.If(Id("err").Op("!=").Nil()).Block(
+		Id("log").Dot("Error").Call(
+			Id("err"),
+			Lit("failed to create pull subscription for reconciler notifications"),
+			Lit("reconcilerName"),
+			Id("r").Dot("Name"),
+		),
+		Qual("os", "Exit").Call(Lit(1)),
+	)
 }

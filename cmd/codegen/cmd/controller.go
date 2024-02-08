@@ -8,7 +8,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"reflect"
 	"strings"
 
 	"github.com/iancoleman/strcase"
@@ -16,55 +15,13 @@ import (
 
 	"github.com/threeport/threeport/internal/codegen"
 	"github.com/threeport/threeport/internal/codegen/controller"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 var (
 	modelFilenameForController string
 	//packageName string
 )
-
-// parseStructTag parses the struct tag string into a map[string]string
-func parseStructTag(tagString string) map[string]string {
-	tag := reflect.StructTag(strings.Trim(tagString, "`"))
-	tagMap := make(map[string]string)
-	for _, key := range tagList(tag) {
-		tagMap[key] = tag.Get(key)
-	}
-	return tagMap
-}
-
-// tagList extracts keys from a struct tag
-func tagList(tag reflect.StructTag) []string {
-	raw := string(tag)
-	var list []string
-	for raw != "" {
-		var pair string
-		pair, raw = next(raw)
-		key, _ := split(pair)
-		list = append(list, key)
-	}
-	return list
-}
-
-// next gets the next key-value pair from a struct tag
-func next(raw string) (pair, rest string) {
-	i := strings.Index(raw, " ")
-	if i < 0 {
-		return raw, ""
-	}
-	return raw[:i], raw[i+1:]
-}
-
-// split splits a key-value pair from a struct tag
-func split(pair string) (key, value string) {
-	i := strings.Index(pair, ":")
-	if i < 0 {
-		return pair, ""
-	}
-	key = strings.TrimSpace(pair[:i])
-	value = strings.TrimSpace(pair[i+1:])
-	return key, value
-}
 
 // controllerCmd represents the apiModel command
 var controllerCmd = &cobra.Command{
@@ -108,42 +65,47 @@ controllers each time 'make generate' is called.`,
 			),
 		}
 
+		// determine which objects must be reconciled and build a map
+		// of struct tags for each object
+
 		var structType *ast.StructType
 		controllerConfig.StructTags = make(map[string]map[string]map[string]string)
+
+		// iterate over the declarations in the source code file
 		for _, node := range pf.Decls {
+			// if the declaration is a type declaration, iterate over the
+			// specs to find the struct type and its fields
 			switch node.(type) {
 			case *ast.GenDecl:
 				var objectName string
-				genDecl := node.(*ast.GenDecl)
-				for _, spec := range genDecl.Specs {
 
-					typeSpec, ok := spec.(*ast.TypeSpec)
-					if !ok {
-						continue
-					}
-					structType, _ = typeSpec.Type.(*ast.StructType)
+				// get the type declaration
+				genDecl := node.(*ast.GenDecl)
+
+				// iterate over the specs to find the struct type and its fields
+				for _, spec := range genDecl.Specs {
 
 					switch spec.(type) {
 					case *ast.TypeSpec:
+						// if the spec is a type spec, get the type spec and its name
 						typeSpec := spec.(*ast.TypeSpec)
 						objectName = typeSpec.Name.Name
+
+						// populate the struct tags map
+						structType, _ = typeSpec.Type.(*ast.StructType)
 						controllerConfig.StructTags[objectName] = make(map[string]map[string]string)
 						for _, field := range structType.Fields.List {
-							if len(field.Names) > 0 {
-								// for _, fieldName := range field.Names {
-								// }
-								fieldName := field.Names[0].Name
-								// fmt.Printf("Object Name: %s\n", objectName)
-								// fmt.Printf("Field Name: %s\n", field.Names[0].Name)
-								// fmt.Printf("Field Tag: %s\n", field.Tag.Value)
-								tagMap := parseStructTag(field.Tag.Value)
-								// fmt.Printf("Map: %s\n", tagMap)
-								controllerConfig.StructTags[objectName][fieldName] = tagMap
+							if len(field.Names) == 0 {
+								continue
 							}
+							fieldName := field.Names[0].Name
+							tagMap := util.ParseStructTag(field.Tag.Value)
+							controllerConfig.StructTags[objectName][fieldName] = tagMap
 						}
 					}
 
 				}
+				// check for the presence of a reconciler marker comment
 				if genDecl.Doc != nil {
 					for _, comment := range genDecl.Doc.List {
 						if strings.Contains(comment.Text, codegen.ReconclierMarkerText) {
@@ -153,10 +115,6 @@ controllers each time 'make generate' is called.`,
 				}
 			}
 		}
-		fmt.Printf("Reconciled Objects: %s\n", controllerConfig.ReconciledObjects)
-		fmt.Printf("Map: %s\n", controllerConfig.StructTags)
-		// time.Sleep(time.Second * 10)
-		// os.Exit(1)
 
 		// generate the controller's main package
 		if extension {

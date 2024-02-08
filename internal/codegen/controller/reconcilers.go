@@ -16,63 +16,6 @@ func controllerInternalPackagePath(packageName string) string {
 	return filepath.Join("..", "..", "..", "internal", packageName)
 }
 
-func (cc *ControllerConfig) GetLatestObject(g *jen.Group, obj string) {
-	fmt.Printf("attempting to find object: %s", obj)
-	if val, ok := cc.StructTags[obj]; ok {
-		fmt.Printf("found object: %s\n", obj)
-		if val1, ok1 := val["Data"]; ok1 {
-			if val2, ok2 := val1["persist"]; ok2 {
-				if val2 == "false" {
-					return
-				}
-			}
-		}
-	}
-	g.Comment("retrieve latest version of object")
-	g.Id(fmt.Sprintf(
-		"latest%s",
-		obj,
-	)).Op(",").Id("err").Op(":=").Qual(
-		"github.com/threeport/threeport/pkg/client/v0",
-		fmt.Sprintf("Get%sByID", obj),
-	).Call(
-		Line().Id("r").Dot("APIClient"),
-		Line().Id("r").Dot("APIServer"),
-		Line().Op("*").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
-		Line(),
-	)
-	g.Comment("check if error is 404 - if object no longer exists, no need to requeue")
-	g.If(Qual("errors", "Is").Call(Id("err"), Qual(
-		"github.com/threeport/threeport/pkg/client/v0",
-		"ErrObjectNotFound",
-	))).Block(
-		Id("log").Dot("Info").Call(Qual(
-			"fmt", "Sprintf",
-		).Call(
-			Line().Lit("object with ID %d no longer exists - halting reconciliation"),
-			Line().Op("*").Id(fmt.Sprintf(
-				"%s",
-				strcase.ToLowerCamel(obj),
-			)).Dot("ID"),
-			Line(),
-		)),
-		Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)),
-		Continue(),
-	)
-	g.If(Id("err").Op("!=").Nil()).Block(
-		Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-			"failed to get %s by ID from API",
-			strcase.ToDelimited(obj, ' '),
-		))),
-		Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
-		Continue(),
-	)
-	g.Id(strcase.ToLowerCamel(obj)).Op("=").Op("*").Id(fmt.Sprintf(
-		"latest%s",
-		obj,
-	))
-}
-
 // Reconcilers generates the source code for a controller's reconcile functions.
 func (cc *ControllerConfig) Reconcilers() error {
 	for _, obj := range cc.ReconciledObjects {
@@ -251,9 +194,15 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Continue(),
 						)
 						g.Line()
-						cc.GetLatestObject(g, obj)
-						g.Line()
 
+						// If the object has a "Data" field with a "persist" tag set to "false", skip
+						// the retrieval of the latest object. Otherwise, generate the
+						// source code to retrieve the latest object.
+						if !cc.CheckStructTagMap(obj, "Data", "persist", "false") {
+							cc.GetLatestObject(g, obj)
+						}
+
+						g.Line()
 						g.Comment("determine which operation and act accordingly")
 						g.Switch(Id("notif").Dot("Operation")).Block(
 							Case(Qual(
@@ -778,9 +727,15 @@ func (cc *ControllerConfig) ExtensionReconcilers() error {
 							Continue(),
 						)
 						g.Line()
-						cc.GetLatestObject(g, obj)
-						g.Line()
 
+						// If the object has a "Data" field with a "persist" tag set to "false", skip
+						// the retrieval of the latest object. Otherwise, generate the
+						// source code to retrieve the latest object.
+						if !cc.CheckStructTagMap(obj, "Data", "persist", "false") {
+							cc.GetLatestObject(g, obj)
+						}
+
+						g.Line()
 						g.Comment("determine which operation and act accordingly")
 						g.Switch(Id("notif").Dot("Operation")).Block(
 							Case(Qual(
@@ -1125,4 +1080,53 @@ func (cc *ControllerConfig) ExtensionReconcilers() error {
 	}
 
 	return nil
+}
+
+// GetLatestObject generates the source code for a controller's reconcile functions
+// to get the latest object if the "persist" field is not present or set to true.
+func (cc *ControllerConfig) GetLatestObject(g *jen.Group, obj string) {
+	// otherwise, generate the source code to retrieve the latest object
+	g.Comment("retrieve latest version of object")
+	g.Id(fmt.Sprintf(
+		"latest%s",
+		obj,
+	)).Op(",").Id("err").Op(":=").Qual(
+		"github.com/threeport/threeport/pkg/client/v0",
+		fmt.Sprintf("Get%sByID", obj),
+	).Call(
+		Line().Id("r").Dot("APIClient"),
+		Line().Id("r").Dot("APIServer"),
+		Line().Op("*").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+		Line(),
+	)
+	g.Comment("check if error is 404 - if object no longer exists, no need to requeue")
+	g.If(Qual("errors", "Is").Call(Id("err"), Qual(
+		"github.com/threeport/threeport/pkg/client/v0",
+		"ErrObjectNotFound",
+	))).Block(
+		Id("log").Dot("Info").Call(Qual(
+			"fmt", "Sprintf",
+		).Call(
+			Line().Lit("object with ID %d no longer exists - halting reconciliation"),
+			Line().Op("*").Id(fmt.Sprintf(
+				"%s",
+				strcase.ToLowerCamel(obj),
+			)).Dot("ID"),
+			Line(),
+		)),
+		Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)),
+		Continue(),
+	)
+	g.If(Id("err").Op("!=").Nil()).Block(
+		Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+			"failed to get %s by ID from API",
+			strcase.ToDelimited(obj, ' '),
+		))),
+		Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+		Continue(),
+	)
+	g.Id(strcase.ToLowerCamel(obj)).Op("=").Op("*").Id(fmt.Sprintf(
+		"latest%s",
+		obj,
+	))
 }
