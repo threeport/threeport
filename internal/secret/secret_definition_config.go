@@ -79,13 +79,13 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	// decrypt sensitive values
 	decryptedDataMap, err := encryption.DecryptStringMap(encryptionKey, secretData)
 	if err != nil {
-		return fmt.Errorf("failed to decrypt secret data")
+		return fmt.Errorf("failed to decrypt secret data: %w", err)
 	}
 
 	// Marshal the map into JSON format
 	jsonBytes, err := json.Marshal(decryptedDataMap)
 	if err != nil {
-		return fmt.Errorf("failed to marshal secret data")
+		return fmt.Errorf("failed to marshal secret data: %w", err)
 	}
 
 	// Convert JSON bytes to a string
@@ -123,7 +123,7 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	// Call the CreateSecret operation
 	_, err = awssmClient.CreateSecret(context.Background(), input)
 	if err != nil {
-		return fmt.Errorf("failed to create secret")
+		return fmt.Errorf("failed to create secret: %w", err)
 	}
 
 	// TODO: implement this functionality using the external-secrets package
