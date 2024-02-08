@@ -7,7 +7,7 @@ The migrator uses the [pressly/goose](https://github.com/pressly/goose/tree/mast
 The migrator treats all db operations as steps. As such, the necessary logic for a particular migration step
 is present in a file with the following conventions stepnumber_description.go
 
-## Example: update qleet control plane instance api to include image tags as part of the API
+## Example: update control plane instance api to include image tags as part of the API
 An example of a db migrator step is the following:
 
 00001_image_tag_cp_instance.go
@@ -53,7 +53,7 @@ If backfill logic for data is needed, this is also the place to accomodate for t
 
 ## How to run database migrator
 
-The end goal is to have the db-migrator run as part of init container whenever we deploy a new qleetport version.
+The end goal is to have the db-migrator run as part of init container whenever we deploy a new threeport version.
 
 For now as part of an upgrade to Threeport, we will run the db migrator executable from
 the local machine. The port 26257 must be forwarded to the appropiate crdb instance. This can be achieved via

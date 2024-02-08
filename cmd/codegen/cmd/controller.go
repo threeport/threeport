@@ -86,9 +86,19 @@ controllers each time 'make generate' is called.`,
 			}
 		}
 
+		// Get module path if its an extension
+		var modulePath string
+		if extension {
+			var modError error
+			modulePath, modError = GetPathFromGoModule()
+			if modError != nil {
+				return fmt.Errorf("could not get go module path for extension: %w", modError)
+			}
+		}
+
 		// generate the controller's main package
 		if extension {
-			if err := controllerConfig.ExtensionMainPackage(); err != nil {
+			if err := controllerConfig.ExtensionMainPackage(modulePath); err != nil {
 				return fmt.Errorf("failed to generate code for controller's main package for extension: %w", err)
 			}
 		} else {
@@ -104,7 +114,7 @@ controllers each time 'make generate' is called.`,
 
 		// generate the controller's reconcile functions
 		if extension {
-			if err := controllerConfig.ExtensionReconcilers(); err != nil {
+			if err := controllerConfig.ExtensionReconcilers(modulePath); err != nil {
 				return fmt.Errorf("failed to generate code for controller's reconcilers for extension: %w", err)
 			}
 		} else {
