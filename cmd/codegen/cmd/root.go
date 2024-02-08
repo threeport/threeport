@@ -12,6 +12,8 @@ import (
 // flag used to indicate whether the command is being run for an extension
 var extension bool
 
+const GoModEnvVar string = "GO_MOD_FILE_PATH"
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "threeport-codegen",

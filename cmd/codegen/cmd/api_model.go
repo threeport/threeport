@@ -218,6 +218,16 @@ When 'make generate' is run, the following code is generated for API:
 			}
 		}
 
+		// Get module path if its an extension
+		var modulePath string
+		if extension {
+			var modError error
+			modulePath, modError = GetPathFromGoModule()
+			if modError != nil {
+				return fmt.Errorf("could not get go module path for extension: %w", modError)
+			}
+		}
+
 		// generate the model's constants and methods
 		if extension {
 			if err := controllerConfig.ExtensionModelConstantsMethods(); err != nil {
@@ -231,7 +241,7 @@ When 'make generate' is run, the following code is generated for API:
 
 		// generate the model's routes
 		if extension {
-			if err := controllerConfig.ExtensionModelRoutes(); err != nil {
+			if err := controllerConfig.ExtensionModelRoutes(modulePath); err != nil {
 				return fmt.Errorf("failed to generate model routes for extension: %w", err)
 			}
 		} else {
@@ -242,7 +252,7 @@ When 'make generate' is run, the following code is generated for API:
 
 		// generate the model's handlers
 		if extension {
-			if err := controllerConfig.ExtensionModelHandlers(); err != nil {
+			if err := controllerConfig.ExtensionModelHandlers(modulePath); err != nil {
 				return fmt.Errorf("failed to generate model handlers for extension: %w", err)
 			}
 		} else {
@@ -253,7 +263,7 @@ When 'make generate' is run, the following code is generated for API:
 
 		if extension {
 			// generate functions to add API versions, validation
-			if err := controllerConfig.ExtensionModelVersions(); err != nil {
+			if err := controllerConfig.ExtensionModelVersions(modulePath); err != nil {
 				return fmt.Errorf("failed to generate model versions for extension: %w", err)
 			}
 		} else {
@@ -265,7 +275,7 @@ When 'make generate' is run, the following code is generated for API:
 
 		// generate client library functions
 		if extension {
-			if err := controllerConfig.ExtensionClientLib(); err != nil {
+			if err := controllerConfig.ExtensionClientLib(modulePath); err != nil {
 				return fmt.Errorf("failed to generate model client library for extension: %w", err)
 			}
 		} else {
