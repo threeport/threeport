@@ -11,7 +11,7 @@ WORKDIR /threeport
 
 # live-reload development target
 FROM base as live-reload
-RUN apk update && apk add git
+RUN apk update && apk add --no-cache git
 RUN go install github.com/cosmtrek/air@latest && \
     mv /go/bin/air /usr/local/bin
 
@@ -20,11 +20,22 @@ FROM base as dev
 ARG BINARY
 COPY bin/${BINARY} /${BINARY}
 
-# terraform controller target
-FROM ubuntu as terraform
+# live-reload development target for terraform controller
+FROM base as live-reload-terraform
+RUN apk update && apk add --no-cache git ca-certificates wget unzip
+RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip \
+    && unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip -d /usr/local/bin/ \
+    && rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+RUN go install github.com/cosmtrek/air@latest && \
+    mv /go/bin/air /usr/local/bin
+
+# static development target for terraform controller
+FROM base as dev-terraform
+ARG BINARY
+ARG TERRAFORM_VERSION=1.7.3
 COPY bin/${BINARY} /${BINARY}
-RUN apt update && apt install -y wget unzip
-RUN wget https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip
-RUN unzip terraform_1.6.6_linux_amd64.zip
-RUN mv terraform /usr/local/bin/
+RUN apk add --no-cache ca-certificates wget unzip
+RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip \
+    && unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip -d /usr/local/bin/ \
+    && rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip
 
