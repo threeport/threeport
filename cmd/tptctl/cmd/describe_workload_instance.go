@@ -22,7 +22,7 @@ var (
 	describeWorkloadInstanceName       string
 )
 
-// DescribeWorkloadInstanceCmd represents the workload-instances command
+// DescribeWorkloadInstanceCmd represents the workload-instance command
 var DescribeWorkloadInstanceCmd = &cobra.Command{
 	Use:          "workload-instance",
 	Example:      "tptctl describe workload-instance",

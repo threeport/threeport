@@ -129,6 +129,27 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	return createdWorkloadDefinition, nil
 }
 
+// Describe returns important failure events related to a workload definition.
+func (wd *WorkloadDefinitionValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.WorkloadDefinitionStatusDetail, error) {
+	// get workload definition by name
+	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", wd.Name, err)
+	}
+
+	// get workload definition status
+	statusDetail, err := status.GetWorkloadDefinitionStatus(
+		apiClient,
+		apiEndpoint,
+		*workloadDefinition.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for workload definition with name %s: %w", wd.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
 // Delete deletes a workload definition from the Threeport API.
 func (wd *WorkloadDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, error) {
 	// get workload definition by name
