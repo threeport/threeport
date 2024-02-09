@@ -59,6 +59,13 @@ func terraformInstanceCreated(
 		return 0, fmt.Errorf("failed to update terraform instance: %w", err)
 	}
 
+	// clean up local files
+	if err := os.RemoveAll(c.tfDirName); err != nil {
+		// logging err but not returning it as it is non-critical and we do not
+		// want to re-queue reconciliation
+		log.Error(err, "failed to remove terraform files written to disk")
+	}
+
 	return 0, nil
 }
 
@@ -104,6 +111,13 @@ func terraformInstanceDeleted(
 	// execute terraform instance create
 	if err := operations.Delete(); err != nil {
 		return 0, fmt.Errorf("failed to execute terraform instance delete operations: %w", err)
+	}
+
+	// clean up local files
+	if err := os.RemoveAll(c.tfDirName); err != nil {
+		// logging err but not returning it as it is non-critical and we do not
+		// want to re-queue reconciliation
+		log.Error(err, "failed to remove terraform files written to disk")
 	}
 
 	return 0, nil
