@@ -51,7 +51,7 @@ the AWS object storage bucket config or name.`,
 				cli.Error("failed to read config file", err)
 				os.Exit(1)
 			}
-			if err := yaml.Unmarshal(configContent, &awsObjectStorageBucketConfig); err != nil {
+			if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketConfig); err != nil {
 				cli.Error("failed to unmarshal config file yaml content", err)
 				os.Exit(1)
 			}

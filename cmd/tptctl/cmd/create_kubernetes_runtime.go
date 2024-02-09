@@ -35,7 +35,7 @@ and kubernetes runtime instance based on the kubernetes runtime config.`,
 			os.Exit(1)
 		}
 		var kubernetesRuntimeConfig config.KubernetesRuntimeConfig
-		if err := yaml.Unmarshal(configContent, &kubernetesRuntimeConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

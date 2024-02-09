@@ -34,7 +34,7 @@ var CreateGatewayDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		var gatewayDefinitionConfig config.GatewayDefinitionConfig
-		if err := yaml.Unmarshal(configContent, &gatewayDefinitionConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &gatewayDefinitionConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

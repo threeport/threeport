@@ -35,7 +35,7 @@ and AWS object storage bucket instance based on the AWS object storage bucket co
 			os.Exit(1)
 		}
 		var awsObjectStorageBucketConfig config.AwsObjectStorageBucketConfig
-		if err := yaml.Unmarshal(configContent, &awsObjectStorageBucketConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

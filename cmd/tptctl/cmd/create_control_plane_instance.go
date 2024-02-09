@@ -35,7 +35,7 @@ var CreateControlPlaneInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		var controlPlaneInstanceConfig config.ControlPlaneInstanceConfig
-		if err := yaml.Unmarshal(configContent, &controlPlaneInstanceConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &controlPlaneInstanceConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
