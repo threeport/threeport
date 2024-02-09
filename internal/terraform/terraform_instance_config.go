@@ -118,27 +118,32 @@ func (c *TerraformInstanceConfig) deleteTerraformInstance() error {
 		}
 	}
 
-	tfStateFilepath := fmt.Sprintf("%s/terraform.tfstate", c.tfDirName)
-	if err := os.WriteFile(tfStateFilepath, []byte(*c.terraformInstance.TerraformStateDocument), 0644); err != nil {
-		return fmt.Errorf("failed to write terraform state to file: %w", err)
-	}
+	// check to see if state file is present and delete if it is
+	// if no state file is present, we can only assume that creation failed and
+	// there are no terraform resources to destroy
+	if c.terraformInstance.TerraformStateDocument != nil {
+		tfStateFilepath := fmt.Sprintf("%s/terraform.tfstate", c.tfDirName)
+		if err := os.WriteFile(tfStateFilepath, []byte(*c.terraformInstance.TerraformStateDocument), 0644); err != nil {
+			return fmt.Errorf("failed to write terraform state to file: %w", err)
+		}
 
-	// execute 'terrform destroy'
-	destroyCmd := exec.Command(
-		"terraform",
-		fmt.Sprintf("-chdir=%s", c.tfDirName),
-		"destroy",
-		"-auto-approve",
-		"-no-color",
-	)
-	destroyCmd.Env = append(
-		destroyCmd.Environ(),
-		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.accessKeyId),
-		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.secretAccessKey),
-	)
-	destroyOut, err := destroyCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to destroy terrform config with output '%s': %w", string(destroyOut), err)
+		// execute 'terrform destroy'
+		destroyCmd := exec.Command(
+			"terraform",
+			fmt.Sprintf("-chdir=%s", c.tfDirName),
+			"destroy",
+			"-auto-approve",
+			"-no-color",
+		)
+		destroyCmd.Env = append(
+			destroyCmd.Environ(),
+			fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.accessKeyId),
+			fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.secretAccessKey),
+		)
+		destroyOut, err := destroyCmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to destroy terrform config with output '%s': %w", string(destroyOut), err)
+		}
 	}
 
 	return nil
