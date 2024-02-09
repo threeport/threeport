@@ -2,5 +2,5 @@ HelmWorkloadDefinition:
   Name: wordpress
   Repo: "oci://registry-1.docker.io/bitnamicharts"
   Chart: wordpress
-  ValuesDocument: samples/wordpress-helm-workload-definition-values.yaml
+  ValuesDocument: wordpress-helm-workload-definition-values.yaml
 
