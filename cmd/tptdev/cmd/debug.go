@@ -12,7 +12,6 @@ import (
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
 
@@ -30,13 +29,6 @@ var DebugCmd = &cobra.Command{
 	Long:  `Debug threeport control plane components.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		// create list of components to build
-		debugComponents, err := GetComponentList(debugComponentNames, installer.AllControlPlaneComponents())
-		if err != nil {
-			cli.Error("failed to get debug component list: %w", err)
-			os.Exit(1)
-		}
-
 		// update cli args based on env vars
 		cliArgs.GetControlPlaneEnvVars()
 
@@ -44,6 +36,13 @@ var DebugCmd = &cobra.Command{
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {
 			cli.Error("failed to create threeport control plane installer", err)
+			os.Exit(1)
+		}
+
+		// create list of components to build
+		debugComponents, err := cpi.GetComponentList(debugComponentNames)
+		if err != nil {
+			cli.Error("failed to get debug component list: %w", err)
 			os.Exit(1)
 		}
 

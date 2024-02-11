@@ -20,6 +20,35 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// GetComponentList returns a list of component names to build
+func (cpi *ControlPlaneInstaller) GetComponentList(componentNames string) ([]*v0.ControlPlaneComponent, error) {
+	allComponents := AllControlPlaneComponents()
+	componentList := make([]*v0.ControlPlaneComponent, 0)
+	switch {
+	case len(componentNames) != 0:
+		componentNameList := strings.Split(componentNames, ",")
+		for _, name := range componentNameList {
+			found := false
+			for _, c := range allComponents {
+				if c.Name == name {
+					if found {
+						return componentList, fmt.Errorf("found more then one component info for: %s", name)
+					}
+					componentList = append(componentList, c)
+					found = true
+				}
+			}
+
+			if !found {
+				return componentList, fmt.Errorf("could not find requested component to install: %s", name)
+			}
+		}
+	default:
+		componentList = allComponents
+	}
+	return componentList, nil
+}
+
 // InstallComputeSpaceControlPlaneComponents
 func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	kubeClient dynamic.Interface,

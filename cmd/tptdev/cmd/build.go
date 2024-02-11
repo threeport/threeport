@@ -41,16 +41,6 @@ var buildCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		components := installer.AllControlPlaneComponents()
-		components = append(components, installer.DatabaseMigrator)
-
-		// create list of components to build
-		componentList, err := GetComponentList(buildComponentNames, components)
-
-		if err != nil {
-			cli.Error("failed to get component list:", err)
-		}
-
 		// update cli args based on env vars
 		cliArgs.GetControlPlaneEnvVars()
 
@@ -62,6 +52,13 @@ var buildCmd = &cobra.Command{
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {
 			cli.Error("failed to create threeport control plane installer", err)
+		}
+
+		// create list of components to build
+		componentList, err := cpi.GetComponentList(buildComponentNames)
+
+		if err != nil {
+			cli.Error("failed to get component list:", err)
 		}
 
 		// configure parallel builds
