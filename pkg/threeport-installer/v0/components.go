@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -16,6 +17,7 @@ import (
 	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -47,6 +49,89 @@ func (cpi *ControlPlaneInstaller) GetComponentList(componentNames string) ([]*v0
 		componentList = allComponents
 	}
 	return componentList, nil
+}
+
+// InstallComputeSpaceControlPlaneComponents
+func (cpi *ControlPlaneInstaller) UpgradeControlPlaneComponents(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	apiClient *http.Client,
+	apiAddress string,
+	authConfig *auth.AuthConfig,
+) error {
+
+	controlPlaneInstance, err := client.GetSelfControlPlaneInstance(apiClient, apiAddress)
+	if err != nil {
+		return fmt.Errorf("could not retrieve self control plane instance: %w", err)
+	}
+
+	if err := cpi.UpdateThreeportAPIDeployment(
+		kubeClient,
+		mapper,
+	); err != nil {
+		return fmt.Errorf("failed to update threeport rest api: %w", err)
+	}
+
+	if err := cpi.UpdateThreeportAgentDeployment(
+		kubeClient,
+		mapper,
+		cpi.Opts.Namespace,
+	); err != nil {
+		return fmt.Errorf("failed to update threeport agent: %w", err)
+	}
+
+	controllerMap := make(map[string]bool, 0)
+
+	for _, c := range controlPlaneInstance.CustomComponentInfo {
+		if c.Name == cpi.Opts.AgentInfo.Name &&
+			c.Name == cpi.Opts.DatabaseMigratorInfo.Name &&
+			c.Name == cpi.Opts.RestApiInfo.Name {
+			continue
+		}
+
+		controllerMap[c.Name] = false
+	}
+
+	controllersToInstall := make([]*v0.ControlPlaneComponent, 0)
+	for _, c := range cpi.Opts.ControllerList {
+		if _, ok := controllerMap[c.Name]; ok {
+			// This is a controller that already exists as part of the deployment so we update it
+			err := cpi.UpdateControllerDeployment(
+				kubeClient,
+				mapper,
+				*c,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to update threeport controller %s: %s", c.Name, err)
+			}
+
+		} else {
+			// This controller exists in the installer but not on the control plane
+			// So we add it to be installed
+			controllersToInstall = append(controllersToInstall, c)
+		}
+	}
+
+	cpi.Opts.ControllerList = controllersToInstall
+
+	err = cpi.InstallThreeportControllers(
+		kubeClient,
+		mapper,
+		authConfig,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to install threeport controllers: %w", err)
+	}
+
+	// Append these to the control plane instance components and update it
+	controlPlaneInstance.CustomComponentInfo = append(controlPlaneInstance.CustomComponentInfo, controllersToInstall...)
+
+	_, err = client.UpdateControlPlaneInstance(apiClient, apiAddress, controlPlaneInstance)
+	if err != nil {
+		return fmt.Errorf("failed to update control plane instance: %w", err)
+	}
+
+	return nil
 }
 
 // InstallComputeSpaceControlPlaneComponents

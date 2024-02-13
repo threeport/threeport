@@ -4,11 +4,11 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	"k8s.io/client-go/util/homedir"
 
@@ -19,19 +19,25 @@ import (
 var updateImageTag string
 var kubeconfigPath string
 var controlPlaneNamespace string
-var authEnabled bool
 
 // UpCmd represents the create threeport command
 var UpgradeControlPlaneCmd = &cobra.Command{
 	Use:     "control-plane",
-	Example: "tptctl upgrade control-plane --version=v0.5.0",
-	Short:   "Upgrades the version of the Threeport control plane",
-	Long: `Upgrades the version of the Threeport control plane. The version should be a valid
-	image tag.`,
+	Example: "tptctl upgrade control-plane",
+	Short:   "Upgrades the Threeport control plane to the current version",
+	Long: `Upgrades the version of the Threeport control plane to the current version
+	of tptctl`,
 	SilenceUsage: true,
 	PreRun:       commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, threeportConfig, apiEndpoint, requestedControlPlane := getClientContext(cmd)
 		cpi := threeport.NewInstaller()
+
+		authEnabled, err := threeportConfig.GetThreeportAuthEnabled(requestedControlPlane)
+		if err != nil {
+			cli.Error("failed to determine if auth enabled on control plane:", err)
+			os.Exit(1)
+		}
 
 		cpi.SetAllImageTags(updateImageTag)
 		cpi.Opts.CreateOrUpdateKubeResources = true
@@ -46,35 +52,24 @@ var UpgradeControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if err := cpi.UpdateThreeportAPIDeployment(
-			dynamicKubeClient,
-			&mapper,
-		); err != nil {
-			cli.Error("failed to update threeport rest api", err)
-			os.Exit(1)
-		}
-
-		if err := cpi.UpdateThreeportAgentDeployment(
-			dynamicKubeClient,
-			&mapper,
-			controlPlaneNamespace,
-		); err != nil {
-			cli.Error("failed to update threeport agent", err)
-			os.Exit(1)
-		}
-
-		for _, c := range cpi.Opts.ControllerList {
-			if err = cpi.UpdateControllerDeployment(
-				dynamicKubeClient,
-				&mapper,
-				*c,
-			); err != nil {
-				cli.Error(fmt.Sprintf("failed to update threeport controller: %s", c.Name), err)
+		var authConfig *auth.AuthConfig
+		var authConfigErr error
+		if authEnabled {
+			authConfig, authConfigErr = threeportConfig.GetAuthConfig(requestedControlPlane)
+			if authConfigErr != nil {
+				cli.Error("could not retrieve auth config from threeport config", authConfigErr)
 				os.Exit(1)
 			}
+		} else {
+			authConfig = nil
 		}
 
-		cli.Complete(fmt.Sprintf("Succesfully updated all threeport deployments to version: %s", updateImageTag))
+		if err := cpi.UpgradeControlPlaneComponents(dynamicKubeClient, &mapper, apiClient, apiEndpoint, authConfig); err != nil {
+			cli.Error("could not upgrade control plane components", err)
+			os.Exit(1)
+		}
+
+		cli.Complete("Succesfully updated all threeport control plane components")
 	},
 }
 
@@ -94,11 +89,6 @@ func init() {
 	UpgradeControlPlaneCmd.Flags().StringVar(
 		&controlPlaneNamespace,
 		"namespace", "threeport-control-plane", "Control plane namespace.",
-	)
-
-	UpgradeControlPlaneCmd.Flags().BoolVar(
-		&authEnabled,
-		"auth-enabled", false, "Specify if auth is enabled on target control plane.",
 	)
 
 	UpgradeControlPlaneCmd.MarkFlagRequired("version")
