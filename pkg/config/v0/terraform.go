@@ -50,8 +50,7 @@ type TerraformInstanceConfig struct {
 // TerraformInstanceValues contains the attributes needed to manage a terraform
 // instance.
 type TerraformInstanceValues struct {
-	Name string `yaml:"Name"`
-	//AwsAccountName        string                    `yaml:"AwsAccountName"`
+	Name                string                    `yaml:"Name"`
 	AwsAccount          AwsAccountValues          `yaml:"AwsAccount"`
 	VarsDocument        string                    `yaml:"VarsDocument"`
 	TerraformDefinition TerraformDefinitionValues `yaml:"TerraformDefinition"`

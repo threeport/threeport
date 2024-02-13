@@ -5,12 +5,14 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	"github.com/threeport/threeport/pkg/encryption/v0"
+	encryption "github.com/threeport/threeport/pkg/encryption/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -21,7 +23,7 @@ func terraformInstanceCreated(
 	log *logr.Logger,
 ) (int64, error) {
 	// set up terraform
-	tfDirName, accessKeyId, secretAccessKey, err := setupTerraform(
+	tfDirName, awsConfig, err := setupTerraform(
 		r,
 		terraformInstance,
 		log,
@@ -34,9 +36,8 @@ func terraformInstanceCreated(
 		r:                 r,
 		terraformInstance: terraformInstance,
 		log:               log,
+		awsConfig:         awsConfig,
 		tfDirName:         tfDirName,
-		accessKeyId:       accessKeyId,
-		secretAccessKey:   secretAccessKey,
 	}
 
 	// get terraform instance operations
@@ -87,7 +88,7 @@ func terraformInstanceDeleted(
 	log *logr.Logger,
 ) (int64, error) {
 	// set up terraform
-	tfDirName, accessKeyId, secretAccessKey, err := setupTerraform(
+	tfDirName, awsConfig, err := setupTerraform(
 		r,
 		terraformInstance,
 		log,
@@ -100,9 +101,8 @@ func terraformInstanceDeleted(
 		r:                 r,
 		terraformInstance: terraformInstance,
 		log:               log,
+		awsConfig:         awsConfig,
 		tfDirName:         tfDirName,
-		accessKeyId:       accessKeyId,
-		secretAccessKey:   secretAccessKey,
 	}
 
 	// get terraform instance operations
@@ -129,7 +129,7 @@ func setupTerraform(
 	r *controller.Reconciler,
 	terraformInstance *v0.TerraformInstance,
 	log *logr.Logger,
-) (string, string, string, error) {
+) (string, *aws.Config, error) {
 	// get terraform definition
 	terraformDefinition, err := client.GetTerraformDefinitionByID(
 		r.APIClient,
@@ -137,7 +137,7 @@ func setupTerraform(
 		*terraformInstance.TerraformDefinitionID,
 	)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to get terraform definition: %w", err)
+		return "", nil, fmt.Errorf("failed to get terraform definition: %w", err)
 	}
 
 	// write terraform config to disk
@@ -145,12 +145,12 @@ func setupTerraform(
 	_, err = os.Stat(tfDirName)
 	if os.IsNotExist(err) {
 		if err := os.Mkdir(tfDirName, os.ModePerm); err != nil {
-			return "", "", "", fmt.Errorf("failed to create directory for terraform config: %w", err)
+			return "", nil, fmt.Errorf("failed to create directory for terraform config: %w", err)
 		}
 	}
 	tfFilepath := fmt.Sprintf("%s/terraform.tf", tfDirName)
 	if err := os.WriteFile(tfFilepath, []byte(*terraformDefinition.ConfigDir), 0644); err != nil {
-		return "", "", "", fmt.Errorf("failed to write terraform config to file: %w", err)
+		return "", nil, fmt.Errorf("failed to write terraform config to file: %w", err)
 	}
 
 	// execute `terraform init`
@@ -162,7 +162,7 @@ func setupTerraform(
 	)
 	initOut, err := initCmd.CombinedOutput()
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to initialize terrform with output '%s': %w", string(initOut), err)
+		return "", nil, fmt.Errorf("failed to initialize terrform with output '%s': %w", string(initOut), err)
 	}
 	log.V(0).Info(
 		"terraform init command executed",
@@ -176,39 +176,39 @@ func setupTerraform(
 		*terraformInstance.AwsAccountID,
 	)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to get AWS account to use for terraform resource deployment: %w", err)
+		return "", nil, fmt.Errorf("failed to get AWS account to use for terraform resource management: %w", err)
 	}
-	accessKeyId, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
+	awsConfig, err := kube.GetAwsConfigFromAwsAccount(
+		r.EncryptionKey,
+		*awsAccount.DefaultRegion,
+		awsAccount,
+	)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to decrypt AWS account access key ID: %w", err)
-	}
-	secretAccessKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to decrypt AWS account secret access key: %w", err)
+		return "", nil, fmt.Errorf("failed to get AWS config from AWS account to use for terraform resource management: %w", err)
 	}
 
 	// decrypt encrypted values
 	if terraformInstance.VarsDocument != nil {
 		terraformVarsDoc, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.VarsDocument)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to decrypt terraform vars document: %w", err)
+			return "", nil, fmt.Errorf("failed to decrypt terraform vars document: %w", err)
 		}
 		terraformInstance.VarsDocument = &terraformVarsDoc
 	}
 	if terraformInstance.StateDocument != nil {
 		terraformStateDoc, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.StateDocument)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to decrypt terraform state document: %w", err)
+			return "", nil, fmt.Errorf("failed to decrypt terraform state document: %w", err)
 		}
 		terraformInstance.StateDocument = &terraformStateDoc
 	}
 	if terraformInstance.Outputs != nil {
 		terraformOutputs, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.Outputs)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to decrypt terraform outputs: %w", err)
+			return "", nil, fmt.Errorf("failed to decrypt terraform outputs: %w", err)
 		}
 		terraformInstance.Outputs = &terraformOutputs
 	}
 
-	return tfDirName, accessKeyId, secretAccessKey, nil
+	return tfDirName, awsConfig, nil
 }

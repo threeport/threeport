@@ -1,11 +1,14 @@
 package terraform
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -18,9 +21,8 @@ type TerraformInstanceConfig struct {
 	terraformInstance   *v0.TerraformInstance
 	terraformDefinition *v0.TerraformDefinition
 	log                 *logr.Logger
+	awsConfig           *aws.Config
 	tfDirName           string
-	accessKeyId         string
-	secretAccessKey     string
 	tfState             string
 	tfOutput            string
 }
@@ -49,6 +51,12 @@ func (c *TerraformInstanceConfig) createTerraformInstance() error {
 		}
 	}
 
+	// get AWS credentials
+	awsCreds, err := c.awsConfig.Credentials.Retrieve(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to retrieve AWS credentials: %w", err)
+	}
+
 	// execute 'terrform apply'
 	applyCmd := exec.Command(
 		"terraform",
@@ -59,8 +67,9 @@ func (c *TerraformInstanceConfig) createTerraformInstance() error {
 	)
 	applyCmd.Env = append(
 		applyCmd.Environ(),
-		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.accessKeyId),
-		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.secretAccessKey),
+		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", awsCreds.AccessKeyID),
+		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", awsCreds.SecretAccessKey),
+		fmt.Sprintf("AWS_SESSION_TOKEN=%s", awsCreds.SessionToken),
 	)
 	applyOut, err := applyCmd.CombinedOutput()
 	if err != nil {
@@ -127,6 +136,12 @@ func (c *TerraformInstanceConfig) deleteTerraformInstance() error {
 			return fmt.Errorf("failed to write terraform state to file: %w", err)
 		}
 
+		// get AWS credentials
+		awsCreds, err := c.awsConfig.Credentials.Retrieve(context.Background())
+		if err != nil {
+			return fmt.Errorf("failed to retrieve AWS credentials: %w", err)
+		}
+
 		// execute 'terrform destroy'
 		destroyCmd := exec.Command(
 			"terraform",
@@ -137,8 +152,9 @@ func (c *TerraformInstanceConfig) deleteTerraformInstance() error {
 		)
 		destroyCmd.Env = append(
 			destroyCmd.Environ(),
-			fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.accessKeyId),
-			fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.secretAccessKey),
+			fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", awsCreds.AccessKeyID),
+			fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", awsCreds.SecretAccessKey),
+			fmt.Sprintf("AWS_SESSION_TOKEN=%s", awsCreds.SessionToken),
 		)
 		destroyOut, err := destroyCmd.CombinedOutput()
 		if err != nil {
