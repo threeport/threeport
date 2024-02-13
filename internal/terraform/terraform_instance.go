@@ -49,8 +49,8 @@ func terraformInstanceCreated(
 
 	// update the terraform instance
 	terraformInstance.Reconciled = util.BoolPtr(true)
-	terraformInstance.TerraformStateDocument = &c.tfState
-	terraformInstance.TerraformOutputs = &c.tfOutput
+	terraformInstance.StateDocument = &c.tfState
+	terraformInstance.Outputs = &c.tfOutput
 	if _, err := client.UpdateTerraformInstance(
 		r.APIClient,
 		r.APIServer,
@@ -149,7 +149,7 @@ func setupTerraform(
 		}
 	}
 	tfFilepath := fmt.Sprintf("%s/terraform.tf", tfDirName)
-	if err := os.WriteFile(tfFilepath, []byte(*terraformDefinition.TerraformConfigDir), 0644); err != nil {
+	if err := os.WriteFile(tfFilepath, []byte(*terraformDefinition.ConfigDir), 0644); err != nil {
 		return "", "", "", fmt.Errorf("failed to write terraform config to file: %w", err)
 	}
 
@@ -188,26 +188,26 @@ func setupTerraform(
 	}
 
 	// decrypt encrypted values
-	if terraformInstance.TerraformVarsDocument != nil {
-		terraformVarsDoc, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.TerraformVarsDocument)
+	if terraformInstance.VarsDocument != nil {
+		terraformVarsDoc, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.VarsDocument)
 		if err != nil {
 			return "", "", "", fmt.Errorf("failed to decrypt terraform vars document: %w", err)
 		}
-		terraformInstance.TerraformVarsDocument = &terraformVarsDoc
+		terraformInstance.VarsDocument = &terraformVarsDoc
 	}
-	if terraformInstance.TerraformStateDocument != nil {
-		terraformStateDoc, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.TerraformStateDocument)
+	if terraformInstance.StateDocument != nil {
+		terraformStateDoc, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.StateDocument)
 		if err != nil {
 			return "", "", "", fmt.Errorf("failed to decrypt terraform state document: %w", err)
 		}
-		terraformInstance.TerraformStateDocument = &terraformStateDoc
+		terraformInstance.StateDocument = &terraformStateDoc
 	}
-	if terraformInstance.TerraformOutputs != nil {
-		terraformOutputs, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.TerraformOutputs)
+	if terraformInstance.Outputs != nil {
+		terraformOutputs, err := encryption.Decrypt(r.EncryptionKey, *terraformInstance.Outputs)
 		if err != nil {
 			return "", "", "", fmt.Errorf("failed to decrypt terraform outputs: %w", err)
 		}
-		terraformInstance.TerraformOutputs = &terraformOutputs
+		terraformInstance.Outputs = &terraformOutputs
 	}
 
 	return tfDirName, accessKeyId, secretAccessKey, nil

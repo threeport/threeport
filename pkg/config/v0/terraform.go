@@ -22,11 +22,11 @@ type TerraformConfig struct {
 // TerraformValues contains the attributes needed to manage a terraform
 // definition and terraform instance.
 type TerraformValues struct {
-	Name                  string           `yaml:"Name"`
-	TerraformConfigDir    string           `yaml:"TerraformConfigDir"`
-	AwsAccount            AwsAccountValues `yaml:"AwsAccount"`
-	TerraformVarsDocument string           `yaml:"TerraformVarsDocument"`
-	TerraformConfigPath   string           `yaml:"TerraformConfigPath"`
+	Name                string           `yaml:"Name"`
+	ConfigDir           string           `yaml:"ConfigDir"`
+	AwsAccount          AwsAccountValues `yaml:"AwsAccount"`
+	VarsDocument        string           `yaml:"VarsDocument"`
+	TerraformConfigPath string           `yaml:"TerraformConfigPath"`
 }
 
 // TerraformDefinitionConfig contains the config for a terraform definition.
@@ -38,7 +38,7 @@ type TerraformDefinitionConfig struct {
 // definition.
 type TerraformDefinitionValues struct {
 	Name                string `yaml:"Name"`
-	TerraformConfigDir  string `yaml:"TerraformConfigDir"`
+	ConfigDir           string `yaml:"ConfigDir"`
 	TerraformConfigPath string `yaml:"TerraformConfigPath"`
 }
 
@@ -52,10 +52,10 @@ type TerraformInstanceConfig struct {
 type TerraformInstanceValues struct {
 	Name string `yaml:"Name"`
 	//AwsAccountName        string                    `yaml:"AwsAccountName"`
-	AwsAccount            AwsAccountValues          `yaml:"AwsAccount"`
-	TerraformVarsDocument string                    `yaml:"TerraformVarsDocument"`
-	TerraformDefinition   TerraformDefinitionValues `yaml:"TerraformDefinition"`
-	TerraformConfigPath   string                    `yaml:"TerraformConfigPath"`
+	AwsAccount          AwsAccountValues          `yaml:"AwsAccount"`
+	VarsDocument        string                    `yaml:"VarsDocument"`
+	TerraformDefinition TerraformDefinitionValues `yaml:"TerraformDefinition"`
+	TerraformConfigPath string                    `yaml:"TerraformConfigPath"`
 }
 
 // Create creates a terraform definition and instance in the Threeport API.
@@ -98,8 +98,8 @@ func (t *TerraformDefinitionValues) Validate() error {
 	}
 
 	// ensure terraform config dir is set
-	if t.TerraformConfigDir == "" {
-		multiError.AppendError(errors.New("missing required field in config: TerraformConfigDir"))
+	if t.ConfigDir == "" {
+		multiError.AppendError(errors.New("missing required field in config: ConfigDir"))
 	}
 
 	return multiError.Error()
@@ -115,7 +115,7 @@ func (t *TerraformDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	// build the path to the terraform config dir relative to the user's working
 	// directory
 	configDir := filepath.Dir(t.TerraformConfigPath)
-	relativeTerraformConfigPath := filepath.Join(configDir, t.TerraformConfigDir)
+	relativeTerraformConfigPath := filepath.Join(configDir, t.ConfigDir)
 
 	// collect all the terraform config files
 	var terraformConfigFiles []string
@@ -133,7 +133,7 @@ func (t *TerraformDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 		return nil, fmt.Errorf("failed to find terraform config files in provided config dir: %w", err)
 	}
 	if len(terraformConfigFiles) == 0 {
-		return nil, fmt.Errorf("no terraform config files with '.tf' file extension found in provided config dir: %s", t.TerraformConfigDir)
+		return nil, fmt.Errorf("no terraform config files with '.tf' file extension found in provided config dir: %s", t.ConfigDir)
 	}
 
 	// load terraform configs
@@ -152,7 +152,7 @@ func (t *TerraformDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 		Definition: v0.Definition{
 			Name: &t.Name,
 		},
-		TerraformConfigDir: &concatConfig,
+		ConfigDir: &concatConfig,
 	}
 
 	// create terraform definition
@@ -240,19 +240,19 @@ func (t *TerraformInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 	}
 
 	// add terraform vars if supplied
-	if t.TerraformVarsDocument != "" {
+	if t.VarsDocument != "" {
 		// build the path to the terraform config dir relative to the user's working
 		// directory
 		configDir := filepath.Dir(t.TerraformConfigPath)
-		varsDoc := filepath.Join(configDir, t.TerraformVarsDocument)
+		varsDoc := filepath.Join(configDir, t.VarsDocument)
 		varsContent, err := os.ReadFile(varsDoc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read terraform vars file %s: %w", t.TerraformVarsDocument, err)
+			return nil, fmt.Errorf("failed to read terraform vars file %s: %w", t.VarsDocument, err)
 		}
 
 		// add the terraform vars to the terraform instance object
 		varsContentStr := string(varsContent)
-		terraformInstance.TerraformVarsDocument = &varsContentStr
+		terraformInstance.VarsDocument = &varsContentStr
 	}
 
 	// create terraform instance
@@ -302,7 +302,7 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 	// add terraform definition operation
 	terraformDefinitionValues := TerraformDefinitionValues{
 		Name:                t.Name,
-		TerraformConfigDir:  t.TerraformConfigDir,
+		ConfigDir:           t.ConfigDir,
 		TerraformConfigPath: t.TerraformConfigPath,
 	}
 	operations.AppendOperation(util.Operation{
@@ -323,9 +323,9 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 
 	// add terraform instance operation
 	terraformInstanceValues := TerraformInstanceValues{
-		Name:                  t.Name,
-		TerraformVarsDocument: t.TerraformVarsDocument,
-		TerraformConfigPath:   t.TerraformConfigPath,
+		Name:                t.Name,
+		VarsDocument:        t.VarsDocument,
+		TerraformConfigPath: t.TerraformConfigPath,
 		AwsAccount: AwsAccountValues{
 			Name: t.AwsAccount.Name,
 		},

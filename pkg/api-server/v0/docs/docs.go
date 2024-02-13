@@ -14517,6 +14517,10 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance",
+                "Profile",
+                "Tier",
                 "ObservabilityStackDefinition",
                 "ObservabilityStackInstance",
                 "ObservabilityDashboardDefinition",
@@ -14525,16 +14529,19 @@ const docTemplate = `{
                 "MetricsInstance",
                 "LoggingDefinition",
                 "LoggingInstance",
+                "LogBackend",
+                "LogStorageDefinition",
+                "LogStorageInstance",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
+                "ControlPlaneDefinition",
+                "ControlPlaneInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "AttachedObjectReference",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
                 "AwsAccount",
                 "AwsEksKubernetesRuntimeDefinition",
                 "AwsEksKubernetesRuntimeInstance",
@@ -14542,25 +14549,22 @@ const docTemplate = `{
                 "AwsRelationalDatabaseInstance",
                 "AwsObjectStorageBucketDefinition",
                 "AwsObjectStorageBucketInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "Profile",
-                "Tier",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
+                "TerraformDefinition",
+                "TerraformInstance",
                 "GatewayDefinition",
                 "GatewayInstance",
                 "GatewayHttpPort",
                 "GatewayTcpPort",
                 "DomainNameDefinition",
-                "DomainNameInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
-                "TerraformDefinition",
-                "TerraformInstance"
+                "DomainNameInstance"
             ],
             "x-enum-varnames": [
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
                 "ObjectTypeObservabilityStackDefinition",
                 "ObjectTypeObservabilityStackInstance",
                 "ObjectTypeObservabilityDashboardDefinition",
@@ -14569,16 +14573,19 @@ const docTemplate = `{
                 "ObjectTypeMetricsInstance",
                 "ObjectTypeLoggingDefinition",
                 "ObjectTypeLoggingInstance",
+                "ObjectTypeLogBackend",
+                "ObjectTypeLogStorageDefinition",
+                "ObjectTypeLogStorageInstance",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeControlPlaneDefinition",
+                "ObjectTypeControlPlaneInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeAttachedObjectReference",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeAwsAccount",
                 "ObjectTypeAwsEksKubernetesRuntimeDefinition",
                 "ObjectTypeAwsEksKubernetesRuntimeInstance",
@@ -14586,23 +14593,16 @@ const docTemplate = `{
                 "ObjectTypeAwsRelationalDatabaseInstance",
                 "ObjectTypeAwsObjectStorageBucketDefinition",
                 "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
+                "ObjectTypeTerraformDefinition",
+                "ObjectTypeTerraformInstance",
                 "ObjectTypeGatewayDefinition",
                 "ObjectTypeGatewayInstance",
                 "ObjectTypeGatewayHttpPort",
                 "ObjectTypeGatewayTcpPort",
                 "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
-                "ObjectTypeTerraformDefinition",
-                "ObjectTypeTerraformInstance"
+                "ObjectTypeDomainNameInstance"
             ]
         },
         "v0.ObservabilityDashboardDefinition": {
@@ -15010,10 +15010,14 @@ const docTemplate = `{
         "v0.TerraformDefinition": {
             "type": "object",
             "required": [
-                "Name",
-                "TerraformConfigDir"
+                "ConfigDir",
+                "Name"
             ],
             "properties": {
+                "ConfigDir": {
+                    "description": "Path to the directory containing terraform configs with '.tf' file\nextension.",
+                    "type": "string"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -15053,10 +15057,6 @@ const docTemplate = `{
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
-                },
-                "TerraformConfigDir": {
-                    "description": "Path to the directory containing terraform configs with '.tf' file\nextension.",
-                    "type": "string"
                 },
                 "TerraformInstances": {
                     "description": "The associated terraform instances that are deployed from this definition.",
@@ -15115,9 +15115,17 @@ const docTemplate = `{
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
+                "Outputs": {
+                    "description": "The outputs defined in the terraform config that are collected from\nTerraform.  The terraform outputs are stored in JSON format but is a\nstring typt to support encryption.",
+                    "type": "string"
+                },
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
+                },
+                "StateDocument": {
+                    "description": "The terraform state json object that stores the inventory of\ninfrastructure being managed by terraform.  The terraform state is stored\nin JSON format but is a string type to support encryption.",
+                    "type": "string"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -15127,15 +15135,7 @@ const docTemplate = `{
                     "description": "The definition used to configure the terraform resources.",
                     "type": "integer"
                 },
-                "TerraformOutputs": {
-                    "description": "The outputs defined in the terraform config that are collected from\nTerraform.",
-                    "type": "string"
-                },
-                "TerraformStateDocument": {
-                    "description": "The terraform state json object that stores the inventory of\ninfrastructure being managed by terraform.",
-                    "type": "string"
-                },
-                "TerraformVarsDocument": {
+                "VarsDocument": {
                     "description": "The .tfvars document that contains runtime parameters for an instance of\nsome terraform resources.",
                     "type": "string"
                 }

@@ -43,8 +43,8 @@ func getTerraformInstanceOperations(c *TerraformInstanceConfig) *util.Operations
 func (c *TerraformInstanceConfig) createTerraformInstance() error {
 	// write terraform vars if applicable
 	tfVarsFilepath := fmt.Sprintf("%s/terraform.tfvars", c.tfDirName)
-	if c.terraformInstance.TerraformVarsDocument != nil {
-		if err := os.WriteFile(tfVarsFilepath, []byte(*c.terraformInstance.TerraformVarsDocument), 0644); err != nil {
+	if c.terraformInstance.VarsDocument != nil {
+		if err := os.WriteFile(tfVarsFilepath, []byte(*c.terraformInstance.VarsDocument), 0644); err != nil {
 			return fmt.Errorf("failed to write terraform vars to file: %w", err)
 		}
 	}
@@ -104,8 +104,8 @@ func (c *TerraformInstanceConfig) createTerraformInstance() error {
 func (c *TerraformInstanceConfig) deleteTerraformInstance() error {
 	// write terraform vars if applicable
 	tfVarsFilepath := fmt.Sprintf("%s/terraform.tfvars", c.tfDirName)
-	if c.terraformInstance.TerraformVarsDocument != nil {
-		if err := os.WriteFile(tfVarsFilepath, []byte(*c.terraformInstance.TerraformVarsDocument), 0644); err != nil {
+	if c.terraformInstance.VarsDocument != nil {
+		if err := os.WriteFile(tfVarsFilepath, []byte(*c.terraformInstance.VarsDocument), 0644); err != nil {
 			return fmt.Errorf("failed to write terraform vars to file: %w", err)
 		}
 	}
@@ -121,9 +121,9 @@ func (c *TerraformInstanceConfig) deleteTerraformInstance() error {
 	// check to see if state file is present and delete if it is
 	// if no state file is present, we can only assume that creation failed and
 	// there are no terraform resources to destroy
-	if c.terraformInstance.TerraformStateDocument != nil {
+	if c.terraformInstance.StateDocument != nil {
 		tfStateFilepath := fmt.Sprintf("%s/terraform.tfstate", c.tfDirName)
-		if err := os.WriteFile(tfStateFilepath, []byte(*c.terraformInstance.TerraformStateDocument), 0644); err != nil {
+		if err := os.WriteFile(tfStateFilepath, []byte(*c.terraformInstance.StateDocument), 0644); err != nil {
 			return fmt.Errorf("failed to write terraform state to file: %w", err)
 		}
 

@@ -11,7 +11,7 @@ type TerraformDefinition struct {
 
 	// Path to the directory containing terraform configs with '.tf' file
 	// extension.
-	TerraformConfigDir *string `json:"TerraformConfigDir,omitempty" gorm:"not null" validate:"required"`
+	ConfigDir *string `json:"ConfigDir,omitempty" gorm:"not null" validate:"required"`
 
 	// The associated terraform instances that are deployed from this definition.
 	TerraformInstances []*TerraformInstance `json:"TerraformInstances,omitempty" validate:"optional,association"`
@@ -31,15 +31,17 @@ type TerraformInstance struct {
 
 	// The .tfvars document that contains runtime parameters for an instance of
 	// some terraform resources.
-	TerraformVarsDocument *string `json:"TerraformVarsDocument,omitempty" validate:"optional" encrypt:"true"`
+	VarsDocument *string `json:"VarsDocument,omitempty" validate:"optional" encrypt:"true"`
 
 	// The terraform state json object that stores the inventory of
-	// infrastructure being managed by terraform.
-	TerraformStateDocument *string `json:"TerraformStateDocument,omitempty" validate:"optional" encrypt:"true"`
+	// infrastructure being managed by terraform.  The terraform state is stored
+	// in JSON format but is a string type to support encryption.
+	StateDocument *string `json:"StateDocument,omitempty" validate:"optional" encrypt:"true"`
 
 	// The outputs defined in the terraform config that are collected from
-	// Terraform.
-	TerraformOutputs *string `json:"TerraformOutputs,omitempty" validate:"optional" encrypt:"true"`
+	// Terraform.  The terraform outputs are stored in JSON format but is a
+	// string typt to support encryption.
+	Outputs *string `json:"Outputs,omitempty" validate:"optional" encrypt:"true"`
 
 	// The definition used to configure the terraform resources.
 	TerraformDefinitionID *uint `json:"TerraformDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"not null" validate:"required"`
