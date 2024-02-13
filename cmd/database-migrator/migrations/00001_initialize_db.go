@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	tp041_db "github.com/threeport/threeport/041/pkg/api-server/v0/database"
+
 	"github.com/pressly/goose/v3"
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
 )
@@ -19,7 +21,7 @@ func Up00001(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	if err := gormDb.AutoMigrate(database.GetDbInterfaces()...); err != nil {
+	if err := gormDb.AutoMigrate(tp041_db.GetDbInterfaces()...); err != nil {
 		return fmt.Errorf("could not run gorm AutoMigrate: %w", err)
 	}
 
