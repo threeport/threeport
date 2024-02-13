@@ -148,9 +148,19 @@ for all the models in the supplied version/s.  The generated code includes:
 			globalVersionConf.Versions = append(globalVersionConf.Versions, versionConf)
 		}
 
+		// Get module path if its an extension
+		var modulePath string
+		if extension {
+			var modError error
+			modulePath, modError = GetPathFromGoModule()
+			if modError != nil {
+				return fmt.Errorf("could not get go module path for extension: %w", modError)
+			}
+		}
+
 		// generate all the APIs REST route mappings
 		if extension {
-			if err := globalVersionConf.ExtensionAllRoutes(); err != nil {
+			if err := globalVersionConf.ExtensionAllRoutes(modulePath); err != nil {
 				return fmt.Errorf("failed to write all routes source code for extension: %w", err)
 			}
 		} else {
@@ -161,7 +171,7 @@ for all the models in the supplied version/s.  The generated code includes:
 
 		// generate the database init code incl the automigrate calls
 		if extension {
-			if err := globalVersionConf.ExtensionDatabaseInit(); err != nil {
+			if err := globalVersionConf.ExtensionDatabaseInit(modulePath); err != nil {
 				return fmt.Errorf("failed to write database init source code for extension: %w", err)
 			}
 		} else {
