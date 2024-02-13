@@ -33,6 +33,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/swaggo/echo-swagger v1.4.1
 	github.com/swaggo/swag v1.16.2
+	github.com/threeport/threeport/041 v0.4.1
 	go.uber.org/zap v1.26.0
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -48,6 +49,8 @@ require (
 	sigs.k8s.io/kind v0.20.0
 	sigs.k8s.io/yaml v1.4.0
 )
+
+replace github.com/threeport/threeport/041 v0.4.1 => github.com/threeport/threeport v0.4.1
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
