@@ -35,7 +35,7 @@ and helm workload instance based on the helm workload config.`,
 			os.Exit(1)
 		}
 		var helmWorkloadConfig config.HelmWorkloadConfig
-		if err := yaml.Unmarshal(configContent, &helmWorkloadConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &helmWorkloadConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

@@ -34,7 +34,7 @@ var CreateAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		var awsObjectStorageBucketInstanceConfig config.AwsObjectStorageBucketInstanceConfig
-		if err := yaml.Unmarshal(configContent, &awsObjectStorageBucketInstanceConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketInstanceConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

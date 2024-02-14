@@ -35,7 +35,7 @@ and AWS relational database instance based on the AWS relational database config
 			os.Exit(1)
 		}
 		var awsRelationalDatabaseConfig config.AwsRelationalDatabaseConfig
-		if err := yaml.Unmarshal(configContent, &awsRelationalDatabaseConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

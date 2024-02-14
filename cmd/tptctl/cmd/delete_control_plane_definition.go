@@ -49,7 +49,7 @@ var DeleteControlPlaneDefinitionCmd = &cobra.Command{
 				cli.Error("failed to read config file", err)
 				os.Exit(1)
 			}
-			if err := yaml.Unmarshal(configContent, &controlPlaneDefinitionConfig); err != nil {
+			if err := yaml.UnmarshalStrict(configContent, &controlPlaneDefinitionConfig); err != nil {
 				cli.Error("failed to unmarshal config file yaml content", err)
 				os.Exit(1)
 			}

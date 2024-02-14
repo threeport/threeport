@@ -35,7 +35,7 @@ and workload instance based on the workload config.`,
 			os.Exit(1)
 		}
 		var workloadConfig config.WorkloadConfig
-		if err := yaml.Unmarshal(configContent, &workloadConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &workloadConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

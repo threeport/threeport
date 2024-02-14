@@ -34,7 +34,7 @@ var CreateAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		var awsEksKubernetesRuntimeDefinitionConfig config.AwsEksKubernetesRuntimeDefinitionConfig
-		if err := yaml.Unmarshal(configContent, &awsEksKubernetesRuntimeDefinitionConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeDefinitionConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

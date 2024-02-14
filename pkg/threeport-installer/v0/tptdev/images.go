@@ -95,8 +95,7 @@ func BuildDevImage(threeportPath string) error {
 	return nil
 }
 
-// BuildDevImage builds all the threeport control plane container images using
-// the dev dockerfile to provide live reload of code in the container.
+// BuildGoBinary builds the go binary for a threeport control plane component.
 func BuildGoBinary(threeportPath, arch string, component *v0.ControlPlaneComponent, noCache bool) error {
 	// set name of main.go file
 	main := "main_gen.go"
@@ -148,6 +147,11 @@ func BuildGoBinary(threeportPath, arch string, component *v0.ControlPlaneCompone
 // DockerBuildxImage builds a specified docker image
 // with the 'docker buildx' command.
 func DockerBuildxImage(threeportPath, dockerFilePath, tag, arch string, component *v0.ControlPlaneComponent) error {
+	// set target for terraform controller
+	buildTarget := "dev"
+	if component.Name == threeport.ThreeportTerraformControllerName {
+		buildTarget = "dev-terraform"
+	}
 
 	// construct build arguments
 	buildArgs := []string{
@@ -157,7 +161,7 @@ func DockerBuildxImage(threeportPath, dockerFilePath, tag, arch string, componen
 		"--build-arg",
 		fmt.Sprintf("BINARY=%s", component.BinaryName),
 		"--target",
-		"dev",
+		buildTarget,
 		"--load",
 		"--platform=linux/" + arch,
 		"-t " + tag,

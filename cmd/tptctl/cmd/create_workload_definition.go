@@ -34,13 +34,14 @@ var CreateWorkloadDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		var workloadDefinitionConfig config.WorkloadDefinitionConfig
-		if err := yaml.Unmarshal(configContent, &workloadDefinitionConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &workloadDefinitionConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
 
 		// create workload definition
 		workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
+		workloadDefinition.WorkloadConfigPath = createWorkloadDefinitionConfigPath
 		wd, err := workloadDefinition.Create(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to create workload definition", err)

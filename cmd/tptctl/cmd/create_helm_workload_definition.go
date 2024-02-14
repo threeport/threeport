@@ -34,20 +34,21 @@ var CreateHelmWorkloadDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		var helmWorkloadDefinitionConfig config.HelmWorkloadDefinitionConfig
-		if err := yaml.Unmarshal(configContent, &helmWorkloadDefinitionConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &helmWorkloadDefinitionConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
 
 		// create helm workload definition
 		helmWorkloadDefinition := helmWorkloadDefinitionConfig.HelmWorkloadDefinition
-		wd, err := helmWorkloadDefinition.Create(apiClient, apiEndpoint)
+		helmWorkloadDefinition.HelmWorkloadConfigPath = createHelmWorkloadDefinitionConfigPath
+		helmWorkloadDef, err := helmWorkloadDefinition.Create(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to create helm workload definition", err)
 			os.Exit(1)
 		}
 
-		cli.Complete(fmt.Sprintf("helm workload definition %s created", *wd.Name))
+		cli.Complete(fmt.Sprintf("helm workload definition %s created", *helmWorkloadDef.Name))
 	},
 }
 
