@@ -34,7 +34,7 @@ var CreateAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		var awsRelationalDatabaseDefinitionConfig config.AwsRelationalDatabaseDefinitionConfig
-		if err := yaml.Unmarshal(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

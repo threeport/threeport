@@ -34,7 +34,7 @@ var CreateDomainNameInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		var domainNameInstanceConfig config.DomainNameInstanceConfig
-		if err := yaml.Unmarshal(configContent, &domainNameInstanceConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &domainNameInstanceConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

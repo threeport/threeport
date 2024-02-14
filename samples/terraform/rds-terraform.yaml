@@ -1,0 +1,7 @@
+Terraform:
+  Name: rds-instance
+  ConfigDir: config
+  VarsDocument: config/terraform.tfvars
+  AwsAccount:
+    Name: default-account
+

@@ -1,0 +1,3 @@
+TerraformDefinition:
+  Name: rds-instance
+  ConfigDir: config
