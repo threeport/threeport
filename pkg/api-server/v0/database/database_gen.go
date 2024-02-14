@@ -150,6 +150,8 @@ func GetDbInterfaces() []interface{} {
 		&v0.MetricsInstance{},
 		&v0.LoggingDefinition{},
 		&v0.LoggingInstance{},
+		&v0.TerraformDefinition{},
+		&v0.TerraformInstance{},
 		&v0.WorkloadDefinition{},
 		&v0.WorkloadResourceDefinition{},
 		&v0.WorkloadInstance{},

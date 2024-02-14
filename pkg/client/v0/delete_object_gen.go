@@ -147,6 +147,14 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteLoggingInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete LoggingInstance: %w", err)
 		}
+	case "v0.TerraformDefinition":
+		if _, err := DeleteTerraformDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete TerraformDefinition: %w", err)
+		}
+	case "v0.TerraformInstance":
+		if _, err := DeleteTerraformInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete TerraformInstance: %w", err)
+		}
 	case "v0.WorkloadDefinition":
 		if _, err := DeleteWorkloadDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete WorkloadDefinition: %w", err)

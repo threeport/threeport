@@ -34,7 +34,7 @@ var CreateGatewayInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		var gatewayInstanceConfig config.GatewayInstanceConfig
-		if err := yaml.Unmarshal(configContent, &gatewayInstanceConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &gatewayInstanceConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}

@@ -36,7 +36,7 @@ control plane so that it may be used to manage infrastructure.`,
 			os.Exit(1)
 		}
 		var awsAccountConfig config.AwsAccountConfig
-		if err := yaml.Unmarshal(configContent, &awsAccountConfig); err != nil {
+		if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
