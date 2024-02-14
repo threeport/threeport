@@ -15,6 +15,7 @@ require (
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-playground/validator/v10 v10.17.0
 	github.com/google/uuid v1.6.0
+	github.com/hashicorp/go-version v1.6.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.11.4

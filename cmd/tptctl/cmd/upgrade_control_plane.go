@@ -39,7 +39,6 @@ var UpgradeControlPlaneCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		cpi.SetAllImageTags(updateImageTag)
 		cpi.Opts.CreateOrUpdateKubeResources = true
 		cpi.Opts.ControlPlaneOnly = true
 		cpi.Opts.AuthEnabled = authEnabled
@@ -90,6 +89,4 @@ func init() {
 		&controlPlaneNamespace,
 		"namespace", "threeport-control-plane", "Control plane namespace.",
 	)
-
-	UpgradeControlPlaneCmd.MarkFlagRequired("version")
 }

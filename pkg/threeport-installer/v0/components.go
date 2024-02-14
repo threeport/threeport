@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
+	goVersion "github.com/hashicorp/go-version"
 	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
@@ -63,6 +64,24 @@ func (cpi *ControlPlaneInstaller) UpgradeControlPlaneComponents(
 	controlPlaneInstance, err := client.GetSelfControlPlaneInstance(apiClient, apiAddress)
 	if err != nil {
 		return fmt.Errorf("could not retrieve self control plane instance: %w", err)
+	}
+
+	currentVersion, err := goVersion.NewVersion(*controlPlaneInstance.Version)
+	if err != nil {
+		return fmt.Errorf("could not parse current control plane version: %w", err)
+	}
+
+	versionToUpgrade, err := goVersion.NewVersion(version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("could not parse version to upgrade to: %w", err)
+	}
+
+	if currentVersion.Equal(versionToUpgrade) {
+		return fmt.Errorf("control plane already on version: %s", version.GetVersion())
+	}
+
+	if currentVersion.GreaterThan(versionToUpgrade) {
+		return fmt.Errorf("current control plane version is already at a higher version: %s", *controlPlaneInstance.Version)
 	}
 
 	if err := cpi.UpdateThreeportAPIDeployment(
@@ -125,6 +144,9 @@ func (cpi *ControlPlaneInstaller) UpgradeControlPlaneComponents(
 
 	// Append these to the control plane instance components and update it
 	controlPlaneInstance.CustomComponentInfo = append(controlPlaneInstance.CustomComponentInfo, controllersToInstall...)
+	// Update version to the upgraded one
+	version := version.GetVersion()
+	controlPlaneInstance.Version = &version
 
 	_, err = client.UpdateControlPlaneInstance(apiClient, apiAddress, controlPlaneInstance)
 	if err != nil {
