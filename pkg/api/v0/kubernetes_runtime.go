@@ -2,7 +2,10 @@
 //go:generate threeport-codegen controller --filename $GOFILE
 package v0
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 // +threeport-codegen:reconciler
 // KubernetesRuntimeDefinition is the configuration for a Kubernetes cluster.
@@ -104,6 +107,9 @@ type KubernetesRuntimeInstance struct {
 
 	// The WorkloadInstanceID of the gateway support service
 	DnsControllerInstanceID *uint `json:"DnsControllerInstanceId,omitempty" validate:"optional"`
+
+	// The WorkloadInstanceID of the secrets support service
+	SecretsControllerInstanceID *sql.NullInt64 `json:"SecretsControllerInstanceId,omitempty" validate:"optional"`
 
 	// An alternate threeport image to use when deploying threeport agent to
 	// managed Kubernetes runtime clusters.  If not supplied, the official image

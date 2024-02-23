@@ -86,22 +86,22 @@ func (p *ThreeportPostRenderer) Run(renderedManifests *bytes.Buffer) (*bytes.Buf
 // AppendAdditionalResources appends additional resources to the given manifests.
 func (p *ThreeportPostRenderer) AppendAdditionalResources(
 	manifests string,
-	additionalResources *datatypes.JSON,
+	additionalResources []*datatypes.JSON,
 ) (string, error) {
 	if additionalResources == nil {
 		return manifests, nil
 	}
 
-	var v []map[string]interface{}
-	err := json.Unmarshal([]byte(*additionalResources), &v)
-	if err != nil {
-		return manifests, fmt.Errorf("failed to unmarshal vol json: %w", err)
-	}
+	for _, additionalResource := range additionalResources {
+		var v map[string]interface{}
+		err := json.Unmarshal([]byte(*additionalResource), &v)
+		if err != nil {
+			return manifests, fmt.Errorf("failed to unmarshal vol json: %w", err)
+		}
 
-	for _, additionalResource := range v {
 		// convert unstructured kube object back to yaml
 
-		kubeObject := &unstructured.Unstructured{Object: additionalResource}
+		kubeObject := &unstructured.Unstructured{Object: v}
 		kubeObject.SetNamespace(*p.HelmWorkloadInstance.ReleaseNamespace)
 		yamlBytes, err := yaml.Marshal(additionalResource)
 		if err != nil {
