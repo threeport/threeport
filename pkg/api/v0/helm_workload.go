@@ -33,7 +33,7 @@ type HelmWorkloadDefinition struct {
 
 	// Complete kubernetes resources that will be appended to the provided
 	// helm chart.
-	AdditionalResources *datatypes.JSON `json:"AdditionalResources,omitempty" validate:"optional"`
+	AdditionalResources []*datatypes.JSON `json:"AdditionalResources,omitempty" validate:"optional"`
 }
 
 // +threeport-sdk:reconciler
@@ -60,5 +60,5 @@ type HelmWorkloadInstance struct {
 
 	// Complete kubernetes resources that will be appended to the provided
 	// helm chart.
-	AdditionalResources *datatypes.JSON `json:"AdditionalResources,omitempty" validate:"optional"`
+	AdditionalResources []*datatypes.JSON `json:"AdditionalResources,omitempty" validate:"optional"`
 }

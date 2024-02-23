@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -127,4 +129,14 @@ func StringPtrToString(input *string) string {
 // TypeName returns the type name of the input.
 func TypeName(in any) string {
 	return reflect.TypeOf(in).String()
+}
+
+// util.MapStringInterfaceToString converts an unstructured object into a YAML string.
+func MapStringInterfaceToString(manifest map[string]interface{}) (string, error) {
+	bytes, err := yaml.Marshal(manifest)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling YAML: %w", err)
+	}
+	stringManifest := string(bytes)
+	return stringManifest, nil
 }

@@ -15,7 +15,8 @@ import (
 
 const (
 	SupportServicesNamespace = "support-services-system"
-	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.5.0"
+	// SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.5.0"
+	SupportServicesOperatorImage = "rj9317/support-services-operator:latest"
 	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
 
 	// links the service account delcared in the IngressComponent resource to the
