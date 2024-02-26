@@ -1,13 +1,11 @@
 package models
 
-import "go/ast"
-
 // ControllerConfig contains the values at the controller scope.  A controller
 // corresponds to all the models that are grouped together in a file in the API.
 type ControllerConfig struct {
 	ModelFilename         string
 	PackageName           string
-	ParsedModelFile       ast.File
+	Version               string
 	ControllerDomain      string
 	ControllerDomainLower string
 	ModelConfigs          []ModelConfig

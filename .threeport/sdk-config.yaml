@@ -1,0 +1,179 @@
+APIObjects:
+  actuator:
+    - Name: Profile
+      Versions:
+        - v0
+    - Name: Tier
+      Versions:
+        - v0
+  aws:
+    - Name: AwsAccount
+      Versions:
+        - v0
+    - Name: AwsEksKubernetesRuntimeDefinition
+      Versions:
+        - v0
+    - Name: AwsEksKubernetesRuntimeInstance
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: AwsRelationalDatabaseDefinition
+      Versions:
+        - v0
+    - Name: AwsRelationalDatabaseInstance
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: AwsObjectStorageBucketDefinition
+      Versions:
+        - v0
+    - Name: AwsObjectStorageBucketInstance
+      Versions:
+        - v0
+      Reconcilable: true
+  control_plane:
+    - Name: ControlPlaneDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: ControlPlaneInstance
+      Versions:
+        - v0
+      Reconcilable: true
+  control_plane_components:
+    - Name: ControlPlaneComponent
+      Versions:
+        - v0
+      RouteExclude: true
+      DisableApiModel: true
+  class:
+    - Name: Definition
+      Versions:
+        - v0
+      RouteExclude: true
+      DisableApiModel: true
+    - Name: Instance
+      Versions:
+        - v0
+      RouteExclude: true
+      DisableApiModel: true
+  forward_proxy:
+    - Name: ForwardProxyDefinition
+      Versions:
+        - v0
+    - Name: ForwardProxyInstance
+      Versions:
+        - v0
+  gateway:
+    - Name: GatewayDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: GatewayInstance
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: GatewayHttpPort
+      Versions:
+        - v0
+    - Name: GatewayTcpPort
+      Versions:
+        - v0
+    - Name: DomainNameDefinition
+      Versions:
+        - v0
+    - Name: DomainNameInstance
+      Versions:
+        - v0
+      Reconcilable: true
+  helm_workload:
+    - Name: HelmWorkloadDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: HelmWorkloadInstance
+      Versions:
+        - v0
+      Reconcilable: true
+  kubernetes_runtime:
+    - Name: KubernetesRuntimeDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: KubernetesRuntimeInstance
+      Versions:
+        - v0
+      Reconcilable: true
+  log:
+    - Name: LogBackend
+      Versions:
+        - v0
+    - Name: LogStorageDefinition
+      Versions:
+        - v0
+    - Name: LogStorageInstance
+      Versions:
+        - v0
+  observability:
+    - Name: ObservabilityStackDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: ObservabilityStackInstance
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: ObservabilityDashboardDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: ObservabilityDashboardInstance
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: MetricsDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: MetricsInstance
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: LoggingDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: LoggingInstance
+      Versions:
+        - v0
+      Reconcilable: true
+  terraform:
+    - Name: TerraformDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: TerraformInstance
+      Versions:
+        - v0
+      Reconcilable: true
+  workload:
+    - Name: WorkloadDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: WorkloadResourceDefinition
+      Versions:
+        - v0
+    - Name: WorkloadResourceInstance
+      Versions:
+        - v0
+    - Name: WorkloadInstance
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: AttachedObjectReference
+      Versions:
+        - v0
+    - Name: WorkloadEvent
+      Versions:
+        - v0

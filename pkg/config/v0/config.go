@@ -89,7 +89,6 @@ type Credential struct {
 	Name       string `yaml:"Name"`
 	ClientCert string `yaml:"ClientCert"`
 	ClientKey  string `yaml:"ClientKey"`
-	Token      string ``
 }
 
 // GetAllControlPlaneNames returns all control plane names in a threeport config.

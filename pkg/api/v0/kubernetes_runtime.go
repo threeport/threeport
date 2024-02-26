@@ -1,10 +1,7 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
 import "time"
 
-// +threeport-sdk:reconciler
 // KubernetesRuntimeDefinition is the configuration for a Kubernetes cluster.
 // TODO apply BeforeCreate functions that prevent changes to InfraProvider and
 // HighAvailability fields - these are immutable.
@@ -45,7 +42,6 @@ type KubernetesRuntimeDefinition struct {
 	KubernetesRuntimeInstances []*KubernetesRuntimeInstance `json:"KubernetesRuntimeInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-sdk:reconciler
 // KubernetesRuntimeInstance is a deployed instance of a Kubernetes cluster.
 type KubernetesRuntimeInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

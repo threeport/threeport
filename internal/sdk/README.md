@@ -6,7 +6,7 @@ the docs for that tool [here](../../cmd/sdk/README.md).
 
 # Codegen for Models
 
-The code generation in this package gets called by the `threeport-sdk codegen 
+The code generation in this package gets called by the `threeport-sdk gen 
 api-model` command.  This command is called when `go generate` is run as
 instructed by the `//go:generate` comments at the top of the API model files in
 `pkg/api/<version>/`.  It is called many times as there are many different files
@@ -23,7 +23,7 @@ model file:
 
 # Codegen for Versions
 
-The code generation in this package gets called by the `threeport-sdk codegen 
+The code generation in this package gets called by the `threeport-sdk gen 
 api-version` command.  This commannd is called just one time when `go generate`
 is run.  The `//go:generate` comment in `cmd/rest-api/main.go` triggers it.
 

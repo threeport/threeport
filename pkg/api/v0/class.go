@@ -1,4 +1,3 @@
-// +threeport-sdk route-exclude
 package v0
 
 // Definition includes a set of fields for every definition object.

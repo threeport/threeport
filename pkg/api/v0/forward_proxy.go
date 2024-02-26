@@ -1,4 +1,3 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
 // ForwardProxy provides a managed outbound network connection from a workload
