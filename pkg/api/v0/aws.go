@@ -1,5 +1,5 @@
-//go:generate threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-codegen controller --filename $GOFILE
+//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
 import (
@@ -73,7 +73,7 @@ type AwsEksKubernetesRuntimeDefinition struct {
 	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" query:"kubernetesruntimedefinitionid" gorm:"not null" validate:"required"`
 }
 
-// +threeport-codegen:reconciler
+// +threeport-sdk:reconciler
 // AwsEksKubernetesRuntimeInstance is a deployed instance of an EKS cluster.
 type AwsEksKubernetesRuntimeInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -135,7 +135,7 @@ type AwsRelationalDatabaseDefinition struct {
 	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
 }
 
-// +threeport-codegen:reconciler
+// +threeport-sdk:reconciler
 // AwsRelationalDatabaseInstance is a deployed instance of an RDS instance.
 type AwsRelationalDatabaseInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -177,7 +177,7 @@ type AwsObjectStorageBucketDefinition struct {
 	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
 }
 
-// +threeport-codegen:reconciler
+// +threeport-sdk:reconciler
 // AwsObjectStorageBucketInstance is a deployed instance of an S3 bucket.
 type AwsObjectStorageBucketInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
