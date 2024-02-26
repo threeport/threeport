@@ -1,5 +1,5 @@
-// +threeport-codegen route-exclude
-// +threeport-codegen database-exclude
+// +threeport-sdk route-exclude
+// +threeport-sdk database-exclude
 package v0
 
 import (

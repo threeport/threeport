@@ -7,9 +7,9 @@ help:
 
 ## builds
 
-#install-codegen: @ Build codegen binary and install in GOPATH
-install-codegen:
-	go build -o $(GOPATH)/bin/threeport-codegen cmd/codegen/main.go
+#install-sdk: @ Build sdk binary and install in GOPATH
+install-sdk:
+	go build -o $(GOPATH)/bin/threeport-sdk cmd/sdk/main.go
 
 #build-database-migrator: @ Build database migrator
 build-database-migrator:
@@ -37,7 +37,7 @@ install-tptctl: build-tptctl
 generate: generate-code generate-docs
 
 #generate-code: @ Generate code
-generate-code: install-codegen
+generate-code: install-sdk
 	go generate ./...
 
 #generate-docs: @ Generate swagger docs

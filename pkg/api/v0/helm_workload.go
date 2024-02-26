@@ -1,8 +1,8 @@
-//go:generate threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-codegen controller --filename $GOFILE
+//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
-// +threeport-codegen:reconciler
+// +threeport-sdk:reconciler
 // HelmWorkloadDefinition includes the helm repo and chart that is used to
 // configure the workload.
 type HelmWorkloadDefinition struct {
@@ -31,7 +31,7 @@ type HelmWorkloadDefinition struct {
 	HelmWorkloadInstances []*HelmWorkloadInstance `json:"HelmWorkloadInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-codegen:reconciler
+// +threeport-sdk:reconciler
 // HelmWorkloadInstance is a deployed instance of a helm chart with the runtime
 // parameters as helm values.
 type HelmWorkloadInstance struct {
