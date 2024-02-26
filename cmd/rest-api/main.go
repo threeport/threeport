@@ -38,7 +38,7 @@ import (
 // @host rest-api.threeport.io
 // @BasePath /
 //
-//go:generate threeport-codegen api-version v0
+//go:generate threeport-sdk codegen api-version v0
 func main() {
 	// flags
 	var envFile string
