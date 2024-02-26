@@ -1,7 +1,7 @@
 /*
 Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 */
-package codegen
+package gen
 
 import (
 	"fmt"
@@ -218,6 +218,6 @@ for all the models in the supplied version/s.  The generated code includes:
 }
 
 func init() {
-	codegenCmd.AddCommand(apiVersionCmd)
+	genCmd.AddCommand(apiVersionCmd)
 	apiVersionCmd.Flags().BoolVarP(&extension, "extension", "e", false, "Indicate whether code being generated is for an extension")
 }

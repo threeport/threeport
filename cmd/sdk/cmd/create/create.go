@@ -1,0 +1,24 @@
+/*
+Copyright © 2023 NAME HERE <EMAIL ADDRESS>
+*/
+package api
+
+import (
+	"github.com/spf13/cobra"
+	"github.com/threeport/threeport/cmd/sdk/cmd"
+)
+
+// createCmd represents the createCmd command
+var createCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create aspects of the Threeport API or its extensions.",
+	Long:  `Create aspects of the Threeport API or its extensions.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+}
+
+// init initializes the create subcommand
+func init() {
+	cmd.RootCmd.AddCommand(createCmd)
+}

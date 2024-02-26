@@ -1,7 +1,7 @@
 /*
 Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 */
-package codegen
+package gen
 
 import (
 	"fmt"
@@ -135,7 +135,7 @@ controllers each time 'make generate' is called.`,
 
 // init initializes the api-model subcommand
 func init() {
-	codegenCmd.AddCommand(controllerCmd)
+	genCmd.AddCommand(controllerCmd)
 
 	controllerCmd.Flags().StringVarP(&modelFilenameForController, "filename", "f", "", "The filename for the file containing the API models")
 	controllerCmd.Flags().BoolVarP(&extension, "extension", "e", false, "Indicate whether code being generated is for an extension")

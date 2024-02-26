@@ -1,5 +1,5 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-sdk codegen controller --filename $GOFILE
+//go:generate threeport-sdk gen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate threeport-sdk gen controller --filename $GOFILE
 package v0
 
 // +threeport-sdk:reconciler

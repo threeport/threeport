@@ -1,7 +1,7 @@
 /*
 Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 */
-package codegen
+package gen
 
 import (
 	"errors"
@@ -48,7 +48,7 @@ This creates a controller domain.  A controller domain is the set of objects
 that a controller is responsible for reconciling, in this case FooDefinition and
 FooInstance are the objects the foo-controller will be responsible for.
 We put the go:generate declaration at the top of that file:
-////go:generate threeport-sdk codegen api-model --filename $GOFILE
+////go:generate threeport-sdk gen api-model --filename $GOFILE
 
 Note: The controller domain and model objects must have unique names.  You
 cannot have a Foo model in the Foo controller domain.  This will create ambiguous
@@ -290,7 +290,7 @@ When 'make generate' is run, the following code is generated for API:
 
 // init initializes the api-model subcommand
 func init() {
-	codegenCmd.AddCommand(apiModelCmd)
+	genCmd.AddCommand(apiModelCmd)
 
 	apiModelCmd.Flags().StringVarP(&filename, "filename", "f", "", "The filename for the file containing the API model")
 	apiModelCmd.MarkFlagRequired("filename")
