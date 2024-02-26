@@ -1,8 +1,8 @@
-//go:generate threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-codegen controller --filename $GOFILE
+//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
-// +threeport-codegen:reconciler
+// +threeport-sdk:reconciler
 // Gateway is a route for requests to a workload from clients outside the
 // private network of a workload kubernetes runtime.  This
 type GatewayDefinition struct {
@@ -40,7 +40,7 @@ type GatewayDefinition struct {
 	GatewayInstances []*GatewayInstance `json:"GatewayInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-codegen:reconciler
+// +threeport-sdk:reconciler
 // GatewayInstance is a deployed instance of a gateway.
 type GatewayInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -133,7 +133,7 @@ type DomainNameDefinition struct {
 	DomainNameInstances []*DomainNameInstance `json:"DomainNameInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-codegen:reconciler
+// +threeport-sdk:reconciler
 // DomainNameInstance is an instance of domain name management for a workload.
 type DomainNameInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

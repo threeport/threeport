@@ -56,11 +56,11 @@ its objects for examples.
    Example: `pkg/api/v0/kubernetes_runtime.go`.
 1. Add the following generate marker to the top of the source file:
    ```go
-   //go:generate threeport-codegen controller --filename $GOFILE
+   //go:generate threeport-sdk codegen controller --filename $GOFILE
    ```
 1. Add the reconciler marker to those objects that will require reconcilation:
    ```go
-   // +threeport-codegen:reconciler
+   // +threeport-sdk:reconciler
    ```
    See the `KubernetesRuntimeDefinition` and `KubernetesRuntimeInstance` objects in
    `pkg/api/v0/kubernetes_runtime.go`.

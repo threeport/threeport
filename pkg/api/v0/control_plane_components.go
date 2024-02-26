@@ -1,4 +1,4 @@
-// +threeport-codegen route-exclude
+// +threeport-sdk route-exclude
 package v0
 
 import "gorm.io/datatypes"
