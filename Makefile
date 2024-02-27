@@ -151,7 +151,9 @@ dev-reset-crdb:
 		observability_dashboard_instances, \
 		observability_dashboard_definitions, \
 		observability_stack_instances, \
-		observability_stack_definitions; \
+		observability_stack_definitions, \
+		secret_instances, \
+		secret_definitions; \
 		set sql_safe_updates = false; \
 		update kubernetes_runtime_instances set gateway_controller_instance_id = NULL; \
 		update kubernetes_runtime_instances set dns_controller_instance_id = NULL; \
