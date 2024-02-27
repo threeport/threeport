@@ -13799,7 +13799,10 @@ const docTemplate = `{
                     "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
                     "type": "array",
                     "items": {
-                        "type": "integer"
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
                     }
                 },
                 "Chart": {
@@ -13883,7 +13886,10 @@ const docTemplate = `{
                     "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
                     "type": "array",
                     "items": {
-                        "type": "integer"
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
                     }
                 },
                 "CreationAcknowledged": {
@@ -14126,6 +14132,10 @@ const docTemplate = `{
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
+                },
+                "SecretsControllerInstanceId": {
+                    "description": "The WorkloadInstanceID of the secrets support service",
+                    "type": "integer"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -14540,26 +14550,21 @@ const docTemplate = `{
         "v0.ObjectType": {
             "type": "string",
             "enum": [
-                "Profile",
-                "Tier",
-                "AttachedObjectReference",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
+                "AwsAccount",
+                "AwsEksKubernetesRuntimeDefinition",
+                "AwsEksKubernetesRuntimeInstance",
+                "AwsRelationalDatabaseDefinition",
+                "AwsRelationalDatabaseInstance",
+                "AwsObjectStorageBucketDefinition",
+                "AwsObjectStorageBucketInstance",
                 "WorkloadDefinition",
                 "WorkloadResourceDefinition",
                 "WorkloadInstance",
                 "WorkloadResourceInstance",
                 "WorkloadEvent",
-                "SecretDefinition",
-                "SecretInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "GatewayHttpPort",
-                "GatewayTcpPort",
-                "DomainNameDefinition",
-                "DomainNameInstance",
+                "AttachedObjectReference",
+                "ForwardProxyDefinition",
+                "ForwardProxyInstance",
                 "ObservabilityStackDefinition",
                 "ObservabilityStackInstance",
                 "ObservabilityDashboardDefinition",
@@ -14568,42 +14573,42 @@ const docTemplate = `{
                 "MetricsInstance",
                 "LoggingDefinition",
                 "LoggingInstance",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance",
+                "SecretDefinition",
+                "SecretInstance",
+                "Profile",
+                "Tier",
+                "HelmWorkloadDefinition",
+                "HelmWorkloadInstance",
                 "LogBackend",
                 "LogStorageDefinition",
                 "LogStorageInstance",
-                "ForwardProxyDefinition",
-                "ForwardProxyInstance",
+                "GatewayDefinition",
+                "GatewayInstance",
+                "GatewayHttpPort",
+                "GatewayTcpPort",
+                "DomainNameDefinition",
+                "DomainNameInstance",
                 "ControlPlaneDefinition",
-                "ControlPlaneInstance"
+                "ControlPlaneInstance",
+                "KubernetesRuntimeDefinition",
+                "KubernetesRuntimeInstance"
             ],
             "x-enum-varnames": [
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
+                "ObjectTypeAwsAccount",
+                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
+                "ObjectTypeAwsEksKubernetesRuntimeInstance",
+                "ObjectTypeAwsRelationalDatabaseDefinition",
+                "ObjectTypeAwsRelationalDatabaseInstance",
+                "ObjectTypeAwsObjectStorageBucketDefinition",
+                "ObjectTypeAwsObjectStorageBucketInstance",
                 "ObjectTypeWorkloadDefinition",
                 "ObjectTypeWorkloadResourceDefinition",
                 "ObjectTypeWorkloadInstance",
                 "ObjectTypeWorkloadResourceInstance",
                 "ObjectTypeWorkloadEvent",
-                "ObjectTypeSecretDefinition",
-                "ObjectTypeSecretInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeGatewayHttpPort",
-                "ObjectTypeGatewayTcpPort",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
+                "ObjectTypeAttachedObjectReference",
+                "ObjectTypeForwardProxyDefinition",
+                "ObjectTypeForwardProxyInstance",
                 "ObjectTypeObservabilityStackDefinition",
                 "ObjectTypeObservabilityStackInstance",
                 "ObjectTypeObservabilityDashboardDefinition",
@@ -14612,20 +14617,25 @@ const docTemplate = `{
                 "ObjectTypeMetricsInstance",
                 "ObjectTypeLoggingDefinition",
                 "ObjectTypeLoggingInstance",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance",
+                "ObjectTypeSecretDefinition",
+                "ObjectTypeSecretInstance",
+                "ObjectTypeProfile",
+                "ObjectTypeTier",
+                "ObjectTypeHelmWorkloadDefinition",
+                "ObjectTypeHelmWorkloadInstance",
                 "ObjectTypeLogBackend",
                 "ObjectTypeLogStorageDefinition",
                 "ObjectTypeLogStorageInstance",
-                "ObjectTypeForwardProxyDefinition",
-                "ObjectTypeForwardProxyInstance",
+                "ObjectTypeGatewayDefinition",
+                "ObjectTypeGatewayInstance",
+                "ObjectTypeGatewayHttpPort",
+                "ObjectTypeGatewayTcpPort",
+                "ObjectTypeDomainNameDefinition",
+                "ObjectTypeDomainNameInstance",
                 "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance"
+                "ObjectTypeControlPlaneInstance",
+                "ObjectTypeKubernetesRuntimeDefinition",
+                "ObjectTypeKubernetesRuntimeInstance"
             ]
         },
         "v0.ObservabilityDashboardDefinition": {
@@ -15077,7 +15087,9 @@ const docTemplate = `{
         "v0.SecretInstance": {
             "type": "object",
             "required": [
-                "Name"
+                "KubernetesRuntimeInstanceID",
+                "Name",
+                "SecretDefinitionID"
             ],
             "properties": {
                 "CreationAcknowledged": {
@@ -15111,6 +15123,10 @@ const docTemplate = `{
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
+                },
+                "KubernetesRuntimeInstanceID": {
+                    "description": "The kubernetes runtime to which the helm workload is deployed.",
+                    "type": "integer"
                 },
                 "Name": {
                     "description": "An arbitrary name the instance",
