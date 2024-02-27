@@ -30,7 +30,7 @@ type SecretInstance struct {
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
 	// The SecretDefinition that the secret instance is derived from.
-	SecretDefinitionID *uint `json:"SecretDefinitionID,omitempty"`
+	SecretDefinitionID *uint `json:"SecretDefinitionID,omitempty" query:"secretdefinitionid" gorm:"not null" validate:"required"`
 
 	// The workload instance that the secret is associated with.
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" validate:"optional"`
