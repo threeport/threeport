@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/threeport/threeport/internal/sdk"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -28,4 +30,11 @@ func Execute() {
 
 func init() {
 	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	cobra.OnInitialize(func() {
+		if err := sdk.InitConfig(); err != nil {
+			cli.Error("could not init sdk config", err)
+			os.Exit(1)
+		}
+	})
 }

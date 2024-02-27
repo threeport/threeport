@@ -13,12 +13,10 @@ var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create aspects of the Threeport API or its extensions.",
 	Long:  `Create aspects of the Threeport API or its extensions.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
 }
 
 // init initializes the create subcommand
 func init() {
+
 	cmd.RootCmd.AddCommand(createCmd)
 }
