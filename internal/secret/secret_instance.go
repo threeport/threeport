@@ -107,6 +107,17 @@ func secretInstanceCreated(
 		} else {
 			appendedResources = append(*helmWorkloadInstance.AdditionalResources, jsonManifests...)
 		}
+
+		// update namespaces
+		for index, jsonManifest := range appendedResources {
+			// appendedResources[index] =
+			updatedJsonManifest, err := util.UpdateNamespace(jsonManifest, *helmWorkloadInstance.ReleaseNamespace)
+			if err != nil {
+				return 0, fmt.Errorf("failed to update namespace: %w", err)
+			}
+			appendedResources[index] = updatedJsonManifest
+		}
+
 		helmWorkloadInstance.AdditionalResources = &appendedResources
 		helmWorkloadInstance.Reconciled = util.BoolPtr(false)
 		_, err = client.UpdateHelmWorkloadInstance(c.r.APIClient, c.r.APIServer, helmWorkloadInstance)
