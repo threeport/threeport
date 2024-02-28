@@ -82,7 +82,7 @@ func secretInstanceCreated(
 		for _, jsonManifest := range jsonManifests {
 			workloadResourceInstance := v0.WorkloadResourceInstance{
 				WorkloadInstanceID: c.workloadInstanceId,
-				JSONDefinition:     jsonManifest,
+				JSONDefinition:     &jsonManifest,
 			}
 			_, err = client.CreateWorkloadResourceInstance(c.r.APIClient, c.r.APIServer, &workloadResourceInstance)
 			if err != nil {
@@ -101,8 +101,8 @@ func secretInstanceCreated(
 		if err != nil {
 			return 0, fmt.Errorf("failed to get helm workload instance: %w", err)
 		}
-		// appendedResources := append(*helmWorkloadInstance.AdditionalResources, jsonManifests...)
-		// helmWorkloadInstance.AdditionalResources = &appendedResources
+		appendedResources := append(*helmWorkloadInstance.AdditionalResources, jsonManifests...)
+		helmWorkloadInstance.AdditionalResources = &appendedResources
 		helmWorkloadInstance.Reconciled = util.BoolPtr(false)
 		_, err = client.UpdateHelmWorkloadInstance(c.r.APIClient, c.r.APIServer, helmWorkloadInstance)
 		if err != nil {
@@ -293,26 +293,26 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 
 // configureSecretControllerJsonManifests configures the secret controller
 // json manifests
-func (c *SecretInstanceConfig) configureSecretControllerJsonManifests() ([]*datatypes.JSON, error) {
-	var manifests []*datatypes.JSON
+func (c *SecretInstanceConfig) configureSecretControllerJsonManifests() ([]datatypes.JSON, error) {
+	var manifests []datatypes.JSON
 
 	awsSecretMarshaled, err := util.MarshalJSON(getAwssmSecret())
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal aws secret: %w", err)
 	}
-	manifests = append(manifests, &awsSecretMarshaled)
+	manifests = append(manifests, awsSecretMarshaled)
 
 	secretStoreMarshaled, err := util.MarshalJSON(getSecretStore())
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal secret store: %w", err)
 	}
-	manifests = append(manifests, &secretStoreMarshaled)
+	manifests = append(manifests, secretStoreMarshaled)
 
 	externalSecretMarshaled, err := util.MarshalJSON(getExternalSecret(*c.secretDefinition.Name))
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal external secret: %w", err)
 	}
-	manifests = append(manifests, &externalSecretMarshaled)
+	manifests = append(manifests, externalSecretMarshaled)
 
 	return manifests, nil
 }
