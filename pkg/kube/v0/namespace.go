@@ -3,7 +3,6 @@ package v0
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"gorm.io/datatypes"
@@ -68,7 +67,7 @@ func SetNamespaces(
 		namespacedObjectCount++
 
 		// update the resource to set the namespace
-		updatedJSONDef, err := updateNamespace([]byte(*wri.JSONDefinition), namespace)
+		updatedJSONDef, err := util.UpdateNamespace(*wri.JSONDefinition, namespace)
 		if err != nil {
 			return &processedWRIs, fmt.Errorf("failed to update JSON definition to set namespace: %w", err)
 		}
@@ -117,36 +116,6 @@ func GetManagedNamespaceNames(kubeClient dynamic.Interface) ([]string, error) {
 	}
 
 	return namespaceNames, nil
-}
-
-// updateNamespace takes the JSON definition for a Kubernetes resource and sets
-// the namespace.
-func updateNamespace(jsonDef []byte, namespace string) ([]byte, error) {
-	// unmarshal the JSON into a map
-	var mapDef map[string]interface{}
-	err := json.Unmarshal(jsonDef, &mapDef)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JSON definition to map: %w", err)
-	}
-
-	// set the namespace field in the metadata
-	if metadata, ok := mapDef["metadata"].(map[string]interface{}); ok {
-		if mapDef["kind"] == "Gateway" {
-			metadata["namespace"] = util.GatewaySystemNamespace
-		} else {
-			metadata["namespace"] = namespace
-		}
-	} else {
-		return nil, errors.New("failed to find \"metadata\" field in JSON definition")
-	}
-
-	// marshal the modified map back to JSON
-	modifiedJSON, err := json.Marshal(mapDef)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal JSON from modified map: %w", err)
-	}
-
-	return modifiedJSON, nil
 }
 
 // isNamespaced returns true if a provided JSON definition represents a
