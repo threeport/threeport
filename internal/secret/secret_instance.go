@@ -72,17 +72,25 @@ func secretInstanceCreated(
 	// update workload with secret manifests
 	switch c.workloadInstanceType {
 	case util.TypeName(v0.WorkloadInstance{}):
+		// get workload instance
 		workloadInstance, err := client.GetWorkloadInstanceByID(c.r.APIClient, c.r.APIServer, *c.secretInstance.WorkloadInstanceID)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get workload instance: %w", err)
 		}
+
+		// create workload resource instances
 		for _, jsonManifest := range jsonManifests {
 			workloadResourceInstance := v0.WorkloadResourceInstance{
 				WorkloadInstanceID: c.workloadInstanceId,
 				JSONDefinition:     jsonManifest,
 			}
-			workloadInstance.WorkloadResourceInstances = append(workloadInstance.WorkloadResourceInstances, &workloadResourceInstance)
+			_, err = client.CreateWorkloadResourceInstance(c.r.APIClient, c.r.APIServer, &workloadResourceInstance)
+			if err != nil {
+				return 0, fmt.Errorf("failed to create workload resource instance: %w", err)
+			}
 		}
+
+		// trigger workload instance reconciliation
 		workloadInstance.Reconciled = util.BoolPtr(false)
 		_, err = client.UpdateWorkloadInstance(c.r.APIClient, c.r.APIServer, workloadInstance)
 		if err != nil {
@@ -93,7 +101,8 @@ func secretInstanceCreated(
 		if err != nil {
 			return 0, fmt.Errorf("failed to get helm workload instance: %w", err)
 		}
-		helmWorkloadInstance.AdditionalResources = append(helmWorkloadInstance.AdditionalResources, jsonManifests...)
+		// appendedResources := append(*helmWorkloadInstance.AdditionalResources, jsonManifests...)
+		// helmWorkloadInstance.AdditionalResources = &appendedResources
 		helmWorkloadInstance.Reconciled = util.BoolPtr(false)
 		_, err = client.UpdateHelmWorkloadInstance(c.r.APIClient, c.r.APIServer, helmWorkloadInstance)
 		if err != nil {
@@ -169,7 +178,7 @@ func (c *SecretInstanceConfig) getThreeportObjects() error {
 		return fmt.Errorf("failed to determine workload type and instance ID: %w", err)
 	}
 
-	// update workload with secret manifests
+	// update secret config with correct workload instance
 	switch c.workloadInstanceType {
 	case util.TypeName(v0.WorkloadInstance{}):
 		// get workload instance
@@ -224,7 +233,7 @@ func (c *SecretInstanceConfig) validateThreeportState() error {
 // is deployed
 func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 	if c.kubernetesRuntimeInstance.SecretsControllerInstanceID != nil {
-		workloadInstance, err := client.GetWorkloadInstanceByID(c.r.APIClient, c.r.APIServer, uint(c.kubernetesRuntimeInstance.SecretsControllerInstanceID.Int64))
+		workloadInstance, err := client.GetWorkloadInstanceByID(c.r.APIClient, c.r.APIServer, *c.kubernetesRuntimeInstance.SecretsControllerInstanceID)
 		if err != nil {
 			return fmt.Errorf("failed to get secret controller workload instance: %w", err)
 		}
@@ -270,7 +279,7 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 	)
 
 	// update kubernetes runtime instance with secret controller instance ID
-	c.kubernetesRuntimeInstance.SecretsControllerInstanceID = util.SqlNullInt64(createdSecretControllerWorkloadInstance.ID)
+	c.kubernetesRuntimeInstance.SecretsControllerInstanceID = createdSecretControllerWorkloadInstance.ID
 	if _, err = client.UpdateKubernetesRuntimeInstance(
 		c.r.APIClient,
 		c.r.APIServer,
@@ -299,7 +308,7 @@ func (c *SecretInstanceConfig) configureSecretControllerJsonManifests() ([]*data
 	}
 	manifests = append(manifests, &secretStoreMarshaled)
 
-	externalSecretMarshaled, err := util.MarshalJSON(getExternalSecret(*c.secretInstance.Name))
+	externalSecretMarshaled, err := util.MarshalJSON(getExternalSecret(*c.secretDefinition.Name))
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal external secret: %w", err)
 	}
