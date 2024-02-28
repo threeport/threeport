@@ -3,7 +3,6 @@
 package v0
 
 import (
-	"database/sql"
 	"time"
 )
 
@@ -109,7 +108,7 @@ type KubernetesRuntimeInstance struct {
 	DnsControllerInstanceID *uint `json:"DnsControllerInstanceId,omitempty" validate:"optional"`
 
 	// The WorkloadInstanceID of the secrets support service
-	SecretsControllerInstanceID *sql.NullInt64 `json:"SecretsControllerInstanceId,omitempty" validate:"optional"`
+	SecretsControllerInstanceID *uint `json:"SecretsControllerInstanceId,omitempty" validate:"optional"`
 
 	// An alternate threeport image to use when deploying threeport agent to
 	// managed Kubernetes runtime clusters.  If not supplied, the official image

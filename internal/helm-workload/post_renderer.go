@@ -86,15 +86,15 @@ func (p *ThreeportPostRenderer) Run(renderedManifests *bytes.Buffer) (*bytes.Buf
 // AppendAdditionalResources appends additional resources to the given manifests.
 func (p *ThreeportPostRenderer) AppendAdditionalResources(
 	manifests string,
-	additionalResources []*datatypes.JSON,
+	additionalResources *datatypes.JSONSlice[datatypes.JSON],
 ) (string, error) {
 	if additionalResources == nil {
 		return manifests, nil
 	}
 
-	for _, additionalResource := range additionalResources {
+	for _, additionalResource := range *additionalResources {
 		var v map[string]interface{}
-		err := json.Unmarshal([]byte(*additionalResource), &v)
+		err := json.Unmarshal([]byte(additionalResource), &v)
 		if err != nil {
 			return manifests, fmt.Errorf("failed to unmarshal vol json: %w", err)
 		}

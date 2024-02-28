@@ -101,7 +101,12 @@ func secretInstanceCreated(
 		if err != nil {
 			return 0, fmt.Errorf("failed to get helm workload instance: %w", err)
 		}
-		appendedResources := append(*helmWorkloadInstance.AdditionalResources, jsonManifests...)
+		var appendedResources datatypes.JSONSlice[datatypes.JSON]
+		if helmWorkloadInstance.AdditionalResources == nil {
+			appendedResources = jsonManifests
+		} else {
+			appendedResources = append(*helmWorkloadInstance.AdditionalResources, jsonManifests...)
+		}
 		helmWorkloadInstance.AdditionalResources = &appendedResources
 		helmWorkloadInstance.Reconciled = util.BoolPtr(false)
 		_, err = client.UpdateHelmWorkloadInstance(c.r.APIClient, c.r.APIServer, helmWorkloadInstance)
