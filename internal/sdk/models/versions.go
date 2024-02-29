@@ -13,7 +13,7 @@ import (
 // apiVersionsPath returns the path from the models to the API's internal
 // versions package.
 func apiVersionsPath() string {
-	return filepath.Join("..", "..", "..", "pkg", "api-server", "v0", "versions")
+	return filepath.Join("pkg", "api-server", "v0", "versions")
 }
 
 // ModelVersions adds each API version and validation for the fields of the

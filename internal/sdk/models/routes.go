@@ -15,7 +15,7 @@ import (
 // apiRoutesPath returns the path from the models to the API's internal routes
 // package.
 func apiRoutesPath() string {
-	return filepath.Join("..", "..", "..", "pkg", "api-server", "v0", "routes")
+	return filepath.Join("pkg", "api-server", "v0", "routes")
 }
 
 // ModelRoutes generates the REST routes and maps them to their handlers.  These

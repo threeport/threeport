@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gertd/go-pluralize"
@@ -204,7 +205,8 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 
 	// write code to file
 	genFilename := fmt.Sprintf("%s_gen.go", sdk.FilenameSansExt(cc.ModelFilename))
-	file, err := os.OpenFile(genFilename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	genFilePath := filepath.Join("pkg", "api", cc.PackageName, genFilename)
+	file, err := os.OpenFile(genFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for database models: %w", err)
 	}

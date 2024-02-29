@@ -46,7 +46,7 @@ func (gvc *GlobalVersionConfig) DeleteObjects() error {
 		f.Line()
 
 		// write code to file
-		routesFilepath := filepath.Join("..", "..", "pkg", "client", apiVersion.VersionName, "delete_object_gen.go")
+		routesFilepath := filepath.Join("pkg", "client", apiVersion.VersionName, "delete_object_gen.go")
 		file, err := os.OpenFile(routesFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open file to write generated code for delete object function: %w", err)

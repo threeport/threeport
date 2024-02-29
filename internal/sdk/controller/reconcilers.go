@@ -12,7 +12,7 @@ import (
 // controllerInternalPackagePath returns the path from the models to the
 // controller's internal package where reconciler functions live.
 func controllerInternalPackagePath(packageName string) string {
-	return filepath.Join("..", "..", "..", "internal", packageName)
+	return filepath.Join("internal", packageName)
 }
 
 // Reconcilers generates the source code for a controller's reconcile functions.

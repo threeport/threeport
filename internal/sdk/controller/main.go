@@ -13,7 +13,7 @@ import (
 // controllerMainPackagePath returns the path from the models to the
 // controller's main package.
 func controllerMainPackagePath(controllerName string) string {
-	return filepath.Join("..", "..", "..", "cmd", controllerName)
+	return filepath.Join("cmd", controllerName)
 }
 
 // MainPackage generates the source code for a controller's main package.

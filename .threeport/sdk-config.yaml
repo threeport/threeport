@@ -13,12 +13,6 @@ APIObjects:
     - Name: AwsObjectStorageBucketDefinition
     - Name: AwsObjectStorageBucketInstance
       Reconcilable: true
-  class:
-    - Name: Definition
-    - Name: Instance
-  control_plane_components:
-    - Name: ControlPlaneComponent
-      RouteExclude: true
   control_plane:
     - Name: ControlPlaneDefinition
       Reconcilable: true

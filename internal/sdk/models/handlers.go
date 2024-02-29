@@ -29,7 +29,7 @@ func deletionInstanceCheckTypeNames() []string {
 // apiHandlersPath returns the path from the models to the API's internal handlers
 // package.
 func apiHandlersPath() string {
-	return filepath.Join("..", "..", "..", "pkg", "api-server", "v0", "handlers")
+	return filepath.Join("pkg", "api-server", "v0", "handlers")
 }
 
 // ModelHandlers generates the handlers for each model.

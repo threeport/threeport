@@ -20,6 +20,7 @@ func CreateNewAPIFile(controllerDomain string, apiObjects []*sdk.APIObject, apiF
 	for _, obj := range apiObjects {
 		if obj.Reconcilable != nil && *obj.Reconcilable {
 			needReconcilers = true
+			break
 		}
 	}
 
@@ -67,17 +68,19 @@ func CreateNewAPIFile(controllerDomain string, apiObjects []*sdk.APIObject, apiF
 
 func CreateControllerDirs(controllerDomain string, rootDir string) error {
 	// controller domain name is in snake case and the dir name has to be kebab case
-	name := strings.ReplaceAll(controllerDomain, "_", "-")
+	kebabDomain := strings.ReplaceAll(controllerDomain, "_", "-")
+	controllerName := fmt.Sprintf("%s-controller", controllerDomain)
 
 	// create dir for controller cmd
-	if err := os.Mkdir(fmt.Sprintf("cmd/%s", name), 0755); err != nil {
-		return fmt.Errorf("could not create cmd dir for controller domain: %s, %w", name, err)
+	if err := os.Mkdir(fmt.Sprintf("cmd/%s", controllerName), 0755); err != nil {
+		return fmt.Errorf("could not create cmd dir for controller domain: %s, %w", kebabDomain, err)
 	}
 
 	// create internal dir for reconcilers
-	if err := os.Mkdir(fmt.Sprintf("internal/%s", name), 0755); err != nil {
-		return fmt.Errorf("could not create cmd dir for controller domain: %s, %w", name, err)
+	if err := os.Mkdir(fmt.Sprintf("internal/%s", kebabDomain), 0755); err != nil {
+		return fmt.Errorf("could not create internal dir for controller domain: %s, %w", kebabDomain, err)
 	}
 
+	fmt.Printf("dir creation complete for controller %s\n", controllerName)
 	return nil
 }

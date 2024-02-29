@@ -40,7 +40,7 @@ func (gvc *GlobalVersionConfig) NotificationHelper() error {
 	f.Line()
 
 	// write code to file
-	genFilepath := filepath.Join("..", "..", "pkg", "api", "v0", "notification_gen.go")
+	genFilepath := filepath.Join("pkg", "api", "v0", "notification_gen.go")
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for notification helper: %w", err)

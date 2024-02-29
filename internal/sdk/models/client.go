@@ -21,7 +21,7 @@ const (
 // clientLibPath returns the path from the models to the API's internal handlers
 // package.
 func clientLibPath(packageName string) string {
-	return filepath.Join("..", "..", "..", "pkg", "client", packageName)
+	return filepath.Join("pkg", "client", packageName)
 }
 
 // ClientLib generates the client library code for the API models in a model

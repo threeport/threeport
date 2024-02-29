@@ -88,7 +88,7 @@ func (gvc *GlobalVersionConfig) ExtensionResponseObjects() error {
 		)
 
 		// write code to file
-		routesFilepath := filepath.Join("..", "..", "pkg", "api", apiVersion.VersionName, "response_gen.go")
+		routesFilepath := filepath.Join("pkg", "api", apiVersion.VersionName, "response_gen.go")
 		file, err := os.OpenFile(routesFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open file to write generated code for response objects: %w", err)
