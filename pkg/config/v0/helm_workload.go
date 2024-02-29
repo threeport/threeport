@@ -9,7 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/threeport/threeport/internal/agent"
-	"github.com/threeport/threeport/internal/workload/status"
+	"github.com/threeport/threeport/internal/helm-workload/status"
+	workload_status "github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -85,7 +86,10 @@ func (h *HelmWorkloadValues) Create(
 	}
 
 	// get operations
-	operations, createdHelmWorkloadDefinition, createdHelmWorkloadInstance, err := h.GetOperations(apiClient, apiEndpoint)
+	operations, createdHelmWorkloadDefinition, createdHelmWorkloadInstance, err := h.GetOperations(
+		apiClient,
+		apiEndpoint,
+	)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -219,6 +223,30 @@ func (h *HelmWorkloadDefinitionValues) ValidateCreate() error {
 	return multiError.Error()
 }
 
+// Describe returns details related to a helm workload definition.
+func (wd *HelmWorkloadDefinitionValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.HelmWorkloadDefinitionStatusDetail, error) {
+	// get helm workload definition by name
+	helmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find helm workload definition with name %s: %w", wd.Name, err)
+	}
+
+	// get helm workload definition status
+	statusDetail, err := status.GetHelmWorkloadDefinitionStatus(
+		apiClient,
+		apiEndpoint,
+		*helmWorkloadDefinition.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for helm workload definition with name %s: %w", wd.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
 // Delete deletes a helm workload definition from the Threeport API.
 func (h *HelmWorkloadDefinitionValues) Delete(
 	apiClient *http.Client,
@@ -336,7 +364,7 @@ func (h *HelmWorkloadInstanceValues) ValidateCreate() error {
 }
 
 // Describe returns important failure events related to a helm workload instance.
-func (h *HelmWorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.WorkloadInstanceStatusDetail, error) {
+func (h *HelmWorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint string) (*workload_status.WorkloadInstanceStatusDetail, error) {
 	// get helm workload instance by name
 	helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, h.Name)
 	if err != nil {
@@ -344,7 +372,7 @@ func (h *HelmWorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoin
 	}
 
 	// get helm workload instance status
-	statusDetail := status.GetWorkloadInstanceStatus(
+	statusDetail := workload_status.GetWorkloadInstanceStatus(
 		apiClient,
 		apiEndpoint,
 		agent.HelmWorkloadInstanceType,
@@ -478,7 +506,7 @@ func (h *HelmWorkloadValues) GetOperations(
 	//	operations.AppendOperation(util.Operation{
 	//		Name: "domain name definition",
 	//		Create: func() error {
-	//			_, err = domainNameDefinitionValues.CreateIfNotExist(apiClient, apiEndpoint)
+	//			_, err = domainNameDefinitionValues.Create(apiClient, apiEndpoint)
 	//			return err
 	//		},
 	//		Delete: func() error {

@@ -12,10 +12,9 @@ import (
 // status info.
 type WorkloadDefinitionStatusDetail struct {
 	WorkloadInstances *[]v0.WorkloadInstance
-	YamlDocument      string
 }
 
-// GetWorkloadDefinitionStatus inspects a workload instance and returns the status
+// GetWorkloadDefinitionStatus inspects a workload definition and returns the status
 // detials for it.
 func GetWorkloadDefinitionStatus(
 	apiClient *http.Client,
@@ -23,6 +22,7 @@ func GetWorkloadDefinitionStatus(
 	workloadDefinitionId uint,
 ) (*WorkloadDefinitionStatusDetail, error) {
 	var workloadDefStatus WorkloadDefinitionStatusDetail
+
 	// retrieve workload instances related to workload definition
 	workloadInsts, err := client.GetWorkloadInstancesByQueryString(
 		apiClient,
@@ -33,17 +33,6 @@ func GetWorkloadDefinitionStatus(
 		return &workloadDefStatus, fmt.Errorf("failed to retrieve workload instances related to workload definition: %w", err)
 	}
 	workloadDefStatus.WorkloadInstances = workloadInsts
-
-	// get YAML document for workload definition
-	workloadDef, err := client.GetWorkloadDefinitionByID(
-		apiClient,
-		apiEndpoint,
-		workloadDefinitionId,
-	)
-	if err != nil {
-		return &workloadDefStatus, fmt.Errorf("failed to retrieve workload definition: %w", err)
-	}
-	workloadDefStatus.YamlDocument = *workloadDef.YAMLDocument
 
 	return &workloadDefStatus, nil
 }

@@ -25,6 +25,7 @@ func kubernetesRuntimeDefinitionCreated(
 	if *kubernetesRuntimeDefinition.Reconciled == true {
 		return 0, nil
 	}
+
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		// kind clusters not managed by k8s runtime controller

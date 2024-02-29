@@ -1,5 +1,5 @@
 TerraformInstance:
-  Name: rds-instance
+  Name: rds-instance-01
   VarsDocument: config/terraform.tfvars
   TerraformDefinition:
     Name: rds-instance

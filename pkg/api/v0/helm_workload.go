@@ -3,6 +3,7 @@
 package v0
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl:config-path
 // HelmWorkloadDefinition includes the helm repo and chart that is used to
 // configure the workload.
 type HelmWorkloadDefinition struct {
@@ -32,6 +33,7 @@ type HelmWorkloadDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl:config-path
 // HelmWorkloadInstance is a deployed instance of a helm chart with the runtime
 // parameters as helm values.
 type HelmWorkloadInstance struct {

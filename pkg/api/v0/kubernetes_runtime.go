@@ -5,6 +5,7 @@ package v0
 import "time"
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl
 // KubernetesRuntimeDefinition is the configuration for a Kubernetes cluster.
 // TODO apply BeforeCreate functions that prevent changes to InfraProvider and
 // HighAvailability fields - these are immutable.
@@ -46,6 +47,7 @@ type KubernetesRuntimeDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl
 // KubernetesRuntimeInstance is a deployed instance of a Kubernetes cluster.
 type KubernetesRuntimeInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

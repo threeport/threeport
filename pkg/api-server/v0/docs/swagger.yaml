@@ -1756,10 +1756,10 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
     - Profile
     - Tier
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
     - ObservabilityStackDefinition
     - ObservabilityStackInstance
     - ObservabilityDashboardDefinition
@@ -1768,19 +1768,6 @@ definitions:
     - MetricsInstance
     - LoggingDefinition
     - LoggingInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - AttachedObjectReference
-    - WorkloadResourceInstance
-    - WorkloadEvent
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1788,8 +1775,6 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
     - TerraformDefinition
     - TerraformInstance
     - GatewayDefinition
@@ -1798,12 +1783,27 @@ definitions:
     - GatewayTcpPort
     - DomainNameDefinition
     - DomainNameInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - AttachedObjectReference
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeProfile
     - ObjectTypeTier
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
     - ObjectTypeObservabilityStackDefinition
     - ObjectTypeObservabilityStackInstance
     - ObjectTypeObservabilityDashboardDefinition
@@ -1812,19 +1812,6 @@ definitions:
     - ObjectTypeMetricsInstance
     - ObjectTypeLoggingDefinition
     - ObjectTypeLoggingInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1832,8 +1819,6 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
     - ObjectTypeTerraformDefinition
     - ObjectTypeTerraformInstance
     - ObjectTypeGatewayDefinition
@@ -1842,6 +1827,21 @@ definitions:
     - ObjectTypeGatewayTcpPort
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
   v0.ObservabilityDashboardDefinition:
     properties:
       CreationAcknowledged:

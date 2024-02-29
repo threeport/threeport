@@ -21,9 +21,13 @@ var cliArgs = &cli.GenesisControlPlaneCLIArgs{}
 var rootCmd = &cobra.Command{
 	Use:   "tptctl",
 	Short: "Manage Threeport",
-	Long: `Threeport is a global control plane for your software.  The tptctl
-CLI installs and manages instances of the Threeport control plane as well as
-applications that are deployed into the Threeport compute space.`,
+	Long: `tptctl is a CLI tool for managing your application orchestration.
+It installs and manages Threeport control planes and allows you to manage your
+software delivery using Threeport.  Threeport manages the infrastructure,
+runtime environments, managed service dependencies, installed support services,
+as well as all components of your application.
+
+Visit https://threeport.io for more information.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

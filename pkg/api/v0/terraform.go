@@ -3,6 +3,7 @@
 package v0
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl:config-path
 // TerraformDefinition is the configuration for terraform-defined resources.
 type TerraformDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -18,6 +19,7 @@ type TerraformDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl:config-path
 // TerraformInstance is the deployed instances of terraform resources defined in
 // the associated definition with the variables values.  The output from
 // terraform is stored here along with the terraform state document.
