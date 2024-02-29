@@ -280,7 +280,7 @@ func outputDescribeObservabilityStackInstanceCmd(
 	}
 
 	// get assoicated observability stack definition
-	observabilityStackInstinition, err := client.GetObservabilityStackDefinitionByID(
+	observabilityStackDefinition, err := client.GetObservabilityStackDefinitionByID(
 		apiClient,
 		apiEndpoint,
 		*observabilityStackInstance.ObservabilityStackDefinitionID,
@@ -303,8 +303,8 @@ func outputDescribeObservabilityStackInstanceCmd(
 		*observabilityStackInstance.UpdatedAt,
 	)
 	fmt.Printf(
-		"* Associated ObservabilityStackInstinition: %s\n",
-		*observabilityStackInstinition.Name,
+		"* Associated ObservabilityStackDefinition: %s\n",
+		*observabilityStackDefinition.Name,
 	)
 	if dashboardIncluded {
 		fmt.Printf(

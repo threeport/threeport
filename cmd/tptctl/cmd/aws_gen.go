@@ -376,7 +376,7 @@ func init() {
 // GetAwsEksKubernetesRuntimesCmd represents the aws-eks-kubernetes-runtime command
 var GetAwsEksKubernetesRuntimesCmd = &cobra.Command{
 	Example: "  tptctl get aws-eks-kubernetes-runtimes",
-	Long:    "Get aws eks kubernetes runtimes from the system.\\n\\nA aws eks kubernetes runtime is a simple abstraction of aws eks kubernetes runtime definitions and aws eks kubernetes runtime instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get aws eks kubernetes runtimes from the system.\n\nA aws eks kubernetes runtime is a simple abstraction of aws eks kubernetes runtime definitions and aws eks kubernetes runtime instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
@@ -1246,7 +1246,7 @@ func init() {
 // GetAwsRelationalDatabasesCmd represents the aws-relational-database command
 var GetAwsRelationalDatabasesCmd = &cobra.Command{
 	Example: "  tptctl get aws-relational-databases",
-	Long:    "Get aws relational databases from the system.\\n\\nA aws relational database is a simple abstraction of aws relational database definitions and aws relational database instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get aws relational databases from the system.\n\nA aws relational database is a simple abstraction of aws relational database definitions and aws relational database instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
@@ -2116,7 +2116,7 @@ func init() {
 // GetAwsObjectStorageBucketsCmd represents the aws-object-storage-bucket command
 var GetAwsObjectStorageBucketsCmd = &cobra.Command{
 	Example: "  tptctl get aws-object-storage-buckets",
-	Long:    "Get aws object storage buckets from the system.\\n\\nA aws object storage bucket is a simple abstraction of aws object storage bucket definitions and aws object storage bucket instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get aws object storage buckets from the system.\n\nA aws object storage bucket is a simple abstraction of aws object storage bucket definitions and aws object storage bucket instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)

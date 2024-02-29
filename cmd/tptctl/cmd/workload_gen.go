@@ -24,7 +24,7 @@ import (
 // GetWorkloadsCmd represents the workload command
 var GetWorkloadsCmd = &cobra.Command{
 	Example: "  tptctl get workloads",
-	Long:    "Get workloads from the system.\\n\\nA workload is a simple abstraction of workload definitions and workload instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get workloads from the system.\n\nA workload is a simple abstraction of workload definitions and workload instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)

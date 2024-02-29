@@ -24,7 +24,7 @@ import (
 // GetTerraformsCmd represents the terraform command
 var GetTerraformsCmd = &cobra.Command{
 	Example: "  tptctl get terraforms",
-	Long:    "Get terraforms from the system.\\n\\nA terraform is a simple abstraction of terraform definitions and terraform instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get terraforms from the system.\n\nA terraform is a simple abstraction of terraform definitions and terraform instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)

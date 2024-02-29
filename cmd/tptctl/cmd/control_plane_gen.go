@@ -24,7 +24,7 @@ import (
 // GetControlPlanesCmd represents the control-plane command
 var GetControlPlanesCmd = &cobra.Command{
 	Example: "  tptctl get control-planes",
-	Long:    "Get control planes from the system.\\n\\nA control plane is a simple abstraction of control plane definitions and control plane instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get control planes from the system.\n\nA control plane is a simple abstraction of control plane definitions and control plane instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)

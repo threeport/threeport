@@ -95,7 +95,7 @@ func (cc *ControllerConfig) TptctlCommands() error {
 						pluralize.Pluralize(rootCmdStrHuman, 2, false),
 					)),
 					Id("Long"): Lit(fmt.Sprintf(
-						`Get %s from the system.\n\nA %[2]s is a simple abstraction of %[2]s definitions and %[2]s instances.\nThis command displays all instances and the definitions used to configure them.`,
+						"Get %s from the system.\n\nA %[2]s is a simple abstraction of %[2]s definitions and %[2]s instances.\nThis command displays all instances and the definitions used to configure them.",
 						pluralize.Pluralize(rootCmdStrHuman, 2, false),
 						rootCmdStrHuman,
 					)),
@@ -208,7 +208,7 @@ func (cc *ControllerConfig) TptctlCommands() error {
 						rootCmdStrHuman,
 					)),
 					Id("Long"): Lit(fmt.Sprintf(
-						`Create a new %[1]s. This command creates a new %[1]s definition and %[1]s instance based on the %[1]s config.`,
+						"Create a new %[1]s. This command creates a new %[1]s definition and %[1]s instance based on the %[1]s config.",
 						rootCmdStrHuman,
 					)),
 					Id("SilenceUsage"): True(),
@@ -353,7 +353,7 @@ func (cc *ControllerConfig) TptctlCommands() error {
 						rootCmdStrHuman,
 					)),
 					Id("Long"): Lit(fmt.Sprintf(
-						`Delete an existing %[1]s. This command deletes an existing %[1]s definition and %[1]s instance based on the %[1]s config.`,
+						"Delete an existing %[1]s. This command deletes an existing %[1]s definition and %[1]s instance based on the %[1]s config.",
 						rootCmdStrHuman,
 					)),
 					Id("SilenceUsage"): True(),
@@ -543,7 +543,7 @@ func (cc *ControllerConfig) TptctlCommands() error {
 					pluralize.Pluralize(cmdStrHuman, 2, false),
 				)),
 				Id("Long"): Lit(fmt.Sprintf(
-					`Get %s from the system.`,
+					"Get %s from the system.",
 					pluralize.Pluralize(cmdStrHuman, 2, false),
 				)),
 				Id("SilenceUsage"): True(),
@@ -652,7 +652,7 @@ func (cc *ControllerConfig) TptctlCommands() error {
 					cmdStrHuman,
 				)),
 				Id("Long"): Lit(fmt.Sprintf(
-					`Create a new %s.`,
+					"Create a new %s.",
 					cmdStrHuman,
 				)),
 				Id("SilenceUsage"): True(),
@@ -780,7 +780,7 @@ func (cc *ControllerConfig) TptctlCommands() error {
 					cmdStrHuman,
 				)),
 				Id("Long"): Lit(fmt.Sprintf(
-					`Delete an existing %s.`,
+					"Delete an existing %s.",
 					cmdStrHuman,
 				)),
 				Id("SilenceUsage"): True(),

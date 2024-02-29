@@ -24,7 +24,7 @@ import (
 // GetHelmWorkloadsCmd represents the helm-workload command
 var GetHelmWorkloadsCmd = &cobra.Command{
 	Example: "  tptctl get helm-workloads",
-	Long:    "Get helm workloads from the system.\\n\\nA helm workload is a simple abstraction of helm workload definitions and helm workload instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get helm workloads from the system.\n\nA helm workload is a simple abstraction of helm workload definitions and helm workload instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)

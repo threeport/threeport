@@ -24,7 +24,7 @@ import (
 // GetKubernetesRuntimesCmd represents the kubernetes-runtime command
 var GetKubernetesRuntimesCmd = &cobra.Command{
 	Example: "  tptctl get kubernetes-runtimes",
-	Long:    "Get kubernetes runtimes from the system.\\n\\nA kubernetes runtime is a simple abstraction of kubernetes runtime definitions and kubernetes runtime instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get kubernetes runtimes from the system.\n\nA kubernetes runtime is a simple abstraction of kubernetes runtime definitions and kubernetes runtime instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)

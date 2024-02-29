@@ -24,7 +24,7 @@ import (
 // GetGatewaysCmd represents the gateway command
 var GetGatewaysCmd = &cobra.Command{
 	Example: "  tptctl get gateways",
-	Long:    "Get gateways from the system.\\n\\nA gateway is a simple abstraction of gateway definitions and gateway instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get gateways from the system.\n\nA gateway is a simple abstraction of gateway definitions and gateway instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
@@ -894,7 +894,7 @@ func init() {
 // GetDomainNamesCmd represents the domain-name command
 var GetDomainNamesCmd = &cobra.Command{
 	Example: "  tptctl get domain-names",
-	Long:    "Get domain names from the system.\\n\\nA domain name is a simple abstraction of domain name definitions and domain name instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get domain names from the system.\n\nA domain name is a simple abstraction of domain name definitions and domain name instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)

@@ -24,7 +24,7 @@ import (
 // GetObservabilityStacksCmd represents the observability-stack command
 var GetObservabilityStacksCmd = &cobra.Command{
 	Example: "  tptctl get observability-stacks",
-	Long:    "Get observability stacks from the system.\\n\\nA observability stack is a simple abstraction of observability stack definitions and observability stack instances.\\nThis command displays all instances and the definitions used to configure them.",
+	Long:    "Get observability stacks from the system.\n\nA observability stack is a simple abstraction of observability stack definitions and observability stack instances.\nThis command displays all instances and the definitions used to configure them.",
 	PreRun:  commandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
