@@ -1756,10 +1756,24 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - Profile
-    - Tier
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
     - ControlPlaneDefinition
     - ControlPlaneInstance
+    - Profile
+    - Tier
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - AwsObjectStorageBucketDefinition
+    - AwsObjectStorageBucketInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - ObservabilityStackDefinition
     - ObservabilityStackInstance
     - ObservabilityDashboardDefinition
@@ -1768,28 +1782,8 @@ definitions:
     - MetricsInstance
     - LoggingDefinition
     - LoggingInstance
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - AwsObjectStorageBucketDefinition
-    - AwsObjectStorageBucketInstance
     - TerraformDefinition
     - TerraformInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
@@ -1798,12 +1792,32 @@ definitions:
     - WorkloadEvent
     - HelmWorkloadDefinition
     - HelmWorkloadInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeProfile
-    - ObjectTypeTier
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
     - ObjectTypeControlPlaneDefinition
     - ObjectTypeControlPlaneInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeAwsObjectStorageBucketDefinition
+    - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeObservabilityStackDefinition
     - ObjectTypeObservabilityStackInstance
     - ObjectTypeObservabilityDashboardDefinition
@@ -1812,28 +1826,8 @@ definitions:
     - ObjectTypeMetricsInstance
     - ObjectTypeLoggingDefinition
     - ObjectTypeLoggingInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeAwsObjectStorageBucketDefinition
-    - ObjectTypeAwsObjectStorageBucketInstance
     - ObjectTypeTerraformDefinition
     - ObjectTypeTerraformInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
@@ -1842,6 +1836,12 @@ definitions:
     - ObjectTypeWorkloadEvent
     - ObjectTypeHelmWorkloadDefinition
     - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
   v0.ObservabilityDashboardDefinition:
     properties:
       CreationAcknowledged:

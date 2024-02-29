@@ -48,7 +48,7 @@ This creates a controller domain.  A controller domain is the set of objects
 that a controller is responsible for reconciling, in this case FooDefinition and
 FooInstance are the objects the foo-controller will be responsible for.
 We put the go:generate declaration at the top of that file:
-////go:generate threeport-sdk  codegenapi-model --filename $GOFILE --package $GOPACKAGE
+////go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
 
 Note: The controller domain and model objects must have unique names.  You
 cannot have a Foo model in the Foo controller domain.  This will create ambiguous
@@ -150,10 +150,10 @@ When 'make generate' is run, the following code is generated for API:
 						} else if strings.Contains(comment.Text, sdk.DbLoadAssociations) {
 							dbLoadAssociations = append(dbLoadAssociations, objectName)
 						}
-						if strings.Contains(comment.Text, codegen.TptctlMarkerText) {
+						if strings.Contains(comment.Text, sdk.TptctlMarkerText) {
 							tptctlModels = append(tptctlModels, objectName)
 						}
-						if strings.Contains(comment.Text, codegen.TptctlMarkerConfigPathText) {
+						if strings.Contains(comment.Text, sdk.TptctlMarkerConfigPathText) {
 							tptctlModelsConfigPath = append(tptctlModelsConfigPath, objectName)
 						}
 					}
