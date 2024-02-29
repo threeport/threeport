@@ -192,6 +192,7 @@ type ControlPlane struct {
 func AllControlPlaneComponents() []*v0.ControlPlaneComponent {
 	allControlPlaneComponents := ThreeportControllerList
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportRestApi)
+	allControlPlaneComponents = append(allControlPlaneComponents, DatabaseMigrator)
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportAgent)
 	return allControlPlaneComponents
 }

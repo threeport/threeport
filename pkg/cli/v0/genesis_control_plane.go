@@ -27,6 +27,7 @@ import (
 
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	"github.com/threeport/threeport/internal/provider"
+	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -617,6 +618,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			c.AuthEnabled = true
 			c.Credentials = append(c.Credentials, *clientCredentials)
 			c.CACert = authConfig.CABase64Encoded
+			c.AuthConfig = authConfig
 		}); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 		}
@@ -955,6 +957,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	componentList = append(componentList, cpi.Opts.RestApiInfo)
 	componentList = append(componentList, cpi.Opts.AgentInfo)
 
+	version := version.GetVersion()
+
 	// construct control plane instance object
 	controlPlaneInstance := v0.ControlPlaneInstance{
 		Instance: v0.Instance{
@@ -963,6 +967,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		Reconciliation: v0.Reconciliation{
 			Reconciled: &reconciled,
 		},
+		Version:                     &version,
 		Namespace:                   &cpi.Opts.Namespace,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		Genesis:                     &genesis,

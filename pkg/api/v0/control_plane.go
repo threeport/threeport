@@ -32,6 +32,9 @@ type ControlPlaneInstance struct {
 	// The namespace to deploy the control plane in
 	Namespace *string `json:"Namespace,omitempty" query:"namespace" gorm:"not null" validate:"required"`
 
+	// Version of the control plane
+	Version *string `json:"Version,omitempty" query:"Version" gorm:"not null" validate:"required"`
+
 	// When true, indicates the control plane instance represents the control plane in which it's stored
 	IsSelf *bool `json:"IsSelf,omitempty" query:"isself" gorm:"default:false" validate:"optional"`
 

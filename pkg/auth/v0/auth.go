@@ -18,13 +18,13 @@ import (
 
 // AuthConfig contains root CA and private key for generating client certificates.
 type AuthConfig struct {
-	CAConfig                  *x509.Certificate
-	CAPrivateKey              rsa.PrivateKey
-	CA                        []byte
-	CAPemEncoded              string
-	CABase64Encoded           string
-	CAPrivateKeyPemEncoded    string
-	CAPrivateKeyBase64Encoded string
+	CAConfig                  *x509.Certificate `yaml:"CAConfig"`
+	CAPrivateKey              rsa.PrivateKey    `yaml:"CAPrivateKey"`
+	CA                        []byte            `yaml:"CA"`
+	CAPemEncoded              string            `yaml:"CAPemEncoded"`
+	CABase64Encoded           string            `yaml:"CABase64Encoded"`
+	CAPrivateKeyPemEncoded    string            `yaml:"CAPrivateKeyPemEncoded"`
+	CAPrivateKeyBase64Encoded string            `yaml:"CAPrivateKeyBase64Encoded"`
 }
 
 // GetAuthConfig populates an AuthConfig object and returns a pointer to it.
