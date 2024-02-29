@@ -1,0 +1,7 @@
+AwsObjectStorageBucketDefinition:
+  Name: test-s3-bucket
+  PublicReadAccess: false
+  WorkloadServiceAccountName: s3-client
+  WorkloadBucketEnvVar: S3_BUCKET_NAME
+  AwsAccountName: default-account
+

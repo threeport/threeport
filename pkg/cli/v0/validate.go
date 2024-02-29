@@ -1,6 +1,10 @@
 package v0
 
-import "fmt"
+import (
+	"fmt"
+
+	util "github.com/threeport/threeport/pkg/util/v0"
+)
 
 // ValidateConfigNameFlags takes the following flag values
 // * config file path value as provided by user with a flag
@@ -20,6 +24,24 @@ func ValidateConfigNameFlags(
 
 	if objectConfigPath != "" && objectName != "" {
 		return fmt.Errorf("%s name and path to config file provided - provide only one", objectOutputName)
+	}
+
+	return nil
+}
+
+// ValidateDescribeOutputFlag validates output formats for describe commands.
+func ValidateDescribeOutputFlag(
+	outputFormat string,
+	objectOutputName string,
+) error {
+	validOutputFormats := []string{
+		"plain",
+		"json",
+		"yaml",
+	}
+
+	if !util.StringSliceContains(validOutputFormats, outputFormat, false) {
+		return fmt.Errorf("invalid output format - valid formats: %s", validOutputFormats)
 	}
 
 	return nil

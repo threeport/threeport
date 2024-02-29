@@ -8,6 +8,7 @@ import (
 
 	"gopkg.in/ini.v1"
 
+	"github.com/threeport/threeport/internal/aws/status"
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -31,6 +32,26 @@ type AwsAccountValues struct {
 	LocalConfig      string `yaml:"LocalConfig"`
 	LocalCredentials string `yaml:"LocalCredentials"`
 	LocalProfile     string `yaml:"LocalProfile"`
+}
+
+// AwsEksKubernetesRuntimeConfig contains the config for an AWS EKS
+// kubernetes runtime which is an abstraction of an AWS EKS kubernetes runtime
+// definition and instance.
+type AwsEksKubernetesRuntimeConfig struct {
+	AwsEksKubernetesRuntime AwsEksKubernetesRuntimeValues `yaml:"AwsEksKubernetesRuntime"`
+}
+
+// AwsEksKubernetesRuntimeValues contains the attributes needed to
+// manage an AWS EKS kubernetes runtime definition and instance.
+type AwsEksKubernetesRuntimeValues struct {
+	Name                         string `yaml:"Name"`
+	AwsAccountName               string `yaml:"AwsAccountName"`
+	ZoneCount                    int    `yaml:"ZoneCount"`
+	DefaultNodeGroupInstanceType string `yaml:"DefaultNodeGroupInstanceType"`
+	DefaultNodeGroupInitialSize  int    `yaml:"DefaultNodeGroupInitialSize"`
+	DefaultNodeGroupMinimumSize  int    `yaml:"DefaultNodeGroupMinimumSize"`
+	DefaultNodeGroupMaximumSize  int    `yaml:"DefaultNodeGroupMaximumSize"`
+	Region                       string `yaml:"Region"`
 }
 
 // AwsEksKubernetesRuntimeDefinitionConfig contains the config for an AWS EKS
@@ -60,9 +81,9 @@ type AwsEksKubernetesRuntimeInstanceConfig struct {
 // AwsEksKubernetesRuntimeInstanceValues contains the attributes needed to
 // manage an AWS EKS kubernetes runtime instance.
 type AwsEksKubernetesRuntimeInstanceValues struct {
-	Name                                  string `yaml:"Name"`
-	Location                              string `yaml:"Location"`
-	AwsEksKubernetesRuntimeDefinitionName string `yaml:"AwsEksKubernetesRuntimeDefinitionName"`
+	Name                              string                                  `yaml:"Name"`
+	Region                            string                                  `yaml:"Region"`
+	AwsEksKubernetesRuntimeDefinition AwsEksKubernetesRuntimeDefinitionValues `yaml:"AwsEksKubernetesRuntimeDefinition"`
 }
 
 // AwsRelationalDatabaseConfig contains the config for an AWS relational
@@ -170,9 +191,9 @@ type AwsObjectStorageBucketInstanceValues struct {
 }
 
 // Create creates an AWS account in the Threeport API.
-func (aa *AwsAccountValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsAccount, error) {
+func (a *AwsAccountValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsAccount, error) {
 	// validate required fields
-	if aa.Name == "" || aa.AccountID == "" {
+	if a.Name == "" || a.AccountID == "" {
 		return nil, errors.New("missing required field/s in config - required fields: Name, AccountID")
 	}
 
@@ -185,10 +206,10 @@ LocalConfig, LocalCredentials and LocalProfile
 `
 	localConfig := false
 	explicitConfig := false
-	if aa.LocalConfig != "" && aa.LocalCredentials != "" && aa.LocalProfile != "" {
+	if a.LocalConfig != "" && a.LocalCredentials != "" && a.LocalProfile != "" {
 		localConfig = true
 	}
-	if aa.DefaultRegion != "" && aa.AccessKeyID != "" && aa.SecretAccessKey != "" {
+	if a.DefaultRegion != "" && a.AccessKeyID != "" && a.SecretAccessKey != "" {
 		explicitConfig = true
 	}
 	switch {
@@ -201,7 +222,7 @@ LocalConfig, LocalCredentials and LocalProfile
 	}
 
 	// validate that no other default AWS account exists
-	if aa.DefaultAccount {
+	if a.DefaultAccount {
 		existingAccounts, err := client.GetAwsAccounts(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve existing AWS accounts to check default accounts: %w", err)
@@ -217,49 +238,49 @@ LocalConfig, LocalCredentials and LocalProfile
 	// establish default region from explicit declaration in config or AWS
 	// config file
 	var region string
-	if aa.DefaultRegion == "" {
-		awsConfig, err := ini.Load(aa.LocalConfig)
+	if a.DefaultRegion == "" {
+		awsConfig, err := ini.Load(a.LocalConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load aws config: %w", err)
 		}
-		if awsConfig.Section(aa.LocalProfile).HasKey("region") {
-			region = awsConfig.Section(aa.LocalProfile).Key("region").String()
+		if awsConfig.Section(a.LocalProfile).HasKey("region") {
+			region = awsConfig.Section(a.LocalProfile).Key("region").String()
 		} else {
 			return nil, errors.New(
-				fmt.Sprintf("profile %s not found in aws config %s", aa.LocalProfile, aa.LocalConfig),
+				fmt.Sprintf("profile %s not found in aws config %s", a.LocalProfile, a.LocalConfig),
 			)
 		}
 	} else {
-		region = aa.DefaultRegion
+		region = a.DefaultRegion
 	}
 
 	// retrieve access key ID and secret access key if needed
 	var accessKeyID string
 	var secretAccessKey string
-	if aa.AccessKeyID == "" && aa.SecretAccessKey == "" {
-		awsCredentials, err := ini.Load(aa.LocalCredentials)
+	if a.AccessKeyID == "" && a.SecretAccessKey == "" {
+		awsCredentials, err := ini.Load(a.LocalCredentials)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load aws credentials: %w", err)
 		}
-		if awsCredentials.Section(aa.LocalProfile).HasKey("aws_access_key_id") &&
-			awsCredentials.Section(aa.LocalProfile).HasKey("aws_secret_access_key") {
-			accessKeyID = awsCredentials.Section(aa.LocalProfile).Key("aws_access_key_id").String()
-			secretAccessKey = awsCredentials.Section(aa.LocalProfile).Key("aws_secret_access_key").String()
+		if awsCredentials.Section(a.LocalProfile).HasKey("aws_access_key_id") &&
+			awsCredentials.Section(a.LocalProfile).HasKey("aws_secret_access_key") {
+			accessKeyID = awsCredentials.Section(a.LocalProfile).Key("aws_access_key_id").String()
+			secretAccessKey = awsCredentials.Section(a.LocalProfile).Key("aws_secret_access_key").String()
 		}
 	} else {
-		accessKeyID = aa.AccessKeyID
-		secretAccessKey = aa.SecretAccessKey
+		accessKeyID = a.AccessKeyID
+		secretAccessKey = a.SecretAccessKey
 	}
 
 	// construct AWS account object
 	awsAccount := v0.AwsAccount{
-		Name:            &aa.Name,
-		DefaultAccount:  &aa.DefaultAccount,
+		Name:            &a.Name,
+		DefaultAccount:  &a.DefaultAccount,
 		DefaultRegion:   &region,
-		AccountID:       &aa.AccountID,
+		AccountID:       &a.AccountID,
 		AccessKeyID:     &accessKeyID,
 		SecretAccessKey: &secretAccessKey,
-		RoleArn:         &aa.RoleArn,
+		RoleArn:         &a.RoleArn,
 	}
 
 	// create AWS account
@@ -271,12 +292,33 @@ LocalConfig, LocalCredentials and LocalProfile
 	return createdAwsAccount, nil
 }
 
-// Delete deletes a AWS account from the Threeport API.
-func (aa *AwsAccountValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsAccount, error) {
+// Describe returns details related to an AWS account.
+func (a *AwsAccountValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.AwsAccountStatusDetail, error) {
 	// get AWS account by name
-	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, aa.Name)
+	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, a.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", aa.Name, err)
+		return nil, fmt.Errorf("failed to find AWS Account with name %s: %w", a.Name, err)
+	}
+
+	// get AWS account status
+	statusDetail, err := status.GetAwsAccountStatus(
+		apiClient,
+		apiEndpoint,
+		*awsAccount.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for AWS account with name %s: %w", a.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
+// Delete deletes a AWS account from the Threeport API.
+func (a *AwsAccountValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsAccount, error) {
+	// get AWS account by name
+	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, a.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", a.Name, err)
 	}
 
 	// delete AWS account
@@ -288,26 +330,67 @@ func (aa *AwsAccountValues) Delete(apiClient *http.Client, apiEndpoint string) (
 	return deletedAwsAccount, nil
 }
 
+// Create creates a AWS EKS kubernetes runtime definition and instance in the Threeport API.
+func (w *AwsEksKubernetesRuntimeValues) Create(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*v0.AwsEksKubernetesRuntimeDefinition, *v0.AwsEksKubernetesRuntimeInstance, error) {
+
+	// get operations
+	operations, createdAwsEksKubernetesRuntimeDefinition, createdAwsEksKubernetesRuntimeInstance := w.GetOperations(
+		apiClient,
+		apiEndpoint,
+	)
+
+	// execute create operations
+	if err := operations.Create(); err != nil {
+		return nil, nil, err
+	}
+
+	return createdAwsEksKubernetesRuntimeDefinition, createdAwsEksKubernetesRuntimeInstance, nil
+}
+
+// Delete deletes a AWS EKS kubernetes runtime definition and AWS EKS
+// kubernetes runtime instance.
+func (w *AwsEksKubernetesRuntimeValues) Delete(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*v0.AwsEksKubernetesRuntimeDefinition, *v0.AwsEksKubernetesRuntimeInstance, error) {
+
+	// get operation
+	operations, _, _ := w.GetOperations(apiClient, apiEndpoint)
+
+	// execute delete operations
+	if err := operations.Delete(); err != nil {
+		return nil, nil, err
+	}
+
+	return nil, nil, nil
+}
+
 // Create creates an AWS EKS kubernetes runtime definition in the threeport API.
-func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+func (e *AwsEksKubernetesRuntimeDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
 	// validate required fields
-	if aekrd.Name == "" || aekrd.AwsAccountName == "" || aekrd.ZoneCount == 0 ||
-		aekrd.DefaultNodeGroupInstanceType == "" || aekrd.DefaultNodeGroupInitialSize == 0 ||
-		aekrd.DefaultNodeGroupMinimumSize == 0 || aekrd.DefaultNodeGroupMaximumSize == 0 {
+	if e.Name == "" || e.AwsAccountName == "" || e.ZoneCount == 0 ||
+		e.DefaultNodeGroupInstanceType == "" || e.DefaultNodeGroupInitialSize == 0 ||
+		e.DefaultNodeGroupMinimumSize == 0 || e.DefaultNodeGroupMaximumSize == 0 {
 		return nil, errors.New("missing required field/s in config - required fields: Name, AwsAccountName, ZoneCount, DefaultNodeGroupInstanceType, DefaultNodeGroupInitialSize, DefaultNodeGroupMinimumSize, DefaultNodeGroupMaximumSize")
 	}
 
 	// look up AWS account by name
-	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, aekrd.AwsAccountName)
+	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, e.AwsAccountName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", aekrd.Name, err)
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", e.Name, err)
 	}
 
 	// construct kubernetes runtime definition
 	infraProvider := v0.KubernetesRuntimeInfraProviderEKS
 	kubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
 		Definition: v0.Definition{
-			Name: &aekrd.Name,
+			Name: &e.Name,
+		},
+		Reconciliation: v0.Reconciliation{
+			Reconciled: util.BoolPtr(true),
 		},
 		InfraProvider:            &infraProvider,
 		InfraProviderAccountName: awsAccount.Name,
@@ -322,14 +405,14 @@ func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Create(apiClient *http.Cli
 	// construct AWS EKS kubernetes runtime definition object
 	awsEksKubernetesRuntimeDefinition := v0.AwsEksKubernetesRuntimeDefinition{
 		Definition: v0.Definition{
-			Name: &aekrd.Name,
+			Name: &e.Name,
 		},
 		AwsAccountID:                  awsAccount.ID,
-		ZoneCount:                     &aekrd.ZoneCount,
-		DefaultNodeGroupInstanceType:  &aekrd.DefaultNodeGroupInstanceType,
-		DefaultNodeGroupInitialSize:   &aekrd.DefaultNodeGroupInitialSize,
-		DefaultNodeGroupMinimumSize:   &aekrd.DefaultNodeGroupMinimumSize,
-		DefaultNodeGroupMaximumSize:   &aekrd.DefaultNodeGroupMaximumSize,
+		ZoneCount:                     &e.ZoneCount,
+		DefaultNodeGroupInstanceType:  &e.DefaultNodeGroupInstanceType,
+		DefaultNodeGroupInitialSize:   &e.DefaultNodeGroupInitialSize,
+		DefaultNodeGroupMinimumSize:   &e.DefaultNodeGroupMinimumSize,
+		DefaultNodeGroupMaximumSize:   &e.DefaultNodeGroupMaximumSize,
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -342,12 +425,50 @@ func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Create(apiClient *http.Cli
 	return createdAwsEksKubernetesRuntimeDefinition, nil
 }
 
-// Delete deletes an AWS EKS kubernetes definition from the Threeport API.
-func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
-	// get AWS EKS kubernetes definition by name
-	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, aekrd.Name)
+// Describe returns details related to a AWS EKS kubernetes runtime definition.
+func (e *AwsEksKubernetesRuntimeDefinitionValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.AwsEksKubernetesRuntimeDefinitionStatusDetail, error) {
+	// get AWS EKS kubernetes runtime definition by name
+	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(
+		apiClient,
+		apiEndpoint,
+		e.Name,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS EKS kubernetes definition with name %s: %w", aekrd.Name, err)
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime definition with name %s: %w", e.Name, err)
+	}
+
+	// get AWS EKS kubernetes runtime definition status
+	statusDetail, err := status.GetAwsEksKubernetesRuntimeDefinitionStatus(
+		apiClient,
+		apiEndpoint,
+		awsEksKubernetesRuntimeDefinition,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for AWS EKS kubernetes runtime definition with name %s: %w", e.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
+// Delete deletes an AWS EKS kubernetes definition from the Threeport API.
+func (e *AwsEksKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	// get AWS EKS kubernetes definition by name
+	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, e.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes definition with name %s: %w", e.Name, err)
+	}
+
+	// delete associated kubernetes runtime definition
+	_, err = client.DeleteKubernetesRuntimeDefinition(
+		apiClient,
+		apiEndpoint,
+		*awsEksKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		return nil, fmt.Errorf("failed to delete associated kubernetes runtime definition: %w", err)
 	}
 
 	// delete AWS EKS kubernetes definition
@@ -360,16 +481,22 @@ func (aekrd *AwsEksKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Cli
 }
 
 // Create creates an AWS EKS kubernetes runtime instance in the threeport API.
-func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+func (e *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
 	// validate required fields
-	if aekri.Name == "" || aekri.AwsEksKubernetesRuntimeDefinitionName == "" {
+	if e.Name == "" || e.AwsEksKubernetesRuntimeDefinition.Name == "" {
 		return nil, errors.New("missing required field/s in config - required fields: Name, AwsEksKubernetesRuntimeDefinitionName")
 	}
 
 	// look up AWS EKS kubernetes runtime definition by name
-	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, aekri.AwsEksKubernetesRuntimeDefinitionName)
+	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, e.AwsEksKubernetesRuntimeDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime definition with name %s: %w", aekri.AwsEksKubernetesRuntimeDefinitionName, err)
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime definition with name %s: %w", e.AwsEksKubernetesRuntimeDefinition.Name, err)
+	}
+
+	// get location for provider AWS region
+	location, err := mapping.GetLocationForAwsRegion(e.Region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Threeport location for AWS region %s: %w", e.Region, err)
 	}
 
 	// construct kubernetes runtime instance object
@@ -377,9 +504,12 @@ func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Clien
 	defaultRuntime := false
 	kubernetesRuntimeInstance := v0.KubernetesRuntimeInstance{
 		Instance: v0.Instance{
-			Name: &aekri.Name,
+			Name: &e.Name,
 		},
-		Location:                      &aekri.Location,
+		Reconciliation: v0.Reconciliation{
+			Reconciled: util.BoolPtr(true),
+		},
+		Location:                      &location,
 		ThreeportControlPlaneHost:     &controlPlaneHost,
 		DefaultRuntime:                &defaultRuntime,
 		KubernetesRuntimeDefinitionID: awsEksKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
@@ -392,15 +522,11 @@ func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Clien
 	}
 
 	// construct AWS EKS kubernetes runtime instance object
-	region, err := mapping.GetProviderRegionForLocation(util.AwsProvider, aekri.Location)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get region for location %s: %w", aekri.Location, err)
-	}
 	awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
 		Instance: v0.Instance{
-			Name: &aekri.Name,
+			Name: &e.Name,
 		},
-		Region:                              &region,
+		Region:                              &e.Region,
 		KubernetesRuntimeInstanceID:         createdKubernetesRuntimeInstance.ID,
 		AwsEksKubernetesRuntimeDefinitionID: awsEksKubernetesRuntimeDefinition.ID,
 	}
@@ -414,18 +540,114 @@ func (aekri *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Clien
 	return createdAwsEksKubernetesRuntimeInstance, nil
 }
 
-// Delete deletes an AWS EKS kubernetes runtime instance from the Threeport API.
-func (aekri *AwsEksKubernetesRuntimeInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+// Describe returns details related to a AWS EKS kubernetes runtime instance.
+func (e *AwsEksKubernetesRuntimeInstanceValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.AwsEksKubernetesRuntimeInstanceStatusDetail, error) {
 	// get AWS EKS kubernetes runtime instance by name
-	awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, aekri.Name)
+	awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByName(
+		apiClient,
+		apiEndpoint,
+		e.Name,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime instance with name %s: %w", aekri.Name, err)
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime instance with name %s: %w", e.Name, err)
+	}
+
+	// get AWS EKS kubernetes runtime instance status
+	statusDetail, err := status.GetAwsEksKubernetesRuntimeInstanceStatus(
+		apiClient,
+		apiEndpoint,
+		awsEksKubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for AWS EKS kubernetes runtime instance with name %s: %w", e.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
+// Delete deletes an AWS EKS kubernetes runtime instance from the Threeport API.
+func (e *AwsEksKubernetesRuntimeInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	// get AWS EKS kubernetes runtime instance by name
+	awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, e.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime instance with name %s: %w", e.Name, err)
 	}
 
 	// delete AWS EKS kubernetes runtime instance
-	deletedAwsEksKubernetesRuntimeInstance, err := client.DeleteAwsEksKubernetesRuntimeInstance(apiClient, apiEndpoint, *awsEksKubernetesRuntimeInstance.ID)
+	deletedAwsEksKubernetesRuntimeInstance, err := client.DeleteAwsEksKubernetesRuntimeInstance(
+		apiClient,
+		apiEndpoint,
+		*awsEksKubernetesRuntimeInstance.ID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete AWS EKS kubernetes runtime instance from threeport API: %w", err)
+	}
+
+	// wait for AWS EKS kubernetes runtime instance to be deleted
+	util.Retry(90, 10, func() error {
+		if _, err := client.GetAwsEksKubernetesRuntimeInstanceByName(
+			apiClient,
+			apiEndpoint,
+			*awsEksKubernetesRuntimeInstance.Name,
+		); err == nil {
+			return errors.New("AWS EKS kubernetes runtime instance not deleted")
+		}
+		return nil
+	})
+
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+		apiClient,
+		apiEndpoint,
+		*awsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		// if the kubernetes runtime instance wasn't found, there's no more to
+		// do - return the error if something other than 'object not found'
+		if !errors.Is(err, client.ErrObjectNotFound) {
+			return nil, fmt.Errorf("failed to get associated kubernetes runtime instance: %w", err)
+		}
+	}
+	// if kubernetes runtime found, remove it
+	if err == nil {
+		// update kubernetes runtime instance to set the deletion confirmed
+		// timestamp - this will allow deletion of the k8s runtime object without
+		// triggering unecessary reconciliation
+		now := time.Now().UTC()
+		kubernetesRuntimeInstance.DeletionConfirmed = &now
+		_, err = client.UpdateKubernetesRuntimeInstance(
+			apiClient,
+			apiEndpoint,
+			kubernetesRuntimeInstance,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update associated kubernetes runtime instance to set deletion confirmed: %w", err)
+		}
+
+		// delete kubernetes runtime instance
+		_, err = client.DeleteKubernetesRuntimeInstance(
+			apiClient,
+			apiEndpoint,
+			*awsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete associated kubernetes runtime instance: %w", err)
+		}
+
+		// wait for kubernetes runtime instance to be deleted
+		util.Retry(10, 1, func() error {
+			if _, err := client.GetKubernetesRuntimeInstanceByName(
+				apiClient,
+				apiEndpoint,
+				*kubernetesRuntimeInstance.Name,
+			); err == nil {
+				return errors.New("kubernetes runtime instance not deleted")
+			}
+			return nil
+		})
 	}
 
 	return deletedAwsEksKubernetesRuntimeInstance, nil
@@ -789,6 +1011,34 @@ func (o *AwsObjectStorageBucketDefinitionValues) Create(apiClient *http.Client, 
 	return createdAwsObjectStorageBucketDefinition, nil
 }
 
+// Describe returns details related to an AWS object storage bucket definition.
+func (e *AwsObjectStorageBucketDefinitionValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.AwsObjectStorageBucketDefinitionStatusDetail, error) {
+	// get AWS object storage bucket definition by name
+	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(
+		apiClient,
+		apiEndpoint,
+		e.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime instance with name %s: %w", e.Name, err)
+	}
+
+	// get AWS object storage bucket definition status
+	statusDetail, err := status.GetAwsObjectStorageBucketDefinitionStatus(
+		apiClient,
+		apiEndpoint,
+		awsObjectStorageBucketDefinition,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for AWS EKS kubernetes runtime instance with name %s: %w", e.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
 // Delete deletes an AWS object storage bucket definition from the threeport
 // API.
 func (o *AwsObjectStorageBucketDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, error) {
@@ -867,4 +1117,76 @@ func (o *AwsObjectStorageBucketInstanceValues) Delete(apiClient *http.Client, ap
 	}
 
 	return deletedAwsObjectStorageBucketInstance, nil
+}
+
+// GetOperations returns a slice of operations used to create or delete an AWS
+// EKS kubernetes runtime.
+func (e *AwsEksKubernetesRuntimeValues) GetOperations(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*util.Operations, *v0.AwsEksKubernetesRuntimeDefinition, *v0.AwsEksKubernetesRuntimeInstance) {
+
+	var err error
+	var createdAwsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
+	var createdAwsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
+
+	operations := util.Operations{}
+
+	// add AWS EKS kubernetes runtime definition operation
+	awsEksKubernetesRuntimeDefinitionValues := AwsEksKubernetesRuntimeDefinitionValues{
+		Name:                         e.Name,
+		AwsAccountName:               e.AwsAccountName,
+		ZoneCount:                    e.ZoneCount,
+		DefaultNodeGroupInstanceType: e.DefaultNodeGroupInstanceType,
+		DefaultNodeGroupInitialSize:  e.DefaultNodeGroupInitialSize,
+		DefaultNodeGroupMinimumSize:  e.DefaultNodeGroupMinimumSize,
+		DefaultNodeGroupMaximumSize:  e.DefaultNodeGroupMaximumSize,
+	}
+	operations.AppendOperation(util.Operation{
+		Name: "AWS EKS kubernetes runtime definition",
+		Create: func() error {
+			awsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinitionValues.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				return err
+			}
+			createdAwsEksKubernetesRuntimeDefinition = *awsEksKubernetesRuntimeDefinition
+			return nil
+		},
+		Delete: func() error {
+			_, err = awsEksKubernetesRuntimeDefinitionValues.Delete(apiClient, apiEndpoint)
+			return err
+		},
+	})
+
+	// add AWS EKS kubernetes runtime instance operation
+	awsEksKubernetesRuntimeInstanceValues := AwsEksKubernetesRuntimeInstanceValues{
+		Name:   e.Name,
+		Region: e.Region,
+		AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
+			Name: e.Name,
+		},
+	}
+	operations.AppendOperation(util.Operation{
+		Name: "AWS EKS kubernetes runtime instance",
+		Create: func() error {
+			awsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstanceValues.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				return err
+			}
+			createdAwsEksKubernetesRuntimeInstance = *awsEksKubernetesRuntimeInstance
+			return nil
+		},
+		Delete: func() error {
+			_, err = awsEksKubernetesRuntimeInstanceValues.Delete(apiClient, apiEndpoint)
+			return err
+		},
+	})
+
+	return &operations, &createdAwsEksKubernetesRuntimeDefinition, &createdAwsEksKubernetesRuntimeInstance
 }

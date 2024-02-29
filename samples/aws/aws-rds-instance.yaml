@@ -1,0 +1,7 @@
+AwsRelationalDatabaseInstance:
+  Name: wordpress-db-0
+  AwsRelationalDatabaseDefinition:
+    Name: wordpress-db
+  WorkloadInstance:
+    Name: wordpress-0
+

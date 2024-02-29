@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"unicode/utf8"
 
+	"github.com/threeport/threeport/internal/kubernetes-runtime/status"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // KubernetesRuntimeConfig contains the config for a kubernetes runtime which is an abstraction of
@@ -123,6 +125,14 @@ func (kr *KubernetesRuntimeValues) Delete(apiClient *http.Client, apiEndpoint st
 		return nil, nil, fmt.Errorf("failed to delete kubernetes runtime instance from threeport API: %w", err)
 	}
 
+	// wait for kubernetes runtime instance to be deleted
+	util.Retry(60, 1, func() error {
+		if _, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, kr.Name); err == nil {
+			return errors.New("kubernetes runtime instance not deleted")
+		}
+		return nil
+	})
+
 	// delete kubernetes runtime definition
 	deletedKubernetesRuntimeDefinition, err := client.DeleteKubernetesRuntimeDefinition(apiClient, apiEndpoint, *kubernetesRuntimeDefinition.ID)
 	if err != nil {
@@ -163,6 +173,34 @@ func (krd *KubernetesRuntimeDefinitionValues) Create(apiClient *http.Client, api
 	}
 
 	return createdKubernetesRuntimeDefinition, nil
+}
+
+// Describe returns details related to a kubernetes runtime definition.
+func (k *KubernetesRuntimeDefinitionValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.KubernetesRuntimeDefinitionStatusDetail, error) {
+	// get kubernetes runtime definition by name
+	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByName(
+		apiClient,
+		apiEndpoint,
+		k.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", k.Name, err)
+	}
+
+	// get kubernetes runtime definition status
+	statusDetail, err := status.GetKubernetesRuntimeDefinitionStatus(
+		apiClient,
+		apiEndpoint,
+		kubernetesRuntimeDefinition,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for kubernetes runtime instance with name %s: %w", k.Name, err)
+	}
+
+	return statusDetail, nil
 }
 
 // Delete deletes a kubernetes runtime definition from the Threeport API.
@@ -220,6 +258,34 @@ func (kri *KubernetesRuntimeInstanceValues) Create(apiClient *http.Client, apiEn
 	}
 
 	return createdKubernetesRuntimeInstance, nil
+}
+
+// Describe returns details related to a kubernetes runtime instance.
+func (k *KubernetesRuntimeInstanceValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.KubernetesRuntimeInstanceStatusDetail, error) {
+	// get kubernetes runtime instance by name
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(
+		apiClient,
+		apiEndpoint,
+		k.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", k.Name, err)
+	}
+
+	// get kubernetes runtime instance status
+	statusDetail, err := status.GetKubernetesRuntimeInstanceStatus(
+		apiClient,
+		apiEndpoint,
+		kubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for kubernetes runtime instance with name %s: %w", k.Name, err)
+	}
+
+	return statusDetail, nil
 }
 
 // Delete deletes a kubernetes instance from the Threeport API.

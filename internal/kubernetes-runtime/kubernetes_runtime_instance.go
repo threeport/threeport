@@ -23,6 +23,13 @@ func kubernetesRuntimeInstanceCreated(
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// if a cluster instance is created by another mechanism and being
+	// registered in the system with Reconciled=true, there's no need to do
+	// anything - return immediately without error
+	if *kubernetesRuntimeInstance.Reconciled == true {
+		return 0, nil
+	}
+
 	// get runtime definition
 	kubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
 		r.APIClient,
@@ -202,7 +209,7 @@ func kubernetesRuntimeInstanceDeleted(
 		return 0, errors.New("deletion notification receieved but not scheduled")
 	}
 
-	// check to see if reconciled - it should not be, but if so we should do no
+	// check to see if deletion confirmed - it should not be, but if so we should do no
 	// more
 	if kubernetesRuntimeInstance.DeletionConfirmed != nil {
 		return 0, nil

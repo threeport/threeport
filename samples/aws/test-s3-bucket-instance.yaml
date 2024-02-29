@@ -1,0 +1,7 @@
+AwsObjectStorageBucketInstance:
+  Name: test-s3-bucket-01
+  AwsObjectStorageBucketDefinition:
+    Name: test-s3-bucket
+  WorkloadInstance:
+    Name: s3-client
+

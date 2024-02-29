@@ -6,6 +6,7 @@ import (
 	"gorm.io/datatypes"
 )
 
+// +threeport-sdk:tptctl
 // AwsAccount is a user account with the AWS service provider.
 type AwsAccount struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
@@ -39,6 +40,7 @@ type AwsAccount struct {
 	AwsEksKubernetesRuntimeDefinitions []*AwsEksKubernetesRuntimeDefinition `json:"AwsEksKubernetesRuntimeDefinitions,omitempty" validate:"optional,association"`
 }
 
+// +threeport-sdk:tptctl
 // AwsEksKubernetesRuntimeDefinition provides the configuration for EKS cluster instances.
 type AwsEksKubernetesRuntimeDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
@@ -74,6 +76,7 @@ type AwsEksKubernetesRuntimeDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl
 // AwsEksKubernetesRuntimeInstance is a deployed instance of an EKS cluster.
 type AwsEksKubernetesRuntimeInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -95,6 +98,7 @@ type AwsEksKubernetesRuntimeInstance struct {
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 }
 
+// +threeport-sdk:tptctl
 // AwsRelationalDatabaseDefinition is the configuration for an RDS instance
 // provided by AWS that is used by a workload.
 type AwsRelationalDatabaseDefinition struct {
@@ -136,6 +140,7 @@ type AwsRelationalDatabaseDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl
 // AwsRelationalDatabaseInstance is a deployed instance of an RDS instance.
 type AwsRelationalDatabaseInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -152,6 +157,7 @@ type AwsRelationalDatabaseInstance struct {
 	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 }
 
+// +threeport-sdk:tptctl
 // AwsObjectStorageBucketDefinition is the configuration for an S3 bucket
 // provided by AWS that is used for object storage by a workload.
 type AwsObjectStorageBucketDefinition struct {
@@ -178,6 +184,7 @@ type AwsObjectStorageBucketDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl
 // AwsObjectStorageBucketInstance is a deployed instance of an S3 bucket.
 type AwsObjectStorageBucketInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
