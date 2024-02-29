@@ -133,7 +133,7 @@ func outputGetKubernetesRuntimeInstancesCmd(
 	writer.Flush()
 
 	if kubernetesRuntimeDefErr != nil {
-		return fmt.Errorf("encountered an error retrieving kubernetes runtime definition info", kubernetesRuntimeDefErr)
+		return fmt.Errorf("encountered an error retrieving kubernetes runtime definition info: %w", kubernetesRuntimeDefErr)
 	}
 
 	return nil
