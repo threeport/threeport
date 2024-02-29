@@ -30,6 +30,12 @@ type APIObjectConfig struct {
 	SDKConfig `yaml:",inline"`
 }
 
+func (sdkConfig *SDKConfig) UpdateSdkConfig() error {
+	viper.Set("APIObjects", sdkConfig.APIObjects)
+	viper.WriteConfig()
+	return nil
+}
+
 // GetSDKConfig retrieves the sdk config
 func GetSDKConfig() (*SDKConfig, error) {
 	sdkConfig := &SDKConfig{}

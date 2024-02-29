@@ -1,5 +1,5 @@
 APIObjects:
   billing:
-    - Name: creditcard
+    - Name: CreditCard
       Reconcilable: true
-    - Name: subscription
+    - Name: Subscription

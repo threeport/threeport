@@ -1,4 +1,3 @@
-//go:generate threeport-sdk gen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
 // LogBackend is where the log messages are stored.

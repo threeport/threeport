@@ -17,18 +17,11 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 	// add controller streams
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     v0.ForwardProxyStreamName,
-		Subjects: v0.GetForwardProxySubjects(),
+		Name:     v0.GatewayStreamName,
+		Subjects: v0.GetGatewaySubjects(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not add stream %s: %w", v0.ForwardProxyStreamName, err)
-	}
-	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     v0.LogStreamName,
-		Subjects: v0.GetLogSubjects(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not add stream %s: %w", v0.LogStreamName, err)
+		return nil, fmt.Errorf("could not add stream %s: %w", v0.GatewayStreamName, err)
 	}
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     v0.ControlPlaneStreamName,
@@ -38,11 +31,11 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		return nil, fmt.Errorf("could not add stream %s: %w", v0.ControlPlaneStreamName, err)
 	}
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     v0.GatewayStreamName,
-		Subjects: v0.GetGatewaySubjects(),
+		Name:     v0.WorkloadStreamName,
+		Subjects: v0.GetWorkloadSubjects(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not add stream %s: %w", v0.GatewayStreamName, err)
+		return nil, fmt.Errorf("could not add stream %s: %w", v0.WorkloadStreamName, err)
 	}
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     v0.AwsStreamName,
@@ -52,20 +45,6 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		return nil, fmt.Errorf("could not add stream %s: %w", v0.AwsStreamName, err)
 	}
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     v0.KubernetesRuntimeStreamName,
-		Subjects: v0.GetKubernetesRuntimeSubjects(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not add stream %s: %w", v0.KubernetesRuntimeStreamName, err)
-	}
-	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     v0.ActuatorStreamName,
-		Subjects: v0.GetActuatorSubjects(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not add stream %s: %w", v0.ActuatorStreamName, err)
-	}
-	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     v0.HelmWorkloadStreamName,
 		Subjects: v0.GetHelmWorkloadSubjects(),
 	})
@@ -73,11 +52,11 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		return nil, fmt.Errorf("could not add stream %s: %w", v0.HelmWorkloadStreamName, err)
 	}
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     v0.TerraformStreamName,
-		Subjects: v0.GetTerraformSubjects(),
+		Name:     v0.KubernetesRuntimeStreamName,
+		Subjects: v0.GetKubernetesRuntimeSubjects(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not add stream %s: %w", v0.TerraformStreamName, err)
+		return nil, fmt.Errorf("could not add stream %s: %w", v0.KubernetesRuntimeStreamName, err)
 	}
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     v0.ObservabilityStreamName,
@@ -87,11 +66,11 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 		return nil, fmt.Errorf("could not add stream %s: %w", v0.ObservabilityStreamName, err)
 	}
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     v0.WorkloadStreamName,
-		Subjects: v0.GetWorkloadSubjects(),
+		Name:     v0.TerraformStreamName,
+		Subjects: v0.GetTerraformSubjects(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not add stream %s: %w", v0.WorkloadStreamName, err)
+		return nil, fmt.Errorf("could not add stream %s: %w", v0.TerraformStreamName, err)
 	}
 
 	return &js, nil

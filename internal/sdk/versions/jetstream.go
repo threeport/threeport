@@ -16,29 +16,41 @@ func (gvc *GlobalVersionConfig) InitJetStreamContext(sdkConfig *sdk.SDKConfig) e
 	addStreamCalls := &Statement{}
 	addStreamCalls.Line()
 
-	for controllerDomain, _ := range sdkConfig.APIObjects {
-		streamName := fmt.Sprintf(
-			"%sStreamName", strcase.ToCamel(controllerDomain),
-		)
+	for controllerDomain, apiObjects := range sdkConfig.APIObjects {
 
-		subjectFuncName := fmt.Sprintf(
-			"Get%sSubjects", strcase.ToCamel(controllerDomain),
-		)
+		// Determine if any objects within this controller domain need reconcilliation
+		needReconcilers := false
+		for _, obj := range apiObjects {
+			if obj.Reconcilable != nil && *obj.Reconcilable {
+				needReconcilers = true
+				break
+			}
+		}
 
-		addStreamCalls.Id("_").Op(",").Id("err").Op("=").Id("js").Dot("AddStream").Call(
-			Op("&").Qual("github.com/nats-io/nats.go", "StreamConfig").Values(
-				Dict{
-					Id("Name"):     Qual("github.com/threeport/threeport/pkg/api/v0", streamName),
-					Id("Subjects"): Qual("github.com/threeport/threeport/pkg/api/v0", subjectFuncName).Call(),
-				},
-			),
-		)
-		addStreamCalls.Line()
-		addStreamCalls.If(Id("err").Op("!=").Nil().Block(
-			Return(Nil(),
-				Qual("fmt", "Errorf").Call(Lit("could not add stream %s: %w"), Id("v0").Dot(streamName), Err())),
-		))
-		addStreamCalls.Line()
+		if needReconcilers {
+			streamName := fmt.Sprintf(
+				"%sStreamName", strcase.ToCamel(controllerDomain),
+			)
+
+			subjectFuncName := fmt.Sprintf(
+				"Get%sSubjects", strcase.ToCamel(controllerDomain),
+			)
+
+			addStreamCalls.Id("_").Op(",").Id("err").Op("=").Id("js").Dot("AddStream").Call(
+				Op("&").Qual("github.com/nats-io/nats.go", "StreamConfig").Values(
+					Dict{
+						Id("Name"):     Qual("github.com/threeport/threeport/pkg/api/v0", streamName),
+						Id("Subjects"): Qual("github.com/threeport/threeport/pkg/api/v0", subjectFuncName).Call(),
+					},
+				),
+			)
+			addStreamCalls.Line()
+			addStreamCalls.If(Id("err").Op("!=").Nil().Block(
+				Return(Nil(),
+					Qual("fmt", "Errorf").Call(Lit("could not add stream %s: %w"), Id("v0").Dot(streamName), Err())),
+			))
+			addStreamCalls.Line()
+		}
 	}
 
 	f := NewFile("main")

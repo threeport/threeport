@@ -53,6 +53,16 @@ var createAPICmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// update config with newly added api objects
+		for cd, objs := range apiObjectConfig.APIObjects {
+			sdkConfig.APIObjects[cd] = objs
+		}
+
+		if err := sdkConfig.UpdateSdkConfig(); err != nil {
+			cli.Error("failed to update sdk config", err)
+			os.Exit(1)
+		}
+
 		return nil
 	},
 }
