@@ -1,0 +1,6 @@
+AwsEksKubernetesRuntimeInstance:
+  Name: test-runtime-01
+  Region: us-east-2
+  AwsEksKubernetesRuntimeDefinition:
+    Name: test-runtime
+

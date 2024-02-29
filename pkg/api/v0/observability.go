@@ -3,6 +3,7 @@
 package v0
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl:config-path
 // ObservabilityStackDefinition defines an observability stack.
 type ObservabilityStackDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -54,6 +55,7 @@ type ObservabilityStackDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl:config-path
 // ObservabilityStackInstances defines an instance of an observability stack.
 type ObservabilityStackInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

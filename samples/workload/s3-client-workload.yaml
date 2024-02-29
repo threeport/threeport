@@ -1,0 +1,6 @@
+Workload:
+  Name: s3-client
+  YAMLDocument: s3-client-manifest.yaml
+  KubernetesRuntimeInstance:
+    Name: eks-k8s-runtime
+

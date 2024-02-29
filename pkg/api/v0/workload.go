@@ -13,6 +13,7 @@ const (
 )
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl:config-path
 // WorkloadDefinition is the collection of Kubernetes manifests that define a
 // distinct workload.
 type WorkloadDefinition struct {
@@ -42,6 +43,7 @@ type WorkloadResourceDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl
 // WorkloadInstance is a deployed instance of a workload.
 type WorkloadInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

@@ -135,6 +135,17 @@ func (cfg *ThreeportConfig) GetThreeportAuthEnabled(requestedControlPlane string
 	return controlPlane.AuthEnabled, nil
 }
 
+// GetThreeportEncryptionKey returns the encryption key that is used encrypt
+// sensitive values in the Threeport database.
+func (cfg *ThreeportConfig) GetThreeportEncryptionKey(requestedControlPlane string) (string, error) {
+	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return "", errors.New("current control plane not found when retrieving threeport API endpoint")
+	}
+
+	return controlPlane.EncryptionKey, nil
+}
+
 // GetThreeportInfraProvider returns the infra provider from
 // the threeport config.
 func (cfg *ThreeportConfig) GetThreeportInfraProvider(requestedControlPlane string) (string, error) {

@@ -48,7 +48,7 @@ This creates a controller domain.  A controller domain is the set of objects
 that a controller is responsible for reconciling, in this case FooDefinition and
 FooInstance are the objects the foo-controller will be responsible for.
 We put the go:generate declaration at the top of that file:
-////go:generate threeport-sdk codegen api-model --filename $GOFILE
+////go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
 
 Note: The controller domain and model objects must have unique names.  You
 cannot have a Foo model in the Foo controller domain.  This will create ambiguous
@@ -57,14 +57,19 @@ names and is therefore not allowed.
 When 'make generate' is run, the following code is generated for API:
 * 'pkg/api/v0/foo_gen.go:
 	* all model methods that satisfy the APIObject interface
-	* NATS subjects that are used for controller notifications about the Foo
-	  object
+	* NATS subject constants that are used for controller notifications about
+	  the Foo objects
 * 'internal/api/routes/foo.go':
 	* the routes used by clients to manage Foo objects
 * 'internal/api/handlers/foo.go':
-	* the handlers that updated database state for Foo objects
+	* the handlers that update database state for Foo objects
 * 'internal/api/database/database.go':
 	* the auto migrate calls
+* 'pkg/client/v0/foo_gen.go':
+	* go client library functions for Foo objects
+* 'cmd/tptctl/cmd/':
+	* the tptctl commands to create, describe and delete foo-definition and
+	  foo-instance objects in the API
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// inspect source code
@@ -81,6 +86,8 @@ When 'make generate' is run, the following code is generated for API:
 		////////////////////////////////////////////////////////////////////////////
 		var modelConfigs []models.ModelConfig
 		var reconcilerModels []string
+		var tptctlModels []string
+		var tptctlModelsConfigPath []string
 		var allowDuplicateNameModels []string
 		var allowCustomMiddleware []string
 		var dbLoadAssociations []string
@@ -131,6 +138,7 @@ When 'make generate' is run, the following code is generated for API:
 						modelConfigs = append(modelConfigs, mc)
 					}
 				}
+
 				if genDecl.Doc != nil {
 					for _, comment := range genDecl.Doc.List {
 						if strings.Contains(comment.Text, sdk.ReconclierMarkerText) {
@@ -142,6 +150,12 @@ When 'make generate' is run, the following code is generated for API:
 						} else if strings.Contains(comment.Text, sdk.DbLoadAssociations) {
 							dbLoadAssociations = append(dbLoadAssociations, objectName)
 						}
+						if strings.Contains(comment.Text, sdk.TptctlMarkerText) {
+							tptctlModels = append(tptctlModels, objectName)
+						}
+						if strings.Contains(comment.Text, sdk.TptctlMarkerConfigPathText) {
+							tptctlModelsConfigPath = append(tptctlModelsConfigPath, objectName)
+						}
 					}
 				}
 			}
@@ -149,13 +163,15 @@ When 'make generate' is run, the following code is generated for API:
 
 		// construct the controller config object
 		controllerConfig := models.ControllerConfig{
-			ModelFilename:         filename,
-			PackageName:           packageName,
-			ParsedModelFile:       *pf,
-			ControllerDomain:      strcase.ToCamel(sdk.FilenameSansExt(filename)),
-			ControllerDomainLower: strcase.ToLowerCamel(sdk.FilenameSansExt(filename)),
-			ModelConfigs:          modelConfigs,
-			ReconcilerModels:      reconcilerModels,
+			ModelFilename:          filename,
+			PackageName:            packageName,
+			ParsedModelFile:        *pf,
+			ControllerDomain:       strcase.ToCamel(sdk.FilenameSansExt(filename)),
+			ControllerDomainLower:  strcase.ToLowerCamel(sdk.FilenameSansExt(filename)),
+			ModelConfigs:           modelConfigs,
+			ReconcilerModels:       reconcilerModels,
+			TptctlModels:           tptctlModels,
+			TptctlConfigPathModels: tptctlModelsConfigPath,
 		}
 
 		// validate model configs
@@ -168,6 +184,24 @@ When 'make generate' is run, the following code is generated for API:
 					mc.TypeName,
 				))
 				return fmt.Errorf("naming conflict encountered: %w", err)
+			}
+		}
+
+		// for all definition objects that have a corresponding instance object:
+		// * set DefinedInstance to true on the definition model config
+		for i, mc := range controllerConfig.ModelConfigs {
+			if strings.HasSuffix(mc.TypeName, "Definition") {
+				// have found a definition object, see if there's a
+				// corresponding instance
+				rootDefObj := strings.TrimSuffix(mc.TypeName, "Definition")
+				for _, imc := range controllerConfig.ModelConfigs {
+					if strings.HasSuffix(imc.TypeName, "Instance") {
+						rootInstObj := strings.TrimSuffix(imc.TypeName, "Instance")
+						if rootDefObj == rootInstObj {
+							controllerConfig.ModelConfigs[i].DefinedInstance = true
+						}
+					}
+				}
 			}
 		}
 
@@ -184,6 +218,27 @@ When 'make generate' is run, the following code is generated for API:
 					} else {
 						controllerConfig.ModelConfigs[i].Reconciler = true
 					}
+				}
+			}
+		}
+
+		// for all objects getting tptctl commands:
+		// * set TptctlCommands field in model config to true
+		for _, tc := range controllerConfig.TptctlModels {
+			for i, mc := range controllerConfig.ModelConfigs {
+				if tc == mc.TypeName {
+					controllerConfig.ModelConfigs[i].TptctlCommands = true
+				}
+			}
+		}
+
+		// for all objects getting tptctl command with config packages that have
+		// a config path for external files:
+		// * set TptctlConfigPath field in model config to true
+		for _, tc := range controllerConfig.TptctlConfigPathModels {
+			for i, mc := range controllerConfig.ModelConfigs {
+				if tc == mc.TypeName {
+					controllerConfig.ModelConfigs[i].TptctlConfigPath = true
 				}
 			}
 		}
@@ -218,7 +273,7 @@ When 'make generate' is run, the following code is generated for API:
 			}
 		}
 
-		// Get module path if its an extension
+		// get module path if its an extension
 		var modulePath string
 		if extension {
 			var modError error
@@ -284,6 +339,11 @@ When 'make generate' is run, the following code is generated for API:
 			}
 		}
 
+		// generate tptctl commands
+		if err := controllerConfig.TptctlCommands(); err != nil {
+			return fmt.Errorf("failed to generate tptctl commands: %w", err)
+		}
+
 		return nil
 	},
 }
@@ -292,9 +352,18 @@ When 'make generate' is run, the following code is generated for API:
 func init() {
 	codegenCmd.AddCommand(apiModelCmd)
 
-	apiModelCmd.Flags().StringVarP(&filename, "filename", "f", "", "The filename for the file containing the API model")
+	apiModelCmd.Flags().StringVarP(
+		&filename,
+		"filename", "f", "", "The filename for the file containing the API model/s.",
+	)
 	apiModelCmd.MarkFlagRequired("filename")
-	apiModelCmd.Flags().StringVarP(&packageName, "package", "p", "", "The package name of the the API model")
+	apiModelCmd.Flags().StringVarP(
+		&packageName,
+		"package", "p", "", "The package name of the the API model.",
+	)
 	apiModelCmd.MarkFlagRequired("package")
-	apiModelCmd.Flags().BoolVarP(&extension, "extension", "e", false, "Indicate whether code being generated is for an extension")
+	apiModelCmd.Flags().BoolVarP(
+		&extension,
+		"extension", "e", false, "Indicates whether code being generated is for a Threeport extension.",
+	)
 }

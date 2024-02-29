@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/threeport/threeport/internal/terraform/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -163,6 +164,30 @@ func (t *TerraformDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	return createdTerraformDefinition, nil
 }
 
+// Describe returns details related to a terraform definition.
+func (wd *TerraformDefinitionValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.TerraformDefinitionStatusDetail, error) {
+	// get terraform definition by name
+	terraformDefinition, err := client.GetTerraformDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", wd.Name, err)
+	}
+
+	// get terraform definition status
+	statusDetail, err := status.GetTerraformDefinitionStatus(
+		apiClient,
+		apiEndpoint,
+		*terraformDefinition.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for terraform definition with name %s: %w", wd.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
 // Delete deletes a terraform definition from the Threeport API.
 func (t *TerraformDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.TerraformDefinition, error) {
 	// get terraform definition by name
@@ -261,6 +286,34 @@ func (t *TerraformInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 	}
 
 	return createdTerraformInstance, nil
+}
+
+// Describe returns details related to a terraform instance.
+func (k *TerraformInstanceValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.TerraformInstanceStatusDetail, error) {
+	// get terraform instance by name
+	terraformInstance, err := client.GetTerraformInstanceByName(
+		apiClient,
+		apiEndpoint,
+		k.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find terraform instance with name %s: %w", k.Name, err)
+	}
+
+	// get terraform instance status
+	statusDetail, err := status.GetTerraformInstanceStatus(
+		apiClient,
+		apiEndpoint,
+		terraformInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for terraform instance with name %s: %w", k.Name, err)
+	}
+
+	return statusDetail, nil
 }
 
 // Delete deletes a terraform instance from the Threeport API.
