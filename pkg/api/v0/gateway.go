@@ -3,6 +3,7 @@
 package v0
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl
 // Gateway is a route for requests to a workload from clients outside the
 // private network of a workload kubernetes runtime.  This
 type GatewayDefinition struct {
@@ -41,6 +42,7 @@ type GatewayDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl
 // GatewayInstance is a deployed instance of a gateway.
 type GatewayInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -99,6 +101,7 @@ type GatewayTcpPort struct {
 	TLSEnabled *bool `json:"TLSEnabled,omitempty" query:"tlsenabled" gorm:"default:false" validate:"optional"`
 }
 
+// +threeport-sdk:tptctl
 // DomainNameDefinition the definition for domain name management for a
 // particular DNS zone.
 type DomainNameDefinition struct {
@@ -134,6 +137,7 @@ type DomainNameDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// +threeport-sdk:tptctl
 // DomainNameInstance is an instance of domain name management for a workload.
 type DomainNameInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

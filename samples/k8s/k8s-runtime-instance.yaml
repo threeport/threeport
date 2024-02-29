@@ -1,0 +1,6 @@
+KubernetesRuntimeInstance:
+  Name: eks-k8s-runtime-01
+  KubernetesRuntimeDefinition:
+    Name: eks-k8s-runtime
+  Location: NorthAmerica:NewYork
+

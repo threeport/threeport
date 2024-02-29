@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: s3-client
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s3-client
+  labels:
+    app: s3-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s3-client
+  template:
+    metadata:
+      labels:
+        app: s3-client
+    spec:
+      serviceAccountName: s3-client
+      containers:
+      - name: s3-client
+        image: cimg/aws:2023.09
+        command: ["sleep", "3600"]  # will run for 1 hour
+

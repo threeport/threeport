@@ -129,6 +129,27 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	return createdWorkloadDefinition, nil
 }
 
+// Describe returns details related to a workload definition.
+func (wd *WorkloadDefinitionValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.WorkloadDefinitionStatusDetail, error) {
+	// get workload definition by name
+	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", wd.Name, err)
+	}
+
+	// get workload definition status
+	statusDetail, err := status.GetWorkloadDefinitionStatus(
+		apiClient,
+		apiEndpoint,
+		*workloadDefinition.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for workload definition with name %s: %w", wd.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
 // Delete deletes a workload definition from the Threeport API.
 func (wd *WorkloadDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, error) {
 	// get workload definition by name
@@ -286,8 +307,8 @@ func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint str
 	return deletedWorkloadInstance, nil
 }
 
-// GetOperations returns a slice of operations used to
-// create, update, or delete a workload.
+// GetOperations returns a slice of operations used to create or delete a
+// workload.
 func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint string) (*util.Operations, *v0.WorkloadDefinition, *v0.WorkloadInstance) {
 
 	var err error
@@ -347,6 +368,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 
 		// add domain name definition operation
 		domainNameDefinitionValues := DomainNameDefinitionValues{
+			Name:       w.DomainName.Name,
 			Domain:     w.DomainName.Domain,
 			Zone:       w.DomainName.Zone,
 			AdminEmail: w.DomainName.AdminEmail,
@@ -354,7 +376,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		operations.AppendOperation(util.Operation{
 			Name: "domain name definition",
 			Create: func() error {
-				_, err = domainNameDefinitionValues.CreateIfNotExist(apiClient, apiEndpoint)
+				_, err = domainNameDefinitionValues.Create(apiClient, apiEndpoint)
 				return err
 			},
 			Delete: func() error {
@@ -365,6 +387,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 
 		// add domain name instance operation
 		domainNameInstanceValues := DomainNameInstanceValues{
+			Name:                      w.DomainName.Name,
 			DomainNameDefinition:      domainNameDefinitionValues,
 			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
 			WorkloadInstance:          workloadInstanceValues,
@@ -383,7 +406,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 
 		// add gateway definition operation
 		gatewayDefinitionValues := GatewayDefinitionValues{
-			Name:                 w.Name,
+			Name:                 w.Gateway.Name,
 			HttpPorts:            w.Gateway.HttpPorts,
 			TcpPorts:             w.Gateway.TcpPorts,
 			ServiceName:          w.Gateway.ServiceName,
@@ -404,6 +427,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 
 		// add gateway instance operation
 		gatewayInstanceValues := GatewayInstanceValues{
+			Name:                      w.Gateway.Name,
 			GatewayDefinition:         gatewayDefinitionValues,
 			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
 			WorkloadInstance:          workloadInstanceValues,

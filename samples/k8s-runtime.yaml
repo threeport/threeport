@@ -1,7 +1,0 @@
-KubernetesRuntime:
-  Name: congo-non-prod
-  InfraProvider: eks
-  InfraProviderAccountName: default-account
-  HighAvailability: false
-  Location: NorthAmerica:NewYork
-

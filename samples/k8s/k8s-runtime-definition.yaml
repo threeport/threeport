@@ -1,0 +1,6 @@
+KubernetesRuntimeDefinition:
+  Name: eks-k8s-runtime
+  InfraProvider: eks
+  InfraProviderAccountName: default-account
+  HighAvailability: false
+

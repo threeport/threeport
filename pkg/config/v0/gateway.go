@@ -5,10 +5,31 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/iancoleman/strcase"
+
+	"github.com/threeport/threeport/internal/gateway/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// GatewayConfig contains the config for a gateway.
+type GatewayConfig struct {
+	Gateway GatewayValues `yaml:"Gateway"`
+}
+
+// GatewayValues contains the attributes needed to manage a gateway
+// definition and gateway instance.
+type GatewayValues struct {
+	Name                      string                           `yaml:"Name"`
+	HttpPorts                 []GatewayHttpPortValues          `yaml:"HttpPorts"`
+	TcpPorts                  []GatewayTcpPortValues           `yaml:"TcpPorts"`
+	ServiceName               string                           `yaml:"ServiceName"`
+	SubDomain                 string                           `yaml:"SubDomain"`
+	DomainNameDefinition      DomainNameDefinitionValues       `yaml:"DomainNameDefinition"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
+}
 
 // GatewayDefinitionConfig contains the config for a gateway definition.
 type GatewayDefinitionConfig struct {
@@ -49,9 +70,82 @@ type GatewayInstanceConfig struct {
 // GatewayInstanceValues contains the attributes needed to manage a gateway
 // instance.
 type GatewayInstanceValues struct {
+	Name                      string                           `yaml:"Name"`
 	GatewayDefinition         GatewayDefinitionValues          `yaml:"GatewayDefinition"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
+}
+
+// DomainNameConfig contains the config for a domain name.
+type DomainNameConfig struct {
+	DomainName DomainNameValues `yaml:"DomainName"`
+}
+
+// DomainNameValues contains the attributes needed to manage a domain name
+// definition and domain name instance.
+type DomainNameValues struct {
+	Name                      string                           `yaml:"Name"`
+	Domain                    string                           `yaml:"Domain"`
+	Zone                      string                           `yaml:"Zone"`
+	AdminEmail                string                           `yaml:"AdminEmail"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
+}
+
+// DomainNameDefinitionConfig contains the config for a domain name definition.
+type DomainNameDefinitionConfig struct {
+	DomainNameDefinition DomainNameDefinitionValues `yaml:"DomainNameDefinition"`
+}
+
+// DomainNameDefinitionValues contains the attributes needed to manage a domain
+// name definition.
+type DomainNameDefinitionValues struct {
+	Name       string `yaml:"Name"`
+	Domain     string `yaml:"Domain"`
+	Zone       string `yaml:"Zone"`
+	AdminEmail string `yaml:"AdminEmail"`
+}
+
+// DomainNameInstanceConfig contains the config for a domain name instance.
+type DomainNameInstanceConfig struct {
+	DomainNameInstance DomainNameInstanceValues `yaml:"DomainNameInstance"`
+}
+
+// DomainNameInstanceValues contains the attributes needed to manage a domain
+// name instance.
+type DomainNameInstanceValues struct {
+	Name                      string                           `yaml:"Name"`
+	DomainNameDefinition      DomainNameDefinitionValues       `yaml:"DomainNameDefinition"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
+}
+
+// Create creates a gateway definition and instance in the Threeport API.
+func (g *GatewayValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, *v0.GatewayInstance, error) {
+
+	// get operations
+	operations, createdGatewayDefinition, createdGatewayInstance := g.GetOperations(apiClient, apiEndpoint)
+
+	// execute create operations
+	if err := operations.Create(); err != nil {
+		return nil, nil, err
+	}
+
+	return createdGatewayDefinition, createdGatewayInstance, nil
+}
+
+// Delete deletes a gateway definition and instance from the Threeport API.
+func (g *GatewayValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, *v0.GatewayInstance, error) {
+
+	// get operation
+	operations, _, _ := g.GetOperations(apiClient, apiEndpoint)
+
+	// execute delete operations
+	if err := operations.Delete(); err != nil {
+		return nil, nil, err
+	}
+
+	return nil, nil, nil
 }
 
 // Validate validates gateway definition values.
@@ -96,6 +190,30 @@ func (g *GatewayHttpPortValues) Validate() error {
 	}
 
 	return multiError.Error()
+}
+
+// Describe returns details related to a gateway definition.
+func (wd *GatewayDefinitionValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.GatewayDefinitionStatusDetail, error) {
+	// get gateway definition by name
+	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find gateway definition with name %s: %w", wd.Name, err)
+	}
+
+	// get gateway definition status
+	statusDetail, err := status.GetGatewayDefinitionStatus(
+		apiClient,
+		apiEndpoint,
+		*gatewayDefinition.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for gateway definition with name %s: %w", wd.Name, err)
+	}
+
+	return statusDetail, nil
 }
 
 // Create creates a gateway definition.
@@ -187,6 +305,10 @@ func (g *GatewayDefinitionValues) Delete(apiClient *http.Client, apiEndpoint str
 func (g *GatewayInstanceValues) Validate() error {
 	multiError := util.MultiError{}
 
+	if g.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: Name"))
+	}
+
 	if g.GatewayDefinition.Name == "" {
 		multiError.AppendError(errors.New("missing required field in config: GatewayDefinition.Name"))
 	}
@@ -234,7 +356,7 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 	// construct gateway instance object
 	gatewayInstance := v0.GatewayInstance{
 		Instance: v0.Instance{
-			Name: &g.GatewayDefinition.Name,
+			Name: &g.Name,
 		},
 		GatewayDefinitionID:         gatewayDefinition.ID,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
@@ -250,10 +372,38 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 	return createdGatewayInstance, nil
 }
 
+// Describe returns details related to a gateway instance.
+func (k *GatewayInstanceValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.GatewayInstanceStatusDetail, error) {
+	// get gateway instance by name
+	gatewayInstance, err := client.GetGatewayInstanceByName(
+		apiClient,
+		apiEndpoint,
+		k.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find gateway instance with name %s: %w", k.Name, err)
+	}
+
+	// get gateway instance status
+	statusDetail, err := status.GetGatewayInstanceStatus(
+		apiClient,
+		apiEndpoint,
+		gatewayInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for gateway instance with name %s: %w", k.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
 // Delete deletes a gateway instance.
 func (g *GatewayInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.GatewayInstance, error) {
 	// get gateway instance by name
-	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, g.GatewayDefinition.Name)
+	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, g.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -273,4 +423,380 @@ func (g *GatewayInstanceValues) Delete(apiClient *http.Client, apiEndpoint strin
 	})
 
 	return deletedGatewayInstance, nil
+}
+
+// GetOperations returns a slice of operations used to create or delete a
+// gateway.
+func (g *GatewayValues) GetOperations(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*util.Operations, *v0.GatewayDefinition, *v0.GatewayInstance) {
+
+	var err error
+	var createdGatewayInstance v0.GatewayInstance
+	var createdGatewayDefinition v0.GatewayDefinition
+
+	operations := util.Operations{}
+
+	// add gateway definition operation
+	gatewayDefinitionValues := GatewayDefinitionValues{
+		Name:                 g.Name,
+		HttpPorts:            g.HttpPorts,
+		TcpPorts:             g.TcpPorts,
+		ServiceName:          g.ServiceName,
+		SubDomain:            g.SubDomain,
+		DomainNameDefinition: g.DomainNameDefinition,
+	}
+	operations.AppendOperation(util.Operation{
+		Name: "gateway definition",
+		Create: func() error {
+			gatewayDefinition, err := gatewayDefinitionValues.Create(apiClient, apiEndpoint)
+			if err != nil {
+				return err
+			}
+			createdGatewayDefinition = *gatewayDefinition
+			return nil
+		},
+		Delete: func() error {
+			_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
+			return err
+		},
+	})
+
+	// add gateway instance operation
+	gatewayInstanceValues := GatewayInstanceValues{
+		Name:                      g.Name,
+		KubernetesRuntimeInstance: g.KubernetesRuntimeInstance,
+		WorkloadInstance:          g.WorkloadInstance,
+		GatewayDefinition: GatewayDefinitionValues{
+			Name: g.Name,
+		},
+	}
+	operations.AppendOperation(util.Operation{
+		Name: "gateway instance",
+		Create: func() error {
+			gatewayInstance, err := gatewayInstanceValues.Create(apiClient, apiEndpoint)
+			if err != nil {
+				return err
+			}
+			createdGatewayInstance = *gatewayInstance
+			return nil
+		},
+		Delete: func() error {
+			_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
+			return err
+		},
+	})
+
+	return &operations, &createdGatewayDefinition, &createdGatewayInstance
+}
+
+// Create creates a domain name definition and instance in the Threeport API.
+func (n *DomainNameValues) Create(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*v0.DomainNameDefinition, *v0.DomainNameInstance, error) {
+
+	// get operations
+	operations, createdDomainNameDefinition, createdDomainNameInstance := n.GetOperations(apiClient, apiEndpoint)
+
+	// execute create operations
+	if err := operations.Create(); err != nil {
+		return nil, nil, err
+	}
+
+	return createdDomainNameDefinition, createdDomainNameInstance, nil
+}
+
+// Delete deletes a domain name definition and instance from the Threeport API.
+func (n *DomainNameValues) Delete(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*v0.DomainNameDefinition, *v0.DomainNameInstance, error) {
+
+	// get operation
+	operations, _, _ := n.GetOperations(apiClient, apiEndpoint)
+
+	// execute delete operations
+	if err := operations.Delete(); err != nil {
+		return nil, nil, err
+	}
+
+	return nil, nil, nil
+}
+
+// Create creates a domain name definition if it does not exist in the Threeport
+// API.
+func (d *DomainNameDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
+	// validate required fields
+	if err := d.Validate(); err != nil {
+		return nil, err
+	}
+
+	// check if domain name definition exists
+	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Domain)
+	if err == nil {
+		return existingDomainNameDefinition, nil
+	}
+
+	// construct domain name definition object
+	domainNameDefinition := v0.DomainNameDefinition{
+		Definition: v0.Definition{
+			Name: &d.Name,
+		},
+		Domain:     &d.Domain,
+		Zone:       &d.Zone,
+		AdminEmail: &d.AdminEmail,
+	}
+
+	// create domain name definition
+	createdDomainNameDefinition, err := client.CreateDomainNameDefinition(apiClient, apiEndpoint, &domainNameDefinition)
+	if err != nil {
+		return nil, err
+	}
+
+	return createdDomainNameDefinition, nil
+}
+
+// Validate validates the domain name definition values.
+func (d *DomainNameDefinitionValues) Validate() error {
+
+	multiError := util.MultiError{}
+
+	if d.Domain == "" {
+		multiError.AppendError(errors.New("missing required field in config: Domain"))
+	}
+
+	if d.Zone == "" {
+		multiError.AppendError(errors.New("missing required field in config: Zone"))
+	}
+
+	if d.AdminEmail == "" {
+		multiError.AppendError(errors.New("missing required field in config: AdminEmail"))
+	}
+
+	if len(multiError.Errors) > 0 {
+		return multiError.Error()
+	}
+
+	return nil
+}
+
+// Describe returns details related to a domain name definition.
+func (wd *DomainNameDefinitionValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.DomainNameDefinitionStatusDetail, error) {
+	// get domain name definition by name
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find domain name definition with name %s: %w", wd.Name, err)
+	}
+
+	// get domain name definition status
+	statusDetail, err := status.GetDomainNameDefinitionStatus(
+		apiClient,
+		apiEndpoint,
+		*domainNameDefinition.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for domain name definition with name %s: %w", wd.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
+// Delete deletes a domain name definition from the Threeport API.
+func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
+	// check if domain name definition exists
+	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Domain)
+	if err != nil {
+		return nil, nil
+	}
+
+	deletedDomainNameDefinition, err := client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *existingDomainNameDefinition.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return deletedDomainNameDefinition, nil
+}
+
+// Create creates a domain name instance in the Threeport API.
+func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameInstance, error) {
+	if err := d.Validate(); err != nil {
+		return nil, err
+	}
+
+	// get kubernetes runtime instance API object
+	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+		d.KubernetesRuntimeInstance,
+		apiClient,
+		apiEndpoint,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set kubernetes runtime instance: %w", err)
+	}
+
+	// get workload instance
+	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, d.WorkloadInstance.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// get domain name definition
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.DomainNameDefinition.Domain)
+	if err != nil {
+		return nil, err
+	}
+
+	// construct domain name instance object
+	domainNameInstance := v0.DomainNameInstance{
+		Instance: v0.Instance{
+			Name: util.StringPtr(d.getDomainNameInstanceName()),
+		},
+		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
+		WorkloadInstanceID:          workloadInstance.ID,
+		DomainNameDefinitionID:      domainNameDefinition.ID,
+	}
+
+	// create domain name instance
+	createdDomainNameInstance, err := client.CreateDomainNameInstance(apiClient, apiEndpoint, &domainNameInstance)
+	if err != nil {
+		return nil, err
+	}
+
+	return createdDomainNameInstance, nil
+}
+
+// Describe returns details related to a domain name instance.
+func (k *DomainNameInstanceValues) Describe(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*status.DomainNameInstanceStatusDetail, error) {
+	// get domain name instance by name
+	domainNameInstance, err := client.GetDomainNameInstanceByName(
+		apiClient,
+		apiEndpoint,
+		k.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find domain name instance with name %s: %w", k.Name, err)
+	}
+
+	// get domain name instance status
+	statusDetail, err := status.GetDomainNameInstanceStatus(
+		apiClient,
+		apiEndpoint,
+		domainNameInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status for domain name instance with name %s: %w", k.Name, err)
+	}
+
+	return statusDetail, nil
+}
+
+// Delete deletes a domain name instance from the Threeport API.
+func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameInstance, error) {
+	// check if domain name definition exists
+	existingDomainNameInstance, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.getDomainNameInstanceName())
+	if err != nil {
+		return nil, nil
+	}
+
+	deletedDomainNameInstance, err := client.DeleteDomainNameInstance(apiClient, apiEndpoint, *existingDomainNameInstance.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return deletedDomainNameInstance, nil
+}
+
+// getDomainNameInstanceName returns the name of the domain name instance.
+func (d *DomainNameInstanceValues) getDomainNameInstanceName() string {
+	return fmt.Sprintf("%s-%s", d.WorkloadInstance.Name, strcase.ToKebab(d.DomainNameDefinition.Domain))
+}
+
+// Validate validates the domain name instance values.
+func (d *DomainNameInstanceValues) Validate() error {
+	multiError := util.MultiError{}
+
+	if d.DomainNameDefinition.Domain == "" {
+		multiError.AppendError(errors.New("missing required field in config: DomainNameDefinition.Name"))
+	}
+
+	if d.WorkloadInstance.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: WorklaodInstance.Name"))
+	}
+
+	if len(multiError.Errors) > 0 {
+		return multiError.Error()
+	}
+
+	return nil
+}
+
+// GetOperations returns a slice of operations used to create or delete a
+// domain name.
+func (n *DomainNameValues) GetOperations(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*util.Operations, *v0.DomainNameDefinition, *v0.DomainNameInstance) {
+
+	var err error
+	var createdDomainNameInstance v0.DomainNameInstance
+	var createdDomainNameDefinition v0.DomainNameDefinition
+
+	operations := util.Operations{}
+
+	// add domain name definition operation
+	domainNameDefinitionValues := DomainNameDefinitionValues{
+		Name:       n.Name,
+		Domain:     n.Name,
+		Zone:       n.Zone,
+		AdminEmail: n.AdminEmail,
+	}
+	operations.AppendOperation(util.Operation{
+		Name: "domain name definition",
+		Create: func() error {
+			domainNameDefinition, err := domainNameDefinitionValues.Create(apiClient, apiEndpoint)
+			if err != nil {
+				return err
+			}
+			createdDomainNameDefinition = *domainNameDefinition
+			return nil
+		},
+		Delete: func() error {
+			_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
+			return err
+		},
+	})
+
+	// add domain name instance operation
+	domainNameInstanceValues := DomainNameInstanceValues{
+		Name:                      n.Name,
+		KubernetesRuntimeInstance: n.KubernetesRuntimeInstance,
+		WorkloadInstance:          n.WorkloadInstance,
+		DomainNameDefinition: DomainNameDefinitionValues{
+			Name: n.Name,
+		},
+	}
+	operations.AppendOperation(util.Operation{
+		Name: "domain name instance",
+		Create: func() error {
+			domainNameInstance, err := domainNameInstanceValues.Create(apiClient, apiEndpoint)
+			if err != nil {
+				return err
+			}
+			createdDomainNameInstance = *domainNameInstance
+			return nil
+		},
+		Delete: func() error {
+			_, err = domainNameInstanceValues.Delete(apiClient, apiEndpoint)
+			return err
+		},
+	})
+
+	return &operations, &createdDomainNameDefinition, &createdDomainNameInstance
 }

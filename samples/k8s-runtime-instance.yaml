@@ -1,6 +1,0 @@
-KubernetesRuntimeInstance:
-  Name: congo-shared-dev
-  KubernetesRuntimeDefinition:
-    Name: congo-non-prod
-  Location: NorthAmericaEast
-

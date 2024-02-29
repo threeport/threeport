@@ -1,0 +1,12 @@
+AwsRelationalDatabase:
+  Name: wordpress-db-5
+  AwsAccountName: default-account
+  Engine: postgres
+  EngineVersion: "15.4"
+  DatabaseName: wordpress
+  DatabasePort: 3306
+  StorageGb: 20
+  MachineSize: XSmall
+  WorkloadSecretName: wordpress-db-conn-5
+  WorkloadInstance:
+    Name: wordpress-0
