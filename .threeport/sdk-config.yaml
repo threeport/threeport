@@ -1,0 +1,78 @@
+APIObjects:
+  actuator:
+    - Name: Profile
+    - Name: Tier
+  aws:
+    - Name: AwsAccount
+    - Name: AwsEksKubernetesRuntimeDefinition
+    - Name: AwsEksKubernetesRuntimeInstance
+      Reconcilable: true
+    - Name: AwsRelationalDatabaseDefinition
+    - Name: AwsRelationalDatabaseInstance
+      Reconcilable: true
+    - Name: AwsObjectStorageBucketDefinition
+    - Name: AwsObjectStorageBucketInstance
+      Reconcilable: true
+  control_plane:
+    - Name: ControlPlaneDefinition
+      Reconcilable: true
+    - Name: ControlPlaneInstance
+      Reconcilable: true
+  forward_proxy:
+    - Name: ForwardProxyDefinition
+    - Name: ForwardProxyInstance
+  gateway:
+    - Name: GatewayDefinition
+      Reconcilable: true
+    - Name: GatewayInstance
+      Reconcilable: true
+    - Name: GatewayHttpPort
+    - Name: GatewayTcpPort
+    - Name: DomainNameDefinition
+    - Name: DomainNameInstance
+      Reconcilable: true
+  helm_workload:
+    - Name: HelmWorkloadDefinition
+      Reconcilable: true
+    - Name: HelmWorkloadInstance
+      Reconcilable: true
+  kubernetes_runtime:
+    - Name: KubernetesRuntimeDefinition
+      Reconcilable: true
+    - Name: KubernetesRuntimeInstance
+      Reconcilable: true
+  log:
+    - Name: LogBackend
+    - Name: LogStorageDefinition
+    - Name: LogStorageInstance
+  observability:
+    - Name: ObservabilityStackDefinition
+      Reconcilable: true
+    - Name: ObservabilityStackInstance
+      Reconcilable: true
+    - Name: ObservabilityDashboardDefinition
+      Reconcilable: true
+    - Name: ObservabilityDashboardInstance
+      Reconcilable: true
+    - Name: MetricsDefinition
+      Reconcilable: true
+    - Name: MetricsInstance
+      Reconcilable: true
+    - Name: LoggingDefinition
+      Reconcilable: true
+    - Name: LoggingInstance
+      Reconcilable: true
+  terraform:
+    - Name: TerraformDefinition
+      Reconcilable: true
+    - Name: TerraformInstance
+      Reconcilable: true
+  workload:
+    - Name: WorkloadDefinition
+      Reconcilable: true
+    - Name: WorkloadResourceDefinition
+    - Name: WorkloadResourceInstance
+    - Name: TerraformInstance
+      Reconcilable: true
+    - Name: AttachedObjectReference
+    - Name: WorkloadEvent

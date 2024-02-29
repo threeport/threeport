@@ -38,7 +38,7 @@ generate: generate-code generate-docs
 
 #generate-code: @ Generate code
 generate-code: install-sdk
-	go generate ./...
+	threeport-sdk generate v0
 
 #generate-docs: @ Generate swagger docs
 generate-docs:
