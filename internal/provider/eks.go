@@ -627,7 +627,9 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 func IrsaControllerNames() []string {
 	return []string{
 		threeport.ThreeportAwsControllerName,
+		threeport.ThreeportSecretControllerName,
 		threeport.ThreeportWorkloadControllerName,
+		threeport.ThreeportHelmWorkloadControllerName,
 		threeport.ThreeportControlPlaneControllerName,
 	}
 }
@@ -774,6 +776,18 @@ const (
 				"Effect": "Allow",
 				"Action": [
 					"s3:*"
+				],
+				"Resource": "*"
+			},
+			{
+				"Sid": "SecretsManagerPermissions",
+				"Effect": "Allow",
+				"Action": [
+					"secretsmanager:BatchGetSecretValue",
+					"secretsmanager:ListSecrets",
+					"secretsmanager:CreateSecret",
+					"secretsmanager:DeleteSecret",
+					"secretsmanager:GetSecretValue"
 				],
 				"Resource": "*"
 			},
