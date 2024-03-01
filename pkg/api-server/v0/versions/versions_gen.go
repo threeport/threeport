@@ -14,8 +14,6 @@ func AddVersions() {
 	AddAwsObjectStorageBucketInstanceVersions()
 	AddControlPlaneDefinitionVersions()
 	AddControlPlaneInstanceVersions()
-	AddForwardProxyDefinitionVersions()
-	AddForwardProxyInstanceVersions()
 	AddGatewayDefinitionVersions()
 	AddGatewayInstanceVersions()
 	AddGatewayHttpPortVersions()

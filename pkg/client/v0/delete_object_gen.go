@@ -55,14 +55,6 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteControlPlaneInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete ControlPlaneInstance: %w", err)
 		}
-	case "v0.ForwardProxyDefinition":
-		if _, err := DeleteForwardProxyDefinition(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete ForwardProxyDefinition: %w", err)
-		}
-	case "v0.ForwardProxyInstance":
-		if _, err := DeleteForwardProxyInstance(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete ForwardProxyInstance: %w", err)
-		}
 	case "v0.GatewayDefinition":
 		if _, err := DeleteGatewayDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete GatewayDefinition: %w", err)

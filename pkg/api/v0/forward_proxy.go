@@ -1,4 +1,5 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
+// +threeport-sdk route-exclude
+// +threeport-sdk database-exclude
 package v0
 
 // ForwardProxy provides a managed outbound network connection from a workload
