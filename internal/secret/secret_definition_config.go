@@ -104,7 +104,7 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to batch get secret value")
+		return fmt.Errorf("failed to batch get secret value: %w", err)
 	}
 
 	// ensure secret does not already exist

@@ -27,6 +27,9 @@ const (
 	DNS01ChallengeServiceAccountName     = "cert-manager"
 	DNS01ChallengeServiceAccountNamepace = "nukleros-certs-system"
 
+	SecretsManagerServiceAccountName = "external-secrets"
+	SecretsManagerServiceAccountNamespace = "nukleros-secrets-system"
+
 	// links the service account used by the EBS CSI driver to the resource
 	// config for github.com/nukleros/aws-builder to create the attached IAM role.
 	StorageManagerServiceAccountName      = "ebs-csi-controller-sa"
@@ -1005,6 +1008,10 @@ func InstallThreeportCRDs(
 													},
 												},
 												"type": "object",
+											},
+											"iamRoleArn": map[string]interface{}{
+												"description": "On AWS, the IAM Role ARN that gives external-secrets access to SecretsManager",
+												"type":        "string",
 											},
 											"image": map[string]interface{}{
 												"default":     "ghcr.io/external-secrets/external-secrets",

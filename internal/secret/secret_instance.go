@@ -16,15 +16,16 @@ import (
 // SecretInstanceConfig contains the configuration for a secret instance
 // reconcile function.
 type SecretInstanceConfig struct {
-	r                         *controller.Reconciler
-	secretInstance            *v0.SecretInstance
-	secretDefinition          *v0.SecretDefinition
-	log                       *logr.Logger
-	workloadInstance          *v0.WorkloadInstance
-	helmWorkloadInstance      *v0.HelmWorkloadInstance
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance
-	workloadInstanceType      string
-	workloadInstanceId        *uint
+	r                           *controller.Reconciler
+	secretInstance              *v0.SecretInstance
+	secretDefinition            *v0.SecretDefinition
+	log                         *logr.Logger
+	workloadInstance            *v0.WorkloadInstance
+	helmWorkloadInstance        *v0.HelmWorkloadInstance
+	kubernetesRuntimeInstance   *v0.KubernetesRuntimeInstance
+	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition
+	workloadInstanceType        string
+	workloadInstanceId          *uint
 }
 
 // secretInstanceCreated reconciles state for a new secret
@@ -182,6 +183,12 @@ func (c *SecretInstanceConfig) getThreeportObjects() error {
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
+	// get kubernetes runtime definition
+	c.kubernetesRuntimeDefinition, err = client.GetKubernetesRuntimeDefinitionByID(c.r.APIClient, c.r.APIServer, *c.kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes runtime definition: %w", err)
+	}
+
 	// get secret definition
 	c.secretDefinition, err = client.GetSecretDefinitionByID(c.r.APIClient, c.r.APIServer, *c.secretInstance.SecretDefinitionID)
 	if err != nil {
@@ -261,7 +268,14 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 		return nil
 	}
 
-	externalSecrets, err := util.MapStringInterfaceToString(getExternalSecretsSupportServiceManifest())
+	resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(c.r.APIClient, c.r.APIServer, c.kubernetesRuntimeInstance.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get dns management iam role arn: %w", err)
+	}
+
+	externalSecrets, err := util.MapStringInterfaceToString(
+		c.getExternalSecretsSupportServiceManifest(resourceInventory.SecretsManagerRole.RoleArn),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create external secrets: %w", err)
 	}
@@ -312,19 +326,17 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 func (c *SecretInstanceConfig) configureSecretControllerJsonManifests() ([]datatypes.JSON, error) {
 	var manifests []datatypes.JSON
 
-	awsSecretMarshaled, err := util.MarshalJSON(getAwssmSecret())
+	secretStore, err := c.getSecretStore()
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal aws secret: %w", err)
+		return nil, fmt.Errorf("failed to get secret store: %w", err)
 	}
-	manifests = append(manifests, awsSecretMarshaled)
-
-	secretStoreMarshaled, err := util.MarshalJSON(getSecretStore())
+	secretStoreMarshaled, err := util.MarshalJSON(secretStore)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal secret store: %w", err)
 	}
 	manifests = append(manifests, secretStoreMarshaled)
 
-	externalSecretMarshaled, err := util.MarshalJSON(getExternalSecret(*c.secretDefinition.Name))
+	externalSecretMarshaled, err := util.MarshalJSON(c.getExternalSecret())
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal external secret: %w", err)
 	}
