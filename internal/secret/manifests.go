@@ -69,7 +69,7 @@ func (c *SecretInstanceConfig) getExternalSecretsSupportServiceManifest(iamRoleA
 		},
 		"spec": map[string]interface{}{
 			//collection:
-			//name: "supportservices-sample"
+			//name: "supportservices"
 			//namespace: ""
 			"namespace":  "nukleros-secrets-system",
 			"version":    "v0.9.11",
