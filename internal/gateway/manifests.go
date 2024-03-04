@@ -19,7 +19,7 @@ func createSupportServicesCollection() (string, error) {
 		"apiVersion": "orchestration.support-services.nukleros.io/v1alpha1",
 		"kind":       "SupportServices",
 		"metadata": map[string]interface{}{
-			"name": "supportservices-sample",
+			"name": "supportservices",
 		},
 		"spec": map[string]interface{}{
 			"tier": "development",
@@ -68,7 +68,7 @@ func createExternalDns(
 		"apiVersion": "gateway.support-services.nukleros.io/v1alpha1",
 		"kind":       "ExternalDNS",
 		"metadata": map[string]interface{}{
-			"name": "externaldns-sample",
+			"name": "externaldns",
 		},
 		"spec": map[string]interface{}{
 			"namespace":          util.GatewaySystemNamespace,
@@ -106,7 +106,7 @@ func createCertManager(iamRoleArn string) (string, error) {
 		"apiVersion": "certificates.support-services.nukleros.io/v1alpha1",
 		"kind":       "CertManager",
 		"metadata": map[string]interface{}{
-			"name": "certmanager-sample",
+			"name": "certmanager",
 		},
 		"spec": map[string]interface{}{
 			"namespace": "nukleros-certs-system",
