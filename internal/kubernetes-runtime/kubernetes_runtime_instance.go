@@ -253,3 +253,16 @@ func kubernetesRuntimeInstanceDeleted(
 
 	return 0, nil
 }
+
+// GetCloudProviderForInfraProvider returns the cloud provider for a given
+// infrastructure provider.
+func GetCloudProviderForInfraProvider(input string) (string, error) {
+	switch input {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		return util.AwsProvider, nil
+	case v0.KubernetesRuntimeInfraProviderKind:
+		return util.AwsProvider, nil // default to AWS values for testing purposes
+	default:
+		return "", fmt.Errorf("failed to get provider, infra provider %s not supported", input)
+	}
+}
