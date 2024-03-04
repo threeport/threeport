@@ -988,14 +988,9 @@ func configureIssuer(
 	}
 
 	// get infra provider region
-	var provider string
-	switch *kubernetesRuntimeDefinition.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		provider = util.AwsProvider
-	case v0.KubernetesRuntimeInfraProviderKind:
-		provider = util.AwsProvider // default to AWS values for testing purposes
-	default:
-		return nil, fmt.Errorf("failed to get provider, infra provider %s not supported", *kubernetesRuntimeDefinition.InfraProvider)
+	provider, err := util.GetCloudProviderForInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get provider: %w", *kubernetesRuntimeDefinition.InfraProvider, err)
 	}
 	infraProviderRegion, err := mapping.GetProviderRegionForLocation(provider, *kubernetesRuntimeInstance.Location)
 	if err != nil {
