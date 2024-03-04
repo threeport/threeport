@@ -2,9 +2,7 @@
 //go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
-import (
-	"time"
-)
+import "time"
 
 // +threeport-sdk:reconciler
 // +threeport-sdk:tptctl
