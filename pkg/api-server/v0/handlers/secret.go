@@ -38,7 +38,8 @@ func (h *Handler) DeleteSecretDefinitionMiddleware() []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{}
 }
 
-// @Summary adds a new secret definition.
+// @Summary adds a new secret definition and encrypts secret data before
+// transmitting via NATS.
 // @Description Add a new secret definition to the Threeport database.
 // @ID add-secretDefinition
 // @Accept json
