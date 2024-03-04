@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // getExternalSecret returns a new ExternalSecret object
@@ -37,8 +38,11 @@ func (c *SecretInstanceConfig) getExternalSecret() map[string]interface{} {
 
 // getSecretStore returns a new SecretStore object
 func (c *SecretInstanceConfig) getSecretStore() (map[string]interface{}, error) {
-	region, err := mapping.GetProviderRegionForLocation("aws", *c.kubernetesRuntimeInstance.Location)
-	// region, err := mapping.GetProviderRegionForLocation(*c.kubernetesRuntimeDefinition.InfraProvider, *c.kubernetesRuntimeInstance.Location)
+	provider, err := util.GetCloudProviderForInfraProvider(*c.kubernetesRuntimeDefinition.InfraProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cloud provider for infra provider: %w", err)
+	}
+	region, err := mapping.GetProviderRegionForLocation(provider, *c.kubernetesRuntimeInstance.Location)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider region for location: %w", err)
 	}
