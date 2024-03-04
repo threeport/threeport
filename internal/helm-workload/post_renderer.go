@@ -14,6 +14,7 @@ import (
 	"github.com/threeport/threeport/internal/agent"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // ThreeportPostRenderer implements the postrender.PostRenderer interface for
@@ -92,25 +93,25 @@ func (p *ThreeportPostRenderer) AppendAdditionalResources(
 		return manifests, nil
 	}
 
+	var output []string
 	for _, additionalResource := range *additionalResources {
-		var v map[string]interface{}
-		err := json.Unmarshal([]byte(additionalResource), &v)
+		var additionalResourceUnmarshaled map[string]interface{}
+		err := json.Unmarshal([]byte(additionalResource), &additionalResourceUnmarshaled)
 		if err != nil {
 			return manifests, fmt.Errorf("failed to unmarshal vol json: %w", err)
 		}
 
 		// convert unstructured kube object back to yaml
 
-		kubeObject := &unstructured.Unstructured{Object: v}
+		kubeObject := &unstructured.Unstructured{Object: additionalResourceUnmarshaled}
 		kubeObject.SetNamespace(*p.HelmWorkloadInstance.ReleaseNamespace)
 		yamlBytes, err := yaml.Marshal(additionalResource)
 		if err != nil {
 			return "", fmt.Errorf("failed to convert unstructured object back to YAML: %w", err)
 		}
 
-		manifests += "---\n"
-		manifests += string(yamlBytes)
+		output = append(output, string(yamlBytes))
 	}
 
-	return manifests, nil
+	return util.HyphenDelimitedString(output), nil
 }
