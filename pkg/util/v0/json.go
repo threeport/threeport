@@ -30,10 +30,10 @@ func UpdateNamespace(jsonDef datatypes.JSON, namespace string) ([]byte, error) {
 	}
 
 	// marshal the modified map back to JSON
-	modifiedJSON, err := json.Marshal(mapDef)
+	modifiedJson, err := json.Marshal(mapDef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal JSON from modified map: %w", err)
 	}
 
-	return modifiedJSON, nil
+	return modifiedJson, nil
 }
