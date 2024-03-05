@@ -30,6 +30,9 @@ type HelmWorkloadDefinition struct {
 
 	// The associated helm workload instances that are deployed from this definition.
 	HelmWorkloadInstances []*HelmWorkloadInstance `json:"HelmWorkloadInstances,omitempty" validate:"optional,association"`
+
+	// Extra objects to be applied to the helm workload instance.
+	ExtraObjects []*datatypes.JSON `json:"ExtraObjects,omitempty" validate:"optional"`
 }
 
 // +threeport-sdk:reconciler
@@ -53,4 +56,7 @@ type HelmWorkloadInstance struct {
 
 	// The definition used to configure the workload instance.
 	HelmWorkloadDefinitionID *uint `json:"HelmWorkloadDefinitionID,omitempty" query:"helmworkloaddefinitionid" gorm:"not null" validate:"required"`
+
+	// Extra objects to be applied to the helm workload instance.
+	ExtraObjects []*datatypes.JSON `json:"ExtraObjects,omitempty" validate:"optional"`
 }
