@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -1085,7 +1086,7 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 			cpi.Opts.Namespace,
 			SupportServicesNamespace,
 		},
-	); err != nil {
+	); err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete control plane namespace: %w", err)
 	}
 
