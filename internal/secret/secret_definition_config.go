@@ -3,7 +3,9 @@ package secret
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
@@ -12,6 +14,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -67,8 +70,20 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 		return fmt.Errorf("failed to unmarshal secret data")
 	}
 
+	// encrypt sensitive values
+	var encryptionKey = os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		return errors.New("environment variable ENCRYPTION_KEY is not set")
+	}
+
+	// decrypt sensitive values
+	decryptedDataMap, err := encryption.DecryptStringMap(encryptionKey, secretData)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt secret data")
+	}
+
 	// Marshal the map into JSON format
-	jsonBytes, err := json.Marshal(secretData)
+	jsonBytes, err := json.Marshal(decryptedDataMap)
 	if err != nil {
 		return fmt.Errorf("failed to marshal secret data")
 	}
@@ -110,7 +125,6 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	if err != nil {
 		return fmt.Errorf("failed to create secret")
 	}
-
 
 	// TODO: implement this functionality using the external-secrets package
 	// so we can re-use their implementation. This may not be feasible for the
