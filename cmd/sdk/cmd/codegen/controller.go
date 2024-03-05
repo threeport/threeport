@@ -8,6 +8,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"reflect"
 	"strings"
 
 	"github.com/iancoleman/strcase"
@@ -21,6 +22,49 @@ var (
 	modelFilenameForController string
 	//packageName string
 )
+
+// parseStructTag parses the struct tag string into a map[string]string
+func parseStructTag(tagString string) map[string]string {
+	tag := reflect.StructTag(strings.Trim(tagString, "`"))
+	tagMap := make(map[string]string)
+	for _, key := range tagList(tag) {
+		tagMap[key] = tag.Get(key)
+	}
+	return tagMap
+}
+
+// tagList extracts keys from a struct tag
+func tagList(tag reflect.StructTag) []string {
+	raw := string(tag)
+	var list []string
+	for raw != "" {
+		var pair string
+		pair, raw = next(raw)
+		key, _ := split(pair)
+		list = append(list, key)
+	}
+	return list
+}
+
+// next gets the next key-value pair from a struct tag
+func next(raw string) (pair, rest string) {
+	i := strings.Index(raw, " ")
+	if i < 0 {
+		return raw, ""
+	}
+	return raw[:i], raw[i+1:]
+}
+
+// split splits a key-value pair from a struct tag
+func split(pair string) (key, value string) {
+	i := strings.Index(pair, ":")
+	if i < 0 {
+		return pair, ""
+	}
+	key = strings.TrimSpace(pair[:i])
+	value = strings.TrimSpace(pair[i+1:])
+	return key, value
+}
 
 // controllerCmd represents the apiModel command
 var controllerCmd = &cobra.Command{
@@ -64,17 +108,41 @@ controllers each time 'make generate' is called.`,
 			),
 		}
 
+		var structType *ast.StructType
+		controllerConfig.StructTags = make(map[string]map[string]map[string]string)
 		for _, node := range pf.Decls {
 			switch node.(type) {
 			case *ast.GenDecl:
 				var objectName string
 				genDecl := node.(*ast.GenDecl)
 				for _, spec := range genDecl.Specs {
+
+					typeSpec, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					structType, _ = typeSpec.Type.(*ast.StructType)
+
 					switch spec.(type) {
 					case *ast.TypeSpec:
 						typeSpec := spec.(*ast.TypeSpec)
 						objectName = typeSpec.Name.Name
+						controllerConfig.StructTags[objectName] = make(map[string]map[string]string)
+						for _, field := range structType.Fields.List {
+							if len(field.Names) > 0 {
+								// for _, fieldName := range field.Names {
+								// }
+								fieldName := field.Names[0].Name
+								// fmt.Printf("Object Name: %s\n", objectName)
+								// fmt.Printf("Field Name: %s\n", field.Names[0].Name)
+								// fmt.Printf("Field Tag: %s\n", field.Tag.Value)
+								tagMap := parseStructTag(field.Tag.Value)
+								// fmt.Printf("Map: %s\n", tagMap)
+								controllerConfig.StructTags[objectName][fieldName] = tagMap
+							}
+						}
 					}
+
 				}
 				if genDecl.Doc != nil {
 					for _, comment := range genDecl.Doc.List {
@@ -85,6 +153,10 @@ controllers each time 'make generate' is called.`,
 				}
 			}
 		}
+		fmt.Printf("Reconciled Objects: %s\n", controllerConfig.ReconciledObjects)
+		fmt.Printf("Map: %s\n", controllerConfig.StructTags)
+		// time.Sleep(time.Second * 10)
+		// os.Exit(1)
 
 		// Get module path if its an extension
 		var modulePath string

@@ -1778,26 +1778,17 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
+    - SecretDefinition
+    - SecretInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - Profile
     - Tier
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - AttachedObjectReference
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
     - AwsAccount
     - AwsEksKubernetesRuntimeDefinition
     - AwsEksKubernetesRuntimeInstance
@@ -1805,8 +1796,22 @@ definitions:
     - AwsRelationalDatabaseInstance
     - AwsObjectStorageBucketDefinition
     - AwsObjectStorageBucketInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - WorkloadEvent
+    - AttachedObjectReference
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
     - ObservabilityStackDefinition
     - ObservabilityStackInstance
     - ObservabilityDashboardDefinition
@@ -1815,33 +1820,19 @@ definitions:
     - MetricsInstance
     - LoggingDefinition
     - LoggingInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - SecretDefinition
-    - SecretInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
+    - ObjectTypeSecretDefinition
+    - ObjectTypeSecretInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeProfile
     - ObjectTypeTier
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeAttachedObjectReference
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
     - ObjectTypeAwsAccount
     - ObjectTypeAwsEksKubernetesRuntimeDefinition
     - ObjectTypeAwsEksKubernetesRuntimeInstance
@@ -1849,8 +1840,22 @@ definitions:
     - ObjectTypeAwsRelationalDatabaseInstance
     - ObjectTypeAwsObjectStorageBucketDefinition
     - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
     - ObjectTypeObservabilityStackDefinition
     - ObjectTypeObservabilityStackInstance
     - ObjectTypeObservabilityDashboardDefinition
@@ -1859,11 +1864,6 @@ definitions:
     - ObjectTypeMetricsInstance
     - ObjectTypeLoggingDefinition
     - ObjectTypeLoggingInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeSecretDefinition
-    - ObjectTypeSecretInstance
   v0.ObservabilityDashboardDefinition:
     properties:
       CreationAcknowledged:
@@ -2264,9 +2264,7 @@ definitions:
         description: Gets set to true if creation process fails.
         type: boolean
       Data:
-        description: |-
-          The secret value to be stored in the provider.
-          todo: update BeforeCreate(), BeforeUpdate() to skip if persist=true
+        description: The secret value to be stored in the provider.
         items:
           type: integer
         type: array

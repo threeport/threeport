@@ -19,4 +19,7 @@ type ControllerConfig struct {
 
 	// The objects for which reconcilers should be generated.
 	ReconciledObjects []string
+
+	// The struct values parsed from the controller's model file.
+	StructTags map[string]map[string]map[string]string
 }

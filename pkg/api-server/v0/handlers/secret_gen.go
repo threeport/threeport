@@ -3,21 +3,16 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"time"
-
 	echo "github.com/labstack/echo/v4"
 	api "github.com/threeport/threeport/pkg/api"
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"github.com/threeport/threeport/pkg/encryption/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
-	"gorm.io/datatypes"
 	gorm "gorm.io/gorm"
+	"net/http"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -77,37 +72,10 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 		return iapi.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
-	// retain sensitive data
-	data := secretDefinition.Data
-
 	// persist to DB
 	if result := h.DB.Create(&secretDefinition); result.Error != nil {
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
 	}
-
-	// encrypt sensitive values
-	var encryptionKey = os.Getenv("ENCRYPTION_KEY")
-	if encryptionKey == "" {
-		return errors.New("environment variable ENCRYPTION_KEY is not set")
-	}
-
-	// Define the secret name and value
-	var secretData map[string]string
-	if err := json.Unmarshal([]byte(*data), &secretData); err != nil {
-		return fmt.Errorf("failed to unmarshal secret data")
-	}
-
-	encryptedDataMap, err := encryption.EncryptStringMap(encryptionKey, secretData)
-	if err != nil {
-		return fmt.Errorf("failed to encrypt secret data")
-	}
-
-	marshaledJson, err := json.Marshal(encryptedDataMap)
-	if err != nil {
-		return fmt.Errorf("failed to marshal encrypted secret data")
-	}
-	encryptedJson := datatypes.JSON(marshaledJson)
-	secretDefinition.Data = &encryptedJson
 
 	// notify controller if reconciliation is required
 	if !*secretDefinition.Reconciled {

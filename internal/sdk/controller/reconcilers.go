@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/dave/jennifer/jen"
 	. "github.com/dave/jennifer/jen"
 	"github.com/iancoleman/strcase"
 )
@@ -13,6 +14,63 @@ import (
 // controller's internal package where reconciler functions live.
 func controllerInternalPackagePath(packageName string) string {
 	return filepath.Join("..", "..", "..", "internal", packageName)
+}
+
+func (cc *ControllerConfig) GetLatestObject(g *jen.Group, obj string) {
+	fmt.Printf("attempting to find object: %s", obj)
+	if val, ok := cc.StructTags[obj]; ok {
+		fmt.Printf("found object: %s\n", obj)
+		if val1, ok1 := val["Data"]; ok1 {
+			if val2, ok2 := val1["persist"]; ok2 {
+				if val2 == "false" {
+					return
+				}
+			}
+		}
+	}
+	g.Comment("retrieve latest version of object")
+	g.Id(fmt.Sprintf(
+		"latest%s",
+		obj,
+	)).Op(",").Id("err").Op(":=").Qual(
+		"github.com/threeport/threeport/pkg/client/v0",
+		fmt.Sprintf("Get%sByID", obj),
+	).Call(
+		Line().Id("r").Dot("APIClient"),
+		Line().Id("r").Dot("APIServer"),
+		Line().Op("*").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+		Line(),
+	)
+	g.Comment("check if error is 404 - if object no longer exists, no need to requeue")
+	g.If(Qual("errors", "Is").Call(Id("err"), Qual(
+		"github.com/threeport/threeport/pkg/client/v0",
+		"ErrObjectNotFound",
+	))).Block(
+		Id("log").Dot("Info").Call(Qual(
+			"fmt", "Sprintf",
+		).Call(
+			Line().Lit("object with ID %d no longer exists - halting reconciliation"),
+			Line().Op("*").Id(fmt.Sprintf(
+				"%s",
+				strcase.ToLowerCamel(obj),
+			)).Dot("ID"),
+			Line(),
+		)),
+		Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)),
+		Continue(),
+	)
+	g.If(Id("err").Op("!=").Nil()).Block(
+		Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+			"failed to get %s by ID from API",
+			strcase.ToDelimited(obj, ' '),
+		))),
+		Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+		Continue(),
+	)
+	g.Id(strcase.ToLowerCamel(obj)).Op("=").Op("*").Id(fmt.Sprintf(
+		"latest%s",
+		obj,
+	))
 }
 
 // Reconcilers generates the source code for a controller's reconcile functions.
@@ -78,20 +136,20 @@ func (cc *ControllerConfig) Reconcilers() error {
 					Case(Op("<-").Id("r").Dot("Shutdown")).Block(
 						Id("shutdown").Op("=").Lit(true),
 					),
-					Default().Block(
-						Comment("pull message off queue"),
-						Id("msg").Op(":=").Id("r").Dot("PullMessage").Call(),
-						If(Id("msg").Op("==").Nil()).Block(
+					Default().BlockFunc(func(g *jen.Group) {
+						g.Comment("pull message off queue")
+						g.Id("msg").Op(":=").Id("r").Dot("PullMessage").Call()
+						g.If(Id("msg").Op("==").Nil()).Block(
 							Continue(),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Comment("consume message data to capture notification from API"),
-						Id("notif").Op(",").Id("err").Op(":=").Qual(
+						g.Comment("consume message data to capture notification from API")
+						g.Id("notif").Op(",").Id("err").Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/notifications/v0",
 							"ConsumeMessage",
-						).Call(Id("msg").Dot("Data")),
-						If(Id("err").Op("!=").Nil()).Block(
+						).Call(Id("msg").Dot("Data"))
+						g.If(Id("err").Op("!=").Nil()).Block(
 							Id("log").Dot("Error").Call(
 								Line().Id("err"), Lit("failed to consume message data from NATS"),
 								Line().Lit("msgData"), Id("string").Call(Id("msg").Dot("Data")),
@@ -105,15 +163,15 @@ func (cc *ControllerConfig) Reconcilers() error {
 								)),
 							),
 							Continue(),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Comment("decode the object that was sent in the notification"),
-						Var().Id(strcase.ToLowerCamel(obj)).Qual(
+						g.Comment("decode the object that was sent in the notification")
+						g.Var().Id(strcase.ToLowerCamel(obj)).Qual(
 							"github.com/threeport/threeport/pkg/api/v0",
 							obj,
-						),
-						If(Id("err").Op(":=").Id(strcase.ToLowerCamel(obj)).Dot("DecodeNotifObject").Call(
+						)
+						g.If(Id("err").Op(":=").Id(strcase.ToLowerCamel(obj)).Dot("DecodeNotifObject").Call(
 							Id("notif").Dot("Object"),
 						).Op(";").Id("err").Op("!=").Nil().Block(
 							Id("log").Dot("Error").Call(
@@ -127,27 +185,27 @@ func (cc *ControllerConfig) Reconcilers() error {
 								)),
 							),
 							Continue(),
-						)),
-						Id("log").Op("=").Id("log").Dot("WithValues").Call(
+						))
+						g.Id("log").Op("=").Id("log").Dot("WithValues").Call(
 							Lit(fmt.Sprintf(
 								"%sID",
 								strcase.ToLowerCamel(obj),
 							)).Op(",").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Comment("back off the requeue delay as needed"),
-						Id("requeueDelay").Op(":=").Id("controller").Dot("SetRequeueDelay").Call(
+						g.Comment("back off the requeue delay as needed")
+						g.Id("requeueDelay").Op(":=").Id("controller").Dot("SetRequeueDelay").Call(
 							Line().Id("notif").Dot("CreationTime"),
 							Line(),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Comment("check for lock on object"),
-						Id("locked").Op(",").Id("ok").Op(":=").Id("r").Dot("CheckLock").Call(
+						g.Comment("check for lock on object")
+						g.Id("locked").Op(",").Id("ok").Op(":=").Id("r").Dot("CheckLock").Call(
 							Op("&").Id(strcase.ToLowerCamel(obj)),
-						),
-						If(Id("locked").Op("||").Id("ok").Op("==").Id("false")).Block(
+						)
+						g.If(Id("locked").Op("||").Id("ok").Op("==").Id("false")).Block(
 							Id("r").Dot("Requeue").Call(
 								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
 							),
@@ -158,10 +216,10 @@ func (cc *ControllerConfig) Reconcilers() error {
 								strcase.ToDelimited(obj, ' '),
 							))),
 							Continue(),
-						),
-						Line(),
-						Comment("set up handler to unlock and requeue on termination signal"),
-						Go().Func().Params().Block(
+						)
+						g.Line()
+						g.Comment("set up handler to unlock and requeue on termination signal")
+						g.Go().Func().Params().Block(
 							Select().Block(
 								Case(Op("<-").Id("osSignals")).Block(
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
@@ -177,10 +235,10 @@ func (cc *ControllerConfig) Reconcilers() error {
 									))),
 								),
 							),
-						).Call(),
-						Line(),
-						Comment("put a lock on the reconciliation of the created object"),
-						If(Id("ok").Op(":=").Id("r").Dot("Lock").Call(
+						).Call()
+						g.Line()
+						g.Comment("put a lock on the reconciliation of the created object")
+						g.If(Id("ok").Op(":=").Id("r").Dot("Lock").Call(
 							Op("&").Id(strcase.ToLowerCamel(obj))).Op(";").Op("!").Id("ok"),
 						).Block(
 							Id("r").Dot("Requeue").Call(
@@ -191,56 +249,13 @@ func (cc *ControllerConfig) Reconcilers() error {
 								strcase.ToDelimited(obj, ' '),
 							))),
 							Continue(),
-						),
-						Line(),
+						)
+						g.Line()
+						cc.GetLatestObject(g, obj)
+						g.Line()
 
-						Comment("retrieve latest version of object"),
-						Id(fmt.Sprintf(
-							"latest%s",
-							obj,
-						)).Op(",").Id("err").Op(":=").Qual(
-							"github.com/threeport/threeport/pkg/client/v0",
-							fmt.Sprintf("Get%sByID", obj),
-						).Call(
-							Line().Id("r").Dot("APIClient"),
-							Line().Id("r").Dot("APIServer"),
-							Line().Op("*").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
-							Line(),
-						),
-						Comment("check if error is 404 - if object no longer exists, no need to requeue"),
-						If(Qual("errors", "Is").Call(Id("err"), Qual(
-							"github.com/threeport/threeport/pkg/client/v0",
-							"ErrObjectNotFound",
-						))).Block(
-							Id("log").Dot("Info").Call(Qual(
-								"fmt", "Sprintf",
-							).Call(
-								Line().Lit("object with ID %d no longer exists - halting reconciliation"),
-								Line().Op("*").Id(fmt.Sprintf(
-									"%s",
-									strcase.ToLowerCamel(obj),
-								)).Dot("ID"),
-								Line(),
-							)),
-							Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)),
-							Continue(),
-						),
-						If(Id("err").Op("!=").Nil()).Block(
-							Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-								"failed to get %s by ID from API",
-								strcase.ToDelimited(obj, ' '),
-							))),
-							Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
-							Continue(),
-						),
-						Id(strcase.ToLowerCamel(obj)).Op("=").Op("*").Id(fmt.Sprintf(
-							"latest%s",
-							obj,
-						)),
-						Line(),
-
-						Comment("determine which operation and act accordingly"),
-						Switch(Id("notif").Dot("Operation")).Block(
+						g.Comment("determine which operation and act accordingly")
+						g.Switch(Id("notif").Dot("Operation")).Block(
 							Case(Qual(
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationCreated",
@@ -461,11 +476,11 @@ func (cc *ControllerConfig) Reconcilers() error {
 								Continue(),
 							),
 							Line(),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Comment("set the object's Reconciled field to true if not deleted"),
-						If(Id("notif").Dot("Operation").Op("!=").Qual(
+						g.Comment("set the object's Reconciled field to true if not deleted")
+						g.If(Id("notif").Dot("Operation").Op("!=").Qual(
 							"github.com/threeport/threeport/pkg/notifications/v0",
 							"NotificationOperationDeleted",
 						).Block(
@@ -526,11 +541,11 @@ func (cc *ControllerConfig) Reconcilers() error {
 								)).Dot("Name"),
 								Line(),
 							),
-						)),
-						Line(),
+						))
+						g.Line()
 
-						Comment("release the lock on the reconciliation of the created object"),
-						If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)), Op("!").Id("ok")).Block(
+						g.Comment("release the lock on the reconciliation of the created object")
+						g.If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)), Op("!").Id("ok")).Block(
 							Id("log").Dot("Error").Call(
 								Qual("errors", "New").Call(
 									Lit(fmt.Sprintf(
@@ -545,10 +560,10 @@ func (cc *ControllerConfig) Reconcilers() error {
 								"%s unlocked",
 								strcase.ToDelimited(obj, ' '),
 							))),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Id("log").Dot("Info").Call(
+						g.Id("log").Dot("Info").Call(
 							Qual("fmt", "Sprintf").Call(
 								Line().Lit(fmt.Sprintf(
 									"%s successfully reconciled for %%s operation",
@@ -557,8 +572,8 @@ func (cc *ControllerConfig) Reconcilers() error {
 								Line().Id("notif").Dot("Operation"),
 								Line(),
 							),
-						),
-					),
+						)
+					}),
 				),
 			),
 			Line(),
@@ -648,20 +663,20 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 					Case(Op("<-").Id("r").Dot("Shutdown")).Block(
 						Id("shutdown").Op("=").Lit(true),
 					),
-					Default().Block(
-						Comment("pull message off queue"),
-						Id("msg").Op(":=").Id("r").Dot("PullMessage").Call(),
-						If(Id("msg").Op("==").Nil()).Block(
+					Default().BlockFunc(func(g *jen.Group) {
+						g.Comment("pull message off queue")
+						g.Id("msg").Op(":=").Id("r").Dot("PullMessage").Call()
+						g.If(Id("msg").Op("==").Nil()).Block(
 							Continue(),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Comment("consume message data to capture notification from API"),
-						Id("notif").Op(",").Id("err").Op(":=").Qual(
+						g.Comment("consume message data to capture notification from API")
+						g.Id("notif").Op(",").Id("err").Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/notifications/v0",
 							"ConsumeMessage",
-						).Call(Id("msg").Dot("Data")),
-						If(Id("err").Op("!=").Nil()).Block(
+						).Call(Id("msg").Dot("Data"))
+						g.If(Id("err").Op("!=").Nil()).Block(
 							Id("log").Dot("Error").Call(
 								Line().Id("err"), Lit("failed to consume message data from NATS"),
 								Line().Lit("msgData"), Id("string").Call(Id("msg").Dot("Data")),
@@ -675,15 +690,15 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								)),
 							),
 							Continue(),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Comment("decode the object that was sent in the notification"),
-						Var().Id(strcase.ToLowerCamel(obj)).Qual(
+						g.Comment("decode the object that was sent in the notification")
+						g.Var().Id(strcase.ToLowerCamel(obj)).Qual(
 							fmt.Sprintf("%s/pkg/api/v0", modulePath),
 							obj,
-						),
-						If(Id("err").Op(":=").Id(strcase.ToLowerCamel(obj)).Dot("DecodeNotifObject").Call(
+						)
+						g.If(Id("err").Op(":=").Id(strcase.ToLowerCamel(obj)).Dot("DecodeNotifObject").Call(
 							Id("notif").Dot("Object"),
 						).Op(";").Id("err").Op("!=").Nil().Block(
 							Id("log").Dot("Error").Call(
@@ -697,27 +712,27 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								)),
 							),
 							Continue(),
-						)),
-						Id("log").Op("=").Id("log").Dot("WithValues").Call(
+						))
+						g.Id("log").Op("=").Id("log").Dot("WithValues").Call(
 							Lit(fmt.Sprintf(
 								"%sID",
 								strcase.ToLowerCamel(obj),
 							)).Op(",").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Comment("back off the requeue delay as needed"),
-						Id("requeueDelay").Op(":=").Id("controller").Dot("SetRequeueDelay").Call(
+						g.Comment("back off the requeue delay as needed")
+						g.Id("requeueDelay").Op(":=").Id("controller").Dot("SetRequeueDelay").Call(
 							Line().Id("notif").Dot("CreationTime"),
 							Line(),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Comment("check for lock on object"),
-						Id("locked").Op(",").Id("ok").Op(":=").Id("r").Dot("CheckLock").Call(
+						g.Comment("check for lock on object")
+						g.Id("locked").Op(",").Id("ok").Op(":=").Id("r").Dot("CheckLock").Call(
 							Op("&").Id(strcase.ToLowerCamel(obj)),
-						),
-						If(Id("locked").Op("||").Id("ok").Op("==").Id("false")).Block(
+						)
+						g.If(Id("locked").Op("||").Id("ok").Op("==").Id("false")).Block(
 							Id("r").Dot("Requeue").Call(
 								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
 							),
@@ -728,10 +743,10 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								strcase.ToDelimited(obj, ' '),
 							))),
 							Continue(),
-						),
-						Line(),
-						Comment("set up handler to unlock and requeue on termination signal"),
-						Go().Func().Params().Block(
+						)
+						g.Line()
+						g.Comment("set up handler to unlock and requeue on termination signal")
+						g.Go().Func().Params().Block(
 							Select().Block(
 								Case(Op("<-").Id("osSignals")).Block(
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
@@ -747,10 +762,10 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 									))),
 								),
 							),
-						).Call(),
-						Line(),
-						Comment("put a lock on the reconciliation of the created object"),
-						If(Id("ok").Op(":=").Id("r").Dot("Lock").Call(
+						).Call()
+						g.Line()
+						g.Comment("put a lock on the reconciliation of the created object")
+						g.If(Id("ok").Op(":=").Id("r").Dot("Lock").Call(
 							Op("&").Id(strcase.ToLowerCamel(obj))).Op(";").Op("!").Id("ok"),
 						).Block(
 							Id("r").Dot("Requeue").Call(
@@ -761,56 +776,13 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								strcase.ToDelimited(obj, ' '),
 							))),
 							Continue(),
-						),
-						Line(),
+						)
+						g.Line()
+						cc.GetLatestObject(g, obj)
+						g.Line()
 
-						Comment("retrieve latest version of object"),
-						Id(fmt.Sprintf(
-							"latest%s",
-							obj,
-						)).Op(",").Id("err").Op(":=").Qual(
-							fmt.Sprintf("%s/pkg/client/v0", modulePath),
-							fmt.Sprintf("Get%sByID", obj),
-						).Call(
-							Line().Id("r").Dot("APIClient"),
-							Line().Id("r").Dot("APIServer"),
-							Line().Op("*").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
-							Line(),
-						),
-						Comment("check if error is 404 - if object no longer exists, no need to requeue"),
-						If(Qual("errors", "Is").Call(Id("err"), Qual(
-							"github.com/threeport/threeport/pkg/client/v0",
-							"ErrObjectNotFound",
-						))).Block(
-							Id("log").Dot("Info").Call(Qual(
-								"fmt", "Sprintf",
-							).Call(
-								Line().Lit("object with ID %d no longer exists - halting reconciliation"),
-								Line().Op("*").Id(fmt.Sprintf(
-									"%s",
-									strcase.ToLowerCamel(obj),
-								)).Dot("ID"),
-								Line(),
-							)),
-							Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)),
-							Continue(),
-						),
-						If(Id("err").Op("!=").Nil()).Block(
-							Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-								"failed to get %s by ID from API",
-								strcase.ToDelimited(obj, ' '),
-							))),
-							Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
-							Continue(),
-						),
-						Id(strcase.ToLowerCamel(obj)).Op("=").Op("*").Id(fmt.Sprintf(
-							"latest%s",
-							obj,
-						)),
-						Line(),
-
-						Comment("determine which operation and act accordingly"),
-						Switch(Id("notif").Dot("Operation")).Block(
+						g.Comment("determine which operation and act accordingly")
+						g.Switch(Id("notif").Dot("Operation")).Block(
 							Case(Qual(
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationCreated",
@@ -1031,11 +1003,11 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								Continue(),
 							),
 							Line(),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Comment("set the object's Reconciled field to true if not deleted"),
-						If(Id("notif").Dot("Operation").Op("!=").Qual(
+						g.Comment("set the object's Reconciled field to true if not deleted")
+						g.If(Id("notif").Dot("Operation").Op("!=").Qual(
 							"github.com/threeport/threeport/pkg/notifications/v0",
 							"NotificationOperationDeleted",
 						).Block(
@@ -1097,11 +1069,11 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								)).Dot("Name"),
 								Line(),
 							),
-						)),
-						Line(),
+						))
+						g.Line()
 
-						Comment("release the lock on the reconciliation of the created object"),
-						If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)), Op("!").Id("ok")).Block(
+						g.Comment("release the lock on the reconciliation of the created object")
+						g.If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)), Op("!").Id("ok")).Block(
 							Id("log").Dot("Error").Call(
 								Qual("errors", "New").Call(
 									Lit(fmt.Sprintf(
@@ -1116,10 +1088,10 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								"%s unlocked",
 								strcase.ToDelimited(obj, ' '),
 							))),
-						),
-						Line(),
+						)
+						g.Line()
 
-						Id("log").Dot("Info").Call(
+						g.Id("log").Dot("Info").Call(
 							Qual("fmt", "Sprintf").Call(
 								Line().Lit(fmt.Sprintf(
 									"%s successfully reconciled for %%s operation",
@@ -1128,8 +1100,8 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								Line().Id("notif").Dot("Operation"),
 								Line(),
 							),
-						),
-					),
+						)
+					}),
 				),
 			),
 			Line(),

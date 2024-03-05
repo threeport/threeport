@@ -104,28 +104,6 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 				continue
 			}
 
-			// // retrieve latest version of object
-			// latestSecretDefinition, err := client.GetSecretDefinitionByID(
-			// 	r.APIClient,
-			// 	r.APIServer,
-			// 	*secretDefinition.ID,
-			// )
-			// // check if error is 404 - if object no longer exists, no need to requeue
-			// if errors.Is(err, client.ErrObjectNotFound) {
-			// 	log.Info(fmt.Sprintf(
-			// 		"object with ID %d no longer exists - halting reconciliation",
-			// 		*secretDefinition.ID,
-			// 	))
-			// 	r.ReleaseLock(&secretDefinition, lockReleased, msg, true)
-			// 	continue
-			// }
-			// if err != nil {
-			// 	log.Error(err, "failed to get secret definition by ID from API")
-			// 	r.UnlockAndRequeue(&secretDefinition, requeueDelay, lockReleased, msg)
-			// 	continue
-			// }
-			// secretDefinition = *latestSecretDefinition
-
 			// determine which operation and act accordingly
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
