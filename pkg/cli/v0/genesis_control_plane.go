@@ -188,6 +188,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		cpi = threeport.NewInstaller()
 	}
 
+	// emit warning if auth is disabled
+	if !cpi.Opts.AuthEnabled {
+		Warning("Auth is disabled. This is not recommended for production environments.")
+	}
+
 	// configure uninstaller
 	uninstaller := &Uninstaller{
 		cpi:          cpi,
