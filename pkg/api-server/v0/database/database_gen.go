@@ -127,8 +127,6 @@ func GetDbInterfaces() []interface{} {
 		&v0.KubernetesRuntimeDefinition{},
 		&v0.KubernetesRuntimeInstance{},
 		&v0.ControlPlaneComponent{},
-		&v0.ForwardProxyDefinition{},
-		&v0.ForwardProxyInstance{},
 		&v0.GatewayDefinition{},
 		&v0.GatewayInstance{},
 		&v0.GatewayHttpPort{},
