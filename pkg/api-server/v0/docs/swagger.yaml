@@ -1048,6 +1048,13 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      ExtraObjects:
+        description: Extra objects to be applied to the helm workload instance.
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
       HelmWorkloadInstances:
         description: The associated helm workload instances that are deployed from
           this definition.
@@ -1124,6 +1131,13 @@ definitions:
           Used to inform reconcilers that an object is being deleted so they may
           complete delete reconciliation before actually deleting the object from the database.
         type: string
+      ExtraObjects:
+        description: Extra objects to be applied to the helm workload instance.
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
       HelmWorkloadDefinitionID:
         description: The definition used to configure the workload instance.
         type: integer
@@ -1756,18 +1770,27 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - ObservabilityStackDefinition
-    - ObservabilityStackInstance
-    - ObservabilityDashboardDefinition
-    - ObservabilityDashboardInstance
-    - MetricsDefinition
-    - MetricsInstance
-    - LoggingDefinition
-    - LoggingInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - AwsObjectStorageBucketDefinition
+    - AwsObjectStorageBucketInstance
+    - ForwardProxyDefinition
+    - ForwardProxyInstance
+    - SecretDefinition
+    - SecretInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - Profile
+    - Tier
     - LogBackend
     - LogStorageDefinition
     - LogStorageInstance
@@ -1777,39 +1800,33 @@ definitions:
     - AttachedObjectReference
     - WorkloadResourceInstance
     - WorkloadEvent
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
-    - Profile
-    - Tier
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - AwsObjectStorageBucketDefinition
-    - AwsObjectStorageBucketInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeObservabilityStackDefinition
-    - ObjectTypeObservabilityStackInstance
-    - ObjectTypeObservabilityDashboardDefinition
-    - ObjectTypeObservabilityDashboardInstance
-    - ObjectTypeMetricsDefinition
-    - ObjectTypeMetricsInstance
-    - ObjectTypeLoggingDefinition
-    - ObjectTypeLoggingInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeAwsObjectStorageBucketDefinition
+    - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeForwardProxyDefinition
+    - ObjectTypeForwardProxyInstance
+    - ObjectTypeSecretDefinition
+    - ObjectTypeSecretInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
     - ObjectTypeLogBackend
     - ObjectTypeLogStorageDefinition
     - ObjectTypeLogStorageInstance
@@ -1819,377 +1836,10 @@ definitions:
     - ObjectTypeAttachedObjectReference
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeAwsObjectStorageBucketDefinition
-    - ObjectTypeAwsObjectStorageBucketInstance
-  v0.ObservabilityDashboardDefinition:
-    properties:
-      CreationAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      CreationConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      CreationFailed:
-        description: Gets set to true if creation process fails.
-        type: boolean
-      DeletionAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      DeletionConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      DeletionScheduled:
-        description: |-
-          Used to inform reconcilers that an object is being deleted so they may
-          complete delete reconciliation before actually deleting the object from the database.
-        type: string
-      GrafanaHelmChartVersion:
-        description: The version of the grafana helm chart to use from the helm repo,
-          e.g. 1.2.3
-        type: string
-      GrafanaHelmValuesDocument:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying grafana chart.
-        type: string
-      GrafanaHelmWorkloadDefinitionID:
-        description: The Grafana Helm workload definition that belongs to this resource.
-        type: integer
-      InterruptReconciliation:
-        description: |-
-          InterruptReconciliation is used by the controller to indicated that future
-          reconcilation should be interrupted.  Useful in cases where there is a
-          situation where future reconciliation could be descructive such as
-          spinning up more infrastructure when there is a unresolved problem.
-        type: boolean
-      Name:
-        description: An arbitrary name for the definition.
-        type: string
-      ObservabilityDashboardInstances:
-        description: The associated observability dashboard instances that are deployed
-          from this definition.
-        items:
-          $ref: '#/definitions/v0.ObservabilityDashboardInstance'
-        type: array
-      ProfileID:
-        description: |-
-          The profile to associate with the definition.  Profile is a named
-          standard configuration for a definition object.
-        type: integer
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by the object's
-          controller.
-        type: boolean
-      TierID:
-        description: |-
-          The tier to associate with the definition.  Tier is a level of
-          criticality for access control.
-        type: integer
-    required:
-    - Name
-    type: object
-  v0.ObservabilityDashboardInstance:
-    properties:
-      CreationAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      CreationConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      CreationFailed:
-        description: Gets set to true if creation process fails.
-        type: boolean
-      DeletionAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      DeletionConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      DeletionScheduled:
-        description: |-
-          Used to inform reconcilers that an object is being deleted so they may
-          complete delete reconciliation before actually deleting the object from the database.
-        type: string
-      GrafanaHelmValuesDocument:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying grafana chart.
-        type: string
-      GrafanaHelmWorkloadInstanceID:
-        description: The Grafana Helm workload definition that belongs to this resource.
-        type: integer
-      InterruptReconciliation:
-        description: |-
-          InterruptReconciliation is used by the controller to indicated that future
-          reconcilation should be interrupted.  Useful in cases where there is a
-          situation where future reconciliation could be descructive such as
-          spinning up more infrastructure when there is a unresolved problem.
-        type: boolean
-      KubernetesRuntimeInstanceID:
-        description: The kubernetes runtime where the ingress layer is installed.
-        type: integer
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      ObservabilityDashboardDefinitionID:
-        description: ObservabilityDashboardDefinitionID is the definition used to
-          configure the workload instance.
-        type: integer
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by the object's
-          controller.
-        type: boolean
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-    required:
-    - KubernetesRuntimeInstanceID
-    - Name
-    - ObservabilityDashboardDefinitionID
-    type: object
-  v0.ObservabilityStackDefinition:
-    properties:
-      CreationAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      CreationConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      CreationFailed:
-        description: Gets set to true if creation process fails.
-        type: boolean
-      DeletionAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      DeletionConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      DeletionScheduled:
-        description: |-
-          Used to inform reconcilers that an object is being deleted so they may
-          complete delete reconciliation before actually deleting the object from the database.
-        type: string
-      GrafanaHelmChartVersion:
-        description: The version of the grafana helm chart to use from the helm repo,
-          e.g. 1.2.3
-        type: string
-      GrafanaHelmValuesDocument:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying grafana chart.
-        type: string
-      InterruptReconciliation:
-        description: |-
-          InterruptReconciliation is used by the controller to indicated that future
-          reconcilation should be interrupted.  Useful in cases where there is a
-          situation where future reconciliation could be descructive such as
-          spinning up more infrastructure when there is a unresolved problem.
-        type: boolean
-      KubePrometheusStackHelmChartVersion:
-        description: The version of the kube-prometheus-stack helm chart to use from
-          the helm repo, e.g. 1.2.3
-        type: string
-      KubePrometheusStackHelmValuesDocument:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying kube-prometheus-stack chart.
-        type: string
-      LoggingDefinitionID:
-        description: |-
-          Logging
-          The logging definition that belongs to this resource.
-        type: integer
-      LokiHelmChartVersion:
-        description: The version of the loki helm chart to use from the helm repo,
-          e.g. 1.2.3
-        type: string
-      LokiHelmValuesDocument:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying loki chart.
-        type: string
-      MetricsDefinitionID:
-        description: |-
-          Metrics
-          The metrics definition that belongs to this resource.
-        type: integer
-      Name:
-        description: An arbitrary name for the definition.
-        type: string
-      ObservabilityDashboardDefinitionID:
-        description: |-
-          Dashboard
-          The observability dashboard definition that belongs to this resource.
-        type: integer
-      ObservabilityStackInstances:
-        description: The associated observability stack instances that are deployed
-          from this definition.
-        items:
-          $ref: '#/definitions/v0.ObservabilityStackInstance'
-        type: array
-      ProfileID:
-        description: |-
-          The profile to associate with the definition.  Profile is a named
-          standard configuration for a definition object.
-        type: integer
-      PromtailHelmChartVersion:
-        description: The version of the promtail helm chart to use from the helm repo,
-          e.g. 1.2.3
-        type: string
-      PromtailHelmValuesDocument:
-        description: |-
-          Optional Helm workload definition values that can be provided to configure the
-          underlying promtail chart.
-        type: string
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by the object's
-          controller.
-        type: boolean
-      TierID:
-        description: |-
-          The tier to associate with the definition.  Tier is a level of
-          criticality for access control.
-        type: integer
-    required:
-    - Name
-    type: object
-  v0.ObservabilityStackInstance:
-    properties:
-      CreationAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      CreationConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      CreationFailed:
-        description: Gets set to true if creation process fails.
-        type: boolean
-      DeletionAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      DeletionConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      DeletionScheduled:
-        description: |-
-          Used to inform reconcilers that an object is being deleted so they may
-          complete delete reconciliation before actually deleting the object from the database.
-        type: string
-      GrafanaHelmValuesDocument:
-        description: |-
-          Optional Helm workload instance values that can be provided to configure the
-          underlying grafana chart.
-        type: string
-      InterruptReconciliation:
-        description: |-
-          InterruptReconciliation is used by the controller to indicated that future
-          reconcilation should be interrupted.  Useful in cases where there is a
-          situation where future reconciliation could be descructive such as
-          spinning up more infrastructure when there is a unresolved problem.
-        type: boolean
-      KubePrometheusStackHelmValuesDocument:
-        description: |-
-          Optional Helm workload instance values that can be provided to configure the
-          underlying kube-prometheus-stack chart.
-        type: string
-      KubernetesRuntimeInstanceID:
-        description: The kubernetes runtime where the ingress layer is installed.
-        type: integer
-      LoggingEnabled:
-        description: If true, logging will be enabled for the observability stack.
-        type: boolean
-      LoggingInstanceID:
-        description: |-
-          Logging
-          The logging instance that belongs to this resource.
-        type: integer
-      LokiHelmValuesDocument:
-        description: |-
-          Optional Helm workload instance values that can be provided to configure the
-          underlying loki chart.
-        type: string
-      MetricsEnabled:
-        description: If true, metrics will be enabled for the observability stack.
-        type: boolean
-      MetricsInstanceID:
-        description: |-
-          Metrics
-          The metrics instance that belongs to this resource.
-        type: integer
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      ObservabilityDashboardInstanceID:
-        description: |-
-          Dashboard
-          The observability dashboard instance that belongs to this resource.
-        type: integer
-      ObservabilityStackDefinitionID:
-        description: ObservabilityStackDefinitionID is the definition used to configure
-          the workload instance.
-        type: integer
-      PromtailHelmValuesDocument:
-        description: |-
-          Optional Helm workload Instancehat can be provided to configure the
-          underlying promtail chart.
-        type: string
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by the object's
-          controller.
-        type: boolean
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-    required:
-    - KubernetesRuntimeInstanceID
-    - Name
-    - ObservabilityStackDefinitionID
-    type: object
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
   v0.Profile:
     properties:
       Name:
@@ -2219,6 +1869,130 @@ definitions:
         - $ref: '#/definitions/v0.ObjectType'
         description: Type contains ObjectType of returned Data elements
         example: Transfer
+    type: object
+  v0.SecretDefinition:
+    properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      Data:
+        description: The secret value to be stored in the provider.
+        items:
+          type: integer
+        type: array
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      Name:
+        description: An arbitrary name for the definition.
+        type: string
+      ProfileID:
+        description: |-
+          The profile to associate with the definition.  Profile is a named
+          standard configuration for a definition object.
+        type: integer
+      Provider:
+        description: The provider that the secret is stored in.
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      TierID:
+        description: |-
+          The tier to associate with the definition.  Tier is a level of
+          criticality for access control.
+        type: integer
+    required:
+    - Data
+    - Name
+    - Provider
+    type: object
+  v0.SecretInstance:
+    properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      HelmWorkloadInstanceID:
+        description: The helm workload instance that the secret is associated with.
+        type: integer
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      SecretDefinitionID:
+        description: The SecretDefinition that the secret instance is derived from.
+        type: integer
+      Status:
+        description: |-
+          The status of the instance.
+          TODO: use a custom type
+        type: string
+      WorkloadInstanceID:
+        description: The workload instance that the secret is associated with.
+        type: integer
+    required:
+    - Name
     type: object
   v0.Status:
     properties:
@@ -2506,7 +2280,7 @@ info:
   description: Threeport RESTful API.
   termsOfService: https://threeport.io/api-tos/
   title: Threeport RESTful API
-  version: v0.4.0-rc.1
+  version: v0.4.0
 paths:
   /attached-object-references/versions:
     get:
@@ -2949,6 +2723,32 @@ paths:
           schema:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetProfileVersions gets the supported versions for the profile API.
+  /secret-definitions/versions:
+    get:
+      description: Get the supported API versions for secret definitions.
+      operationId: secretDefinition-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetSecretDefinitionVersions gets the supported versions for the secret
+        definition API.
+  /secret-instances/versions:
+    get:
+      description: Get the supported API versions for secret instances.
+      operationId: secretInstance-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.RESTAPIVersions'
+      summary: GetSecretInstanceVersions gets the supported versions for the secret
+        instance API.
   /tiers/versions:
     get:
       description: Get the supported API versions for tiers.
@@ -9761,6 +9561,404 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing profile by replacing the entire object.
+  /v0/secret-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Get all secret definitions from the Threeport database.
+      operationId: get-secretDefinitions
+      parameters:
+      - description: secret definition search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all secret definitions.
+    post:
+      consumes:
+      - application/json
+      description: Add a new secret definition to the Threeport database.
+      operationId: add-secretDefinition
+      parameters:
+      - description: SecretDefinition object
+        in: body
+        name: secretDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.SecretDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new secret definition.
+  /v0/secret-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a secret definition by ID from the database.
+      operationId: delete-secretDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a secret definition.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular secret definition from the database.
+      operationId: get-secretDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a secret definition.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a secret definition in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating secret definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-secretDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: SecretDefinition object
+        in: body
+        name: secretDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.SecretDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing secret definition.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a secret definition in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating secret definition objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-secretDefinition
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: SecretDefinition object
+        in: body
+        name: secretDefinition
+        required: true
+        schema:
+          $ref: '#/definitions/v0.SecretDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing secret definition by replacing the entire object.
+  /v0/secret-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all secret instances from the Threeport database.
+      operationId: get-secretInstances
+      parameters:
+      - description: secret instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all secret instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new secret instance to the Threeport database.
+      operationId: add-secretInstance
+      parameters:
+      - description: SecretInstance object
+        in: body
+        name: secretInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.SecretInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new secret instance.
+  /v0/secret-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a secret instance by ID from the database.
+      operationId: delete-secretInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a secret instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular secret instance from the database.
+      operationId: get-secretInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a secret instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a secret instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating secret instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-secretInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: SecretInstance object
+        in: body
+        name: secretInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.SecretInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing secret instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a secret instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating secret instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-secretInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: SecretInstance object
+        in: body
+        name: secretInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v0.SecretInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing secret instance by replacing the entire object.
   /v0/tiers:
     get:
       consumes:
