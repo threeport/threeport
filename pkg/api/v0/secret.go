@@ -1,11 +1,11 @@
-//go:generate threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-codegen controller --filename $GOFILE
+//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
 import "gorm.io/datatypes"
 
-// +threeport-codegen:reconciler
-// +threeport-codegen:add-custom-middleware
+// +threeport-sdk:reconciler
+// +threeport-sdk:add-custom-middleware
 // SecretDefinition defines a secret that can be deployed to a runtime.
 type SecretDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -19,7 +19,7 @@ type SecretDefinition struct {
 	Data *datatypes.JSON `json:"Data,omitempty" query:"data" validate:"required" persist:"false"`
 }
 
-// +threeport-codegen:reconciler
+// +threeport-sdk:reconciler
 // SecretInstance is an instance of a secret deployed to a runtime.
 type SecretInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

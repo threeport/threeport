@@ -1,4 +1,4 @@
-//go:generate threeport-codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
 // AttachedObjectReference is a reference to an attached object.
