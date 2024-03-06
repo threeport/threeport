@@ -792,51 +792,6 @@ definitions:
     - Name
     - WorkloadInstanceID
     type: object
-  v0.ForwardProxyDefinition:
-    properties:
-      Name:
-        description: An arbitrary name for the definition.
-        type: string
-      ProfileID:
-        description: |-
-          The profile to associate with the definition.  Profile is a named
-          standard configuration for a definition object.
-        type: integer
-      TierID:
-        description: |-
-          The tier to associate with the definition.  Tier is a level of
-          criticality for access control.
-        type: integer
-      UpstreamHost:
-        description: The hostname of the upstream service.
-        type: string
-      UpstreamPath:
-        description: The path for the upstream service.
-        type: string
-    required:
-    - Name
-    - UpstreamHost
-    - UpstreamPath
-    type: object
-  v0.ForwardProxyInstance:
-    properties:
-      ForwardProxyDefinitionID:
-        description: The definition used to define the instance.
-        type: integer
-      KubernetesRuntimeInstanceID:
-        description: The kubernetes runtime where the forward proxy is deployed.
-        type: integer
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      Status:
-        description: |-
-          The status of the instance.
-          TODO: use a custom type
-        type: string
-    required:
-    - Name
-    type: object
   v0.GatewayDefinition:
     properties:
       CreationAcknowledged:
@@ -1785,25 +1740,33 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - AwsObjectStorageBucketDefinition
+    - AwsObjectStorageBucketInstance
     - GatewayDefinition
     - GatewayInstance
     - GatewayHttpPort
     - GatewayTcpPort
     - DomainNameDefinition
     - DomainNameInstance
-    - ForwardProxyDefinition
-    - ForwardProxyInstance
+    - AttachedObjectReference
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
     - SecretDefinition
     - SecretInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - Profile
-    - Tier
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
+    - KubernetesRuntimeDefinition
+    - KubernetesRuntimeInstance
+    - TerraformDefinition
+    - TerraformInstance
     - ObservabilityStackDefinition
     - ObservabilityStackInstance
     - ObservabilityDashboardDefinition
@@ -1812,44 +1775,42 @@ definitions:
     - MetricsInstance
     - LoggingDefinition
     - LoggingInstance
-    - AttachedObjectReference
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - AwsObjectStorageBucketDefinition
-    - AwsObjectStorageBucketInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    - TerraformDefinition
-    - TerraformInstance
+    - Profile
+    - Tier
+    - WorkloadDefinition
+    - WorkloadResourceDefinition
+    - WorkloadInstance
+    - WorkloadResourceInstance
+    - WorkloadEvent
     type: string
     x-enum-varnames:
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeAwsObjectStorageBucketDefinition
+    - ObjectTypeAwsObjectStorageBucketInstance
     - ObjectTypeGatewayDefinition
     - ObjectTypeGatewayInstance
     - ObjectTypeGatewayHttpPort
     - ObjectTypeGatewayTcpPort
     - ObjectTypeDomainNameDefinition
     - ObjectTypeDomainNameInstance
-    - ObjectTypeForwardProxyDefinition
-    - ObjectTypeForwardProxyInstance
+    - ObjectTypeAttachedObjectReference
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
     - ObjectTypeSecretDefinition
     - ObjectTypeSecretInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeProfile
-    - ObjectTypeTier
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeKubernetesRuntimeDefinition
+    - ObjectTypeKubernetesRuntimeInstance
+    - ObjectTypeTerraformDefinition
+    - ObjectTypeTerraformInstance
     - ObjectTypeObservabilityStackDefinition
     - ObjectTypeObservabilityStackInstance
     - ObjectTypeObservabilityDashboardDefinition
@@ -1858,23 +1819,13 @@ definitions:
     - ObjectTypeMetricsInstance
     - ObjectTypeLoggingDefinition
     - ObjectTypeLoggingInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeAwsObjectStorageBucketDefinition
-    - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
-    - ObjectTypeTerraformDefinition
-    - ObjectTypeTerraformInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeWorkloadDefinition
+    - ObjectTypeWorkloadResourceDefinition
+    - ObjectTypeWorkloadInstance
+    - ObjectTypeWorkloadResourceInstance
+    - ObjectTypeWorkloadEvent
   v0.ObservabilityDashboardDefinition:
     properties:
       CreationAcknowledged:
@@ -2965,32 +2916,6 @@ paths:
             $ref: '#/definitions/api.RESTAPIVersions'
       summary: GetDomainNameInstanceVersions gets the supported versions for the domain
         name instance API.
-  /forward-proxy-definitions/versions:
-    get:
-      description: Get the supported API versions for forward proxy definitions.
-      operationId: forwardProxyDefinition-get-versions
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
-      summary: GetForwardProxyDefinitionVersions gets the supported versions for the
-        forward proxy definition API.
-  /forward-proxy-instances/versions:
-    get:
-      description: Get the supported API versions for forward proxy instances.
-      operationId: forwardProxyInstance-get-versions
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
-      summary: GetForwardProxyInstanceVersions gets the supported versions for the
-        forward proxy instance API.
   /gateway-definitions/versions:
     get:
       description: Get the supported API versions for gateway definitions.
@@ -5724,406 +5649,6 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing domain name instance by replacing the entire object.
-  /v0/forward-proxy-definitions:
-    get:
-      consumes:
-      - application/json
-      description: Get all forward proxy definitions from the Threeport database.
-      operationId: get-forwardProxyDefinitions
-      parameters:
-      - description: forward proxy definition search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all forward proxy definitions.
-    post:
-      consumes:
-      - application/json
-      description: Add a new forward proxy definition to the Threeport database.
-      operationId: add-forwardProxyDefinition
-      parameters:
-      - description: ForwardProxyDefinition object
-        in: body
-        name: forwardProxyDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.ForwardProxyDefinition'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new forward proxy definition.
-  /v0/forward-proxy-definitions/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a forward proxy definition by ID from the database.
-      operationId: delete-forwardProxyDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a forward proxy definition.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular forward proxy definition from the database.
-      operationId: get-forwardProxyDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a forward proxy definition.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a forward proxy definition in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating forward proxy definition objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-forwardProxyDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: ForwardProxyDefinition object
-        in: body
-        name: forwardProxyDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.ForwardProxyDefinition'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing forward proxy definition.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a forward proxy definition in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating forward proxy definition objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-forwardProxyDefinition
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: ForwardProxyDefinition object
-        in: body
-        name: forwardProxyDefinition
-        required: true
-        schema:
-          $ref: '#/definitions/v0.ForwardProxyDefinition'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing forward proxy definition by replacing the entire
-        object.
-  /v0/forward-proxy-instances:
-    get:
-      consumes:
-      - application/json
-      description: Get all forward proxy instances from the Threeport database.
-      operationId: get-forwardProxyInstances
-      parameters:
-      - description: forward proxy instance search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all forward proxy instances.
-    post:
-      consumes:
-      - application/json
-      description: Add a new forward proxy instance to the Threeport database.
-      operationId: add-forwardProxyInstance
-      parameters:
-      - description: ForwardProxyInstance object
-        in: body
-        name: forwardProxyInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.ForwardProxyInstance'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new forward proxy instance.
-  /v0/forward-proxy-instances/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a forward proxy instance by ID from the database.
-      operationId: delete-forwardProxyInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a forward proxy instance.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular forward proxy instance from the database.
-      operationId: get-forwardProxyInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a forward proxy instance.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a forward proxy instance in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating forward proxy instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-forwardProxyInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: ForwardProxyInstance object
-        in: body
-        name: forwardProxyInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.ForwardProxyInstance'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing forward proxy instance.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a forward proxy instance in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating forward proxy instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-forwardProxyInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: ForwardProxyInstance object
-        in: body
-        name: forwardProxyInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v0.ForwardProxyInstance'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing forward proxy instance by replacing the entire
-        object.
   /v0/gateway-definitions:
     get:
       consumes:
