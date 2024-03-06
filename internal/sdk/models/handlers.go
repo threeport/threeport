@@ -58,7 +58,6 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				mc.TypeName,
 			).Line()
 			checkDuplicateNames.Id("nameUsed").Op(":=").Lit(true).Line()
-
 			checkDuplicateNames.Id("result").Op(":=").Id("h").Dot("DB").Dot("Where").Call(
 				Lit("name = ?"), Id(strcase.ToLowerCamel(mc.TypeName)).Dot("Name"),
 			).Dot("First").Call(

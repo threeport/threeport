@@ -102,7 +102,6 @@ func (p *ThreeportPostRenderer) AppendAdditionalResources(
 		}
 
 		// convert unstructured kube object back to yaml
-
 		kubeObject := &unstructured.Unstructured{Object: additionalResourceUnmarshaled}
 		kubeObject.SetNamespace(*p.HelmWorkloadInstance.ReleaseNamespace)
 		yamlBytes, err := yaml.Marshal(additionalResource)
