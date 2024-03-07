@@ -13,21 +13,6 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// SecretInstanceConfig contains the configuration for a secret instance
-// reconcile function.
-type SecretInstanceConfig struct {
-	r                           *controller.Reconciler
-	secretInstance              *v0.SecretInstance
-	secretDefinition            *v0.SecretDefinition
-	log                         *logr.Logger
-	workloadInstance            *v0.WorkloadInstance
-	helmWorkloadInstance        *v0.HelmWorkloadInstance
-	kubernetesRuntimeInstance   *v0.KubernetesRuntimeInstance
-	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition
-	workloadInstanceType        string
-	workloadInstanceId          *uint
-}
-
 // secretInstanceCreated reconciles state for a new secret
 // instance.
 func secretInstanceCreated(
@@ -47,98 +32,14 @@ func secretInstanceCreated(
 		return 0, fmt.Errorf("failed to get threeport objects: %w", err)
 	}
 
-	// ensure attached object reference exists
-	if err := client.EnsureAttachedObjectReferenceExists(
-		r.APIClient,
-		r.APIServer,
-		c.workloadInstanceType,
-		c.workloadInstanceId,
-		util.TypeName(*secretInstance),
-		secretInstance.ID,
-	); err != nil {
-		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)
-	}
-
 	// validate threeport state
 	if err := c.validateThreeportState(); err != nil {
 		return 0, fmt.Errorf("failed to validate threeport state: %w", err)
 	}
 
-	// configure secret json manifests
-	jsonManifests, err := c.configureSecretControllerJsonManifests()
-	if err != nil {
-		return 0, fmt.Errorf("failed to configure secret controller json manifests: %w", err)
-	}
-
-	// update workload with secret manifests
-	switch c.workloadInstanceType {
-	case util.TypeName(v0.WorkloadInstance{}):
-		// get workload instance
-		workloadInstance, err := client.GetWorkloadInstanceByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			*c.secretInstance.WorkloadInstanceID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get workload instance: %w", err)
-		}
-
-		// create workload resource instances
-		for _, jsonManifest := range jsonManifests {
-			workloadResourceInstance := v0.WorkloadResourceInstance{
-				WorkloadInstanceID: c.workloadInstanceId,
-				JSONDefinition:     &jsonManifest,
-			}
-			_, err = client.CreateWorkloadResourceInstance(
-				c.r.APIClient,
-				c.r.APIServer,
-				&workloadResourceInstance,
-			)
-			if err != nil {
-				return 0, fmt.Errorf("failed to create workload resource instance: %w", err)
-			}
-		}
-
-		// trigger workload instance reconciliation
-		workloadInstance.Reconciled = util.BoolPtr(false)
-		_, err = client.UpdateWorkloadInstance(c.r.APIClient, c.r.APIServer, workloadInstance)
-		if err != nil {
-			return 0, fmt.Errorf("failed to update workload instance: %w", err)
-		}
-	case util.TypeName(v0.HelmWorkloadInstance{}):
-		helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByID(
-			c.r.APIClient,
-			c.r.APIServer,
-			*c.secretInstance.HelmWorkloadInstanceID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get helm workload instance: %w", err)
-		}
-		var appendedResources datatypes.JSONSlice[datatypes.JSON]
-		if helmWorkloadInstance.AdditionalResources == nil {
-			appendedResources = jsonManifests
-		} else {
-			appendedResources = append(*helmWorkloadInstance.AdditionalResources, jsonManifests...)
-		}
-
-		// update namespaces
-		for index, jsonManifest := range appendedResources {
-			// appendedResources[index] =
-			updatedJsonManifest, err := util.UpdateNamespace(jsonManifest, *helmWorkloadInstance.ReleaseNamespace)
-			if err != nil {
-				return 0, fmt.Errorf("failed to update namespace: %w", err)
-			}
-			appendedResources[index] = updatedJsonManifest
-		}
-
-		helmWorkloadInstance.AdditionalResources = &appendedResources
-		helmWorkloadInstance.Reconciled = util.BoolPtr(false)
-		_, err = client.UpdateHelmWorkloadInstance(c.r.APIClient, c.r.APIServer, helmWorkloadInstance)
-		if err != nil {
-			return 0, fmt.Errorf("failed to update helm workload instance: %w", err)
-		}
-	default:
-		return 0, errors.New("secret instance must be attached to a workload instance or a helm workload instance")
+	// execute secret instance create operations
+	if err := c.getSecretInstanceOperations().Create(); err != nil {
+		return 0, fmt.Errorf("failed to execute secret instance create operations: %w", err)
 	}
 
 	return 0, nil
