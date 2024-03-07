@@ -183,7 +183,7 @@ func confirmDnsControllerDeployed(
 	}
 
 	// generate external dns manifest based on infra provider
-	var externalDnsManifest string
+	var externalDnsYaml string
 	kubernetesRuntimeInstanceID := strconv.Itoa(int(*domainNameInstance.KubernetesRuntimeInstanceID))
 	switch *infraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
@@ -193,7 +193,7 @@ func confirmDnsControllerDeployed(
 			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 		}
 
-		externalDnsManifest, err = createExternalDns(
+		externalDnsYaml, err = getExternalDnsYaml(
 			*domainNameDefinition.Domain,
 			"route53",
 			resourceInventory.DnsManagementRole.RoleArn,
@@ -206,7 +206,7 @@ func confirmDnsControllerDeployed(
 
 	case v0.KubernetesRuntimeInfraProviderKind:
 
-		externalDnsManifest, err = createExternalDns(
+		externalDnsYaml, err = getExternalDnsYaml(
 			*domainNameDefinition.Domain,
 			"none",
 			"",
@@ -225,7 +225,7 @@ func confirmDnsControllerDeployed(
 	workloadDefName := fmt.Sprintf("%s-%s", "external-dns", *kubernetesRuntimeInstance.Name)
 	externalDnsWorkloadDefinition := v0.WorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
-		YAMLDocument: &externalDnsManifest,
+		YAMLDocument: &externalDnsYaml,
 	}
 
 	// create external dns controller workload definition

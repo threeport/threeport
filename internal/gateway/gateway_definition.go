@@ -183,14 +183,14 @@ func createGatewayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefini
 	}
 
 	// create Gloo virtual service definitions
-	virtualServices, err := createVirtualServicesYaml(r, gatewayDefinition, domain)
+	virtualServices, err := getVirtualServicesYaml(r, gatewayDefinition, domain)
 	if err != nil {
 		return "", fmt.Errorf("failed to create virtual service: %w", err)
 	}
 	manifests = append(manifests, virtualServices...)
 
 	// create Gloo tcp gateway definitions
-	tcpGateways, err := createTcpGatewaysYaml(r, gatewayDefinition)
+	tcpGateways, err := getTcpGatewaysYaml(r, gatewayDefinition)
 	if err != nil {
 		return "", fmt.Errorf("failed to create tcp gateway: %w", err)
 	}
@@ -207,14 +207,14 @@ func createGatewayDefinitionYamlDocument(r *controller.Reconciler, gatewayDefini
 		}
 
 		// create cert manager issuer definition
-		issuer, err := createIssuerYaml(gatewayDefinition, domain, adminEmail)
+		issuer, err := getIssuerYaml(gatewayDefinition, domain, adminEmail)
 		if err != nil {
 			return "", fmt.Errorf("failed to create issuer: %w", err)
 		}
 		manifests = append(manifests, issuer)
 
 		// create cert manager certificate definition
-		certificate, err := createCertificateYaml(gatewayDefinition, domain)
+		certificate, err := getCertificateYaml(gatewayDefinition, domain)
 		if err != nil {
 			return "", fmt.Errorf("failed to create certificate: %w", err)
 		}

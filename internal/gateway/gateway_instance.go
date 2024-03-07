@@ -409,7 +409,7 @@ func confirmGatewayControllerDeployed(
 	}
 
 	// generate gloo edge manifest
-	glooEdge, err := createGlooEdge()
+	glooEdge, err := getGlooEdgeYaml()
 	if err != nil {
 		return fmt.Errorf("failed to create gloo edge resource: %w", err)
 	}
@@ -430,14 +430,14 @@ func confirmGatewayControllerDeployed(
 			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 		}
 
-		certManager, err = createCertManager(resourceInventory.Dns01ChallengeRole.RoleArn)
+		certManager, err = getCertManagerYaml(resourceInventory.Dns01ChallengeRole.RoleArn)
 		if err != nil {
 			return fmt.Errorf("failed to create cert manager resource: %w", err)
 		}
 
 	case v0.KubernetesRuntimeInfraProviderKind:
 
-		certManager, err = createCertManager("")
+		certManager, err = getCertManagerYaml("")
 		if err != nil {
 			return fmt.Errorf("failed to create cert manager resource: %w", err)
 		}
@@ -632,9 +632,9 @@ func ensureGlooEdgePortExists(protocol string, port int, tlsEnabled bool, ports 
 	// create a new gloo edge port object
 	portNumber := int64(port)
 	portString := strconv.Itoa(int(port))
-	glooEdgePort := createGlooEdgePort(protocol, portString, portNumber, tlsEnabled)
+	glooEdgePort := getGlooEdgePort(protocol, portString, portNumber, tlsEnabled)
 
-	ports = append(ports, glooEdgePort)
+	ports = append(ports, glooEdgePort.Object)
 
 	return ports, nil
 }

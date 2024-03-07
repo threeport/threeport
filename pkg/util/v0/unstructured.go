@@ -3,6 +3,7 @@ package v0
 import (
 	"fmt"
 
+	ghodss_yaml "github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -22,4 +23,18 @@ func NestedInt64OrFloat64(input map[string]interface{}, fields ...string) (int64
 	}
 
 	return output, found, nil
+}
+
+// UnstructuredToYaml converts an unstructured object to a yaml string
+func UnstructuredToYaml(input *unstructured.Unstructured) (string, error) {
+	json, err := input.MarshalJSON()
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal unstructured object to json: %v", err)
+	}
+
+	yaml, err := ghodss_yaml.JSONToYAML(json)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert json to yaml: %v", err)
+	}
+	return string(yaml), nil
 }

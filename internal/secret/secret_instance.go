@@ -273,9 +273,7 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 		return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 	}
 
-	externalSecrets, err := util.MapStringInterfaceToString(
-		c.getExternalSecretsSupportServiceManifest(resourceInventory.SecretsManagerRole.RoleArn),
-	)
+	externalSecretsYaml, err := c.getExternalSecretsSupportServiceYaml(resourceInventory.SecretsManagerRole.RoleArn)
 	if err != nil {
 		return fmt.Errorf("failed to create external secrets: %w", err)
 	}
@@ -284,7 +282,7 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 	workloadDefName := fmt.Sprintf("%s-%s", "external-secrets", *c.kubernetesRuntimeInstance.Name)
 	externalSecretsWorkloadDefinition := v0.WorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
-		YAMLDocument: util.StringPtr(externalSecrets),
+		YAMLDocument: util.StringPtr(externalSecretsYaml),
 	}
 
 	// create secret controller workload definition
@@ -326,21 +324,17 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 func (c *SecretInstanceConfig) configureSecretControllerJsonManifests() ([]datatypes.JSON, error) {
 	var manifests []datatypes.JSON
 
-	secretStore, err := c.getSecretStore()
+	secretStoreJson, err := c.getSecretStoreJson()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret store: %w", err)
 	}
-	secretStoreMarshaled, err := util.MarshalJSON(secretStore)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal secret store: %w", err)
-	}
-	manifests = append(manifests, secretStoreMarshaled)
+	manifests = append(manifests, secretStoreJson)
 
-	externalSecretMarshaled, err := util.MarshalJSON(c.getExternalSecret())
+	externalSecretJson, err := c.getExternalSecretJson()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal external secret: %w", err)
 	}
-	manifests = append(manifests, externalSecretMarshaled)
+	manifests = append(manifests, externalSecretJson)
 
 	return manifests, nil
 }

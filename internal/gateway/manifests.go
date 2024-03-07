@@ -13,26 +13,28 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// createGlooEdge creates a gloo edge custom resource.
-func createGlooEdge() (string, error) {
+// getGlooEdgeYaml creates a gloo edge custom resource.
+func getGlooEdgeYaml() (string, error) {
 
-	var glooEdge = map[string]interface{}{
-		"apiVersion": "gateway.support-services.nukleros.io/v1alpha1",
-		"kind":       "GlooEdge",
-		"metadata": map[string]interface{}{
-			"name": "glooedge",
-		},
-		"spec": map[string]interface{}{
-			"namespace": util.GatewaySystemNamespace,
-			"ports":     []interface{}{},
+	var glooEdge = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "gateway.support-services.nukleros.io/v1alpha1",
+			"kind":       "GlooEdge",
+			"metadata": map[string]interface{}{
+				"name": "glooedge",
+			},
+			"spec": map[string]interface{}{
+				"namespace": util.GatewaySystemNamespace,
+				"ports":     []interface{}{},
+			},
 		},
 	}
 
-	return util.MapStringInterfaceToString(glooEdge)
+	return util.UnstructuredToYaml(glooEdge)
 }
 
-// createExternalDns creates an external DNS custom resource.
-func createExternalDns(
+// getExternalDnsYaml creates an external DNS custom resource.
+func getExternalDnsYaml(
 	domain,
 	provider,
 	iamRoleArn,
@@ -48,71 +50,77 @@ func createExternalDns(
 		"--txt-prefix=" + kubernetesRuntimeInstanceID + "-",
 	}
 
-	var externalDns = map[string]interface{}{
-		"apiVersion": "gateway.support-services.nukleros.io/v1alpha1",
-		"kind":       "ExternalDNS",
-		"metadata": map[string]interface{}{
-			"name": "externaldns",
-		},
-		"spec": map[string]interface{}{
-			"namespace":          util.GatewaySystemNamespace,
-			"zoneType":           zoneType,
-			"domainName":         domain,
-			"image":              "registry.k8s.io/external-dns/external-dns",
-			"version":            "v0.13.5",
-			"provider":           provider,
-			"serviceAccountName": "external-dns",
-			"iamRoleArn":         iamRoleArn,
-			"extraArgs":          extraArgs,
+	var externalDns = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "gateway.support-services.nukleros.io/v1alpha1",
+			"kind":       "ExternalDNS",
+			"metadata": map[string]interface{}{
+				"name": "externaldns",
+			},
+			"spec": map[string]interface{}{
+				"namespace":          util.GatewaySystemNamespace,
+				"zoneType":           zoneType,
+				"domainName":         domain,
+				"image":              "registry.k8s.io/external-dns/external-dns",
+				"version":            "v0.13.5",
+				"provider":           provider,
+				"serviceAccountName": "external-dns",
+				"iamRoleArn":         iamRoleArn,
+				"extraArgs":          extraArgs,
+			},
 		},
 	}
 
-	return util.MapStringInterfaceToString(externalDns)
+	return util.UnstructuredToYaml(externalDns)
 }
 
-// createGlooEdgePort creates a gloo edge port.
-func createGlooEdgePort(protocol, name string, port int64, ssl bool) map[string]interface{} {
+// getGlooEdgePort creates a gloo edge port.
+func getGlooEdgePort(protocol, name string, port int64, ssl bool) *unstructured.Unstructured {
 
-	var portObject = map[string]interface{}{
-		"name":     name,
-		"protocol": protocol,
-		"port":     port,
-		"ssl":      ssl,
+	var portObject = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"name":     name,
+			"protocol": protocol,
+			"port":     port,
+			"ssl":      ssl,
+		},
 	}
 
 	return portObject
 }
 
-// createCertManager creates a cert manager for the given IAM role ARN.
-func createCertManager(iamRoleArn string) (string, error) {
+// getCertManagerYaml creates a cert manager for the given IAM role ARN.
+func getCertManagerYaml(iamRoleArn string) (string, error) {
 
-	var certManager = map[string]interface{}{
-		"apiVersion": "certificates.support-services.nukleros.io/v1alpha1",
-		"kind":       "CertManager",
-		"metadata": map[string]interface{}{
-			"name": "certmanager",
-		},
-		"spec": map[string]interface{}{
-			"namespace": "nukleros-certs-system",
-			"cainjector": map[string]interface{}{
-				"replicas": 1,
-				"image":    "quay.io/jetstack/cert-manager-cainjector",
+	var certManager = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "certificates.support-services.nukleros.io/v1alpha1",
+			"kind":       "CertManager",
+			"metadata": map[string]interface{}{
+				"name": "certmanager",
 			},
-			"version": "v1.9.1",
-			"controller": map[string]interface{}{
-				"replicas": 1,
-				"image":    "quay.io/jetstack/cert-manager-controller",
+			"spec": map[string]interface{}{
+				"namespace": "nukleros-certs-system",
+				"cainjector": map[string]interface{}{
+					"replicas": 1,
+					"image":    "quay.io/jetstack/cert-manager-cainjector",
+				},
+				"version": "v1.9.1",
+				"controller": map[string]interface{}{
+					"replicas": 1,
+					"image":    "quay.io/jetstack/cert-manager-controller",
+				},
+				"webhook": map[string]interface{}{
+					"replicas": 1,
+					"image":    "quay.io/jetstack/cert-manager-webhook",
+				},
+				"contactEmail": "admin@nukleros.io",
+				"iamRoleArn":   iamRoleArn,
 			},
-			"webhook": map[string]interface{}{
-				"replicas": 1,
-				"image":    "quay.io/jetstack/cert-manager-webhook",
-			},
-			"contactEmail": "admin@nukleros.io",
-			"iamRoleArn":   iamRoleArn,
 		},
 	}
 
-	return util.MapStringInterfaceToString(certManager)
+	return util.UnstructuredToYaml(certManager)
 }
 
 // getCleanedDomain returns a cleaned domain.
@@ -122,8 +130,8 @@ func getCleanedDomain(domain string) string {
 	return cleanedDomain
 }
 
-// createVirtualServicesYaml creates a virtual service for the given domain.
-func createVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
+// getVirtualServicesYaml creates a virtual service for the given domain.
+func getVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
 
 	var manifests []string
 
@@ -225,7 +233,7 @@ func createVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.G
 			unstructured.SetNestedMap(virtualService.Object, sslConfig, "spec", "sslConfig")
 		}
 
-		virtualServiceManifest, err := util.MapStringInterfaceToString(virtualService.Object)
+		virtualServiceManifest, err := util.UnstructuredToYaml(virtualService)
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
 		}
@@ -236,8 +244,8 @@ func createVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.G
 	return manifests, nil
 }
 
-// createTcpGatewaysYaml creates a tcp gateway for the given domain.
-func createTcpGatewaysYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) ([]string, error) {
+// getTcpGatewaysYaml creates a tcp gateway for the given domain.
+func getTcpGatewaysYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) ([]string, error) {
 
 	var manifests []string
 
@@ -247,32 +255,34 @@ func createTcpGatewaysYaml(r *controller.Reconciler, gatewayDefinition *v0.Gatew
 	}
 	for _, tcpPort := range *gatewayTcpPorts {
 
-		tcpGateway := map[string]interface{}{
-			"apiVersion": "gateway.solo.io/v1",
-			"kind":       "Gateway",
-			"metadata": map[string]interface{}{
-				"name":      fmt.Sprintf("%s-%d", *gatewayDefinition.Name, *tcpPort.Port),
-				"namespace": "gloo-system",
-			},
-			"spec": map[string]interface{}{
-				"bindAddress": "::",
-				"bindPort":    8000 + *tcpPort.Port,
-				"tcpGateway": map[string]interface{}{
-					"tcpHosts": []interface{}{
-						map[string]interface{}{
-							"name": "upstream-host",
-							"destination": map[string]interface{}{
-								"single": map[string]interface{}{
-									"upstream": map[string]interface{}{
-										"name":      "my-upstream",
-										"namespace": "gloo-system",
+		tcpGateway := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "gateway.solo.io/v1",
+				"kind":       "Gateway",
+				"metadata": map[string]interface{}{
+					"name":      fmt.Sprintf("%s-%d", *gatewayDefinition.Name, *tcpPort.Port),
+					"namespace": "gloo-system",
+				},
+				"spec": map[string]interface{}{
+					"bindAddress": "::",
+					"bindPort":    8000 + *tcpPort.Port,
+					"tcpGateway": map[string]interface{}{
+						"tcpHosts": []interface{}{
+							map[string]interface{}{
+								"name": "upstream-host",
+								"destination": map[string]interface{}{
+									"single": map[string]interface{}{
+										"upstream": map[string]interface{}{
+											"name":      "my-upstream",
+											"namespace": "gloo-system",
+										},
 									},
 								},
 							},
 						},
 					},
+					"useProxyProto": false,
 				},
-				"useProxyProto": false,
 			},
 		}
 
@@ -280,7 +290,7 @@ func createTcpGatewaysYaml(r *controller.Reconciler, gatewayDefinition *v0.Gatew
 		// if tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
 		// }
 
-		virtualServiceManifest, err := util.MapStringInterfaceToString(tcpGateway)
+		virtualServiceManifest, err := util.UnstructuredToYaml(tcpGateway)
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
 		}
@@ -302,32 +312,34 @@ func getVirtualServiceName(gatewayDefinition *v0.GatewayDefinition, domain strin
 	}
 }
 
-// createIssuerYaml creates an issuer for the given domain.
-func createIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
+// getIssuerYaml creates an issuer for the given domain.
+func getIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
 
-	var issuer = map[string]interface{}{
-		"apiVersion": "cert-manager.io/v1",
-		"kind":       "Issuer",
-		"metadata": map[string]interface{}{
-			"name": strcase.ToKebab(domain),
-		},
-		"spec": map[string]interface{}{
-			"acme": map[string]interface{}{
-				"email":  adminEmail,
-				"server": "https://acme-staging-v02.api.letsencrypt.org/directory",
-				"privateKeySecretRef": map[string]interface{}{
-					"name": "letsencrypt-prod-private-key",
-				},
-				"solvers": []interface{}{
-					map[string]interface{}{
-						"selector": map[string]interface{}{
-							"dnsZones": []interface{}{
-								domain,
+	var issuer = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cert-manager.io/v1",
+			"kind":       "Issuer",
+			"metadata": map[string]interface{}{
+				"name": strcase.ToKebab(domain),
+			},
+			"spec": map[string]interface{}{
+				"acme": map[string]interface{}{
+					"email":  adminEmail,
+					"server": "https://acme-staging-v02.api.letsencrypt.org/directory",
+					"privateKeySecretRef": map[string]interface{}{
+						"name": "letsencrypt-prod-private-key",
+					},
+					"solvers": []interface{}{
+						map[string]interface{}{
+							"selector": map[string]interface{}{
+								"dnsZones": []interface{}{
+									domain,
+								},
 							},
-						},
-						"dns01": map[string]interface{}{
-							"route53": map[string]interface{}{
-								"region": "us-east-1",
+							"dns01": map[string]interface{}{
+								"route53": map[string]interface{}{
+									"region": "us-east-1",
+								},
 							},
 						},
 					},
@@ -336,29 +348,31 @@ func createIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmai
 		},
 	}
 
-	return util.MapStringInterfaceToString(issuer)
+	return util.UnstructuredToYaml(issuer)
 }
 
-// createCertificateYaml creates a certificate for the given domain.
-func createCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+// getCertificateYaml creates a certificate for the given domain.
+func getCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 
-	var certificate = map[string]interface{}{
-		"apiVersion": "cert-manager.io/v1",
-		"kind":       "Certificate",
-		"metadata": map[string]interface{}{
-			"name": strcase.ToKebab(domain),
-		},
-		"spec": map[string]interface{}{
-			"secretName": strcase.ToKebab(domain) + "-tls",
-			"dnsNames": []interface{}{
-				domain,
-			},
-			"issuerRef": map[string]interface{}{
+	var certificate = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cert-manager.io/v1",
+			"kind":       "Certificate",
+			"metadata": map[string]interface{}{
 				"name": strcase.ToKebab(domain),
-				"kind": "Issuer",
+			},
+			"spec": map[string]interface{}{
+				"secretName": strcase.ToKebab(domain) + "-tls",
+				"dnsNames": []interface{}{
+					domain,
+				},
+				"issuerRef": map[string]interface{}{
+					"name": strcase.ToKebab(domain),
+					"kind": "Issuer",
+				},
 			},
 		},
 	}
 
-	return util.MapStringInterfaceToString(certificate)
+	return util.UnstructuredToYaml(certificate)
 }
