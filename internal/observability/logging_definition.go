@@ -87,11 +87,8 @@ func loggingDefinitionCreated(
 		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
 	}
 
-	// get logging operations
-	operations := c.getLoggingDefinitionOperations()
-
 	// execute logging definition create operations
-	if err := operations.Create(); err != nil {
+	if err := c.getLoggingDefinitionOperations().Create(); err != nil {
 		return 0, fmt.Errorf("failed to execute logging definition create operations: %w", err)
 	}
 
@@ -133,11 +130,8 @@ func loggingDefinitionDeleted(
 		log:               log,
 	}
 
-	// get logging operations
-	operations := c.getLoggingDefinitionOperations()
-
 	// execute logging definition delete operations
-	if err := operations.Delete(); err != nil {
+	if err := c.getLoggingDefinitionOperations().Delete(); err != nil {
 		return 0, fmt.Errorf("failed to execute logging definition delete operations: %w", err)
 	}
 

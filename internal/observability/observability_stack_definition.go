@@ -24,11 +24,8 @@ func observabilityStackDefinitionCreated(
 		log:                          log,
 	}
 
-	// get observability stack operations
-	operations := c.getObservabilityStackDefinitionOperations()
-
 	// execute observability stack definition create operations
-	if err := operations.Create(); err != nil {
+	if err := c.getObservabilityStackDefinitionOperations().Create(); err != nil {
 		return 0, fmt.Errorf("failed to execute observability stack create operations: %w", err)
 	}
 
@@ -69,11 +66,8 @@ func observabilityStackDefinitionDeleted(
 		log:                          log,
 	}
 
-	// get observability stack operations
-	operations := c.getObservabilityStackDefinitionOperations()
-
 	// execute observability stack definition delete operations
-	if err := operations.Delete(); err != nil {
+	if err := c.getObservabilityStackDefinitionOperations().Delete(); err != nil {
 		return 0, fmt.Errorf("failed to execute observability stack delete operations: %w", err)
 	}
 
