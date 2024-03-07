@@ -5,6 +5,7 @@ package versions
 func AddVersions() {
 	AddProfileVersions()
 	AddTierVersions()
+	AddAttachedObjectReferenceVersions()
 	AddAwsAccountVersions()
 	AddAwsEksKubernetesRuntimeDefinitionVersions()
 	AddAwsEksKubernetesRuntimeInstanceVersions()
@@ -27,7 +28,6 @@ func AddVersions() {
 	AddLogBackendVersions()
 	AddLogStorageDefinitionVersions()
 	AddLogStorageInstanceVersions()
-	AddAttachedObjectReferenceVersions()
 	AddObservabilityStackDefinitionVersions()
 	AddObservabilityStackInstanceVersions()
 	AddObservabilityDashboardDefinitionVersions()

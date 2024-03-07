@@ -20,6 +20,7 @@ type SecretDefinition struct {
 }
 
 // +threeport-sdk:reconciler
+// todo add marker
 // SecretInstance is an instance of a secret deployed to a runtime.
 type SecretInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

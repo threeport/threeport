@@ -10,6 +10,7 @@ import (
 func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	ProfileRoutes(e, h)
 	TierRoutes(e, h)
+	AttachedObjectReferenceRoutes(e, h)
 	AwsAccountRoutes(e, h)
 	AwsEksKubernetesRuntimeDefinitionRoutes(e, h)
 	AwsEksKubernetesRuntimeInstanceRoutes(e, h)
@@ -32,7 +33,6 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	LogBackendRoutes(e, h)
 	LogStorageDefinitionRoutes(e, h)
 	LogStorageInstanceRoutes(e, h)
-	AttachedObjectReferenceRoutes(e, h)
 	ObservabilityStackDefinitionRoutes(e, h)
 	ObservabilityStackInstanceRoutes(e, h)
 	ObservabilityDashboardDefinitionRoutes(e, h)

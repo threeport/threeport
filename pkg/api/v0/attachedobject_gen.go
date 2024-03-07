@@ -11,7 +11,7 @@ import (
 const (
 	ObjectTypeAttachedObjectReference ObjectType = "AttachedObjectReference"
 
-	MetaStreamName = "metaStream"
+	AttachedobjectStreamName = "attachedobjectStream"
 
 	AttachedObjectReferenceSubject       = "attachedObjectReference.*"
 	AttachedObjectReferenceCreateSubject = "attachedObjectReference.create"
@@ -31,14 +31,14 @@ func GetAttachedObjectReferenceSubjects() []string {
 	}
 }
 
-// GetMetaSubjects returns the NATS subjects
-// for all meta objects.
-func GetMetaSubjects() []string {
-	var metaSubjects []string
+// GetAttachedobjectSubjects returns the NATS subjects
+// for all attachedobject objects.
+func GetAttachedobjectSubjects() []string {
+	var attachedobjectSubjects []string
 
-	metaSubjects = append(metaSubjects, GetAttachedObjectReferenceSubjects()...)
+	attachedobjectSubjects = append(attachedobjectSubjects, GetAttachedObjectReferenceSubjects()...)
 
-	return metaSubjects
+	return attachedobjectSubjects
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

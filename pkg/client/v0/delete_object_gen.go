@@ -19,6 +19,10 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteTier(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete Tier: %w", err)
 		}
+	case "v0.AttachedObjectReference":
+		if _, err := DeleteAttachedObjectReference(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete AttachedObjectReference: %w", err)
+		}
 	case "v0.AwsAccount":
 		if _, err := DeleteAwsAccount(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete AwsAccount: %w", err)
@@ -106,10 +110,6 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 	case "v0.LogStorageInstance":
 		if _, err := DeleteLogStorageInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete LogStorageInstance: %w", err)
-		}
-	case "v0.AttachedObjectReference":
-		if _, err := DeleteAttachedObjectReference(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete AttachedObjectReference: %w", err)
 		}
 	case "v0.ObservabilityStackDefinition":
 		if _, err := DeleteObservabilityStackDefinition(apiClient, apiAddr, id); err != nil {

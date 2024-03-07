@@ -115,6 +115,7 @@ func GetDbInterfaces() []interface{} {
 
 		&v0.Profile{},
 		&v0.Tier{},
+		&v0.AttachedObjectReference{},
 		&v0.AwsAccount{},
 		&v0.AwsEksKubernetesRuntimeDefinition{},
 		&v0.AwsEksKubernetesRuntimeInstance{},
@@ -140,7 +141,6 @@ func GetDbInterfaces() []interface{} {
 		&v0.LogBackend{},
 		&v0.LogStorageDefinition{},
 		&v0.LogStorageInstance{},
-		&v0.AttachedObjectReference{},
 		&v0.ObservabilityStackDefinition{},
 		&v0.ObservabilityStackInstance{},
 		&v0.ObservabilityDashboardDefinition{},
