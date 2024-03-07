@@ -69,7 +69,7 @@ func (c *SecretInstanceConfig) getExternalSecretsSupportServiceManifest(iamRoleA
 		"apiVersion": "secrets.support-services.nukleros.io/v1alpha1",
 		"kind":       "ExternalSecrets",
 		"metadata": map[string]interface{}{
-			"name": c.secretInstance.Name,
+			"name": "externalsecrets",
 		},
 		"spec": map[string]interface{}{
 			//collection:
