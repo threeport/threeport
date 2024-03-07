@@ -1,6 +1,7 @@
 package secret
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -58,5 +59,33 @@ func secretInstanceDeleted(
 	secretInstance *v0.SecretInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// check that deletion is scheduled - if not there's a problem
+	if secretInstance.DeletionScheduled == nil {
+		return 0, errors.New("deletion notification receieved but not scheduled")
+	}
+
+	// check to see if confirmed - it should not be, but if so we should do no
+	// more
+	if secretInstance.DeletionConfirmed != nil {
+		return 0, nil
+	}
+
+	// configure secret instance config
+	c := &SecretInstanceConfig{
+		r:              r,
+		secretInstance: secretInstance,
+		log:            log,
+	}
+
+	// get threeport objects
+	if err := c.getThreeportObjects(); err != nil {
+		return 0, fmt.Errorf("failed to get threeport objects: %w", err)
+	}
+
+	// execute secret instance delete operations
+	if err := c.getSecretInstanceOperations().Delete(); err != nil {
+		return 0, fmt.Errorf("failed to execute secret instance delete operations: %w", err)
+	}
+
 	return 0, nil
 }

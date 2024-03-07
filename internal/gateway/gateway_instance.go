@@ -187,7 +187,7 @@ func gatewayInstanceDeleted(
 		return 0, errors.New("deletion notification receieved but not scheduled")
 	}
 
-	// check to see if reconciled - it should not be, but if so we should do no
+	// check to see if confirmed - it should not be, but if so we should do no
 	// more
 	if gatewayInstance.DeletionConfirmed != nil {
 		return 0, nil
@@ -223,12 +223,10 @@ func gatewayInstanceDeleted(
 		}
 
 		// schedule workload resource instance for deletion
-		scheduledForDeletion := time.Now().UTC()
-		reconciledWorkloadResourceInstance := false
 		workloadResourceInstance = &v0.WorkloadResourceInstance{
 			Common:               v0.Common{ID: workloadResourceInstance.ID},
-			ScheduledForDeletion: &scheduledForDeletion,
-			Reconciled:           &reconciledWorkloadResourceInstance,
+			ScheduledForDeletion: util.TimePtr(time.Now().UTC()),
+			Reconciled:           util.BoolPtr(false),
 		}
 		_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
 		if err != nil {
@@ -244,17 +242,12 @@ func gatewayInstanceDeleted(
 	if gatewayInstance.WorkloadInstanceID == nil {
 		return 0, fmt.Errorf("failed to delete workload instance, workloadInstanceID is nil")
 	}
-	reconciledWorkloadInstance := false
 	workloadInstance := &v0.WorkloadInstance{
 		Common:         v0.Common{ID: gatewayInstance.WorkloadInstanceID},
-		Reconciliation: v0.Reconciliation{Reconciled: &reconciledWorkloadInstance},
+		Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(false)},
 	}
 	_, err = client.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
-	if err != nil {
-		if errors.Is(err, client.ErrObjectNotFound) {
-			// workload resource instance has already been deleted
-			return 0, nil
-		}
+	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return 0, fmt.Errorf("failed to update workload instance: %w", err)
 	}
 

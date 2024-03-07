@@ -9,9 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// getExternalSecretJson returns a new ExternalSecret object
-func (c *SecretInstanceConfig) getExternalSecretJson() ([]byte, error) {
-	return (&unstructured.Unstructured{
+// getExternalSecret returns a new ExternalSecret object
+func (c *SecretInstanceConfig) getExternalSecret() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "external-secrets.io/v1beta1",
 			"kind":       "ExternalSecret",
@@ -37,11 +37,11 @@ func (c *SecretInstanceConfig) getExternalSecretJson() ([]byte, error) {
 				},
 			},
 		},
-	}).MarshalJSON()
+	}
 }
 
-// getSecretStoreJson returns a new SecretStore object
-func (c *SecretInstanceConfig) getSecretStoreJson() ([]byte, error) {
+// getSecretStore returns a new SecretStore object
+func (c *SecretInstanceConfig) getSecretStore() (*unstructured.Unstructured, error) {
 	provider, err := runtime.GetCloudProviderForInfraProvider(*c.kubernetesRuntimeDefinition.InfraProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cloud provider for infra provider: %w", err)
@@ -50,7 +50,7 @@ func (c *SecretInstanceConfig) getSecretStoreJson() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider region for location: %w", err)
 	}
-	return (&unstructured.Unstructured{
+	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "external-secrets.io/v1beta1",
 			"kind":       "SecretStore",
@@ -66,7 +66,7 @@ func (c *SecretInstanceConfig) getSecretStoreJson() ([]byte, error) {
 				},
 			},
 		},
-	}).MarshalJSON()
+	}, nil
 }
 
 // getExternalSecretsSupportService returns a new ExternalSecrets object

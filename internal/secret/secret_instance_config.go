@@ -3,10 +3,12 @@ package secret
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
-	"gorm.io/datatypes"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -42,9 +44,9 @@ func (c *SecretInstanceConfig) getSecretInstanceOperations() *util.Operations {
 
 	// append secret instance operations
 	operations.AppendOperation(util.Operation{
-		Name:   "secret object",
-		Create: c.createSecretObject,
-		Delete: c.deleteSecretObject,
+		Name:   "secret objects",
+		Create: c.createSecretObjects,
+		Delete: c.deleteSecretObjects,
 	})
 
 	return &operations
@@ -89,11 +91,11 @@ func (c *SecretInstanceConfig) deleteAttachedObjectReference() error {
 	return nil
 }
 
-// createSecretObject creates a secret instance
-func (c *SecretInstanceConfig) createSecretObject() error {
+// createSecretObjects creates a secret instance
+func (c *SecretInstanceConfig) createSecretObjects() error {
 
 	// configure secret json manifests
-	jsonManifests, err := c.configureSecretControllerJsonManifests()
+	secretObjects, err := c.getSecretObjects()
 	if err != nil {
 		return fmt.Errorf("failed to configure secret controller json manifests: %w", err)
 	}
@@ -112,10 +114,14 @@ func (c *SecretInstanceConfig) createSecretObject() error {
 		}
 
 		// create workload resource instances
-		for _, jsonManifest := range jsonManifests {
+		for _, secretObject := range secretObjects {
+			jsonDefinition, err := util.UnstructuredToDatatypesJson(secretObject)
+			if err != nil {
+				return fmt.Errorf("failed to convert unstructured object to datatypes.JSON: %w", err)
+			}
 			workloadResourceInstance := v0.WorkloadResourceInstance{
 				WorkloadInstanceID: c.workloadInstanceId,
-				JSONDefinition:     &jsonManifest,
+				JSONDefinition:     &jsonDefinition,
 			}
 			_, err = client.CreateWorkloadResourceInstance(
 				c.r.APIClient,
@@ -142,20 +148,21 @@ func (c *SecretInstanceConfig) createSecretObject() error {
 		if err != nil {
 			return fmt.Errorf("failed to get helm workload instance: %w", err)
 		}
-		var appendedResources datatypes.JSONSlice[datatypes.JSON]
-		if helmWorkloadInstance.AdditionalResources == nil {
-			appendedResources = jsonManifests
-		} else {
-			appendedResources = append(*helmWorkloadInstance.AdditionalResources, jsonManifests...)
+
+		// update namespace of secret objects
+		for _, object := range secretObjects {
+			object.SetNamespace(*helmWorkloadInstance.ReleaseNamespace)
 		}
 
-		// update namespaces
-		for index, jsonManifest := range appendedResources {
-			updatedJsonManifest, err := util.UpdateNamespace(jsonManifest, *helmWorkloadInstance.ReleaseNamespace)
-			if err != nil {
-				return fmt.Errorf("failed to update namespace: %w", err)
-			}
-			appendedResources[index] = updatedJsonManifest
+		// convert unstructured objects to datatypes.JSON slice
+		appendedResources, err := util.UnstructuredListToDatatypesJsonSlice(secretObjects)
+		if err != nil {
+			return fmt.Errorf("failed to convert unstructured list to datatypes.JSON slice: %w", err)
+		}
+
+		// append to existing resources
+		if helmWorkloadInstance.AdditionalResources != nil {
+			appendedResources = append(*helmWorkloadInstance.AdditionalResources, appendedResources...)
 		}
 
 		helmWorkloadInstance.AdditionalResources = &appendedResources
@@ -171,8 +178,109 @@ func (c *SecretInstanceConfig) createSecretObject() error {
 	return nil
 }
 
-// deleteSecretObject deletes a secret instance
-func (c *SecretInstanceConfig) deleteSecretObject() error {
+// deleteSecretObjects deletes a secret instance
+func (c *SecretInstanceConfig) deleteSecretObjects() error {
+
+	// configure secret json manifests
+	secretObjects, err := c.getSecretObjects()
+	if err != nil {
+		return fmt.Errorf("failed to configure secret controller json manifests: %w", err)
+	}
+
+	// update workload with secret manifests
+	switch c.workloadInstanceType {
+	case util.TypeName(v0.WorkloadInstance{}):
+		// get workload instance
+		workloadInstance, err := client.GetWorkloadInstanceByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.workloadInstanceId,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get workload instance: %w", err)
+		}
+
+		// get workload resource instances
+		workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.workloadInstanceId,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
+		}
+
+		// remove workload resource instances
+		for _, secretObject := range secretObjects {
+
+			// get workload resource instance for secret object
+			workloadResourceInstance, err := workloadutil.GetUniqueWorkloadResourceInstance(
+				workloadResourceInstances,
+				secretObject.GetKind(),
+			)
+			if err != nil {
+				return fmt.Errorf("failed to get workload resource instance: %w", err)
+			}
+
+			// schedule workload resource instance for deletion
+			workloadResourceInstance = &v0.WorkloadResourceInstance{
+				Common:               v0.Common{ID: workloadResourceInstance.ID},
+				ScheduledForDeletion: util.TimePtr(time.Now().UTC()),
+				Reconciled:           util.BoolPtr(true),
+			}
+			_, err = client.UpdateWorkloadResourceInstance(
+				c.r.APIClient,
+				c.r.APIServer,
+				workloadResourceInstance,
+			)
+			if err != nil {
+				if errors.Is(err, client.ErrObjectNotFound) {
+					// workload resource instance has already been deleted
+					return nil
+				}
+				return fmt.Errorf("failed to update workload resource instance: %w", err)
+			}
+		}
+
+		// trigger workload instance reconciliation
+		workloadInstance.Reconciled = util.BoolPtr(false)
+		_, err = client.UpdateWorkloadInstance(
+			c.r.APIClient,
+			c.r.APIServer,
+			workloadInstance,
+		)
+		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+			return fmt.Errorf("failed to update workload instance: %w", err)
+		}
+	case util.TypeName(v0.HelmWorkloadInstance{}):
+		helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.secretInstance.HelmWorkloadInstanceID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get helm workload instance: %w", err)
+		}
+
+		// remove secret objects
+		for _, object := range secretObjects {
+			if err = util.RemoveDataTypesJsonFromDataTypesJsonSlice(
+				object.GetName(),
+				object.GetKind(),
+				helmWorkloadInstance.AdditionalResources,
+			); err != nil {
+				return fmt.Errorf("failed to remove secret object from helm workload instance: %w", err)
+			}
+		}
+
+		helmWorkloadInstance.Reconciled = util.BoolPtr(false)
+		_, err = client.UpdateHelmWorkloadInstance(c.r.APIClient, c.r.APIServer, helmWorkloadInstance)
+		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+			return fmt.Errorf("failed to update helm workload instance: %w", err)
+		}
+	default:
+		return errors.New("secret instance must be attached to a workload instance or a helm workload instance")
+	}
 
 	return nil
 }
@@ -372,22 +480,20 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 	return nil
 }
 
-// configureSecretControllerJsonManifests configures the secret controller
+// getSecretObjects configures the secret controller
 // json manifests
-func (c *SecretInstanceConfig) configureSecretControllerJsonManifests() ([]datatypes.JSON, error) {
-	var manifests []datatypes.JSON
+func (c *SecretInstanceConfig) getSecretObjects() ([]*unstructured.Unstructured, error) {
+	var manifests []*unstructured.Unstructured
 
-	secretStoreJson, err := c.getSecretStoreJson()
+	// append secret store
+	secretStoreJson, err := c.getSecretStore()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret store: %w", err)
 	}
 	manifests = append(manifests, secretStoreJson)
 
-	externalSecretJson, err := c.getExternalSecretJson()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal external secret: %w", err)
-	}
-	manifests = append(manifests, externalSecretJson)
+	// append external secret
+	manifests = append(manifests, c.getExternalSecret())
 
 	return manifests, nil
 }
