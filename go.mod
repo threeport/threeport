@@ -2,8 +2,6 @@ module github.com/threeport/threeport
 
 go 1.20
 
-replace github.com/nukleros/aws-builder v0.4.3 => ../aws-builder
-
 require (
 	github.com/aws/aws-sdk-go-v2 v1.24.1
 	github.com/aws/aws-sdk-go-v2/config v1.26.6
@@ -28,7 +26,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/namsral/flag v1.7.4-pre
 	github.com/nats-io/nats.go v1.32.0
-	github.com/nukleros/aws-builder v0.4.3
+	github.com/nukleros/aws-builder v0.4.4
 	github.com/onsi/ginkgo/v2 v2.14.0
 	github.com/onsi/gomega v1.30.0
 	github.com/pressly/goose/v3 v3.17.0
@@ -85,7 +83,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.2.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.16.10 // indirect
-	github.com/aws/aws-sdk-go-v2/service/rds v1.69.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/rds v1.53.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.48.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/s3control v1.42.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.18.7 // indirect
