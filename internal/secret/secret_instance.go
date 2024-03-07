@@ -74,7 +74,11 @@ func secretInstanceCreated(
 	switch c.workloadInstanceType {
 	case util.TypeName(v0.WorkloadInstance{}):
 		// get workload instance
-		workloadInstance, err := client.GetWorkloadInstanceByID(c.r.APIClient, c.r.APIServer, *c.secretInstance.WorkloadInstanceID)
+		workloadInstance, err := client.GetWorkloadInstanceByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.secretInstance.WorkloadInstanceID,
+		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get workload instance: %w", err)
 		}
@@ -85,7 +89,11 @@ func secretInstanceCreated(
 				WorkloadInstanceID: c.workloadInstanceId,
 				JSONDefinition:     &jsonManifest,
 			}
-			_, err = client.CreateWorkloadResourceInstance(c.r.APIClient, c.r.APIServer, &workloadResourceInstance)
+			_, err = client.CreateWorkloadResourceInstance(
+				c.r.APIClient,
+				c.r.APIServer,
+				&workloadResourceInstance,
+			)
 			if err != nil {
 				return 0, fmt.Errorf("failed to create workload resource instance: %w", err)
 			}
@@ -98,7 +106,11 @@ func secretInstanceCreated(
 			return 0, fmt.Errorf("failed to update workload instance: %w", err)
 		}
 	case util.TypeName(v0.HelmWorkloadInstance{}):
-		helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByID(c.r.APIClient, c.r.APIServer, *c.secretInstance.HelmWorkloadInstanceID)
+		helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.secretInstance.HelmWorkloadInstanceID,
+		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get helm workload instance: %w", err)
 		}
@@ -178,19 +190,31 @@ func (c *SecretInstanceConfig) getThreeportObjects() error {
 	var err error
 
 	// get kubernetes runtime instance
-	c.kubernetesRuntimeInstance, err = client.GetKubernetesRuntimeInstanceByID(c.r.APIClient, c.r.APIServer, *c.secretInstance.KubernetesRuntimeInstanceID)
+	c.kubernetesRuntimeInstance, err = client.GetKubernetesRuntimeInstanceByID(
+		c.r.APIClient,
+		c.r.APIServer,
+		*c.secretInstance.KubernetesRuntimeInstanceID,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
 	// get kubernetes runtime definition
-	c.kubernetesRuntimeDefinition, err = client.GetKubernetesRuntimeDefinitionByID(c.r.APIClient, c.r.APIServer, *c.kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID)
+	c.kubernetesRuntimeDefinition, err = client.GetKubernetesRuntimeDefinitionByID(
+		c.r.APIClient,
+		c.r.APIServer,
+		*c.kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes runtime definition: %w", err)
 	}
 
 	// get secret definition
-	c.secretDefinition, err = client.GetSecretDefinitionByID(c.r.APIClient, c.r.APIServer, *c.secretInstance.SecretDefinitionID)
+	c.secretDefinition, err = client.GetSecretDefinitionByID(
+		c.r.APIClient,
+		c.r.APIServer,
+		*c.secretInstance.SecretDefinitionID,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get gateway controller workload definition: %w", err)
 	}
@@ -205,13 +229,21 @@ func (c *SecretInstanceConfig) getThreeportObjects() error {
 	switch c.workloadInstanceType {
 	case util.TypeName(v0.WorkloadInstance{}):
 		// get workload instance
-		c.workloadInstance, err = client.GetWorkloadInstanceByID(c.r.APIClient, c.r.APIServer, *c.secretInstance.WorkloadInstanceID)
+		c.workloadInstance, err = client.GetWorkloadInstanceByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.secretInstance.WorkloadInstanceID,
+		)
 		if err != nil {
 			return fmt.Errorf("failed to get workload instance: %w", err)
 		}
 	case util.TypeName(v0.HelmWorkloadInstance{}):
 		// get helm workload instance
-		c.helmWorkloadInstance, err = client.GetHelmWorkloadInstanceByID(c.r.APIClient, c.r.APIServer, *c.secretInstance.HelmWorkloadInstanceID)
+		c.helmWorkloadInstance, err = client.GetHelmWorkloadInstanceByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.secretInstance.HelmWorkloadInstanceID,
+		)
 		if err != nil {
 			return fmt.Errorf("failed to get helm workload instance: %w", err)
 		}
@@ -256,7 +288,11 @@ func (c *SecretInstanceConfig) validateThreeportState() error {
 // is deployed
 func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 	if c.kubernetesRuntimeInstance.SecretsControllerInstanceID != nil {
-		workloadInstance, err := client.GetWorkloadInstanceByID(c.r.APIClient, c.r.APIServer, *c.kubernetesRuntimeInstance.SecretsControllerInstanceID)
+		workloadInstance, err := client.GetWorkloadInstanceByID(
+			c.r.APIClient,
+			c.r.APIServer,
+			*c.kubernetesRuntimeInstance.SecretsControllerInstanceID,
+		)
 		if err != nil {
 			return fmt.Errorf("failed to get secret controller workload instance: %w", err)
 		}
@@ -268,7 +304,11 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 		return nil
 	}
 
-	resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(c.r.APIClient, c.r.APIServer, c.kubernetesRuntimeInstance.ID)
+	resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(
+		c.r.APIClient,
+		c.r.APIServer,
+		c.kubernetesRuntimeInstance.ID,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 	}
