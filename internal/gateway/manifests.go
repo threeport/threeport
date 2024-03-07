@@ -13,22 +13,6 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// createSupportServicesCollection creates a support services collection.
-func createSupportServicesCollection() (string, error) {
-	var supportServicesCollection = map[string]interface{}{
-		"apiVersion": "orchestration.support-services.nukleros.io/v1alpha1",
-		"kind":       "SupportServices",
-		"metadata": map[string]interface{}{
-			"name": "supportservices",
-		},
-		"spec": map[string]interface{}{
-			"tier": "development",
-		},
-	}
-
-	return util.MapStringInterfaceToString(supportServicesCollection)
-}
-
 // createGlooEdge creates a gloo edge custom resource.
 func createGlooEdge() (string, error) {
 
