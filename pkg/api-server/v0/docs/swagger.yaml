@@ -1740,29 +1740,22 @@ definitions:
     type: object
   v0.ObjectType:
     enum:
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - AwsObjectStorageBucketDefinition
-    - AwsObjectStorageBucketInstance
-    - SecretDefinition
-    - SecretInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
+    - GatewayDefinition
+    - GatewayInstance
+    - GatewayHttpPort
+    - GatewayTcpPort
+    - DomainNameDefinition
+    - DomainNameInstance
     - AttachedObjectReference
-    - Profile
-    - Tier
-    - TerraformDefinition
-    - TerraformInstance
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
     - KubernetesRuntimeDefinition
     - KubernetesRuntimeInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
+    - TerraformDefinition
+    - TerraformInstance
+    - Profile
+    - Tier
+    - HelmWorkloadDefinition
+    - HelmWorkloadInstance
+    - AttachedObjectReference
     - ObservabilityStackDefinition
     - ObservabilityStackInstance
     - ObservabilityDashboardDefinition
@@ -1771,43 +1764,43 @@ definitions:
     - MetricsInstance
     - LoggingDefinition
     - LoggingInstance
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - AttachedObjectReference
+    - LogBackend
+    - LogStorageDefinition
+    - LogStorageInstance
+    - SecretDefinition
+    - SecretInstance
     - WorkloadDefinition
     - WorkloadResourceDefinition
     - WorkloadInstance
     - WorkloadResourceInstance
     - WorkloadEvent
+    - AwsAccount
+    - AwsEksKubernetesRuntimeDefinition
+    - AwsEksKubernetesRuntimeInstance
+    - AwsRelationalDatabaseDefinition
+    - AwsRelationalDatabaseInstance
+    - AwsObjectStorageBucketDefinition
+    - AwsObjectStorageBucketInstance
+    - ControlPlaneDefinition
+    - ControlPlaneInstance
     type: string
     x-enum-varnames:
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeAwsObjectStorageBucketDefinition
-    - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeSecretDefinition
-    - ObjectTypeSecretInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
+    - ObjectTypeGatewayDefinition
+    - ObjectTypeGatewayInstance
+    - ObjectTypeGatewayHttpPort
+    - ObjectTypeGatewayTcpPort
+    - ObjectTypeDomainNameDefinition
+    - ObjectTypeDomainNameInstance
     - ObjectTypeAttachedObjectReference
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeTerraformDefinition
-    - ObjectTypeTerraformInstance
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
     - ObjectTypeKubernetesRuntimeDefinition
     - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
+    - ObjectTypeTerraformDefinition
+    - ObjectTypeTerraformInstance
+    - ObjectTypeProfile
+    - ObjectTypeTier
+    - ObjectTypeHelmWorkloadDefinition
+    - ObjectTypeHelmWorkloadInstance
+    - ObjectTypeAttachedObjectReference
     - ObjectTypeObservabilityStackDefinition
     - ObjectTypeObservabilityStackInstance
     - ObjectTypeObservabilityDashboardDefinition
@@ -1816,18 +1809,25 @@ definitions:
     - ObjectTypeMetricsInstance
     - ObjectTypeLoggingDefinition
     - ObjectTypeLoggingInstance
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeAttachedObjectReference
+    - ObjectTypeLogBackend
+    - ObjectTypeLogStorageDefinition
+    - ObjectTypeLogStorageInstance
+    - ObjectTypeSecretDefinition
+    - ObjectTypeSecretInstance
     - ObjectTypeWorkloadDefinition
     - ObjectTypeWorkloadResourceDefinition
     - ObjectTypeWorkloadInstance
     - ObjectTypeWorkloadResourceInstance
     - ObjectTypeWorkloadEvent
+    - ObjectTypeAwsAccount
+    - ObjectTypeAwsEksKubernetesRuntimeDefinition
+    - ObjectTypeAwsEksKubernetesRuntimeInstance
+    - ObjectTypeAwsRelationalDatabaseDefinition
+    - ObjectTypeAwsRelationalDatabaseInstance
+    - ObjectTypeAwsObjectStorageBucketDefinition
+    - ObjectTypeAwsObjectStorageBucketInstance
+    - ObjectTypeControlPlaneDefinition
+    - ObjectTypeControlPlaneInstance
   v0.ObservabilityDashboardDefinition:
     properties:
       CreationAcknowledged:
