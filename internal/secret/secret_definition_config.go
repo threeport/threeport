@@ -42,6 +42,21 @@ func (c *SecretDefinitionConfig) PushSecret() error {
 	return nil
 }
 
+// DeleteSecret pushes a secret to a secret store.
+func (c *SecretDefinitionConfig) DeleteSecret() error {
+
+	// push secret to secret store based
+	// on the secret definition's provider
+	switch {
+	case c.secretDefinition.AwsAccountID != nil:
+		if err := c.DeleteSecretFromAwsSecretsManager(); err != nil {
+			return fmt.Errorf("failed to delete secret from AWS Secrets Manager: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // PushSecretToAwsSecretsManager pushes a secret to AWS Secrets Manager.
 func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 
@@ -93,16 +108,18 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 
 	// create secrets
 	// get existing secrets
-	batchGetSecretValueOutput, err := awssmClient.BatchGetSecretValue(context.Background(), &secretsmanager.BatchGetSecretValueInput{
-		Filters: []types.Filter{
-			{
-				Key: types.FilterNameStringTypeName,
-				Values: []string{
-					*c.secretDefinition.Name,
+	batchGetSecretValueOutput, err := awssmClient.BatchGetSecretValue(
+		context.Background(),
+		&secretsmanager.BatchGetSecretValueInput{
+			Filters: []types.Filter{
+				{
+					Key: types.FilterNameStringTypeName,
+					Values: []string{
+						*c.secretDefinition.Name,
+					},
 				},
 			},
-		},
-	})
+		})
 	if err != nil {
 		return fmt.Errorf("failed to batch get secret value: %w", err)
 	}
@@ -201,6 +218,71 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	// if err := secretsManager.PushSecret(context.Background(), fakeSecret, psd); err != nil {
 	// 	return err
 	// }
+
+	return nil
+}
+
+// DeleteSecretFromAwsSecretsManager deletes a secret from AWS Secrets Manager.
+func (c *SecretDefinitionConfig) DeleteSecretFromAwsSecretsManager() error {
+
+	// configure aws session
+	awsAccount, err := client.GetAwsAccountByID(
+		c.r.APIClient,
+		c.r.APIServer,
+		*c.secretDefinition.AwsAccountID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
+	}
+
+	// get aws config
+	awsConfig, err := kube.GetAwsConfigFromAwsAccount(c.r.EncryptionKey, *awsAccount.DefaultRegion, awsAccount)
+	if err != nil {
+		return fmt.Errorf("failed to get AWS config from AWS account: %w", err)
+	}
+
+	// Create a Secrets Manager awssmClient
+	awssmClient := secretsmanager.NewFromConfig(*awsConfig)
+
+	// get existing secrets
+	batchGetSecretValueOutput, err := awssmClient.BatchGetSecretValue(
+		context.Background(),
+		&secretsmanager.BatchGetSecretValueInput{
+			Filters: []types.Filter{
+				{
+					Key: types.FilterNameStringTypeName,
+					Values: []string{
+						*c.secretDefinition.Name,
+					},
+				},
+			},
+		})
+	if err != nil {
+		return fmt.Errorf("failed to batch get secret value: %w", err)
+	}
+
+	// ensure secret does not already exist
+	var id *string
+	for _, secret := range batchGetSecretValueOutput.SecretValues {
+		if secret.Name == c.secretDefinition.Name {
+			id = secret.ARN
+			break
+		}
+	}
+	if id == nil {
+		return fmt.Errorf("secret does not exist")
+	}
+
+	// Create input for the CreateSecret operation
+	input := &secretsmanager.DeleteSecretInput{
+		SecretId: id,
+	}
+
+	// Call the CreateSecret operation
+	_, err = awssmClient.DeleteSecret(context.Background(), input)
+	if err != nil {
+		return fmt.Errorf("failed to create secret: %w", err)
+	}
 
 	return nil
 }

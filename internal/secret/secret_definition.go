@@ -48,5 +48,16 @@ func secretDefinitionDeleted(
 	secretDefinition *v0.SecretDefinition,
 	log *logr.Logger,
 ) (int64, error) {
+	// configure secret definition config
+	secretDefinitionConfig := &SecretDefinitionConfig{
+		r:                r,
+		secretDefinition: secretDefinition,
+		log:              log,
+	}
+
+	// push secret
+	if err := secretDefinitionConfig.DeleteSecret(); err != nil {
+		return 0, fmt.Errorf("failed to delete secret: %w", err)
+	}
 	return 0, nil
 }
