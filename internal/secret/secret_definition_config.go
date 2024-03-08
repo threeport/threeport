@@ -45,7 +45,7 @@ func (c *SecretDefinitionConfig) PushSecret() error {
 // DeleteSecret pushes a secret to a secret store.
 func (c *SecretDefinitionConfig) DeleteSecret() error {
 
-	// push secret to secret store based
+	// delete secret from secret store based
 	// on the secret definition's provider
 	switch {
 	case c.secretDefinition.AwsAccountID != nil:
