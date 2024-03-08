@@ -984,7 +984,7 @@ func configureIssuer(
 	// get infra provider region
 	provider, err := runtime.GetCloudProviderForInfraProvider(*kubernetesRuntimeDefinition.InfraProvider)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get provider: %w", *kubernetesRuntimeDefinition.InfraProvider, err)
+		return nil, fmt.Errorf("failed to get cloud provider for infra provider: %w", err)
 	}
 	infraProviderRegion, err := mapping.GetProviderRegionForLocation(provider, *kubernetesRuntimeInstance.Location)
 	if err != nil {
