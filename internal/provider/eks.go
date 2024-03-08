@@ -791,7 +791,8 @@ const (
 					"secretsmanager:BatchGetSecretValue",
 					"secretsmanager:ListSecrets",
 					"secretsmanager:CreateSecret",
-					"secretsmanager:DeleteSecret"
+					"secretsmanager:DeleteSecret",
+					"secretsmanager:GetSecretValue"
 				],
 				"Resource": "*"
 			},
