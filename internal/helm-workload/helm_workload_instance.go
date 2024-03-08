@@ -61,7 +61,7 @@ func helmWorkloadInstanceCreated(
 	}
 
 	// configure chart repository
-	helmRepoName := fmt.Sprintf("%s-repo", *helmWorkloadInstance.ID)
+	helmRepoName := fmt.Sprintf("%d-repo", *helmWorkloadInstance.ID)
 	if err = configureChartRepository(
 		*helmWorkloadInstance.ID,
 		helmRepoName,
@@ -218,7 +218,7 @@ func helmWorkloadInstanceUpdated(
 	}
 
 	// configure chart repository
-	helmRepoName := fmt.Sprintf("%s-repo", *helmWorkloadInstance.ID)
+	helmRepoName := fmt.Sprintf("%d-repo", *helmWorkloadInstance.ID)
 	if err = configureChartRepository(
 		*helmWorkloadInstance.ID,
 		helmRepoName,
