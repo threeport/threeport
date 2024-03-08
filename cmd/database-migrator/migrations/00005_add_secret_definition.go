@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	goose.AddMigrationNoTxContext(Up00002, Down00002)
+	goose.AddMigrationNoTxContext(Up00005, Down00005)
 }
 
 func getSecretInterfaces() []interface{} {
