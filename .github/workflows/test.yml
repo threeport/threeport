@@ -143,6 +143,21 @@ jobs:
         dockerfile: cmd/helm-workload-controller/image/Dockerfile
         image_tag: ${{ github.sha }}
 
+  build-secret-controller:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Build secret-controller
+      uses: macbre/push-to-ghcr@master
+      with:
+        image_name: threeport/threeport-secret-controller
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        dockerfile: cmd/secret-controller/image/Dockerfile
+        image_tag: ${{ github.sha }}
+
   build-threeport-agent:
     runs-on: ubuntu-22.04
     steps:
@@ -169,6 +184,7 @@ jobs:
       - build-observability-controller
       - build-control-plane-controller
       - build-helm-workload-controller
+      - build-secret-controller
       - build-threeport-agent
     runs-on: ubuntu-22.04
     steps:
