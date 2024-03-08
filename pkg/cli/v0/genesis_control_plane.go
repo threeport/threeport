@@ -190,7 +190,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 	// emit warning if auth is disabled
 	if !cpi.Opts.AuthEnabled {
-		Warning("Auth is disabled. This is not recommended for production environments.")
+		Warning("Auth and HTTPS are disabled. Commands will be sent over HTTP. Use the --auth-enabled=true flag to enable auth and HTTPS.")
 	}
 
 	// configure uninstaller
