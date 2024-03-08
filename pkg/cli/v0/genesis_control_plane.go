@@ -356,6 +356,10 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				awsConfigUser,
 			)
 			if err != nil {
+				deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, awsConfigUser)
+				if deleteErr != nil {
+					return fmt.Errorf("failed to create runtime manager role: %w, failed to delete IAM resources: %w", err, deleteErr)
+				}
 				return fmt.Errorf("failed to create runtime manager role: %w", err)
 			}
 		}
