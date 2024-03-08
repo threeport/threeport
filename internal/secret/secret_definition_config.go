@@ -264,7 +264,7 @@ func (c *SecretDefinitionConfig) DeleteSecretFromAwsSecretsManager() error {
 	// ensure secret does not already exist
 	var id *string
 	for _, secret := range batchGetSecretValueOutput.SecretValues {
-		if secret.Name == c.secretDefinition.Name {
+		if *secret.Name == *c.secretDefinition.Name {
 			id = secret.ARN
 			break
 		}
