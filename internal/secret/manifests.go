@@ -16,22 +16,22 @@ func (c *SecretInstanceConfig) getExternalSecret() *unstructured.Unstructured {
 			"apiVersion": "external-secrets.io/v1beta1",
 			"kind":       "ExternalSecret",
 			"metadata": map[string]interface{}{
-				"name": c.secretInstance.Name,
+				"name": *c.secretInstance.Name,
 			},
 			"spec": map[string]interface{}{
 				"refreshInterval": "1h",
 				"secretStoreRef": map[string]interface{}{
-					"name": c.secretInstance.Name,
+					"name": *c.secretInstance.Name,
 					"kind": "SecretStore",
 				},
 				"target": map[string]interface{}{
-					"name":           c.secretInstance.Name,
+					"name":           *c.secretInstance.Name,
 					"creationPolicy": "Owner",
 				},
 				"dataFrom": []interface{}{
 					map[string]interface{}{
 						"extract": map[string]interface{}{
-							"key": c.secretDefinition.Name,
+							"key": *c.secretDefinition.Name,
 						},
 					},
 				},
@@ -55,7 +55,7 @@ func (c *SecretInstanceConfig) getSecretStore() (*unstructured.Unstructured, err
 			"apiVersion": "external-secrets.io/v1beta1",
 			"kind":       "SecretStore",
 			"metadata": map[string]interface{}{
-				"name": c.secretInstance.Name,
+				"name": *c.secretInstance.Name,
 			},
 			"spec": map[string]interface{}{
 				"provider": map[string]interface{}{

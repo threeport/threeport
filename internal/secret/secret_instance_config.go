@@ -72,18 +72,18 @@ func (c *SecretInstanceConfig) createAttachedObjectReference() error {
 // deleteAttachedObjectReference deletes an attached object reference
 // for the secret instance.
 func (c *SecretInstanceConfig) deleteAttachedObjectReference() error {
-	attachedObjectReference, err := client.GetAttachedObjectReferenceByObjectID(
+	attachedObjectReference, err := client.GetAttachedObjectReferenceByAttachedObjectID(
 		c.r.APIClient,
 		c.r.APIServer,
-		*c.workloadInstance.ID,
+		*c.secretInstance.ID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
+		return fmt.Errorf("failed to get attached object references by attached object id: %w", err)
 	}
 	if _, err := client.DeleteAttachedObjectReference(
 		c.r.APIClient,
 		c.r.APIServer,
-		*attachedObjectReference.ObjectID,
+		*attachedObjectReference.ID,
 	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete attached object reference: %w", err)
 	}
@@ -214,9 +214,10 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 		for _, secretObject := range secretObjects {
 
 			// get workload resource instance for secret object
-			workloadResourceInstance, err := workloadutil.GetUniqueWorkloadResourceInstance(
+			workloadResourceInstance, err := workloadutil.GetUniqueWorkloadResourceInstanceByName(
 				workloadResourceInstances,
 				secretObject.GetKind(),
+				secretObject.GetName(),
 			)
 			if err != nil {
 				return fmt.Errorf("failed to get workload resource instance: %w", err)
@@ -226,7 +227,7 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			workloadResourceInstance = &v0.WorkloadResourceInstance{
 				Common:               v0.Common{ID: workloadResourceInstance.ID},
 				ScheduledForDeletion: util.TimePtr(time.Now().UTC()),
-				Reconciled:           util.BoolPtr(true),
+				Reconciled:           util.BoolPtr(false),
 			}
 			_, err = client.UpdateWorkloadResourceInstance(
 				c.r.APIClient,
