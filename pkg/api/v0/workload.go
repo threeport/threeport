@@ -43,7 +43,7 @@ type WorkloadResourceDefinition struct {
 }
 
 // +threeport-sdk:reconciler
-// +threeport-sdk:tptctl
+// +threeport-sdk:tptctl:config-path
 // WorkloadInstance is a deployed instance of a workload.
 type WorkloadInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -65,6 +65,19 @@ type WorkloadInstance struct {
 	// All events generated for the workload instance that aren't related to a
 	// particular workload resource instance.
 	Events []*WorkloadEvent `json:"Events,omitempty" query:"events" validate:"optional"`
+
+	// The threeport objects that are deployed to support the workload instance.
+	AttachedObjectReferences []*AttachedObjectReference `json:"AttachedObjectReferences,omitempty" query:"attachedobjectreferences" validate:"optional,association"`
+}
+
+// AttachedObjectReference is a reference to an attached object.
+type AttachedObjectReference struct {
+	Common   `swaggerignore:"true" mapstructure:",squash"`
+	ObjectID *uint   `json:"ObjectID,omitempty" query:"objectid" gorm:"not null" validate:"optional"`
+	Type     *string `json:"Type,omitempty" query:"type" gorm:"not null" validate:"optional"`
+
+	// The workload definition this resource belongs to.
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 }
 
 // WorkloadResourceInstance is a Kubernetes resource instance.
