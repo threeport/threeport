@@ -10,6 +10,7 @@ import (
 
 	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -23,7 +24,7 @@ type SecretInstanceConfig struct {
 	secretInstance              *v0.SecretInstance
 	secretDefinition            *v0.SecretDefinition
 	log                         *logr.Logger
-	workloadInstance            *v0.WorkloadInstance
+	workloadInstance            *v1.WorkloadInstance
 	helmWorkloadInstance        *v0.HelmWorkloadInstance
 	kubernetesRuntimeInstance   *v0.KubernetesRuntimeInstance
 	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition
@@ -103,7 +104,7 @@ func (c *SecretInstanceConfig) createSecretObjects() error {
 
 	// update workload with secret manifests
 	switch c.workloadInstanceType {
-	case util.TypeName(v0.WorkloadInstance{}):
+	case util.TypeName(v1.WorkloadInstance{}):
 		// get workload instance
 		workloadInstance, err := client.GetWorkloadInstanceByID(
 			c.r.APIClient,
@@ -190,7 +191,7 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 
 	// update workload with secret manifests
 	switch c.workloadInstanceType {
-	case util.TypeName(v0.WorkloadInstance{}):
+	case util.TypeName(v1.WorkloadInstance{}):
 		// get workload instance
 		workloadInstance, err := client.GetWorkloadInstanceByID(
 			c.r.APIClient,
@@ -295,7 +296,7 @@ func getSecretInstanceWorkloadTypeAndId(secretInstance *v0.SecretInstance) (stri
 
 	switch {
 	case secretInstance.WorkloadInstanceID != nil:
-		workloadInstanceType = util.TypeName(v0.WorkloadInstance{})
+		workloadInstanceType = util.TypeName(v1.WorkloadInstance{})
 		workloadInstanceID = secretInstance.WorkloadInstanceID
 	case secretInstance.HelmWorkloadInstanceID != nil:
 		workloadInstanceType = util.TypeName(v0.HelmWorkloadInstance{})
@@ -350,9 +351,9 @@ func (c *SecretInstanceConfig) getThreeportObjects() error {
 
 	// update secret config with correct workload instance
 	switch c.workloadInstanceType {
-	case util.TypeName(v0.WorkloadInstance{}):
+	case util.TypeName(v1.WorkloadInstance{}):
 		// get workload instance
-		c.workloadInstance, err = client.GetWorkloadInstanceByID(
+		c.workloadInstance, err = client_v1.GetWorkloadInstanceByID(
 			c.r.APIClient,
 			c.r.APIServer,
 			*c.secretInstance.WorkloadInstanceID,
@@ -387,7 +388,7 @@ func (c *SecretInstanceConfig) validateThreeportState() error {
 
 	// validate workload is reconciled
 	switch c.workloadInstanceType {
-	case util.TypeName(v0.WorkloadInstance{}):
+	case util.TypeName(v1.WorkloadInstance{}):
 		if !*c.workloadInstance.Reconciled {
 			return errors.New("workload instance not reconciled")
 		}
@@ -459,10 +460,10 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 	}
 
 	// create secret controller workload instance
-	createdSecretControllerWorkloadInstance, err := client.CreateWorkloadInstance(
+	createdSecretControllerWorkloadInstance, err := client_v1.CreateWorkloadInstance(
 		c.r.APIClient,
 		c.r.APIServer,
-		&v0.WorkloadInstance{
+		&v1.WorkloadInstance{
 			Instance:                    v0.Instance{Name: &workloadDefName},
 			WorkloadDefinitionID:        createdSecretControllerWorkloadDefinition.ID,
 			KubernetesRuntimeInstanceID: c.kubernetesRuntimeInstance.ID,

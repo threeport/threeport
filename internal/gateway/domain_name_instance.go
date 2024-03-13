@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -27,7 +28,7 @@ func domainNameInstanceCreated(
 	err := client_v1.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
-		util.TypeName(v0.WorkloadInstance{}),
+		util.TypeName(v1.WorkloadInstance{}),
 		domainNameInstance.WorkloadInstanceID,
 		util.TypeName(*domainNameInstance),
 		domainNameInstance.ID,
@@ -236,12 +237,12 @@ func confirmDnsControllerDeployed(
 	}
 
 	// create external dns workload instance
-	externalDnsWorkloadInstance := v0.WorkloadInstance{
+	externalDnsWorkloadInstance := v1.WorkloadInstance{
 		Instance:                    v0.Instance{Name: &workloadDefName},
 		KubernetesRuntimeInstanceID: domainNameInstance.KubernetesRuntimeInstanceID,
 		WorkloadDefinitionID:        createdWorkloadDef.ID,
 	}
-	createdExternalDnsWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
+	createdExternalDnsWorkloadInstance, err := client_v1.CreateWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to create external dns controller workload instance: %w", err)
 	}

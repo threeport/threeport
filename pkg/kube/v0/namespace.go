@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -20,7 +21,7 @@ import (
 // to an array of workload resource instances.
 func SetNamespaces(
 	workloadResourceInstances *[]v0.WorkloadResourceInstance,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstance *v1.WorkloadInstance,
 	discoveryClient *discovery.DiscoveryClient,
 ) (*[]v0.WorkloadResourceInstance, error) {
 	// first check to see if any namespaces are included - if so assume

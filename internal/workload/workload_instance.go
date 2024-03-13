@@ -14,6 +14,7 @@ import (
 	"github.com/threeport/threeport/internal/agent"
 	agentapi "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -24,7 +25,7 @@ import (
 // has been created.
 func workloadInstanceCreated(
 	r *controller.Reconciler,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstance *v1.WorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	// ensure workload definition is reconciled before working on an instance
@@ -237,7 +238,7 @@ func workloadInstanceCreated(
 // has been updated
 func workloadInstanceUpdated(
 	r *controller.Reconciler,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstance *v1.WorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	// get kubernetes runtime instance info
@@ -378,7 +379,7 @@ func workloadInstanceUpdated(
 // has been deleted
 func workloadInstanceDeleted(
 	r *controller.Reconciler,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstance *v1.WorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	// check that deletion is scheduled - if not there's a problem
@@ -528,7 +529,7 @@ func workloadInstanceDeleted(
 // workload instance is reconciled.
 func confirmWorkloadDefReconciled(
 	r *controller.Reconciler,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstance *v1.WorkloadInstance,
 ) (bool, error) {
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
 		r.APIClient,

@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/pressly/goose/v3"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -41,13 +41,13 @@ func Up00006(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("failed to set attached_object_id to object_id: %w", err)
 	}
 
-	// map object_type -> 'v0.WorkloadInstance'
+	// map object_type -> 'v1.WorkloadInstance'
 	if _, err := db.Exec(
 		fmt.Sprintf(`UPDATE attached_object_references
 					 SET object_type = '%s';`,
-			util.TypeName(v0.WorkloadInstance{}),
+			util.TypeName(v1.WorkloadInstance{}),
 		)); err != nil {
-		return fmt.Errorf("failed to set object_type to 'v0.WorkloadInstance': %w", err)
+		return fmt.Errorf("failed to set object_type to 'v1.WorkloadInstance': %w", err)
 	}
 
 	// map workload_instance_id -> object_id
