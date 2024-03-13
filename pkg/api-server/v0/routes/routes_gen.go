@@ -10,7 +10,6 @@ import (
 func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	ProfileRoutes(e, h)
 	TierRoutes(e, h)
-	AttachedObjectReferenceRoutes(e, h)
 	AwsAccountRoutes(e, h)
 	AwsEksKubernetesRuntimeDefinitionRoutes(e, h)
 	AwsEksKubernetesRuntimeInstanceRoutes(e, h)
@@ -48,6 +47,7 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	WorkloadDefinitionRoutes(e, h)
 	WorkloadResourceDefinitionRoutes(e, h)
 	WorkloadInstanceRoutes(e, h)
+	AttachedObjectReferenceRoutes(e, h)
 	WorkloadResourceInstanceRoutes(e, h)
 	WorkloadEventRoutes(e, h)
 

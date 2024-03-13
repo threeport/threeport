@@ -115,7 +115,6 @@ func GetDbInterfaces() []interface{} {
 
 		&v0.Profile{},
 		&v0.Tier{},
-		&v0.AttachedObjectReference{},
 		&v0.AwsAccount{},
 		&v0.AwsEksKubernetesRuntimeDefinition{},
 		&v0.AwsEksKubernetesRuntimeInstance{},
@@ -156,6 +155,7 @@ func GetDbInterfaces() []interface{} {
 		&v0.WorkloadDefinition{},
 		&v0.WorkloadResourceDefinition{},
 		&v0.WorkloadInstance{},
+		&v0.AttachedObjectReference{},
 		&v0.WorkloadResourceInstance{},
 		&v0.WorkloadEvent{},
 	}

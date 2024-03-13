@@ -5,7 +5,6 @@ package versions
 func AddVersions() {
 	AddProfileVersions()
 	AddTierVersions()
-	AddAttachedObjectReferenceVersions()
 	AddAwsAccountVersions()
 	AddAwsEksKubernetesRuntimeDefinitionVersions()
 	AddAwsEksKubernetesRuntimeInstanceVersions()
@@ -43,6 +42,7 @@ func AddVersions() {
 	AddWorkloadDefinitionVersions()
 	AddWorkloadResourceDefinitionVersions()
 	AddWorkloadInstanceVersions()
+	AddAttachedObjectReferenceVersions()
 	AddWorkloadResourceInstanceVersions()
 	AddWorkloadEventVersions()
 

@@ -44,6 +44,18 @@ func WorkloadInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.DELETE(v0.PathWorkloadInstances+"/:id", h.DeleteWorkloadInstance)
 }
 
+// AttachedObjectReferenceRoutes sets up all routes for the AttachedObjectReference handlers.
+func AttachedObjectReferenceRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/attached-object-references/versions", h.GetAttachedObjectReferenceVersions)
+
+	e.POST(v0.PathAttachedObjectReferences, h.AddAttachedObjectReference)
+	e.GET(v0.PathAttachedObjectReferences, h.GetAttachedObjectReferences)
+	e.GET(v0.PathAttachedObjectReferences+"/:id", h.GetAttachedObjectReference)
+	e.PATCH(v0.PathAttachedObjectReferences+"/:id", h.UpdateAttachedObjectReference)
+	e.PUT(v0.PathAttachedObjectReferences+"/:id", h.ReplaceAttachedObjectReference)
+	e.DELETE(v0.PathAttachedObjectReferences+"/:id", h.DeleteAttachedObjectReference)
+}
+
 // WorkloadResourceInstanceRoutes sets up all routes for the WorkloadResourceInstance handlers.
 func WorkloadResourceInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.GET("/workload-resource-instances/versions", h.GetWorkloadResourceInstanceVersions)

@@ -12,6 +12,7 @@ const (
 	ObjectTypeWorkloadDefinition         ObjectType = "WorkloadDefinition"
 	ObjectTypeWorkloadResourceDefinition ObjectType = "WorkloadResourceDefinition"
 	ObjectTypeWorkloadInstance           ObjectType = "WorkloadInstance"
+	ObjectTypeAttachedObjectReference    ObjectType = "AttachedObjectReference"
 	ObjectTypeWorkloadResourceInstance   ObjectType = "WorkloadResourceInstance"
 	ObjectTypeWorkloadEvent              ObjectType = "WorkloadEvent"
 
@@ -32,6 +33,11 @@ const (
 	WorkloadInstanceUpdateSubject = "workloadInstance.update"
 	WorkloadInstanceDeleteSubject = "workloadInstance.delete"
 
+	AttachedObjectReferenceSubject       = "attachedObjectReference.*"
+	AttachedObjectReferenceCreateSubject = "attachedObjectReference.create"
+	AttachedObjectReferenceUpdateSubject = "attachedObjectReference.update"
+	AttachedObjectReferenceDeleteSubject = "attachedObjectReference.delete"
+
 	WorkloadResourceInstanceSubject       = "workloadResourceInstance.*"
 	WorkloadResourceInstanceCreateSubject = "workloadResourceInstance.create"
 	WorkloadResourceInstanceUpdateSubject = "workloadResourceInstance.update"
@@ -45,6 +51,7 @@ const (
 	PathWorkloadDefinitions         = "/v0/workload-definitions"
 	PathWorkloadResourceDefinitions = "/v0/workload-resource-definitions"
 	PathWorkloadInstances           = "/v0/workload-instances"
+	PathAttachedObjectReferences    = "/v0/attached-object-references"
 	PathWorkloadResourceInstances   = "/v0/workload-resource-instances"
 	PathWorkloadEvents              = "/v0/workload-events"
 )
@@ -79,6 +86,16 @@ func GetWorkloadInstanceSubjects() []string {
 	}
 }
 
+// GetAttachedObjectReferenceSubjects returns the NATS subjects
+// for attached object references.
+func GetAttachedObjectReferenceSubjects() []string {
+	return []string{
+		AttachedObjectReferenceCreateSubject,
+		AttachedObjectReferenceUpdateSubject,
+		AttachedObjectReferenceDeleteSubject,
+	}
+}
+
 // GetWorkloadResourceInstanceSubjects returns the NATS subjects
 // for workload resource instances.
 func GetWorkloadResourceInstanceSubjects() []string {
@@ -107,6 +124,7 @@ func GetWorkloadSubjects() []string {
 	workloadSubjects = append(workloadSubjects, GetWorkloadDefinitionSubjects()...)
 	workloadSubjects = append(workloadSubjects, GetWorkloadResourceDefinitionSubjects()...)
 	workloadSubjects = append(workloadSubjects, GetWorkloadInstanceSubjects()...)
+	workloadSubjects = append(workloadSubjects, GetAttachedObjectReferenceSubjects()...)
 	workloadSubjects = append(workloadSubjects, GetWorkloadResourceInstanceSubjects()...)
 	workloadSubjects = append(workloadSubjects, GetWorkloadEventSubjects()...)
 
@@ -255,6 +273,54 @@ func (wi *WorkloadInstance) GetID() uint {
 // String returns a string representation of the ojbect.
 func (wi WorkloadInstance) String() string {
 	return fmt.Sprintf("v0.WorkloadInstance")
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (aor *AttachedObjectReference) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime: &creationTime,
+		Object:       aor,
+		Operation:    operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", aor, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (aor *AttachedObjectReference) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &aor); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetID returns the unique ID for the object.
+func (aor *AttachedObjectReference) GetID() uint {
+	return *aor.ID
+}
+
+// String returns a string representation of the ojbect.
+func (aor AttachedObjectReference) String() string {
+	return fmt.Sprintf("v0.AttachedObjectReference")
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
