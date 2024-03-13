@@ -38,7 +38,7 @@ func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
 // @Failure 500 {object} v1.Response "Internal Server Error"
 // @Router /v1/attached-object-references [POST]
 func (h Handler) AddAttachedObjectReference(c echo.Context) error {
-	objectType := v1.ObjectTypeAttachedObjectReference
+	objectType := v0.ObjectTypeAttachedObjectReference
 	var attachedObjectReference v1.AttachedObjectReference
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.

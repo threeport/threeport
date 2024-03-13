@@ -19,27 +19,3 @@ func WorkloadInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.PUT(v1.PathWorkloadInstances+"/:id", h.ReplaceWorkloadInstance)
 	e.DELETE(v1.PathWorkloadInstances+"/:id", h.DeleteWorkloadInstance)
 }
-
-// WorkloadResourceInstanceRoutes sets up all routes for the WorkloadResourceInstance handlers.
-func WorkloadResourceInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload-resource-instances/versions", h.GetWorkloadResourceInstanceVersions)
-
-	e.POST(v1.PathWorkloadResourceInstances, h.AddWorkloadResourceInstance)
-	e.GET(v1.PathWorkloadResourceInstances, h.GetWorkloadResourceInstances)
-	e.GET(v1.PathWorkloadResourceInstances+"/:id", h.GetWorkloadResourceInstance)
-	e.PATCH(v1.PathWorkloadResourceInstances+"/:id", h.UpdateWorkloadResourceInstance)
-	e.PUT(v1.PathWorkloadResourceInstances+"/:id", h.ReplaceWorkloadResourceInstance)
-	e.DELETE(v1.PathWorkloadResourceInstances+"/:id", h.DeleteWorkloadResourceInstance)
-}
-
-// WorkloadEventRoutes sets up all routes for the WorkloadEvent handlers.
-func WorkloadEventRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload-events/versions", h.GetWorkloadEventVersions)
-
-	e.POST(v1.PathWorkloadEvents, h.AddWorkloadEvent)
-	e.GET(v1.PathWorkloadEvents, h.GetWorkloadEvents)
-	e.GET(v1.PathWorkloadEvents+"/:id", h.GetWorkloadEvent)
-	e.PATCH(v1.PathWorkloadEvents+"/:id", h.UpdateWorkloadEvent)
-	e.PUT(v1.PathWorkloadEvents+"/:id", h.ReplaceWorkloadEvent)
-	e.DELETE(v1.PathWorkloadEvents+"/:id", h.DeleteWorkloadEvent)
-}

@@ -9,9 +9,7 @@ import (
 )
 
 const (
-	ObjectTypeWorkloadInstance         string = "WorkloadInstance"
-	ObjectTypeWorkloadResourceInstance string = "WorkloadResourceInstance"
-	ObjectTypeWorkloadEvent            string = "WorkloadEvent"
+	ObjectTypeWorkloadInstance string = "WorkloadInstance"
 
 	WorkloadStreamName = "workloadStream"
 
@@ -20,19 +18,7 @@ const (
 	WorkloadInstanceUpdateSubject = "workloadInstance.update"
 	WorkloadInstanceDeleteSubject = "workloadInstance.delete"
 
-	WorkloadResourceInstanceSubject       = "workloadResourceInstance.*"
-	WorkloadResourceInstanceCreateSubject = "workloadResourceInstance.create"
-	WorkloadResourceInstanceUpdateSubject = "workloadResourceInstance.update"
-	WorkloadResourceInstanceDeleteSubject = "workloadResourceInstance.delete"
-
-	WorkloadEventSubject       = "workloadEvent.*"
-	WorkloadEventCreateSubject = "workloadEvent.create"
-	WorkloadEventUpdateSubject = "workloadEvent.update"
-	WorkloadEventDeleteSubject = "workloadEvent.delete"
-
-	PathWorkloadInstances         = "/v1/workload-instances"
-	PathWorkloadResourceInstances = "/v1/workload-resource-instances"
-	PathWorkloadEvents            = "/v1/workload-events"
+	PathWorkloadInstances = "/v1/workload-instances"
 )
 
 // GetWorkloadInstanceSubjects returns the NATS subjects
@@ -45,34 +31,12 @@ func GetWorkloadInstanceSubjects() []string {
 	}
 }
 
-// GetWorkloadResourceInstanceSubjects returns the NATS subjects
-// for workload resource instances.
-func GetWorkloadResourceInstanceSubjects() []string {
-	return []string{
-		WorkloadResourceInstanceCreateSubject,
-		WorkloadResourceInstanceUpdateSubject,
-		WorkloadResourceInstanceDeleteSubject,
-	}
-}
-
-// GetWorkloadEventSubjects returns the NATS subjects
-// for workload events.
-func GetWorkloadEventSubjects() []string {
-	return []string{
-		WorkloadEventCreateSubject,
-		WorkloadEventUpdateSubject,
-		WorkloadEventDeleteSubject,
-	}
-}
-
 // GetWorkloadSubjects returns the NATS subjects
 // for all workload objects.
 func GetWorkloadSubjects() []string {
 	var workloadSubjects []string
 
 	workloadSubjects = append(workloadSubjects, GetWorkloadInstanceSubjects()...)
-	workloadSubjects = append(workloadSubjects, GetWorkloadResourceInstanceSubjects()...)
-	workloadSubjects = append(workloadSubjects, GetWorkloadEventSubjects()...)
 
 	return workloadSubjects
 }
@@ -123,100 +87,4 @@ func (wi *WorkloadInstance) GetID() uint {
 // String returns a string representation of the ojbect.
 func (wi WorkloadInstance) String() string {
 	return fmt.Sprintf("v1.WorkloadInstance")
-}
-
-// NotificationPayload returns the notification payload that is delivered to the
-// controller when a change is made.  It includes the object as presented by the
-// client when the change was made.
-func (wri *WorkloadResourceInstance) NotificationPayload(
-	operation notifications.NotificationOperation,
-	requeue bool,
-	creationTime int64,
-) (*[]byte, error) {
-	notif := notifications.Notification{
-		CreationTime: &creationTime,
-		Object:       wri,
-		Operation:    operation,
-	}
-
-	payload, err := json.Marshal(notif)
-	if err != nil {
-		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", wri, err)
-	}
-
-	return &payload, nil
-}
-
-// DecodeNotifObject takes the threeport object in the form of a
-// map[string]interface and returns the typed object by marshalling into JSON
-// and then unmarshalling into the typed object.  We are not using the
-// mapstructure library here as that requires custom decode hooks to manage
-// fields with non-native go types.
-func (wri *WorkloadResourceInstance) DecodeNotifObject(object interface{}) error {
-	jsonObject, err := json.Marshal(object)
-	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
-	}
-	if err := json.Unmarshal(jsonObject, &wri); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
-	}
-	return nil
-}
-
-// GetID returns the unique ID for the object.
-func (wri *WorkloadResourceInstance) GetID() uint {
-	return *wri.ID
-}
-
-// String returns a string representation of the ojbect.
-func (wri WorkloadResourceInstance) String() string {
-	return fmt.Sprintf("v1.WorkloadResourceInstance")
-}
-
-// NotificationPayload returns the notification payload that is delivered to the
-// controller when a change is made.  It includes the object as presented by the
-// client when the change was made.
-func (we *WorkloadEvent) NotificationPayload(
-	operation notifications.NotificationOperation,
-	requeue bool,
-	creationTime int64,
-) (*[]byte, error) {
-	notif := notifications.Notification{
-		CreationTime: &creationTime,
-		Object:       we,
-		Operation:    operation,
-	}
-
-	payload, err := json.Marshal(notif)
-	if err != nil {
-		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", we, err)
-	}
-
-	return &payload, nil
-}
-
-// DecodeNotifObject takes the threeport object in the form of a
-// map[string]interface and returns the typed object by marshalling into JSON
-// and then unmarshalling into the typed object.  We are not using the
-// mapstructure library here as that requires custom decode hooks to manage
-// fields with non-native go types.
-func (we *WorkloadEvent) DecodeNotifObject(object interface{}) error {
-	jsonObject, err := json.Marshal(object)
-	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
-	}
-	if err := json.Unmarshal(jsonObject, &we); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
-	}
-	return nil
-}
-
-// GetID returns the unique ID for the object.
-func (we *WorkloadEvent) GetID() uint {
-	return *we.ID
-}
-
-// String returns a string representation of the ojbect.
-func (we WorkloadEvent) String() string {
-	return fmt.Sprintf("v1.WorkloadEvent")
 }

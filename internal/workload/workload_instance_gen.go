@@ -201,7 +201,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 				deletionTimestamp := util.TimePtr(time.Now().UTC())
-				deletedWorkloadInstance := v0.WorkloadInstance{
+				deletedWorkloadInstance := v1.WorkloadInstance{
 					Common: v0.Common{ID: workloadInstance.ID},
 					Reconciliation: v0.Reconciliation{
 						DeletionAcknowledged: deletionTimestamp,
@@ -214,7 +214,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					r.UnlockAndRequeue(&workloadInstance, requeueDelay, lockReleased, msg)
 					continue
 				}
-				_, err = client.UpdateWorkloadInstance(
+				_, err = client_v1.UpdateWorkloadInstance(
 					r.APIClient,
 					r.APIServer,
 					&deletedWorkloadInstance,
@@ -251,7 +251,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				reconciledWorkloadInstance := v0.WorkloadInstance{
+				reconciledWorkloadInstance := v1.WorkloadInstance{
 					Common:         v0.Common{ID: workloadInstance.ID},
 					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}

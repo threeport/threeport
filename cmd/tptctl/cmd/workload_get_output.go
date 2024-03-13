@@ -11,6 +11,7 @@ import (
 	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -18,7 +19,7 @@ import (
 // outputGetWorkloadsCmd produces the tabular output for the
 // 'tptctl get workloads' command.
 func outputGetWorkloadsCmd(
-	workloadInstances *[]v0.WorkloadInstance,
+	workloadInstances *[]v1.WorkloadInstance,
 	apiClient *http.Client,
 	apiEndpoint string,
 ) error {
@@ -132,7 +133,7 @@ func outputGetWorkloadDefinitionsCmd(
 // outputGetWorkloadInstancesCmd produces the tabular output for the
 // 'tptctl get workload-instances' command.
 func outputGetWorkloadInstancesCmd(
-	workloadInstances *[]v0.WorkloadInstance,
+	workloadInstances *[]v1.WorkloadInstance,
 	apiClient *http.Client,
 	apiEndpoint string,
 ) error {

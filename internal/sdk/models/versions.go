@@ -64,7 +64,7 @@ func (cc *ControllerConfig) ModelVersions() error {
 				"reflect",
 				"ValueOf",
 			).Call(Id("new").Call(Qual(
-				"github.com/threeport/threeport/pkg/api/v0",
+				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetObjectVersion(mc.TypeName)),
 				mc.TypeName,
 			))).Op(",").Line().Lit("").Op(",").Line().Qual(
 				"github.com/threeport/threeport/pkg/api-server/v0",

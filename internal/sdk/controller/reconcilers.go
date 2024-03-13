@@ -8,21 +8,13 @@ import (
 	"github.com/dave/jennifer/jen"
 	. "github.com/dave/jennifer/jen"
 	"github.com/iancoleman/strcase"
+	"github.com/threeport/threeport/internal/sdk"
 )
 
 // controllerInternalPackagePath returns the path from the models to the
 // controller's internal package where reconciler functions live.
 func controllerInternalPackagePath(packageName string) string {
 	return filepath.Join("..", "..", "..", "internal", packageName)
-}
-
-func getObjectVersion(obj string) string {
-	switch obj {
-	case "WorkloadInstance":
-		return "v1"
-	default:
-		return "v0"
-	}
 }
 
 // Reconcilers generates the source code for a controller's reconcile functions.
@@ -121,7 +113,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 
 						g.Comment("decode the object that was sent in the notification")
 						g.Var().Id(strcase.ToLowerCamel(obj)).Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", getObjectVersion(obj)),
+							fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetObjectVersion(obj)),
 							obj,
 						)
 						g.If(Id("err").Op(":=").Id(strcase.ToLowerCamel(obj)).Dot("DecodeNotifObject").Call(
@@ -353,7 +345,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									"deleted%s",
 									obj,
 								)).Op(":=").Qual(
-									"github.com/threeport/threeport/pkg/api/v0",
+									fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetObjectVersion(obj)),
 									obj,
 								).Values(Dict{
 									Id("Common"): Qual(
@@ -381,7 +373,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 								),
 
 								Id("_").Op(",").Id("err").Op("=").Qual(
-									"github.com/threeport/threeport/pkg/client/v0",
+									fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetObjectVersion(obj)),
 									fmt.Sprintf("Update%s", obj),
 								).Call(
 									Line().Id("r").Dot("APIClient"),
@@ -447,7 +439,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 								"reconciled%s",
 								obj,
 							)).Op(":=").Qual(
-								"github.com/threeport/threeport/pkg/api/v0",
+								fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetObjectVersion(obj)),
 								obj,
 							).Values(Dict{
 								Id("Common"): Qual(
@@ -1101,7 +1093,7 @@ func (cc *ControllerConfig) GetLatestObject(g *jen.Group, obj string) {
 		"latest%s",
 		obj,
 	)).Op(",").Id("err").Op(":=").Qual(
-		fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", getObjectVersion(obj)),
+		fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetObjectVersion(obj)),
 		fmt.Sprintf("Get%sByID", obj),
 	).Call(
 		Line().Id("r").Dot("APIClient"),
