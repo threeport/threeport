@@ -459,7 +459,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 								"updated%s",
 								obj,
 							)).Op(",").Id("err").Op(":=").Qual(
-								"github.com/threeport/threeport/pkg/client/v0",
+								fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetObjectVersion(obj)),
 								fmt.Sprintf("Update%s", obj),
 							).Call(
 								Line().Id("r").Dot("APIClient"),

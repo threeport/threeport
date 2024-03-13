@@ -6,6 +6,7 @@ import (
 	api "github.com/threeport/threeport/pkg/api"
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	"reflect"
 )
 
@@ -22,7 +23,7 @@ func AddAttachedObjectReferenceVersions() {
 	// parse struct and populate the FieldsByTag object
 	iapi.ParseStruct(
 		iapi.TagNameValidate,
-		reflect.ValueOf(new(v0.AttachedObjectReference)),
+		reflect.ValueOf(new(v1.AttachedObjectReference)),
 		"",
 		iapi.Translate,
 		iapi.AttachedObjectReferenceTaggedFields,

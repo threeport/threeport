@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -21,7 +20,7 @@ import (
 // to an array of workload resource instances.
 func SetNamespaces(
 	workloadResourceInstances *[]v0.WorkloadResourceInstance,
-	workloadInstance *v1.WorkloadInstance,
+	workloadInstance *v0.WorkloadInstance,
 	discoveryClient *discovery.DiscoveryClient,
 ) (*[]v0.WorkloadResourceInstance, error) {
 	// first check to see if any namespaces are included - if so assume
@@ -53,7 +52,7 @@ func SetNamespaces(
 	namespacedObjectCount := 0
 	for _, wri := range *workloadResourceInstances {
 		// check to see if this is a namespaced resource
-		namespaced, err := isNamespaced(
+		namespaced, err := IsNamespaced(
 			string(*wri.JSONDefinition),
 			discoveryClient,
 		)
@@ -85,7 +84,7 @@ func SetNamespaces(
 	// only prepend the namespace resource if there are namespaced resources that require it
 	if namespacedObjectCount > 0 && clientManagedNS == "" {
 
-		namespaceWRI, err := createNamespaceWorkloadResourceInstance(namespace, *workloadInstance.ID)
+		namespaceWRI, err := CreateNamespaceWorkloadResourceInstance(namespace, *workloadInstance.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new workload resource instance for namespace: %w", err)
 		}
@@ -119,9 +118,9 @@ func GetManagedNamespaceNames(kubeClient dynamic.Interface) ([]string, error) {
 	return namespaceNames, nil
 }
 
-// isNamespaced returns true if a provided JSON definition represents a
+// IsNamespaced returns true if a provided JSON definition represents a
 // namespaced resource in Kubernetes.
-func isNamespaced(
+func IsNamespaced(
 	jsonDef string,
 	discoveryClient *discovery.DiscoveryClient,
 ) (bool, error) {
@@ -140,9 +139,9 @@ func isNamespaced(
 	return apiResource.Namespaced, nil
 }
 
-// createNamespaceWorkloadResourceInstance returns a workload instance for a
+// CreateNamespaceWorkloadResourceInstance returns a workload instance for a
 // Kubernetes namespace resource with the desired name.
-func createNamespaceWorkloadResourceInstance(
+func CreateNamespaceWorkloadResourceInstance(
 	namespaceName string,
 	workloadInstanceID uint,
 ) (*v0.WorkloadResourceInstance, error) {

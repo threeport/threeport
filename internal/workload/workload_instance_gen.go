@@ -255,7 +255,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					Common:         v0.Common{ID: workloadInstance.ID},
 					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
 				}
-				updatedWorkloadInstance, err := client.UpdateWorkloadInstance(
+				updatedWorkloadInstance, err := client_v1.UpdateWorkloadInstance(
 					r.APIClient,
 					r.APIServer,
 					&reconciledWorkloadInstance,

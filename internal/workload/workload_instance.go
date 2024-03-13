@@ -19,6 +19,7 @@ import (
 	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	kube_v1 "github.com/threeport/threeport/pkg/kube/v1"
 )
 
 // workloadInstanceCreated performs reconciliation when a workload instance
@@ -113,9 +114,10 @@ func workloadInstanceCreated(
 	}
 
 	// manipulate namespace on kube resources as needed
-	processedWRIs, err := kube.SetNamespaces(
+	processedWRIs, err := kube_v1.SetNamespaces(
 		&workloadResourceInstances,
-		workloadInstance,
+		workloadInstance.Name,
+		workloadInstance.ID,
 		discoveryClient,
 	)
 	if err != nil {
@@ -281,9 +283,10 @@ func workloadInstanceUpdated(
 	}
 
 	// manipulate namespace on kube resources as needed
-	processedWRIs, err := kube.SetNamespaces(
+	processedWRIs, err := kube_v1.SetNamespaces(
 		workloadResourceInstances,
-		workloadInstance,
+		workloadInstance.Name,
+		workloadInstance.ID,
 		discoveryClient,
 	)
 	if err != nil {
