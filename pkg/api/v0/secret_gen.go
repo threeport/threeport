@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	ObjectTypeSecretDefinition ObjectType = "SecretDefinition"
-	ObjectTypeSecretInstance   ObjectType = "SecretInstance"
+	ObjectTypeSecretDefinition string = "SecretDefinition"
+	ObjectTypeSecretInstance   string = "SecretInstance"
 
 	SecretStreamName = "secretStream"
 

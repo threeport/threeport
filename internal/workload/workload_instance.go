@@ -15,6 +15,7 @@ import (
 	agentapi "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
@@ -436,7 +437,7 @@ func workloadInstanceDeleted(
 	// This is because the AttachedObjectReferences relation is deleted when the
 	// WorkloadInstance is deleted, so we can't use those references anymore in
 	// the deletion handler.
-	attachedObjectReferences, err := client.GetAttachedObjectReferencesByObjectID(r.APIClient, r.APIServer, *workloadInstance.ID)
+	attachedObjectReferences, err := client_v1.GetAttachedObjectReferencesByObjectID(r.APIClient, r.APIServer, *workloadInstance.ID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
 	}

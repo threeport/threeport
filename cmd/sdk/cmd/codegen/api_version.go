@@ -48,7 +48,7 @@ for all the models in the supplied version/s.  The generated code includes:
 
 			modelFiles, err := os.ReadDir(filepath.Join("..", "..", "pkg", "api", version))
 			if err != nil {
-				fmt.Errorf("failed to read source code files: %w", err)
+				return fmt.Errorf("failed to read source code files: %w", err)
 			}
 			for _, mf := range modelFiles {
 				if strings.Contains(mf.Name(), "_gen") {
@@ -134,7 +134,8 @@ for all the models in the supplied version/s.  The generated code includes:
 				}
 
 				if keyIndex == -1 && valueIndex == -1 && !extension {
-					return fmt.Errorf("could not find items to swap in db automigrate: %s and %s", key, value)
+					continue
+					// return fmt.Errorf("could not find items to swap in db automigrate: %s and %s", key, value)
 				}
 
 				if keyIndex != -1 && valueIndex != -1 {

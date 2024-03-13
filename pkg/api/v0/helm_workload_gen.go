@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	ObjectTypeHelmWorkloadDefinition ObjectType = "HelmWorkloadDefinition"
-	ObjectTypeHelmWorkloadInstance   ObjectType = "HelmWorkloadInstance"
+	ObjectTypeHelmWorkloadDefinition string = "HelmWorkloadDefinition"
+	ObjectTypeHelmWorkloadInstance   string = "HelmWorkloadInstance"
 
 	HelmWorkloadStreamName = "helmWorkloadStream"
 

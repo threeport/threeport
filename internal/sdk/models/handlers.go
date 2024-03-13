@@ -40,7 +40,6 @@ func (cc *ControllerConfig) ModelHandlers() error {
 
 	f.ImportAlias("github.com/labstack/echo/v4", "echo")
 	f.ImportAlias("github.com/threeport/threeport/pkg/api-server/v0", "iapi")
-	f.ImportAlias("github.com/threeport/threeport/pkg/api-server/v1", "iapi_v1")
 	f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")
 
 	for _, mc := range cc.ModelConfigs {
@@ -71,10 +70,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					Id("nameUsed").Op("=").Lit(false),
 				).Else().Block(
 					Return(
-						Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s",
-								cc.ParsedModelFile.Name.Name),
-							"ResponseStatus500").Call(
+						Id("iapi").Dot("ResponseStatus500").Call(
 							Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"),
 						),
 					),
@@ -82,7 +78,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			).Line()
 			checkDuplicateNames.If(Id("nameUsed")).Block(
 				Return(
-					Qual(fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name), "ResponseStatus409").Call(
+					Id("iapi").Dot("ResponseStatus409").Call(
 						Id("c"), Nil(), Qual("errors", "New").Call(
 							Lit("object with provided name already exists"),
 						), Id("objectType"),
@@ -118,7 +114,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 				If(Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
 				),
@@ -146,7 +142,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 				If(Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
 				),
@@ -176,7 +172,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				).Values(
 					Dict{
 						Line().Id("Reconciliation"): Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.ParsedModelFile.Name.Name),
+							fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", "v0"),
 							"Reconciliation",
 						).Values(
 							Dict{
@@ -194,12 +190,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					),
 					Id("result").Dot("Error").Op("!=").Nil(),
 				).Block(
-					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s",
-							cc.ParsedModelFile.Name.Name,
-						),
-						"ResponseStatus500",
-					).Call(
+					Return(Id("iapi").Dot("ResponseStatus500").Call(
 						Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")),
 					),
 				),
@@ -214,12 +205,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					Line(),
 				),
 				If(Id("err").Op("!=").Nil()).Block(
-					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s",
-							cc.ParsedModelFile.Name.Name,
-						),
-						"ResponseStatus500",
-					).Call(Id("c"), Nil(), Id("err"), Id("objectType"))),
+					Return(Id("iapi").Dot("ResponseStatus500").Call(Id("c"), Nil(), Id("err"), Id("objectType"))),
 				),
 				Id("h").Dot("JS").Dot("Publish").Call(
 					Qual(
@@ -232,7 +218,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					Comment("if deletion scheduled but not reconciled, return 409 - deletion"),
 					Comment("already underway"),
 					Return(
-						Qual(fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name), "ResponseStatus409").Call(
+						Id("iapi").Dot("ResponseStatus409").Call(
 							Id("c"),
 							Nil(),
 							Qual("errors", "New").Call(Qual("fmt", "Sprintf").Call(
@@ -250,10 +236,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 						Id("result").Op(":=").Id("h").Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName))),
 						Id("result").Dot("Error").Op("!=").Nil(),
 					).Block(
-						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
-							"ResponseStatus500",
-						).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
+						Return(Id("iapi").Dot("ResponseStatus500").Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
 					),
 				),
 			)
@@ -265,10 +248,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				Id("result").Op(":=").Id("h").Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName))),
 				Id("result").Dot("Error").Op("!=").Nil(),
 			).Block(
-				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
-					"ResponseStatus500",
-				).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
+				Return(Id("iapi").Dot("ResponseStatus500").Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
 			)
 		}
 
@@ -297,12 +277,12 @@ func (cc *ControllerConfig) ModelHandlers() error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -321,7 +301,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 						)),
 					),
 					Return().Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus409",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")),
 				),
@@ -341,12 +321,12 @@ func (cc *ControllerConfig) ModelHandlers() error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -470,11 +450,11 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Line(),
 			Comment("check for empty payload, unsupported fields, GORM Model fields, optional associations, etc."),
 			If(Id("id").Op(",").Id("err").Op(":=").Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"PayloadCheck",
 			).Call(Id("c").Op(",").Lit(false).Op(",").Id("objectType").Op(",").Id(strcase.ToLowerCamel(mc.TypeName))).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatusErr",
 				).Call(Id("id").Op(",").Id("c").Op(",").Nil(), Qual(
 					"errors",
@@ -486,7 +466,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			If(Id("err").Op(":=").Id("c").Dot("Bind").Call(
 				Op("&").Id(strcase.ToLowerCamel(mc.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")),
 				),
@@ -494,13 +474,13 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Line(),
 			Comment("check for missing required fields"),
 			If(Id("id").Op(",").Id("err").Op(":=").Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ValidateBoundData",
 			).Call(Id("c").Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")).Op(";").
 				Id("err").Op("!=").Nil(),
 			).Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatusErr",
 				).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 					"errors",
@@ -514,7 +494,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
 			).Op(";").Id("result").Dot("Error").Op("!=").Nil()).Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 				),
@@ -525,19 +505,19 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 			If(Id("err").Op("!=").Nil()).Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 			),
 			Line(),
 			Return(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ResponseStatus201",
 			).Call(Id("c").Op(",").Op("*").Id("response"))),
 		)
@@ -599,12 +579,12 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				),
 			),
 			Id("params").Op(",").Id("err").Op(":=").Id("c").Assert(Op("*").Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"CustomContext",
 			)).Dot("GetPaginationParams").Call(),
 			If(Id("err").Op("!=").Nil().Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus400",
 				).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType"))),
 			)),
@@ -618,7 +598,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			),
 			If(Id("err").Op(":=").Id("c").Dot("Bind").Call(Op("&").Id("filter")).Op(";").Id("err").Op("!=").Nil().Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType"))),
 			)),
@@ -635,7 +615,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			).Dot("Where").Call(Op("&").Id("filter")).Dot("Count").Call(Op("&").Id("totalCount")),
 				Id("result").Dot("Error").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 				),
@@ -656,7 +636,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				// TODO: figure out DB preloads
 				Dot("Find").Call(Id("records")).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 				)),
@@ -665,26 +645,26 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateMeta",
 			).Call(Id("params").Op(",").Id("totalCount")).Op(",").Op("*").Id("records").Op(",").Id("objectType")),
 			If(Id("err").Op("!=").Nil().Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType")),
 				)),
 			),
 			Line(),
 			Return(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ResponseStatus200",
 			).Call(Id("c").Op(",").Op("*").Id("response"))),
 		)
@@ -760,12 +740,12 @@ func (cc *ControllerConfig) ModelHandlers() error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -774,18 +754,18 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				Line(),
 				Id("response").Op(",").Id("err").Op(":=").Qual(fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				), "CreateResponse").Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 				If(Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				)),
 				Line(),
 				Line(),
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus200",
 				).Call(Id("c").Op(",").Op("*").Id("response"))),
 			),
@@ -879,12 +859,12 @@ func (cc *ControllerConfig) ModelHandlers() error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -894,11 +874,11 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Comment("check for empty payload, invalid or unsupported fields, optional associations, etc."),
 			If(
 				Id("id").Op(",").Id("err").Op(":=").Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"PayloadCheck",
 				).Call(Id("c").Op(",").Lit(true).Op(",").Id("objectType").Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatusErr",
 					).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 						"errors",
@@ -920,7 +900,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					Op("&").Id(fmt.Sprintf("updated%s", mc.TypeName)),
 				).Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
@@ -936,7 +916,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					Id(fmt.Sprintf("updated%s", mc.TypeName)),
 				).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 				),
@@ -947,21 +927,21 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName)).Op(",").Id("objectType")),
 			If(
 				Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
 			),
 			Line(),
 			Return(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ResponseStatus200",
 			).Call(Id("c").Op(",").Op("*").Id("response"))),
 		)
@@ -1055,12 +1035,12 @@ func (cc *ControllerConfig) ModelHandlers() error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -1070,11 +1050,11 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Comment("check for empty payload, invalid or unsupported fields, optional associations, etc."),
 			If(
 				Id("id").Op(",").Id("err").Op(":=").Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"PayloadCheck",
 				).Call(Id("c").Op(",").Lit(true).Op(",").Id("objectType").Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatusErr",
 					).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 						"errors",
@@ -1096,7 +1076,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					Op("&").Id(fmt.Sprintf("updated%s", mc.TypeName)),
 				).Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
@@ -1105,12 +1085,12 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Comment("check for missing required fields"),
 			If(
 				Id("id").Op(",").Id("err").Op(":=").Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ValidateBoundData",
 				).Call(Id("c").Op(",").Id(fmt.Sprintf("updated%s", mc.TypeName)).Op(",").Id("objectType")).
 					Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatusErr",
 					).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 						"errors",
@@ -1134,7 +1114,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 					Op("&").Id(fmt.Sprintf("updated%s", mc.TypeName)),
 				).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 					),
@@ -1154,12 +1134,12 @@ func (cc *ControllerConfig) ModelHandlers() error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -1169,21 +1149,21 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName)).Op(",").Id("objectType")),
 			If(
 				Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
 			),
 			Line(),
 			Return(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ResponseStatus200",
 			).Call(Id("c").Op(",").Op("*").Id("response"))),
 		)
@@ -1259,21 +1239,21 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 			If(
 				Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
 			),
 			Line(),
 			Return(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ResponseStatus200",
 			).Call(Id("c").Op(",").Op("*").Id("response"))),
 		)
@@ -1302,7 +1282,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 	f.HeaderComment("generated by 'threeport-sdk codegen api-model' - do not edit")
 
 	f.ImportAlias("github.com/labstack/echo/v4", "echo")
-	f.ImportAlias(fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name), "iapi")
+	f.ImportAlias("github.com/threeport/threeport/pkg/api-server/v0", "iapi")
 	f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")
 	f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "tpv0")
 
@@ -1335,10 +1315,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 					Id("nameUsed").Op("=").Lit(false),
 				).Else().Block(
 					Return(
-						Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
-							"ResponseStatus500",
-						).Call(
+						Id("iapi").Dot("ResponseStatus500").Call(
 							Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"),
 						),
 					),
@@ -1346,7 +1323,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			).Line()
 			checkDuplicateNames.If(Id("nameUsed")).Block(
 				Return(
-					Qual(fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name), "ResponseStatus409").Call(
+					Id("iapi").Dot("ResponseStatus409").Call(
 						Id("c"), Nil(), Qual("errors", "New").Call(
 							Lit("object with provided name already exists"),
 						), Id("objectType"),
@@ -1382,7 +1359,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 				),
 				If(Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
 				),
@@ -1411,7 +1388,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 				),
 				If(Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
 				),
@@ -1460,7 +1437,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 					),
 					Id("result").Dot("Error").Op("!=").Nil(),
 				).Block(
-					Return(Qual(fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name), "ResponseStatus500").Call(
+					Return(Id("iapi").Dot("ResponseStatus500").Call(
 						Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")),
 					),
 				),
@@ -1475,10 +1452,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 					Line(),
 				),
 				If(Id("err").Op("!=").Nil()).Block(
-					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
-						"ResponseStatus500",
-					).Call(Id("c"), Nil(), Id("err"), Id("objectType"))),
+					Return(Id("iapi").Dot("ResponseStatus500").Call(Id("c"), Nil(), Id("err"), Id("objectType"))),
 				),
 				Id("h").Dot("Handler").Dot("JS").Dot("Publish").Call(
 					Qual(
@@ -1491,7 +1465,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 					Comment("if deletion scheduled but not reconciled, return 409 - deletion"),
 					Comment("already underway"),
 					Return(
-						Qual(fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name), "ResponseStatus409").Call(
+						Id("iapi").Dot("ResponseStatus409").Call(
 							Id("c"),
 							Nil(),
 							Qual("errors", "New").Call(Qual("fmt", "Sprintf").Call(
@@ -1509,10 +1483,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 						Id("result").Op(":=").Id("h").Dot("Handler").Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName))),
 						Id("result").Dot("Error").Op("!=").Nil(),
 					).Block(
-						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
-							"ResponseStatus500",
-						).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
+						Return(Id("iapi").Dot("ResponseStatus500").Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
 					),
 				),
 			)
@@ -1524,10 +1495,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 				Id("result").Op(":=").Id("h").Dot("Handler").Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(mc.TypeName))),
 				Id("result").Dot("Error").Op("!=").Nil(),
 			).Block(
-				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
-					"ResponseStatus500",
-				).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
+				Return(Id("iapi").Dot("ResponseStatus500").Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
 			)
 		}
 
@@ -1556,12 +1524,12 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -1580,7 +1548,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 						)),
 					),
 					Return().Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus409",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")),
 				),
@@ -1600,12 +1568,12 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -1732,11 +1700,11 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Line(),
 			Comment("check for empty payload, unsupported fields, GORM Model fields, optional associations, etc."),
 			If(Id("id").Op(",").Id("err").Op(":=").Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"PayloadCheck",
 			).Call(Id("c").Op(",").Lit(false).Op(",").Id("objectType").Op(",").Id(strcase.ToLowerCamel(mc.TypeName))).Op(";").Id("err").Op("!=").Nil()).Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatusErr",
 				).Call(Id("id").Op(",").Id("c").Op(",").Nil(), Qual(
 					"errors",
@@ -1748,7 +1716,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			If(Id("err").Op(":=").Id("c").Dot("Bind").Call(
 				Op("&").Id(strcase.ToLowerCamel(mc.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")),
 				),
@@ -1756,13 +1724,13 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Line(),
 			Comment("check for missing required fields"),
 			If(Id("id").Op(",").Id("err").Op(":=").Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ValidateBoundData",
 			).Call(Id("c").Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")).Op(";").
 				Id("err").Op("!=").Nil(),
 			).Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatusErr",
 				).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 					"errors",
@@ -1776,7 +1744,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 				Op("&").Id(strcase.ToLowerCamel(mc.TypeName)),
 			).Op(";").Id("result").Dot("Error").Op("!=").Nil()).Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 				),
@@ -1787,19 +1755,19 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 			If(Id("err").Op("!=").Nil()).Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 			),
 			Line(),
 			Return(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ResponseStatus201",
 			).Call(Id("c").Op(",").Op("*").Id("response"))),
 		)
@@ -1862,12 +1830,12 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 				),
 			),
 			Id("params").Op(",").Id("err").Op(":=").Id("c").Assert(Op("*").Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"CustomContext",
 			)).Dot("GetPaginationParams").Call(),
 			If(Id("err").Op("!=").Nil().Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus400",
 				).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType"))),
 			)),
@@ -1882,7 +1850,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			),
 			If(Id("err").Op(":=").Id("c").Dot("Bind").Call(Op("&").Id("filter")).Op(";").Id("err").Op("!=").Nil().Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType"))),
 			)),
@@ -1900,7 +1868,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			).Dot("Where").Call(Op("&").Id("filter")).Dot("Count").Call(Op("&").Id("totalCount")),
 				Id("result").Dot("Error").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 				),
@@ -1922,7 +1890,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 				// TODO: figure out DB preloads
 				Dot("Find").Call(Id("records")).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 				)),
@@ -1931,26 +1899,26 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateMeta",
 			).Call(Id("params").Op(",").Id("totalCount")).Op(",").Op("*").Id("records").Op(",").Id("objectType")),
 			If(Id("err").Op("!=").Nil().Block(
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus500",
 				).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType")),
 				)),
 			),
 			Line(),
 			Return(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ResponseStatus200",
 			).Call(Id("c").Op(",").Op("*").Id("response"))),
 		)
@@ -2028,12 +1996,12 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -2042,18 +2010,18 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 				Line(),
 				Id("response").Op(",").Id("err").Op(":=").Qual(fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				), "CreateResponse").Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 				If(Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				)),
 				Line(),
 				Line(),
 				Return(Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ResponseStatus200",
 				).Call(Id("c").Op(",").Op("*").Id("response"))),
 			),
@@ -2149,12 +2117,12 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -2164,11 +2132,11 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Comment("check for empty payload, invalid or unsupported fields, optional associations, etc."),
 			If(
 				Id("id").Op(",").Id("err").Op(":=").Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"PayloadCheck",
 				).Call(Id("c").Op(",").Lit(true).Op(",").Id("objectType").Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatusErr",
 					).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 						"errors",
@@ -2191,7 +2159,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 					Op("&").Id(fmt.Sprintf("updated%s", mc.TypeName)),
 				).Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
@@ -2207,7 +2175,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 					Id(fmt.Sprintf("updated%s", mc.TypeName)),
 				).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 				),
@@ -2218,21 +2186,21 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName)).Op(",").Id("objectType")),
 			If(
 				Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
 			),
 			Line(),
 			Return(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ResponseStatus200",
 			).Call(Id("c").Op(",").Op("*").Id("response"))),
 		)
@@ -2328,12 +2296,12 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -2343,11 +2311,11 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Comment("check for empty payload, invalid or unsupported fields, optional associations, etc."),
 			If(
 				Id("id").Op(",").Id("err").Op(":=").Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"PayloadCheck",
 				).Call(Id("c").Op(",").Lit(true).Op(",").Id("objectType").Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatusErr",
 					).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 						"errors",
@@ -2370,7 +2338,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 					Op("&").Id(fmt.Sprintf("updated%s", mc.TypeName)),
 				).Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
@@ -2379,12 +2347,12 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Comment("check for missing required fields"),
 			If(
 				Id("id").Op(",").Id("err").Op(":=").Qual(
-					fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+					"github.com/threeport/threeport/pkg/api-server/v0",
 					"ValidateBoundData",
 				).Call(Id("c").Op(",").Id(fmt.Sprintf("updated%s", mc.TypeName)).Op(",").Id("objectType")).
 					Op(";").Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatusErr",
 					).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 						"errors",
@@ -2408,7 +2376,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 					Op("&").Id(fmt.Sprintf("updated%s", mc.TypeName)),
 				).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 					),
@@ -2428,12 +2396,12 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 							"ErrRecordNotFound",
 						)).Block(
 							Return(Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+								"github.com/threeport/threeport/pkg/api-server/v0",
 								"ResponseStatus404",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							)),
 						Return(Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+							"github.com/threeport/threeport/pkg/api-server/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 					),
@@ -2443,21 +2411,21 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName)).Op(",").Id("objectType")),
 			If(
 				Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
 			),
 			Line(),
 			Return(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ResponseStatus200",
 			).Call(Id("c").Op(",").Op("*").Id("response"))),
 		)
@@ -2535,21 +2503,21 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 			If(
 				Id("err").Op("!=").Nil().Block(
 					Return(Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+						"github.com/threeport/threeport/pkg/api-server/v0",
 						"ResponseStatus500",
 					).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 				),
 			),
 			Line(),
 			Return(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api-server/%s", cc.ParsedModelFile.Name.Name),
+				"github.com/threeport/threeport/pkg/api-server/v0",
 				"ResponseStatus200",
 			).Call(Id("c").Op(",").Op("*").Id("response"))),
 		)

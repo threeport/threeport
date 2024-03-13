@@ -22,6 +22,7 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -41,7 +42,7 @@ func awsRelationalDatabaseInstanceCreated(
 	)
 
 	// ensure attached object reference exists
-	err := client.EnsureAttachedObjectReferenceExists(
+	err := client_v1.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
 		util.TypeName(v0.WorkloadInstance{}),

@@ -9,12 +9,12 @@ import (
 )
 
 const (
-	ObjectTypeWorkloadDefinition         ObjectType = "WorkloadDefinition"
-	ObjectTypeWorkloadResourceDefinition ObjectType = "WorkloadResourceDefinition"
-	ObjectTypeWorkloadInstance           ObjectType = "WorkloadInstance"
-	ObjectTypeAttachedObjectReference    ObjectType = "AttachedObjectReference"
-	ObjectTypeWorkloadResourceInstance   ObjectType = "WorkloadResourceInstance"
-	ObjectTypeWorkloadEvent              ObjectType = "WorkloadEvent"
+	ObjectTypeWorkloadDefinition         string = "WorkloadDefinition"
+	ObjectTypeWorkloadResourceDefinition string = "WorkloadResourceDefinition"
+	ObjectTypeWorkloadInstance           string = "WorkloadInstance"
+	ObjectTypeAttachedObjectReference    string = "AttachedObjectReference"
+	ObjectTypeWorkloadResourceInstance   string = "WorkloadResourceInstance"
+	ObjectTypeWorkloadEvent              string = "WorkloadEvent"
 
 	WorkloadStreamName = "workloadStream"
 

@@ -20,7 +20,7 @@ type ReconcilerConfig struct {
 	Name string
 
 	// The object type the reconciler will manage.
-	ObjectType v0.ObjectType
+	ObjectType string
 
 	// The function that will perform object reconciliation.
 	ReconcileFunc func(r *Reconciler)
@@ -45,7 +45,7 @@ type Reconciler struct {
 	Name string
 
 	// ObjectType is the name of the object that is being reconciled.
-	ObjectType v0.ObjectType
+	ObjectType string
 
 	// APIServer is the endpoint to reach Threeport REST API.
 	// format: [protocol]://[hostname]:[port]

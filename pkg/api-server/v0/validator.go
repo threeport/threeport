@@ -59,7 +59,7 @@ func ValidateObj(c echo.Context, obj interface{}, missingRequiredFields *[]strin
 	return 500, nil
 }
 
-func ValidateBoundData(c echo.Context, obj interface{}, objectType v0.ObjectType) (int, error) {
+func ValidateBoundData(c echo.Context, obj interface{}, objectType string) (int, error) {
 	var missingRequiredFields []string
 
 	// validate a slice or an array

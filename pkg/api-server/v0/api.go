@@ -45,31 +45,31 @@ func ResponseStatusExpected(id int, c echo.Context, response v0.Response) error 
 	return c.JSON(http.StatusInternalServerError, "")
 }
 
-func ResponseStatus400(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
+func ResponseStatus400(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
 	return c.JSON(http.StatusBadRequest, v0.CreateResponseWithError400(params, error, objectType))
 }
 
-func ResponseStatus401(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
+func ResponseStatus401(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
 	return c.JSON(http.StatusUnauthorized, v0.CreateResponseWithError401(params, error, objectType))
 }
 
-func ResponseStatus403(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
+func ResponseStatus403(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
 	return c.JSON(http.StatusForbidden, v0.CreateResponseWithError403(params, error, objectType))
 }
 
-func ResponseStatus404(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
+func ResponseStatus404(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
 	return c.JSON(http.StatusNotFound, v0.CreateResponseWithError404(params, error, objectType))
 }
 
-func ResponseStatus409(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
+func ResponseStatus409(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
 	return c.JSON(http.StatusConflict, v0.CreateResponseWithError409(params, error, objectType))
 }
 
-func ResponseStatus500(c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
+func ResponseStatus500(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
 	return c.JSON(http.StatusInternalServerError, v0.CreateResponseWithError500(params, error, objectType))
 }
 
-func ResponseStatusErr(id int, c echo.Context, params *v0.PageRequestParams, error error, objectType v0.ObjectType) error {
+func ResponseStatusErr(id int, c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
 	switch id {
 	case 400:
 		return ResponseStatus400(c, params, error, objectType)

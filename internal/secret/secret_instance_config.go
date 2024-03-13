@@ -11,6 +11,7 @@ import (
 	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -55,7 +56,7 @@ func (c *SecretInstanceConfig) getSecretInstanceOperations() *util.Operations {
 // createAttachedObjectReference creates an attached object reference
 // for the secret instance.
 func (c *SecretInstanceConfig) createAttachedObjectReference() error {
-	if err := client.EnsureAttachedObjectReferenceExists(
+	if err := client_v1.EnsureAttachedObjectReferenceExists(
 		c.r.APIClient,
 		c.r.APIServer,
 		c.workloadInstanceType,
@@ -72,7 +73,7 @@ func (c *SecretInstanceConfig) createAttachedObjectReference() error {
 // deleteAttachedObjectReference deletes an attached object reference
 // for the secret instance.
 func (c *SecretInstanceConfig) deleteAttachedObjectReference() error {
-	attachedObjectReference, err := client.GetAttachedObjectReferenceByAttachedObjectID(
+	attachedObjectReference, err := client_v1.GetAttachedObjectReferenceByAttachedObjectID(
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.secretInstance.ID,

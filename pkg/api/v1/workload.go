@@ -1,54 +1,19 @@
 //go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-sdk codegen controller --filename $GOFILE
-package v0
+package v1
 
 import (
 	"time"
 
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"gorm.io/datatypes"
 )
 
-const (
-	PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-sets"
-)
-
 // +threeport-sdk:reconciler
-// +threeport-sdk:tptctl:config-path
-// WorkloadDefinition is the collection of Kubernetes manifests that define a
-// distinct workload.
-type WorkloadDefinition struct {
-	Common         `swaggerignore:"true" mapstructure:",squash"`
-	Definition     `mapstructure:",squash"`
-	Reconciliation `mapstructure:",squash"`
-
-	// The yaml manifests that define the workload configuration.
-	YAMLDocument *string `json:"YAMLDocument,omitempty" gorm:"not null" validate:"required"`
-
-	// The associated workload resource definitions that are derived.
-	WorkloadResourceDefinitions []*WorkloadResourceDefinition `json:"WorkloadResourceDefinitions,omitempty" validate:"optional,association"`
-
-	// The associated workload instances that are deployed from this definition.
-	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstances,omitempty" validate:"optional,association"`
-}
-
-// WorkloadResourceDefinition is an individual Kubernetes resource manifest.
-type WorkloadResourceDefinition struct {
-	Common `swaggerignore:"true" mapstructure:",squash"`
-
-	// The individual manifest in JSON format.
-	JSONDefinition *datatypes.JSON `json:"JSONDefinition,omitempty" gorm:"not null" validate:"required"`
-
-	// The workload definition this resource belongs to.
-	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"not null" validate:"required"`
-}
-
-// +threeport-sdk:reconciler
-// +threeport-sdk:tptctl
 // WorkloadInstance is a deployed instance of a workload.
 type WorkloadInstance struct {
-	Common         `swaggerignore:"true" mapstructure:",squash"`
-	Instance       `mapstructure:",squash"`
-	Reconciliation `mapstructure:",squash"`
+	v0.Common         `swaggerignore:"true" mapstructure:",squash"`
+	v0.Instance       `mapstructure:",squash"`
+	v0.Reconciliation `mapstructure:",squash"`
 
 	// The kubernetes runtime to which the workload is deployed.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
@@ -65,24 +30,11 @@ type WorkloadInstance struct {
 	// All events generated for the workload instance that aren't related to a
 	// particular workload resource instance.
 	Events []*WorkloadEvent `json:"Events,omitempty" query:"events" validate:"optional"`
-
-	// The threeport objects that are deployed to support the workload instance.
-	AttachedObjectReferences []*AttachedObjectReference `json:"AttachedObjectReferences,omitempty" query:"attachedobjectreferences" validate:"optional,association"`
-}
-
-// AttachedObjectReference is a reference to an attached object.
-type AttachedObjectReference struct {
-	Common   `swaggerignore:"true" mapstructure:",squash"`
-	ObjectID *uint   `json:"ObjectID,omitempty" query:"objectid" gorm:"not null" validate:"optional"`
-	Type     *string `json:"Type,omitempty" query:"type" gorm:"not null" validate:"optional"`
-
-	// The workload definition this resource belongs to.
-	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
 }
 
 // WorkloadResourceInstance is a Kubernetes resource instance.
 type WorkloadResourceInstance struct {
-	Common `swaggerignore:"true" mapstructure:",squash"`
+	v0.Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The individual manifest in JSON format.  This field is a superset of
 	// WorkloadResourceDefinition.JSONDefinition in that it has namespace
@@ -114,7 +66,7 @@ type WorkloadResourceInstance struct {
 // WorkloadEvent is a summary of a Kubernetes Event that is associated with a
 // WorkloadResourceInstance.
 type WorkloadEvent struct {
-	Common `swaggerignore:"true" mapstructure:",squash"`
+	v0.Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// A unique ID for de-duplicating purposes.  It is one of two thing:
 	// * The Kubernetes Event resource UID: when the WorkloadEvent is derived
