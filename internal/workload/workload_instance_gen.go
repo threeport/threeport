@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -64,7 +66,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// decode the object that was sent in the notification
-			var workloadInstance v0.WorkloadInstance
+			var workloadInstance v1.WorkloadInstance
 			if err := workloadInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
@@ -105,7 +107,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestWorkloadInstance, err := client.GetWorkloadInstanceByID(
+			latestWorkloadInstance, err := client_v1.GetWorkloadInstanceByID(
 				r.APIClient,
 				r.APIServer,
 				*workloadInstance.ID,
