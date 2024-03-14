@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -446,7 +447,13 @@ func workloadInstanceDeleted(
 		return 0, fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
 	}
 	for _, object := range *attachedObjectReferences {
-		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.AttachedObjectType, *object.AttachedObjectID)
+		var err error
+		switch strings.Split(*object.AttachedObjectType, ".")[0] {
+		case "v0":
+			err = client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.AttachedObjectType, *object.AttachedObjectID)
+		case "v1":
+			err = client_v1.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.AttachedObjectType, *object.AttachedObjectID)
+		}
 		if err != nil {
 			switch {
 			case errors.Is(err, client.ErrObjectNotFound):
