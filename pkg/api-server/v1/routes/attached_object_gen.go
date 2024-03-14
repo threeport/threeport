@@ -4,7 +4,7 @@ package routes
 
 import (
 	echo "github.com/labstack/echo/v4"
-	handlers "github.com/threeport/threeport/pkg/api-server/v0/handlers"
+	handlers "github.com/threeport/threeport/pkg/api-server/v1/handlers"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 )
 

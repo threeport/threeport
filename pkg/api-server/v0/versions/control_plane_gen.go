@@ -31,7 +31,7 @@ func AddControlPlaneDefinitionVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeControlPlaneDefinition),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map
@@ -63,7 +63,7 @@ func AddControlPlaneInstanceVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeControlPlaneInstance),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map

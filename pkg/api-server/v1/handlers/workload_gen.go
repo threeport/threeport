@@ -32,13 +32,13 @@ func (h Handler) GetWorkloadInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new workload instance.
 // @Description Add a new workload instance to the Threeport database.
-// @ID add-workloadInstance
+// @ID add-v1-workloadInstance
 // @Accept json
 // @Produce json
 // @Param workloadInstance body v1.WorkloadInstance true "WorkloadInstance object"
-// @Success 201 {object} v1.Response "Created"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances [POST]
 func (h Handler) AddWorkloadInstance(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadInstance
@@ -101,13 +101,13 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 
 // @Summary gets all workload instances.
 // @Description Get all workload instances from the Threeport database.
-// @ID get-workloadInstances
+// @ID get-v1-workloadInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "workload instance search by name"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances [GET]
 func (h Handler) GetWorkloadInstances(c echo.Context) error {
 	objectType := v1.ObjectTypeWorkloadInstance
@@ -141,13 +141,13 @@ func (h Handler) GetWorkloadInstances(c echo.Context) error {
 
 // @Summary gets a workload instance.
 // @Description Get a particular workload instance from the database.
-// @ID get-workloadInstance
+// @ID get-v1-workloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances/{id} [GET]
 func (h Handler) GetWorkloadInstance(c echo.Context) error {
 	objectType := v1.ObjectTypeWorkloadInstance
@@ -174,15 +174,15 @@ func (h Handler) GetWorkloadInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-workloadInstance
+// @ID update-v1-workloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Param workloadInstance body v1.WorkloadInstance true "WorkloadInstance object"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances/{id} [PATCH]
 func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 	objectType := v1.ObjectTypeWorkloadInstance
@@ -239,15 +239,15 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-workloadInstance
+// @ID replace-v1-workloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Param workloadInstance body v1.WorkloadInstance true "WorkloadInstance object"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances/{id} [PUT]
 func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 	objectType := v1.ObjectTypeWorkloadInstance
@@ -300,14 +300,14 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 
 // @Summary deletes a workload instance.
 // @Description Delete a workload instance by ID from the database.
-// @ID delete-workloadInstance
+// @ID delete-v1-workloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 409 {object} v1.Response "Conflict"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances/{id} [DELETE]
 func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 	objectType := v1.ObjectTypeWorkloadInstance

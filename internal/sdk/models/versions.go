@@ -80,12 +80,9 @@ func (cc *ControllerConfig) ModelVersions() error {
 				"github.com/threeport/threeport/pkg/api-server/v0",
 				"VersionObject",
 			).Values(Dict{
-				Id("Version"): Qual(
-					"github.com/threeport/threeport/pkg/api-server/v0",
-					"V0",
-				),
+				Id("Version"): Lit(cc.ApiVersion),
 				Id("Object"): Id("string").Call(Qual(
-					"github.com/threeport/threeport/pkg/api/v0",
+					fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.ApiVersion),
 					fmt.Sprintf("ObjectType%s", mc.TypeName),
 				)),
 			}),
@@ -193,12 +190,9 @@ func (cc *ControllerConfig) ExtensionModelVersions(modulePath string) error {
 				"github.com/threeport/threeport/pkg/api-server/v0",
 				"VersionObject",
 			).Values(Dict{
-				Id("Version"): Qual(
-					"github.com/threeport/threeport/pkg/api-server/v0",
-					"V0",
-				),
+				Id("Version"): Lit(cc.ApiVersion),
 				Id("Object"): Id("string").Call(Qual(
-					fmt.Sprintf("%s/pkg/api/v0", modulePath),
+					fmt.Sprintf("%s/pkg/api/%s", modulePath, cc.ApiVersion),
 					fmt.Sprintf("ObjectType%s", mc.TypeName),
 				)),
 			}),

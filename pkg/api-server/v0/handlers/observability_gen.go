@@ -31,7 +31,7 @@ func (h Handler) GetObservabilityStackDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new observability stack definition.
 // @Description Add a new observability stack definition to the Threeport database.
-// @ID add-observabilityStackDefinition
+// @ID add-v0-observabilityStackDefinition
 // @Accept json
 // @Produce json
 // @Param observabilityStackDefinition body v0.ObservabilityStackDefinition true "ObservabilityStackDefinition object"
@@ -100,7 +100,7 @@ func (h Handler) AddObservabilityStackDefinition(c echo.Context) error {
 
 // @Summary gets all observability stack definitions.
 // @Description Get all observability stack definitions from the Threeport database.
-// @ID get-observabilityStackDefinitions
+// @ID get-v0-observabilityStackDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "observability stack definition search by name"
@@ -140,7 +140,7 @@ func (h Handler) GetObservabilityStackDefinitions(c echo.Context) error {
 
 // @Summary gets a observability stack definition.
 // @Description Get a particular observability stack definition from the database.
-// @ID get-observabilityStackDefinition
+// @ID get-v0-observabilityStackDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -173,7 +173,7 @@ func (h Handler) GetObservabilityStackDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-observabilityStackDefinition
+// @ID update-v0-observabilityStackDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -238,7 +238,7 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-observabilityStackDefinition
+// @ID replace-v0-observabilityStackDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -299,7 +299,7 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 
 // @Summary deletes a observability stack definition.
 // @Description Delete a observability stack definition by ID from the database.
-// @ID delete-observabilityStackDefinition
+// @ID delete-v0-observabilityStackDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -385,7 +385,7 @@ func (h Handler) GetObservabilityStackInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new observability stack instance.
 // @Description Add a new observability stack instance to the Threeport database.
-// @ID add-observabilityStackInstance
+// @ID add-v0-observabilityStackInstance
 // @Accept json
 // @Produce json
 // @Param observabilityStackInstance body v0.ObservabilityStackInstance true "ObservabilityStackInstance object"
@@ -454,7 +454,7 @@ func (h Handler) AddObservabilityStackInstance(c echo.Context) error {
 
 // @Summary gets all observability stack instances.
 // @Description Get all observability stack instances from the Threeport database.
-// @ID get-observabilityStackInstances
+// @ID get-v0-observabilityStackInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "observability stack instance search by name"
@@ -494,7 +494,7 @@ func (h Handler) GetObservabilityStackInstances(c echo.Context) error {
 
 // @Summary gets a observability stack instance.
 // @Description Get a particular observability stack instance from the database.
-// @ID get-observabilityStackInstance
+// @ID get-v0-observabilityStackInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -527,7 +527,7 @@ func (h Handler) GetObservabilityStackInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-observabilityStackInstance
+// @ID update-v0-observabilityStackInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -592,7 +592,7 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-observabilityStackInstance
+// @ID replace-v0-observabilityStackInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -653,7 +653,7 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 
 // @Summary deletes a observability stack instance.
 // @Description Delete a observability stack instance by ID from the database.
-// @ID delete-observabilityStackInstance
+// @ID delete-v0-observabilityStackInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -739,7 +739,7 @@ func (h Handler) GetObservabilityDashboardDefinitionVersions(c echo.Context) err
 
 // @Summary adds a new observability dashboard definition.
 // @Description Add a new observability dashboard definition to the Threeport database.
-// @ID add-observabilityDashboardDefinition
+// @ID add-v0-observabilityDashboardDefinition
 // @Accept json
 // @Produce json
 // @Param observabilityDashboardDefinition body v0.ObservabilityDashboardDefinition true "ObservabilityDashboardDefinition object"
@@ -808,7 +808,7 @@ func (h Handler) AddObservabilityDashboardDefinition(c echo.Context) error {
 
 // @Summary gets all observability dashboard definitions.
 // @Description Get all observability dashboard definitions from the Threeport database.
-// @ID get-observabilityDashboardDefinitions
+// @ID get-v0-observabilityDashboardDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "observability dashboard definition search by name"
@@ -848,7 +848,7 @@ func (h Handler) GetObservabilityDashboardDefinitions(c echo.Context) error {
 
 // @Summary gets a observability dashboard definition.
 // @Description Get a particular observability dashboard definition from the database.
-// @ID get-observabilityDashboardDefinition
+// @ID get-v0-observabilityDashboardDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -881,7 +881,7 @@ func (h Handler) GetObservabilityDashboardDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-observabilityDashboardDefinition
+// @ID update-v0-observabilityDashboardDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -946,7 +946,7 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-observabilityDashboardDefinition
+// @ID replace-v0-observabilityDashboardDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1007,7 +1007,7 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 
 // @Summary deletes a observability dashboard definition.
 // @Description Delete a observability dashboard definition by ID from the database.
-// @ID delete-observabilityDashboardDefinition
+// @ID delete-v0-observabilityDashboardDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1093,7 +1093,7 @@ func (h Handler) GetObservabilityDashboardInstanceVersions(c echo.Context) error
 
 // @Summary adds a new observability dashboard instance.
 // @Description Add a new observability dashboard instance to the Threeport database.
-// @ID add-observabilityDashboardInstance
+// @ID add-v0-observabilityDashboardInstance
 // @Accept json
 // @Produce json
 // @Param observabilityDashboardInstance body v0.ObservabilityDashboardInstance true "ObservabilityDashboardInstance object"
@@ -1162,7 +1162,7 @@ func (h Handler) AddObservabilityDashboardInstance(c echo.Context) error {
 
 // @Summary gets all observability dashboard instances.
 // @Description Get all observability dashboard instances from the Threeport database.
-// @ID get-observabilityDashboardInstances
+// @ID get-v0-observabilityDashboardInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "observability dashboard instance search by name"
@@ -1202,7 +1202,7 @@ func (h Handler) GetObservabilityDashboardInstances(c echo.Context) error {
 
 // @Summary gets a observability dashboard instance.
 // @Description Get a particular observability dashboard instance from the database.
-// @ID get-observabilityDashboardInstance
+// @ID get-v0-observabilityDashboardInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1235,7 +1235,7 @@ func (h Handler) GetObservabilityDashboardInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-observabilityDashboardInstance
+// @ID update-v0-observabilityDashboardInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1300,7 +1300,7 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-observabilityDashboardInstance
+// @ID replace-v0-observabilityDashboardInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1361,7 +1361,7 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 
 // @Summary deletes a observability dashboard instance.
 // @Description Delete a observability dashboard instance by ID from the database.
-// @ID delete-observabilityDashboardInstance
+// @ID delete-v0-observabilityDashboardInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1447,7 +1447,7 @@ func (h Handler) GetMetricsDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new metrics definition.
 // @Description Add a new metrics definition to the Threeport database.
-// @ID add-metricsDefinition
+// @ID add-v0-metricsDefinition
 // @Accept json
 // @Produce json
 // @Param metricsDefinition body v0.MetricsDefinition true "MetricsDefinition object"
@@ -1516,7 +1516,7 @@ func (h Handler) AddMetricsDefinition(c echo.Context) error {
 
 // @Summary gets all metrics definitions.
 // @Description Get all metrics definitions from the Threeport database.
-// @ID get-metricsDefinitions
+// @ID get-v0-metricsDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "metrics definition search by name"
@@ -1556,7 +1556,7 @@ func (h Handler) GetMetricsDefinitions(c echo.Context) error {
 
 // @Summary gets a metrics definition.
 // @Description Get a particular metrics definition from the database.
-// @ID get-metricsDefinition
+// @ID get-v0-metricsDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1589,7 +1589,7 @@ func (h Handler) GetMetricsDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-metricsDefinition
+// @ID update-v0-metricsDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1654,7 +1654,7 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-metricsDefinition
+// @ID replace-v0-metricsDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1715,7 +1715,7 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 
 // @Summary deletes a metrics definition.
 // @Description Delete a metrics definition by ID from the database.
-// @ID delete-metricsDefinition
+// @ID delete-v0-metricsDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1801,7 +1801,7 @@ func (h Handler) GetMetricsInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new metrics instance.
 // @Description Add a new metrics instance to the Threeport database.
-// @ID add-metricsInstance
+// @ID add-v0-metricsInstance
 // @Accept json
 // @Produce json
 // @Param metricsInstance body v0.MetricsInstance true "MetricsInstance object"
@@ -1870,7 +1870,7 @@ func (h Handler) AddMetricsInstance(c echo.Context) error {
 
 // @Summary gets all metrics instances.
 // @Description Get all metrics instances from the Threeport database.
-// @ID get-metricsInstances
+// @ID get-v0-metricsInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "metrics instance search by name"
@@ -1910,7 +1910,7 @@ func (h Handler) GetMetricsInstances(c echo.Context) error {
 
 // @Summary gets a metrics instance.
 // @Description Get a particular metrics instance from the database.
-// @ID get-metricsInstance
+// @ID get-v0-metricsInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1943,7 +1943,7 @@ func (h Handler) GetMetricsInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-metricsInstance
+// @ID update-v0-metricsInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2008,7 +2008,7 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-metricsInstance
+// @ID replace-v0-metricsInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2069,7 +2069,7 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 
 // @Summary deletes a metrics instance.
 // @Description Delete a metrics instance by ID from the database.
-// @ID delete-metricsInstance
+// @ID delete-v0-metricsInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2155,7 +2155,7 @@ func (h Handler) GetLoggingDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new logging definition.
 // @Description Add a new logging definition to the Threeport database.
-// @ID add-loggingDefinition
+// @ID add-v0-loggingDefinition
 // @Accept json
 // @Produce json
 // @Param loggingDefinition body v0.LoggingDefinition true "LoggingDefinition object"
@@ -2224,7 +2224,7 @@ func (h Handler) AddLoggingDefinition(c echo.Context) error {
 
 // @Summary gets all logging definitions.
 // @Description Get all logging definitions from the Threeport database.
-// @ID get-loggingDefinitions
+// @ID get-v0-loggingDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "logging definition search by name"
@@ -2264,7 +2264,7 @@ func (h Handler) GetLoggingDefinitions(c echo.Context) error {
 
 // @Summary gets a logging definition.
 // @Description Get a particular logging definition from the database.
-// @ID get-loggingDefinition
+// @ID get-v0-loggingDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2297,7 +2297,7 @@ func (h Handler) GetLoggingDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-loggingDefinition
+// @ID update-v0-loggingDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2362,7 +2362,7 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-loggingDefinition
+// @ID replace-v0-loggingDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2423,7 +2423,7 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 
 // @Summary deletes a logging definition.
 // @Description Delete a logging definition by ID from the database.
-// @ID delete-loggingDefinition
+// @ID delete-v0-loggingDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2509,7 +2509,7 @@ func (h Handler) GetLoggingInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new logging instance.
 // @Description Add a new logging instance to the Threeport database.
-// @ID add-loggingInstance
+// @ID add-v0-loggingInstance
 // @Accept json
 // @Produce json
 // @Param loggingInstance body v0.LoggingInstance true "LoggingInstance object"
@@ -2578,7 +2578,7 @@ func (h Handler) AddLoggingInstance(c echo.Context) error {
 
 // @Summary gets all logging instances.
 // @Description Get all logging instances from the Threeport database.
-// @ID get-loggingInstances
+// @ID get-v0-loggingInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "logging instance search by name"
@@ -2618,7 +2618,7 @@ func (h Handler) GetLoggingInstances(c echo.Context) error {
 
 // @Summary gets a logging instance.
 // @Description Get a particular logging instance from the database.
-// @ID get-loggingInstance
+// @ID get-v0-loggingInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2651,7 +2651,7 @@ func (h Handler) GetLoggingInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-loggingInstance
+// @ID update-v0-loggingInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2716,7 +2716,7 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-loggingInstance
+// @ID replace-v0-loggingInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2777,7 +2777,7 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 
 // @Summary deletes a logging instance.
 // @Description Delete a logging instance by ID from the database.
-// @ID delete-loggingInstance
+// @ID delete-v0-loggingInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"

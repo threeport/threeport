@@ -31,7 +31,7 @@ func (h Handler) GetSecretDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new secret definition.
 // @Description Add a new secret definition to the Threeport database.
-// @ID add-secretDefinition
+// @ID add-v0-secretDefinition
 // @Accept json
 // @Produce json
 // @Param secretDefinition body v0.SecretDefinition true "SecretDefinition object"
@@ -100,7 +100,7 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 
 // @Summary gets all secret definitions.
 // @Description Get all secret definitions from the Threeport database.
-// @ID get-secretDefinitions
+// @ID get-v0-secretDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "secret definition search by name"
@@ -140,7 +140,7 @@ func (h Handler) GetSecretDefinitions(c echo.Context) error {
 
 // @Summary gets a secret definition.
 // @Description Get a particular secret definition from the database.
-// @ID get-secretDefinition
+// @ID get-v0-secretDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -173,7 +173,7 @@ func (h Handler) GetSecretDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-secretDefinition
+// @ID update-v0-secretDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -238,7 +238,7 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-secretDefinition
+// @ID replace-v0-secretDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -299,7 +299,7 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 
 // @Summary deletes a secret definition.
 // @Description Delete a secret definition by ID from the database.
-// @ID delete-secretDefinition
+// @ID delete-v0-secretDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -385,7 +385,7 @@ func (h Handler) GetSecretInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new secret instance.
 // @Description Add a new secret instance to the Threeport database.
-// @ID add-secretInstance
+// @ID add-v0-secretInstance
 // @Accept json
 // @Produce json
 // @Param secretInstance body v0.SecretInstance true "SecretInstance object"
@@ -454,7 +454,7 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 
 // @Summary gets all secret instances.
 // @Description Get all secret instances from the Threeport database.
-// @ID get-secretInstances
+// @ID get-v0-secretInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "secret instance search by name"
@@ -494,7 +494,7 @@ func (h Handler) GetSecretInstances(c echo.Context) error {
 
 // @Summary gets a secret instance.
 // @Description Get a particular secret instance from the database.
-// @ID get-secretInstance
+// @ID get-v0-secretInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -527,7 +527,7 @@ func (h Handler) GetSecretInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-secretInstance
+// @ID update-v0-secretInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -592,7 +592,7 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-secretInstance
+// @ID replace-v0-secretInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -653,7 +653,7 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 
 // @Summary deletes a secret instance.
 // @Description Delete a secret instance by ID from the database.
-// @ID delete-secretInstance
+// @ID delete-v0-secretInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"

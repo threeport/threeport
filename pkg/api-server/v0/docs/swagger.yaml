@@ -2651,6 +2651,94 @@ definitions:
     - JSONDefinition
     - WorkloadInstanceID
     type: object
+  v1.AttachedObjectReference:
+    properties:
+      AttachedObjectID:
+        description: The object ID of the attached object.
+        type: integer
+      AttachedObjectType:
+        description: The object type of the attached object.
+        type: string
+      ObjectID:
+        description: The object ID of the base object.
+        type: integer
+      ObjectType:
+        description: The object type of the base object.
+        type: string
+    required:
+    - AttachedObjectID
+    - AttachedObjectType
+    - ObjectID
+    - ObjectType
+    type: object
+  v1.WorkloadInstance:
+    properties:
+      CreationAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      CreationConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      CreationFailed:
+        description: Gets set to true if creation process fails.
+        type: boolean
+      DeletionAcknowledged:
+        description: |-
+          Used by controllers to acknowledge deletion and indicate that deletion
+          reconciliation has begun so that subsequent reconciliation attempts can
+          act accordingly.
+        type: string
+      DeletionConfirmed:
+        description: Used by controllers to confirm deletion of an object.
+        type: string
+      DeletionScheduled:
+        description: |-
+          Used to inform reconcilers that an object is being deleted so they may
+          complete delete reconciliation before actually deleting the object from the database.
+        type: string
+      Events:
+        description: |-
+          All events generated for the workload instance that aren't related to a
+          particular workload resource instance.
+        items:
+          $ref: '#/definitions/v0.WorkloadEvent'
+        type: array
+      InterruptReconciliation:
+        description: |-
+          InterruptReconciliation is used by the controller to indicated that future
+          reconcilation should be interrupted.  Useful in cases where there is a
+          situation where future reconciliation could be descructive such as
+          spinning up more infrastructure when there is a unresolved problem.
+        type: boolean
+      KubernetesRuntimeInstanceID:
+        description: The kubernetes runtime to which the workload is deployed.
+        type: integer
+      Name:
+        description: An arbitrary name the instance
+        type: string
+      Reconciled:
+        description: Indicates if object is considered to be reconciled by the object's
+          controller.
+        type: boolean
+      Status:
+        description: The latest status of a workload instance.
+        type: string
+      WorkloadDefinitionID:
+        description: The definition used to configure the workload instance.
+        type: integer
+      WorkloadResourceInstances:
+        description: The associated workload resource definitions that are derived.
+        items:
+          $ref: '#/definitions/v0.WorkloadResourceInstance'
+        type: array
+    required:
+    - KubernetesRuntimeInstanceID
+    - Name
+    - WorkloadDefinitionID
+    type: object
   version.RESTAPIVersion:
     properties:
       Version:
@@ -3153,7 +3241,7 @@ paths:
       consumes:
       - application/json
       description: Get all attached object references from the Threeport database.
-      operationId: get-attachedObjectReferences
+      operationId: get-v0-attachedObjectReferences
       parameters:
       - description: attached object reference search by name
         in: query
@@ -3179,7 +3267,7 @@ paths:
       consumes:
       - application/json
       description: Add a new attached object reference to the Threeport database.
-      operationId: add-attachedObjectReference
+      operationId: add-v0-attachedObjectReference
       parameters:
       - description: AttachedObjectReference object
         in: body
@@ -3208,7 +3296,7 @@ paths:
       consumes:
       - application/json
       description: Delete a attached object reference by ID from the database.
-      operationId: delete-attachedObjectReference
+      operationId: delete-v0-attachedObjectReference
       parameters:
       - description: ID
         in: path
@@ -3239,7 +3327,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular attached object reference from the database.
-      operationId: get-attachedObjectReference
+      operationId: get-v0-attachedObjectReference
       parameters:
       - description: ID
         in: path
@@ -3271,7 +3359,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-attachedObjectReference
+      operationId: update-v0-attachedObjectReference
       parameters:
       - description: ID
         in: path
@@ -3314,7 +3402,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-attachedObjectReference
+      operationId: replace-v0-attachedObjectReference
       parameters:
       - description: ID
         in: path
@@ -3353,7 +3441,7 @@ paths:
       consumes:
       - application/json
       description: Get all aws accounts from the Threeport database.
-      operationId: get-awsAccounts
+      operationId: get-v0-awsAccounts
       parameters:
       - description: aws account search by name
         in: query
@@ -3379,7 +3467,7 @@ paths:
       consumes:
       - application/json
       description: Add a new aws account to the Threeport database.
-      operationId: add-awsAccount
+      operationId: add-v0-awsAccount
       parameters:
       - description: AwsAccount object
         in: body
@@ -3408,7 +3496,7 @@ paths:
       consumes:
       - application/json
       description: Delete a aws account by ID from the database.
-      operationId: delete-awsAccount
+      operationId: delete-v0-awsAccount
       parameters:
       - description: ID
         in: path
@@ -3439,7 +3527,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular aws account from the database.
-      operationId: get-awsAccount
+      operationId: get-v0-awsAccount
       parameters:
       - description: ID
         in: path
@@ -3471,7 +3559,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-awsAccount
+      operationId: update-v0-awsAccount
       parameters:
       - description: ID
         in: path
@@ -3514,7 +3602,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-awsAccount
+      operationId: replace-v0-awsAccount
       parameters:
       - description: ID
         in: path
@@ -3553,7 +3641,7 @@ paths:
       - application/json
       description: Get all aws eks kubernetes runtime definitions from the Threeport
         database.
-      operationId: get-awsEksKubernetesRuntimeDefinitions
+      operationId: get-v0-awsEksKubernetesRuntimeDefinitions
       parameters:
       - description: aws eks kubernetes runtime definition search by name
         in: query
@@ -3580,7 +3668,7 @@ paths:
       - application/json
       description: Add a new aws eks kubernetes runtime definition to the Threeport
         database.
-      operationId: add-awsEksKubernetesRuntimeDefinition
+      operationId: add-v0-awsEksKubernetesRuntimeDefinition
       parameters:
       - description: AwsEksKubernetesRuntimeDefinition object
         in: body
@@ -3609,7 +3697,7 @@ paths:
       consumes:
       - application/json
       description: Delete a aws eks kubernetes runtime definition by ID from the database.
-      operationId: delete-awsEksKubernetesRuntimeDefinition
+      operationId: delete-v0-awsEksKubernetesRuntimeDefinition
       parameters:
       - description: ID
         in: path
@@ -3641,7 +3729,7 @@ paths:
       - application/json
       description: Get a particular aws eks kubernetes runtime definition from the
         database.
-      operationId: get-awsEksKubernetesRuntimeDefinition
+      operationId: get-v0-awsEksKubernetesRuntimeDefinition
       parameters:
       - description: ID
         in: path
@@ -3673,7 +3761,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-awsEksKubernetesRuntimeDefinition
+      operationId: update-v0-awsEksKubernetesRuntimeDefinition
       parameters:
       - description: ID
         in: path
@@ -3717,7 +3805,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-awsEksKubernetesRuntimeDefinition
+      operationId: replace-v0-awsEksKubernetesRuntimeDefinition
       parameters:
       - description: ID
         in: path
@@ -3757,7 +3845,7 @@ paths:
       - application/json
       description: Get all aws eks kubernetes runtime instances from the Threeport
         database.
-      operationId: get-awsEksKubernetesRuntimeInstances
+      operationId: get-v0-awsEksKubernetesRuntimeInstances
       parameters:
       - description: aws eks kubernetes runtime instance search by name
         in: query
@@ -3784,7 +3872,7 @@ paths:
       - application/json
       description: Add a new aws eks kubernetes runtime instance to the Threeport
         database.
-      operationId: add-awsEksKubernetesRuntimeInstance
+      operationId: add-v0-awsEksKubernetesRuntimeInstance
       parameters:
       - description: AwsEksKubernetesRuntimeInstance object
         in: body
@@ -3813,7 +3901,7 @@ paths:
       consumes:
       - application/json
       description: Delete a aws eks kubernetes runtime instance by ID from the database.
-      operationId: delete-awsEksKubernetesRuntimeInstance
+      operationId: delete-v0-awsEksKubernetesRuntimeInstance
       parameters:
       - description: ID
         in: path
@@ -3844,7 +3932,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular aws eks kubernetes runtime instance from the database.
-      operationId: get-awsEksKubernetesRuntimeInstance
+      operationId: get-v0-awsEksKubernetesRuntimeInstance
       parameters:
       - description: ID
         in: path
@@ -3876,7 +3964,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-awsEksKubernetesRuntimeInstance
+      operationId: update-v0-awsEksKubernetesRuntimeInstance
       parameters:
       - description: ID
         in: path
@@ -3920,7 +4008,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-awsEksKubernetesRuntimeInstance
+      operationId: replace-v0-awsEksKubernetesRuntimeInstance
       parameters:
       - description: ID
         in: path
@@ -3960,7 +4048,7 @@ paths:
       - application/json
       description: Get all aws object storage bucket definitions from the Threeport
         database.
-      operationId: get-awsObjectStorageBucketDefinitions
+      operationId: get-v0-awsObjectStorageBucketDefinitions
       parameters:
       - description: aws object storage bucket definition search by name
         in: query
@@ -3987,7 +4075,7 @@ paths:
       - application/json
       description: Add a new aws object storage bucket definition to the Threeport
         database.
-      operationId: add-awsObjectStorageBucketDefinition
+      operationId: add-v0-awsObjectStorageBucketDefinition
       parameters:
       - description: AwsObjectStorageBucketDefinition object
         in: body
@@ -4016,7 +4104,7 @@ paths:
       consumes:
       - application/json
       description: Delete a aws object storage bucket definition by ID from the database.
-      operationId: delete-awsObjectStorageBucketDefinition
+      operationId: delete-v0-awsObjectStorageBucketDefinition
       parameters:
       - description: ID
         in: path
@@ -4048,7 +4136,7 @@ paths:
       - application/json
       description: Get a particular aws object storage bucket definition from the
         database.
-      operationId: get-awsObjectStorageBucketDefinition
+      operationId: get-v0-awsObjectStorageBucketDefinition
       parameters:
       - description: ID
         in: path
@@ -4080,7 +4168,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-awsObjectStorageBucketDefinition
+      operationId: update-v0-awsObjectStorageBucketDefinition
       parameters:
       - description: ID
         in: path
@@ -4123,7 +4211,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-awsObjectStorageBucketDefinition
+      operationId: replace-v0-awsObjectStorageBucketDefinition
       parameters:
       - description: ID
         in: path
@@ -4163,7 +4251,7 @@ paths:
       - application/json
       description: Get all aws object storage bucket instances from the Threeport
         database.
-      operationId: get-awsObjectStorageBucketInstances
+      operationId: get-v0-awsObjectStorageBucketInstances
       parameters:
       - description: aws object storage bucket instance search by name
         in: query
@@ -4189,7 +4277,7 @@ paths:
       consumes:
       - application/json
       description: Add a new aws object storage bucket instance to the Threeport database.
-      operationId: add-awsObjectStorageBucketInstance
+      operationId: add-v0-awsObjectStorageBucketInstance
       parameters:
       - description: AwsObjectStorageBucketInstance object
         in: body
@@ -4218,7 +4306,7 @@ paths:
       consumes:
       - application/json
       description: Delete a aws object storage bucket instance by ID from the database.
-      operationId: delete-awsObjectStorageBucketInstance
+      operationId: delete-v0-awsObjectStorageBucketInstance
       parameters:
       - description: ID
         in: path
@@ -4249,7 +4337,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular aws object storage bucket instance from the database.
-      operationId: get-awsObjectStorageBucketInstance
+      operationId: get-v0-awsObjectStorageBucketInstance
       parameters:
       - description: ID
         in: path
@@ -4281,7 +4369,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-awsObjectStorageBucketInstance
+      operationId: update-v0-awsObjectStorageBucketInstance
       parameters:
       - description: ID
         in: path
@@ -4324,7 +4412,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-awsObjectStorageBucketInstance
+      operationId: replace-v0-awsObjectStorageBucketInstance
       parameters:
       - description: ID
         in: path
@@ -4364,7 +4452,7 @@ paths:
       - application/json
       description: Get all aws relational database definitions from the Threeport
         database.
-      operationId: get-awsRelationalDatabaseDefinitions
+      operationId: get-v0-awsRelationalDatabaseDefinitions
       parameters:
       - description: aws relational database definition search by name
         in: query
@@ -4390,7 +4478,7 @@ paths:
       consumes:
       - application/json
       description: Add a new aws relational database definition to the Threeport database.
-      operationId: add-awsRelationalDatabaseDefinition
+      operationId: add-v0-awsRelationalDatabaseDefinition
       parameters:
       - description: AwsRelationalDatabaseDefinition object
         in: body
@@ -4419,7 +4507,7 @@ paths:
       consumes:
       - application/json
       description: Delete a aws relational database definition by ID from the database.
-      operationId: delete-awsRelationalDatabaseDefinition
+      operationId: delete-v0-awsRelationalDatabaseDefinition
       parameters:
       - description: ID
         in: path
@@ -4450,7 +4538,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular aws relational database definition from the database.
-      operationId: get-awsRelationalDatabaseDefinition
+      operationId: get-v0-awsRelationalDatabaseDefinition
       parameters:
       - description: ID
         in: path
@@ -4482,7 +4570,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-awsRelationalDatabaseDefinition
+      operationId: update-v0-awsRelationalDatabaseDefinition
       parameters:
       - description: ID
         in: path
@@ -4525,7 +4613,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-awsRelationalDatabaseDefinition
+      operationId: replace-v0-awsRelationalDatabaseDefinition
       parameters:
       - description: ID
         in: path
@@ -4564,7 +4652,7 @@ paths:
       consumes:
       - application/json
       description: Get all aws relational database instances from the Threeport database.
-      operationId: get-awsRelationalDatabaseInstances
+      operationId: get-v0-awsRelationalDatabaseInstances
       parameters:
       - description: aws relational database instance search by name
         in: query
@@ -4590,7 +4678,7 @@ paths:
       consumes:
       - application/json
       description: Add a new aws relational database instance to the Threeport database.
-      operationId: add-awsRelationalDatabaseInstance
+      operationId: add-v0-awsRelationalDatabaseInstance
       parameters:
       - description: AwsRelationalDatabaseInstance object
         in: body
@@ -4619,7 +4707,7 @@ paths:
       consumes:
       - application/json
       description: Delete a aws relational database instance by ID from the database.
-      operationId: delete-awsRelationalDatabaseInstance
+      operationId: delete-v0-awsRelationalDatabaseInstance
       parameters:
       - description: ID
         in: path
@@ -4650,7 +4738,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular aws relational database instance from the database.
-      operationId: get-awsRelationalDatabaseInstance
+      operationId: get-v0-awsRelationalDatabaseInstance
       parameters:
       - description: ID
         in: path
@@ -4682,7 +4770,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-awsRelationalDatabaseInstance
+      operationId: update-v0-awsRelationalDatabaseInstance
       parameters:
       - description: ID
         in: path
@@ -4725,7 +4813,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-awsRelationalDatabaseInstance
+      operationId: replace-v0-awsRelationalDatabaseInstance
       parameters:
       - description: ID
         in: path
@@ -4764,7 +4852,7 @@ paths:
       consumes:
       - application/json
       description: Get all control plane definitions from the Threeport database.
-      operationId: get-controlPlaneDefinitions
+      operationId: get-v0-controlPlaneDefinitions
       parameters:
       - description: control plane definition search by name
         in: query
@@ -4790,7 +4878,7 @@ paths:
       consumes:
       - application/json
       description: Add a new control plane definition to the Threeport database.
-      operationId: add-controlPlaneDefinition
+      operationId: add-v0-controlPlaneDefinition
       parameters:
       - description: ControlPlaneDefinition object
         in: body
@@ -4819,7 +4907,7 @@ paths:
       consumes:
       - application/json
       description: Delete a control plane definition by ID from the database.
-      operationId: delete-controlPlaneDefinition
+      operationId: delete-v0-controlPlaneDefinition
       parameters:
       - description: ID
         in: path
@@ -4850,7 +4938,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular control plane definition from the database.
-      operationId: get-controlPlaneDefinition
+      operationId: get-v0-controlPlaneDefinition
       parameters:
       - description: ID
         in: path
@@ -4882,7 +4970,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-controlPlaneDefinition
+      operationId: update-v0-controlPlaneDefinition
       parameters:
       - description: ID
         in: path
@@ -4925,7 +5013,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-controlPlaneDefinition
+      operationId: replace-v0-controlPlaneDefinition
       parameters:
       - description: ID
         in: path
@@ -4964,7 +5052,7 @@ paths:
       consumes:
       - application/json
       description: Get all control plane instances from the Threeport database.
-      operationId: get-controlPlaneInstances
+      operationId: get-v0-controlPlaneInstances
       parameters:
       - description: control plane instance search by name
         in: query
@@ -4990,7 +5078,7 @@ paths:
       consumes:
       - application/json
       description: Add a new control plane instance to the Threeport database.
-      operationId: add-controlPlaneInstance
+      operationId: add-v0-controlPlaneInstance
       parameters:
       - description: ControlPlaneInstance object
         in: body
@@ -5019,7 +5107,7 @@ paths:
       consumes:
       - application/json
       description: Delete a control plane instance by ID from the database.
-      operationId: delete-controlPlaneInstance
+      operationId: delete-v0-controlPlaneInstance
       parameters:
       - description: ID
         in: path
@@ -5050,7 +5138,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular control plane instance from the database.
-      operationId: get-controlPlaneInstance
+      operationId: get-v0-controlPlaneInstance
       parameters:
       - description: ID
         in: path
@@ -5082,7 +5170,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-controlPlaneInstance
+      operationId: update-v0-controlPlaneInstance
       parameters:
       - description: ID
         in: path
@@ -5125,7 +5213,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-controlPlaneInstance
+      operationId: replace-v0-controlPlaneInstance
       parameters:
       - description: ID
         in: path
@@ -5164,7 +5252,7 @@ paths:
       consumes:
       - application/json
       description: Get all domain name definitions from the Threeport database.
-      operationId: get-domainNameDefinitions
+      operationId: get-v0-domainNameDefinitions
       parameters:
       - description: domain name definition search by name
         in: query
@@ -5190,7 +5278,7 @@ paths:
       consumes:
       - application/json
       description: Add a new domain name definition to the Threeport database.
-      operationId: add-domainNameDefinition
+      operationId: add-v0-domainNameDefinition
       parameters:
       - description: DomainNameDefinition object
         in: body
@@ -5219,7 +5307,7 @@ paths:
       consumes:
       - application/json
       description: Delete a domain name definition by ID from the database.
-      operationId: delete-domainNameDefinition
+      operationId: delete-v0-domainNameDefinition
       parameters:
       - description: ID
         in: path
@@ -5250,7 +5338,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular domain name definition from the database.
-      operationId: get-domainNameDefinition
+      operationId: get-v0-domainNameDefinition
       parameters:
       - description: ID
         in: path
@@ -5282,7 +5370,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-domainNameDefinition
+      operationId: update-v0-domainNameDefinition
       parameters:
       - description: ID
         in: path
@@ -5325,7 +5413,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-domainNameDefinition
+      operationId: replace-v0-domainNameDefinition
       parameters:
       - description: ID
         in: path
@@ -5364,7 +5452,7 @@ paths:
       consumes:
       - application/json
       description: Get all domain name instances from the Threeport database.
-      operationId: get-domainNameInstances
+      operationId: get-v0-domainNameInstances
       parameters:
       - description: domain name instance search by name
         in: query
@@ -5390,7 +5478,7 @@ paths:
       consumes:
       - application/json
       description: Add a new domain name instance to the Threeport database.
-      operationId: add-domainNameInstance
+      operationId: add-v0-domainNameInstance
       parameters:
       - description: DomainNameInstance object
         in: body
@@ -5419,7 +5507,7 @@ paths:
       consumes:
       - application/json
       description: Delete a domain name instance by ID from the database.
-      operationId: delete-domainNameInstance
+      operationId: delete-v0-domainNameInstance
       parameters:
       - description: ID
         in: path
@@ -5450,7 +5538,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular domain name instance from the database.
-      operationId: get-domainNameInstance
+      operationId: get-v0-domainNameInstance
       parameters:
       - description: ID
         in: path
@@ -5482,7 +5570,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-domainNameInstance
+      operationId: update-v0-domainNameInstance
       parameters:
       - description: ID
         in: path
@@ -5525,7 +5613,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-domainNameInstance
+      operationId: replace-v0-domainNameInstance
       parameters:
       - description: ID
         in: path
@@ -5563,7 +5651,7 @@ paths:
       consumes:
       - application/json
       description: Get all gateway definitions from the Threeport database.
-      operationId: get-gatewayDefinitions
+      operationId: get-v0-gatewayDefinitions
       parameters:
       - description: gateway definition search by name
         in: query
@@ -5589,7 +5677,7 @@ paths:
       consumes:
       - application/json
       description: Add a new gateway definition to the Threeport database.
-      operationId: add-gatewayDefinition
+      operationId: add-v0-gatewayDefinition
       parameters:
       - description: GatewayDefinition object
         in: body
@@ -5618,7 +5706,7 @@ paths:
       consumes:
       - application/json
       description: Delete a gateway definition by ID from the database.
-      operationId: delete-gatewayDefinition
+      operationId: delete-v0-gatewayDefinition
       parameters:
       - description: ID
         in: path
@@ -5649,7 +5737,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular gateway definition from the database.
-      operationId: get-gatewayDefinition
+      operationId: get-v0-gatewayDefinition
       parameters:
       - description: ID
         in: path
@@ -5681,7 +5769,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-gatewayDefinition
+      operationId: update-v0-gatewayDefinition
       parameters:
       - description: ID
         in: path
@@ -5724,7 +5812,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-gatewayDefinition
+      operationId: replace-v0-gatewayDefinition
       parameters:
       - description: ID
         in: path
@@ -5762,7 +5850,7 @@ paths:
       consumes:
       - application/json
       description: Get all gateway http ports from the Threeport database.
-      operationId: get-gatewayHttpPorts
+      operationId: get-v0-gatewayHttpPorts
       parameters:
       - description: gateway http port search by name
         in: query
@@ -5788,7 +5876,7 @@ paths:
       consumes:
       - application/json
       description: Add a new gateway http port to the Threeport database.
-      operationId: add-gatewayHttpPort
+      operationId: add-v0-gatewayHttpPort
       parameters:
       - description: GatewayHttpPort object
         in: body
@@ -5817,7 +5905,7 @@ paths:
       consumes:
       - application/json
       description: Delete a gateway http port by ID from the database.
-      operationId: delete-gatewayHttpPort
+      operationId: delete-v0-gatewayHttpPort
       parameters:
       - description: ID
         in: path
@@ -5848,7 +5936,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular gateway http port from the database.
-      operationId: get-gatewayHttpPort
+      operationId: get-v0-gatewayHttpPort
       parameters:
       - description: ID
         in: path
@@ -5880,7 +5968,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-gatewayHttpPort
+      operationId: update-v0-gatewayHttpPort
       parameters:
       - description: ID
         in: path
@@ -5923,7 +6011,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-gatewayHttpPort
+      operationId: replace-v0-gatewayHttpPort
       parameters:
       - description: ID
         in: path
@@ -5961,7 +6049,7 @@ paths:
       consumes:
       - application/json
       description: Get all gateway instances from the Threeport database.
-      operationId: get-gatewayInstances
+      operationId: get-v0-gatewayInstances
       parameters:
       - description: gateway instance search by name
         in: query
@@ -5987,7 +6075,7 @@ paths:
       consumes:
       - application/json
       description: Add a new gateway instance to the Threeport database.
-      operationId: add-gatewayInstance
+      operationId: add-v0-gatewayInstance
       parameters:
       - description: GatewayInstance object
         in: body
@@ -6016,7 +6104,7 @@ paths:
       consumes:
       - application/json
       description: Delete a gateway instance by ID from the database.
-      operationId: delete-gatewayInstance
+      operationId: delete-v0-gatewayInstance
       parameters:
       - description: ID
         in: path
@@ -6047,7 +6135,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular gateway instance from the database.
-      operationId: get-gatewayInstance
+      operationId: get-v0-gatewayInstance
       parameters:
       - description: ID
         in: path
@@ -6079,7 +6167,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-gatewayInstance
+      operationId: update-v0-gatewayInstance
       parameters:
       - description: ID
         in: path
@@ -6122,7 +6210,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-gatewayInstance
+      operationId: replace-v0-gatewayInstance
       parameters:
       - description: ID
         in: path
@@ -6160,7 +6248,7 @@ paths:
       consumes:
       - application/json
       description: Get all gateway tcp ports from the Threeport database.
-      operationId: get-gatewayTcpPorts
+      operationId: get-v0-gatewayTcpPorts
       parameters:
       - description: gateway tcp port search by name
         in: query
@@ -6186,7 +6274,7 @@ paths:
       consumes:
       - application/json
       description: Add a new gateway tcp port to the Threeport database.
-      operationId: add-gatewayTcpPort
+      operationId: add-v0-gatewayTcpPort
       parameters:
       - description: GatewayTcpPort object
         in: body
@@ -6215,7 +6303,7 @@ paths:
       consumes:
       - application/json
       description: Delete a gateway tcp port by ID from the database.
-      operationId: delete-gatewayTcpPort
+      operationId: delete-v0-gatewayTcpPort
       parameters:
       - description: ID
         in: path
@@ -6246,7 +6334,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular gateway tcp port from the database.
-      operationId: get-gatewayTcpPort
+      operationId: get-v0-gatewayTcpPort
       parameters:
       - description: ID
         in: path
@@ -6278,7 +6366,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-gatewayTcpPort
+      operationId: update-v0-gatewayTcpPort
       parameters:
       - description: ID
         in: path
@@ -6321,7 +6409,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-gatewayTcpPort
+      operationId: replace-v0-gatewayTcpPort
       parameters:
       - description: ID
         in: path
@@ -6359,7 +6447,7 @@ paths:
       consumes:
       - application/json
       description: Get all helm workload definitions from the Threeport database.
-      operationId: get-helmWorkloadDefinitions
+      operationId: get-v0-helmWorkloadDefinitions
       parameters:
       - description: helm workload definition search by name
         in: query
@@ -6385,7 +6473,7 @@ paths:
       consumes:
       - application/json
       description: Add a new helm workload definition to the Threeport database.
-      operationId: add-helmWorkloadDefinition
+      operationId: add-v0-helmWorkloadDefinition
       parameters:
       - description: HelmWorkloadDefinition object
         in: body
@@ -6414,7 +6502,7 @@ paths:
       consumes:
       - application/json
       description: Delete a helm workload definition by ID from the database.
-      operationId: delete-helmWorkloadDefinition
+      operationId: delete-v0-helmWorkloadDefinition
       parameters:
       - description: ID
         in: path
@@ -6445,7 +6533,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular helm workload definition from the database.
-      operationId: get-helmWorkloadDefinition
+      operationId: get-v0-helmWorkloadDefinition
       parameters:
       - description: ID
         in: path
@@ -6477,7 +6565,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-helmWorkloadDefinition
+      operationId: update-v0-helmWorkloadDefinition
       parameters:
       - description: ID
         in: path
@@ -6520,7 +6608,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-helmWorkloadDefinition
+      operationId: replace-v0-helmWorkloadDefinition
       parameters:
       - description: ID
         in: path
@@ -6559,7 +6647,7 @@ paths:
       consumes:
       - application/json
       description: Get all helm workload instances from the Threeport database.
-      operationId: get-helmWorkloadInstances
+      operationId: get-v0-helmWorkloadInstances
       parameters:
       - description: helm workload instance search by name
         in: query
@@ -6585,7 +6673,7 @@ paths:
       consumes:
       - application/json
       description: Add a new helm workload instance to the Threeport database.
-      operationId: add-helmWorkloadInstance
+      operationId: add-v0-helmWorkloadInstance
       parameters:
       - description: HelmWorkloadInstance object
         in: body
@@ -6614,7 +6702,7 @@ paths:
       consumes:
       - application/json
       description: Delete a helm workload instance by ID from the database.
-      operationId: delete-helmWorkloadInstance
+      operationId: delete-v0-helmWorkloadInstance
       parameters:
       - description: ID
         in: path
@@ -6645,7 +6733,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular helm workload instance from the database.
-      operationId: get-helmWorkloadInstance
+      operationId: get-v0-helmWorkloadInstance
       parameters:
       - description: ID
         in: path
@@ -6677,7 +6765,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-helmWorkloadInstance
+      operationId: update-v0-helmWorkloadInstance
       parameters:
       - description: ID
         in: path
@@ -6720,7 +6808,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-helmWorkloadInstance
+      operationId: replace-v0-helmWorkloadInstance
       parameters:
       - description: ID
         in: path
@@ -6759,7 +6847,7 @@ paths:
       consumes:
       - application/json
       description: Get all kubernetes runtime definitions from the Threeport database.
-      operationId: get-kubernetesRuntimeDefinitions
+      operationId: get-v0-kubernetesRuntimeDefinitions
       parameters:
       - description: kubernetes runtime definition search by name
         in: query
@@ -6785,7 +6873,7 @@ paths:
       consumes:
       - application/json
       description: Add a new kubernetes runtime definition to the Threeport database.
-      operationId: add-kubernetesRuntimeDefinition
+      operationId: add-v0-kubernetesRuntimeDefinition
       parameters:
       - description: KubernetesRuntimeDefinition object
         in: body
@@ -6814,7 +6902,7 @@ paths:
       consumes:
       - application/json
       description: Delete a kubernetes runtime definition by ID from the database.
-      operationId: delete-kubernetesRuntimeDefinition
+      operationId: delete-v0-kubernetesRuntimeDefinition
       parameters:
       - description: ID
         in: path
@@ -6845,7 +6933,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular kubernetes runtime definition from the database.
-      operationId: get-kubernetesRuntimeDefinition
+      operationId: get-v0-kubernetesRuntimeDefinition
       parameters:
       - description: ID
         in: path
@@ -6877,7 +6965,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-kubernetesRuntimeDefinition
+      operationId: update-v0-kubernetesRuntimeDefinition
       parameters:
       - description: ID
         in: path
@@ -6920,7 +7008,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-kubernetesRuntimeDefinition
+      operationId: replace-v0-kubernetesRuntimeDefinition
       parameters:
       - description: ID
         in: path
@@ -6959,7 +7047,7 @@ paths:
       consumes:
       - application/json
       description: Get all kubernetes runtime instances from the Threeport database.
-      operationId: get-kubernetesRuntimeInstances
+      operationId: get-v0-kubernetesRuntimeInstances
       parameters:
       - description: kubernetes runtime instance search by name
         in: query
@@ -6985,7 +7073,7 @@ paths:
       consumes:
       - application/json
       description: Add a new kubernetes runtime instance to the Threeport database.
-      operationId: add-kubernetesRuntimeInstance
+      operationId: add-v0-kubernetesRuntimeInstance
       parameters:
       - description: KubernetesRuntimeInstance object
         in: body
@@ -7014,7 +7102,7 @@ paths:
       consumes:
       - application/json
       description: Delete a kubernetes runtime instance by ID from the database.
-      operationId: delete-kubernetesRuntimeInstance
+      operationId: delete-v0-kubernetesRuntimeInstance
       parameters:
       - description: ID
         in: path
@@ -7045,7 +7133,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular kubernetes runtime instance from the database.
-      operationId: get-kubernetesRuntimeInstance
+      operationId: get-v0-kubernetesRuntimeInstance
       parameters:
       - description: ID
         in: path
@@ -7077,7 +7165,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-kubernetesRuntimeInstance
+      operationId: update-v0-kubernetesRuntimeInstance
       parameters:
       - description: ID
         in: path
@@ -7120,7 +7208,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-kubernetesRuntimeInstance
+      operationId: replace-v0-kubernetesRuntimeInstance
       parameters:
       - description: ID
         in: path
@@ -7159,7 +7247,7 @@ paths:
       consumes:
       - application/json
       description: Get all log backends from the Threeport database.
-      operationId: get-logBackends
+      operationId: get-v0-logBackends
       parameters:
       - description: log backend search by name
         in: query
@@ -7185,7 +7273,7 @@ paths:
       consumes:
       - application/json
       description: Add a new log backend to the Threeport database.
-      operationId: add-logBackend
+      operationId: add-v0-logBackend
       parameters:
       - description: LogBackend object
         in: body
@@ -7214,7 +7302,7 @@ paths:
       consumes:
       - application/json
       description: Delete a log backend by ID from the database.
-      operationId: delete-logBackend
+      operationId: delete-v0-logBackend
       parameters:
       - description: ID
         in: path
@@ -7245,7 +7333,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular log backend from the database.
-      operationId: get-logBackend
+      operationId: get-v0-logBackend
       parameters:
       - description: ID
         in: path
@@ -7277,7 +7365,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-logBackend
+      operationId: update-v0-logBackend
       parameters:
       - description: ID
         in: path
@@ -7320,7 +7408,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-logBackend
+      operationId: replace-v0-logBackend
       parameters:
       - description: ID
         in: path
@@ -7358,7 +7446,7 @@ paths:
       consumes:
       - application/json
       description: Get all log storage definitions from the Threeport database.
-      operationId: get-logStorageDefinitions
+      operationId: get-v0-logStorageDefinitions
       parameters:
       - description: log storage definition search by name
         in: query
@@ -7384,7 +7472,7 @@ paths:
       consumes:
       - application/json
       description: Add a new log storage definition to the Threeport database.
-      operationId: add-logStorageDefinition
+      operationId: add-v0-logStorageDefinition
       parameters:
       - description: LogStorageDefinition object
         in: body
@@ -7413,7 +7501,7 @@ paths:
       consumes:
       - application/json
       description: Delete a log storage definition by ID from the database.
-      operationId: delete-logStorageDefinition
+      operationId: delete-v0-logStorageDefinition
       parameters:
       - description: ID
         in: path
@@ -7444,7 +7532,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular log storage definition from the database.
-      operationId: get-logStorageDefinition
+      operationId: get-v0-logStorageDefinition
       parameters:
       - description: ID
         in: path
@@ -7476,7 +7564,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-logStorageDefinition
+      operationId: update-v0-logStorageDefinition
       parameters:
       - description: ID
         in: path
@@ -7519,7 +7607,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-logStorageDefinition
+      operationId: replace-v0-logStorageDefinition
       parameters:
       - description: ID
         in: path
@@ -7558,7 +7646,7 @@ paths:
       consumes:
       - application/json
       description: Get all log storage instances from the Threeport database.
-      operationId: get-logStorageInstances
+      operationId: get-v0-logStorageInstances
       parameters:
       - description: log storage instance search by name
         in: query
@@ -7584,7 +7672,7 @@ paths:
       consumes:
       - application/json
       description: Add a new log storage instance to the Threeport database.
-      operationId: add-logStorageInstance
+      operationId: add-v0-logStorageInstance
       parameters:
       - description: LogStorageInstance object
         in: body
@@ -7613,7 +7701,7 @@ paths:
       consumes:
       - application/json
       description: Delete a log storage instance by ID from the database.
-      operationId: delete-logStorageInstance
+      operationId: delete-v0-logStorageInstance
       parameters:
       - description: ID
         in: path
@@ -7644,7 +7732,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular log storage instance from the database.
-      operationId: get-logStorageInstance
+      operationId: get-v0-logStorageInstance
       parameters:
       - description: ID
         in: path
@@ -7676,7 +7764,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-logStorageInstance
+      operationId: update-v0-logStorageInstance
       parameters:
       - description: ID
         in: path
@@ -7719,7 +7807,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-logStorageInstance
+      operationId: replace-v0-logStorageInstance
       parameters:
       - description: ID
         in: path
@@ -7757,7 +7845,7 @@ paths:
       consumes:
       - application/json
       description: Get all logging definitions from the Threeport database.
-      operationId: get-loggingDefinitions
+      operationId: get-v0-loggingDefinitions
       parameters:
       - description: logging definition search by name
         in: query
@@ -7783,7 +7871,7 @@ paths:
       consumes:
       - application/json
       description: Add a new logging definition to the Threeport database.
-      operationId: add-loggingDefinition
+      operationId: add-v0-loggingDefinition
       parameters:
       - description: LoggingDefinition object
         in: body
@@ -7812,7 +7900,7 @@ paths:
       consumes:
       - application/json
       description: Delete a logging definition by ID from the database.
-      operationId: delete-loggingDefinition
+      operationId: delete-v0-loggingDefinition
       parameters:
       - description: ID
         in: path
@@ -7843,7 +7931,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular logging definition from the database.
-      operationId: get-loggingDefinition
+      operationId: get-v0-loggingDefinition
       parameters:
       - description: ID
         in: path
@@ -7875,7 +7963,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-loggingDefinition
+      operationId: update-v0-loggingDefinition
       parameters:
       - description: ID
         in: path
@@ -7918,7 +8006,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-loggingDefinition
+      operationId: replace-v0-loggingDefinition
       parameters:
       - description: ID
         in: path
@@ -7956,7 +8044,7 @@ paths:
       consumes:
       - application/json
       description: Get all logging instances from the Threeport database.
-      operationId: get-loggingInstances
+      operationId: get-v0-loggingInstances
       parameters:
       - description: logging instance search by name
         in: query
@@ -7982,7 +8070,7 @@ paths:
       consumes:
       - application/json
       description: Add a new logging instance to the Threeport database.
-      operationId: add-loggingInstance
+      operationId: add-v0-loggingInstance
       parameters:
       - description: LoggingInstance object
         in: body
@@ -8011,7 +8099,7 @@ paths:
       consumes:
       - application/json
       description: Delete a logging instance by ID from the database.
-      operationId: delete-loggingInstance
+      operationId: delete-v0-loggingInstance
       parameters:
       - description: ID
         in: path
@@ -8042,7 +8130,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular logging instance from the database.
-      operationId: get-loggingInstance
+      operationId: get-v0-loggingInstance
       parameters:
       - description: ID
         in: path
@@ -8074,7 +8162,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-loggingInstance
+      operationId: update-v0-loggingInstance
       parameters:
       - description: ID
         in: path
@@ -8117,7 +8205,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-loggingInstance
+      operationId: replace-v0-loggingInstance
       parameters:
       - description: ID
         in: path
@@ -8155,7 +8243,7 @@ paths:
       consumes:
       - application/json
       description: Get all metrics definitions from the Threeport database.
-      operationId: get-metricsDefinitions
+      operationId: get-v0-metricsDefinitions
       parameters:
       - description: metrics definition search by name
         in: query
@@ -8181,7 +8269,7 @@ paths:
       consumes:
       - application/json
       description: Add a new metrics definition to the Threeport database.
-      operationId: add-metricsDefinition
+      operationId: add-v0-metricsDefinition
       parameters:
       - description: MetricsDefinition object
         in: body
@@ -8210,7 +8298,7 @@ paths:
       consumes:
       - application/json
       description: Delete a metrics definition by ID from the database.
-      operationId: delete-metricsDefinition
+      operationId: delete-v0-metricsDefinition
       parameters:
       - description: ID
         in: path
@@ -8241,7 +8329,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular metrics definition from the database.
-      operationId: get-metricsDefinition
+      operationId: get-v0-metricsDefinition
       parameters:
       - description: ID
         in: path
@@ -8273,7 +8361,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-metricsDefinition
+      operationId: update-v0-metricsDefinition
       parameters:
       - description: ID
         in: path
@@ -8316,7 +8404,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-metricsDefinition
+      operationId: replace-v0-metricsDefinition
       parameters:
       - description: ID
         in: path
@@ -8354,7 +8442,7 @@ paths:
       consumes:
       - application/json
       description: Get all metrics instances from the Threeport database.
-      operationId: get-metricsInstances
+      operationId: get-v0-metricsInstances
       parameters:
       - description: metrics instance search by name
         in: query
@@ -8380,7 +8468,7 @@ paths:
       consumes:
       - application/json
       description: Add a new metrics instance to the Threeport database.
-      operationId: add-metricsInstance
+      operationId: add-v0-metricsInstance
       parameters:
       - description: MetricsInstance object
         in: body
@@ -8409,7 +8497,7 @@ paths:
       consumes:
       - application/json
       description: Delete a metrics instance by ID from the database.
-      operationId: delete-metricsInstance
+      operationId: delete-v0-metricsInstance
       parameters:
       - description: ID
         in: path
@@ -8440,7 +8528,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular metrics instance from the database.
-      operationId: get-metricsInstance
+      operationId: get-v0-metricsInstance
       parameters:
       - description: ID
         in: path
@@ -8472,7 +8560,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-metricsInstance
+      operationId: update-v0-metricsInstance
       parameters:
       - description: ID
         in: path
@@ -8515,7 +8603,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-metricsInstance
+      operationId: replace-v0-metricsInstance
       parameters:
       - description: ID
         in: path
@@ -8554,7 +8642,7 @@ paths:
       - application/json
       description: Get all observability dashboard definitions from the Threeport
         database.
-      operationId: get-observabilityDashboardDefinitions
+      operationId: get-v0-observabilityDashboardDefinitions
       parameters:
       - description: observability dashboard definition search by name
         in: query
@@ -8580,7 +8668,7 @@ paths:
       consumes:
       - application/json
       description: Add a new observability dashboard definition to the Threeport database.
-      operationId: add-observabilityDashboardDefinition
+      operationId: add-v0-observabilityDashboardDefinition
       parameters:
       - description: ObservabilityDashboardDefinition object
         in: body
@@ -8609,7 +8697,7 @@ paths:
       consumes:
       - application/json
       description: Delete a observability dashboard definition by ID from the database.
-      operationId: delete-observabilityDashboardDefinition
+      operationId: delete-v0-observabilityDashboardDefinition
       parameters:
       - description: ID
         in: path
@@ -8640,7 +8728,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular observability dashboard definition from the database.
-      operationId: get-observabilityDashboardDefinition
+      operationId: get-v0-observabilityDashboardDefinition
       parameters:
       - description: ID
         in: path
@@ -8672,7 +8760,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-observabilityDashboardDefinition
+      operationId: update-v0-observabilityDashboardDefinition
       parameters:
       - description: ID
         in: path
@@ -8715,7 +8803,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-observabilityDashboardDefinition
+      operationId: replace-v0-observabilityDashboardDefinition
       parameters:
       - description: ID
         in: path
@@ -8754,7 +8842,7 @@ paths:
       consumes:
       - application/json
       description: Get all observability dashboard instances from the Threeport database.
-      operationId: get-observabilityDashboardInstances
+      operationId: get-v0-observabilityDashboardInstances
       parameters:
       - description: observability dashboard instance search by name
         in: query
@@ -8780,7 +8868,7 @@ paths:
       consumes:
       - application/json
       description: Add a new observability dashboard instance to the Threeport database.
-      operationId: add-observabilityDashboardInstance
+      operationId: add-v0-observabilityDashboardInstance
       parameters:
       - description: ObservabilityDashboardInstance object
         in: body
@@ -8809,7 +8897,7 @@ paths:
       consumes:
       - application/json
       description: Delete a observability dashboard instance by ID from the database.
-      operationId: delete-observabilityDashboardInstance
+      operationId: delete-v0-observabilityDashboardInstance
       parameters:
       - description: ID
         in: path
@@ -8840,7 +8928,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular observability dashboard instance from the database.
-      operationId: get-observabilityDashboardInstance
+      operationId: get-v0-observabilityDashboardInstance
       parameters:
       - description: ID
         in: path
@@ -8872,7 +8960,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-observabilityDashboardInstance
+      operationId: update-v0-observabilityDashboardInstance
       parameters:
       - description: ID
         in: path
@@ -8915,7 +9003,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-observabilityDashboardInstance
+      operationId: replace-v0-observabilityDashboardInstance
       parameters:
       - description: ID
         in: path
@@ -8954,7 +9042,7 @@ paths:
       consumes:
       - application/json
       description: Get all observability stack definitions from the Threeport database.
-      operationId: get-observabilityStackDefinitions
+      operationId: get-v0-observabilityStackDefinitions
       parameters:
       - description: observability stack definition search by name
         in: query
@@ -8980,7 +9068,7 @@ paths:
       consumes:
       - application/json
       description: Add a new observability stack definition to the Threeport database.
-      operationId: add-observabilityStackDefinition
+      operationId: add-v0-observabilityStackDefinition
       parameters:
       - description: ObservabilityStackDefinition object
         in: body
@@ -9009,7 +9097,7 @@ paths:
       consumes:
       - application/json
       description: Delete a observability stack definition by ID from the database.
-      operationId: delete-observabilityStackDefinition
+      operationId: delete-v0-observabilityStackDefinition
       parameters:
       - description: ID
         in: path
@@ -9040,7 +9128,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular observability stack definition from the database.
-      operationId: get-observabilityStackDefinition
+      operationId: get-v0-observabilityStackDefinition
       parameters:
       - description: ID
         in: path
@@ -9072,7 +9160,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-observabilityStackDefinition
+      operationId: update-v0-observabilityStackDefinition
       parameters:
       - description: ID
         in: path
@@ -9115,7 +9203,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-observabilityStackDefinition
+      operationId: replace-v0-observabilityStackDefinition
       parameters:
       - description: ID
         in: path
@@ -9154,7 +9242,7 @@ paths:
       consumes:
       - application/json
       description: Get all observability stack instances from the Threeport database.
-      operationId: get-observabilityStackInstances
+      operationId: get-v0-observabilityStackInstances
       parameters:
       - description: observability stack instance search by name
         in: query
@@ -9180,7 +9268,7 @@ paths:
       consumes:
       - application/json
       description: Add a new observability stack instance to the Threeport database.
-      operationId: add-observabilityStackInstance
+      operationId: add-v0-observabilityStackInstance
       parameters:
       - description: ObservabilityStackInstance object
         in: body
@@ -9209,7 +9297,7 @@ paths:
       consumes:
       - application/json
       description: Delete a observability stack instance by ID from the database.
-      operationId: delete-observabilityStackInstance
+      operationId: delete-v0-observabilityStackInstance
       parameters:
       - description: ID
         in: path
@@ -9240,7 +9328,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular observability stack instance from the database.
-      operationId: get-observabilityStackInstance
+      operationId: get-v0-observabilityStackInstance
       parameters:
       - description: ID
         in: path
@@ -9272,7 +9360,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-observabilityStackInstance
+      operationId: update-v0-observabilityStackInstance
       parameters:
       - description: ID
         in: path
@@ -9315,7 +9403,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-observabilityStackInstance
+      operationId: replace-v0-observabilityStackInstance
       parameters:
       - description: ID
         in: path
@@ -9354,7 +9442,7 @@ paths:
       consumes:
       - application/json
       description: Get all profiles from the Threeport database.
-      operationId: get-profiles
+      operationId: get-v0-profiles
       parameters:
       - description: profile search by name
         in: query
@@ -9380,7 +9468,7 @@ paths:
       consumes:
       - application/json
       description: Add a new profile to the Threeport database.
-      operationId: add-profile
+      operationId: add-v0-profile
       parameters:
       - description: Profile object
         in: body
@@ -9409,7 +9497,7 @@ paths:
       consumes:
       - application/json
       description: Delete a profile by ID from the database.
-      operationId: delete-profile
+      operationId: delete-v0-profile
       parameters:
       - description: ID
         in: path
@@ -9440,7 +9528,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular profile from the database.
-      operationId: get-profile
+      operationId: get-v0-profile
       parameters:
       - description: ID
         in: path
@@ -9472,7 +9560,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-profile
+      operationId: update-v0-profile
       parameters:
       - description: ID
         in: path
@@ -9515,7 +9603,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-profile
+      operationId: replace-v0-profile
       parameters:
       - description: ID
         in: path
@@ -9553,7 +9641,7 @@ paths:
       consumes:
       - application/json
       description: Get all secret definitions from the Threeport database.
-      operationId: get-secretDefinitions
+      operationId: get-v0-secretDefinitions
       parameters:
       - description: secret definition search by name
         in: query
@@ -9579,7 +9667,7 @@ paths:
       consumes:
       - application/json
       description: Add a new secret definition to the Threeport database.
-      operationId: add-secretDefinition
+      operationId: add-v0-secretDefinition
       parameters:
       - description: SecretDefinition object
         in: body
@@ -9608,7 +9696,7 @@ paths:
       consumes:
       - application/json
       description: Delete a secret definition by ID from the database.
-      operationId: delete-secretDefinition
+      operationId: delete-v0-secretDefinition
       parameters:
       - description: ID
         in: path
@@ -9639,7 +9727,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular secret definition from the database.
-      operationId: get-secretDefinition
+      operationId: get-v0-secretDefinition
       parameters:
       - description: ID
         in: path
@@ -9671,7 +9759,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-secretDefinition
+      operationId: update-v0-secretDefinition
       parameters:
       - description: ID
         in: path
@@ -9714,7 +9802,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-secretDefinition
+      operationId: replace-v0-secretDefinition
       parameters:
       - description: ID
         in: path
@@ -9752,7 +9840,7 @@ paths:
       consumes:
       - application/json
       description: Get all secret instances from the Threeport database.
-      operationId: get-secretInstances
+      operationId: get-v0-secretInstances
       parameters:
       - description: secret instance search by name
         in: query
@@ -9778,7 +9866,7 @@ paths:
       consumes:
       - application/json
       description: Add a new secret instance to the Threeport database.
-      operationId: add-secretInstance
+      operationId: add-v0-secretInstance
       parameters:
       - description: SecretInstance object
         in: body
@@ -9807,7 +9895,7 @@ paths:
       consumes:
       - application/json
       description: Delete a secret instance by ID from the database.
-      operationId: delete-secretInstance
+      operationId: delete-v0-secretInstance
       parameters:
       - description: ID
         in: path
@@ -9838,7 +9926,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular secret instance from the database.
-      operationId: get-secretInstance
+      operationId: get-v0-secretInstance
       parameters:
       - description: ID
         in: path
@@ -9870,7 +9958,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-secretInstance
+      operationId: update-v0-secretInstance
       parameters:
       - description: ID
         in: path
@@ -9913,7 +10001,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-secretInstance
+      operationId: replace-v0-secretInstance
       parameters:
       - description: ID
         in: path
@@ -9951,7 +10039,7 @@ paths:
       consumes:
       - application/json
       description: Get all terraform definitions from the Threeport database.
-      operationId: get-terraformDefinitions
+      operationId: get-v0-terraformDefinitions
       parameters:
       - description: terraform definition search by name
         in: query
@@ -9977,7 +10065,7 @@ paths:
       consumes:
       - application/json
       description: Add a new terraform definition to the Threeport database.
-      operationId: add-terraformDefinition
+      operationId: add-v0-terraformDefinition
       parameters:
       - description: TerraformDefinition object
         in: body
@@ -10006,7 +10094,7 @@ paths:
       consumes:
       - application/json
       description: Delete a terraform definition by ID from the database.
-      operationId: delete-terraformDefinition
+      operationId: delete-v0-terraformDefinition
       parameters:
       - description: ID
         in: path
@@ -10037,7 +10125,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular terraform definition from the database.
-      operationId: get-terraformDefinition
+      operationId: get-v0-terraformDefinition
       parameters:
       - description: ID
         in: path
@@ -10069,7 +10157,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-terraformDefinition
+      operationId: update-v0-terraformDefinition
       parameters:
       - description: ID
         in: path
@@ -10112,7 +10200,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-terraformDefinition
+      operationId: replace-v0-terraformDefinition
       parameters:
       - description: ID
         in: path
@@ -10150,7 +10238,7 @@ paths:
       consumes:
       - application/json
       description: Get all terraform instances from the Threeport database.
-      operationId: get-terraformInstances
+      operationId: get-v0-terraformInstances
       parameters:
       - description: terraform instance search by name
         in: query
@@ -10176,7 +10264,7 @@ paths:
       consumes:
       - application/json
       description: Add a new terraform instance to the Threeport database.
-      operationId: add-terraformInstance
+      operationId: add-v0-terraformInstance
       parameters:
       - description: TerraformInstance object
         in: body
@@ -10205,7 +10293,7 @@ paths:
       consumes:
       - application/json
       description: Delete a terraform instance by ID from the database.
-      operationId: delete-terraformInstance
+      operationId: delete-v0-terraformInstance
       parameters:
       - description: ID
         in: path
@@ -10236,7 +10324,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular terraform instance from the database.
-      operationId: get-terraformInstance
+      operationId: get-v0-terraformInstance
       parameters:
       - description: ID
         in: path
@@ -10268,7 +10356,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-terraformInstance
+      operationId: update-v0-terraformInstance
       parameters:
       - description: ID
         in: path
@@ -10311,7 +10399,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-terraformInstance
+      operationId: replace-v0-terraformInstance
       parameters:
       - description: ID
         in: path
@@ -10349,7 +10437,7 @@ paths:
       consumes:
       - application/json
       description: Get all tiers from the Threeport database.
-      operationId: get-tiers
+      operationId: get-v0-tiers
       parameters:
       - description: tier search by name
         in: query
@@ -10375,7 +10463,7 @@ paths:
       consumes:
       - application/json
       description: Add a new tier to the Threeport database.
-      operationId: add-tier
+      operationId: add-v0-tier
       parameters:
       - description: Tier object
         in: body
@@ -10404,7 +10492,7 @@ paths:
       consumes:
       - application/json
       description: Delete a tier by ID from the database.
-      operationId: delete-tier
+      operationId: delete-v0-tier
       parameters:
       - description: ID
         in: path
@@ -10435,7 +10523,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular tier from the database.
-      operationId: get-tier
+      operationId: get-v0-tier
       parameters:
       - description: ID
         in: path
@@ -10467,7 +10555,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-tier
+      operationId: update-v0-tier
       parameters:
       - description: ID
         in: path
@@ -10510,7 +10598,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-tier
+      operationId: replace-v0-tier
       parameters:
       - description: ID
         in: path
@@ -10548,7 +10636,7 @@ paths:
       consumes:
       - application/json
       description: Get all workload definitions from the Threeport database.
-      operationId: get-workloadDefinitions
+      operationId: get-v0-workloadDefinitions
       parameters:
       - description: workload definition search by name
         in: query
@@ -10574,7 +10662,7 @@ paths:
       consumes:
       - application/json
       description: Add a new workload definition to the Threeport database.
-      operationId: add-workloadDefinition
+      operationId: add-v0-workloadDefinition
       parameters:
       - description: WorkloadDefinition object
         in: body
@@ -10603,7 +10691,7 @@ paths:
       consumes:
       - application/json
       description: Delete a workload definition by ID from the database.
-      operationId: delete-workloadDefinition
+      operationId: delete-v0-workloadDefinition
       parameters:
       - description: ID
         in: path
@@ -10634,7 +10722,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular workload definition from the database.
-      operationId: get-workloadDefinition
+      operationId: get-v0-workloadDefinition
       parameters:
       - description: ID
         in: path
@@ -10666,7 +10754,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-workloadDefinition
+      operationId: update-v0-workloadDefinition
       parameters:
       - description: ID
         in: path
@@ -10709,7 +10797,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-workloadDefinition
+      operationId: replace-v0-workloadDefinition
       parameters:
       - description: ID
         in: path
@@ -10773,7 +10861,7 @@ paths:
       consumes:
       - application/json
       description: Get all workload events from the Threeport database.
-      operationId: get-workloadEvents
+      operationId: get-v0-workloadEvents
       parameters:
       - description: workload event search by name
         in: query
@@ -10799,7 +10887,7 @@ paths:
       consumes:
       - application/json
       description: Add a new workload event to the Threeport database.
-      operationId: add-workloadEvent
+      operationId: add-v0-workloadEvent
       parameters:
       - description: WorkloadEvent object
         in: body
@@ -10828,7 +10916,7 @@ paths:
       consumes:
       - application/json
       description: Delete a workload event by ID from the database.
-      operationId: delete-workloadEvent
+      operationId: delete-v0-workloadEvent
       parameters:
       - description: ID
         in: path
@@ -10859,7 +10947,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular workload event from the database.
-      operationId: get-workloadEvent
+      operationId: get-v0-workloadEvent
       parameters:
       - description: ID
         in: path
@@ -10891,7 +10979,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-workloadEvent
+      operationId: update-v0-workloadEvent
       parameters:
       - description: ID
         in: path
@@ -10934,7 +11022,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-workloadEvent
+      operationId: replace-v0-workloadEvent
       parameters:
       - description: ID
         in: path
@@ -10972,7 +11060,7 @@ paths:
       consumes:
       - application/json
       description: Get all workload instances from the Threeport database.
-      operationId: get-workloadInstances
+      operationId: get-v0-workloadInstances
       parameters:
       - description: workload instance search by name
         in: query
@@ -10998,7 +11086,7 @@ paths:
       consumes:
       - application/json
       description: Add a new workload instance to the Threeport database.
-      operationId: add-workloadInstance
+      operationId: add-v0-workloadInstance
       parameters:
       - description: WorkloadInstance object
         in: body
@@ -11027,7 +11115,7 @@ paths:
       consumes:
       - application/json
       description: Delete a workload instance by ID from the database.
-      operationId: delete-workloadInstance
+      operationId: delete-v0-workloadInstance
       parameters:
       - description: ID
         in: path
@@ -11058,7 +11146,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular workload instance from the database.
-      operationId: get-workloadInstance
+      operationId: get-v0-workloadInstance
       parameters:
       - description: ID
         in: path
@@ -11090,7 +11178,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-workloadInstance
+      operationId: update-v0-workloadInstance
       parameters:
       - description: ID
         in: path
@@ -11133,7 +11221,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-workloadInstance
+      operationId: replace-v0-workloadInstance
       parameters:
       - description: ID
         in: path
@@ -11203,7 +11291,7 @@ paths:
       consumes:
       - application/json
       description: Get all workload resource definitions from the Threeport database.
-      operationId: get-workloadResourceDefinitions
+      operationId: get-v0-workloadResourceDefinitions
       parameters:
       - description: workload resource definition search by name
         in: query
@@ -11229,7 +11317,7 @@ paths:
       consumes:
       - application/json
       description: Add a new workload resource definition to the Threeport database.
-      operationId: add-workloadResourceDefinition
+      operationId: add-v0-workloadResourceDefinition
       parameters:
       - description: WorkloadResourceDefinition object
         in: body
@@ -11258,7 +11346,7 @@ paths:
       consumes:
       - application/json
       description: Delete a workload resource definition by ID from the database.
-      operationId: delete-workloadResourceDefinition
+      operationId: delete-v0-workloadResourceDefinition
       parameters:
       - description: ID
         in: path
@@ -11289,7 +11377,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular workload resource definition from the database.
-      operationId: get-workloadResourceDefinition
+      operationId: get-v0-workloadResourceDefinition
       parameters:
       - description: ID
         in: path
@@ -11321,7 +11409,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-workloadResourceDefinition
+      operationId: update-v0-workloadResourceDefinition
       parameters:
       - description: ID
         in: path
@@ -11364,7 +11452,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-workloadResourceDefinition
+      operationId: replace-v0-workloadResourceDefinition
       parameters:
       - description: ID
         in: path
@@ -11403,7 +11491,7 @@ paths:
       consumes:
       - application/json
       description: Get all workload resource instances from the Threeport database.
-      operationId: get-workloadResourceInstances
+      operationId: get-v0-workloadResourceInstances
       parameters:
       - description: workload resource instance search by name
         in: query
@@ -11429,7 +11517,7 @@ paths:
       consumes:
       - application/json
       description: Add a new workload resource instance to the Threeport database.
-      operationId: add-workloadResourceInstance
+      operationId: add-v0-workloadResourceInstance
       parameters:
       - description: WorkloadResourceInstance object
         in: body
@@ -11458,7 +11546,7 @@ paths:
       consumes:
       - application/json
       description: Delete a workload resource instance by ID from the database.
-      operationId: delete-workloadResourceInstance
+      operationId: delete-v0-workloadResourceInstance
       parameters:
       - description: ID
         in: path
@@ -11489,7 +11577,7 @@ paths:
       consumes:
       - application/json
       description: Get a particular workload resource instance from the database.
-      operationId: get-workloadResourceInstance
+      operationId: get-v0-workloadResourceInstance
       parameters:
       - description: ID
         in: path
@@ -11521,7 +11609,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: update-workloadResourceInstance
+      operationId: update-v0-workloadResourceInstance
       parameters:
       - description: ID
         in: path
@@ -11564,7 +11652,7 @@ paths:
         Request bodies that include related objects will be accepted, however
         the related objects will not be changed.  Call the patch or put method for
         each particular existing object to change them.
-      operationId: replace-workloadResourceInstance
+      operationId: replace-v0-workloadResourceInstance
       parameters:
       - description: ID
         in: path
@@ -11598,6 +11686,405 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload resource instance by replacing the entire
         object.
+  /v1/attached-object-references:
+    get:
+      consumes:
+      - application/json
+      description: Get all attached object references from the Threeport database.
+      operationId: get-v1-attachedObjectReferences
+      parameters:
+      - description: attached object reference search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all attached object references.
+    post:
+      consumes:
+      - application/json
+      description: Add a new attached object reference to the Threeport database.
+      operationId: add-v1-attachedObjectReference
+      parameters:
+      - description: AttachedObjectReference object
+        in: body
+        name: attachedObjectReference
+        required: true
+        schema:
+          $ref: '#/definitions/v1.AttachedObjectReference'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new attached object reference.
+  /v1/attached-object-references/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a attached object reference by ID from the database.
+      operationId: delete-v1-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a attached object reference.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular attached object reference from the database.
+      operationId: get-v1-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a attached object reference.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a attached object reference in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating attached object reference objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-v1-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AttachedObjectReference object
+        in: body
+        name: attachedObjectReference
+        required: true
+        schema:
+          $ref: '#/definitions/v1.AttachedObjectReference'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing attached object reference.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a attached object reference in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating attached object reference objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-v1-attachedObjectReference
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: AttachedObjectReference object
+        in: body
+        name: attachedObjectReference
+        required: true
+        schema:
+          $ref: '#/definitions/v1.AttachedObjectReference'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing attached object reference by replacing the entire
+        object.
+  /v1/workload-instances:
+    get:
+      consumes:
+      - application/json
+      description: Get all workload instances from the Threeport database.
+      operationId: get-v1-workloadInstances
+      parameters:
+      - description: workload instance search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all workload instances.
+    post:
+      consumes:
+      - application/json
+      description: Add a new workload instance to the Threeport database.
+      operationId: add-v1-workloadInstance
+      parameters:
+      - description: WorkloadInstance object
+        in: body
+        name: workloadInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v1.WorkloadInstance'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new workload instance.
+  /v1/workload-instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a workload instance by ID from the database.
+      operationId: delete-v1-workloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a workload instance.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular workload instance from the database.
+      operationId: get-v1-workloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a workload instance.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a workload instance in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating workload instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-v1-workloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadInstance object
+        in: body
+        name: workloadInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v1.WorkloadInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing workload instance.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a workload instance in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating workload instance objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-v1-workloadInstance
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: WorkloadInstance object
+        in: body
+        name: workloadInstance
+        required: true
+        schema:
+          $ref: '#/definitions/v1.WorkloadInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing workload instance by replacing the entire object.
   /version:
     get:
       description: Get a version of REST API.

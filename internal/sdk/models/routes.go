@@ -65,7 +65,10 @@ func (cc *ControllerConfig) ModelRoutes() error {
 				"Echo",
 			),
 			Id("h").Op("*").Qual(
-				"github.com/threeport/threeport/pkg/api-server/v0/handlers",
+				fmt.Sprintf(
+					"github.com/threeport/threeport/pkg/api-server/%s/handlers",
+					cc.ApiVersion,
+				),
 				"Handler",
 			),
 		).Block(

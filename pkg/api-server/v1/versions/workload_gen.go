@@ -5,7 +5,6 @@ package versions
 import (
 	api "github.com/threeport/threeport/pkg/api"
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	"reflect"
 )
@@ -31,8 +30,8 @@ func AddWorkloadInstanceVersions() {
 
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
-		Object:  string(v0.ObjectTypeWorkloadInstance),
-		Version: iapi.V0,
+		Object:  string(v1.ObjectTypeWorkloadInstance),
+		Version: "v1",
 	}
 
 	// add the object tagged fields to the global tagged fields map

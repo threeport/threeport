@@ -31,7 +31,7 @@ func (h Handler) GetTerraformDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new terraform definition.
 // @Description Add a new terraform definition to the Threeport database.
-// @ID add-terraformDefinition
+// @ID add-v0-terraformDefinition
 // @Accept json
 // @Produce json
 // @Param terraformDefinition body v0.TerraformDefinition true "TerraformDefinition object"
@@ -100,7 +100,7 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 
 // @Summary gets all terraform definitions.
 // @Description Get all terraform definitions from the Threeport database.
-// @ID get-terraformDefinitions
+// @ID get-v0-terraformDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "terraform definition search by name"
@@ -140,7 +140,7 @@ func (h Handler) GetTerraformDefinitions(c echo.Context) error {
 
 // @Summary gets a terraform definition.
 // @Description Get a particular terraform definition from the database.
-// @ID get-terraformDefinition
+// @ID get-v0-terraformDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -173,7 +173,7 @@ func (h Handler) GetTerraformDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-terraformDefinition
+// @ID update-v0-terraformDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -238,7 +238,7 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-terraformDefinition
+// @ID replace-v0-terraformDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -299,7 +299,7 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 
 // @Summary deletes a terraform definition.
 // @Description Delete a terraform definition by ID from the database.
-// @ID delete-terraformDefinition
+// @ID delete-v0-terraformDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -385,7 +385,7 @@ func (h Handler) GetTerraformInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new terraform instance.
 // @Description Add a new terraform instance to the Threeport database.
-// @ID add-terraformInstance
+// @ID add-v0-terraformInstance
 // @Accept json
 // @Produce json
 // @Param terraformInstance body v0.TerraformInstance true "TerraformInstance object"
@@ -454,7 +454,7 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 
 // @Summary gets all terraform instances.
 // @Description Get all terraform instances from the Threeport database.
-// @ID get-terraformInstances
+// @ID get-v0-terraformInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "terraform instance search by name"
@@ -494,7 +494,7 @@ func (h Handler) GetTerraformInstances(c echo.Context) error {
 
 // @Summary gets a terraform instance.
 // @Description Get a particular terraform instance from the database.
-// @ID get-terraformInstance
+// @ID get-v0-terraformInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -527,7 +527,7 @@ func (h Handler) GetTerraformInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-terraformInstance
+// @ID update-v0-terraformInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -592,7 +592,7 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-terraformInstance
+// @ID replace-v0-terraformInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -653,7 +653,7 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 
 // @Summary deletes a terraform instance.
 // @Description Delete a terraform instance by ID from the database.
-// @ID delete-terraformInstance
+// @ID delete-v0-terraformInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"

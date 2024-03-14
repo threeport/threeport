@@ -122,8 +122,13 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 		}
 	}
 
-	// to be able to do this, needed to introduce "validate" tag parsing into ObjectTaggedFields
-	associatedFields = &ObjectTaggedFields[VersionObject{Version: apiVer, Object: string(objectType)}].OptionalAssociations
+	// to be able to do this, needed to introduce "validate" tag parsing into
+	// ObjectTaggedFields
+	if fieldsByTag, ok := ObjectTaggedFields[VersionObject{Version: apiVer, Object: objectType}]; ok {
+		associatedFields = &fieldsByTag.OptionalAssociations
+	} else {
+		return 500, errors.New("ObjectTaggedFields for " + apiVer + " and " + objectType + " not found")
+	}
 
 	// error out if an association was passed for an update
 	for k, _ := range payloadObject {

@@ -29,13 +29,13 @@ func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
 
 // @Summary adds a new attached object reference.
 // @Description Add a new attached object reference to the Threeport database.
-// @ID add-attachedObjectReference
+// @ID add-v1-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param attachedObjectReference body v1.AttachedObjectReference true "AttachedObjectReference object"
-// @Success 201 {object} v1.Response "Created"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references [POST]
 func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 	objectType := v0.ObjectTypeAttachedObjectReference
@@ -70,13 +70,13 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 
 // @Summary gets all attached object references.
 // @Description Get all attached object references from the Threeport database.
-// @ID get-attachedObjectReferences
+// @ID get-v1-attachedObjectReferences
 // @Accept json
 // @Produce json
 // @Param name query string false "attached object reference search by name"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references [GET]
 func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 	objectType := v1.ObjectTypeAttachedObjectReference
@@ -110,13 +110,13 @@ func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 
 // @Summary gets a attached object reference.
 // @Description Get a particular attached object reference from the database.
-// @ID get-attachedObjectReference
+// @ID get-v1-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references/{id} [GET]
 func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 	objectType := v1.ObjectTypeAttachedObjectReference
@@ -143,15 +143,15 @@ func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-attachedObjectReference
+// @ID update-v1-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Param attachedObjectReference body v1.AttachedObjectReference true "AttachedObjectReference object"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references/{id} [PATCH]
 func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 	objectType := v1.ObjectTypeAttachedObjectReference
@@ -195,15 +195,15 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-attachedObjectReference
+// @ID replace-v1-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Param attachedObjectReference body v1.AttachedObjectReference true "AttachedObjectReference object"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references/{id} [PUT]
 func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 	objectType := v1.ObjectTypeAttachedObjectReference
@@ -256,14 +256,14 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 
 // @Summary deletes a attached object reference.
 // @Description Delete a attached object reference by ID from the database.
-// @ID delete-attachedObjectReference
+// @ID delete-v1-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 409 {object} v1.Response "Conflict"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references/{id} [DELETE]
 func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 	objectType := v1.ObjectTypeAttachedObjectReference

@@ -31,7 +31,7 @@ func (h Handler) GetAwsAccountVersions(c echo.Context) error {
 
 // @Summary adds a new aws account.
 // @Description Add a new aws account to the Threeport database.
-// @ID add-awsAccount
+// @ID add-v0-awsAccount
 // @Accept json
 // @Produce json
 // @Param awsAccount body v0.AwsAccount true "AwsAccount object"
@@ -87,7 +87,7 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 
 // @Summary gets all aws accounts.
 // @Description Get all aws accounts from the Threeport database.
-// @ID get-awsAccounts
+// @ID get-v0-awsAccounts
 // @Accept json
 // @Produce json
 // @Param name query string false "aws account search by name"
@@ -127,7 +127,7 @@ func (h Handler) GetAwsAccounts(c echo.Context) error {
 
 // @Summary gets a aws account.
 // @Description Get a particular aws account from the database.
-// @ID get-awsAccount
+// @ID get-v0-awsAccount
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -160,7 +160,7 @@ func (h Handler) GetAwsAccount(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-awsAccount
+// @ID update-v0-awsAccount
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -212,7 +212,7 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-awsAccount
+// @ID replace-v0-awsAccount
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -273,7 +273,7 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 
 // @Summary deletes a aws account.
 // @Description Delete a aws account by ID from the database.
-// @ID delete-awsAccount
+// @ID delete-v0-awsAccount
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -322,7 +322,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinitionVersions(c echo.Context) er
 
 // @Summary adds a new aws eks kubernetes runtime definition.
 // @Description Add a new aws eks kubernetes runtime definition to the Threeport database.
-// @ID add-awsEksKubernetesRuntimeDefinition
+// @ID add-v0-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param awsEksKubernetesRuntimeDefinition body v0.AwsEksKubernetesRuntimeDefinition true "AwsEksKubernetesRuntimeDefinition object"
@@ -378,7 +378,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 
 // @Summary gets all aws eks kubernetes runtime definitions.
 // @Description Get all aws eks kubernetes runtime definitions from the Threeport database.
-// @ID get-awsEksKubernetesRuntimeDefinitions
+// @ID get-v0-awsEksKubernetesRuntimeDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "aws eks kubernetes runtime definition search by name"
@@ -418,7 +418,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinitions(c echo.Context) error {
 
 // @Summary gets a aws eks kubernetes runtime definition.
 // @Description Get a particular aws eks kubernetes runtime definition from the database.
-// @ID get-awsEksKubernetesRuntimeDefinition
+// @ID get-v0-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -451,7 +451,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-awsEksKubernetesRuntimeDefinition
+// @ID update-v0-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -503,7 +503,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-awsEksKubernetesRuntimeDefinition
+// @ID replace-v0-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -564,7 +564,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error 
 
 // @Summary deletes a aws eks kubernetes runtime definition.
 // @Description Delete a aws eks kubernetes runtime definition by ID from the database.
-// @ID delete-awsEksKubernetesRuntimeDefinition
+// @ID delete-v0-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -619,7 +619,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstanceVersions(c echo.Context) erro
 
 // @Summary adds a new aws eks kubernetes runtime instance.
 // @Description Add a new aws eks kubernetes runtime instance to the Threeport database.
-// @ID add-awsEksKubernetesRuntimeInstance
+// @ID add-v0-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param awsEksKubernetesRuntimeInstance body v0.AwsEksKubernetesRuntimeInstance true "AwsEksKubernetesRuntimeInstance object"
@@ -688,7 +688,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 
 // @Summary gets all aws eks kubernetes runtime instances.
 // @Description Get all aws eks kubernetes runtime instances from the Threeport database.
-// @ID get-awsEksKubernetesRuntimeInstances
+// @ID get-v0-awsEksKubernetesRuntimeInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "aws eks kubernetes runtime instance search by name"
@@ -728,7 +728,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstances(c echo.Context) error {
 
 // @Summary gets a aws eks kubernetes runtime instance.
 // @Description Get a particular aws eks kubernetes runtime instance from the database.
-// @ID get-awsEksKubernetesRuntimeInstance
+// @ID get-v0-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -761,7 +761,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-awsEksKubernetesRuntimeInstance
+// @ID update-v0-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -826,7 +826,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-awsEksKubernetesRuntimeInstance
+// @ID replace-v0-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -887,7 +887,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 
 // @Summary deletes a aws eks kubernetes runtime instance.
 // @Description Delete a aws eks kubernetes runtime instance by ID from the database.
-// @ID delete-awsEksKubernetesRuntimeInstance
+// @ID delete-v0-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -973,7 +973,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinitionVersions(c echo.Context) erro
 
 // @Summary adds a new aws relational database definition.
 // @Description Add a new aws relational database definition to the Threeport database.
-// @ID add-awsRelationalDatabaseDefinition
+// @ID add-v0-awsRelationalDatabaseDefinition
 // @Accept json
 // @Produce json
 // @Param awsRelationalDatabaseDefinition body v0.AwsRelationalDatabaseDefinition true "AwsRelationalDatabaseDefinition object"
@@ -1029,7 +1029,7 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 
 // @Summary gets all aws relational database definitions.
 // @Description Get all aws relational database definitions from the Threeport database.
-// @ID get-awsRelationalDatabaseDefinitions
+// @ID get-v0-awsRelationalDatabaseDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "aws relational database definition search by name"
@@ -1069,7 +1069,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinitions(c echo.Context) error {
 
 // @Summary gets a aws relational database definition.
 // @Description Get a particular aws relational database definition from the database.
-// @ID get-awsRelationalDatabaseDefinition
+// @ID get-v0-awsRelationalDatabaseDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1102,7 +1102,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-awsRelationalDatabaseDefinition
+// @ID update-v0-awsRelationalDatabaseDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1154,7 +1154,7 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-awsRelationalDatabaseDefinition
+// @ID replace-v0-awsRelationalDatabaseDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1215,7 +1215,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 
 // @Summary deletes a aws relational database definition.
 // @Description Delete a aws relational database definition by ID from the database.
-// @ID delete-awsRelationalDatabaseDefinition
+// @ID delete-v0-awsRelationalDatabaseDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1264,7 +1264,7 @@ func (h Handler) GetAwsRelationalDatabaseInstanceVersions(c echo.Context) error 
 
 // @Summary adds a new aws relational database instance.
 // @Description Add a new aws relational database instance to the Threeport database.
-// @ID add-awsRelationalDatabaseInstance
+// @ID add-v0-awsRelationalDatabaseInstance
 // @Accept json
 // @Produce json
 // @Param awsRelationalDatabaseInstance body v0.AwsRelationalDatabaseInstance true "AwsRelationalDatabaseInstance object"
@@ -1333,7 +1333,7 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 
 // @Summary gets all aws relational database instances.
 // @Description Get all aws relational database instances from the Threeport database.
-// @ID get-awsRelationalDatabaseInstances
+// @ID get-v0-awsRelationalDatabaseInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "aws relational database instance search by name"
@@ -1373,7 +1373,7 @@ func (h Handler) GetAwsRelationalDatabaseInstances(c echo.Context) error {
 
 // @Summary gets a aws relational database instance.
 // @Description Get a particular aws relational database instance from the database.
-// @ID get-awsRelationalDatabaseInstance
+// @ID get-v0-awsRelationalDatabaseInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1406,7 +1406,7 @@ func (h Handler) GetAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-awsRelationalDatabaseInstance
+// @ID update-v0-awsRelationalDatabaseInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1471,7 +1471,7 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-awsRelationalDatabaseInstance
+// @ID replace-v0-awsRelationalDatabaseInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1532,7 +1532,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 
 // @Summary deletes a aws relational database instance.
 // @Description Delete a aws relational database instance by ID from the database.
-// @ID delete-awsRelationalDatabaseInstance
+// @ID delete-v0-awsRelationalDatabaseInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1618,7 +1618,7 @@ func (h Handler) GetAwsObjectStorageBucketDefinitionVersions(c echo.Context) err
 
 // @Summary adds a new aws object storage bucket definition.
 // @Description Add a new aws object storage bucket definition to the Threeport database.
-// @ID add-awsObjectStorageBucketDefinition
+// @ID add-v0-awsObjectStorageBucketDefinition
 // @Accept json
 // @Produce json
 // @Param awsObjectStorageBucketDefinition body v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
@@ -1674,7 +1674,7 @@ func (h Handler) AddAwsObjectStorageBucketDefinition(c echo.Context) error {
 
 // @Summary gets all aws object storage bucket definitions.
 // @Description Get all aws object storage bucket definitions from the Threeport database.
-// @ID get-awsObjectStorageBucketDefinitions
+// @ID get-v0-awsObjectStorageBucketDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "aws object storage bucket definition search by name"
@@ -1714,7 +1714,7 @@ func (h Handler) GetAwsObjectStorageBucketDefinitions(c echo.Context) error {
 
 // @Summary gets a aws object storage bucket definition.
 // @Description Get a particular aws object storage bucket definition from the database.
-// @ID get-awsObjectStorageBucketDefinition
+// @ID get-v0-awsObjectStorageBucketDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1747,7 +1747,7 @@ func (h Handler) GetAwsObjectStorageBucketDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-awsObjectStorageBucketDefinition
+// @ID update-v0-awsObjectStorageBucketDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1799,7 +1799,7 @@ func (h Handler) UpdateAwsObjectStorageBucketDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-awsObjectStorageBucketDefinition
+// @ID replace-v0-awsObjectStorageBucketDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1860,7 +1860,7 @@ func (h Handler) ReplaceAwsObjectStorageBucketDefinition(c echo.Context) error {
 
 // @Summary deletes a aws object storage bucket definition.
 // @Description Delete a aws object storage bucket definition by ID from the database.
-// @ID delete-awsObjectStorageBucketDefinition
+// @ID delete-v0-awsObjectStorageBucketDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1909,7 +1909,7 @@ func (h Handler) GetAwsObjectStorageBucketInstanceVersions(c echo.Context) error
 
 // @Summary adds a new aws object storage bucket instance.
 // @Description Add a new aws object storage bucket instance to the Threeport database.
-// @ID add-awsObjectStorageBucketInstance
+// @ID add-v0-awsObjectStorageBucketInstance
 // @Accept json
 // @Produce json
 // @Param awsObjectStorageBucketInstance body v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
@@ -1978,7 +1978,7 @@ func (h Handler) AddAwsObjectStorageBucketInstance(c echo.Context) error {
 
 // @Summary gets all aws object storage bucket instances.
 // @Description Get all aws object storage bucket instances from the Threeport database.
-// @ID get-awsObjectStorageBucketInstances
+// @ID get-v0-awsObjectStorageBucketInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "aws object storage bucket instance search by name"
@@ -2018,7 +2018,7 @@ func (h Handler) GetAwsObjectStorageBucketInstances(c echo.Context) error {
 
 // @Summary gets a aws object storage bucket instance.
 // @Description Get a particular aws object storage bucket instance from the database.
-// @ID get-awsObjectStorageBucketInstance
+// @ID get-v0-awsObjectStorageBucketInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2051,7 +2051,7 @@ func (h Handler) GetAwsObjectStorageBucketInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-awsObjectStorageBucketInstance
+// @ID update-v0-awsObjectStorageBucketInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2116,7 +2116,7 @@ func (h Handler) UpdateAwsObjectStorageBucketInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-awsObjectStorageBucketInstance
+// @ID replace-v0-awsObjectStorageBucketInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -2177,7 +2177,7 @@ func (h Handler) ReplaceAwsObjectStorageBucketInstance(c echo.Context) error {
 
 // @Summary deletes a aws object storage bucket instance.
 // @Description Delete a aws object storage bucket instance by ID from the database.
-// @ID delete-awsObjectStorageBucketInstance
+// @ID delete-v0-awsObjectStorageBucketInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"

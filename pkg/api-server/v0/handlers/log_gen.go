@@ -28,7 +28,7 @@ func (h Handler) GetLogBackendVersions(c echo.Context) error {
 
 // @Summary adds a new log backend.
 // @Description Add a new log backend to the Threeport database.
-// @ID add-logBackend
+// @ID add-v0-logBackend
 // @Accept json
 // @Produce json
 // @Param logBackend body v0.LogBackend true "LogBackend object"
@@ -84,7 +84,7 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 
 // @Summary gets all log backends.
 // @Description Get all log backends from the Threeport database.
-// @ID get-logBackends
+// @ID get-v0-logBackends
 // @Accept json
 // @Produce json
 // @Param name query string false "log backend search by name"
@@ -124,7 +124,7 @@ func (h Handler) GetLogBackends(c echo.Context) error {
 
 // @Summary gets a log backend.
 // @Description Get a particular log backend from the database.
-// @ID get-logBackend
+// @ID get-v0-logBackend
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -157,7 +157,7 @@ func (h Handler) GetLogBackend(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-logBackend
+// @ID update-v0-logBackend
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -209,7 +209,7 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-logBackend
+// @ID replace-v0-logBackend
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -270,7 +270,7 @@ func (h Handler) ReplaceLogBackend(c echo.Context) error {
 
 // @Summary deletes a log backend.
 // @Description Delete a log backend by ID from the database.
-// @ID delete-logBackend
+// @ID delete-v0-logBackend
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -319,7 +319,7 @@ func (h Handler) GetLogStorageDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new log storage definition.
 // @Description Add a new log storage definition to the Threeport database.
-// @ID add-logStorageDefinition
+// @ID add-v0-logStorageDefinition
 // @Accept json
 // @Produce json
 // @Param logStorageDefinition body v0.LogStorageDefinition true "LogStorageDefinition object"
@@ -375,7 +375,7 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 
 // @Summary gets all log storage definitions.
 // @Description Get all log storage definitions from the Threeport database.
-// @ID get-logStorageDefinitions
+// @ID get-v0-logStorageDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "log storage definition search by name"
@@ -415,7 +415,7 @@ func (h Handler) GetLogStorageDefinitions(c echo.Context) error {
 
 // @Summary gets a log storage definition.
 // @Description Get a particular log storage definition from the database.
-// @ID get-logStorageDefinition
+// @ID get-v0-logStorageDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -448,7 +448,7 @@ func (h Handler) GetLogStorageDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-logStorageDefinition
+// @ID update-v0-logStorageDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -500,7 +500,7 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-logStorageDefinition
+// @ID replace-v0-logStorageDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -561,7 +561,7 @@ func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 
 // @Summary deletes a log storage definition.
 // @Description Delete a log storage definition by ID from the database.
-// @ID delete-logStorageDefinition
+// @ID delete-v0-logStorageDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -610,7 +610,7 @@ func (h Handler) GetLogStorageInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new log storage instance.
 // @Description Add a new log storage instance to the Threeport database.
-// @ID add-logStorageInstance
+// @ID add-v0-logStorageInstance
 // @Accept json
 // @Produce json
 // @Param logStorageInstance body v0.LogStorageInstance true "LogStorageInstance object"
@@ -666,7 +666,7 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 
 // @Summary gets all log storage instances.
 // @Description Get all log storage instances from the Threeport database.
-// @ID get-logStorageInstances
+// @ID get-v0-logStorageInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "log storage instance search by name"
@@ -706,7 +706,7 @@ func (h Handler) GetLogStorageInstances(c echo.Context) error {
 
 // @Summary gets a log storage instance.
 // @Description Get a particular log storage instance from the database.
-// @ID get-logStorageInstance
+// @ID get-v0-logStorageInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -739,7 +739,7 @@ func (h Handler) GetLogStorageInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-logStorageInstance
+// @ID update-v0-logStorageInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -791,7 +791,7 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-logStorageInstance
+// @ID replace-v0-logStorageInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -852,7 +852,7 @@ func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 
 // @Summary deletes a log storage instance.
 // @Description Delete a log storage instance by ID from the database.
-// @ID delete-logStorageInstance
+// @ID delete-v0-logStorageInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
