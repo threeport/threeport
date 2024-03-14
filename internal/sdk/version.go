@@ -1,8 +1,8 @@
 package sdk
 
-// GetObjectVersion returns the version of the object
+// GetLatestObjectVersion returns the version of the object
 // based on the object name
-func GetObjectVersion(obj string) string {
+func GetLatestObjectVersion(obj string) string {
 	switch obj {
 	case "AttachedObjectReference":
 		return "v1"

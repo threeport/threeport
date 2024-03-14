@@ -29,9 +29,9 @@ func (cc *ControllerConfig) Reconcilers() error {
 		f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")
 		f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
 
-		f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj))
+		f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj.Name))
 		f.Comment("is created, updated or deleted.")
-		f.Func().Id(fmt.Sprintf("%sReconciler", obj)).Params(
+		f.Func().Id(fmt.Sprintf("%sReconciler", obj.Name)).Params(
 			Id("r").Op("*").Qual(
 				"github.com/threeport/threeport/pkg/controller/v0",
 				"Reconciler",
@@ -104,7 +104,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
 								Lit(fmt.Sprintf(
 									"%s reconciliation requeued with identical payload and fixed delay",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								)),
 							),
 							Continue(),
@@ -112,11 +112,11 @@ func (cc *ControllerConfig) Reconcilers() error {
 						g.Line()
 
 						g.Comment("decode the object that was sent in the notification")
-						g.Var().Id(strcase.ToLowerCamel(obj)).Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetObjectVersion(obj)),
-							obj,
+						g.Var().Id(strcase.ToLowerCamel(obj.Name)).Qual(
+							fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetLatestObjectVersion(obj.Name)),
+							obj.Name,
 						)
-						g.If(Id("err").Op(":=").Id(strcase.ToLowerCamel(obj)).Dot("DecodeNotifObject").Call(
+						g.If(Id("err").Op(":=").Id(strcase.ToLowerCamel(obj.Name)).Dot("DecodeNotifObject").Call(
 							Id("notif").Dot("Object"),
 						).Op(";").Id("err").Op("!=").Nil().Block(
 							Id("log").Dot("Error").Call(
@@ -126,7 +126,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
 								Lit(fmt.Sprintf(
 									"%s reconciliation requeued with identical payload and fixed delay",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								)),
 							),
 							Continue(),
@@ -134,8 +134,8 @@ func (cc *ControllerConfig) Reconcilers() error {
 						g.Id("log").Op("=").Id("log").Dot("WithValues").Call(
 							Lit(fmt.Sprintf(
 								"%sID",
-								strcase.ToLowerCamel(obj),
-							)).Op(",").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+								strcase.ToLowerCamel(obj.Name),
+							)).Op(",").Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 						)
 						g.Line()
 
@@ -148,17 +148,17 @@ func (cc *ControllerConfig) Reconcilers() error {
 
 						g.Comment("check for lock on object")
 						g.Id("locked").Op(",").Id("ok").Op(":=").Id("r").Dot("CheckLock").Call(
-							Op("&").Id(strcase.ToLowerCamel(obj)),
+							Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 						)
 						g.If(Id("locked").Op("||").Id("ok").Op("==").Id("false")).Block(
 							Id("r").Dot("Requeue").Call(
-								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
+								Op("&").Id(strcase.ToLowerCamel(obj.Name)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
 							),
 							Id("log").Dot("V").Call(
 								Lit(1),
 							).Dot("Info").Call(Lit(fmt.Sprintf(
 								"%s reconciliation requeued",
-								strcase.ToDelimited(obj, ' '),
+								strcase.ToDelimited(obj.Name, ' '),
 							))),
 							Continue(),
 						)
@@ -169,14 +169,14 @@ func (cc *ControllerConfig) Reconcilers() error {
 								Case(Op("<-").Id("osSignals")).Block(
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 										"received termination signal, performing unlock and requeue of %s",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 								),
 								Case(Op("<-").Id("lockReleased")).Block(
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 										"reached end of reconcile loop for %s, closing out signal handler",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									))),
 								),
 							),
@@ -184,14 +184,14 @@ func (cc *ControllerConfig) Reconcilers() error {
 						g.Line()
 						g.Comment("put a lock on the reconciliation of the created object")
 						g.If(Id("ok").Op(":=").Id("r").Dot("Lock").Call(
-							Op("&").Id(strcase.ToLowerCamel(obj))).Op(";").Op("!").Id("ok"),
+							Op("&").Id(strcase.ToLowerCamel(obj.Name))).Op(";").Op("!").Id("ok"),
 						).Block(
 							Id("r").Dot("Requeue").Call(
-								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
+								Op("&").Id(strcase.ToLowerCamel(obj.Name)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
 							),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 								"%s reconciliation requeued",
-								strcase.ToDelimited(obj, ' '),
+								strcase.ToDelimited(obj.Name, ' '),
 							))),
 							Continue(),
 						)
@@ -200,8 +200,8 @@ func (cc *ControllerConfig) Reconcilers() error {
 						// If the object has a "Data" field with a "persist" tag set to "false", skip
 						// the retrieval of the latest object. Otherwise, generate the
 						// source code to retrieve the latest object.
-						if !cc.CheckStructTagMap(obj, "Data", "persist", "false") {
-							cc.GetLatestObject(g, obj)
+						if !cc.CheckStructTagMap(obj.Name, "Data", "persist", "false") {
+							cc.GetLatestObject(g, obj.Name)
 						}
 
 						g.Line()
@@ -211,29 +211,29 @@ func (cc *ControllerConfig) Reconcilers() error {
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationCreated",
 							)).Block(
-								If(Id(strcase.ToLowerCamel(obj)).Dot("DeletionScheduled").Op("!=").Nil()).Block(
+								If(Id(strcase.ToLowerCamel(obj.Name)).Dot("DeletionScheduled").Op("!=").Nil()).Block(
 									Id("log").Dot("Info").Call(
-										Lit(fmt.Sprintf("%s scheduled for deletion - skipping create", strcase.ToDelimited(obj, ' '))),
+										Lit(fmt.Sprintf("%s scheduled for deletion - skipping create", strcase.ToDelimited(obj.Name, ' '))),
 									),
 									Break(),
 								),
 								Id("customRequeueDelay").Op(",").Err().Op(":=").Id(fmt.Sprintf(
 									"%sCreated",
-									strcase.ToLowerCamel(obj),
+									strcase.ToLowerCamel(obj.Name),
 								)).Call(
 									Id("r"),
-									Op("&").Id(strcase.ToLowerCamel(obj)),
+									Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Op("&").Id("log"),
 								),
 								If(Err().Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(
 										Err(), Lit(fmt.Sprintf(
 											"failed to reconcile created %s object",
-											strcase.ToDelimited(obj, ' '),
+											strcase.ToDelimited(obj.Name, ' '),
 										)),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -246,7 +246,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 										Lit("create requeued for future reconciliation"),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("customRequeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -261,21 +261,21 @@ func (cc *ControllerConfig) Reconcilers() error {
 							)).Block(
 								Id("customRequeueDelay").Op(",").Err().Op(":=").Id(fmt.Sprintf(
 									"%sUpdated",
-									strcase.ToLowerCamel(obj),
+									strcase.ToLowerCamel(obj.Name),
 								)).Call(
 									Id("r"),
-									Op("&").Id(strcase.ToLowerCamel(obj)),
+									Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Op("&").Id("log"),
 								),
 								If(Err().Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(
 										Err(), Lit(fmt.Sprintf(
 											"failed to reconcile updated %s object",
-											strcase.ToDelimited(obj, ' '),
+											strcase.ToDelimited(obj.Name, ' '),
 										)),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -288,7 +288,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 										Lit("update requeued for future reconciliation"),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("customRequeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -303,21 +303,21 @@ func (cc *ControllerConfig) Reconcilers() error {
 							)).Block(
 								Id("customRequeueDelay").Op(",").Err().Op(":=").Id(fmt.Sprintf(
 									"%sDeleted",
-									strcase.ToLowerCamel(obj),
+									strcase.ToLowerCamel(obj.Name),
 								)).Call(
 									Id("r"),
-									Op("&").Id(strcase.ToLowerCamel(obj)),
+									Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Op("&").Id("log"),
 								),
 								If(Err().Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(
 										Err(), Lit(fmt.Sprintf(
 											"failed to reconcile deleted %s object",
-											strcase.ToDelimited(obj, ' '),
+											strcase.ToDelimited(obj.Name, ' '),
 										)),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -330,7 +330,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 										Lit("deletion requeued for future reconciliation"),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("customRequeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -343,16 +343,16 @@ func (cc *ControllerConfig) Reconcilers() error {
 
 								Id(fmt.Sprintf(
 									"deleted%s",
-									obj,
+									obj.Name,
 								)).Op(":=").Qual(
-									fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetObjectVersion(obj)),
-									obj,
+									fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetLatestObjectVersion(obj.Name)),
+									obj.Name,
 								).Values(Dict{
 									Id("Common"): Qual(
 										"github.com/threeport/threeport/pkg/api/v0",
 										"Common",
 									).Values(Dict{
-										Id("ID"): Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+										Id("ID"): Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 									}),
 									Id("Reconciliation"): Qual(
 										"github.com/threeport/threeport/pkg/api/v0",
@@ -366,48 +366,48 @@ func (cc *ControllerConfig) Reconcilers() error {
 								If(Id("err").Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
 										"failed to update %s to mark as reconciled",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 									Continue(),
 								),
 
 								Id("_").Op(",").Id("err").Op("=").Qual(
-									fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetObjectVersion(obj)),
-									fmt.Sprintf("Update%s", obj),
+									fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetLatestObjectVersion(obj.Name)),
+									fmt.Sprintf("Update%s", obj.Name),
 								).Call(
 									Line().Id("r").Dot("APIClient"),
 									Line().Id("r").Dot("APIServer"),
 									Line().Op("&").Id(fmt.Sprintf(
 										"deleted%s",
-										obj,
+										obj.Name,
 									)),
 									Line(),
 								),
 								If(Id("err").Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
 										"failed to update %s to mark as deleted",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 									Continue(),
 								),
 
 								Id("_").Op(",").Id("err").Op("=").Qual(
 									"github.com/threeport/threeport/pkg/client/v0",
-									fmt.Sprintf("Delete%s", obj),
+									fmt.Sprintf("Delete%s", obj.Name),
 								).Call(
 									Line().Id("r").Dot("APIClient"),
 									Line().Id("r").Dot("APIServer"),
-									Line().Op("*").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+									Line().Op("*").Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 									Line(),
 								),
 								If(Id("err").Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
 										"failed to delete %s",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 									Continue(),
 								),
 							),
@@ -418,7 +418,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Line(),
 								),
 								Id("r").Dot("UnlockAndRequeue").Call(
-									Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+									Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Line().Id("requeueDelay"),
 									Line().Id("lockReleased"),
 									Line().Id("msg"),
@@ -437,16 +437,16 @@ func (cc *ControllerConfig) Reconcilers() error {
 						).Block(
 							Id(fmt.Sprintf(
 								"reconciled%s",
-								obj,
+								obj.Name,
 							)).Op(":=").Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetObjectVersion(obj)),
-								obj,
+								fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetLatestObjectVersion(obj.Name)),
+								obj.Name,
 							).Values(Dict{
 								Id("Common"): Qual(
 									"github.com/threeport/threeport/pkg/api/v0",
 									"Common",
 								).Values(Dict{
-									Id("ID"): Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+									Id("ID"): Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 								}),
 								Id("Reconciliation"): Qual(
 									"github.com/threeport/threeport/pkg/api/v0",
@@ -457,38 +457,38 @@ func (cc *ControllerConfig) Reconcilers() error {
 							}),
 							Id(fmt.Sprintf(
 								"updated%s",
-								obj,
+								obj.Name,
 							)).Op(",").Id("err").Op(":=").Qual(
-								fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetObjectVersion(obj)),
-								fmt.Sprintf("Update%s", obj),
+								fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetLatestObjectVersion(obj.Name)),
+								fmt.Sprintf("Update%s", obj.Name),
 							).Call(
 								Line().Id("r").Dot("APIClient"),
 								Line().Id("r").Dot("APIServer"),
 								Line().Op("&").Id(fmt.Sprintf(
 									"reconciled%s",
-									obj,
+									obj.Name,
 								)),
 								Line(),
 							),
 							If(Id("err").Op("!=").Nil()).Block(
 								Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
 									"failed to update %s to mark as reconciled",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								))),
-								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 								Continue(),
 							),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
 								Line().Lit(fmt.Sprintf(
 									"%s marked as reconciled in API",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								)),
 								Line().Lit(fmt.Sprintf(
 									"%sName",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								)), Id(fmt.Sprintf(
 									"updated%s",
-									obj,
+									obj.Name,
 								)).Dot("Name"),
 								Line(),
 							),
@@ -496,12 +496,12 @@ func (cc *ControllerConfig) Reconcilers() error {
 						g.Line()
 
 						g.Comment("release the lock on the reconciliation of the created object")
-						g.If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)), Op("!").Id("ok")).Block(
+						g.If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("lockReleased"), Id("msg"), Lit(true)), Op("!").Id("ok")).Block(
 							Id("log").Dot("Error").Call(
 								Qual("errors", "New").Call(
 									Lit(fmt.Sprintf(
 										"%s remains locked - will unlock when TTL expires",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									)),
 								),
 								Lit(""),
@@ -509,7 +509,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 						).Else().Block(
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 								"%s unlocked",
-								strcase.ToDelimited(obj, ' '),
+								strcase.ToDelimited(obj.Name, ' '),
 							))),
 						)
 						g.Line()
@@ -518,7 +518,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Qual("fmt", "Sprintf").Call(
 								Line().Lit(fmt.Sprintf(
 									"%s successfully reconciled for %%s operation",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								)),
 								Line().Id("notif").Dot("Operation"),
 								Line(),
@@ -534,17 +534,17 @@ func (cc *ControllerConfig) Reconcilers() error {
 		)
 
 		// write code to file
-		genFilename := fmt.Sprintf("%s_gen.go", strcase.ToSnake(obj))
+		genFilename := fmt.Sprintf("%s_gen.go", strcase.ToSnake(obj.Name))
 		genFilepath := filepath.Join(controllerInternalPackagePath(cc.ShortName), genFilename)
 		file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
-			return fmt.Errorf("failed to open file to write generated code for %s reconciler: %w", obj, err)
+			return fmt.Errorf("failed to open file to write generated code for %s reconciler: %w", obj.Name, err)
 		}
 		defer file.Close()
 		if err := f.Render(file); err != nil {
-			return fmt.Errorf("failed to render generated source code for %s reconciler: %w", obj, err)
+			return fmt.Errorf("failed to render generated source code for %s reconciler: %w", obj.Name, err)
 		}
-		fmt.Printf("code generation complete for %s reconciler\n", obj)
+		fmt.Printf("code generation complete for %s reconciler\n", obj.Name)
 	}
 
 	return nil
@@ -562,9 +562,9 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 		f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")
 		f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "tpapi")
 
-		f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj))
+		f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj.Name))
 		f.Comment("is created, updated or deleted.")
-		f.Func().Id(fmt.Sprintf("%sReconciler", obj)).Params(
+		f.Func().Id(fmt.Sprintf("%sReconciler", obj.Name)).Params(
 			Id("r").Op("*").Qual(
 				"github.com/threeport/threeport/pkg/controller/v0",
 				"Reconciler",
@@ -637,7 +637,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
 								Lit(fmt.Sprintf(
 									"%s reconciliation requeued with identical payload and fixed delay",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								)),
 							),
 							Continue(),
@@ -645,11 +645,11 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 						g.Line()
 
 						g.Comment("decode the object that was sent in the notification")
-						g.Var().Id(strcase.ToLowerCamel(obj)).Qual(
+						g.Var().Id(strcase.ToLowerCamel(obj.Name)).Qual(
 							fmt.Sprintf("%s/pkg/api/v0", modulePath),
-							obj,
+							obj.Name,
 						)
-						g.If(Id("err").Op(":=").Id(strcase.ToLowerCamel(obj)).Dot("DecodeNotifObject").Call(
+						g.If(Id("err").Op(":=").Id(strcase.ToLowerCamel(obj.Name)).Dot("DecodeNotifObject").Call(
 							Id("notif").Dot("Object"),
 						).Op(";").Id("err").Op("!=").Nil().Block(
 							Id("log").Dot("Error").Call(
@@ -659,7 +659,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
 								Lit(fmt.Sprintf(
 									"%s reconciliation requeued with identical payload and fixed delay",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								)),
 							),
 							Continue(),
@@ -667,8 +667,8 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 						g.Id("log").Op("=").Id("log").Dot("WithValues").Call(
 							Lit(fmt.Sprintf(
 								"%sID",
-								strcase.ToLowerCamel(obj),
-							)).Op(",").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+								strcase.ToLowerCamel(obj.Name),
+							)).Op(",").Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 						)
 						g.Line()
 
@@ -681,17 +681,17 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 
 						g.Comment("check for lock on object")
 						g.Id("locked").Op(",").Id("ok").Op(":=").Id("r").Dot("CheckLock").Call(
-							Op("&").Id(strcase.ToLowerCamel(obj)),
+							Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 						)
 						g.If(Id("locked").Op("||").Id("ok").Op("==").Id("false")).Block(
 							Id("r").Dot("Requeue").Call(
-								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
+								Op("&").Id(strcase.ToLowerCamel(obj.Name)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
 							),
 							Id("log").Dot("V").Call(
 								Lit(1),
 							).Dot("Info").Call(Lit(fmt.Sprintf(
 								"%s reconciliation requeued",
-								strcase.ToDelimited(obj, ' '),
+								strcase.ToDelimited(obj.Name, ' '),
 							))),
 							Continue(),
 						)
@@ -702,14 +702,14 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								Case(Op("<-").Id("osSignals")).Block(
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 										"received termination signal, performing unlock and requeue of %s",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 								),
 								Case(Op("<-").Id("lockReleased")).Block(
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 										"reached end of reconcile loop for %s, closing out signal handler",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									))),
 								),
 							),
@@ -717,14 +717,14 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 						g.Line()
 						g.Comment("put a lock on the reconciliation of the created object")
 						g.If(Id("ok").Op(":=").Id("r").Dot("Lock").Call(
-							Op("&").Id(strcase.ToLowerCamel(obj))).Op(";").Op("!").Id("ok"),
+							Op("&").Id(strcase.ToLowerCamel(obj.Name))).Op(";").Op("!").Id("ok"),
 						).Block(
 							Id("r").Dot("Requeue").Call(
-								Op("&").Id(strcase.ToLowerCamel(obj)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
+								Op("&").Id(strcase.ToLowerCamel(obj.Name)).Op(",").Id("requeueDelay").Op(",").Id("msg"),
 							),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 								"%s reconciliation requeued",
-								strcase.ToDelimited(obj, ' '),
+								strcase.ToDelimited(obj.Name, ' '),
 							))),
 							Continue(),
 						)
@@ -733,8 +733,8 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 						// If the object has a "Data" field with a "persist" tag set to "false", skip
 						// the retrieval of the latest object. Otherwise, generate the
 						// source code to retrieve the latest object.
-						if !cc.CheckStructTagMap(obj, "Data", "persist", "false") {
-							cc.GetLatestObject(g, obj)
+						if !cc.CheckStructTagMap(obj.Name, "Data", "persist", "false") {
+							cc.GetLatestObject(g, obj.Name)
 						}
 
 						g.Line()
@@ -744,29 +744,29 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationCreated",
 							)).Block(
-								If(Id(strcase.ToLowerCamel(obj)).Dot("DeletionScheduled").Op("!=").Nil()).Block(
+								If(Id(strcase.ToLowerCamel(obj.Name)).Dot("DeletionScheduled").Op("!=").Nil()).Block(
 									Id("log").Dot("Info").Call(
-										Lit(fmt.Sprintf("%s scheduled for deletion - skipping create", strcase.ToDelimited(obj, ' '))),
+										Lit(fmt.Sprintf("%s scheduled for deletion - skipping create", strcase.ToDelimited(obj.Name, ' '))),
 									),
 									Break(),
 								),
 								Id("customRequeueDelay").Op(",").Err().Op(":=").Id(fmt.Sprintf(
 									"%sCreated",
-									strcase.ToLowerCamel(obj),
+									strcase.ToLowerCamel(obj.Name),
 								)).Call(
 									Id("r"),
-									Op("&").Id(strcase.ToLowerCamel(obj)),
+									Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Op("&").Id("log"),
 								),
 								If(Err().Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(
 										Err(), Lit(fmt.Sprintf(
 											"failed to reconcile created %s object",
-											strcase.ToDelimited(obj, ' '),
+											strcase.ToDelimited(obj.Name, ' '),
 										)),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -779,7 +779,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 										Lit("create requeued for future reconciliation"),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("customRequeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -794,21 +794,21 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 							)).Block(
 								Id("customRequeueDelay").Op(",").Err().Op(":=").Id(fmt.Sprintf(
 									"%sUpdated",
-									strcase.ToLowerCamel(obj),
+									strcase.ToLowerCamel(obj.Name),
 								)).Call(
 									Id("r"),
-									Op("&").Id(strcase.ToLowerCamel(obj)),
+									Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Op("&").Id("log"),
 								),
 								If(Err().Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(
 										Err(), Lit(fmt.Sprintf(
 											"failed to reconcile updated %s object",
-											strcase.ToDelimited(obj, ' '),
+											strcase.ToDelimited(obj.Name, ' '),
 										)),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -821,7 +821,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 										Lit("update requeued for future reconciliation"),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("customRequeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -836,21 +836,21 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 							)).Block(
 								Id("customRequeueDelay").Op(",").Err().Op(":=").Id(fmt.Sprintf(
 									"%sDeleted",
-									strcase.ToLowerCamel(obj),
+									strcase.ToLowerCamel(obj.Name),
 								)).Call(
 									Id("r"),
-									Op("&").Id(strcase.ToLowerCamel(obj)),
+									Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Op("&").Id("log"),
 								),
 								If(Err().Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(
 										Err(), Lit(fmt.Sprintf(
 											"failed to reconcile deleted %s object",
-											strcase.ToDelimited(obj, ' '),
+											strcase.ToDelimited(obj.Name, ' '),
 										)),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("requeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -863,7 +863,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 										Lit("deletion requeued for future reconciliation"),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
-										Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 										Line().Id("customRequeueDelay"),
 										Line().Id("lockReleased"),
 										Line().Id("msg"),
@@ -876,16 +876,16 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 
 								Id(fmt.Sprintf(
 									"deleted%s",
-									obj,
+									obj.Name,
 								)).Op(":=").Qual(
 									fmt.Sprintf("%s/pkg/api/v0", modulePath),
-									obj,
+									obj.Name,
 								).Values(Dict{
 									Id("Common"): Qual(
 										"github.com/threeport/threeport/pkg/api/v0",
 										"Common",
 									).Values(Dict{
-										Id("ID"): Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+										Id("ID"): Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 									}),
 									Id("Reconciliation"): Qual(
 										"github.com/threeport/threeport/pkg/api/v0",
@@ -899,48 +899,48 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 								If(Id("err").Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
 										"failed to update %s to mark as reconciled",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 									Continue(),
 								),
 
 								Id("_").Op(",").Id("err").Op("=").Qual(
 									fmt.Sprintf("%s/pkg/client/v0", modulePath),
-									fmt.Sprintf("Update%s", obj),
+									fmt.Sprintf("Update%s", obj.Name),
 								).Call(
 									Line().Id("r").Dot("APIClient"),
 									Line().Id("r").Dot("APIServer"),
 									Line().Op("&").Id(fmt.Sprintf(
 										"deleted%s",
-										obj,
+										obj.Name,
 									)),
 									Line(),
 								),
 								If(Id("err").Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
 										"failed to update %s to mark as deleted",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 									Continue(),
 								),
 
 								Id("_").Op(",").Id("err").Op("=").Qual(
 									fmt.Sprintf("%s/pkg/client/v0", modulePath),
-									fmt.Sprintf("Delete%s", obj),
+									fmt.Sprintf("Delete%s", obj.Name),
 								).Call(
 									Line().Id("r").Dot("APIClient"),
 									Line().Id("r").Dot("APIServer"),
-									Line().Op("*").Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+									Line().Op("*").Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 									Line(),
 								),
 								If(Id("err").Op("!=").Nil()).Block(
 									Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
 										"failed to delete %s",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 									Continue(),
 								),
 							),
@@ -951,7 +951,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 									Line(),
 								),
 								Id("r").Dot("UnlockAndRequeue").Call(
-									Line().Op("&").Id(strcase.ToLowerCamel(obj)),
+									Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Line().Id("requeueDelay"),
 									Line().Id("lockReleased"),
 									Line().Id("msg"),
@@ -971,16 +971,16 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 							Id("objectReconciled").Op(":=").Lit(true),
 							Id(fmt.Sprintf(
 								"reconciled%s",
-								obj,
+								obj.Name,
 							)).Op(":=").Qual(
 								fmt.Sprintf("%s/pkg/api/v0", modulePath),
-								obj,
+								obj.Name,
 							).Values(Dict{
 								Id("Common"): Qual(
 									"github.com/threeport/threeport/pkg/api/v0",
 									"Common",
 								).Values(Dict{
-									Id("ID"): Id(strcase.ToLowerCamel(obj)).Dot("ID"),
+									Id("ID"): Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 								}),
 								Id("Reconciliation"): Qual(
 									"github.com/threeport/threeport/pkg/api/v0",
@@ -991,38 +991,38 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 							}),
 							Id(fmt.Sprintf(
 								"updated%s",
-								obj,
+								obj.Name,
 							)).Op(",").Id("err").Op(":=").Qual(
 								fmt.Sprintf("%s/pkg/client/v0", modulePath),
-								fmt.Sprintf("Update%s", obj),
+								fmt.Sprintf("Update%s", obj.Name),
 							).Call(
 								Line().Id("r").Dot("APIClient"),
 								Line().Id("r").Dot("APIServer"),
 								Line().Op("&").Id(fmt.Sprintf(
 									"reconciled%s",
-									obj,
+									obj.Name,
 								)),
 								Line(),
 							),
 							If(Id("err").Op("!=").Nil()).Block(
 								Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
 									"failed to update %s to mark as reconciled",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								))),
-								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
+								Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
 								Continue(),
 							),
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
 								Line().Lit(fmt.Sprintf(
 									"%s marked as reconciled in API",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								)),
 								Line().Lit(fmt.Sprintf(
 									"%sName",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								)), Id(fmt.Sprintf(
 									"updated%s",
-									obj,
+									obj.Name,
 								)).Dot("Name"),
 								Line(),
 							),
@@ -1030,12 +1030,12 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 						g.Line()
 
 						g.Comment("release the lock on the reconciliation of the created object")
-						g.If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj)), Id("lockReleased"), Id("msg"), Lit(true)), Op("!").Id("ok")).Block(
+						g.If(Id("ok").Op(":=").Id("r").Dot("ReleaseLock").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("lockReleased"), Id("msg"), Lit(true)), Op("!").Id("ok")).Block(
 							Id("log").Dot("Error").Call(
 								Qual("errors", "New").Call(
 									Lit(fmt.Sprintf(
 										"%s remains locked - will unlock when TTL expires",
-										strcase.ToDelimited(obj, ' '),
+										strcase.ToDelimited(obj.Name, ' '),
 									)),
 								),
 								Lit(""),
@@ -1043,7 +1043,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 						).Else().Block(
 							Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(Lit(fmt.Sprintf(
 								"%s unlocked",
-								strcase.ToDelimited(obj, ' '),
+								strcase.ToDelimited(obj.Name, ' '),
 							))),
 						)
 						g.Line()
@@ -1052,7 +1052,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 							Qual("fmt", "Sprintf").Call(
 								Line().Lit(fmt.Sprintf(
 									"%s successfully reconciled for %%s operation",
-									strcase.ToDelimited(obj, ' '),
+									strcase.ToDelimited(obj.Name, ' '),
 								)),
 								Line().Id("notif").Dot("Operation"),
 								Line(),
@@ -1068,17 +1068,17 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 		)
 
 		// write code to file
-		genFilename := fmt.Sprintf("%s_gen.go", strcase.ToSnake(obj))
+		genFilename := fmt.Sprintf("%s_gen.go", strcase.ToSnake(obj.Name))
 		genFilepath := filepath.Join(controllerInternalPackagePath(cc.ShortName), genFilename)
 		file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
-			return fmt.Errorf("failed to open file to write generated code for %s reconciler: %w", obj, err)
+			return fmt.Errorf("failed to open file to write generated code for %s reconciler: %w", obj.Name, err)
 		}
 		defer file.Close()
 		if err := f.Render(file); err != nil {
-			return fmt.Errorf("failed to render generated source code for %s reconciler: %w", obj, err)
+			return fmt.Errorf("failed to render generated source code for %s reconciler: %w", obj.Name, err)
 		}
-		fmt.Printf("code generation complete for %s reconciler\n", obj)
+		fmt.Printf("code generation complete for %s reconciler\n", obj.Name)
 	}
 
 	return nil
@@ -1093,7 +1093,7 @@ func (cc *ControllerConfig) GetLatestObject(g *jen.Group, obj string) {
 		"latest%s",
 		obj,
 	)).Op(",").Id("err").Op(":=").Qual(
-		fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetObjectVersion(obj)),
+		fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetLatestObjectVersion(obj)),
 		fmt.Sprintf("Get%sByID", obj),
 	).Call(
 		Line().Id("r").Dot("APIClient"),

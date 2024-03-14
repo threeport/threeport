@@ -18,7 +18,7 @@ type ControllerConfig struct {
 	StreamName string
 
 	// The objects for which reconcilers should be generated.
-	ReconciledObjects []string
+	ReconciledObjects []ReconciledObject
 
 	// The struct values parsed from the controller's model file.
 	// The data model can be interpreted as:
@@ -26,6 +26,13 @@ type ControllerConfig struct {
 	// An example of this data model with a WorkloadDefinition is:
 	// map["WorkloadDefinition"]map["YAMLDocument"]map["validate"]"required"
 	StructTags map[string]map[string]map[string]string
+}
+
+// ReconciledObject is a struct that contains the name and version of a
+// reconciled object.
+type ReconciledObject struct {
+	Name    string
+	Version string
 }
 
 // CheckStructTagMap checks if a struct tag map contains a specific value.

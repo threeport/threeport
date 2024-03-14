@@ -113,7 +113,7 @@ func (cc *ControllerConfig) TptctlCommands() error {
 							pluralize.Pluralize(rootCmdStrHuman, 2, false),
 						)),
 						List(Id(pluralize.Pluralize(instanceVar, 2, false)), Err()).Op(":=").Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetObjectVersion(instanceObj)),
+							fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetLatestObjectVersion(instanceObj)),
 							getClientFunc,
 						).Call(Id("apiClient"), Id("apiEndpoint")),
 						If(Err().Op("!=").Nil()).Block(
@@ -560,7 +560,7 @@ func (cc *ControllerConfig) TptctlCommands() error {
 						pluralize.Pluralize(cmdStrHuman, 2, false),
 					)),
 					List(Id(pluralize.Pluralize(objectVar, 2, false)), Err()).Op(":=").Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetObjectVersion(mc.TypeName)),
+						fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetLatestObjectVersion(mc.TypeName)),
 						getClientFunc,
 					).Call(Id("apiClient"), Id("apiEndpoint")),
 					If(Err().Op("!=").Nil()).Block(
@@ -1042,7 +1042,7 @@ func (cc *ControllerConfig) TptctlCommands() error {
 						cmdStrHuman,
 					)),
 					List(Id(objectVar), Err()).Op(":=").Qual(
-						fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetObjectVersion(mc.TypeName)),
+						fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetLatestObjectVersion(mc.TypeName)),
 						fmt.Sprintf("Get%sByName", mc.TypeName),
 					).Call(
 						Line().Id("apiClient"),

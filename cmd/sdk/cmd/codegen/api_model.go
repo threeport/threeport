@@ -102,7 +102,6 @@ When 'make generate' is run, the following code is generated for API:
 					case *ast.TypeSpec:
 						typeSpec := spec.(*ast.TypeSpec)
 						objectName = typeSpec.Name.Name
-						fmt.Println(objectName)
 						// capture the name of the struct - the model name
 						mc := models.ModelConfig{
 							TypeName:  typeSpec.Name.Name,
@@ -133,7 +132,6 @@ When 'make generate' is run, the following code is generated for API:
 								// is a []*ast.Ident - iterate over those names to find the
 								// one we're looking for
 								for _, name := range field.Names {
-									fmt.Println(name.Name)
 									if util.StringSliceContains(nameFields(), name.Name, true) {
 										mc.NameField = true
 									}

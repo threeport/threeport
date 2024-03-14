@@ -1,4 +1,5 @@
 //go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
+//go:generate threeport-sdk codegen controller --filename $GOFILE --api-versions v0
 package v1
 
 import (

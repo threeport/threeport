@@ -33,19 +33,19 @@ func (cc *ControllerConfig) MainPackage() error {
 	for _, obj := range cc.ReconciledObjects {
 		concurrencyFlags.Var().Id(fmt.Sprintf(
 			"%sConcurrentReconciles",
-			strcase.ToLowerCamel(obj),
+			fmt.Sprintf("%s_%s", obj.Version, strcase.ToLowerCamel(obj.Name)),
 		)).Op("=").Qual(
 			"github.com/namsral/flag",
 			"Int",
 		).Call(
 			Line().Lit(fmt.Sprintf(
 				"%s-concurrent-reconciles",
-				obj,
+				fmt.Sprintf("%s-%s", obj.Version, strcase.ToKebab(obj.Name)),
 			)),
 			Line().Lit(1),
 			Line().Lit(fmt.Sprintf(
 				"Number of concurrent reconcilers to run for %s",
-				pluralize.Pluralize(strcase.ToDelimited(obj, ' '), 2, false),
+				pluralize.Pluralize(strcase.ToDelimited(obj.Name, ' '), 2, false),
 			)),
 			Line(),
 		)
@@ -60,29 +60,29 @@ func (cc *ControllerConfig) MainPackage() error {
 		// prevent all of the nats streams associated with this controller from
 		// being persisted to disk, and will result in nats messages being lost in the
 		// event of a nats server failure or restart.
-		if cc.CheckStructTagMap(obj, "Data", "persist", "false") {
+		if cc.CheckStructTagMap(obj.Name, "Data", "persist", "false") {
 			durable = false
 		}
 		reconcilerConfigs.Id("reconcilerConfigs").Op("=").Append(Id("reconcilerConfigs").Op(",").Qual(
 			"github.com/threeport/threeport/pkg/controller/v0",
 			"ReconcilerConfig",
 		).Values(Dict{
-			Id("Name"): Lit(fmt.Sprintf("%sReconciler", obj)),
+			Id("Name"): Lit(fmt.Sprintf("%sReconciler", obj.Name)),
 			Id("ObjectType"): Qual(
-				"github.com/threeport/threeport/pkg/api/v0",
-				fmt.Sprintf("ObjectType%s", obj),
+				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", obj.Version),
+				fmt.Sprintf("ObjectType%s", obj.Name),
 			),
 			Id("ReconcileFunc"): Qual(
 				fmt.Sprintf("github.com/threeport/threeport/internal/%s", cc.ShortName),
-				fmt.Sprintf("%sReconciler", obj),
+				fmt.Sprintf("%sReconciler", obj.Name),
 			),
 			Id("ConcurrentReconciles"): Op("*").Id(fmt.Sprintf(
 				"%sConcurrentReconciles",
-				strcase.ToLowerCamel(obj),
+				fmt.Sprintf("%s_%s", obj.Version, strcase.ToLowerCamel(obj.Name)),
 			)),
 			Id("NotifSubject"): Qual(
-				"github.com/threeport/threeport/pkg/api/v0",
-				fmt.Sprintf("%sSubject", obj),
+				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", obj.Version),
+				fmt.Sprintf("%sSubject", obj.Name),
 			),
 		}))
 		reconcilerConfigs.Line()
@@ -473,19 +473,19 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 	for _, obj := range cc.ReconciledObjects {
 		concurrencyFlags.Var().Id(fmt.Sprintf(
 			"%sConcurrentReconciles",
-			strcase.ToLowerCamel(obj),
+			fmt.Sprintf("%s_%s", obj.Version, strcase.ToLowerCamel(obj.Name)),
 		)).Op("=").Qual(
 			"github.com/namsral/flag",
 			"Int",
 		).Call(
 			Line().Lit(fmt.Sprintf(
 				"%s-concurrent-reconciles",
-				obj,
+				fmt.Sprintf("%s-%s", obj.Version, strcase.ToKebab(obj.Name)),
 			)),
 			Line().Lit(1),
 			Line().Lit(fmt.Sprintf(
 				"Number of concurrent reconcilers to run for %s",
-				pluralize.Pluralize(strcase.ToDelimited(obj, ' '), 2, false),
+				pluralize.Pluralize(strcase.ToDelimited(obj.Name, ' '), 2, false),
 			)),
 			Line(),
 		)
@@ -500,29 +500,29 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 		// prevent all of the nats streams associated with this controller from
 		// being persisted to disk, and will result in nats messages being lost in the
 		// event of a nats server failure or restart.
-		if cc.CheckStructTagMap(obj, "Data", "persist", "false") {
+		if cc.CheckStructTagMap(obj.Name, "Data", "persist", "false") {
 			durable = false
 		}
 		reconcilerConfigs.Id("reconcilerConfigs").Op("=").Append(Id("reconcilerConfigs").Op(",").Qual(
 			"github.com/threeport/threeport/pkg/controller/v0",
 			"ReconcilerConfig",
 		).Values(Dict{
-			Id("Name"): Lit(fmt.Sprintf("%sReconciler", obj)),
+			Id("Name"): Lit(fmt.Sprintf("%sReconciler", obj.Name)),
 			Id("ObjectType"): Qual(
 				fmt.Sprintf("%s/pkg/api/v0", modulePath),
-				fmt.Sprintf("ObjectType%s", obj),
+				fmt.Sprintf("ObjectType%s", obj.Name),
 			),
 			Id("ReconcileFunc"): Qual(
 				fmt.Sprintf("%s/internal/%s", modulePath, cc.ShortName),
-				fmt.Sprintf("%sReconciler", obj),
+				fmt.Sprintf("%sReconciler", obj.Name),
 			),
 			Id("ConcurrentReconciles"): Op("*").Id(fmt.Sprintf(
 				"%sConcurrentReconciles",
-				strcase.ToLowerCamel(obj),
+				fmt.Sprintf("%s_%s", obj.Version, strcase.ToLowerCamel(obj.Name)),
 			)),
 			Id("NotifSubject"): Qual(
 				fmt.Sprintf("%s/pkg/api/v0", modulePath),
-				fmt.Sprintf("%sSubject", obj),
+				fmt.Sprintf("%sSubject", obj.Name),
 			),
 		}))
 		reconcilerConfigs.Line()

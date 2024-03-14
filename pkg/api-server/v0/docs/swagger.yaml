@@ -16,23 +16,15 @@ definitions:
     type: object
   v0.AttachedObjectReference:
     properties:
-      AttachedObjectID:
-        description: The object ID of the attached object.
-        type: integer
-      AttachedObjectType:
-        description: The object type of the attached object.
-        type: string
       ObjectID:
-        description: The object ID of the base object.
         type: integer
-      ObjectType:
-        description: The object type of the base object.
+      Type:
         type: string
+      WorkloadInstanceID:
+        description: The workload definition this resource belongs to.
+        type: integer
     required:
-    - AttachedObjectID
-    - AttachedObjectType
-    - ObjectID
-    - ObjectType
+    - WorkloadInstanceID
     type: object
   v0.AwsAccount:
     properties:
@@ -1738,96 +1730,6 @@ definitions:
     - MetricsDefinitionID
     - Name
     type: object
-  v0.ObjectType:
-    enum:
-    - GatewayDefinition
-    - GatewayInstance
-    - GatewayHttpPort
-    - GatewayTcpPort
-    - DomainNameDefinition
-    - DomainNameInstance
-    - AttachedObjectReference
-    - KubernetesRuntimeDefinition
-    - KubernetesRuntimeInstance
-    - TerraformDefinition
-    - TerraformInstance
-    - Profile
-    - Tier
-    - HelmWorkloadDefinition
-    - HelmWorkloadInstance
-    - AttachedObjectReference
-    - ObservabilityStackDefinition
-    - ObservabilityStackInstance
-    - ObservabilityDashboardDefinition
-    - ObservabilityDashboardInstance
-    - MetricsDefinition
-    - MetricsInstance
-    - LoggingDefinition
-    - LoggingInstance
-    - LogBackend
-    - LogStorageDefinition
-    - LogStorageInstance
-    - SecretDefinition
-    - SecretInstance
-    - WorkloadDefinition
-    - WorkloadResourceDefinition
-    - WorkloadInstance
-    - WorkloadResourceInstance
-    - WorkloadEvent
-    - AwsAccount
-    - AwsEksKubernetesRuntimeDefinition
-    - AwsEksKubernetesRuntimeInstance
-    - AwsRelationalDatabaseDefinition
-    - AwsRelationalDatabaseInstance
-    - AwsObjectStorageBucketDefinition
-    - AwsObjectStorageBucketInstance
-    - ControlPlaneDefinition
-    - ControlPlaneInstance
-    type: string
-    x-enum-varnames:
-    - ObjectTypeGatewayDefinition
-    - ObjectTypeGatewayInstance
-    - ObjectTypeGatewayHttpPort
-    - ObjectTypeGatewayTcpPort
-    - ObjectTypeDomainNameDefinition
-    - ObjectTypeDomainNameInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeKubernetesRuntimeDefinition
-    - ObjectTypeKubernetesRuntimeInstance
-    - ObjectTypeTerraformDefinition
-    - ObjectTypeTerraformInstance
-    - ObjectTypeProfile
-    - ObjectTypeTier
-    - ObjectTypeHelmWorkloadDefinition
-    - ObjectTypeHelmWorkloadInstance
-    - ObjectTypeAttachedObjectReference
-    - ObjectTypeObservabilityStackDefinition
-    - ObjectTypeObservabilityStackInstance
-    - ObjectTypeObservabilityDashboardDefinition
-    - ObjectTypeObservabilityDashboardInstance
-    - ObjectTypeMetricsDefinition
-    - ObjectTypeMetricsInstance
-    - ObjectTypeLoggingDefinition
-    - ObjectTypeLoggingInstance
-    - ObjectTypeLogBackend
-    - ObjectTypeLogStorageDefinition
-    - ObjectTypeLogStorageInstance
-    - ObjectTypeSecretDefinition
-    - ObjectTypeSecretInstance
-    - ObjectTypeWorkloadDefinition
-    - ObjectTypeWorkloadResourceDefinition
-    - ObjectTypeWorkloadInstance
-    - ObjectTypeWorkloadResourceInstance
-    - ObjectTypeWorkloadEvent
-    - ObjectTypeAwsAccount
-    - ObjectTypeAwsEksKubernetesRuntimeDefinition
-    - ObjectTypeAwsEksKubernetesRuntimeInstance
-    - ObjectTypeAwsRelationalDatabaseDefinition
-    - ObjectTypeAwsRelationalDatabaseInstance
-    - ObjectTypeAwsObjectStorageBucketDefinition
-    - ObjectTypeAwsObjectStorageBucketInstance
-    - ObjectTypeControlPlaneDefinition
-    - ObjectTypeControlPlaneInstance
   v0.ObservabilityDashboardDefinition:
     properties:
       CreationAcknowledged:
@@ -2205,10 +2107,9 @@ definitions:
         - $ref: '#/definitions/v0.Status'
         description: Status represents an error that occurred while handling a request
       Type:
-        allOf:
-        - $ref: '#/definitions/v0.ObjectType'
         description: Type contains ObjectType of returned Data elements
         example: Transfer
+        type: string
     type: object
   v0.SecretDefinition:
     properties:
@@ -2622,6 +2523,12 @@ definitions:
     type: object
   v0.WorkloadInstance:
     properties:
+      AttachedObjectReferences:
+        description: The threeport objects that are deployed to support the workload
+          instance.
+        items:
+          $ref: '#/definitions/v0.AttachedObjectReference'
+        type: array
       CreationAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion

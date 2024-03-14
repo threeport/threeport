@@ -12707,27 +12707,18 @@
         "v0.AttachedObjectReference": {
             "type": "object",
             "required": [
-                "AttachedObjectID",
-                "AttachedObjectType",
-                "ObjectID",
-                "ObjectType"
+                "WorkloadInstanceID"
             ],
             "properties": {
-                "AttachedObjectID": {
-                    "description": "The object ID of the attached object.",
-                    "type": "integer"
-                },
-                "AttachedObjectType": {
-                    "description": "The object type of the attached object.",
-                    "type": "string"
-                },
                 "ObjectID": {
-                    "description": "The object ID of the base object.",
                     "type": "integer"
                 },
-                "ObjectType": {
-                    "description": "The object type of the base object.",
+                "Type": {
                     "type": "string"
+                },
+                "WorkloadInstanceID": {
+                    "description": "The workload definition this resource belongs to.",
+                    "type": "integer"
                 }
             }
         },
@@ -14487,99 +14478,6 @@
                 }
             }
         },
-        "v0.ObjectType": {
-            "type": "string",
-            "enum": [
-                "GatewayDefinition",
-                "GatewayInstance",
-                "GatewayHttpPort",
-                "GatewayTcpPort",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "AttachedObjectReference",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "TerraformDefinition",
-                "TerraformInstance",
-                "Profile",
-                "Tier",
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
-                "AttachedObjectReference",
-                "ObservabilityStackDefinition",
-                "ObservabilityStackInstance",
-                "ObservabilityDashboardDefinition",
-                "ObservabilityDashboardInstance",
-                "MetricsDefinition",
-                "MetricsInstance",
-                "LoggingDefinition",
-                "LoggingInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "SecretDefinition",
-                "SecretInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "WorkloadResourceInstance",
-                "WorkloadEvent",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance"
-            ],
-            "x-enum-varnames": [
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeGatewayHttpPort",
-                "ObjectTypeGatewayTcpPort",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeTerraformDefinition",
-                "ObjectTypeTerraformInstance",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeObservabilityStackDefinition",
-                "ObjectTypeObservabilityStackInstance",
-                "ObjectTypeObservabilityDashboardDefinition",
-                "ObjectTypeObservabilityDashboardInstance",
-                "ObjectTypeMetricsDefinition",
-                "ObjectTypeMetricsInstance",
-                "ObjectTypeLoggingDefinition",
-                "ObjectTypeLoggingInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeSecretDefinition",
-                "ObjectTypeSecretInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance"
-            ]
-        },
         "v0.ObservabilityDashboardDefinition": {
             "type": "object",
             "required": [
@@ -14953,11 +14851,7 @@
                 },
                 "Type": {
                     "description": "Type contains ObjectType of returned Data elements",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/v0.ObjectType"
-                        }
-                    ],
+                    "type": "string",
                     "example": "Transfer"
                 }
             }
@@ -15386,6 +15280,13 @@
                 "WorkloadDefinitionID"
             ],
             "properties": {
+                "AttachedObjectReferences": {
+                    "description": "The threeport objects that are deployed to support the workload instance.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.AttachedObjectReference"
+                    }
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"

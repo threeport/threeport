@@ -25,13 +25,13 @@ import (
 
 func main() {
 	// flags
-	var terraformDefinitionConcurrentReconciles = flag.Int(
-		"TerraformDefinition-concurrent-reconciles",
+	var v0_terraformDefinitionConcurrentReconciles = flag.Int(
+		"v0-terraform-definition-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for terraform definitions",
 	)
-	var terraformInstanceConcurrentReconciles = flag.Int(
-		"TerraformInstance-concurrent-reconciles",
+	var v0_terraformInstanceConcurrentReconciles = flag.Int(
+		"v0-terraform-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for terraform instances",
 	)
@@ -135,14 +135,14 @@ func main() {
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *terraformDefinitionConcurrentReconciles,
+		ConcurrentReconciles: *v0_terraformDefinitionConcurrentReconciles,
 		Name:                 "TerraformDefinitionReconciler",
 		NotifSubject:         v0.TerraformDefinitionSubject,
 		ObjectType:           v0.ObjectTypeTerraformDefinition,
 		ReconcileFunc:        terraform.TerraformDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *terraformInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_terraformInstanceConcurrentReconciles,
 		Name:                 "TerraformInstanceReconciler",
 		NotifSubject:         v0.TerraformInstanceSubject,
 		ObjectType:           v0.ObjectTypeTerraformInstance,

@@ -25,13 +25,13 @@ import (
 
 func main() {
 	// flags
-	var kubernetesRuntimeDefinitionConcurrentReconciles = flag.Int(
-		"KubernetesRuntimeDefinition-concurrent-reconciles",
+	var v0_kubernetesRuntimeDefinitionConcurrentReconciles = flag.Int(
+		"v0-kubernetes-runtime-definition-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for kubernetes runtime definitions",
 	)
-	var kubernetesRuntimeInstanceConcurrentReconciles = flag.Int(
-		"KubernetesRuntimeInstance-concurrent-reconciles",
+	var v0_kubernetesRuntimeInstanceConcurrentReconciles = flag.Int(
+		"v0-kubernetes-runtime-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for kubernetes runtime instances",
 	)
@@ -135,14 +135,14 @@ func main() {
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *kubernetesRuntimeDefinitionConcurrentReconciles,
+		ConcurrentReconciles: *v0_kubernetesRuntimeDefinitionConcurrentReconciles,
 		Name:                 "KubernetesRuntimeDefinitionReconciler",
 		NotifSubject:         v0.KubernetesRuntimeDefinitionSubject,
 		ObjectType:           v0.ObjectTypeKubernetesRuntimeDefinition,
 		ReconcileFunc:        kubernetesruntime.KubernetesRuntimeDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *kubernetesRuntimeInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_kubernetesRuntimeInstanceConcurrentReconciles,
 		Name:                 "KubernetesRuntimeInstanceReconciler",
 		NotifSubject:         v0.KubernetesRuntimeInstanceSubject,
 		ObjectType:           v0.ObjectTypeKubernetesRuntimeInstance,

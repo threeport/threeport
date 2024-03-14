@@ -25,13 +25,13 @@ import (
 
 func main() {
 	// flags
-	var secretDefinitionConcurrentReconciles = flag.Int(
-		"SecretDefinition-concurrent-reconciles",
+	var v0_secretDefinitionConcurrentReconciles = flag.Int(
+		"v0-secret-definition-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for secret definitions",
 	)
-	var secretInstanceConcurrentReconciles = flag.Int(
-		"SecretInstance-concurrent-reconciles",
+	var v0_secretInstanceConcurrentReconciles = flag.Int(
+		"v0-secret-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for secret instances",
 	)
@@ -135,14 +135,14 @@ func main() {
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *secretDefinitionConcurrentReconciles,
+		ConcurrentReconciles: *v0_secretDefinitionConcurrentReconciles,
 		Name:                 "SecretDefinitionReconciler",
 		NotifSubject:         v0.SecretDefinitionSubject,
 		ObjectType:           v0.ObjectTypeSecretDefinition,
 		ReconcileFunc:        secret.SecretDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *secretInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_secretInstanceConcurrentReconciles,
 		Name:                 "SecretInstanceReconciler",
 		NotifSubject:         v0.SecretInstanceSubject,
 		ObjectType:           v0.ObjectTypeSecretInstance,
