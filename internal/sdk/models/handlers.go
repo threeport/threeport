@@ -433,7 +433,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("objectType").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					sdk.GetLatestObjectVersion(cc.ParsedModelFile.Name.Name),
+					cc.ParsedModelFile.Name.Name,
 				),
 				fmt.Sprintf(
 					"ObjectType%s",

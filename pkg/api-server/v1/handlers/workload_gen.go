@@ -41,7 +41,7 @@ func (h Handler) GetWorkloadInstanceVersions(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances [POST]
 func (h Handler) AddWorkloadInstance(c echo.Context) error {
-	objectType := v0.ObjectTypeWorkloadInstance
+	objectType := v1.ObjectTypeWorkloadInstance
 	var workloadInstance v1.WorkloadInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
