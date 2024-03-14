@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
@@ -79,6 +80,9 @@ func secretInstanceDeleted(
 
 	// get threeport objects
 	if err := c.getThreeportObjects(); err != nil {
+		if errors.Is(err, client.ErrObjectNotFound) {
+			return 0, nil
+		}
 		return 0, fmt.Errorf("failed to get threeport objects: %w", err)
 	}
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"gorm.io/datatypes"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -177,6 +179,27 @@ func TestWorkloadE2E(t *testing.T) {
 		)
 		assert.Nil(err, "should have no error updating gateway definition")
 
+		// create secret data
+		secretData := map[string]string{
+			"username": "admin",
+			"password": "password",
+		}
+		jsonData, err := json.Marshal(secretData)
+		assert.Nil(err, "should have no error marshalling secret data")
+
+		// create secret definition
+		createdSecretDefinition, err := client.CreateSecretDefinition(
+			apiClient,
+			threeportAPIEndpoint,
+			&v0.SecretDefinition{
+				Definition: v0.Definition{
+					Name: util.StringPtr("secret-definition"),
+				},
+				Data: util.Ptr(datatypes.JSON(jsonData)),
+			},
+		)
+		assert.Nil(err, "should have no error creating secret definition")
+
 		// create test workload definition
 		createdWorkloadDef, err := client.CreateWorkloadDefinition(
 			apiClient,
@@ -296,6 +319,21 @@ func TestWorkloadE2E(t *testing.T) {
 			&duplicateWorkloadInst,
 		)
 		assert.NotNil(err, "duplicate workload instance should throw error")
+
+		// create secret instance
+		_, err = client.CreateSecretInstance(
+			apiClient,
+			threeportAPIEndpoint,
+			&v0.SecretInstance{
+				Instance: v0.Instance{
+					Name: util.Ptr("secret-instance"),
+				},
+				SecretDefinitionID:          createdSecretDefinition.ID,
+				WorkloadInstanceID:          createdWorkloadInst.ID,
+				KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
+			},
+		)
+		assert.Nil(err, "should have no error creating secret instance")
 
 		// configure domain name instance
 		domainNameInstance := &v0.DomainNameInstance{
@@ -561,6 +599,14 @@ func TestWorkloadE2E(t *testing.T) {
 			break
 		}
 		assert.Nil(err, "should have no error deleting domain name definition")
+
+		// delete secret definition
+		_, err = client.DeleteSecretDefinition(
+			apiClient,
+			threeportAPIEndpoint,
+			*createdSecretDefinition.ID,
+		)
+		assert.Nil(err, "should have no error deleting secret definition")
 
 		// delete workload definition
 		deletedWorkloadDef, err := client.DeleteWorkloadDefinition(

@@ -48,7 +48,12 @@ func (c *SecretInstanceConfig) getSecretInstanceOperations() *util.Operations {
 	operations.AppendOperation(util.Operation{
 		Name:   "secret objects",
 		Create: c.createSecretObjects,
-		Delete: c.deleteSecretObjects,
+		Delete: func() error {
+			if err := c.deleteSecretObjects(); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+				return fmt.Errorf("failed to delete secret objects: %w", err)
+			}
+			return nil
+		},
 	})
 
 	return &operations
@@ -199,6 +204,9 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			*c.workloadInstanceId,
 		)
 		if err != nil {
+			if errors.Is(err, client.ErrObjectNotFound) {
+				return nil
+			}
 			return fmt.Errorf("failed to get workload instance: %w", err)
 		}
 
@@ -209,6 +217,9 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			*c.workloadInstanceId,
 		)
 		if err != nil {
+			if errors.Is(err, client.ErrObjectNotFound) {
+				return nil
+			}
 			return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
 		}
 
@@ -340,7 +351,7 @@ func (c *SecretInstanceConfig) getThreeportObjects() error {
 		*c.secretInstance.SecretDefinitionID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get gateway controller workload definition: %w", err)
+		return fmt.Errorf("failed to get secret definition: %w", err)
 	}
 
 	// determine correct workload type and instance ID
@@ -428,25 +439,36 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 		return nil
 	}
 
-	resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(
-		c.r.APIClient,
-		c.r.APIServer,
-		c.kubernetesRuntimeInstance.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get dns management iam role arn: %w", err)
-	}
+	var externalSecretsYaml string
+	var err error
+	switch *c.kubernetesRuntimeDefinition.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(
+			c.r.APIClient,
+			c.r.APIServer,
+			c.kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
+		}
 
-	externalSecretsYaml, err := c.getExternalSecretsSupportServiceYaml(resourceInventory.SecretsManagerRole.RoleArn)
-	if err != nil {
-		return fmt.Errorf("failed to create external secrets: %w", err)
+		externalSecretsYaml, err = c.getExternalSecretsSupportServiceYaml(resourceInventory.SecretsManagerRole.RoleArn)
+		if err != nil {
+			return fmt.Errorf("failed to create external secrets: %w", err)
+		}
+
+	case v0.KubernetesRuntimeInfraProviderKind:
+		externalSecretsYaml, err = c.getExternalSecretsSupportServiceYaml("testIamRoleArn")
+		if err != nil {
+			return fmt.Errorf("failed to create external secrets: %w", err)
+		}
 	}
 
 	// create secret controller workload definition
 	workloadDefName := fmt.Sprintf("%s-%s", "external-secrets", *c.kubernetesRuntimeInstance.Name)
 	externalSecretsWorkloadDefinition := v0.WorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
-		YAMLDocument: util.StringPtr(externalSecretsYaml),
+		YAMLDocument: util.Ptr(externalSecretsYaml),
 	}
 
 	// create secret controller workload definition
