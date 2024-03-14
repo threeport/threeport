@@ -24,9 +24,9 @@ func clientLibPath(packageName string) string {
 	return filepath.Join("..", "..", "..", "pkg", "client", packageName)
 }
 
-// getQualifiedPath returns the qualified path for the client library code
+// getQualifiedClientPath returns the qualified path for the client library code
 // based on the API version.
-func (cc *ControllerConfig) getQualifiedPath() string {
+func (cc *ControllerConfig) getQualifiedClientPath() string {
 	switch cc.ParsedModelFile.Name.Name {
 	case "v0":
 		return ""
@@ -68,7 +68,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				mc.TypeName,
 			),
 			Line(),
-			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedPath(), "GetResponse").Call(
+			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedClientPath(), "GetResponse").Call(
 				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
@@ -137,7 +137,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				mc.TypeName,
 			),
 			Line(),
-			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedPath(), "GetResponse").Call(
+			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedClientPath(), "GetResponse").Call(
 				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
@@ -206,7 +206,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				mc.TypeName,
 			),
 			Line(),
-			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedPath(), "GetResponse").Call(
+			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedClientPath(), "GetResponse").Call(
 				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
@@ -273,7 +273,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false),
 			).Index().Id(cc.PackageName).Dot(mc.TypeName),
 			Line(),
-			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedPath(), "GetResponse").Call(
+			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedClientPath(), "GetResponse").Call(
 				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
@@ -327,7 +327,7 @@ func (cc *ControllerConfig) ClientLib() error {
 					Return().Op("&").Qual(
 						fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.PackageName),
 						mc.TypeName,
-					).Values().Op(",").Qual(cc.getQualifiedPath(), "ErrObjectNotFound"),
+					).Values().Op(",").Qual(cc.getQualifiedClientPath(), "ErrObjectNotFound"),
 				),
 				Case(Len(Id(pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false))).Op(">").Lit(1)).Block(
 					Return().Op("&").Qual(
@@ -366,7 +366,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Error(),
 		)).Block(
-			Qual(cc.getQualifiedPath(), "ReplaceAssociatedObjectsWithNil").Call(Id(strcase.ToLowerCamel(mc.TypeName))),
+			Qual(cc.getQualifiedClientPath(), "ReplaceAssociatedObjectsWithNil").Call(Id(strcase.ToLowerCamel(mc.TypeName))),
 			Id(fmt.Sprintf("json%s", mc.TypeName)).Op(",").Id("err").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/util/v0",
 				"MarshalObject",
@@ -377,7 +377,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				).Call(Lit(MarshalObjectErr).Op(",").Id("err")),
 			)),
 			Line(),
-			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedPath(), "GetResponse").Call(
+			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedClientPath(), "GetResponse").Call(
 				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
@@ -446,7 +446,7 @@ func (cc *ControllerConfig) ClientLib() error {
 			),
 			Error(),
 		)).Block(
-			Qual(cc.getQualifiedPath(), "ReplaceAssociatedObjectsWithNil").Call(Id(strcase.ToLowerCamel(mc.TypeName))),
+			Qual(cc.getQualifiedClientPath(), "ReplaceAssociatedObjectsWithNil").Call(Id(strcase.ToLowerCamel(mc.TypeName))),
 			Comment("capture the object ID, make a copy of the object, then remove fields that"),
 			Comment("cannot be updated in the API"),
 			Id(
@@ -467,7 +467,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				).Call(Lit(MarshalObjectErr).Op(",").Id("err")),
 			)),
 			Line(),
-			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedPath(), "GetResponse").Call(
+			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedClientPath(), "GetResponse").Call(
 				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
@@ -541,7 +541,7 @@ func (cc *ControllerConfig) ClientLib() error {
 				mc.TypeName,
 			),
 			Line(),
-			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedPath(), "GetResponse").Call(
+			Id("response").Op(",").Id("err").Op(":=").Qual(cc.getQualifiedClientPath(), "GetResponse").Call(
 				Line().Id("apiClient"),
 				Line().Qual("fmt", "Sprintf").Call(
 					Lit(fmt.Sprintf(
