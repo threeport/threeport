@@ -190,7 +190,7 @@ When 'make generate' is run, the following code is generated for API:
 					controllerConfig.ControllerDomain,
 					mc.TypeName,
 				)
-				return fmt.Errorf("naming conflict encountered: %w", err)
+				return fmt.Errorf("naming conflict encountered: %s", err)
 			}
 		}
 
