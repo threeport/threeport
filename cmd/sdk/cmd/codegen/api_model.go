@@ -122,9 +122,11 @@ When 'make generate' is run, the following code is generated for API:
 										mc.ReconciledField = true
 									}
 								}
+								// fields will be of type *ast.Ident
 								if identType, ok := field.Type.(*ast.Ident); ok {
 									checkNameField(identType.Name)
 								}
+								// structs will be of type *ast.SelectorExpr
 								if identType, ok := field.Type.(*ast.SelectorExpr); ok {
 									checkNameField(identType.Sel.Name)
 								}
@@ -135,7 +137,7 @@ When 'make generate' is run, the following code is generated for API:
 									if util.StringSliceContains(nameFields(), name.Name, true) {
 										mc.NameField = true
 									}
-									if name.Name == "Reconciled" || name.Name == "v0.Reconciled" {
+									if name.Name == "Reconciled" {
 										mc.ReconciledField = true
 									}
 								}
