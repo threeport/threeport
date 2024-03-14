@@ -8,23 +8,6 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-// func RemoveDuplicates(strings []string) []string {
-// 	// Create a map to store unique strings
-// 	uniqueStrings := make(map[string]bool)
-// 	var result []string
-
-// 	// Iterate over the input slice
-// 	for _, str := range strings {
-// 		// If the string is not in the map, add it to the map and the result slice
-// 		if _, ok := uniqueStrings[str]; !ok {
-// 			uniqueStrings[str] = true
-// 			result = append(result, str)
-// 		}
-// 	}
-
-// 	return result
-// }
-
 // func (cc *ControllerConfig) NotificationHelper() error {
 func (gvc *GlobalVersionConfig) NotificationHelper() error {
 	for _, version := range gvc.Versions {
