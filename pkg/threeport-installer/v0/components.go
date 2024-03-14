@@ -127,6 +127,23 @@ NATS_PORT=4222
 		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
+	// configure ports
+	ports := []map[string]interface{}{
+		{
+			"containerPort": 1323,
+			"name":          "api",
+			"protocol":      "TCP",
+		},
+	}
+	if cpi.Opts.Debug {
+		ports = append(ports,
+			map[string]interface{}{
+				"containerPort": 40000,
+				"name":          "dlv",
+				"protocol":      "TCP",
+			})
+	}
+
 	var apiDeployment = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -192,13 +209,7 @@ NATS_PORT=4222
 								"command":         cpi.getCommand(cpi.Opts.RestApiInfo.BinaryName),
 								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"args":            apiArgs,
-								"ports": []interface{}{
-									map[string]interface{}{
-										"containerPort": 1323,
-										"name":          "api",
-										"protocol":      "TCP",
-									},
-								},
+								"ports":           ports,
 								"envFrom": []interface{}{
 									map[string]interface{}{
 										"secretRef": map[string]interface{}{
