@@ -20,7 +20,8 @@ import (
 // to an array of workload resource instances.
 func SetNamespaces(
 	workloadResourceInstances *[]v0.WorkloadResourceInstance,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstanceName *string,
+	workloadInstanceID *uint,
 	discoveryClient *discovery.DiscoveryClient,
 ) (*[]v0.WorkloadResourceInstance, error) {
 	// first check to see if any namespaces are included - if so assume
@@ -43,7 +44,7 @@ func SetNamespaces(
 	if clientManagedNS == "" {
 		// we are managing namespaces for the client - create namespace and add to
 		// array of processed workload resource instances
-		namespace = fmt.Sprintf("%s-%s", *workloadInstance.Name, util.RandomAlphaNumericString(10))
+		namespace = fmt.Sprintf("%s-%s", *workloadInstanceName, util.RandomAlphaNumericString(10))
 	} else {
 		namespace = clientManagedNS
 	}
@@ -84,7 +85,7 @@ func SetNamespaces(
 	// only prepend the namespace resource if there are namespaced resources that require it
 	if namespacedObjectCount > 0 && clientManagedNS == "" {
 
-		namespaceWRI, err := CreateNamespaceWorkloadResourceInstance(namespace, *workloadInstance.ID)
+		namespaceWRI, err := CreateNamespaceWorkloadResourceInstance(namespace, *workloadInstanceID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new workload resource instance for namespace: %w", err)
 		}

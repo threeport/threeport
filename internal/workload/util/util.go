@@ -115,8 +115,7 @@ func GetUniqueWorkloadResourceInstance(workloadResourceInstances *[]v0.WorkloadR
 			return nil, fmt.Errorf("failed to unmarshal json: %w", err)
 		}
 
-		if mapDef["kind"] == kind &&
-			wri.ScheduledForDeletion == nil {
+		if mapDef["kind"] == kind {
 			objects = append(objects, wri)
 		}
 	}
