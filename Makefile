@@ -42,7 +42,7 @@ generate-code: install-sdk
 
 #generate-docs: @ Generate swagger docs
 generate-docs:
-	swag init --dir cmd/rest-api,pkg/api,pkg/api-server/v0 --parseDependency --generalInfo main.go --output pkg/api-server/v0/docs
+	swag init --dir cmd/rest-api,pkg/api,pkg/api-server/v0,pkg/api-server/v1 --parseDependency --generalInfo main.go --output pkg/api-server/v0/docs
 
 ## testing
 
