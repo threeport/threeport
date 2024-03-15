@@ -14,9 +14,8 @@ import (
 )
 
 const (
-	SupportServicesNamespace = "support-services-system"
-	// SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.5.0"
-	SupportServicesOperatorImage = "rj9317/support-services-operator:latest"
+	SupportServicesNamespace     = "support-services-system"
+	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.6.0"
 	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
 
 	// links the service account delcared in the IngressComponent resource to the
@@ -27,7 +26,7 @@ const (
 	DNS01ChallengeServiceAccountName     = "cert-manager"
 	DNS01ChallengeServiceAccountNamepace = "nukleros-certs-system"
 
-	SecretsManagerServiceAccountName = "external-secrets"
+	SecretsManagerServiceAccountName      = "external-secrets"
 	SecretsManagerServiceAccountNamespace = "nukleros-secrets-system"
 
 	// links the service account used by the EBS CSI driver to the resource
