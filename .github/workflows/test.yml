@@ -210,11 +210,15 @@ jobs:
     if: ${{ always() }}
     needs:
       - build-threeport-api
+      - build-threeport-database-migrator
       - build-workload-controller
       - build-kubernetes-runtime-controller
       - build-aws-controller
       - build-gateway-controller
-      - build-threeport-agent
+      - build-observability-controller
+      - build-control-plane-controller
+      - build-helm-workload-controller
+      - build-secret-controller
       - test
     runs-on: ubuntu-latest
     steps:
