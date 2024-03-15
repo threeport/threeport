@@ -237,6 +237,14 @@ jobs:
         token: ${{ secrets.PACKAGES_PAT }}
         tag: ${{ github.sha }}
 
+    - name: Delete threeport database migrator image
+      uses: bots-house/ghcr-delete-image-action@v1.1.0
+      with:
+        owner: ${{ github.repository_owner }}
+        name: threeport-database-migrator
+        token: ${{ secrets.PACKAGES_PAT }}
+        tag: ${{ github.sha }}
+
     - name: Delete workload controller image
       uses: bots-house/ghcr-delete-image-action@v1.1.0
       with:
@@ -266,6 +274,38 @@ jobs:
       with:
         owner: ${{ github.repository_owner }}
         name: threeport-gateway-controller
+        token: ${{ secrets.PACKAGES_PAT }}
+        tag: ${{ github.sha }}
+
+    - name: Delete observability controller image
+      uses: bots-house/ghcr-delete-image-action@v1.1.0
+      with:
+        owner: ${{ github.repository_owner }}
+        name: threeport-observability-controller
+        token: ${{ secrets.PACKAGES_PAT }}
+        tag: ${{ github.sha }}
+
+    - name: Delete control plane controller image
+      uses: bots-house/ghcr-delete-image-action@v1.1.0
+      with:
+        owner: ${{ github.repository_owner }}
+        name: threeport-control-plane-controller
+        token: ${{ secrets.PACKAGES_PAT }}
+        tag: ${{ github.sha }}
+
+    - name: Delete helm workload controller image
+      uses: bots-house/ghcr-delete-image-action@v1.1.0
+      with:
+        owner: ${{ github.repository_owner }}
+        name: threeport-helm-workload-controller
+        token: ${{ secrets.PACKAGES_PAT }}
+        tag: ${{ github.sha }}
+
+    - name: Delete secret controller image
+      uses: bots-house/ghcr-delete-image-action@v1.1.0
+      with:
+        owner: ${{ github.repository_owner }}
+        name: threeport-secret-controller
         token: ${{ secrets.PACKAGES_PAT }}
         tag: ${{ github.sha }}
 
