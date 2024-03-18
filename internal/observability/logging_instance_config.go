@@ -24,7 +24,7 @@ type LoggingInstanceConfig struct {
 }
 
 // getLoggingInstanceOperations returns a list of operations for a logging instance.
-func getLoggingInstanceOperations(c *LoggingInstanceConfig) *util.Operations {
+func (c *LoggingInstanceConfig) getLoggingInstanceOperations() *util.Operations {
 	operations := util.Operations{}
 
 	// append loki operations

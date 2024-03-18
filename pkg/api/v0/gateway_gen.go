@@ -9,12 +9,12 @@ import (
 )
 
 const (
-	ObjectTypeGatewayDefinition    ObjectType = "GatewayDefinition"
-	ObjectTypeGatewayInstance      ObjectType = "GatewayInstance"
-	ObjectTypeGatewayHttpPort      ObjectType = "GatewayHttpPort"
-	ObjectTypeGatewayTcpPort       ObjectType = "GatewayTcpPort"
-	ObjectTypeDomainNameDefinition ObjectType = "DomainNameDefinition"
-	ObjectTypeDomainNameInstance   ObjectType = "DomainNameInstance"
+	ObjectTypeGatewayDefinition    string = "GatewayDefinition"
+	ObjectTypeGatewayInstance      string = "GatewayInstance"
+	ObjectTypeGatewayHttpPort      string = "GatewayHttpPort"
+	ObjectTypeGatewayTcpPort       string = "GatewayTcpPort"
+	ObjectTypeDomainNameDefinition string = "DomainNameDefinition"
+	ObjectTypeDomainNameInstance   string = "DomainNameInstance"
 
 	GatewayStreamName = "gatewayStream"
 

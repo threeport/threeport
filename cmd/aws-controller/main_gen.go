@@ -25,18 +25,18 @@ import (
 
 func main() {
 	// flags
-	var awsEksKubernetesRuntimeInstanceConcurrentReconciles = flag.Int(
-		"AwsEksKubernetesRuntimeInstance-concurrent-reconciles",
+	var v0_awsEksKubernetesRuntimeInstanceConcurrentReconciles = flag.Int(
+		"v0-aws-eks-kubernetes-runtime-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for aws eks kubernetes runtime instances",
 	)
-	var awsRelationalDatabaseInstanceConcurrentReconciles = flag.Int(
-		"AwsRelationalDatabaseInstance-concurrent-reconciles",
+	var v0_awsRelationalDatabaseInstanceConcurrentReconciles = flag.Int(
+		"v0-aws-relational-database-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for aws relational database instances",
 	)
-	var awsObjectStorageBucketInstanceConcurrentReconciles = flag.Int(
-		"AwsObjectStorageBucketInstance-concurrent-reconciles",
+	var v0_awsObjectStorageBucketInstanceConcurrentReconciles = flag.Int(
+		"v0-aws-object-storage-bucket-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for aws object storage bucket instances",
 	)
@@ -140,21 +140,21 @@ func main() {
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *awsEksKubernetesRuntimeInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_awsEksKubernetesRuntimeInstanceConcurrentReconciles,
 		Name:                 "AwsEksKubernetesRuntimeInstanceReconciler",
 		NotifSubject:         v0.AwsEksKubernetesRuntimeInstanceSubject,
 		ObjectType:           v0.ObjectTypeAwsEksKubernetesRuntimeInstance,
 		ReconcileFunc:        aws.AwsEksKubernetesRuntimeInstanceReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *awsRelationalDatabaseInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_awsRelationalDatabaseInstanceConcurrentReconciles,
 		Name:                 "AwsRelationalDatabaseInstanceReconciler",
 		NotifSubject:         v0.AwsRelationalDatabaseInstanceSubject,
 		ObjectType:           v0.ObjectTypeAwsRelationalDatabaseInstance,
 		ReconcileFunc:        aws.AwsRelationalDatabaseInstanceReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *awsObjectStorageBucketInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_awsObjectStorageBucketInstanceConcurrentReconciles,
 		Name:                 "AwsObjectStorageBucketInstanceReconciler",
 		NotifSubject:         v0.AwsObjectStorageBucketInstanceSubject,
 		ObjectType:           v0.ObjectTypeAwsObjectStorageBucketInstance,

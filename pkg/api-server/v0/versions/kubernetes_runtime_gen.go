@@ -31,7 +31,7 @@ func AddKubernetesRuntimeDefinitionVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeKubernetesRuntimeDefinition),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map
@@ -63,7 +63,7 @@ func AddKubernetesRuntimeInstanceVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeKubernetesRuntimeInstance),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map

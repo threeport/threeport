@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -126,6 +127,23 @@ NATS_PORT=4222
 		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
+	// configure ports
+	ports := []map[string]interface{}{
+		{
+			"containerPort": 1323,
+			"name":          "api",
+			"protocol":      "TCP",
+		},
+	}
+	if cpi.Opts.Debug {
+		ports = append(ports,
+			map[string]interface{}{
+				"containerPort": 40000,
+				"name":          "dlv",
+				"protocol":      "TCP",
+			})
+	}
+
 	var apiDeployment = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -171,7 +189,7 @@ NATS_PORT=4222
 							map[string]interface{}{
 								"name":            "database-migrator",
 								"image":           dbMigratorImage,
-								"imagePullPolicy": "IfNotPresent",
+								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"command": []interface{}{
 									fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
 								},
@@ -191,13 +209,7 @@ NATS_PORT=4222
 								"command":         cpi.getCommand(cpi.Opts.RestApiInfo.BinaryName),
 								"imagePullPolicy": cpi.getImagePullPolicy(),
 								"args":            apiArgs,
-								"ports": []interface{}{
-									map[string]interface{}{
-										"containerPort": 1323,
-										"name":          "api",
-										"protocol":      "TCP",
-									},
-								},
+								"ports":           ports,
 								"envFrom": []interface{}{
 									map[string]interface{}{
 										"secretRef": map[string]interface{}{
@@ -1085,7 +1097,7 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 			cpi.Opts.Namespace,
 			SupportServicesNamespace,
 		},
-	); err != nil {
+	); err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete control plane namespace: %w", err)
 	}
 

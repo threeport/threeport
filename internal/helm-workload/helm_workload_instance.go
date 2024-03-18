@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
@@ -59,32 +60,15 @@ func helmWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
 
-	// add the helm repo
-	repoFile := settings.RepositoryConfig
-	repoFileEntries, err := repo.LoadFile(repoFile)
-	if err != nil || repoFileEntries == nil {
-		return 0, fmt.Errorf("failed to load repo files: %w", err)
-	}
-	repoName := fmt.Sprintf("%d-repo", *helmWorkloadInstance.ID)
-	newEntry := &repo.Entry{
-		Name: repoName,
-		URL:  *helmWorkloadDefinition.Repo,
-	}
-	repoFileEntries.Add(newEntry)
-	if err := repoFileEntries.WriteFile(repoFile, 0644); err != nil {
-		return 0, fmt.Errorf("failed to write repo files: %w", err)
-	}
-
-	// download the index file for https-based helm repositories
-	if !registry.IsOCI(*helmWorkloadDefinition.Repo) {
-		repository, err := repo.NewChartRepository(newEntry, getter.All(settings))
-		if err != nil {
-			return 0, fmt.Errorf("failed to create chart repository: %w", err)
-		}
-		_, err = repository.DownloadIndexFile()
-		if err != nil {
-			return 0, fmt.Errorf("failed to download index file: %w", err)
-		}
+	// configure chart repository
+	helmRepoName := fmt.Sprintf("%d-repo", *helmWorkloadInstance.ID)
+	if err = configureChartRepository(
+		*helmWorkloadInstance.ID,
+		helmRepoName,
+		*helmWorkloadDefinition.Repo,
+		settings,
+	); err != nil {
+		return 0, fmt.Errorf("failed to configure chart repository: %w", err)
 	}
 
 	// install the chart
@@ -95,6 +79,7 @@ func helmWorkloadInstanceCreated(
 		install.Version = *helmWorkloadDefinition.ChartVersion
 	}
 
+	// configure release name and namespace
 	install.ReleaseName = helmReleaseName(helmWorkloadInstance)
 	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
 		install.Namespace = *helmWorkloadInstance.ReleaseNamespace
@@ -110,36 +95,17 @@ func helmWorkloadInstanceCreated(
 		HelmWorkloadDefinition: helmWorkloadDefinition,
 		HelmWorkloadInstance:   helmWorkloadInstance,
 	}
-	var chartPath string
-	if registry.IsOCI(*helmWorkloadDefinition.Repo) {
-		ociChart := fmt.Sprintf("%s/%s", *helmWorkloadDefinition.Repo, *helmWorkloadDefinition.Chart)
-		chart, err := install.LocateChart(ociChart, settings)
-		if err != nil {
-			return 0, fmt.Errorf("failed to set oci helm chart path: %w", err)
-		}
-		chartPath = chart
-	} else {
-		httpsChart := fmt.Sprintf("%s/%s", repoName, *helmWorkloadDefinition.Chart)
-		chart, err := install.LocateChart(httpsChart, settings)
-		if err != nil {
-			return 0, fmt.Errorf("failed to set https helm chart path: %w", err)
-		}
-		chartPath = chart
-	}
 
-	// load the chart
-	chart, err := loader.Load(chartPath)
-	if err != nil {
-		return 0, fmt.Errorf("failed to load helm chart: %w", err)
-	}
-
-	// merge helm values
-	helmValues, err := MergeHelmValuesGo(
-		util.StringPtrToString(helmWorkloadDefinition.ValuesDocument),
-		util.StringPtrToString(helmWorkloadInstance.ValuesDocument),
+	// configure chart
+	chart, helmValues, err := configureChart(
+		helmWorkloadDefinition,
+		helmWorkloadInstance,
+		install,
+		settings,
+		helmRepoName,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to merge helm values: %w", err)
+		return 0, fmt.Errorf("failed to configure helm chart: %w", err)
 	}
 
 	// deploy the helm workload
@@ -235,6 +201,69 @@ func helmWorkloadInstanceUpdated(
 	helmWorkloadInstance *v0.HelmWorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// get helm workload definition
+	helmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*helmWorkloadInstance.HelmWorkloadDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get helm workload definition: %w", err)
+	}
+
+	// get helm action config, env settings and kube client
+	actionConf, settings, _, _, err := getHelmActionConfig(r, helmWorkloadInstance)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
+	}
+
+	// configure chart repository
+	helmRepoName := fmt.Sprintf("%d-repo", *helmWorkloadInstance.ID)
+	if err = configureChartRepository(
+		*helmWorkloadInstance.ID,
+		helmRepoName,
+		*helmWorkloadDefinition.Repo,
+		settings,
+	); err != nil {
+		return 0, fmt.Errorf("failed to configure chart repository: %w", err)
+	}
+
+	// upgrade the chart
+	upgrade := action.NewUpgrade(actionConf)
+
+	// configure version if it is supplied by the workload definition
+	if helmWorkloadDefinition.ChartVersion != nil && *helmWorkloadDefinition.ChartVersion != "" {
+		upgrade.Version = *helmWorkloadDefinition.ChartVersion
+	}
+
+	upgrade.Namespace = *helmWorkloadInstance.ReleaseNamespace
+	upgrade.DependencyUpdate = true
+	upgrade.PostRenderer = &ThreeportPostRenderer{
+		HelmWorkloadDefinition: helmWorkloadDefinition,
+		HelmWorkloadInstance:   helmWorkloadInstance,
+	}
+
+	// configure chart
+	chart, helmValues, err := configureChart(
+		helmWorkloadDefinition,
+		helmWorkloadInstance,
+		upgrade,
+		settings,
+		helmRepoName,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to configure helm chart: %w", err)
+	}
+
+	// deploy the helm workload
+	if _, err = upgrade.Run(
+		helmReleaseName(helmWorkloadInstance),
+		chart,
+		helmValues,
+	); err != nil {
+		return 0, fmt.Errorf("failed to upgrade helm chart: %w", err)
+	}
+
 	return 0, nil
 }
 
@@ -454,4 +483,92 @@ func cleanLocalFiles() error {
 	}
 
 	return nil
+}
+
+// configureChartRepository configures a helm chart repository for a helm
+// workload instance.
+func configureChartRepository(
+	helmWorkloadInstanceId uint,
+	helmRepoName,
+	helmRepoUrl string,
+	settings *cli.EnvSettings,
+) error {
+
+	// add the helm repo
+	repoFile := settings.RepositoryConfig
+	repoFileEntries, err := repo.LoadFile(repoFile)
+	if err != nil || repoFileEntries == nil {
+		return fmt.Errorf("failed to load repo files: %w", err)
+	}
+
+	newEntry := &repo.Entry{
+		Name: helmRepoName,
+		URL:  helmRepoUrl,
+	}
+	repoFileEntries.Add(newEntry)
+	if err := repoFileEntries.WriteFile(repoFile, 0644); err != nil {
+		return fmt.Errorf("failed to write repo files: %w", err)
+	}
+
+	// download the index file for https-based helm repositories
+	if !registry.IsOCI(helmRepoUrl) {
+		repository, err := repo.NewChartRepository(newEntry, getter.All(settings))
+		if err != nil {
+			return fmt.Errorf("failed to create chart repository: %w", err)
+		}
+		_, err = repository.DownloadIndexFile()
+		if err != nil {
+			return fmt.Errorf("failed to download index file: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// Locater is an interface for locating helm charts.
+type Locater interface {
+	LocateChart(name string, settings *cli.EnvSettings) (string, error)
+}
+
+// configureChart configures a helm chart for a helm workload instance.
+func configureChart(
+	helmWorkloadDefinition *v0.HelmWorkloadDefinition,
+	helmWorkloadInstance *v0.HelmWorkloadInstance,
+	locater Locater,
+	settings *cli.EnvSettings,
+	helmRepoName string,
+) (*chart.Chart, map[string]interface{}, error) {
+	var chartPath string
+	if registry.IsOCI(*helmWorkloadDefinition.Repo) {
+		ociChart := fmt.Sprintf("%s/%s", *helmWorkloadDefinition.Repo, *helmWorkloadDefinition.Chart)
+		chart, err := locater.LocateChart(ociChart, settings)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to set oci helm chart path: %w", err)
+		}
+		chartPath = chart
+	} else {
+		httpsChart := fmt.Sprintf("%s/%s", helmRepoName, *helmWorkloadDefinition.Chart)
+		chart, err := locater.LocateChart(httpsChart, settings)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to set https helm chart path: %w", err)
+		}
+		chartPath = chart
+	}
+
+	// load the chart
+	chart, err := loader.Load(chartPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load helm chart: %w", err)
+	}
+
+	// merge helm values
+	helmValues, err := MergeHelmValuesGo(
+		util.StringPtrToString(helmWorkloadDefinition.ValuesDocument),
+		util.StringPtrToString(helmWorkloadInstance.ValuesDocument),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to merge helm values: %w", err)
+	}
+
+	return chart, helmValues, nil
 }

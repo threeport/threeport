@@ -42,7 +42,7 @@ generate-code: install-sdk
 
 #generate-docs: @ Generate swagger docs
 generate-docs:
-	swag init --dir cmd/rest-api,pkg/api,pkg/api-server/v0 --parseDependency --generalInfo main.go --output pkg/api-server/v0/docs
+	swag init --dir cmd/rest-api,pkg/api,pkg/api-server/v0,pkg/api-server/v1 --parseDependency --generalInfo main.go --output pkg/api-server/v0/docs
 
 ## testing
 
@@ -151,7 +151,9 @@ dev-reset-crdb:
 		observability_dashboard_instances, \
 		observability_dashboard_definitions, \
 		observability_stack_instances, \
-		observability_stack_definitions; \
+		observability_stack_definitions, \
+		secret_instances, \
+		secret_definitions; \
 		set sql_safe_updates = false; \
 		update kubernetes_runtime_instances set gateway_controller_instance_id = NULL; \
 		update kubernetes_runtime_instances set dns_controller_instance_id = NULL; \

@@ -75,14 +75,19 @@ func (i *KubernetesRuntimeInfraEKS) Create() (*kube.KubeConnectionInfo, error) {
 	resourceConfig.MinNodes = i.DefaultNodeGroupMinNodes
 	resourceConfig.MaxNodes = i.DefaultNodeGroupMaxNodes
 	resourceConfig.DnsManagement = true
-	resourceConfig.Dns01Challenge = true
 	resourceConfig.DnsManagementServiceAccount = eks.ServiceAccountConfig{
 		Name:      threeport.DNSManagerServiceAccountName,
 		Namespace: threeport.DNSManagerServiceAccountNamepace,
 	}
+	resourceConfig.Dns01Challenge = true
 	resourceConfig.Dns01ChallengeServiceAccount = eks.ServiceAccountConfig{
 		Name:      threeport.DNS01ChallengeServiceAccountName,
 		Namespace: threeport.DNS01ChallengeServiceAccountNamepace,
+	}
+	resourceConfig.SecretsManager = true
+	resourceConfig.SecretsManagerServiceAccount = eks.ServiceAccountConfig{
+		Name:      threeport.SecretsManagerServiceAccountName,
+		Namespace: threeport.SecretsManagerServiceAccountNamespace,
 	}
 	resourceConfig.ClusterAutoscaling = true
 	resourceConfig.ClusterAutoscalingServiceAccount = eks.ServiceAccountConfig{
@@ -627,7 +632,9 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 func IrsaControllerNames() []string {
 	return []string{
 		threeport.ThreeportAwsControllerName,
+		threeport.ThreeportSecretControllerName,
 		threeport.ThreeportWorkloadControllerName,
+		threeport.ThreeportHelmWorkloadControllerName,
 		threeport.ThreeportControlPlaneControllerName,
 	}
 }
@@ -774,6 +781,18 @@ const (
 				"Effect": "Allow",
 				"Action": [
 					"s3:*"
+				],
+				"Resource": "*"
+			},
+			{
+				"Sid": "SecretsManagerPermissions",
+				"Effect": "Allow",
+				"Action": [
+					"secretsmanager:BatchGetSecretValue",
+					"secretsmanager:ListSecrets",
+					"secretsmanager:CreateSecret",
+					"secretsmanager:DeleteSecret",
+					"secretsmanager:GetSecretValue"
 				],
 				"Resource": "*"
 			},

@@ -9,13 +9,13 @@ import (
 )
 
 const (
-	ObjectTypeAwsAccount                        ObjectType = "AwsAccount"
-	ObjectTypeAwsEksKubernetesRuntimeDefinition ObjectType = "AwsEksKubernetesRuntimeDefinition"
-	ObjectTypeAwsEksKubernetesRuntimeInstance   ObjectType = "AwsEksKubernetesRuntimeInstance"
-	ObjectTypeAwsRelationalDatabaseDefinition   ObjectType = "AwsRelationalDatabaseDefinition"
-	ObjectTypeAwsRelationalDatabaseInstance     ObjectType = "AwsRelationalDatabaseInstance"
-	ObjectTypeAwsObjectStorageBucketDefinition  ObjectType = "AwsObjectStorageBucketDefinition"
-	ObjectTypeAwsObjectStorageBucketInstance    ObjectType = "AwsObjectStorageBucketInstance"
+	ObjectTypeAwsAccount                        string = "AwsAccount"
+	ObjectTypeAwsEksKubernetesRuntimeDefinition string = "AwsEksKubernetesRuntimeDefinition"
+	ObjectTypeAwsEksKubernetesRuntimeInstance   string = "AwsEksKubernetesRuntimeInstance"
+	ObjectTypeAwsRelationalDatabaseDefinition   string = "AwsRelationalDatabaseDefinition"
+	ObjectTypeAwsRelationalDatabaseInstance     string = "AwsRelationalDatabaseInstance"
+	ObjectTypeAwsObjectStorageBucketDefinition  string = "AwsObjectStorageBucketDefinition"
+	ObjectTypeAwsObjectStorageBucketInstance    string = "AwsObjectStorageBucketInstance"
 
 	AwsStreamName = "awsStream"
 

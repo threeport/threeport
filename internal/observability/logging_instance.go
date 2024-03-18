@@ -61,11 +61,8 @@ func loggingInstanceCreated(
 		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
 	}
 
-	// get logging instance operations
-	operations := getLoggingInstanceOperations(c)
-
 	// execute logging instance create operations
-	if err := operations.Create(); err != nil {
+	if err := c.getLoggingInstanceOperations().Create(); err != nil {
 		return 0, fmt.Errorf("failed to execute logging instance create operations: %w", err)
 	}
 
@@ -107,11 +104,8 @@ func loggingInstanceDeleted(
 		log:               log,
 	}
 
-	// get logging instance operations
-	operations := getLoggingInstanceOperations(c)
-
 	// execute delete logging instance operations
-	if err := operations.Delete(); err != nil {
+	if err := c.getLoggingInstanceOperations().Delete(); err != nil {
 		return 0, fmt.Errorf("failed to execute logging delete operations: %w", err)
 	}
 

@@ -24,7 +24,7 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 	for _, mc := range cc.ModelConfigs {
 		objectTypes.Id(fmt.Sprintf(
 			"ObjectType%s", mc.TypeName,
-		)).Id("ObjectType").Op("=").Lit(mc.TypeName)
+		)).String().Op("=").Lit(mc.TypeName)
 		objectTypes.Line()
 	}
 	// NATS subject constants used for controller notifications
@@ -231,10 +231,7 @@ func (cc *ControllerConfig) ExtensionModelConstantsMethods() error {
 	for _, mc := range cc.ModelConfigs {
 		objectTypes.Id(fmt.Sprintf(
 			"ObjectType%s", mc.TypeName,
-		)).Qual(
-			"github.com/threeport/threeport/pkg/api/v0",
-			"ObjectType",
-		).Op("=").Lit(mc.TypeName)
+		)).String().Op("=").Lit(mc.TypeName)
 		objectTypes.Line()
 	}
 	// NATS subject constants used for controller notifications

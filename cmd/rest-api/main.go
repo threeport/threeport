@@ -24,6 +24,9 @@ import (
 	"github.com/threeport/threeport/pkg/api-server/v0/handlers"
 	"github.com/threeport/threeport/pkg/api-server/v0/routes"
 	"github.com/threeport/threeport/pkg/api-server/v0/versions"
+	handlers_v1 "github.com/threeport/threeport/pkg/api-server/v1/handlers"
+	routes_v1 "github.com/threeport/threeport/pkg/api-server/v1/routes"
+	versions_v1 "github.com/threeport/threeport/pkg/api-server/v1/versions"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
 )
@@ -38,7 +41,7 @@ import (
 // @host rest-api.threeport.io
 // @BasePath /
 //
-//go:generate threeport-sdk codegen api-version v0
+//go:generate threeport-sdk codegen api-version v0 v1
 func main() {
 	// flags
 	var envFile string
@@ -164,7 +167,12 @@ func main() {
 		Name:     v0.ObservabilityStreamName,
 		Subjects: v0.GetObservabilitySubjects(),
 	})
+	js.AddStream(&nats.StreamConfig{
+		Name:     v0.SecretStreamName,
+		Subjects: v0.GetSecretSubjects(),
+	})
 
+	// v0
 	// handlers
 	h := handlers.New(db, nc, js)
 
@@ -174,9 +182,19 @@ func main() {
 	routes.SwaggerRoutes(e)
 	routes.VersionRoutes(e, &h)
 
+	// v1
+	// handlers
+	h_v1 := handlers_v1.New(db, nc, js)
+
+	// routes
+	routes_v1.AddRoutes(e, &h_v1)
+
 	// add version info for queries to /<object>/versions
 	iapi.Versions[0] = iapi.V0
+	iapi.Versions[1] = "v1"
+
 	versions.AddVersions()
+	versions_v1.AddVersions()
 
 	if authEnabled {
 		configDir := "/etc/threeport"
